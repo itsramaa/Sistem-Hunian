@@ -7,8 +7,11 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import AdminSetup from "./pages/AdminSetup";
 import AdminDashboard from "./pages/admin/Dashboard";
+import AdminMerchants from "./pages/admin/Merchants";
 import MerchantDashboard from "./pages/merchant/Dashboard";
+import MerchantProperties from "./pages/merchant/Properties";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,6 +26,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/admin-setup" element={<AdminSetup />} />
             
             {/* Admin Routes */}
             <Route 
@@ -33,6 +37,14 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
+            <Route 
+              path="/admin/merchants" 
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminMerchants />
+                </ProtectedRoute>
+              } 
+            />
             
             {/* Merchant Routes */}
             <Route 
@@ -40,6 +52,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['merchant']}>
                   <MerchantDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/merchant/properties" 
+              element={
+                <ProtectedRoute allowedRoles={['merchant']}>
+                  <MerchantProperties />
                 </ProtectedRoute>
               } 
             />

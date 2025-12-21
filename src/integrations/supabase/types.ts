@@ -136,6 +136,124 @@ export type Database = {
         }
         Relationships: []
       }
+      properties: {
+        Row: {
+          address: string
+          amenities: string[] | null
+          city: string
+          created_at: string
+          description: string | null
+          id: string
+          merchant_id: string
+          name: string
+          occupied_units: number | null
+          postal_code: string | null
+          property_type: string
+          province: string
+          status: string | null
+          total_units: number | null
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          amenities?: string[] | null
+          city: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          merchant_id: string
+          name: string
+          occupied_units?: number | null
+          postal_code?: string | null
+          property_type: string
+          province: string
+          status?: string | null
+          total_units?: number | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          amenities?: string[] | null
+          city?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          merchant_id?: string
+          name?: string
+          occupied_units?: number | null
+          postal_code?: string | null
+          property_type?: string
+          province?: string
+          status?: string | null
+          total_units?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "properties_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      units: {
+        Row: {
+          amenities: string[] | null
+          created_at: string
+          deposit_amount: number | null
+          description: string | null
+          floor: number | null
+          id: string
+          property_id: string
+          rent_amount: number
+          size_sqm: number | null
+          status: string | null
+          unit_number: string
+          unit_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          amenities?: string[] | null
+          created_at?: string
+          deposit_amount?: number | null
+          description?: string | null
+          floor?: number | null
+          id?: string
+          property_id: string
+          rent_amount: number
+          size_sqm?: number | null
+          status?: string | null
+          unit_number: string
+          unit_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amenities?: string[] | null
+          created_at?: string
+          deposit_amount?: number | null
+          description?: string | null
+          floor?: number | null
+          id?: string
+          property_id?: string
+          rent_amount?: number
+          size_sqm?: number | null
+          status?: string | null
+          unit_number?: string
+          unit_type?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "units_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
