@@ -10,8 +10,10 @@ import {
   Trash2,
   Eye,
   Grid,
-  List
+  List,
+  DoorOpen
 } from 'lucide-react';
+import { UnitsManager } from '@/components/merchant/UnitsManager';
 import { MerchantLayout } from '@/components/layouts/MerchantLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -82,6 +84,7 @@ export default function MerchantProperties() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [unitsProperty, setUnitsProperty] = useState<Property | null>(null);
   const { toast } = useToast();
   const { merchant } = useAuth();
 
@@ -484,6 +487,10 @@ export default function MerchantProperties() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setUnitsProperty(property)}>
+                          <DoorOpen className="h-4 w-4 mr-2" />
+                          Manage Units
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleEdit(property)}>
                           <Edit className="h-4 w-4 mr-2" />
                           Edit
@@ -583,6 +590,17 @@ export default function MerchantProperties() {
               </table>
             </CardContent>
           </Card>
+        )}
+
+        {/* Units Manager Dialog */}
+        {unitsProperty && (
+          <UnitsManager
+            propertyId={unitsProperty.id}
+            propertyName={unitsProperty.name}
+            open={!!unitsProperty}
+            onOpenChange={(open) => !open && setUnitsProperty(null)}
+            onUnitsChanged={fetchProperties}
+          />
         )}
       </div>
     </MerchantLayout>
