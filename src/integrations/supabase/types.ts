@@ -14,6 +14,155 @@ export type Database = {
   }
   public: {
     Tables: {
+      contracts: {
+        Row: {
+          created_at: string
+          deposit_amount: number | null
+          end_date: string
+          id: string
+          merchant_id: string
+          rent_amount: number
+          start_date: string
+          status: string | null
+          tenant_user_id: string
+          terms: string | null
+          unit_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deposit_amount?: number | null
+          end_date: string
+          id?: string
+          merchant_id: string
+          rent_amount: number
+          start_date: string
+          status?: string | null
+          tenant_user_id: string
+          terms?: string | null
+          unit_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deposit_amount?: number | null
+          end_date?: string
+          id?: string
+          merchant_id?: string
+          rent_amount?: number
+          start_date?: string
+          status?: string | null
+          tenant_user_id?: string
+          terms?: string | null
+          unit_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracts_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      escrow_accounts: {
+        Row: {
+          balance: number
+          created_at: string
+          id: string
+          merchant_id: string
+          pending_balance: number
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          id?: string
+          merchant_id: string
+          pending_balance?: number
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          id?: string
+          merchant_id?: string
+          pending_balance?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escrow_accounts_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      escrow_transactions: {
+        Row: {
+          amount: number
+          contract_id: string | null
+          created_at: string
+          description: string | null
+          escrow_account_id: string
+          id: string
+          processed_at: string | null
+          reference: string | null
+          status: string | null
+          type: string
+        }
+        Insert: {
+          amount: number
+          contract_id?: string | null
+          created_at?: string
+          description?: string | null
+          escrow_account_id: string
+          id?: string
+          processed_at?: string | null
+          reference?: string | null
+          status?: string | null
+          type: string
+        }
+        Update: {
+          amount?: number
+          contract_id?: string | null
+          created_at?: string
+          description?: string | null
+          escrow_account_id?: string
+          id?: string
+          processed_at?: string | null
+          reference?: string | null
+          status?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escrow_transactions_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escrow_transactions_escrow_account_id_fkey"
+            columns: ["escrow_account_id"]
+            isOneToOne: false
+            referencedRelation: "escrow_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       merchant_verifications: {
         Row: {
           created_at: string
@@ -194,6 +343,57 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_invitations: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          merchant_id: string
+          phone: string | null
+          status: string | null
+          token: string
+          unit_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          merchant_id: string
+          phone?: string | null
+          status?: string | null
+          token?: string
+          unit_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          merchant_id?: string
+          phone?: string | null
+          status?: string | null
+          token?: string
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_invitations_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_invitations_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
             referencedColumns: ["id"]
           },
         ]
