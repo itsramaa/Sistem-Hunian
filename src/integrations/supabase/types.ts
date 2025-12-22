@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      analytics_events: {
+        Row: {
+          created_at: string
+          event_data: Json | null
+          event_type: string
+          id: string
+          page: string | null
+          session_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_data?: Json | null
+          event_type: string
+          id?: string
+          page?: string | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_data?: Json | null
+          event_type?: string
+          id?: string
+          page?: string | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       bank_accounts: {
         Row: {
           account_name: string
@@ -158,42 +188,60 @@ export type Database = {
       }
       contracts: {
         Row: {
+          contract_document_url: string | null
           created_at: string
           deposit_amount: number | null
           end_date: string
           id: string
           merchant_id: string
+          merchant_signature_url: string | null
+          merchant_signed_at: string | null
           rent_amount: number
+          signature_status: string | null
           start_date: string
           status: string | null
+          tenant_signature_url: string | null
+          tenant_signed_at: string | null
           tenant_user_id: string
           terms: string | null
           unit_id: string
           updated_at: string
         }
         Insert: {
+          contract_document_url?: string | null
           created_at?: string
           deposit_amount?: number | null
           end_date: string
           id?: string
           merchant_id: string
+          merchant_signature_url?: string | null
+          merchant_signed_at?: string | null
           rent_amount: number
+          signature_status?: string | null
           start_date: string
           status?: string | null
+          tenant_signature_url?: string | null
+          tenant_signed_at?: string | null
           tenant_user_id: string
           terms?: string | null
           unit_id: string
           updated_at?: string
         }
         Update: {
+          contract_document_url?: string | null
           created_at?: string
           deposit_amount?: number | null
           end_date?: string
           id?: string
           merchant_id?: string
+          merchant_signature_url?: string | null
+          merchant_signed_at?: string | null
           rent_amount?: number
+          signature_status?: string | null
           start_date?: string
           status?: string | null
+          tenant_signature_url?: string | null
+          tenant_signed_at?: string | null
           tenant_user_id?: string
           terms?: string | null
           unit_id?: string
@@ -212,6 +260,78 @@ export type Database = {
             columns: ["unit_id"]
             isOneToOne: false
             referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      disbursements: {
+        Row: {
+          amount: number
+          bank_account_id: string | null
+          created_at: string
+          escrow_account_id: string | null
+          failure_reason: string | null
+          fee_amount: number | null
+          id: string
+          net_amount: number
+          processed_at: string | null
+          scheduled_for: string | null
+          status: string
+          type: string
+          updated_at: string
+          vendor_id: string | null
+          xendit_disbursement_id: string | null
+          xendit_reference: string | null
+        }
+        Insert: {
+          amount: number
+          bank_account_id?: string | null
+          created_at?: string
+          escrow_account_id?: string | null
+          failure_reason?: string | null
+          fee_amount?: number | null
+          id?: string
+          net_amount: number
+          processed_at?: string | null
+          scheduled_for?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
+          vendor_id?: string | null
+          xendit_disbursement_id?: string | null
+          xendit_reference?: string | null
+        }
+        Update: {
+          amount?: number
+          bank_account_id?: string | null
+          created_at?: string
+          escrow_account_id?: string | null
+          failure_reason?: string | null
+          fee_amount?: number | null
+          id?: string
+          net_amount?: number
+          processed_at?: string | null
+          scheduled_for?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
+          vendor_id?: string | null
+          xendit_disbursement_id?: string | null
+          xendit_reference?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "disbursements_escrow_account_id_fkey"
+            columns: ["escrow_account_id"]
+            isOneToOne: false
+            referencedRelation: "escrow_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disbursements_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
             referencedColumns: ["id"]
           },
         ]
@@ -705,45 +825,98 @@ export type Database = {
           },
         ]
       }
+      maintenance_updates: {
+        Row: {
+          author_id: string
+          author_role: string
+          content: string
+          created_at: string
+          id: string
+          maintenance_request_id: string
+          photos: string[] | null
+          status_change_to: string | null
+        }
+        Insert: {
+          author_id: string
+          author_role: string
+          content: string
+          created_at?: string
+          id?: string
+          maintenance_request_id: string
+          photos?: string[] | null
+          status_change_to?: string | null
+        }
+        Update: {
+          author_id?: string
+          author_role?: string
+          content?: string
+          created_at?: string
+          id?: string
+          maintenance_request_id?: string
+          photos?: string[] | null
+          status_change_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_updates_maintenance_request_id_fkey"
+            columns: ["maintenance_request_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       merchant_subscriptions: {
         Row: {
           canceled_at: string | null
           created_at: string
           current_period_end: string
           current_period_start: string
+          failed_attempts: number | null
           id: string
           merchant_id: string
+          next_billing_date: string | null
           payment_method: string | null
+          payment_status: string | null
           status: string
           tier_id: string
           trial_ends_at: string | null
           updated_at: string
+          xendit_recurring_id: string | null
         }
         Insert: {
           canceled_at?: string | null
           created_at?: string
           current_period_end: string
           current_period_start?: string
+          failed_attempts?: number | null
           id?: string
           merchant_id: string
+          next_billing_date?: string | null
           payment_method?: string | null
+          payment_status?: string | null
           status?: string
           tier_id: string
           trial_ends_at?: string | null
           updated_at?: string
+          xendit_recurring_id?: string | null
         }
         Update: {
           canceled_at?: string | null
           created_at?: string
           current_period_end?: string
           current_period_start?: string
+          failed_attempts?: number | null
           id?: string
           merchant_id?: string
+          next_billing_date?: string | null
           payment_method?: string | null
+          payment_status?: string | null
           status?: string
           tier_id?: string
           trial_ends_at?: string | null
           updated_at?: string
+          xendit_recurring_id?: string | null
         }
         Relationships: [
           {
@@ -1264,6 +1437,101 @@ export type Database = {
           },
         ]
       }
+      referral_rewards: {
+        Row: {
+          amount: number
+          created_at: string
+          credited_at: string | null
+          expires_at: string | null
+          id: string
+          referral_id: string | null
+          status: string
+          type: string
+          updated_at: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          credited_at?: string | null
+          expires_at?: string | null
+          id?: string
+          referral_id?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          credited_at?: string | null
+          expires_at?: string | null
+          id?: string
+          referral_id?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_rewards_referral_id_fkey"
+            columns: ["referral_id"]
+            isOneToOne: false
+            referencedRelation: "referrals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referrals: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          referee_role: string | null
+          referee_user_id: string | null
+          referral_code: string
+          referrer_role: string
+          referrer_user_id: string
+          reward_amount: number | null
+          reward_paid: boolean | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          referee_role?: string | null
+          referee_user_id?: string | null
+          referral_code: string
+          referrer_role: string
+          referrer_user_id: string
+          reward_amount?: number | null
+          reward_paid?: boolean | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          referee_role?: string | null
+          referee_user_id?: string | null
+          referral_code?: string
+          referrer_role?: string
+          referrer_user_id?: string
+          reward_amount?: number | null
+          reward_paid?: boolean | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       subscription_tiers: {
         Row: {
           created_at: string
@@ -1671,6 +1939,50 @@ export type Database = {
           },
         ]
       }
+      vendor_verifications: {
+        Row: {
+          created_at: string
+          document_type: string
+          document_url: string
+          id: string
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          vendor_id: string
+        }
+        Insert: {
+          created_at?: string
+          document_type: string
+          document_url: string
+          id?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          vendor_id: string
+        }
+        Update: {
+          created_at?: string
+          document_type?: string
+          document_url?: string
+          id?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_verifications_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendors: {
         Row: {
           address: string | null
@@ -1724,6 +2036,87 @@ export type Database = {
           verification_status?: string | null
         }
         Relationships: []
+      }
+      xendit_transactions: {
+        Row: {
+          amount: number
+          callback_data: Json | null
+          created_at: string
+          expired_at: string | null
+          external_id: string
+          id: string
+          invoice_id: string | null
+          order_id: string | null
+          paid_at: string | null
+          payment_channel: string | null
+          payment_id: string | null
+          payment_method: string | null
+          payment_url: string | null
+          qr_code_url: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          virtual_account_number: string | null
+          xendit_invoice_id: string | null
+        }
+        Insert: {
+          amount: number
+          callback_data?: Json | null
+          created_at?: string
+          expired_at?: string | null
+          external_id: string
+          id?: string
+          invoice_id?: string | null
+          order_id?: string | null
+          paid_at?: string | null
+          payment_channel?: string | null
+          payment_id?: string | null
+          payment_method?: string | null
+          payment_url?: string | null
+          qr_code_url?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          virtual_account_number?: string | null
+          xendit_invoice_id?: string | null
+        }
+        Update: {
+          amount?: number
+          callback_data?: Json | null
+          created_at?: string
+          expired_at?: string | null
+          external_id?: string
+          id?: string
+          invoice_id?: string | null
+          order_id?: string | null
+          paid_at?: string | null
+          payment_channel?: string | null
+          payment_id?: string | null
+          payment_method?: string | null
+          payment_url?: string | null
+          qr_code_url?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          virtual_account_number?: string | null
+          xendit_invoice_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xendit_transactions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xendit_transactions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
