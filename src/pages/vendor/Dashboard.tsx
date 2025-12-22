@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import { useAnalytics } from '@/hooks/useAnalytics';
 
 interface VendorJob {
   id: string;
@@ -37,6 +38,7 @@ interface VendorJob {
 export default function VendorDashboard() {
   const { vendor, profile } = useAuth();
   const navigate = useNavigate();
+  useAnalytics(); // Track page views automatically
 
   // Fetch vendor jobs stats
   const { data: jobs = [] } = useQuery({

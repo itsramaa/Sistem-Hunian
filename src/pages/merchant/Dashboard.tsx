@@ -16,6 +16,7 @@ import { Progress } from '@/components/ui/progress';
 import { MerchantLayout } from '@/components/layouts/MerchantLayout';
 import { SubscriptionWidget } from '@/components/merchant/SubscriptionWidget';
 import { useAuth } from '@/hooks/useAuth';
+import { useAnalytics } from '@/hooks/useAnalytics';
 
 const stats = [
   {
@@ -66,6 +67,7 @@ const recentPayments = [
 
 export default function MerchantDashboard() {
   const { merchant } = useAuth();
+  useAnalytics(); // Track page views automatically
 
   return (
     <MerchantLayout>

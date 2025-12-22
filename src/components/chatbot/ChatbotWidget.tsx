@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageCircle, X, Send, Bot, User, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useChatbotTracking } from "@/hooks/useAnalytics";
 
 interface Message {
   role: "user" | "assistant";
@@ -27,6 +28,7 @@ export function ChatbotWidget() {
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
+  const { trackChatbotOpened, trackChatbotMessage } = useChatbotTracking();
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -36,6 +38,7 @@ export function ChatbotWidget() {
 
   const streamChat = async (userMessage: string) => {
     setIsLoading(true);
+    trackChatbotMessage('user');
     const newMessages = [...messages, { role: "user" as const, content: userMessage }];
     setMessages(newMessages);
     setInput("");
@@ -116,6 +119,7 @@ export function ChatbotWidget() {
       ]);
     } finally {
       setIsLoading(false);
+      trackChatbotMessage('bot');
     }
   };
 
@@ -134,7 +138,10 @@ export function ChatbotWidget() {
     <>
       {/* Floating Button */}
       <Button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          setIsOpen(!isOpen);
+          if (!isOpen) trackChatbotOpened();
+        }}
         className={cn(
           "fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg transition-all duration-300",
           isOpen && "rotate-90"

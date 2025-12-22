@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Star, MapPin, Loader2, Store } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 const SERVICE_CATEGORIES = [
   "All",
@@ -36,6 +37,7 @@ interface Vendor {
 }
 
 export default function TenantMarketplace() {
+  useAnalytics(); // Track page views automatically
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
 
