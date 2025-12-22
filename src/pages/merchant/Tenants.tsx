@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Users, Mail, Phone, Home, Send, Copy, Clock, CheckCircle, XCircle, FileText } from 'lucide-react';
+import { Plus, Search, Users, Mail, Phone, Home, Send, Copy, Clock, CheckCircle, XCircle, FileText, Eye, Wallet } from 'lucide-react';
 import { MerchantLayout } from '@/components/layouts/MerchantLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -679,7 +679,7 @@ export default function MerchantTenants() {
                         </Badge>
                       </div>
                     </CardHeader>
-                    <CardContent className="space-y-2">
+                    <CardContent className="space-y-3">
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Monthly Rent</span>
                         <span className="font-medium">{formatCurrency(contract.rent_amount)}</span>
@@ -687,6 +687,26 @@ export default function MerchantTenants() {
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Deposit</span>
                         <span className="font-medium">{formatCurrency(contract.deposit_amount)}</span>
+                      </div>
+                      <div className="flex gap-2 pt-2 border-t">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex-1"
+                          onClick={() => window.location.href = `/merchant/contracts`}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View Details
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex-1"
+                          onClick={() => window.location.href = `/merchant/payments?tenant=${contract.tenant_user_id}`}
+                        >
+                          <Wallet className="h-4 w-4 mr-1" />
+                          Payments
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>

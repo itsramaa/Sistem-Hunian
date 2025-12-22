@@ -149,17 +149,69 @@ export default function MerchantMaintenanceDetail() {
         .eq('id', id);
       if (error) throw error;
 
-      if (vendor_id && merchant) {
-        const { error: jobError } = await supabase
+      // Create vendor job when assigning vendor
+      if (vendor_id && merchant && status === 'in_progress') {
+        const { data: existingJob } = await supabase
           .from('vendor_jobs')
-          .insert({
-            vendor_id: vendor_id,
-            maintenance_request_id: id,
-            merchant_id: merchant.id,
-            agreed_price: agreed_price || null,
-            status: 'pending',
-          });
-        if (jobError) throw jobError;
+          .select('id')
+          .eq('maintenance_request_id', id)
+          .eq('vendor_id', vendor_id)
+          .maybeSingle();
+
+        if (!existingJob) {
+          const { error: jobError } = await supabase
+            .from('vendor_jobs')
+            .insert({
+              vendor_id: vendor_id,
+              maintenance_request_id: id,
+              merchant_id: merchant.id,
+              agreed_price: agreed_price || null,
+              status: 'pending',
+            });
+          if (jobError) throw jobError;
+        }
+      }
+
+      // When completing a job with a vendor, update vendor_job and create earnings
+      if (status === 'completed' && request?.assigned_to) {
+        // Find the vendor job for this request
+        const { data: vendorJob } = await supabase
+          .from('vendor_jobs')
+          .select('id, vendor_id, agreed_price')
+          .eq('maintenance_request_id', id)
+          .eq('status', 'pending')
+          .maybeSingle();
+
+        if (vendorJob && vendorJob.agreed_price) {
+          // Update vendor job status
+          await supabase
+            .from('vendor_jobs')
+            .update({
+              status: 'completed',
+              completed_at: new Date().toISOString(),
+            })
+            .eq('id', vendorJob.id);
+
+          // Create vendor earnings record
+          const amount = vendorJob.agreed_price;
+          const feeAmount = amount * 0.1; // 10% platform fee
+          const netAmount = amount - feeAmount;
+
+          const { error: earningsError } = await supabase
+            .from('vendor_earnings')
+            .insert({
+              vendor_id: vendorJob.vendor_id,
+              vendor_job_id: vendorJob.id,
+              amount,
+              fee_amount: feeAmount,
+              net_amount: netAmount,
+              status: 'pending',
+            });
+
+          if (earningsError) {
+            console.error('Failed to create vendor earnings:', earningsError);
+          }
+        }
       }
     },
     onSuccess: () => {

@@ -2,14 +2,17 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { 
   TrendingUp,
+  TrendingDown,
   Home,
   Users,
   Wallet,
   ArrowUpRight,
+  ArrowDownRight,
   Calendar,
   Bell,
   FileText,
-  Loader2
+  Loader2,
+  Minus
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -68,19 +71,36 @@ export default function MerchantDashboard() {
         .eq('merchant_id', merchant.id)
         .eq('status', 'active');
 
-      // Fetch this month's payments
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
+      // Current month dates
+      const today = new Date();
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
 
+      // Fetch this month's payments
       const { data: monthlyPayments } = await supabase
         .from('payments')
         .select('amount, status')
         .eq('merchant_id', merchant.id)
         .gte('created_at', startOfMonth.toISOString());
 
+      // Fetch last month's payments for comparison
+      const { data: lastMonthPayments } = await supabase
+        .from('payments')
+        .select('amount, status')
+        .eq('merchant_id', merchant.id)
+        .gte('created_at', startOfLastMonth.toISOString())
+        .lte('created_at', endOfLastMonth.toISOString());
+
+      // Fetch last month's active tenants count
+      const { count: lastMonthTenants } = await supabase
+        .from('contracts')
+        .select('id', { count: 'exact', head: true })
+        .eq('merchant_id', merchant.id)
+        .eq('status', 'active')
+        .lte('created_at', endOfLastMonth.toISOString());
+
       // Fetch upcoming payments (next 7 days)
-      const today = new Date();
       const nextWeek = new Date();
       nextWeek.setDate(today.getDate() + 7);
 
@@ -151,6 +171,19 @@ export default function MerchantDashboard() {
       const paidPayments = monthlyPayments?.filter(p => p.status === 'paid') || [];
       const monthlyRevenue = paidPayments.reduce((sum, p) => sum + Number(p.amount), 0);
 
+      // Calculate last month stats for comparison
+      const lastMonthPaidPayments = lastMonthPayments?.filter(p => p.status === 'paid') || [];
+      const lastMonthRevenue = lastMonthPaidPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+
+      // Calculate percentage changes
+      const revenueChange = lastMonthRevenue > 0 
+        ? Math.round(((monthlyRevenue - lastMonthRevenue) / lastMonthRevenue) * 100) 
+        : monthlyRevenue > 0 ? 100 : 0;
+
+      const tenantChange = (lastMonthTenants || 0) > 0
+        ? (activeTenants || 0) - (lastMonthTenants || 0)
+        : 0;
+
       // Map tenant names
       const profileMap = new Map(tenantProfiles?.map(p => [p.user_id, p]) || []);
       const recentProfileMap = new Map(recentTenantProfiles?.map(p => [p.user_id, p]) || []);
@@ -172,9 +205,13 @@ export default function MerchantDashboard() {
         totalUnits,
         occupiedUnits,
         monthlyRevenue,
+        lastMonthRevenue,
+        revenueChange,
+        tenantChange,
         escrowBalance: escrowAccount?.balance || 0,
         pendingBalance: escrowAccount?.pending_balance || 0,
         activeTenants: activeTenants || 0,
+        lastMonthTenants: lastMonthTenants || 0,
         propertyCount: properties?.length || 0,
         properties: properties || [],
         upcomingPayments: upcomingWithNames,
@@ -184,27 +221,30 @@ export default function MerchantDashboard() {
     enabled: !!merchant?.id,
   });
 
+  const revenueChange = dashboardData?.revenueChange || 0;
+  const tenantChange = dashboardData?.tenantChange || 0;
+
   const stats = [
     {
       title: 'Occupancy Rate',
       value: isLoading ? '-' : `${dashboardData?.occupancyRate || 0}%`,
       change: '',
-      changeType: 'positive' as const,
+      changeType: 'neutral' as const,
       icon: Home,
       description: isLoading ? 'Loading...' : `${dashboardData?.occupiedUnits || 0} of ${dashboardData?.totalUnits || 0} units occupied`,
     },
     {
       title: 'Monthly Revenue',
       value: isLoading ? '-' : formatCurrency(dashboardData?.monthlyRevenue || 0),
-      change: '',
-      changeType: 'positive' as const,
-      icon: TrendingUp,
-      description: 'This month',
+      change: revenueChange !== 0 ? `${revenueChange > 0 ? '+' : ''}${revenueChange}%` : '',
+      changeType: revenueChange > 0 ? 'positive' as const : revenueChange < 0 ? 'negative' as const : 'neutral' as const,
+      icon: revenueChange >= 0 ? TrendingUp : TrendingDown,
+      description: 'vs last month',
     },
     {
       title: 'Escrow Balance',
       value: isLoading ? '-' : formatCurrency(dashboardData?.escrowBalance || 0),
-      change: '',
+      change: dashboardData?.pendingBalance ? `${formatCurrency(dashboardData.pendingBalance)} pending` : '',
       changeType: 'neutral' as const,
       icon: Wallet,
       description: 'Available for disbursement',
@@ -212,10 +252,10 @@ export default function MerchantDashboard() {
     {
       title: 'Active Tenants',
       value: isLoading ? '-' : String(dashboardData?.activeTenants || 0),
-      change: '',
-      changeType: 'positive' as const,
+      change: tenantChange !== 0 ? `${tenantChange > 0 ? '+' : ''}${tenantChange}` : '',
+      changeType: tenantChange > 0 ? 'positive' as const : tenantChange < 0 ? 'negative' as const : 'neutral' as const,
       icon: Users,
-      description: `Across ${dashboardData?.propertyCount || 0} properties`,
+      description: tenantChange !== 0 ? 'vs last month' : `Across ${dashboardData?.propertyCount || 0} properties`,
     },
   ];
 
@@ -280,9 +320,21 @@ export default function MerchantDashboard() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 mt-3">
-                  {stat.changeType === 'positive' && stat.change && (
-                    <span className="flex items-center text-sm text-success">
+                  {stat.change && stat.changeType === 'positive' && (
+                    <span className="flex items-center text-sm text-success font-medium">
                       <ArrowUpRight className="h-4 w-4" />
+                      {stat.change}
+                    </span>
+                  )}
+                  {stat.change && stat.changeType === 'negative' && (
+                    <span className="flex items-center text-sm text-destructive font-medium">
+                      <ArrowDownRight className="h-4 w-4" />
+                      {stat.change}
+                    </span>
+                  )}
+                  {stat.change && stat.changeType === 'neutral' && (
+                    <span className="flex items-center text-sm text-muted-foreground font-medium">
+                      <Minus className="h-4 w-4" />
                       {stat.change}
                     </span>
                   )}
