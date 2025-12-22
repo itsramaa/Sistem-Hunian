@@ -17,6 +17,8 @@ import { Search, Plus, FileText, Send, Eye, Download, DollarSign, Mail, Loader2 
 import { format } from 'date-fns';
 import { sendInvoiceNotification } from '@/lib/notifications';
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
 type Invoice = {
   id: string;
   invoice_number: string;
@@ -200,6 +202,32 @@ export default function MerchantInvoices() {
     setTaxAmount('0');
     setDescription('');
     setDueDate('');
+  };
+
+  const downloadInvoicePdf = async (invoiceId: string) => {
+    try {
+      toast({ title: 'Generating PDF...', description: 'Please wait' });
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice-pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoiceId }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to generate PDF');
+      
+      const result = await response.json();
+      
+      // Open HTML in new window for printing
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(result.html);
+        printWindow.document.close();
+        printWindow.onload = () => printWindow.print();
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({ title: 'Failed to generate PDF', variant: 'destructive' });
+    }
   };
 
   const filteredInvoices = invoices.filter(invoice => {
@@ -447,6 +475,14 @@ export default function MerchantInvoices() {
                             onClick={() => setViewInvoice(invoice)}
                           >
                             <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => downloadInvoicePdf(invoice.id)}
+                            title="Download PDF"
+                          >
+                            <Download className="h-4 w-4" />
                           </Button>
                           {invoice.status === 'draft' && (
                             <Button

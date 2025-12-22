@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { TenantLayout } from "@/components/layouts/TenantLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,9 +9,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { FileText, Loader2, Download, Eye, CreditCard } from "lucide-react";
 import { format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 const TenantInvoices = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const { data: invoices, isLoading } = useQuery({
     queryKey: ['tenant-invoices', user?.id],
@@ -25,6 +31,35 @@ const TenantInvoices = () => {
     },
     enabled: !!user?.id,
   });
+
+  const downloadInvoicePdf = async (invoiceId: string) => {
+    try {
+      setDownloadingId(invoiceId);
+      toast({ title: 'Generating PDF...', description: 'Please wait' });
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice-pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoiceId }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to generate PDF');
+      
+      const result = await response.json();
+      
+      // Open HTML in new window for printing
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(result.html);
+        printWindow.document.close();
+        printWindow.onload = () => printWindow.print();
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({ title: 'Failed to generate PDF', variant: 'destructive' });
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -129,9 +164,18 @@ const TenantInvoices = () => {
                     <TableCell>{getStatusBadge(invoice.status)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => downloadInvoicePdf(invoice.id)}
+                          disabled={downloadingId === invoice.id}
+                        >
+                          {downloadingId === invoice.id ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4 mr-1" />
+                          )}
+                          Download
                         </Button>
                         <Button size="sm" className="bg-primary text-primary-foreground">
                           <CreditCard className="h-4 w-4 mr-1" />
@@ -174,8 +218,17 @@ const TenantInvoices = () => {
                     <TableCell>R {Number(invoice.total_amount).toLocaleString()}</TableCell>
                     <TableCell>{getStatusBadge(invoice.status)}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="outline" size="sm">
-                        <Download className="h-4 w-4 mr-1" />
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => downloadInvoicePdf(invoice.id)}
+                        disabled={downloadingId === invoice.id}
+                      >
+                        {downloadingId === invoice.id ? (
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        ) : (
+                          <Download className="h-4 w-4 mr-1" />
+                        )}
                         Download
                       </Button>
                     </TableCell>
