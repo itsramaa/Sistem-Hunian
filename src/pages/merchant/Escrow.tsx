@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Wallet, ArrowUpRight, ArrowDownLeft, Clock, Calendar, Loader2, Info } from 'lucide-react';
+import { Wallet, ArrowUpRight, ArrowDownLeft, Clock, Calendar, Loader2, Info, Send, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 
 const DISBURSEMENT_OPTIONS = [
@@ -19,10 +20,13 @@ const DISBURSEMENT_OPTIONS = [
   { value: 'on_demand', label: 'On Demand', fee: '0.5%', description: 'Request anytime with 0.5% fee' },
 ];
 
+const ON_DEMAND_FEE_RATE = 0.005; // 0.5%
+
 export default function MerchantEscrow() {
   const { merchant } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [disbursementDialogOpen, setDisbursementDialogOpen] = useState(false);
 
   // Fetch escrow account
   const { data: escrowAccount, isLoading: loadingAccount } = useQuery({
@@ -73,6 +77,23 @@ export default function MerchantEscrow() {
     enabled: !!merchant?.id,
   });
 
+  // Fetch primary bank account
+  const { data: bankAccount } = useQuery({
+    queryKey: ['primary-bank-account', merchant?.id],
+    queryFn: async () => {
+      if (!merchant?.id) return null;
+      const { data, error } = await supabase
+        .from('bank_accounts')
+        .select('*')
+        .eq('merchant_id', merchant.id)
+        .eq('is_primary', true)
+        .single();
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    },
+    enabled: !!merchant?.id,
+  });
+
   // Update disbursement schedule
   const updateSchedule = useMutation({
     mutationFn: async (schedule: string) => {
@@ -91,6 +112,49 @@ export default function MerchantEscrow() {
     },
   });
 
+  // Request on-demand disbursement
+  const requestDisbursement = useMutation({
+    mutationFn: async () => {
+      if (!escrowAccount?.id || !bankAccount?.id) throw new Error('Missing account info');
+      
+      const balance = escrowAccount.balance || 0;
+      const feeAmount = balance * ON_DEMAND_FEE_RATE;
+      const netAmount = balance - feeAmount;
+
+      // Create disbursement record
+      const { error } = await supabase
+        .from('disbursements')
+        .insert({
+          escrow_account_id: escrowAccount.id,
+          bank_account_id: bankAccount.id,
+          amount: balance,
+          fee_amount: feeAmount,
+          net_amount: netAmount,
+          type: 'on_demand',
+          status: 'pending',
+          scheduled_for: new Date().toISOString(),
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['escrow-account'] });
+      queryClient.invalidateQueries({ queryKey: ['escrow-transactions'] });
+      setDisbursementDialogOpen(false);
+      toast({ 
+        title: 'Disbursement Requested', 
+        description: 'Your funds will be transferred within 1-2 business days.' 
+      });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        variant: 'destructive', 
+        title: 'Error', 
+        description: error.message || 'Failed to request disbursement.' 
+      });
+    },
+  });
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -98,6 +162,10 @@ export default function MerchantEscrow() {
       minimumFractionDigits: 0,
     }).format(value);
   };
+
+  const balance = escrowAccount?.balance || 0;
+  const feeAmount = balance * ON_DEMAND_FEE_RATE;
+  const netAmount = balance - feeAmount;
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
@@ -194,6 +262,46 @@ export default function MerchantEscrow() {
           </Card>
         </div>
 
+        {/* On-Demand Disbursement */}
+        <Card className="border-primary/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Send className="h-5 w-5" />
+              Request Disbursement Now
+            </CardTitle>
+            <CardDescription>
+              Get your available balance transferred immediately with a 0.5% fee
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+              <div>
+                <p className="text-sm text-muted-foreground">Available for Disbursement</p>
+                <p className="text-2xl font-bold text-green-600">{formatCurrency(balance)}</p>
+                {balance > 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Fee: {formatCurrency(feeAmount)} • You receive: {formatCurrency(netAmount)}
+                  </p>
+                )}
+              </div>
+              <Button 
+                onClick={() => setDisbursementDialogOpen(true)}
+                disabled={balance <= 0 || !bankAccount}
+                className="gradient-primary"
+              >
+                <Send className="h-4 w-4 mr-2" />
+                Request Now
+              </Button>
+            </div>
+            {!bankAccount && (
+              <p className="text-sm text-warning mt-2 flex items-center gap-1">
+                <AlertCircle className="h-4 w-4" />
+                Please add a primary bank account in Settings before requesting disbursement.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Disbursement Schedule */}
         <Card>
           <CardHeader>
@@ -202,7 +310,7 @@ export default function MerchantEscrow() {
               Disbursement Schedule
             </CardTitle>
             <CardDescription>
-              Choose when you want to receive your funds
+              Choose when you want to receive your funds automatically
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -305,6 +413,63 @@ export default function MerchantEscrow() {
           </CardContent>
         </Card>
       </div>
+
+      {/* On-Demand Disbursement Confirmation Dialog */}
+      <Dialog open={disbursementDialogOpen} onOpenChange={setDisbursementDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Disbursement Request</DialogTitle>
+            <DialogDescription>
+              You're about to request an immediate transfer of your available balance.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 rounded-lg bg-muted/50">
+                <p className="text-sm text-muted-foreground">Available Balance</p>
+                <p className="text-xl font-bold">{formatCurrency(balance)}</p>
+              </div>
+              <div className="p-4 rounded-lg bg-muted/50">
+                <p className="text-sm text-muted-foreground">Fee (0.5%)</p>
+                <p className="text-xl font-bold text-destructive">-{formatCurrency(feeAmount)}</p>
+              </div>
+            </div>
+            <div className="p-4 rounded-lg bg-success/10 border border-success/20">
+              <p className="text-sm text-muted-foreground">You will receive</p>
+              <p className="text-2xl font-bold text-success">{formatCurrency(netAmount)}</p>
+            </div>
+            {bankAccount && (
+              <div className="p-4 rounded-lg border">
+                <p className="text-sm text-muted-foreground">Transfer to</p>
+                <p className="font-medium">{bankAccount.bank_name} - {bankAccount.account_number}</p>
+                <p className="text-sm text-muted-foreground">{bankAccount.account_name}</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDisbursementDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => requestDisbursement.mutate()}
+              disabled={requestDisbursement.isPending}
+              className="gradient-primary"
+            >
+              {requestDisbursement.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Confirm Disbursement
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MerchantLayout>
   );
 }

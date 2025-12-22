@@ -61,9 +61,25 @@ const propertySchema = z.object({
   province: z.string().min(2, 'Province is required').max(100),
   postal_code: z.string().max(10).optional(),
   description: z.string().max(1000).optional(),
+  amenities: z.array(z.string()).optional(),
 });
 
 type PropertyFormData = z.infer<typeof propertySchema>;
+
+const AMENITIES_LIST = [
+  { value: 'wifi', label: 'WiFi' },
+  { value: 'ac', label: 'AC' },
+  { value: 'parking', label: 'Parking' },
+  { value: 'laundry', label: 'Laundry' },
+  { value: 'kitchen', label: 'Shared Kitchen' },
+  { value: 'security', label: '24/7 Security' },
+  { value: 'cctv', label: 'CCTV' },
+  { value: 'water_heater', label: 'Water Heater' },
+  { value: 'gym', label: 'Gym' },
+  { value: 'pool', label: 'Swimming Pool' },
+  { value: 'furnished', label: 'Furnished' },
+  { value: 'cleaning', label: 'Cleaning Service' },
+];
 
 const propertyTypes = [
   { value: 'kost', label: 'Kost' },
@@ -104,8 +120,19 @@ export default function MerchantProperties() {
       province: '',
       postal_code: '',
       description: '',
+      amenities: [],
     },
   });
+
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+
+  const toggleAmenity = (value: string) => {
+    setSelectedAmenities(prev => 
+      prev.includes(value) 
+        ? prev.filter(a => a !== value)
+        : [...prev, value]
+    );
+  };
 
   useEffect(() => {
     if (merchant) {
@@ -154,6 +181,7 @@ export default function MerchantProperties() {
             province: data.province,
             postal_code: data.postal_code || null,
             description: data.description || null,
+            amenities: selectedAmenities,
           })
           .eq('id', editingProperty.id);
 
@@ -172,6 +200,7 @@ export default function MerchantProperties() {
             postal_code: data.postal_code || null,
             description: data.description || null,
             images: [],
+            amenities: selectedAmenities,
           });
 
         if (error) throw error;
@@ -180,6 +209,7 @@ export default function MerchantProperties() {
 
       setShowAddDialog(false);
       setEditingProperty(null);
+      setSelectedAmenities([]);
       form.reset();
       fetchProperties();
     } catch (error: any) {
@@ -232,7 +262,9 @@ export default function MerchantProperties() {
       province: property.province,
       postal_code: property.postal_code || '',
       description: property.description || '',
+      amenities: property.amenities || [],
     });
+    setSelectedAmenities(property.amenities || []);
     setShowAddDialog(true);
   };
 
@@ -261,6 +293,7 @@ export default function MerchantProperties() {
   const handleDialogClose = () => {
     setShowAddDialog(false);
     setEditingProperty(null);
+    setSelectedAmenities([]);
     form.reset();
   };
 
@@ -378,6 +411,22 @@ export default function MerchantProperties() {
                       {...form.register('description')}
                       rows={3}
                     />
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Amenities</Label>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {AMENITIES_LIST.map((amenity) => (
+                        <Badge
+                          key={amenity.value}
+                          variant={selectedAmenities.includes(amenity.value) ? 'default' : 'outline'}
+                          className="cursor-pointer transition-colors"
+                          onClick={() => toggleAmenity(amenity.value)}
+                        >
+                          {amenity.label}
+                        </Badge>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Click to select/deselect amenities</p>
                   </div>
                 </div>
                 <DialogFooter>
