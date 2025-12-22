@@ -186,9 +186,12 @@ const Settings = () => {
   };
 
   const documentTypes = [
-    { value: 'national_id', label: 'National ID / Passport' },
-    { value: 'proof_of_address', label: 'Proof of Address' },
-    { value: 'business_registration', label: 'Business Registration' },
+    { value: 'ktp', label: 'KTP (National ID)' },
+    { value: 'npwp', label: 'NPWP (Tax ID)' },
+    { value: 'surat_kepemilikan', label: 'Surat Kepemilikan (Ownership Certificate)' },
+    { value: 'siup', label: 'SIUP (Business License)' },
+    { value: 'akta_perusahaan', label: 'Akta Perusahaan (Company Deed)' },
+    { value: 'proof_of_address', label: 'Bukti Alamat (Utility Bill)' },
   ];
 
   const [selectedDocType, setSelectedDocType] = useState('national_id');
@@ -361,29 +364,49 @@ const Settings = () => {
                   <h4 className="font-medium mb-2">Required Documents</h4>
                   <ul className="space-y-2 text-sm text-muted-foreground">
                     <li className="flex items-center gap-2">
-                      {verifications.some(v => v.document_type === 'national_id') ? (
+                      {verifications.some(v => v.document_type === 'ktp') ? (
                         <CheckCircle className="h-4 w-4 text-success" />
                       ) : (
                         <Clock className="h-4 w-4 text-muted-foreground" />
                       )}
-                      Valid ID (Passport or National ID)
+                      KTP (Kartu Tanda Penduduk)
                     </li>
                     <li className="flex items-center gap-2">
-                      {verifications.some(v => v.document_type === 'proof_of_address') ? (
+                      {verifications.some(v => v.document_type === 'npwp') ? (
                         <CheckCircle className="h-4 w-4 text-success" />
                       ) : (
                         <Clock className="h-4 w-4 text-muted-foreground" />
                       )}
-                      Proof of Address
+                      NPWP (Nomor Pokok Wajib Pajak)
                     </li>
                     <li className="flex items-center gap-2">
-                      {verifications.some(v => v.document_type === 'business_registration') ? (
+                      {verifications.some(v => v.document_type === 'surat_kepemilikan') ? (
                         <CheckCircle className="h-4 w-4 text-success" />
                       ) : (
                         <Clock className="h-4 w-4 text-muted-foreground" />
                       )}
-                      Business Registration (for companies)
+                      Surat Kepemilikan (Ownership Certificate)
                     </li>
+                    {businessForm.business_type !== 'individual' && (
+                      <>
+                        <li className="flex items-center gap-2">
+                          {verifications.some(v => v.document_type === 'siup') ? (
+                            <CheckCircle className="h-4 w-4 text-success" />
+                          ) : (
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          SIUP (Surat Izin Usaha Perdagangan)
+                        </li>
+                        <li className="flex items-center gap-2">
+                          {verifications.some(v => v.document_type === 'akta_perusahaan') ? (
+                            <CheckCircle className="h-4 w-4 text-success" />
+                          ) : (
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          Akta Perusahaan (Company Deed)
+                        </li>
+                      </>
+                    )}
                   </ul>
                 </div>
 
