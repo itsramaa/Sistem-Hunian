@@ -1,18 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MerchantLayout } from "@/components/layouts/MerchantLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Building2, Shield, Bell, Loader2, Save, Upload, CheckCircle, Clock, XCircle } from "lucide-react";
+import { FileUpload } from "@/components/FileUpload";
+import { Building2, Shield, Bell, Loader2, Save, CheckCircle, Clock, XCircle, FileText, Trash2 } from "lucide-react";
 
 const Settings = () => {
   const { user } = useAuth();
@@ -46,6 +46,21 @@ const Settings = () => {
     enabled: !!user?.id,
   });
 
+  const { data: verifications = [], refetch: refetchVerifications } = useQuery({
+    queryKey: ['merchant-verifications', merchant?.id],
+    queryFn: async () => {
+      if (!merchant?.id) return [];
+      const { data, error } = await supabase
+        .from('merchant_verifications')
+        .select('*')
+        .eq('merchant_id', merchant.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!merchant?.id,
+  });
+
   const [businessForm, setBusinessForm] = useState({
     business_name: '',
     business_type: '',
@@ -60,8 +75,7 @@ const Settings = () => {
     phone: '',
   });
 
-  // Update form when data loads
-  useState(() => {
+  useEffect(() => {
     if (merchant) {
       setBusinessForm({
         business_name: merchant.business_name || '',
@@ -78,7 +92,7 @@ const Settings = () => {
         phone: profile.phone || '',
       });
     }
-  });
+  }, [merchant, profile]);
 
   const updateMerchant = useMutation({
     mutationFn: async (data: typeof businessForm) => {
@@ -110,6 +124,42 @@ const Settings = () => {
     onError: () => toast.error('Failed to update profile'),
   });
 
+  const uploadVerificationDocument = async (url: string, documentType: string) => {
+    if (!merchant?.id) return;
+    
+    const { error } = await supabase
+      .from('merchant_verifications')
+      .insert({
+        merchant_id: merchant.id,
+        document_type: documentType,
+        document_url: url,
+        status: 'pending',
+      });
+    
+    if (error) {
+      toast.error('Failed to save document');
+      return;
+    }
+    
+    toast.success('Document uploaded successfully');
+    refetchVerifications();
+  };
+
+  const deleteVerification = async (id: string) => {
+    const { error } = await supabase
+      .from('merchant_verifications')
+      .delete()
+      .eq('id', id);
+    
+    if (error) {
+      toast.error('Failed to delete document');
+      return;
+    }
+    
+    toast.success('Document deleted');
+    refetchVerifications();
+  };
+
   const getVerificationBadge = (status: string) => {
     switch (status) {
       case 'verified':
@@ -133,6 +183,14 @@ const Settings = () => {
         return <Badge variant="secondary">Free</Badge>;
     }
   };
+
+  const documentTypes = [
+    { value: 'national_id', label: 'National ID / Passport' },
+    { value: 'proof_of_address', label: 'Proof of Address' },
+    { value: 'business_registration', label: 'Business Registration' },
+  ];
+
+  const [selectedDocType, setSelectedDocType] = useState('national_id');
 
   if (isLoading) {
     return (
@@ -179,7 +237,7 @@ const Settings = () => {
                   <div className="space-y-2">
                     <Label>Business Name</Label>
                     <Input
-                      value={businessForm.business_name || merchant?.business_name || ''}
+                      value={businessForm.business_name}
                       onChange={(e) => setBusinessForm({ ...businessForm, business_name: e.target.value })}
                       placeholder="Your business name"
                     />
@@ -187,7 +245,7 @@ const Settings = () => {
                   <div className="space-y-2">
                     <Label>Business Type</Label>
                     <Select
-                      value={businessForm.business_type || merchant?.business_type || 'individual'}
+                      value={businessForm.business_type}
                       onValueChange={(value) => setBusinessForm({ ...businessForm, business_type: value })}
                     >
                       <SelectTrigger>
@@ -203,7 +261,7 @@ const Settings = () => {
                   <div className="space-y-2 md:col-span-2">
                     <Label>Address</Label>
                     <Input
-                      value={businessForm.address || merchant?.address || ''}
+                      value={businessForm.address}
                       onChange={(e) => setBusinessForm({ ...businessForm, address: e.target.value })}
                       placeholder="Street address"
                     />
@@ -211,7 +269,7 @@ const Settings = () => {
                   <div className="space-y-2">
                     <Label>City</Label>
                     <Input
-                      value={businessForm.city || merchant?.city || ''}
+                      value={businessForm.city}
                       onChange={(e) => setBusinessForm({ ...businessForm, city: e.target.value })}
                       placeholder="City"
                     />
@@ -219,7 +277,7 @@ const Settings = () => {
                   <div className="space-y-2">
                     <Label>Province</Label>
                     <Input
-                      value={businessForm.province || merchant?.province || ''}
+                      value={businessForm.province}
                       onChange={(e) => setBusinessForm({ ...businessForm, province: e.target.value })}
                       placeholder="Province"
                     />
@@ -227,7 +285,7 @@ const Settings = () => {
                   <div className="space-y-2">
                     <Label>Postal Code</Label>
                     <Input
-                      value={businessForm.postal_code || merchant?.postal_code || ''}
+                      value={businessForm.postal_code}
                       onChange={(e) => setBusinessForm({ ...businessForm, postal_code: e.target.value })}
                       placeholder="Postal code"
                     />
@@ -253,7 +311,7 @@ const Settings = () => {
                   <div className="space-y-2">
                     <Label>Full Name</Label>
                     <Input
-                      value={profileForm.full_name || profile?.full_name || ''}
+                      value={profileForm.full_name}
                       onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })}
                       placeholder="Your full name"
                     />
@@ -261,7 +319,7 @@ const Settings = () => {
                   <div className="space-y-2">
                     <Label>Phone</Label>
                     <Input
-                      value={profileForm.phone || profile?.phone || ''}
+                      value={profileForm.phone}
                       onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
                       placeholder="Phone number"
                     />
@@ -293,19 +351,97 @@ const Settings = () => {
                   Verification helps build trust with tenants
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
                 <div className="p-4 rounded-lg bg-muted/50">
                   <h4 className="font-medium mb-2">Required Documents</h4>
                   <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li>• Valid ID (Passport or National ID)</li>
-                    <li>• Proof of Address</li>
-                    <li>• Business Registration (for companies)</li>
+                    <li className="flex items-center gap-2">
+                      {verifications.some(v => v.document_type === 'national_id') ? (
+                        <CheckCircle className="h-4 w-4 text-success" />
+                      ) : (
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                      )}
+                      Valid ID (Passport or National ID)
+                    </li>
+                    <li className="flex items-center gap-2">
+                      {verifications.some(v => v.document_type === 'proof_of_address') ? (
+                        <CheckCircle className="h-4 w-4 text-success" />
+                      ) : (
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                      )}
+                      Proof of Address
+                    </li>
+                    <li className="flex items-center gap-2">
+                      {verifications.some(v => v.document_type === 'business_registration') ? (
+                        <CheckCircle className="h-4 w-4 text-success" />
+                      ) : (
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                      )}
+                      Business Registration (for companies)
+                    </li>
                   </ul>
                 </div>
-                <Button variant="outline" className="w-full">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload Documents
-                </Button>
+
+                {/* Upload New Document */}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Document Type</Label>
+                    <Select value={selectedDocType} onValueChange={setSelectedDocType}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {documentTypes.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {type.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <FileUpload
+                    bucket="verification-documents"
+                    folder="verifications"
+                    accept="image/*,application/pdf"
+                    maxSize={10}
+                    onUploadComplete={(url) => uploadVerificationDocument(url, selectedDocType)}
+                  />
+                </div>
+
+                {/* Uploaded Documents */}
+                {verifications.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="font-medium">Uploaded Documents</h4>
+                    {verifications.map((doc) => (
+                      <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <FileText className="h-5 w-5 text-muted-foreground" />
+                          <div>
+                            <p className="text-sm font-medium">
+                              {documentTypes.find(t => t.value === doc.document_type)?.label || doc.document_type}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Uploaded {new Date(doc.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {getVerificationBadge(doc.status || 'pending')}
+                          {doc.status === 'pending' && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => deleteVerification(doc.id)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 

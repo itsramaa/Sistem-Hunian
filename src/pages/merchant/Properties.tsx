@@ -11,7 +11,9 @@ import {
   Eye,
   Grid,
   List,
-  DoorOpen
+  DoorOpen,
+  Image as ImageIcon,
+  X
 } from 'lucide-react';
 import { UnitsManager } from '@/components/merchant/UnitsManager';
 import { MerchantLayout } from '@/components/layouts/MerchantLayout';
@@ -28,6 +30,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { ImageGalleryUpload } from '@/components/FileUpload';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -43,6 +46,7 @@ interface Property {
   postal_code: string | null;
   description: string | null;
   amenities: string[];
+  images: string[];
   total_units: number;
   occupied_units: number;
   status: string;
@@ -85,6 +89,8 @@ export default function MerchantProperties() {
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [unitsProperty, setUnitsProperty] = useState<Property | null>(null);
+  const [imagesProperty, setImagesProperty] = useState<Property | null>(null);
+  const [propertyImages, setPropertyImages] = useState<string[]>([]);
   const { toast } = useToast();
   const { merchant } = useAuth();
 
@@ -165,6 +171,7 @@ export default function MerchantProperties() {
             province: data.province,
             postal_code: data.postal_code || null,
             description: data.description || null,
+            images: [],
           });
 
         if (error) throw error;
@@ -184,6 +191,34 @@ export default function MerchantProperties() {
       });
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleOpenImages = (property: Property) => {
+    setImagesProperty(property);
+    setPropertyImages(property.images || []);
+  };
+
+  const handleSaveImages = async () => {
+    if (!imagesProperty) return;
+    
+    try {
+      const { error } = await supabase
+        .from('properties')
+        .update({ images: propertyImages })
+        .eq('id', imagesProperty.id);
+
+      if (error) throw error;
+      
+      toast({ title: 'Images saved', description: 'Property images updated successfully' });
+      setImagesProperty(null);
+      fetchProperties();
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to save images',
+      });
     }
   };
 
@@ -491,6 +526,10 @@ export default function MerchantProperties() {
                           <DoorOpen className="h-4 w-4 mr-2" />
                           Manage Units
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenImages(property)}>
+                          <ImageIcon className="h-4 w-4 mr-2" />
+                          Manage Photos
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleEdit(property)}>
                           <Edit className="h-4 w-4 mr-2" />
                           Edit
@@ -507,6 +546,20 @@ export default function MerchantProperties() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  {property.images && property.images.length > 0 && (
+                    <div className="relative h-24 rounded-lg overflow-hidden bg-muted">
+                      <img 
+                        src={property.images[0]} 
+                        alt={property.name}
+                        className="w-full h-full object-cover"
+                      />
+                      {property.images.length > 1 && (
+                        <div className="absolute bottom-1 right-1 bg-black/60 text-white text-xs px-2 py-0.5 rounded">
+                          +{property.images.length - 1}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <MapPin className="h-4 w-4" />
                     <span>{property.city}, {property.province}</span>
@@ -602,6 +655,35 @@ export default function MerchantProperties() {
             onUnitsChanged={fetchProperties}
           />
         )}
+
+        {/* Images Manager Dialog */}
+        <Dialog open={!!imagesProperty} onOpenChange={(open) => !open && setImagesProperty(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Property Photos - {imagesProperty?.name}</DialogTitle>
+              <DialogDescription>
+                Upload and manage photos for this property. Photos help attract potential tenants.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <ImageGalleryUpload
+                bucket="property-images"
+                folder={imagesProperty?.id || 'temp'}
+                images={propertyImages}
+                onImagesChange={setPropertyImages}
+                maxImages={10}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setImagesProperty(null)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveImages}>
+                Save Photos
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </MerchantLayout>
   );

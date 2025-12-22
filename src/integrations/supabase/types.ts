@@ -583,6 +583,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          images: string[] | null
           merchant_id: string
           name: string
           occupied_units: number | null
@@ -600,6 +601,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          images?: string[] | null
           merchant_id: string
           name: string
           occupied_units?: number | null
@@ -617,6 +619,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          images?: string[] | null
           merchant_id?: string
           name?: string
           occupied_units?: number | null
