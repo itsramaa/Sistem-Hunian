@@ -16,6 +16,7 @@ import { BankAccountManager } from "@/components/merchant/BankAccountManager";
 import { SubscriptionPayment } from "@/components/merchant/SubscriptionPayment";
 import { DisbursementScheduleSettings } from "@/components/merchant/DisbursementScheduleSettings";
 import { Building2, Shield, Bell, Loader2, Save, CheckCircle, Clock, XCircle, FileText, Trash2, CreditCard } from "lucide-react";
+import { NotificationSettings as NotificationSettingsComponent } from "@/components/merchant/NotificationSettings";
 
 const Settings = () => {
   const { user } = useAuth();
@@ -484,56 +485,7 @@ const Settings = () => {
           </TabsContent>
 
           <TabsContent value="notifications" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Payment Reminder Settings</CardTitle>
-                <CardDescription>Configure automatic payment reminders for tenants</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-4">
-                  {[
-                    { label: 'Remind 7 days before due', description: 'Send reminder a week before payment is due', days: 7 },
-                    { label: 'Remind 3 days before due', description: 'Send reminder 3 days before payment is due', days: 3 },
-                    { label: 'Remind 1 day before due', description: 'Send reminder the day before payment is due', days: 1 },
-                    { label: 'Remind on due date', description: 'Send reminder on the day payment is due', days: 0 },
-                    { label: 'Overdue reminder (daily)', description: 'Send daily reminders for overdue payments', days: -1 },
-                  ].map((item, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 rounded-lg border">
-                      <div>
-                        <p className="font-medium">{item.label}</p>
-                        <p className="text-sm text-muted-foreground">{item.description}</p>
-                      </div>
-                      <input type="checkbox" defaultChecked={item.days >= 0} className="h-4 w-4 rounded border-input accent-primary" />
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Notification Preferences</CardTitle>
-                <CardDescription>Choose how you want to be notified</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-4">
-                  {[
-                    { label: 'Payment Received', description: 'Get notified when a tenant makes a payment' },
-                    { label: 'Maintenance Requests', description: 'New maintenance requests from tenants' },
-                    { label: 'Contract Expiry', description: 'Reminders before contracts expire' },
-                    { label: 'Weekly Reports', description: 'Weekly summary of your properties' },
-                  ].map((item, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 rounded-lg border">
-                      <div>
-                        <p className="font-medium">{item.label}</p>
-                        <p className="text-sm text-muted-foreground">{item.description}</p>
-                      </div>
-                      <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-input accent-primary" />
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <NotificationSettingsComponent />
           </TabsContent>
         </Tabs>
       </div>
