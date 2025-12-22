@@ -7,9 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { Home, FileText, DollarSign, Wrench } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
+import { useAnalytics } from '@/hooks/useAnalytics';
 
 export default function TenantDashboard() {
   const { user, profile } = useAuth();
+  useAnalytics(); // Track page views automatically
 
   const { data: contracts = [] } = useQuery({
     queryKey: ['tenant-contracts', user?.id],

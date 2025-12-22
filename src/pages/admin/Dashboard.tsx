@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
+import { useAnalytics } from '@/hooks/useAnalytics';
 
 const stats = [
   {
@@ -64,6 +65,7 @@ const recentActivity = [
 ];
 
 export default function AdminDashboard() {
+  useAnalytics(); // Track page views automatically
   return (
     <AdminLayout>
       <div className="space-y-6">
