@@ -16,8 +16,11 @@ import MerchantProperties from "./pages/merchant/Properties";
 import MerchantTenants from "./pages/merchant/Tenants";
 import MerchantMaintenance from "./pages/merchant/Maintenance";
 import MerchantPayments from "./pages/merchant/Payments";
+import MerchantReports from "./pages/merchant/Reports";
+import MerchantInvoices from "./pages/merchant/Invoices";
 import TenantDashboard from "./pages/tenant/Dashboard";
 import TenantMaintenance from "./pages/tenant/Maintenance";
+import TenantPayments from "./pages/tenant/Payments";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -101,6 +104,22 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
+            <Route 
+              path="/merchant/reports" 
+              element={
+                <ProtectedRoute allowedRoles={['merchant']}>
+                  <MerchantReports />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/merchant/invoices" 
+              element={
+                <ProtectedRoute allowedRoles={['merchant']}>
+                  <MerchantInvoices />
+                </ProtectedRoute>
+              } 
+            />
             
             {/* Tenant Routes */}
             <Route 
@@ -116,6 +135,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['tenant']}>
                   <TenantMaintenance />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/tenant/payments" 
+              element={
+                <ProtectedRoute allowedRoles={['tenant']}>
+                  <TenantPayments />
                 </ProtectedRoute>
               } 
             />
