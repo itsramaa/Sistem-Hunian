@@ -44,6 +44,48 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          new_data: Json | null
+          old_data: Json | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          new_data?: Json | null
+          old_data?: Json | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          new_data?: Json | null
+          old_data?: Json | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       bank_accounts: {
         Row: {
           account_name: string
@@ -1374,6 +1416,8 @@ export type Database = {
       }
       profiles: {
         Row: {
+          admin_2fa_enabled: boolean | null
+          admin_2fa_secret: string | null
           avatar_url: string | null
           created_at: string
           email: string
@@ -1384,6 +1428,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          admin_2fa_enabled?: boolean | null
+          admin_2fa_secret?: string | null
           avatar_url?: string | null
           created_at?: string
           email: string
@@ -1394,6 +1440,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          admin_2fa_enabled?: boolean | null
+          admin_2fa_secret?: string | null
           avatar_url?: string | null
           created_at?: string
           email?: string
