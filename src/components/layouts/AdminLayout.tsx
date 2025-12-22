@@ -3,7 +3,6 @@ import {
   LayoutDashboard, 
   Building2, 
   Users, 
-  UserCheck, 
   Wallet, 
   CreditCard,
   AlertTriangle,
@@ -11,7 +10,11 @@ import {
   Settings,
   LogOut,
   ChevronLeft,
-  Menu
+  Menu,
+  FileText,
+  MessageSquare,
+  Shield,
+  ShoppingCart
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -29,7 +32,10 @@ const adminMenuItems = [
   { icon: CreditCard, label: 'Platform Config', href: '/admin/platform-config' },
   { icon: Users, label: 'Referrals', href: '/admin/referrals' },
   { icon: Menu, label: 'Chatbot KB', href: '/admin/chatbot' },
-  { icon: CreditCard, label: 'Orders', href: '/admin/orders' },
+  { icon: ShoppingCart, label: 'Orders', href: '/admin/orders' },
+  { icon: FileText, label: 'Audit Logs', href: '/admin/audit-logs' },
+  { icon: MessageSquare, label: 'Forum Mod', href: '/admin/forum-moderation' },
+  { icon: Shield, label: 'Admin 2FA', href: '/admin/2fa' },
   { icon: Settings, label: 'Settings', href: '/admin/settings' },
 ];
 

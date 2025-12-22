@@ -353,10 +353,10 @@ const ADMIN_SECRET_KEY = 'SIHUNI_ADMIN_2024';
 2. ✅ P1-5: MRR/Churn analytics - DONE (added Subscriptions tab to Analytics page)
 3. ✅ P2-3: Vendor order monitoring - DONE (/admin/orders)
 
-### Sprint 4 (Nice to have)
-1. P2-1: Audit log system (6-8 hrs)
-2. P2-2: Forum moderation panel (4-5 hrs)
-3. P2-4: Admin MFA/2FA (8-10 hrs)
+### Sprint 4 (Nice to have) ✅ COMPLETED
+1. ✅ P2-1: Audit log system - DONE (/admin/audit-logs, audit_logs table)
+2. ✅ P2-2: Forum moderation panel - DONE (/admin/forum-moderation)
+3. ✅ P2-4: Admin MFA/2FA - DONE (/admin/2fa, TOTP-based with recovery codes)
 
 ---
 

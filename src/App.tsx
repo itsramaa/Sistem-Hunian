@@ -25,6 +25,9 @@ import AdminPlatformConfig from "./pages/admin/PlatformConfig";
 import AdminReferrals from "./pages/admin/Referrals";
 import AdminChatbot from "./pages/admin/Chatbot";
 import AdminOrders from "./pages/admin/Orders";
+import AdminAuditLogs from "./pages/admin/AuditLogs";
+import AdminForumModeration from "./pages/admin/ForumModeration";
+import Admin2FA from "./pages/admin/Admin2FA";
 import MerchantDashboard from "./pages/merchant/Dashboard";
 import MerchantProperties from "./pages/merchant/Properties";
 import MerchantTenants from "./pages/merchant/Tenants";
@@ -94,6 +97,9 @@ const App = () => (
             <Route path="/admin/referrals" element={<ProtectedRoute allowedRoles={['admin']}><AdminReferrals /></ProtectedRoute>} />
             <Route path="/admin/chatbot" element={<ProtectedRoute allowedRoles={['admin']}><AdminChatbot /></ProtectedRoute>} />
             <Route path="/admin/orders" element={<ProtectedRoute allowedRoles={['admin']}><AdminOrders /></ProtectedRoute>} />
+            <Route path="/admin/audit-logs" element={<ProtectedRoute allowedRoles={['admin']}><AdminAuditLogs /></ProtectedRoute>} />
+            <Route path="/admin/forum-moderation" element={<ProtectedRoute allowedRoles={['admin']}><AdminForumModeration /></ProtectedRoute>} />
+            <Route path="/admin/2fa" element={<ProtectedRoute allowedRoles={['admin']}><Admin2FA /></ProtectedRoute>} />
             
             {/* Merchant Routes */}
             <Route path="/merchant" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantDashboard /></ProtectedRoute>} />
