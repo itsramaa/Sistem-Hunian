@@ -1,13 +1,15 @@
+import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { 
   TrendingUp,
   Home,
   Users,
   Wallet,
   ArrowUpRight,
-  ArrowDownRight,
   Calendar,
   Bell,
-  FileText
+  FileText,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,57 +19,204 @@ import { MerchantLayout } from '@/components/layouts/MerchantLayout';
 import { SubscriptionWidget } from '@/components/merchant/SubscriptionWidget';
 import { useAuth } from '@/hooks/useAuth';
 import { useAnalytics } from '@/hooks/useAnalytics';
+import { supabase } from '@/integrations/supabase/client';
+import { format } from 'date-fns';
 
-const stats = [
-  {
-    title: 'Occupancy Rate',
-    value: '87%',
-    change: '+3%',
-    changeType: 'positive' as const,
-    icon: Home,
-    description: '26 of 30 units occupied',
-  },
-  {
-    title: 'Monthly Revenue',
-    value: 'Rp 156.5M',
-    change: '+12.5%',
-    changeType: 'positive' as const,
-    icon: TrendingUp,
-    description: 'This month',
-  },
-  {
-    title: 'Escrow Balance',
-    value: 'Rp 45.2M',
-    change: '',
-    changeType: 'neutral' as const,
-    icon: Wallet,
-    description: 'Available for disbursement',
-  },
-  {
-    title: 'Active Tenants',
-    value: '26',
-    change: '+2',
-    changeType: 'positive' as const,
-    icon: Users,
-    description: 'Across 3 properties',
-  },
-];
-
-const upcomingPayments = [
-  { id: 1, tenant: 'John Doe', unit: 'Unit A-101', amount: 'Rp 5.500.000', dueDate: '25 Dec 2024', status: 'upcoming' },
-  { id: 2, tenant: 'Jane Smith', unit: 'Unit B-203', amount: 'Rp 4.200.000', dueDate: '28 Dec 2024', status: 'upcoming' },
-  { id: 3, tenant: 'Ahmad Rizki', unit: 'Unit A-105', amount: 'Rp 6.000.000', dueDate: '01 Jan 2025', status: 'upcoming' },
-];
-
-const recentPayments = [
-  { id: 1, tenant: 'Maria Garcia', unit: 'Unit C-301', amount: 'Rp 5.000.000', date: '20 Dec 2024', status: 'paid' },
-  { id: 2, tenant: 'Budi Santoso', unit: 'Unit A-102', amount: 'Rp 4.800.000', date: '19 Dec 2024', status: 'paid' },
-  { id: 3, tenant: 'Lisa Chen', unit: 'Unit B-205', amount: 'Rp 5.200.000', date: '18 Dec 2024', status: 'paid' },
-];
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+};
 
 export default function MerchantDashboard() {
   const { merchant } = useAuth();
-  useAnalytics(); // Track page views automatically
+  const navigate = useNavigate();
+  useAnalytics();
+
+  // Fetch real dashboard stats
+  const { data: dashboardData, isLoading } = useQuery({
+    queryKey: ['merchant-dashboard', merchant?.id],
+    queryFn: async () => {
+      if (!merchant?.id) return null;
+
+      // Fetch properties with units
+      const { data: properties } = await supabase
+        .from('properties')
+        .select(`
+          id,
+          name,
+          total_units,
+          occupied_units
+        `)
+        .eq('merchant_id', merchant.id);
+
+      // Fetch escrow balance
+      const { data: escrowAccount } = await supabase
+        .from('escrow_accounts')
+        .select('balance, pending_balance')
+        .eq('merchant_id', merchant.id)
+        .single();
+
+      // Fetch active contracts count (active tenants)
+      const { count: activeTenants } = await supabase
+        .from('contracts')
+        .select('id', { count: 'exact', head: true })
+        .eq('merchant_id', merchant.id)
+        .eq('status', 'active');
+
+      // Fetch this month's payments
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+
+      const { data: monthlyPayments } = await supabase
+        .from('payments')
+        .select('amount, status')
+        .eq('merchant_id', merchant.id)
+        .gte('created_at', startOfMonth.toISOString());
+
+      // Fetch upcoming payments (next 7 days)
+      const today = new Date();
+      const nextWeek = new Date();
+      nextWeek.setDate(today.getDate() + 7);
+
+      const { data: upcomingPayments } = await supabase
+        .from('payments')
+        .select(`
+          id,
+          amount,
+          due_date,
+          status,
+          tenant_user_id,
+          contract:contracts (
+            unit:units (
+              unit_number
+            )
+          )
+        `)
+        .eq('merchant_id', merchant.id)
+        .eq('status', 'pending')
+        .gte('due_date', today.toISOString().split('T')[0])
+        .lte('due_date', nextWeek.toISOString().split('T')[0])
+        .order('due_date', { ascending: true })
+        .limit(5);
+
+      // Fetch tenant profiles for upcoming payments
+      const tenantIds = upcomingPayments?.map(p => p.tenant_user_id) || [];
+      const { data: tenantProfiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email')
+        .in('user_id', tenantIds);
+
+      // Fetch recent payments (last 7 days, paid)
+      const lastWeek = new Date();
+      lastWeek.setDate(today.getDate() - 7);
+
+      const { data: recentPayments } = await supabase
+        .from('payments')
+        .select(`
+          id,
+          amount,
+          paid_at,
+          status,
+          tenant_user_id,
+          contract:contracts (
+            unit:units (
+              unit_number
+            )
+          )
+        `)
+        .eq('merchant_id', merchant.id)
+        .eq('status', 'paid')
+        .gte('paid_at', lastWeek.toISOString())
+        .order('paid_at', { ascending: false })
+        .limit(5);
+
+      // Fetch tenant profiles for recent payments
+      const recentTenantIds = recentPayments?.map(p => p.tenant_user_id) || [];
+      const { data: recentTenantProfiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email')
+        .in('user_id', recentTenantIds);
+
+      // Calculate stats
+      const totalUnits = properties?.reduce((sum, p) => sum + (p.total_units || 0), 0) || 0;
+      const occupiedUnits = properties?.reduce((sum, p) => sum + (p.occupied_units || 0), 0) || 0;
+      const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
+
+      const paidPayments = monthlyPayments?.filter(p => p.status === 'paid') || [];
+      const monthlyRevenue = paidPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+
+      // Map tenant names
+      const profileMap = new Map(tenantProfiles?.map(p => [p.user_id, p]) || []);
+      const recentProfileMap = new Map(recentTenantProfiles?.map(p => [p.user_id, p]) || []);
+
+      const upcomingWithNames = upcomingPayments?.map(p => ({
+        ...p,
+        tenantName: profileMap.get(p.tenant_user_id)?.full_name || profileMap.get(p.tenant_user_id)?.email || 'Unknown',
+        unitNumber: p.contract?.unit?.unit_number || 'N/A',
+      })) || [];
+
+      const recentWithNames = recentPayments?.map(p => ({
+        ...p,
+        tenantName: recentProfileMap.get(p.tenant_user_id)?.full_name || recentProfileMap.get(p.tenant_user_id)?.email || 'Unknown',
+        unitNumber: p.contract?.unit?.unit_number || 'N/A',
+      })) || [];
+
+      return {
+        occupancyRate,
+        totalUnits,
+        occupiedUnits,
+        monthlyRevenue,
+        escrowBalance: escrowAccount?.balance || 0,
+        pendingBalance: escrowAccount?.pending_balance || 0,
+        activeTenants: activeTenants || 0,
+        propertyCount: properties?.length || 0,
+        properties: properties || [],
+        upcomingPayments: upcomingWithNames,
+        recentPayments: recentWithNames,
+      };
+    },
+    enabled: !!merchant?.id,
+  });
+
+  const stats = [
+    {
+      title: 'Occupancy Rate',
+      value: isLoading ? '-' : `${dashboardData?.occupancyRate || 0}%`,
+      change: '',
+      changeType: 'positive' as const,
+      icon: Home,
+      description: isLoading ? 'Loading...' : `${dashboardData?.occupiedUnits || 0} of ${dashboardData?.totalUnits || 0} units occupied`,
+    },
+    {
+      title: 'Monthly Revenue',
+      value: isLoading ? '-' : formatCurrency(dashboardData?.monthlyRevenue || 0),
+      change: '',
+      changeType: 'positive' as const,
+      icon: TrendingUp,
+      description: 'This month',
+    },
+    {
+      title: 'Escrow Balance',
+      value: isLoading ? '-' : formatCurrency(dashboardData?.escrowBalance || 0),
+      change: '',
+      changeType: 'neutral' as const,
+      icon: Wallet,
+      description: 'Available for disbursement',
+    },
+    {
+      title: 'Active Tenants',
+      value: isLoading ? '-' : String(dashboardData?.activeTenants || 0),
+      change: '',
+      changeType: 'positive' as const,
+      icon: Users,
+      description: `Across ${dashboardData?.propertyCount || 0} properties`,
+    },
+  ];
 
   return (
     <MerchantLayout>
@@ -81,11 +230,11 @@ export default function MerchantDashboard() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="outline">
+            <Button variant="outline" onClick={() => navigate('/merchant/reports')}>
               <FileText className="h-4 w-4 mr-2" />
               Generate Report
             </Button>
-            <Button>
+            <Button onClick={() => navigate('/merchant/properties')}>
               <Home className="h-4 w-4 mr-2" />
               Add Property
             </Button>
@@ -103,7 +252,9 @@ export default function MerchantDashboard() {
                   <p className="text-sm text-muted-foreground">Upload required documents to start receiving payments</p>
                 </div>
               </div>
-              <Button variant="outline" size="sm">Complete Now</Button>
+              <Button variant="outline" size="sm" onClick={() => navigate('/merchant/settings')}>
+                Complete Now
+              </Button>
             </CardContent>
           </Card>
         )}
@@ -116,7 +267,9 @@ export default function MerchantDashboard() {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">{stat.title}</p>
-                    <p className="text-2xl font-bold mt-1">{stat.value}</p>
+                    <p className="text-2xl font-bold mt-1">
+                      {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : stat.value}
+                    </p>
                   </div>
                   <div className="p-2 rounded-lg bg-primary/10">
                     <stat.icon className="h-5 w-5 text-primary" />
@@ -143,27 +296,30 @@ export default function MerchantDashboard() {
             <CardDescription>Current occupancy across all your properties</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">Kost Harmoni</span>
-                <span className="text-sm text-muted-foreground">10/12 units</span>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>
-              <Progress value={83} className="h-2" />
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">Apartemen Sudirman</span>
-                <span className="text-sm text-muted-foreground">14/15 units</span>
-              </div>
-              <Progress value={93} className="h-2" />
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">Rumah Kontrakan Menteng</span>
-                <span className="text-sm text-muted-foreground">2/3 units</span>
-              </div>
-              <Progress value={66} className="h-2" />
-            </div>
+            ) : dashboardData?.properties.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">No properties yet</p>
+            ) : (
+              dashboardData?.properties.map((property) => {
+                const rate = property.total_units > 0 
+                  ? Math.round((property.occupied_units || 0) / property.total_units * 100) 
+                  : 0;
+                return (
+                  <div key={property.id}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">{property.name}</span>
+                      <span className="text-sm text-muted-foreground">
+                        {property.occupied_units || 0}/{property.total_units || 0} units
+                      </span>
+                    </div>
+                    <Progress value={rate} className="h-2" />
+                  </div>
+                );
+              })
+            )}
           </CardContent>
         </Card>
 
@@ -176,66 +332,88 @@ export default function MerchantDashboard() {
 
           {/* Upcoming & Recent Payments */}
           <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Upcoming Payments */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Upcoming Payments</CardTitle>
-                <CardDescription>Expected payments this week</CardDescription>
-              </div>
-              <Button variant="outline" size="sm">View All</Button>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {upcomingPayments.map((payment) => (
-                  <div key={payment.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                    <div>
-                      <p className="font-medium text-sm">{payment.tenant}</p>
-                      <p className="text-xs text-muted-foreground">{payment.unit}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium text-sm">{payment.amount}</p>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <Calendar className="h-3 w-3 text-muted-foreground" />
-                        <p className="text-xs text-muted-foreground">{payment.dueDate}</p>
-                      </div>
-                    </div>
+            {/* Upcoming Payments */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Upcoming Payments</CardTitle>
+                  <CardDescription>Expected payments this week</CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => navigate('/merchant/payments')}>
+                  View All
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                ) : dashboardData?.upcomingPayments.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">No upcoming payments</p>
+                ) : (
+                  <div className="space-y-4">
+                    {dashboardData?.upcomingPayments.map((payment) => (
+                      <div key={payment.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                        <div>
+                          <p className="font-medium text-sm">{payment.tenantName}</p>
+                          <p className="text-xs text-muted-foreground">Unit {payment.unitNumber}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium text-sm">{formatCurrency(Number(payment.amount))}</p>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <Calendar className="h-3 w-3 text-muted-foreground" />
+                            <p className="text-xs text-muted-foreground">
+                              {format(new Date(payment.due_date), 'dd MMM yyyy')}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-          {/* Recent Payments */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Recent Payments</CardTitle>
-                <CardDescription>Latest received payments</CardDescription>
-              </div>
-              <Button variant="outline" size="sm">View All</Button>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {recentPayments.map((payment) => (
-                  <div key={payment.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                    <div>
-                      <p className="font-medium text-sm">{payment.tenant}</p>
-                      <p className="text-xs text-muted-foreground">{payment.unit}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium text-sm text-success">{payment.amount}</p>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <Badge variant="outline" className="text-xs text-success border-success/30">
-                          Paid
-                        </Badge>
-                      </div>
-                    </div>
+            {/* Recent Payments */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Recent Payments</CardTitle>
+                  <CardDescription>Latest received payments</CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => navigate('/merchant/payments')}>
+                  View All
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                ) : dashboardData?.recentPayments.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">No recent payments</p>
+                ) : (
+                  <div className="space-y-4">
+                    {dashboardData?.recentPayments.map((payment) => (
+                      <div key={payment.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                        <div>
+                          <p className="font-medium text-sm">{payment.tenantName}</p>
+                          <p className="text-xs text-muted-foreground">Unit {payment.unitNumber}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium text-sm text-success">{formatCurrency(Number(payment.amount))}</p>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <Badge variant="outline" className="text-xs text-success border-success/30">
+                              Paid
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
