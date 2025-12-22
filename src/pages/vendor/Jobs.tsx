@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import { 
   Briefcase, 
   Clock, 
@@ -20,35 +21,18 @@ import {
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
-interface VendorJob {
-  id: string;
-  vendor_id: string;
-  maintenance_request_id: string;
-  merchant_id: string;
-  quoted_price: number | null;
-  agreed_price: number | null;
-  status: string;
-  notes: string | null;
-  started_at: string | null;
-  completed_at: string | null;
-  created_at: string;
-  maintenance_requests: {
-    id: string;
-    title: string;
-    description: string | null;
-    category: string;
-    priority: string;
-    status: string;
-    created_at: string;
-    units: {
-      unit_number: string;
-      properties: {
-        name: string;
-        address: string;
-        city: string;
-      };
-    };
-  };
+// Use generated types from Supabase with relationships
+type VendorJobRow = Tables<'vendor_jobs'>;
+type MaintenanceRequestRow = Tables<'maintenance_requests'>;
+type UnitRow = Tables<'units'>;
+type PropertyRow = Tables<'properties'>;
+
+interface VendorJob extends VendorJobRow {
+  maintenance_requests: (MaintenanceRequestRow & {
+    units: (UnitRow & {
+      properties: Pick<PropertyRow, 'name' | 'address' | 'city'>;
+    }) | null;
+  }) | null;
 }
 
 export default function VendorJobs() {

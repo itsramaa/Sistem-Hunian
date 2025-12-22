@@ -356,11 +356,29 @@
    - Settings automatically saved when toggled
    - Loads from database on page load
 
-### Sprint 3 (Enhancement)
-1. [ ] **P1-3**: Sales Analytics Dashboard
-2. [ ] **P1-4**: Order Auto-Reject CRON
-3. [ ] **P2-1**: Stock Management
-4. [ ] **Bug-1**: Fix vendor_jobs types
+### Sprint 3 (Enhancement) ✅ COMPLETED
+1. ✅ **P1-3**: Sales Analytics Dashboard - DONE
+   - SalesAnalytics component on vendor dashboard
+   - Total revenue, this month, completion rate, avg rating
+   - Daily revenue chart (last 7 days)
+   - Top products by revenue chart
+   
+2. ✅ **P1-4**: Order Auto-Reject CRON - DONE
+   - Created order-auto-reject edge function
+   - Auto-cancels pending orders after 1 hour
+   - Notifies tenant of cancellation
+   - Marks paid orders for refund
+   - Scheduled via pg_cron every 10 minutes
+   
+3. ✅ **P2-1**: Stock Management - DONE
+   - Added stock field to product form
+   - Low stock warning (≤5 items)
+   - Out of stock alert
+   - Stock display on product cards
+   
+4. ✅ **Bug-1**: Fix vendor_jobs types - DONE
+   - Now uses generated types from Supabase
+   - Properly typed with Tables<'vendor_jobs'>
 
 ### Sprint 4 (Polish)
 1. [ ] **P2-2**: Promotional Pricing
