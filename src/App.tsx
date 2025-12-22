@@ -25,6 +25,7 @@ import MerchantDashboard from "./pages/merchant/Dashboard";
 import MerchantProperties from "./pages/merchant/Properties";
 import MerchantTenants from "./pages/merchant/Tenants";
 import MerchantMaintenance from "./pages/merchant/Maintenance";
+import MerchantMaintenanceDetail from "./pages/merchant/MaintenanceDetail";
 import MerchantPayments from "./pages/merchant/Payments";
 import MerchantReports from "./pages/merchant/Reports";
 import MerchantInvoices from "./pages/merchant/Invoices";
@@ -91,6 +92,7 @@ const App = () => (
             <Route path="/merchant/properties" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantProperties /></ProtectedRoute>} />
             <Route path="/merchant/tenants" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantTenants /></ProtectedRoute>} />
             <Route path="/merchant/maintenance" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantMaintenance /></ProtectedRoute>} />
+            <Route path="/merchant/maintenance/:id" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantMaintenanceDetail /></ProtectedRoute>} />
             <Route path="/merchant/payments" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantPayments /></ProtectedRoute>} />
             <Route path="/merchant/reports" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantReports /></ProtectedRoute>} />
             <Route path="/merchant/invoices" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantInvoices /></ProtectedRoute>} />

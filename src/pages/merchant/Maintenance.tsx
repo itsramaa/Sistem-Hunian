@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -233,7 +234,12 @@ export default function MerchantMaintenance() {
                       <TableCell><Badge variant={getStatusColor(request.status) as "default" | "secondary" | "destructive" | "outline"} className="gap-1">{getStatusIcon(request.status)}{request.status.replace('_', ' ')}</Badge></TableCell>
                       <TableCell>{request.assigned_to || '-'}</TableCell>
                       <TableCell>{format(new Date(request.created_at), 'MMM d, yyyy')}</TableCell>
-                      <TableCell><Button variant="outline" size="sm" onClick={() => { setSelectedRequest(request); setUpdateStatus(request.status); setSelectedVendorId(''); setAgreedPrice(''); }}>Update</Button></TableCell>
+                      <TableCell className="flex gap-2">
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link to={`/merchant/maintenance/${request.id}`}>View</Link>
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => { setSelectedRequest(request); setUpdateStatus(request.status); setSelectedVendorId(''); setAgreedPrice(''); }}>Update</Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
