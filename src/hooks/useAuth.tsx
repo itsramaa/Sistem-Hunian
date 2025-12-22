@@ -5,7 +5,7 @@ import { AuthState, AppRole, UserProfile, MerchantProfile } from '@/types/auth';
 
 interface AuthContextType extends AuthState {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, metadata?: { full_name?: string; role?: AppRole; business_name?: string }) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, metadata?: { full_name?: string; role?: AppRole; business_name?: string }) => Promise<{ data: { user: User | null } | null; error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -113,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ) => {
     const redirectUrl = `${window.location.origin}/`;
     
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -125,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       },
     });
-    return { error: error as Error | null };
+    return { data, error: error as Error | null };
   };
 
   const signOut = async () => {

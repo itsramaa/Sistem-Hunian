@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { exportToCSV, exportToPDF } from '@/lib/exportUtils';
 
 interface Merchant {
   id: string;
@@ -236,6 +237,32 @@ export default function AdminMerchants() {
     return <Icon className="h-4 w-4" />;
   };
 
+  const handleExportMerchants = () => {
+    const data = filteredMerchants.map(m => ({
+      'Business Name': m.business_name,
+      'Business Type': m.business_type,
+      'Email': m.profiles?.email || '',
+      'Phone': m.profiles?.phone || '',
+      'City': m.city || '',
+      'Province': m.province || '',
+      'Status': m.verification_status,
+      'Tier': m.subscription_tier,
+      'Joined': new Date(m.created_at).toLocaleDateString(),
+    }));
+    exportToCSV(data, 'merchants-export');
+  };
+
+  const handleExportPDF = () => {
+    const data = filteredMerchants.map(m => ({
+      'Business Name': m.business_name,
+      'Email': m.profiles?.email || '',
+      'City': m.city || '',
+      'Status': m.verification_status,
+      'Tier': m.subscription_tier,
+    }));
+    exportToPDF(data, 'Merchants Report', 'merchants-report');
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -245,10 +272,16 @@ export default function AdminMerchants() {
             <h1 className="text-2xl font-display font-bold">Merchant Management</h1>
             <p className="text-muted-foreground">Review and manage merchant accounts</p>
           </div>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleExportMerchants}>
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+            <Button variant="outline" onClick={handleExportPDF}>
+              <FileText className="h-4 w-4 mr-2" />
+              Export PDF
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}

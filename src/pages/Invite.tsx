@@ -32,6 +32,7 @@ const Invite = () => {
             id,
             unit_number,
             rent_amount,
+            deposit_amount,
             property:properties (
               name,
               address,
@@ -57,9 +58,11 @@ const Invite = () => {
     mutationFn: async () => {
       if (!invitation) throw new Error('Invitation not found');
 
+      let currentUserId = user?.id;
+
       // If new user, create account
       if (isNewUser && !user) {
-        const { error: signUpError } = await signUp(
+        const { data: authData, error: signUpError } = await signUp(
           formData.email,
           formData.password,
           {
@@ -68,6 +71,11 @@ const Invite = () => {
           }
         );
         if (signUpError) throw signUpError;
+        currentUserId = authData?.user?.id;
+      }
+
+      if (!currentUserId) {
+        throw new Error('User not authenticated');
       }
 
       // Update invitation status
@@ -83,6 +91,25 @@ const Invite = () => {
         .update({ status: 'occupied' })
         .eq('id', invitation.unit_id);
       if (unitError) throw unitError;
+
+      // Create contract for the tenant
+      const startDate = new Date();
+      const endDate = new Date();
+      endDate.setFullYear(endDate.getFullYear() + 1); // 1 year lease by default
+
+      const { error: contractError } = await supabase
+        .from('contracts')
+        .insert({
+          merchant_id: invitation.merchant_id,
+          unit_id: invitation.unit_id,
+          tenant_user_id: currentUserId,
+          start_date: startDate.toISOString().split('T')[0],
+          end_date: endDate.toISOString().split('T')[0],
+          rent_amount: invitation.unit?.rent_amount || 0,
+          deposit_amount: invitation.unit?.deposit_amount || 0,
+          status: 'active',
+        });
+      if (contractError) throw contractError;
 
       return true;
     },
