@@ -17,6 +17,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { useAnalytics } from '@/hooks/useAnalytics';
+import { VendorEscrowWidget } from '@/components/vendor/VendorEscrowWidget';
 
 interface VendorJob {
   id: string;
@@ -269,33 +270,8 @@ export default function VendorDashboard() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Earnings Overview</CardTitle>
-                <CardDescription>Your income this month</CardDescription>
-              </div>
-              <Button variant="ghost" size="sm" onClick={() => navigate('/vendor/earnings')}>
-                View All <ArrowRight className="h-4 w-4 ml-1" />
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="text-center py-4">
-                  <p className="text-3xl font-bold text-foreground">
-                    {formatCurrency(earningsStats?.thisMonth || 0)}
-                  </p>
-                  <p className="text-sm text-muted-foreground">This month's earnings</p>
-                </div>
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Total Earnings</span>
-                    <span className="font-medium">{formatCurrency(earningsStats?.total || 0)}</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Escrow Balance Widget */}
+          {vendor && <VendorEscrowWidget vendorId={vendor.id} />}
         </div>
 
         {/* Service Categories */}

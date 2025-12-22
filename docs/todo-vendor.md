@@ -332,11 +332,29 @@
    - Added Orders menu item
    - Added Referrals menu item
 
-### Sprint 2 (Important)
-1. [ ] **P1-1**: Product Photos Upload
-2. [ ] **P1-2**: Vendor Escrow Balance Widget
-3. [ ] **P0-3**: Disbursement Settings UI
-4. [ ] **Bug-2**: Persist notification settings
+### Sprint 2 (Important) ✅ COMPLETED
+1. ✅ **P1-1**: Product Photos Upload - DONE
+   - Added ProductPhotoUpload component
+   - Integrated with product form
+   - Photos stored in product-photos bucket
+   - Gallery display on product cards
+   
+2. ✅ **P1-2**: Vendor Escrow Balance Widget - DONE
+   - VendorEscrowWidget component on dashboard
+   - Shows available balance, pending payout, this month's earnings
+   - Links to full earnings page
+   
+3. ✅ **P0-3**: Disbursement Settings UI - DONE
+   - Added disbursement_schedule, min_payout_threshold columns to vendors
+   - DisbursementSettings component in Settings page
+   - Configure payout frequency (daily/weekly/biweekly/monthly)
+   - Set minimum payout threshold
+   - View disbursement history
+   
+4. ✅ **Bug-2**: Persist notification settings - DONE
+   - Added notification_settings JSONB column to vendors
+   - Settings automatically saved when toggled
+   - Loads from database on page load
 
 ### Sprint 3 (Enhancement)
 1. [ ] **P1-3**: Sales Analytics Dashboard
