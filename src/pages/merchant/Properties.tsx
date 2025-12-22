@@ -31,6 +31,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { ImageGalleryUpload } from '@/components/FileUpload';
+import { SubscriptionLimitWarning } from '@/components/merchant/SubscriptionLimitWarning';
+import { useSubscriptionLimits } from '@/hooks/useSubscriptionLimits';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -109,6 +111,7 @@ export default function MerchantProperties() {
   const [propertyImages, setPropertyImages] = useState<string[]>([]);
   const { toast } = useToast();
   const { merchant } = useAuth();
+  const { data: limits } = useSubscriptionLimits();
 
   const form = useForm<PropertyFormData>({
     resolver: zodResolver(propertySchema),
@@ -311,6 +314,9 @@ export default function MerchantProperties() {
   return (
     <MerchantLayout>
       <div className="space-y-6">
+        {/* Subscription limit warning */}
+        <SubscriptionLimitWarning type="property" />
+        
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
@@ -319,7 +325,10 @@ export default function MerchantProperties() {
           </div>
           <Dialog open={showAddDialog} onOpenChange={handleDialogClose}>
             <DialogTrigger asChild>
-              <Button onClick={() => setShowAddDialog(true)}>
+              <Button 
+                onClick={() => setShowAddDialog(true)}
+                disabled={limits && !limits.canAddProperty && !editingProperty}
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Property
               </Button>
