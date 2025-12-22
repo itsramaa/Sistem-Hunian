@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { MerchantLayout } from '@/components/layouts/MerchantLayout';
 import { SubscriptionWidget } from '@/components/merchant/SubscriptionWidget';
+import { TrialCountdownWidget } from '@/components/merchant/TrialCountdownWidget';
 import { useAuth } from '@/hooks/useAuth';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { supabase } from '@/integrations/supabase/client';
@@ -240,6 +241,9 @@ export default function MerchantDashboard() {
             </Button>
           </div>
         </div>
+
+        {/* Trial Countdown Widget */}
+        <TrialCountdownWidget />
 
         {/* Verification Banner */}
         {merchant?.verification_status === 'pending' && (

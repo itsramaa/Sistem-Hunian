@@ -1,15 +1,11 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Clock, CheckCircle, AlertCircle, Wrench, Loader2 } from 'lucide-react';
+import { MessageSquare, Clock, CheckCircle, Wrench, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { useState } from 'react';
-import { toast } from 'sonner';
+import { MaintenanceReplyForm } from './MaintenanceReplyForm';
 
 interface UpdateTimelineProps {
   maintenanceRequestId: string;
@@ -28,9 +24,7 @@ interface MaintenanceUpdate {
 }
 
 export function UpdateTimeline({ maintenanceRequestId, canAddUpdate = true, authorRole }: UpdateTimelineProps) {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [newUpdate, setNewUpdate] = useState('');
 
   const { data: updates = [], isLoading } = useQuery({
     queryKey: ['maintenance-updates', maintenanceRequestId],
@@ -43,29 +37,6 @@ export function UpdateTimeline({ maintenanceRequestId, canAddUpdate = true, auth
 
       if (error) throw error;
       return data as MaintenanceUpdate[];
-    },
-  });
-
-  const addUpdateMutation = useMutation({
-    mutationFn: async (content: string) => {
-      const { error } = await supabase
-        .from('maintenance_updates')
-        .insert({
-          maintenance_request_id: maintenanceRequestId,
-          author_id: user!.id,
-          author_role: authorRole,
-          content,
-        });
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['maintenance-updates', maintenanceRequestId] });
-      setNewUpdate('');
-      toast.success('Update added');
-    },
-    onError: (error: Error) => {
-      toast.error(`Failed to add update: ${error.message}`);
     },
   });
 
@@ -171,28 +142,16 @@ export function UpdateTimeline({ maintenanceRequestId, canAddUpdate = true, auth
           )}
         </div>
 
-        {/* Add Update Form */}
+        {/* Add Update Form - Now uses MaintenanceReplyForm */}
         {canAddUpdate && (
-          <div className="border-t pt-4 space-y-3">
-            <Textarea
-              placeholder="Add an update..."
-              value={newUpdate}
-              onChange={(e) => setNewUpdate(e.target.value)}
-              rows={3}
+          <div className="border-t pt-4">
+            <MaintenanceReplyForm
+              maintenanceRequestId={maintenanceRequestId}
+              authorRole={authorRole}
+              onSuccess={() => {
+                queryClient.invalidateQueries({ queryKey: ['maintenance-updates', maintenanceRequestId] });
+              }}
             />
-            <Button
-              onClick={() => addUpdateMutation.mutate(newUpdate)}
-              disabled={!newUpdate.trim() || addUpdateMutation.isPending}
-            >
-              {addUpdateMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Adding...
-                </>
-              ) : (
-                'Add Update'
-              )}
-            </Button>
           </div>
         )}
       </CardContent>

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Upload, X, Loader2, FileText, Image as ImageIcon } from "lucide-react";
 
 interface FileUploadProps {
-  bucket: "verification-documents" | "property-images";
+  bucket: "verification-documents" | "property-images" | "maintenance-photos";
   folder?: string;
   onUploadComplete: (url: string, path: string) => void;
   accept?: string;
