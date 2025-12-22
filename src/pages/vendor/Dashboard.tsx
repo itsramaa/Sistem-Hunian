@@ -9,27 +9,129 @@ import {
   Briefcase, 
   Wallet, 
   Star, 
-  TrendingUp,
   Clock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  ArrowRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
+
+interface VendorJob {
+  id: string;
+  status: string;
+  agreed_price: number | null;
+  created_at: string;
+  maintenance_requests: {
+    title: string;
+    priority: string;
+    units: {
+      unit_number: string;
+      properties: {
+        name: string;
+      };
+    };
+  };
+}
 
 export default function VendorDashboard() {
   const { vendor, profile } = useAuth();
   const navigate = useNavigate();
 
-  // For now, we'll show placeholder stats since we need a vendor_jobs table
-  // In a real implementation, you'd fetch actual job data
+  // Fetch vendor jobs stats
+  const { data: jobs = [] } = useQuery({
+    queryKey: ['vendor-dashboard-jobs', vendor?.id],
+    queryFn: async () => {
+      if (!vendor) return [];
+      
+      const { data, error } = await supabase
+        .from('vendor_jobs')
+        .select(`
+          id,
+          status,
+          agreed_price,
+          created_at,
+          maintenance_requests (
+            title,
+            priority,
+            units (
+              unit_number,
+              properties (
+                name
+              )
+            )
+          )
+        `)
+        .eq('vendor_id', vendor.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+      
+      if (error) throw error;
+      return data as VendorJob[];
+    },
+    enabled: !!vendor,
+  });
+
+  // Fetch earnings stats
+  const { data: earningsStats } = useQuery({
+    queryKey: ['vendor-dashboard-earnings', vendor?.id],
+    queryFn: async () => {
+      if (!vendor) return { total: 0, thisMonth: 0 };
+      
+      const { data, error } = await supabase
+        .from('vendor_earnings')
+        .select('net_amount, created_at')
+        .eq('vendor_id', vendor.id);
+      
+      if (error) throw error;
+      
+      const total = data.reduce((sum, e) => sum + e.net_amount, 0);
+      const thisMonthStart = new Date();
+      thisMonthStart.setDate(1);
+      thisMonthStart.setHours(0, 0, 0, 0);
+      
+      const thisMonth = data
+        .filter(e => new Date(e.created_at) >= thisMonthStart)
+        .reduce((sum, e) => sum + e.net_amount, 0);
+      
+      return { total, thisMonth };
+    },
+    enabled: !!vendor,
+  });
+
+  const pendingJobs = jobs.filter(j => j.status === 'pending').length;
+  const activeJobs = jobs.filter(j => ['accepted', 'in_progress'].includes(j.status)).length;
+  const completedJobs = jobs.filter(j => j.status === 'completed').length;
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+    }).format(amount);
+  };
 
   const stats = [
     {
-      title: 'Total Jobs',
-      value: vendor?.total_jobs || 0,
+      title: 'Pending Jobs',
+      value: pendingJobs,
+      icon: Clock,
+      color: 'text-warning',
+      bgColor: 'bg-warning/10',
+    },
+    {
+      title: 'Active Jobs',
+      value: activeJobs,
       icon: Briefcase,
       color: 'text-primary',
       bgColor: 'bg-primary/10',
+    },
+    {
+      title: 'Completed',
+      value: completedJobs,
+      icon: CheckCircle2,
+      color: 'text-success',
+      bgColor: 'bg-success/10',
     },
     {
       title: 'Rating',
@@ -38,21 +140,27 @@ export default function VendorDashboard() {
       color: 'text-warning',
       bgColor: 'bg-warning/10',
     },
-    {
-      title: 'Pending Jobs',
-      value: 0,
-      icon: Clock,
-      color: 'text-muted-foreground',
-      bgColor: 'bg-muted',
-    },
-    {
-      title: 'Completed Jobs',
-      value: vendor?.total_jobs || 0,
-      icon: CheckCircle2,
-      color: 'text-success',
-      bgColor: 'bg-success/10',
-    },
   ];
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return 'destructive';
+      case 'high': return 'destructive';
+      case 'medium': return 'default';
+      case 'low': return 'secondary';
+      default: return 'outline';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'secondary';
+      case 'accepted': return 'default';
+      case 'in_progress': return 'default';
+      case 'completed': return 'outline';
+      default: return 'secondary';
+    }
+  };
 
   return (
     <VendorLayout>
@@ -118,29 +226,71 @@ export default function VendorDashboard() {
         {/* Quick Actions */}
         <div className="grid gap-4 md:grid-cols-2">
           <Card>
-            <CardHeader>
-              <CardTitle>Recent Jobs</CardTitle>
-              <CardDescription>Your latest job assignments</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Recent Jobs</CardTitle>
+                <CardDescription>Your latest job assignments</CardDescription>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/vendor/jobs')}>
+                View All <ArrowRight className="h-4 w-4 ml-1" />
+              </Button>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <Briefcase className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No jobs yet</p>
-                <p className="text-sm">Jobs assigned to you will appear here</p>
-              </div>
+              {jobs.length > 0 ? (
+                <div className="space-y-3">
+                  {jobs.slice(0, 3).map(job => (
+                    <div key={job.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                      <div className="space-y-1">
+                        <p className="font-medium text-sm">{job.maintenance_requests?.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {job.maintenance_requests?.units?.properties?.name} - Unit {job.maintenance_requests?.units?.unit_number}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={getPriorityColor(job.maintenance_requests?.priority)} className="capitalize text-xs">
+                          {job.maintenance_requests?.priority}
+                        </Badge>
+                        <Badge variant={getStatusColor(job.status)} className="capitalize text-xs">
+                          {job.status.replace('_', ' ')}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Briefcase className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No jobs yet</p>
+                  <p className="text-sm">Jobs assigned to you will appear here</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle>Earnings Overview</CardTitle>
-              <CardDescription>Your income this month</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Earnings Overview</CardTitle>
+                <CardDescription>Your income this month</CardDescription>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/vendor/earnings')}>
+                View All <ArrowRight className="h-4 w-4 ml-1" />
+              </Button>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <Wallet className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p className="text-2xl font-bold text-foreground">Rp 0</p>
-                <p className="text-sm">Total earnings this month</p>
+              <div className="space-y-4">
+                <div className="text-center py-4">
+                  <p className="text-3xl font-bold text-foreground">
+                    {formatCurrency(earningsStats?.thisMonth || 0)}
+                  </p>
+                  <p className="text-sm text-muted-foreground">This month's earnings</p>
+                </div>
+                <div className="p-4 rounded-lg bg-muted/50">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Total Earnings</span>
+                    <span className="font-medium">{formatCurrency(earningsStats?.total || 0)}</span>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>

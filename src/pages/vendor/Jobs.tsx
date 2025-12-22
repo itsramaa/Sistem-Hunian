@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   Briefcase, 
@@ -12,71 +12,141 @@ import {
   CheckCircle2, 
   MapPin,
   Calendar,
-  User,
   Building2,
-  Phone,
-  AlertCircle
+  AlertCircle,
+  Play,
+  Check
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 
-interface MaintenanceJob {
+interface VendorJob {
   id: string;
-  title: string;
-  description: string | null;
-  category: string;
-  priority: string;
+  vendor_id: string;
+  maintenance_request_id: string;
+  merchant_id: string;
+  quoted_price: number | null;
+  agreed_price: number | null;
   status: string;
+  notes: string | null;
+  started_at: string | null;
+  completed_at: string | null;
   created_at: string;
-  unit_id: string;
-  assigned_to: string | null;
-  units?: {
-    unit_number: string;
-    properties?: {
-      name: string;
-      address: string;
-      city: string;
+  maintenance_requests: {
+    id: string;
+    title: string;
+    description: string | null;
+    category: string;
+    priority: string;
+    status: string;
+    created_at: string;
+    units: {
+      unit_number: string;
+      properties: {
+        name: string;
+        address: string;
+        city: string;
+      };
     };
   };
 }
 
 export default function VendorJobs() {
-  const { vendor, user } = useAuth();
+  const { vendor } = useAuth();
+  const queryClient = useQueryClient();
 
-  // Fetch maintenance requests assigned to this vendor
+  // Fetch vendor jobs from vendor_jobs table
   const { data: jobs = [], isLoading } = useQuery({
     queryKey: ['vendor-jobs', vendor?.id],
     queryFn: async () => {
       if (!vendor) return [];
       
-      // For now, we'll fetch maintenance requests where assigned_to matches vendor business name
-      // In production, you'd have a proper vendor_jobs junction table
       const { data, error } = await supabase
-        .from('maintenance_requests')
+        .from('vendor_jobs')
         .select(`
           *,
-          units (
-            unit_number,
-            properties (
-              name,
-              address,
-              city
+          maintenance_requests (
+            id,
+            title,
+            description,
+            category,
+            priority,
+            status,
+            created_at,
+            units (
+              unit_number,
+              properties (
+                name,
+                address,
+                city
+              )
             )
           )
         `)
-        .eq('assigned_to', vendor.business_name)
+        .eq('vendor_id', vendor.id)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as MaintenanceJob[];
+      return data as VendorJob[];
     },
     enabled: !!vendor,
   });
 
-  const pendingJobs = jobs.filter(j => j.status === 'pending' || j.status === 'in_progress');
+  const updateJobMutation = useMutation({
+    mutationFn: async ({ jobId, status }: { jobId: string; status: string }) => {
+      const updateData: Record<string, unknown> = { status };
+      
+      if (status === 'in_progress') {
+        updateData.started_at = new Date().toISOString();
+      } else if (status === 'completed') {
+        updateData.completed_at = new Date().toISOString();
+      }
+
+      const { error } = await supabase
+        .from('vendor_jobs')
+        .update(updateData)
+        .eq('id', jobId);
+
+      if (error) throw error;
+
+      // If job is completed, create an earning record
+      if (status === 'completed') {
+        const job = jobs.find(j => j.id === jobId);
+        if (job && job.agreed_price) {
+          const feeAmount = job.agreed_price * 0.05; // 5% platform fee
+          const netAmount = job.agreed_price - feeAmount;
+
+          const { error: earningError } = await supabase
+            .from('vendor_earnings')
+            .insert({
+              vendor_id: vendor!.id,
+              vendor_job_id: jobId,
+              amount: job.agreed_price,
+              fee_amount: feeAmount,
+              net_amount: netAmount,
+              status: 'pending',
+            });
+
+          if (earningError) throw earningError;
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vendor-jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['vendor-earnings'] });
+      toast.success('Job status updated successfully');
+    },
+    onError: (error) => {
+      toast.error('Failed to update job: ' + error.message);
+    },
+  });
+
+  const activeJobs = jobs.filter(j => ['pending', 'accepted', 'in_progress'].includes(j.status));
   const completedJobs = jobs.filter(j => j.status === 'completed');
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
+      case 'urgent': return 'destructive';
       case 'high': return 'destructive';
       case 'medium': return 'default';
       case 'low': return 'secondary';
@@ -87,26 +157,49 @@ export default function VendorJobs() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'secondary';
+      case 'accepted': return 'default';
       case 'in_progress': return 'default';
       case 'completed': return 'outline';
+      case 'rejected': return 'destructive';
       default: return 'secondary';
     }
   };
 
-  const JobCard = ({ job }: { job: MaintenanceJob }) => (
+  const formatCurrency = (amount: number | null) => {
+    if (!amount) return '-';
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  const handleAcceptJob = (jobId: string) => {
+    updateJobMutation.mutate({ jobId, status: 'accepted' });
+  };
+
+  const handleStartJob = (jobId: string) => {
+    updateJobMutation.mutate({ jobId, status: 'in_progress' });
+  };
+
+  const handleCompleteJob = (jobId: string) => {
+    updateJobMutation.mutate({ jobId, status: 'completed' });
+  };
+
+  const JobCard = ({ job }: { job: VendorJob }) => (
     <Card className="hover:shadow-md transition-shadow">
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
-            <CardTitle className="text-lg">{job.title}</CardTitle>
+            <CardTitle className="text-lg">{job.maintenance_requests?.title}</CardTitle>
             <CardDescription className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
-              {job.units?.properties?.name} - Unit {job.units?.unit_number}
+              {job.maintenance_requests?.units?.properties?.name} - Unit {job.maintenance_requests?.units?.unit_number}
             </CardDescription>
           </div>
           <div className="flex gap-2">
-            <Badge variant={getPriorityColor(job.priority)} className="capitalize">
-              {job.priority}
+            <Badge variant={getPriorityColor(job.maintenance_requests?.priority)} className="capitalize">
+              {job.maintenance_requests?.priority}
             </Badge>
             <Badge variant={getStatusColor(job.status)} className="capitalize">
               {job.status.replace('_', ' ')}
@@ -115,14 +208,14 @@ export default function VendorJobs() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {job.description && (
-          <p className="text-sm text-muted-foreground">{job.description}</p>
+        {job.maintenance_requests?.description && (
+          <p className="text-sm text-muted-foreground">{job.maintenance_requests.description}</p>
         )}
         
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
             <MapPin className="h-4 w-4" />
-            <span>{job.units?.properties?.address}, {job.units?.properties?.city}</span>
+            <span>{job.maintenance_requests?.units?.properties?.address}, {job.maintenance_requests?.units?.properties?.city}</span>
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
             <Calendar className="h-4 w-4" />
@@ -132,22 +225,58 @@ export default function VendorJobs() {
 
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="capitalize">
-            {job.category}
+            {job.maintenance_requests?.category}
           </Badge>
+          {job.agreed_price && (
+            <Badge variant="secondary">
+              {formatCurrency(job.agreed_price)}
+            </Badge>
+          )}
         </div>
 
-        {job.status !== 'completed' && (
+        {job.status !== 'completed' && job.status !== 'rejected' && (
           <div className="flex gap-2 pt-2">
-            <Button variant="outline" size="sm" className="flex-1">
-              View Details
-            </Button>
             {job.status === 'pending' && (
-              <Button size="sm" className="flex-1">
+              <>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => updateJobMutation.mutate({ jobId: job.id, status: 'rejected' })}
+                  disabled={updateJobMutation.isPending}
+                >
+                  Decline
+                </Button>
+                <Button 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => handleAcceptJob(job.id)}
+                  disabled={updateJobMutation.isPending}
+                >
+                  <Check className="h-4 w-4 mr-1" />
+                  Accept
+                </Button>
+              </>
+            )}
+            {job.status === 'accepted' && (
+              <Button 
+                size="sm" 
+                className="flex-1"
+                onClick={() => handleStartJob(job.id)}
+                disabled={updateJobMutation.isPending}
+              >
+                <Play className="h-4 w-4 mr-1" />
                 Start Job
               </Button>
             )}
             {job.status === 'in_progress' && (
-              <Button size="sm" className="flex-1">
+              <Button 
+                size="sm" 
+                className="flex-1"
+                onClick={() => handleCompleteJob(job.id)}
+                disabled={updateJobMutation.isPending}
+              >
+                <CheckCircle2 className="h-4 w-4 mr-1" />
                 Mark Complete
               </Button>
             )}
@@ -194,7 +323,7 @@ export default function VendorJobs() {
           <TabsList>
             <TabsTrigger value="active" className="flex items-center gap-2">
               <Clock className="h-4 w-4" />
-              Active ({pendingJobs.length})
+              Active ({activeJobs.length})
             </TabsTrigger>
             <TabsTrigger value="completed" className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4" />
@@ -209,9 +338,9 @@ export default function VendorJobs() {
                   <Card key={i} className="h-48 animate-pulse bg-muted" />
                 ))}
               </div>
-            ) : pendingJobs.length > 0 ? (
+            ) : activeJobs.length > 0 ? (
               <div className="grid gap-4 md:grid-cols-2">
-                {pendingJobs.map(job => (
+                {activeJobs.map(job => (
                   <JobCard key={job.id} job={job} />
                 ))}
               </div>

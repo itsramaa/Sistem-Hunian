@@ -12,38 +12,84 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useAuth } from '@/hooks/useAuth';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   Wallet, 
   TrendingUp, 
   ArrowUpRight,
   ArrowDownRight,
   Download,
-  Calendar,
-  DollarSign,
   Clock
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, startOfMonth, startOfWeek, isAfter } from 'date-fns';
 import { useState } from 'react';
 
-// Mock earnings data - in production this would come from a proper earnings table
-const mockEarnings = {
-  totalEarnings: 0,
-  pendingPayouts: 0,
-  thisMonth: 0,
-  lastMonth: 0,
-  transactions: [] as Array<{
+interface VendorEarning {
+  id: string;
+  vendor_id: string;
+  vendor_job_id: string;
+  amount: number;
+  fee_amount: number;
+  net_amount: number;
+  status: string;
+  paid_at: string | null;
+  created_at: string;
+  vendor_jobs: {
     id: string;
-    date: string;
-    description: string;
-    amount: number;
-    status: 'completed' | 'pending' | 'processing';
-    jobId: string;
-  }>,
-};
+    maintenance_requests: {
+      title: string;
+    };
+  };
+}
 
 export default function VendorEarnings() {
   const { vendor } = useAuth();
   const [selectedPeriod, setSelectedPeriod] = useState('all');
+
+  // Fetch vendor earnings from database
+  const { data: earnings = [], isLoading } = useQuery({
+    queryKey: ['vendor-earnings', vendor?.id],
+    queryFn: async () => {
+      if (!vendor) return [];
+
+      const { data, error } = await supabase
+        .from('vendor_earnings')
+        .select(`
+          *,
+          vendor_jobs (
+            id,
+            maintenance_requests (
+              title
+            )
+          )
+        `)
+        .eq('vendor_id', vendor.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as VendorEarning[];
+    },
+    enabled: !!vendor,
+  });
+
+  // Fetch completed jobs count
+  const { data: completedJobsCount = 0 } = useQuery({
+    queryKey: ['vendor-completed-jobs', vendor?.id],
+    queryFn: async () => {
+      if (!vendor) return 0;
+
+      const { count, error } = await supabase
+        .from('vendor_jobs')
+        .select('*', { count: 'exact', head: true })
+        .eq('vendor_id', vendor.id)
+        .eq('status', 'completed');
+
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!vendor,
+  });
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -53,35 +99,57 @@ export default function VendorEarnings() {
     }).format(amount);
   };
 
+  // Calculate stats
+  const totalEarnings = earnings.reduce((sum, e) => sum + e.net_amount, 0);
+  const pendingPayouts = earnings
+    .filter(e => e.status === 'pending')
+    .reduce((sum, e) => sum + e.net_amount, 0);
+  
+  const thisMonthStart = startOfMonth(new Date());
+  const thisMonthEarnings = earnings
+    .filter(e => isAfter(new Date(e.created_at), thisMonthStart))
+    .reduce((sum, e) => sum + e.net_amount, 0);
+
+  // Filter earnings by period
+  const filteredEarnings = earnings.filter(earning => {
+    if (selectedPeriod === 'all') return true;
+    
+    const earningDate = new Date(earning.created_at);
+    if (selectedPeriod === 'month') {
+      return isAfter(earningDate, thisMonthStart);
+    }
+    if (selectedPeriod === 'week') {
+      return isAfter(earningDate, startOfWeek(new Date()));
+    }
+    return true;
+  });
+
   const stats = [
     {
       title: 'Total Earnings',
-      value: formatCurrency(mockEarnings.totalEarnings),
+      value: formatCurrency(totalEarnings),
       icon: Wallet,
       color: 'text-primary',
       bgColor: 'bg-primary/10',
     },
     {
       title: 'Pending Payouts',
-      value: formatCurrency(mockEarnings.pendingPayouts),
+      value: formatCurrency(pendingPayouts),
       icon: Clock,
       color: 'text-warning',
       bgColor: 'bg-warning/10',
     },
     {
       title: 'This Month',
-      value: formatCurrency(mockEarnings.thisMonth),
+      value: formatCurrency(thisMonthEarnings),
       icon: TrendingUp,
       color: 'text-success',
       bgColor: 'bg-success/10',
-      trend: mockEarnings.lastMonth > 0 
-        ? ((mockEarnings.thisMonth - mockEarnings.lastMonth) / mockEarnings.lastMonth * 100).toFixed(1)
-        : '0',
     },
     {
       title: 'Jobs Completed',
-      value: vendor?.total_jobs || 0,
-      icon: DollarSign,
+      value: completedJobsCount,
+      icon: Wallet,
       color: 'text-muted-foreground',
       bgColor: 'bg-muted',
     },
@@ -89,12 +157,14 @@ export default function VendorEarnings() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'completed':
-        return <Badge variant="outline" className="text-success border-success">Completed</Badge>;
+      case 'paid':
+        return <Badge variant="outline" className="text-success border-success">Paid</Badge>;
       case 'pending':
         return <Badge variant="secondary">Pending</Badge>;
       case 'processing':
         return <Badge variant="default">Processing</Badge>;
+      case 'failed':
+        return <Badge variant="destructive">Failed</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -128,22 +198,6 @@ export default function VendorEarnings() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stat.value}</div>
-                {stat.trend && (
-                  <div className="flex items-center text-sm mt-1">
-                    {parseFloat(stat.trend) >= 0 ? (
-                      <>
-                        <ArrowUpRight className="h-4 w-4 text-success mr-1" />
-                        <span className="text-success">{stat.trend}%</span>
-                      </>
-                    ) : (
-                      <>
-                        <ArrowDownRight className="h-4 w-4 text-destructive mr-1" />
-                        <span className="text-destructive">{Math.abs(parseFloat(stat.trend))}%</span>
-                      </>
-                    )}
-                    <span className="text-muted-foreground ml-1">vs last month</span>
-                  </div>
-                )}
               </CardContent>
             </Card>
           ))}
@@ -167,26 +221,38 @@ export default function VendorEarnings() {
             </div>
           </CardHeader>
           <CardContent>
-            {mockEarnings.transactions.length > 0 ? (
+            {isLoading ? (
+              <div className="text-center py-12 text-muted-foreground">
+                Loading...
+              </div>
+            ) : filteredEarnings.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Description</TableHead>
+                    <TableHead>Gross</TableHead>
+                    <TableHead>Fee (5%)</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="text-right">Net Amount</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {mockEarnings.transactions.map((transaction) => (
-                    <TableRow key={transaction.id}>
+                  {filteredEarnings.map((earning) => (
+                    <TableRow key={earning.id}>
                       <TableCell className="font-medium">
-                        {format(new Date(transaction.date), 'dd MMM yyyy')}
+                        {format(new Date(earning.created_at), 'dd MMM yyyy')}
                       </TableCell>
-                      <TableCell>{transaction.description}</TableCell>
-                      <TableCell>{getStatusBadge(transaction.status)}</TableCell>
+                      <TableCell>
+                        {earning.vendor_jobs?.maintenance_requests?.title || 'Job Completion'}
+                      </TableCell>
+                      <TableCell>{formatCurrency(earning.amount)}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        -{formatCurrency(earning.fee_amount)}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(earning.status)}</TableCell>
                       <TableCell className="text-right font-medium">
-                        {formatCurrency(transaction.amount)}
+                        {formatCurrency(earning.net_amount)}
                       </TableCell>
                     </TableRow>
                   ))}
