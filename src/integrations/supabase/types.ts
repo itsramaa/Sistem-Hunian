@@ -2082,7 +2082,10 @@ export type Database = {
           contact_phone: string | null
           created_at: string
           description: string | null
+          disbursement_schedule: string | null
           id: string
+          min_payout_threshold: number | null
+          notification_settings: Json | null
           province: string | null
           rating: number | null
           service_categories: string[] | null
@@ -2099,7 +2102,10 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           description?: string | null
+          disbursement_schedule?: string | null
           id?: string
+          min_payout_threshold?: number | null
+          notification_settings?: Json | null
           province?: string | null
           rating?: number | null
           service_categories?: string[] | null
@@ -2116,7 +2122,10 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           description?: string | null
+          disbursement_schedule?: string | null
           id?: string
+          min_payout_threshold?: number | null
+          notification_settings?: Json | null
           province?: string | null
           rating?: number | null
           service_categories?: string[] | null

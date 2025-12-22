@@ -13,7 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { Plus, Edit2, Trash2, Package, Loader2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Package, Loader2, ImageIcon } from "lucide-react";
+import { ProductPhotoUpload } from "@/components/vendor/ProductPhotoUpload";
 
 const SERVICE_CATEGORIES = [
   "Plumbing",
@@ -38,6 +39,7 @@ interface Product {
   is_available: boolean;
   min_order: number;
   estimated_duration: string | null;
+  photos: string[] | null;
 }
 
 export default function VendorProducts() {
@@ -55,6 +57,7 @@ export default function VendorProducts() {
     is_available: true,
     min_order: "1",
     estimated_duration: "",
+    photos: [] as string[],
   });
 
   // Get vendor ID
@@ -100,6 +103,7 @@ export default function VendorProducts() {
         is_available: data.is_available,
         min_order: parseInt(data.min_order),
         estimated_duration: data.estimated_duration || null,
+        photos: data.photos.length > 0 ? data.photos : null,
       };
 
       if (data.id) {
@@ -150,6 +154,7 @@ export default function VendorProducts() {
         is_available: product.is_available,
         min_order: product.min_order.toString(),
         estimated_duration: product.estimated_duration || "",
+        photos: product.photos || [],
       });
     } else {
       setEditingProduct(null);
@@ -162,6 +167,7 @@ export default function VendorProducts() {
         is_available: true,
         min_order: "1",
         estimated_duration: "",
+        photos: [],
       });
     }
     setIsDialogOpen(true);
@@ -199,7 +205,7 @@ export default function VendorProducts() {
               Add Product
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingProduct ? "Edit Product" : "Add New Product"}</DialogTitle>
             </DialogHeader>
@@ -278,6 +284,15 @@ export default function VendorProducts() {
                 />
               </div>
 
+              <div className="space-y-2">
+                <Label>Product Photos</Label>
+                <ProductPhotoUpload
+                  photos={formData.photos}
+                  onPhotosChange={(photos) => setFormData({ ...formData, photos })}
+                  maxPhotos={5}
+                />
+              </div>
+
               <div className="flex items-center justify-between">
                 <Label htmlFor="is_available">Available for orders</Label>
                 <Switch
@@ -321,7 +336,26 @@ export default function VendorProducts() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {products?.map((product) => (
-            <Card key={product.id}>
+            <Card key={product.id} className="overflow-hidden">
+              {/* Product Image */}
+              {product.photos && product.photos.length > 0 ? (
+                <div className="aspect-video relative bg-muted">
+                  <img 
+                    src={product.photos[0]} 
+                    alt={product.name} 
+                    className="w-full h-full object-cover"
+                  />
+                  {product.photos.length > 1 && (
+                    <Badge variant="secondary" className="absolute bottom-2 right-2">
+                      +{product.photos.length - 1} more
+                    </Badge>
+                  )}
+                </div>
+              ) : (
+                <div className="aspect-video bg-muted flex items-center justify-center">
+                  <ImageIcon className="h-12 w-12 text-muted-foreground/50" />
+                </div>
+              )}
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
                   <div>

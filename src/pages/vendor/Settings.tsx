@@ -18,9 +18,11 @@ import {
   CreditCard, 
   Save,
   Trash2,
-  Shield
+  Shield,
+  Calendar
 } from 'lucide-react';
 import { VerificationUpload } from '@/components/vendor/VerificationUpload';
+import { DisbursementSettings } from '@/components/vendor/DisbursementSettings';
 
 interface VendorBankAccount {
   id: string;
@@ -74,6 +76,24 @@ export default function VendorSettings() {
     enabled: !!vendor,
   });
 
+  // Fetch vendor notification settings
+  const { data: vendorSettings } = useQuery({
+    queryKey: ['vendor-notification-settings', vendor?.id],
+    queryFn: async () => {
+      if (!vendor) return null;
+      
+      const { data, error } = await supabase
+        .from('vendors')
+        .select('notification_settings')
+        .eq('id', vendor.id)
+        .single();
+      
+      if (error) throw error;
+      return data?.notification_settings as typeof notifications | null;
+    },
+    enabled: !!vendor,
+  });
+
   useEffect(() => {
     if (profile) {
       setProfileData({
@@ -82,6 +102,19 @@ export default function VendorSettings() {
       });
     }
   }, [profile]);
+
+  // Load notification settings from database
+  useEffect(() => {
+    if (vendorSettings) {
+      setNotifications({
+        email_new_jobs: vendorSettings.email_new_jobs ?? true,
+        email_job_updates: vendorSettings.email_job_updates ?? true,
+        email_payments: vendorSettings.email_payments ?? true,
+        push_new_jobs: vendorSettings.push_new_jobs ?? true,
+        push_job_updates: vendorSettings.push_job_updates ?? true,
+      });
+    }
+  }, [vendorSettings]);
 
   // Load primary bank account into form
   useEffect(() => {
@@ -133,6 +166,33 @@ export default function VendorSettings() {
       toast.error('Failed to update password: ' + error.message);
     },
   });
+
+  // Save notification settings
+  const saveNotificationsMutation = useMutation({
+    mutationFn: async (newNotifications: typeof notifications) => {
+      if (!vendor) throw new Error('Vendor not found');
+
+      const { error } = await supabase
+        .from('vendors')
+        .update({ notification_settings: newNotifications })
+        .eq('id', vendor.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Notification settings saved');
+      queryClient.invalidateQueries({ queryKey: ['vendor-notification-settings'] });
+    },
+    onError: (error) => {
+      toast.error('Failed to save settings: ' + error.message);
+    },
+  });
+
+  const handleNotificationChange = (key: keyof typeof notifications, value: boolean) => {
+    const newNotifications = { ...notifications, [key]: value };
+    setNotifications(newNotifications);
+    saveNotificationsMutation.mutate(newNotifications);
+  };
 
   const saveBankDetailsMutation = useMutation({
     mutationFn: async () => {
@@ -240,7 +300,7 @@ export default function VendorSettings() {
         </div>
 
         <Tabs defaultValue="account" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
+          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-flex">
             <TabsTrigger value="account" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               <span className="hidden sm:inline">Account</span>
@@ -256,6 +316,10 @@ export default function VendorSettings() {
             <TabsTrigger value="banking" className="flex items-center gap-2">
               <CreditCard className="h-4 w-4" />
               <span className="hidden sm:inline">Banking</span>
+            </TabsTrigger>
+            <TabsTrigger value="disbursement" className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              <span className="hidden sm:inline">Disbursement</span>
             </TabsTrigger>
             <TabsTrigger value="verification" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
@@ -372,7 +436,7 @@ export default function VendorSettings() {
                   </div>
                   <Switch
                     checked={notifications.email_new_jobs}
-                    onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, email_new_jobs: checked }))}
+                    onCheckedChange={(checked) => handleNotificationChange('email_new_jobs', checked)}
                   />
                 </div>
                 <Separator />
@@ -385,7 +449,7 @@ export default function VendorSettings() {
                   </div>
                   <Switch
                     checked={notifications.email_job_updates}
-                    onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, email_job_updates: checked }))}
+                    onCheckedChange={(checked) => handleNotificationChange('email_job_updates', checked)}
                   />
                 </div>
                 <Separator />
@@ -398,7 +462,7 @@ export default function VendorSettings() {
                   </div>
                   <Switch
                     checked={notifications.email_payments}
-                    onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, email_payments: checked }))}
+                    onCheckedChange={(checked) => handleNotificationChange('email_payments', checked)}
                   />
                 </div>
               </CardContent>
@@ -419,7 +483,7 @@ export default function VendorSettings() {
                   </div>
                   <Switch
                     checked={notifications.push_new_jobs}
-                    onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, push_new_jobs: checked }))}
+                    onCheckedChange={(checked) => handleNotificationChange('push_new_jobs', checked)}
                   />
                 </div>
                 <Separator />
@@ -432,7 +496,7 @@ export default function VendorSettings() {
                   </div>
                   <Switch
                     checked={notifications.push_job_updates}
-                    onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, push_job_updates: checked }))}
+                    onCheckedChange={(checked) => handleNotificationChange('push_job_updates', checked)}
                   />
                 </div>
               </CardContent>
@@ -515,6 +579,19 @@ export default function VendorSettings() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Disbursement Tab */}
+          <TabsContent value="disbursement" className="mt-6 space-y-6">
+            {vendor ? (
+              <DisbursementSettings vendorId={vendor.id} />
+            ) : (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <p className="text-muted-foreground">Loading vendor information...</p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Verification Tab */}
