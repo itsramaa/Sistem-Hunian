@@ -33,21 +33,16 @@
   - [ ] Monitor logs di Supabase dashboard
 
 ### 2. Payment Reminder Integration (WhatsApp/Email)
-- **Status:** ⚠️ Edge functions exist but not integrated with UI
+- **Status:** ✅ UI Buttons Added (CRON verification pending)
 - **Location:** 
   - `supabase/functions/send-payment-reminder/index.ts`
   - `supabase/functions/whatsapp-notification/index.ts`
   - `src/components/merchant/NotificationSettings.tsx`
-- **Issue:**
-  - NotificationSettings UI sudah ada untuk config preferences
-  - Tidak ada tombol "Send Reminder" langsung dari invoice/payment table
-  - CRON job untuk scheduled reminder tidak terverifikasi
-- **Docs Reference:** PRD Section 5.2 "Payment Reminder: Auto WhatsApp/Email reminder (H-3, H-1, overdue)"
-- **Solution:**
-  - [ ] Add "Send Reminder" button di Invoices page
-  - [ ] Add "Send Reminder" button di Payments page
-  - [ ] Connect NotificationSettings preferences dengan send-payment-reminder function
+  - `src/pages/merchant/Invoices.tsx` ✅ Send Reminder button added
+  - `src/pages/merchant/Payments.tsx` ✅ Send Reminder button added
+- **Remaining:**
   - [ ] Verify scheduled CRON for H-3, H-1 reminders
+  - [ ] Connect NotificationSettings preferences
 
 ### 3. Subscription Payment with Xendit
 - **Status:** ⚠️ Incomplete payment flow
@@ -88,19 +83,14 @@
   - [ ] Auto-calculate notice period based on contract end date
 
 ### 5. Contract Terms & Document Upload
-- **Status:** ⚠️ Fields exist but no UI
-- **Location:** 
-  - `src/pages/merchant/Contracts.tsx`
-  - Database: `contracts.terms`, `contracts.contract_document_url`
-- **Issue:**
-  - Database columns exist
-  - Tidak ada form input untuk `terms` (text/template)
-  - Tidak ada upload untuk contract document
-- **Docs Reference:** PRD Section 5.2 "Contract Management: Digital contract"
-- **Solution:**
-  - [ ] Add textarea for contract terms in create/edit contract form
+- **Status:** ✅ Terms Edit Implemented (Document upload pending)
+- **Location:** `src/pages/merchant/Contracts.tsx`
+- **Completed:**
+  - [x] Add Edit Terms button in contract view dialog
+  - [x] Add Edit Terms dialog with textarea
+  - [x] Save terms to database
+- **Remaining:**
   - [ ] Add file upload for contract document (PDF)
-  - [ ] Show terms preview in contract detail
   - [ ] Download link for contract document
 
 ### 6. Tenants Page - Complete Review
@@ -205,19 +195,14 @@
 ## 🐛 BUGS - Issues to Fix
 
 ### 13. Currency Format Inconsistency
-- **Status:** 🐛 Wrong currency used
-- **Location:** `src/pages/merchant/Invoices.tsx` line ~251
-- **Issue:**
-  ```typescript
-  // Found: 'ZAR' (South African Rand)
-  // Should be: 'IDR' (Indonesian Rupiah)
-  ```
-- **Solution:**
-  - [ ] Change 'ZAR' to 'IDR' in Invoices.tsx
-  - [ ] Audit all files for currency consistency
-  - [ ] Consider creating a currency formatting utility
+- **Status:** ✅ FIXED
+- **Location:** `src/pages/merchant/Invoices.tsx`, `src/pages/merchant/Payments.tsx`
+- **Solution:** Changed 'ZAR' to 'IDR' in both files
 
 ### 14. Subscription Limits on Units Not Enforced
+- **Status:** ✅ FIXED
+- **Location:** `src/components/merchant/UnitsManager.tsx`
+- **Solution:** Added useSubscriptionLimits hook, warning alerts, and disabled Add button when at limit
 - **Status:** 🐛 Missing enforcement
 - **Location:** 
   - `src/components/merchant/UnitsManager.tsx`
@@ -311,11 +296,11 @@
 
 ## 📋 Implementation Priority
 
-### Sprint 1 (Quick Wins) - Est: 4 hours
-1. [ ] Fix currency ZAR → IDR (Bug #13) - 15 min
-2. [ ] Add unit subscription limits (Bug #14) - 1 hr
-3. [ ] Add contract terms input field (P1 #5) - 1 hr
-4. [ ] Add "Send Reminder" button (P0 #2) - 1.5 hr
+### Sprint 1 (Quick Wins) - Est: 4 hours ✅ COMPLETED
+1. [x] Fix currency ZAR → IDR (Bug #13) - ✅ Fixed in Invoices.tsx & Payments.tsx
+2. [x] Add unit subscription limits (Bug #14) - ✅ Added to UnitsManager.tsx
+3. [x] Add contract terms input field (P1 #5) - ✅ Added Edit Terms dialog in Contracts.tsx
+4. [x] Add "Send Reminder" button (P0 #2) - ✅ Added to Invoices.tsx & Payments.tsx
 
 ### Sprint 2 (Core Fixes) - Est: 8 hours
 5. [ ] Verify/fix auto-generate-invoices CRON (P0 #1) - 2 hr

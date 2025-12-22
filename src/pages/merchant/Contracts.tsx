@@ -6,7 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SignaturePad } from '@/components/signature/SignaturePad';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,7 +24,8 @@ import {
   CheckCircle, 
   Search,
   Users,
-  Eye
+  Eye,
+  Edit
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -69,6 +72,8 @@ export default function MerchantContracts() {
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [editTermsDialogOpen, setEditTermsDialogOpen] = useState(false);
+  const [editingTerms, setEditingTerms] = useState('');
 
   const { data: contracts, isLoading } = useQuery({
     queryKey: ['merchant-contracts', merchant?.id],
@@ -170,6 +175,25 @@ export default function MerchantContracts() {
     },
   });
 
+  const updateTermsMutation = useMutation({
+    mutationFn: async ({ contractId, terms }: { contractId: string; terms: string }) => {
+      const { error } = await supabase
+        .from('contracts')
+        .update({ terms })
+        .eq('id', contractId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['merchant-contracts'] });
+      setEditTermsDialogOpen(false);
+      setSelectedContract(null);
+      toast.success('Contract terms updated successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to update terms: ${error.message}`);
+    },
+  });
+
   const handleSaveSignature = (dataUrl: string) => {
     setSignatureDataUrl(dataUrl);
     toast.success('Signature captured');
@@ -183,6 +207,20 @@ export default function MerchantContracts() {
     signContractMutation.mutate({
       contractId: selectedContract.id,
       signatureUrl: signatureDataUrl,
+    });
+  };
+
+  const handleEditTerms = (contract: Contract) => {
+    setSelectedContract(contract);
+    setEditingTerms(contract.terms || '');
+    setEditTermsDialogOpen(true);
+  };
+
+  const handleSaveTerms = () => {
+    if (!selectedContract) return;
+    updateTermsMutation.mutate({
+      contractId: selectedContract.id,
+      terms: editingTerms,
     });
   };
 
@@ -573,14 +611,82 @@ export default function MerchantContracts() {
                   </div>
                 </div>
 
-                {selectedContract.terms && (
-                  <div className="border rounded-lg p-4">
-                    <h4 className="font-medium mb-2">Terms & Conditions</h4>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{selectedContract.terms}</p>
+                <div className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-medium">Terms & Conditions</h4>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setViewDialogOpen(false);
+                        handleEditTerms(selectedContract);
+                      }}
+                    >
+                      <Edit className="h-3 w-3 mr-1" />
+                      Edit Terms
+                    </Button>
                   </div>
-                )}
+                  {selectedContract.terms ? (
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{selectedContract.terms}</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">No terms specified. Click "Edit Terms" to add.</p>
+                  )}
+                </div>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Terms Dialog */}
+        <Dialog open={editTermsDialogOpen} onOpenChange={setEditTermsDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Contract Terms</DialogTitle>
+              <DialogDescription>
+                Update the terms and conditions for this rental agreement
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {selectedContract && (
+                <div className="p-3 rounded-lg bg-muted/50 text-sm">
+                  <p className="font-medium">
+                    {selectedContract.unit?.property?.name} - Unit {selectedContract.unit?.unit_number}
+                  </p>
+                  <p className="text-muted-foreground">
+                    Tenant: {profileMap.get(selectedContract.tenant_user_id)?.full_name || 'Unknown'}
+                  </p>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="terms">Terms & Conditions</Label>
+                <Textarea
+                  id="terms"
+                  value={editingTerms}
+                  onChange={(e) => setEditingTerms(e.target.value)}
+                  placeholder="Enter the terms and conditions for this rental agreement..."
+                  rows={12}
+                  className="font-mono text-sm"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditTermsDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSaveTerms}
+                disabled={updateTermsMutation.isPending}
+              >
+                {updateTermsMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Terms'
+                )}
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
