@@ -105,7 +105,7 @@ const TenantInvoices = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Pending Amount</p>
-                <p className="text-2xl font-bold">R {totalPending.toLocaleString()}</p>
+                <p className="text-2xl font-bold">Rp {totalPending.toLocaleString('id-ID')}</p>
               </div>
             </div>
           </CardContent>
@@ -160,7 +160,7 @@ const TenantInvoices = () => {
                     <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
                     <TableCell>{invoice.description || 'Monthly Rent'}</TableCell>
                     <TableCell>{format(new Date(invoice.due_date), 'MMM dd, yyyy')}</TableCell>
-                    <TableCell className="font-semibold">R {Number(invoice.total_amount).toLocaleString()}</TableCell>
+                    <TableCell className="font-semibold">Rp {Number(invoice.total_amount).toLocaleString('id-ID')}</TableCell>
                     <TableCell>{getStatusBadge(invoice.status)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
@@ -215,7 +215,7 @@ const TenantInvoices = () => {
                     <TableCell>
                       {invoice.paid_at ? format(new Date(invoice.paid_at), 'MMM dd, yyyy') : '-'}
                     </TableCell>
-                    <TableCell>R {Number(invoice.total_amount).toLocaleString()}</TableCell>
+                    <TableCell>Rp {Number(invoice.total_amount).toLocaleString('id-ID')}</TableCell>
                     <TableCell>{getStatusBadge(invoice.status)}</TableCell>
                     <TableCell className="text-right">
                       <Button 

@@ -147,7 +147,7 @@ export default function TenantDashboard() {
                     </div>
                     <div className="text-right">
                       <p className="font-semibold">
-                        R{Number(payment.amount).toLocaleString()}
+                        Rp {Number(payment.amount).toLocaleString('id-ID')}
                       </p>
                       <Badge variant={payment.status === 'paid' ? 'default' : 'secondary'}>
                         {payment.status}

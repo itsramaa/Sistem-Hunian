@@ -36,17 +36,53 @@ export default function TenantForum() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newPost, setNewPost] = useState({ title: "", content: "", tags: "" });
+  const [showAllPosts, setShowAllPosts] = useState(false);
 
-  // Fetch forum posts with author profiles
-  const { data: posts, isLoading } = useQuery({
-    queryKey: ["forum-posts"],
+  // Get tenant's property from active contract
+  const { data: tenantContract } = useQuery({
+    queryKey: ["tenant-contract-property", user?.id],
     queryFn: async () => {
-      const { data: postsData, error: postsError } = await supabase
+      const { data, error } = await supabase
+        .from("contracts")
+        .select(`
+          unit_id,
+          units!inner (
+            property_id,
+            properties!inner (
+              id,
+              name
+            )
+          )
+        `)
+        .eq("tenant_user_id", user?.id)
+        .eq("status", "active")
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  const propertyId = (tenantContract?.units as any)?.property_id;
+  const propertyName = (tenantContract?.units as any)?.properties?.name;
+
+  // Fetch forum posts with author profiles (filtered by property if available)
+  const { data: posts, isLoading } = useQuery({
+    queryKey: ["forum-posts", propertyId, showAllPosts],
+    queryFn: async () => {
+      let query = supabase
         .from("forum_posts")
         .select("*")
         .eq("is_visible", true)
         .order("is_pinned", { ascending: false })
         .order("created_at", { ascending: false });
+
+      // Filter by property if tenant has an active contract and not showing all
+      if (propertyId && !showAllPosts) {
+        query = query.or(`property_id.eq.${propertyId},property_id.is.null`);
+      }
+
+      const { data: postsData, error: postsError } = await query;
       if (postsError) throw postsError;
 
       // Fetch author profiles separately
@@ -95,6 +131,7 @@ export default function TenantForum() {
         title: newPost.title,
         content: newPost.content,
         tags: tags.length > 0 ? tags : null,
+        property_id: propertyId || null, // Associate with tenant's property
       });
       if (error) throw error;
     },
@@ -236,6 +273,23 @@ export default function TenantForum() {
         </Dialog>
       }
     >
+      {/* Property Filter Info & Toggle */}
+      {propertyName && (
+        <div className="mb-4 flex items-center justify-between rounded-lg bg-muted/50 p-3">
+          <div className="text-sm">
+            <span className="text-muted-foreground">Viewing posts from: </span>
+            <span className="font-medium">{showAllPosts ? "All Properties" : propertyName}</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowAllPosts(!showAllPosts)}
+          >
+            {showAllPosts ? "Show My Property Only" : "Show All Posts"}
+          </Button>
+        </div>
+      )}
+
       {/* Search */}
       <div className="relative mb-6">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
