@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { AuthState, AppRole, UserProfile, MerchantProfile } from '@/types/auth';
+import { AuthState, AppRole, UserProfile, MerchantProfile, VendorProfile } from '@/types/auth';
 
 interface AuthContextType extends AuthState {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
@@ -18,6 +18,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [merchant, setMerchant] = useState<MerchantProfile | null>(null);
+  const [vendor, setVendor] = useState<VendorProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchUserData = useCallback(async (userId: string) => {
@@ -55,6 +56,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setMerchant(merchantData as MerchantProfile);
           }
         }
+        
+        // If vendor, fetch vendor data
+        if (roleData.role === 'vendor') {
+          const { data: vendorData } = await supabase
+            .from('vendors')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
+          
+          if (vendorData) {
+            setVendor(vendorData as VendorProfile);
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
@@ -77,6 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfile(null);
           setRole(null);
           setMerchant(null);
+          setVendor(null);
         }
         
         setIsLoading(false);
@@ -135,6 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
     setRole(null);
     setMerchant(null);
+    setVendor(null);
   };
 
   const refreshProfile = async () => {
@@ -151,6 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         role,
         merchant,
+        vendor,
         isLoading,
         signIn,
         signUp,
