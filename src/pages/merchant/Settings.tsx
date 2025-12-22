@@ -12,7 +12,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { FileUpload } from "@/components/FileUpload";
-import { Building2, Shield, Bell, Loader2, Save, CheckCircle, Clock, XCircle, FileText, Trash2 } from "lucide-react";
+import { BankAccountManager } from "@/components/merchant/BankAccountManager";
+import { Building2, Shield, Bell, Loader2, Save, CheckCircle, Clock, XCircle, FileText, Trash2, CreditCard } from "lucide-react";
 
 const Settings = () => {
   const { user } = useAuth();
@@ -211,7 +212,7 @@ const Settings = () => {
         </div>
 
         <Tabs defaultValue="business" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="business" className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               Business
@@ -219,6 +220,10 @@ const Settings = () => {
             <TabsTrigger value="verification" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
               Verification
+            </TabsTrigger>
+            <TabsTrigger value="banking" className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4" />
+              Banking
             </TabsTrigger>
             <TabsTrigger value="notifications" className="flex items-center gap-2">
               <Bell className="h-4 w-4" />
@@ -463,6 +468,10 @@ const Settings = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="banking" className="space-y-6">
+            <BankAccountManager />
           </TabsContent>
 
           <TabsContent value="notifications" className="space-y-6">

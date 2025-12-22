@@ -45,11 +45,47 @@ export function exportToCSV<T extends Record<string, unknown>>(
   document.body.removeChild(link);
 }
 
-export function exportToPDF(
-  title: string,
-  content: string,
+export function exportToPDF<T extends Record<string, unknown>>(
+  dataOrTitle: T[] | string,
+  titleOrContent: string,
   filename: string
 ): void {
+  let tableHTML: string;
+  let title: string;
+
+  // Check if first argument is an array (new signature) or string (legacy signature)
+  if (Array.isArray(dataOrTitle)) {
+    const data = dataOrTitle;
+    title = titleOrContent;
+    
+    if (data.length === 0) {
+      alert('No data to export');
+      return;
+    }
+
+    const headers = Object.keys(data[0]);
+    
+    tableHTML = '<table><thead><tr>';
+    headers.forEach(header => {
+      tableHTML += `<th>${header}</th>`;
+    });
+    tableHTML += '</tr></thead><tbody>';
+    
+    data.forEach(row => {
+      tableHTML += '<tr>';
+      headers.forEach(header => {
+        const value = row[header];
+        tableHTML += `<td>${value ?? ''}</td>`;
+      });
+      tableHTML += '</tr>';
+    });
+    tableHTML += '</tbody></table>';
+  } else {
+    // Legacy signature: (title, content, filename)
+    title = dataOrTitle;
+    tableHTML = titleOrContent;
+  }
+
   const printWindow = window.open('', '_blank');
   if (!printWindow) {
     alert('Please allow popups to download PDF');
@@ -111,7 +147,7 @@ export function exportToPDF(
     <body>
       <h1>${title}</h1>
       <div class="meta">Generated on: ${format(new Date(), 'dd MMMM yyyy, HH:mm')}</div>
-      ${content}
+      ${tableHTML}
     </body>
     </html>
   `);

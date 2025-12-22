@@ -2,9 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/layouts/AdminLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from "recharts";
-import { TrendingUp, Users, Building2, DollarSign, Loader2, Wrench, Home } from "lucide-react";
+import { TrendingUp, Users, Building2, DollarSign, Loader2, Wrench, Home, Download, FileText } from "lucide-react";
+import { exportToCSV, exportToPDF } from "@/lib/exportUtils";
 
 const AdminAnalytics = () => {
   const { data: stats, isLoading } = useQuery({
@@ -86,12 +88,49 @@ const AdminAnalytics = () => {
     count: { label: "Count", color: "hsl(var(--chart-1))" },
   };
 
+  const handleExportCSV = () => {
+    const data = [
+      { metric: 'Total Revenue', value: `R ${totalRevenue.toLocaleString()}` },
+      { metric: 'Total Merchants', value: stats?.merchants?.length || 0 },
+      { metric: 'Total Properties', value: totalProperties },
+      { metric: 'Total Units', value: totalUnits },
+      { metric: 'Occupied Units', value: occupiedUnits },
+      { metric: 'Occupancy Rate', value: `${occupancyRate}%` },
+      { metric: 'Pending Maintenance', value: stats?.maintenanceRequests?.filter(m => m.status === 'pending').length || 0 },
+    ];
+    exportToCSV(data, 'platform-analytics');
+  };
+
+  const handleExportPDF = () => {
+    const data = [
+      { metric: 'Total Revenue', value: `R ${totalRevenue.toLocaleString()}` },
+      { metric: 'Total Merchants', value: stats?.merchants?.length || 0 },
+      { metric: 'Total Properties', value: totalProperties },
+      { metric: 'Total Units', value: totalUnits },
+      { metric: 'Occupied Units', value: occupiedUnits },
+      { metric: 'Occupancy Rate', value: `${occupancyRate}%` },
+    ];
+    exportToPDF(data, 'Platform Analytics Report', 'platform-analytics');
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Platform Analytics</h1>
-          <p className="text-muted-foreground">Overview of platform performance and metrics</p>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Platform Analytics</h1>
+            <p className="text-muted-foreground">Overview of platform performance and metrics</p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleExportCSV}>
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+            <Button variant="outline" onClick={handleExportPDF}>
+              <FileText className="h-4 w-4 mr-2" />
+              Export PDF
+            </Button>
+          </div>
         </div>
 
         {/* Summary Stats */}
