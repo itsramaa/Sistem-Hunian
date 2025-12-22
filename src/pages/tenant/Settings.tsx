@@ -7,10 +7,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { User, Bell, Shield, Loader2, Save, CreditCard, AlertCircle, Upload } from "lucide-react";
+import { User, Bell, Shield, Loader2, Save, CreditCard, AlertCircle, Upload, Calendar, Wallet } from "lucide-react";
+
+interface NotificationPreferences {
+  payment_reminders: boolean;
+  maintenance_updates: boolean;
+  new_invoices: boolean;
+  contract_updates: boolean;
+}
 
 const TenantSettings = () => {
   const { user } = useAuth();
@@ -63,6 +71,18 @@ const TenantSettings = () => {
     emergency_contact_relation: '',
   });
 
+  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>({
+    payment_reminders: true,
+    maintenance_updates: true,
+    new_invoices: true,
+    contract_updates: true,
+  });
+
+  const [autoPaySettings, setAutoPaySettings] = useState({
+    enabled: false,
+    day: 1,
+  });
+
   const [ktpFile, setKtpFile] = useState<File | null>(null);
   const [ktpPreview, setKtpPreview] = useState<string | null>(null);
 
@@ -88,6 +108,16 @@ const TenantSettings = () => {
       if (tenant.ktp_photo_url) {
         setKtpPreview(tenant.ktp_photo_url);
       }
+      // Load notification preferences
+      const prefs = tenant.notification_preferences as unknown as NotificationPreferences | null;
+      if (prefs) {
+        setNotificationPrefs(prefs);
+      }
+      // Load auto-pay settings
+      setAutoPaySettings({
+        enabled: (tenant as { auto_pay_enabled?: boolean }).auto_pay_enabled || false,
+        day: (tenant as { auto_pay_day?: number }).auto_pay_day || 1,
+      });
     }
   }, [tenant]);
 
@@ -178,6 +208,50 @@ const TenantSettings = () => {
       setKtpFile(null);
     },
     onError: (error: Error) => toast.error(error.message),
+  });
+
+  // Update notification preferences mutation
+  const updateNotificationPrefs = useMutation({
+    mutationFn: async (prefs: NotificationPreferences) => {
+      if (!user?.id) throw new Error('User not found');
+      
+      // Use raw SQL update to handle the new column that's not in types yet
+      const { error } = await supabase
+        .from('tenants')
+        .update({ 
+          notification_preferences: JSON.parse(JSON.stringify(prefs))
+        } as any)
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tenant'] });
+      toast.success('Notification preferences saved');
+    },
+    onError: () => toast.error('Failed to save preferences'),
+  });
+
+  // Update auto-pay settings mutation
+  const updateAutoPaySettings = useMutation({
+    mutationFn: async (settings: { enabled: boolean; day: number }) => {
+      if (!user?.id) throw new Error('User not found');
+      
+      const { error } = await supabase
+        .from('tenants')
+        .update({ 
+          auto_pay_enabled: settings.enabled, 
+          auto_pay_day: settings.day 
+        } as any)
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tenant'] });
+      toast.success('Auto-pay settings saved');
+    },
+    onError: () => toast.error('Failed to save auto-pay settings'),
   });
 
   const handleKtpFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -490,24 +564,96 @@ const TenantSettings = () => {
         <TabsContent value="notifications" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Notification Preferences</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="h-5 w-5" />
+                Notification Preferences
+              </CardTitle>
               <CardDescription>Choose what notifications you receive</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {[
-                { label: 'Payment Reminders', description: 'Get reminders before rent is due' },
-                { label: 'Maintenance Updates', description: 'Updates on your maintenance requests' },
-                { label: 'New Invoices', description: 'Notifications when new invoices are created' },
-                { label: 'Contract Updates', description: 'Important updates about your lease' },
-              ].map((item, index) => (
-                <div key={index} className="flex items-center justify-between p-4 rounded-lg border">
+                { key: 'payment_reminders', label: 'Payment Reminders', description: 'Get reminders before rent is due' },
+                { key: 'maintenance_updates', label: 'Maintenance Updates', description: 'Updates on your maintenance requests' },
+                { key: 'new_invoices', label: 'New Invoices', description: 'Notifications when new invoices are created' },
+                { key: 'contract_updates', label: 'Contract Updates', description: 'Important updates about your lease' },
+              ].map((item) => (
+                <div key={item.key} className="flex items-center justify-between p-4 rounded-lg border">
                   <div>
                     <p className="font-medium">{item.label}</p>
                     <p className="text-sm text-muted-foreground">{item.description}</p>
                   </div>
-                  <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-input" />
+                  <Switch
+                    checked={notificationPrefs[item.key as keyof NotificationPreferences]}
+                    onCheckedChange={(checked) => {
+                      const newPrefs = { ...notificationPrefs, [item.key]: checked };
+                      setNotificationPrefs(newPrefs);
+                      // Save immediately
+                      updateNotificationPrefs.mutate(newPrefs);
+                    }}
+                  />
                 </div>
               ))}
+            </CardContent>
+          </Card>
+
+          {/* Auto-Pay Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wallet className="h-5 w-5" />
+                Auto-Pay Settings
+              </CardTitle>
+              <CardDescription>Set up automatic payment for your rent</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-4 rounded-lg border">
+                <div>
+                  <p className="font-medium">Enable Auto-Pay</p>
+                  <p className="text-sm text-muted-foreground">
+                    Automatically pay rent on the scheduled day each month
+                  </p>
+                </div>
+                <Switch
+                  checked={autoPaySettings.enabled}
+                  onCheckedChange={(checked) => {
+                    const newSettings = { ...autoPaySettings, enabled: checked };
+                    setAutoPaySettings(newSettings);
+                    updateAutoPaySettings.mutate(newSettings);
+                  }}
+                />
+              </div>
+
+              {autoPaySettings.enabled && (
+                <div className="space-y-2 p-4 rounded-lg border bg-muted/50">
+                  <Label className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Payment Day of Month
+                  </Label>
+                  <Select
+                    value={autoPaySettings.day.toString()}
+                    onValueChange={(value) => {
+                      const newSettings = { ...autoPaySettings, day: parseInt(value) };
+                      setAutoPaySettings(newSettings);
+                      updateAutoPaySettings.mutate(newSettings);
+                    }}
+                  >
+                    <SelectTrigger className="w-full max-w-xs">
+                      <SelectValue placeholder="Select day" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
+                        <SelectItem key={day} value={day.toString()}>
+                          {day === 1 ? '1st' : day === 2 ? '2nd' : day === 3 ? '3rd' : `${day}th`} of each month
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Your payment will be processed automatically on this day every month.
+                    Make sure your payment method is up to date.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
