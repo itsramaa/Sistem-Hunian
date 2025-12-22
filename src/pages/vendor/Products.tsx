@@ -13,8 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { Plus, Edit2, Trash2, Package, Loader2, ImageIcon } from "lucide-react";
+import { Plus, Edit2, Trash2, Package, Loader2, ImageIcon, AlertTriangle } from "lucide-react";
 import { ProductPhotoUpload } from "@/components/vendor/ProductPhotoUpload";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const SERVICE_CATEGORIES = [
   "Plumbing",
@@ -40,6 +41,7 @@ interface Product {
   min_order: number;
   estimated_duration: string | null;
   photos: string[] | null;
+  stock: number | null;
 }
 
 export default function VendorProducts() {
@@ -58,6 +60,7 @@ export default function VendorProducts() {
     min_order: "1",
     estimated_duration: "",
     photos: [] as string[],
+    stock: "",
   });
 
   // Get vendor ID
@@ -104,6 +107,7 @@ export default function VendorProducts() {
         min_order: parseInt(data.min_order),
         estimated_duration: data.estimated_duration || null,
         photos: data.photos.length > 0 ? data.photos : null,
+        stock: data.stock ? parseInt(data.stock) : null,
       };
 
       if (data.id) {
@@ -155,6 +159,7 @@ export default function VendorProducts() {
         min_order: product.min_order.toString(),
         estimated_duration: product.estimated_duration || "",
         photos: product.photos || [],
+        stock: product.stock?.toString() || "",
       });
     } else {
       setEditingProduct(null);
@@ -168,6 +173,7 @@ export default function VendorProducts() {
         min_order: "1",
         estimated_duration: "",
         photos: [],
+        stock: "",
       });
     }
     setIsDialogOpen(true);
@@ -285,6 +291,21 @@ export default function VendorProducts() {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="stock">Stock Quantity (optional)</Label>
+                <Input
+                  id="stock"
+                  type="number"
+                  value={formData.stock}
+                  onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                  placeholder="Leave empty for unlimited"
+                  min="0"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Set stock for physical products. Leave empty for services.
+                </p>
+              </div>
+
+              <div className="space-y-2">
                 <Label>Product Photos</Label>
                 <ProductPhotoUpload
                   photos={formData.photos}
@@ -373,10 +394,32 @@ export default function VendorProducts() {
                 <p className="text-sm text-muted-foreground line-clamp-2">
                   {product.description || "No description"}
                 </p>
+                
+                {/* Stock Warning */}
+                {product.stock !== null && product.stock <= 5 && product.stock > 0 && (
+                  <Alert className="mt-2 py-2 border-warning bg-warning/10">
+                    <AlertTriangle className="h-4 w-4 text-warning" />
+                    <AlertDescription className="text-xs text-warning">
+                      Low stock: {product.stock} remaining
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {product.stock !== null && product.stock === 0 && (
+                  <Alert className="mt-2 py-2 border-destructive bg-destructive/10">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    <AlertDescription className="text-xs text-destructive">
+                      Out of stock
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
                 <div className="mt-4 flex items-center justify-between">
                   <div>
                     <p className="text-lg font-semibold">{formatPrice(product.price)}</p>
-                    <p className="text-xs text-muted-foreground">per {product.unit}</p>
+                    <p className="text-xs text-muted-foreground">
+                      per {product.unit}
+                      {product.stock !== null && ` • ${product.stock} in stock`}
+                    </p>
                   </div>
                   <div className="flex gap-2">
                     <Button

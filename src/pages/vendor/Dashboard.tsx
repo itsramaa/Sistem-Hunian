@@ -18,6 +18,7 @@ import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { VendorEscrowWidget } from '@/components/vendor/VendorEscrowWidget';
+import { SalesAnalytics } from '@/components/vendor/SalesAnalytics';
 
 interface VendorJob {
   id: string;
@@ -273,6 +274,9 @@ export default function VendorDashboard() {
           {/* Escrow Balance Widget */}
           {vendor && <VendorEscrowWidget vendorId={vendor.id} />}
         </div>
+
+        {/* Sales Analytics */}
+        {vendor && <SalesAnalytics vendorId={vendor.id} />}
 
         {/* Service Categories */}
         <Card>
