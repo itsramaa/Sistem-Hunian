@@ -60,6 +60,7 @@ const merchantNavItems: NavItem[] = [
   { title: "Maintenance", url: "/merchant/maintenance", icon: Wrench },
   { title: "Payments", url: "/merchant/payments", icon: CreditCard },
   { title: "Invoices", url: "/merchant/invoices", icon: FileText },
+  { title: "Escrow", url: "/merchant/escrow", icon: Wallet },
   { title: "Reports", url: "/merchant/reports", icon: BarChart3 },
   { title: "Settings", url: "/merchant/settings", icon: Settings },
 ];

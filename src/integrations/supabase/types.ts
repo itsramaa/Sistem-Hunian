@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      bank_accounts: {
+        Row: {
+          account_name: string
+          account_number: string
+          bank_name: string
+          branch_code: string | null
+          created_at: string
+          id: string
+          is_primary: boolean | null
+          merchant_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_name: string
+          account_number: string
+          bank_name: string
+          branch_code?: string | null
+          created_at?: string
+          id?: string
+          is_primary?: boolean | null
+          merchant_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_name?: string
+          account_number?: string
+          bank_name?: string
+          branch_code?: string | null
+          created_at?: string
+          id?: string
+          is_primary?: boolean | null
+          merchant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_accounts_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contracts: {
         Row: {
           created_at: string
@@ -408,6 +452,7 @@ export type Database = {
           business_type: string | null
           city: string | null
           created_at: string
+          disbursement_schedule: string | null
           id: string
           postal_code: string | null
           province: string | null
@@ -422,6 +467,7 @@ export type Database = {
           business_type?: string | null
           city?: string | null
           created_at?: string
+          disbursement_schedule?: string | null
           id?: string
           postal_code?: string | null
           province?: string | null
@@ -436,6 +482,7 @@ export type Database = {
           business_type?: string | null
           city?: string | null
           created_at?: string
+          disbursement_schedule?: string | null
           id?: string
           postal_code?: string | null
           province?: string | null

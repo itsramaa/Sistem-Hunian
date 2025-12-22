@@ -9,6 +9,8 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import AdminSetup from "./pages/AdminSetup";
 import Invite from "./pages/Invite";
+import ResetPassword from "./pages/ResetPassword";
+import UpdatePassword from "./pages/UpdatePassword";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminMerchants from "./pages/admin/Merchants";
 import AdminEscrow from "./pages/admin/Escrow";
@@ -26,6 +28,7 @@ import MerchantReports from "./pages/merchant/Reports";
 import MerchantInvoices from "./pages/merchant/Invoices";
 import MerchantSettings from "./pages/merchant/Settings";
 import MerchantUnits from "./pages/merchant/Units";
+import MerchantEscrow from "./pages/merchant/Escrow";
 import TenantDashboard from "./pages/tenant/Dashboard";
 import TenantMaintenance from "./pages/tenant/Maintenance";
 import TenantPayments from "./pages/tenant/Payments";
@@ -46,6 +49,8 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/update-password" element={<UpdatePassword />} />
             <Route path="/admin-setup" element={<AdminSetup />} />
             <Route path="/invite/:token" element={<Invite />} />
             
@@ -69,6 +74,7 @@ const App = () => (
             <Route path="/merchant/invoices" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantInvoices /></ProtectedRoute>} />
             <Route path="/merchant/settings" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantSettings /></ProtectedRoute>} />
             <Route path="/merchant/units" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantUnits /></ProtectedRoute>} />
+            <Route path="/merchant/escrow" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantEscrow /></ProtectedRoute>} />
             
             {/* Tenant Routes */}
             <Route path="/tenant" element={<ProtectedRoute allowedRoles={['tenant']}><TenantDashboard /></ProtectedRoute>} />
