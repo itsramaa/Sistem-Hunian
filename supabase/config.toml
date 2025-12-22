@@ -1,1 +1,28 @@
 project_id = "ezejsuyrhlpczppvwdgg"
+
+[functions.ai-chatbot]
+verify_jwt = true
+
+[functions.generate-invoice-pdf]
+verify_jwt = false
+
+[functions.send-notification]
+verify_jwt = true
+
+[functions.send-payment-reminder]
+verify_jwt = true
+
+[functions.subscription-renewal]
+verify_jwt = false
+
+[functions.xendit-create-invoice]
+verify_jwt = true
+
+[functions.xendit-disbursement]
+verify_jwt = true
+
+[functions.xendit-webhook]
+verify_jwt = false
+
+[functions.scheduled-disbursement]
+verify_jwt = false

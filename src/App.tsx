@@ -20,6 +20,7 @@ import AdminSubscriptionTiers from "./pages/admin/SubscriptionTiers";
 import AdminDisputes from "./pages/admin/Disputes";
 import AdminAnalytics from "./pages/admin/Analytics";
 import AdminSettings from "./pages/admin/Settings";
+import AdminVendorVerifications from "./pages/admin/VendorVerifications";
 import MerchantDashboard from "./pages/merchant/Dashboard";
 import MerchantProperties from "./pages/merchant/Properties";
 import MerchantTenants from "./pages/merchant/Tenants";
@@ -33,6 +34,8 @@ import MerchantEscrow from "./pages/merchant/Escrow";
 import MerchantReferrals from "./pages/merchant/Referrals";
 import TenantDashboard from "./pages/tenant/Dashboard";
 import TenantMaintenance from "./pages/tenant/Maintenance";
+import TenantMaintenanceDetail from "./pages/tenant/MaintenanceDetail";
+import TenantSignContract from "./pages/tenant/SignContract";
 import TenantPayments from "./pages/tenant/Payments";
 import TenantSettings from "./pages/tenant/Settings";
 import TenantContracts from "./pages/tenant/Contracts";
@@ -80,6 +83,7 @@ const App = () => (
             <Route path="/admin/disputes" element={<ProtectedRoute allowedRoles={['admin']}><AdminDisputes /></ProtectedRoute>} />
             <Route path="/admin/analytics" element={<ProtectedRoute allowedRoles={['admin']}><AdminAnalytics /></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']}><AdminSettings /></ProtectedRoute>} />
+            <Route path="/admin/vendor-verifications" element={<ProtectedRoute allowedRoles={['admin']}><AdminVendorVerifications /></ProtectedRoute>} />
             
             {/* Merchant Routes */}
             <Route path="/merchant" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantDashboard /></ProtectedRoute>} />
@@ -97,6 +101,8 @@ const App = () => (
             {/* Tenant Routes */}
             <Route path="/tenant" element={<ProtectedRoute allowedRoles={['tenant']}><TenantDashboard /></ProtectedRoute>} />
             <Route path="/tenant/maintenance" element={<ProtectedRoute allowedRoles={['tenant']}><TenantMaintenance /></ProtectedRoute>} />
+            <Route path="/tenant/maintenance/:requestId" element={<ProtectedRoute allowedRoles={['tenant']}><TenantMaintenanceDetail /></ProtectedRoute>} />
+            <Route path="/tenant/sign-contract/:contractId" element={<ProtectedRoute allowedRoles={['tenant']}><TenantSignContract /></ProtectedRoute>} />
             <Route path="/tenant/payments" element={<ProtectedRoute allowedRoles={['tenant']}><TenantPayments /></ProtectedRoute>} />
             <Route path="/tenant/settings" element={<ProtectedRoute allowedRoles={['tenant']}><TenantSettings /></ProtectedRoute>} />
             <Route path="/tenant/contracts" element={<ProtectedRoute allowedRoles={['tenant']}><TenantContracts /></ProtectedRoute>} />

@@ -1,15 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { TenantLayout } from "@/components/layouts/TenantLayout";
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { FileText, Calendar, Home, Loader2, Download, DollarSign } from "lucide-react";
+import { FileText, Calendar, Home, Loader2, Download, DollarSign, PenLine, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 
 const TenantContracts = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const { data: contracts, isLoading } = useQuery({
     queryKey: ['tenant-contracts', user?.id],
@@ -34,6 +36,17 @@ const TenantContracts = () => {
     },
     enabled: !!user?.id,
   });
+
+  const getSignatureStatusBadge = (contract: typeof activeContract) => {
+    if (!contract) return null;
+    if (contract.signature_status === 'fully_signed') {
+      return <Badge className="bg-success text-success-foreground gap-1"><CheckCircle className="h-3 w-3" /> Fully Signed</Badge>;
+    }
+    if (contract.tenant_signature_url) {
+      return <Badge variant="secondary" className="gap-1"><CheckCircle className="h-3 w-3" /> You Signed</Badge>;
+    }
+    return <Badge variant="outline" className="gap-1"><PenLine className="h-3 w-3" /> Pending Signature</Badge>;
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -85,7 +98,10 @@ const TenantContracts = () => {
                     </CardDescription>
                   </div>
                 </div>
-                {getStatusBadge(activeContract.status || 'active')}
+                <div className="flex items-center gap-2">
+                  {getStatusBadge(activeContract.status || 'active')}
+                  {getSignatureStatusBadge(activeContract)}
+                </div>
               </div>
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -127,7 +143,23 @@ const TenantContracts = () => {
               )}
 
               <div className="flex gap-3">
-                <Button variant="outline">
+                {!activeContract.tenant_signature_url && (
+                  <Button onClick={() => navigate(`/tenant/sign-contract/${activeContract.id}`)}>
+                    <PenLine className="h-4 w-4 mr-2" />
+                    Sign Contract
+                  </Button>
+                )}
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    if (activeContract.contract_document_url) {
+                      window.open(activeContract.contract_document_url, '_blank');
+                    } else {
+                      // Generate PDF via edge function if no document URL
+                      window.open(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-invoice-pdf?contract_id=${activeContract.id}`, '_blank');
+                    }
+                  }}
+                >
                   <Download className="h-4 w-4 mr-2" />
                   Download Contract
                 </Button>
