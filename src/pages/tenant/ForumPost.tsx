@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { ArrowLeft, Heart, MessageSquare, Loader2, Send, Trash2 } from "lucide-react";
+import { ArrowLeft, Heart, MessageSquare, Loader2, Send, Trash2, Flag } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface ForumPost {
@@ -292,6 +292,20 @@ export default function TenantForumPost() {
               <MessageSquare className="h-4 w-4" />
               {post.comment_count} Comments
             </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={async () => {
+                await supabase.from("forum_reports").insert({
+                  post_id: post.id,
+                  reporter_id: user?.id,
+                  reason: "inappropriate",
+                });
+                toast({ title: "Post reported", description: "We'll review it shortly" });
+              }}
+            >
+              <Flag className="h-4 w-4" />
+            </Button>
           </div>
         </CardContent>
       </Card>

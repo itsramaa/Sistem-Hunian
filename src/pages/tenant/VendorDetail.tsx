@@ -14,7 +14,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { Star, MapPin, Phone, Mail, CalendarIcon, ArrowLeft, Loader2, ShoppingCart, CreditCard } from "lucide-react";
+import { Star, MapPin, Phone, Mail, CalendarIcon, ArrowLeft, Loader2, ShoppingCart, CreditCard, Tag, Check, X } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { XenditPaymentModal } from "@/components/payment/XenditPaymentModal";
@@ -58,7 +58,11 @@ export default function TenantVendorDetail() {
     scheduledTime: "",
     address: "",
     notes: "",
+    voucherCode: "",
   });
+  const [voucherDiscount, setVoucherDiscount] = useState<{ id: string; amount: number } | null>(null);
+  const [voucherError, setVoucherError] = useState<string | null>(null);
+  const [voucherLoading, setVoucherLoading] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<{ id: string; total: number } | null>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 
@@ -93,14 +97,15 @@ export default function TenantVendorDetail() {
     enabled: !!vendorId,
   });
 
-  // Create order mutation with escrow integration
+  // Create order mutation with escrow integration and voucher support
   const createOrderMutation = useMutation({
     mutationFn: async () => {
       if (!selectedProduct || !user?.id) throw new Error("Invalid order");
 
       const totalPrice = selectedProduct.price * orderData.quantity;
       const serviceFee = totalPrice * 0.05; // 5% service fee
-      const finalTotal = totalPrice + serviceFee;
+      const discountAmount = voucherDiscount?.amount || 0;
+      const finalTotal = Math.max(totalPrice + serviceFee - discountAmount, 0);
 
       // Create the order
       const { data: orderData2, error: orderError } = await supabase.from("orders").insert([{
@@ -115,11 +120,19 @@ export default function TenantVendorDetail() {
         scheduled_date: orderData.scheduledDate ? format(orderData.scheduledDate, "yyyy-MM-dd") : null,
         scheduled_time: orderData.scheduledTime || null,
         address: orderData.address || null,
-        notes: orderData.notes || null,
+        notes: orderData.notes ? `${orderData.notes}${voucherDiscount ? ` | Voucher: ${orderData.voucherCode} (-${discountAmount})` : ''}` : null,
         status: "pending",
       }]).select().single();
       
       if (orderError) throw orderError;
+
+      // Mark voucher as used if applied
+      if (voucherDiscount) {
+        await supabase
+          .from("referral_rewards")
+          .update({ used_at: new Date().toISOString(), status: "used" })
+          .eq("id", voucherDiscount.id);
+      }
 
       // Get vendor's merchant (if any) to link escrow account
       // For vendor orders, we create an escrow transaction that will be processed on payment
@@ -149,8 +162,70 @@ export default function TenantVendorDetail() {
       scheduledTime: "",
       address: "",
       notes: "",
+      voucherCode: "",
     });
+    setVoucherDiscount(null);
+    setVoucherError(null);
     navigate("/tenant/orders");
+  };
+
+  // Validate voucher code
+  const validateVoucher = async (code: string) => {
+    if (!code.trim() || !user?.id) {
+      setVoucherDiscount(null);
+      setVoucherError(null);
+      return;
+    }
+
+    setVoucherLoading(true);
+    setVoucherError(null);
+    
+    try {
+      // Find active referral reward with type order_discount for this user
+      const { data: reward, error } = await supabase
+        .from("referral_rewards")
+        .select("id, amount, status, expires_at")
+        .eq("user_id", user.id)
+        .eq("status", "credited")
+        .or("type.eq.order_discount,type.eq.subscription_credit")
+        .is("used_at", null)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      // Also check for referral by code
+      const { data: referral } = await supabase
+        .from("referrals")
+        .select("id, reward_amount")
+        .eq("referral_code", code.toUpperCase())
+        .eq("referee_user_id", user.id)
+        .eq("status", "completed")
+        .eq("reward_paid", false)
+        .maybeSingle();
+
+      if (reward) {
+        // Check expiry
+        if (reward.expires_at && new Date(reward.expires_at) < new Date()) {
+          setVoucherError("This voucher has expired");
+          setVoucherDiscount(null);
+        } else {
+          setVoucherDiscount({ id: reward.id, amount: reward.amount });
+        }
+      } else if (referral && referral.reward_amount) {
+        // Use referral reward
+        setVoucherDiscount({ id: referral.id, amount: referral.reward_amount });
+      } else {
+        setVoucherError("Invalid or already used voucher code");
+        setVoucherDiscount(null);
+      }
+    } catch (err) {
+      setVoucherError("Failed to validate voucher");
+      setVoucherDiscount(null);
+    } finally {
+      setVoucherLoading(false);
+    }
   };
 
   const formatPrice = (price: number) => {
@@ -380,6 +455,45 @@ export default function TenantVendorDetail() {
                 />
               </div>
 
+              {/* Voucher Code Input */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Tag className="h-4 w-4" />
+                  Voucher Code (optional)
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter voucher code"
+                    value={orderData.voucherCode}
+                    onChange={(e) => {
+                      setOrderData({ ...orderData, voucherCode: e.target.value.toUpperCase() });
+                      setVoucherDiscount(null);
+                      setVoucherError(null);
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => validateVoucher(orderData.voucherCode)}
+                    disabled={voucherLoading || !orderData.voucherCode.trim()}
+                  >
+                    {voucherLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apply"}
+                  </Button>
+                </div>
+                {voucherDiscount && (
+                  <div className="flex items-center gap-2 text-sm text-green-600">
+                    <Check className="h-4 w-4" />
+                    Voucher applied! {formatPrice(voucherDiscount.amount)} discount
+                  </div>
+                )}
+                {voucherError && (
+                  <div className="flex items-center gap-2 text-sm text-destructive">
+                    <X className="h-4 w-4" />
+                    {voucherError}
+                  </div>
+                )}
+              </div>
+
               <div className="rounded-lg bg-muted p-3">
                 <div className="flex justify-between text-sm">
                   <span>Subtotal</span>
@@ -389,10 +503,21 @@ export default function TenantVendorDetail() {
                   <span>Service fee (5%)</span>
                   <span>{formatPrice(selectedProduct.price * orderData.quantity * 0.05)}</span>
                 </div>
+                {voucherDiscount && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Voucher Discount</span>
+                    <span>-{formatPrice(voucherDiscount.amount)}</span>
+                  </div>
+                )}
                 <div className="mt-2 flex justify-between border-t pt-2 font-semibold">
                   <span>Total</span>
                   <span>
-                    {formatPrice(selectedProduct.price * orderData.quantity * 1.05)}
+                    {formatPrice(
+                      Math.max(
+                        selectedProduct.price * orderData.quantity * 1.05 - (voucherDiscount?.amount || 0),
+                        0
+                      )
+                    )}
                   </span>
                 </div>
               </div>

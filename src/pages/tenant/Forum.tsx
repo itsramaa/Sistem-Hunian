@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { Plus, MessageSquare, Heart, Eye, Loader2, Search, Pin } from "lucide-react";
+import { Plus, MessageSquare, Heart, Eye, Loader2, Search, Pin, ImageIcon, X } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
 
@@ -35,7 +35,7 @@ export default function TenantForum() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newPost, setNewPost] = useState({ title: "", content: "", tags: "" });
+  const [newPost, setNewPost] = useState({ title: "", content: "", tags: "", photos: [] as string[] });
   const [showAllPosts, setShowAllPosts] = useState(false);
 
   // Get tenant's property from active contract
@@ -131,7 +131,8 @@ export default function TenantForum() {
         title: newPost.title,
         content: newPost.content,
         tags: tags.length > 0 ? tags : null,
-        property_id: propertyId || null, // Associate with tenant's property
+        photos: newPost.photos.length > 0 ? newPost.photos : null,
+        property_id: propertyId || null,
       });
       if (error) throw error;
     },
@@ -139,12 +140,37 @@ export default function TenantForum() {
       queryClient.invalidateQueries({ queryKey: ["forum-posts"] });
       toast({ title: "Post created!" });
       setIsDialogOpen(false);
-      setNewPost({ title: "", content: "", tags: "" });
+      setNewPost({ title: "", content: "", tags: "", photos: [] });
     },
     onError: (error) => {
       toast({ title: "Failed to create post", description: error.message, variant: "destructive" });
     },
   });
+
+  // Photo upload handler
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || !user?.id) return;
+    
+    for (const file of Array.from(files)) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ title: "File too large", description: "Max 5MB per image", variant: "destructive" });
+        continue;
+      }
+      
+      const fileExt = file.name.split('.').pop();
+      const filePath = `forum/${user.id}/${Date.now()}.${fileExt}`;
+      
+      const { error } = await supabase.storage.from('maintenance-photos').upload(filePath, file);
+      if (error) {
+        toast({ title: "Upload failed", variant: "destructive" });
+        continue;
+      }
+      
+      const { data: { publicUrl } } = supabase.storage.from('maintenance-photos').getPublicUrl(filePath);
+      setNewPost(prev => ({ ...prev, photos: [...prev.photos, publicUrl] }));
+    }
+  };
 
   // Like post mutation
   const likeMutation = useMutation({
@@ -258,6 +284,30 @@ export default function TenantForum() {
                   onChange={(e) => setNewPost({ ...newPost, tags: e.target.value })}
                   placeholder="e.g., question, maintenance, tips"
                 />
+              </div>
+              {/* Photo Upload */}
+              <div className="space-y-2">
+                <Label>Photos (optional)</Label>
+                <div className="flex flex-wrap gap-2">
+                  {newPost.photos.map((url, i) => (
+                    <div key={i} className="relative h-16 w-16">
+                      <img src={url} alt="" className="h-full w-full rounded object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setNewPost(p => ({ ...p, photos: p.photos.filter((_, idx) => idx !== i) }))}
+                        className="absolute -right-1 -top-1 rounded-full bg-destructive p-0.5 text-destructive-foreground"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {newPost.photos.length < 4 && (
+                    <label className="flex h-16 w-16 cursor-pointer items-center justify-center rounded border-2 border-dashed hover:border-primary">
+                      <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
+                      <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                    </label>
+                  )}
+                </div>
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
