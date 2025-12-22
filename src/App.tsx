@@ -32,6 +32,7 @@ import MerchantSettings from "./pages/merchant/Settings";
 import MerchantUnits from "./pages/merchant/Units";
 import MerchantEscrow from "./pages/merchant/Escrow";
 import MerchantReferrals from "./pages/merchant/Referrals";
+import MerchantContracts from "./pages/merchant/Contracts";
 import TenantDashboard from "./pages/tenant/Dashboard";
 import TenantMaintenance from "./pages/tenant/Maintenance";
 import TenantMaintenanceDetail from "./pages/tenant/MaintenanceDetail";
@@ -97,6 +98,7 @@ const App = () => (
             <Route path="/merchant/units" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantUnits /></ProtectedRoute>} />
             <Route path="/merchant/escrow" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantEscrow /></ProtectedRoute>} />
             <Route path="/merchant/referrals" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantReferrals /></ProtectedRoute>} />
+            <Route path="/merchant/contracts" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantContracts /></ProtectedRoute>} />
             
             {/* Tenant Routes */}
             <Route path="/tenant" element={<ProtectedRoute allowedRoles={['tenant']}><TenantDashboard /></ProtectedRoute>} />

@@ -25,6 +25,7 @@ const merchantMenuItems = [
   { icon: Building2, label: 'Properties', href: '/merchant/properties' },
   { icon: Home, label: 'Units', href: '/merchant/units' },
   { icon: Users, label: 'Tenants', href: '/merchant/tenants' },
+  { icon: FileText, label: 'Contracts', href: '/merchant/contracts' },
   { icon: FileText, label: 'Invoices', href: '/merchant/invoices' },
   { icon: Wallet, label: 'Payments', href: '/merchant/payments' },
   { icon: Wrench, label: 'Maintenance', href: '/merchant/maintenance' },
