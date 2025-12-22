@@ -7,22 +7,25 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from "recharts";
-import { TrendingUp, Users, Building2, DollarSign, Loader2, Wrench, Home, Download, FileText, Activity } from "lucide-react";
+import { TrendingUp, Users, Building2, DollarSign, Loader2, Wrench, Home, Download, FileText, Activity, UserCheck } from "lucide-react";
 import { exportToCSV, exportToPDF } from "@/lib/exportUtils";
 import { RealTimeAnalytics } from "@/components/admin/RealTimeAnalytics";
+import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 
 const AdminAnalytics = () => {
   const [activeTab, setActiveTab] = useState("realtime");
+  
   const { data: stats, isLoading } = useQuery({
     queryKey: ['admin-analytics'],
     queryFn: async () => {
-      const [merchants, properties, units, payments, maintenanceRequests, invoices] = await Promise.all([
+      const [merchants, properties, units, payments, maintenanceRequests, invoices, contracts] = await Promise.all([
         supabase.from('merchants').select('id, created_at, verification_status'),
-        supabase.from('properties').select('id, created_at, status'),
+        supabase.from('properties').select('id, created_at, status, property_type'),
         supabase.from('units').select('id, status, rent_amount'),
-        supabase.from('payments').select('id, amount, status, created_at, paid_at'),
+        supabase.from('payments').select('id, amount, status, created_at, paid_at, due_date'),
         supabase.from('maintenance_requests').select('id, status, created_at'),
         supabase.from('invoices').select('id, total_amount, status, created_at'),
+        supabase.from('contracts').select('id, status, created_at, start_date, end_date, churn_reason, tenant_user_id, unit_id, units(properties(property_type))'),
       ]);
 
       return {
@@ -32,6 +35,31 @@ const AdminAnalytics = () => {
         payments: payments.data || [],
         maintenanceRequests: maintenanceRequests.data || [],
         invoices: invoices.data || [],
+        contracts: contracts.data || [],
+      };
+    },
+  });
+
+  // Tenant analytics calculations
+  const { data: tenantAnalytics } = useQuery({
+    queryKey: ['tenant-analytics'],
+    queryFn: async () => {
+      const sixMonthsAgo = subMonths(new Date(), 6);
+      
+      const [contractsRes, paymentsRes] = await Promise.all([
+        supabase
+          .from('contracts')
+          .select('id, created_at, status, churn_reason, unit_id, units(properties(property_type))')
+          .gte('created_at', sixMonthsAgo.toISOString()),
+        supabase
+          .from('payments')
+          .select('id, status, due_date, paid_at, amount')
+          .gte('created_at', sixMonthsAgo.toISOString()),
+      ]);
+
+      return {
+        contracts: contractsRes.data || [],
+        payments: paymentsRes.data || [],
       };
     },
   });
@@ -47,7 +75,7 @@ const AdminAnalytics = () => {
   }
 
   const totalRevenue = stats?.payments
-    ?.filter(p => p.status === 'completed')
+    ?.filter(p => p.status === 'completed' || p.status === 'paid')
     .reduce((sum, p) => sum + Number(p.amount), 0) || 0;
 
   const totalProperties = stats?.properties?.length || 0;
@@ -55,14 +83,93 @@ const AdminAnalytics = () => {
   const occupiedUnits = stats?.units?.filter(u => u.status === 'occupied').length || 0;
   const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
 
-  // Monthly revenue data (simulated for demo)
+  // Active tenants count
+  const activeTenants = stats?.contracts?.filter(c => c.status === 'active').length || 0;
+
+  // Monthly data for charts
+  const getMonthlyData = () => {
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const date = subMonths(new Date(), i);
+      const monthStart = startOfMonth(date);
+      const monthEnd = endOfMonth(date);
+      
+      const newTenants = tenantAnalytics?.contracts?.filter(c => {
+        const createdAt = new Date(c.created_at);
+        return createdAt >= monthStart && createdAt <= monthEnd;
+      }).length || 0;
+
+      const churnedTenants = stats?.contracts?.filter(c => {
+        if (c.status !== 'terminated' && c.status !== 'expired') return false;
+        const endDate = new Date(c.end_date);
+        return endDate >= monthStart && endDate <= monthEnd;
+      }).length || 0;
+
+      months.push({
+        month: format(date, 'MMM'),
+        newTenants,
+        churnedTenants,
+      });
+    }
+    return months;
+  };
+
+  const monthlyTenantData = getMonthlyData();
+
+  // Tenants by property type
+  const tenantsByPropertyType = () => {
+    const typeCount: Record<string, number> = {};
+    stats?.contracts?.forEach((contract: any) => {
+      const type = contract.units?.properties?.property_type || 'Unknown';
+      typeCount[type] = (typeCount[type] || 0) + 1;
+    });
+    return Object.entries(typeCount).map(([name, value]) => ({
+      name,
+      value,
+      fill: name === 'apartment' ? 'hsl(var(--primary))' : 
+            name === 'kost' ? 'hsl(var(--success))' : 
+            name === 'house' ? 'hsl(var(--warning))' : 'hsl(var(--muted))',
+    }));
+  };
+
+  // Payment behavior analytics
+  const paymentBehavior = () => {
+    const payments = tenantAnalytics?.payments || [];
+    const onTime = payments.filter(p => {
+      if (p.status !== 'paid' || !p.paid_at) return false;
+      return new Date(p.paid_at) <= new Date(p.due_date);
+    }).length;
+    const late = payments.filter(p => {
+      if (p.status !== 'paid' || !p.paid_at) return false;
+      return new Date(p.paid_at) > new Date(p.due_date);
+    }).length;
+    const pending = payments.filter(p => p.status === 'pending').length;
+
+    return [
+      { name: 'On Time', value: onTime, fill: 'hsl(var(--success))' },
+      { name: 'Late', value: late, fill: 'hsl(var(--warning))' },
+      { name: 'Pending', value: pending, fill: 'hsl(var(--muted))' },
+    ];
+  };
+
+  // Churn analytics
+  const churnReasons = () => {
+    const reasons: Record<string, number> = {};
+    stats?.contracts?.filter(c => c.churn_reason).forEach((c: any) => {
+      const reason = c.churn_reason || 'Unknown';
+      reasons[reason] = (reasons[reason] || 0) + 1;
+    });
+    return Object.entries(reasons).map(([name, count]) => ({ name, count }));
+  };
+
+  // Monthly revenue data
   const monthlyData = [
-    { month: 'Jul', revenue: 125000, properties: 12 },
-    { month: 'Aug', revenue: 142000, properties: 14 },
-    { month: 'Sep', revenue: 158000, properties: 15 },
-    { month: 'Oct', revenue: 165000, properties: 18 },
-    { month: 'Nov', revenue: 178000, properties: 20 },
-    { month: 'Dec', revenue: 195000, properties: 22 },
+    { month: 'Jul', revenue: 125000000, properties: 12 },
+    { month: 'Aug', revenue: 142000000, properties: 14 },
+    { month: 'Sep', revenue: 158000000, properties: 15 },
+    { month: 'Oct', revenue: 165000000, properties: 18 },
+    { month: 'Nov', revenue: 178000000, properties: 20 },
+    { month: 'Dec', revenue: 195000000, properties: 22 },
   ];
 
   // Merchant status distribution
@@ -90,28 +197,33 @@ const AdminAnalytics = () => {
     revenue: { label: "Revenue", color: "hsl(var(--primary))" },
     properties: { label: "Properties", color: "hsl(var(--accent))" },
     count: { label: "Count", color: "hsl(var(--chart-1))" },
+    newTenants: { label: "New Tenants", color: "hsl(var(--success))" },
+    churnedTenants: { label: "Churned", color: "hsl(var(--destructive))" },
+  };
+
+  const formatCurrency = (amount: number) => {
+    if (amount >= 1000000000) return `Rp ${(amount / 1000000000).toFixed(1)}B`;
+    if (amount >= 1000000) return `Rp ${(amount / 1000000).toFixed(0)}M`;
+    return `Rp ${amount.toLocaleString('id-ID')}`;
   };
 
   const handleExportCSV = () => {
     const data = [
-      { metric: 'Total Revenue', value: `R ${totalRevenue.toLocaleString()}` },
+      { metric: 'Total Revenue', value: formatCurrency(totalRevenue) },
       { metric: 'Total Merchants', value: stats?.merchants?.length || 0 },
       { metric: 'Total Properties', value: totalProperties },
       { metric: 'Total Units', value: totalUnits },
-      { metric: 'Occupied Units', value: occupiedUnits },
+      { metric: 'Active Tenants', value: activeTenants },
       { metric: 'Occupancy Rate', value: `${occupancyRate}%` },
-      { metric: 'Pending Maintenance', value: stats?.maintenanceRequests?.filter(m => m.status === 'pending').length || 0 },
     ];
     exportToCSV(data, 'platform-analytics');
   };
 
   const handleExportPDF = () => {
     const data = [
-      { metric: 'Total Revenue', value: `R ${totalRevenue.toLocaleString()}` },
+      { metric: 'Total Revenue', value: formatCurrency(totalRevenue) },
       { metric: 'Total Merchants', value: stats?.merchants?.length || 0 },
-      { metric: 'Total Properties', value: totalProperties },
-      { metric: 'Total Units', value: totalUnits },
-      { metric: 'Occupied Units', value: occupiedUnits },
+      { metric: 'Active Tenants', value: activeTenants },
       { metric: 'Occupancy Rate', value: `${occupancyRate}%` },
     ];
     exportToPDF(data, 'Platform Analytics Report', 'platform-analytics');
@@ -137,9 +249,8 @@ const AdminAnalytics = () => {
           </div>
         </div>
 
-        {/* Tabs for different analytics views */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsList className="grid w-full max-w-lg grid-cols-3">
             <TabsTrigger value="realtime" className="flex items-center gap-2">
               <Activity className="h-4 w-4" />
               Real-Time
@@ -147,6 +258,10 @@ const AdminAnalytics = () => {
             <TabsTrigger value="platform" className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
               Platform
+            </TabsTrigger>
+            <TabsTrigger value="tenants" className="flex items-center gap-2">
+              <UserCheck className="h-4 w-4" />
+              Tenants
             </TabsTrigger>
           </TabsList>
 
@@ -156,202 +271,267 @@ const AdminAnalytics = () => {
 
           <TabsContent value="platform" className="mt-6 space-y-6">
             {/* Summary Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-success/10">
-                  <DollarSign className="h-6 w-6 text-success" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Revenue</p>
-                  <p className="text-2xl font-bold">R {totalRevenue.toLocaleString()}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-primary/10">
-                  <Users className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Merchants</p>
-                  <p className="text-2xl font-bold">{stats?.merchants?.length || 0}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-accent/10">
-                  <Building2 className="h-6 w-6 text-accent" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Properties</p>
-                  <p className="text-2xl font-bold">{totalProperties}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-info/10">
-                  <Home className="h-6 w-6 text-info" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Occupancy Rate</p>
-                  <p className="text-2xl font-bold">{occupancyRate}%</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Charts Row 1 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-primary" />
-                Revenue Trend
-              </CardTitle>
-              <CardDescription>Monthly revenue over time</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={chartConfig} className="h-[300px]">
-                <AreaChart data={monthlyData}>
-                  <XAxis dataKey="month" />
-                  <YAxis tickFormatter={(v) => `R${v/1000}k`} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Area
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="hsl(var(--primary))"
-                    fill="hsl(var(--primary) / 0.2)"
-                    strokeWidth={2}
-                  />
-                </AreaChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-accent" />
-                Property Growth
-              </CardTitle>
-              <CardDescription>New properties added each month</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={chartConfig} className="h-[300px]">
-                <BarChart data={monthlyData}>
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="properties" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Charts Row 2 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Merchant Status</CardTitle>
-              <CardDescription>Verification status breakdown</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={chartConfig} className="h-[200px]">
-                <PieChart>
-                  <Pie
-                    data={merchantStatus}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={80}
-                  >
-                    {merchantStatus.map((entry, index) => (
-                      <Cell key={index} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                </PieChart>
-              </ChartContainer>
-              <div className="flex justify-center gap-4 mt-4">
-                {merchantStatus.map((item, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.fill }} />
-                    <span className="text-sm text-muted-foreground">{item.name}: {item.value}</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-lg bg-success/10">
+                      <DollarSign className="h-6 w-6 text-success" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Revenue</p>
+                      <p className="text-2xl font-bold">{formatCurrency(totalRevenue)}</p>
+                    </div>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Unit Status</CardTitle>
-              <CardDescription>Current occupancy breakdown</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={chartConfig} className="h-[200px]">
-                <PieChart>
-                  <Pie
-                    data={unitStatus}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={80}
-                  >
-                    {unitStatus.map((entry, index) => (
-                      <Cell key={index} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                </PieChart>
-              </ChartContainer>
-              <div className="flex justify-center gap-4 mt-4">
-                {unitStatus.map((item, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.fill }} />
-                    <span className="text-sm text-muted-foreground">{item.name}: {item.value}</span>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-lg bg-primary/10">
+                      <Users className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Merchants</p>
+                      <p className="text-2xl font-bold">{stats?.merchants?.length || 0}</p>
+                    </div>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-lg bg-accent/10">
+                      <Building2 className="h-6 w-6 text-accent-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Properties</p>
+                      <p className="text-2xl font-bold">{totalProperties}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-lg bg-info/10">
+                      <Home className="h-6 w-6 text-info" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Occupancy Rate</p>
+                      <p className="text-2xl font-bold">{occupancyRate}%</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Wrench className="h-5 w-5 text-warning" />
-                Maintenance
-              </CardTitle>
-              <CardDescription>Request status breakdown</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={chartConfig} className="h-[200px]">
-                <BarChart data={maintenanceData} layout="vertical">
-                  <XAxis type="number" />
-                  <YAxis dataKey="name" type="category" width={80} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="count" fill="hsl(var(--chart-1))" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-        </div>
+            {/* Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                    Revenue Trend
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer config={chartConfig} className="h-[300px]">
+                    <AreaChart data={monthlyData}>
+                      <XAxis dataKey="month" />
+                      <YAxis tickFormatter={(v) => `${v/1000000}M`} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.2)" strokeWidth={2} />
+                    </AreaChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Merchant Status</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer config={chartConfig} className="h-[250px]">
+                    <PieChart>
+                      <Pie data={merchantStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80}>
+                        {merchantStatus.map((entry, index) => (
+                          <Cell key={index} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                    </PieChart>
+                  </ChartContainer>
+                  <div className="flex justify-center gap-4 mt-2">
+                    {merchantStatus.map((item, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.fill }} />
+                        <span className="text-sm text-muted-foreground">{item.name}: {item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="tenants" className="mt-6 space-y-6">
+            {/* Tenant Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-lg bg-primary/10">
+                      <UserCheck className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Active Tenants</p>
+                      <p className="text-2xl font-bold">{activeTenants}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-lg bg-success/10">
+                      <TrendingUp className="h-6 w-6 text-success" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">New This Month</p>
+                      <p className="text-2xl font-bold">{monthlyTenantData[5]?.newTenants || 0}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-lg bg-warning/10">
+                      <Users className="h-6 w-6 text-warning" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Churned</p>
+                      <p className="text-2xl font-bold">{stats?.contracts?.filter(c => c.churn_reason).length || 0}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-lg bg-info/10">
+                      <Home className="h-6 w-6 text-info" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Occupancy</p>
+                      <p className="text-2xl font-bold">{occupancyRate}%</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Tenant Growth Chart */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Tenant Growth</CardTitle>
+                  <CardDescription>New vs churned tenants over time</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer config={chartConfig} className="h-[300px]">
+                    <BarChart data={monthlyTenantData}>
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="newTenants" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} name="New" />
+                      <Bar dataKey="churnedTenants" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} name="Churned" />
+                    </BarChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Tenants by Property Type</CardTitle>
+                  <CardDescription>Distribution across property types</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer config={chartConfig} className="h-[250px]">
+                    <PieChart>
+                      <Pie data={tenantsByPropertyType()} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80}>
+                        {tenantsByPropertyType().map((entry, index) => (
+                          <Cell key={index} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                    </PieChart>
+                  </ChartContainer>
+                  <div className="flex flex-wrap justify-center gap-4 mt-2">
+                    {tenantsByPropertyType().map((item, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.fill }} />
+                        <span className="text-sm text-muted-foreground capitalize">{item.name}: {item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Payment Behavior */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Payment Behavior</CardTitle>
+                  <CardDescription>On-time vs late payment analysis</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer config={chartConfig} className="h-[250px]">
+                    <PieChart>
+                      <Pie data={paymentBehavior()} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80}>
+                        {paymentBehavior().map((entry, index) => (
+                          <Cell key={index} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                    </PieChart>
+                  </ChartContainer>
+                  <div className="flex justify-center gap-4 mt-2">
+                    {paymentBehavior().map((item, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.fill }} />
+                        <span className="text-sm text-muted-foreground">{item.name}: {item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Churn Reasons</CardTitle>
+                  <CardDescription>Why tenants are leaving</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {churnReasons().length === 0 ? (
+                    <div className="h-[250px] flex items-center justify-center text-muted-foreground">
+                      No churn data available
+                    </div>
+                  ) : (
+                    <ChartContainer config={chartConfig} className="h-[250px]">
+                      <BarChart data={churnReasons()} layout="vertical">
+                        <XAxis type="number" />
+                        <YAxis dataKey="name" type="category" width={100} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Bar dataKey="count" fill="hsl(var(--warning))" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ChartContainer>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
