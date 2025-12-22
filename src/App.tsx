@@ -35,6 +35,11 @@ import TenantPayments from "./pages/tenant/Payments";
 import TenantSettings from "./pages/tenant/Settings";
 import TenantContracts from "./pages/tenant/Contracts";
 import TenantInvoices from "./pages/tenant/Invoices";
+import VendorDashboard from "./pages/vendor/Dashboard";
+import VendorJobs from "./pages/vendor/Jobs";
+import VendorEarnings from "./pages/vendor/Earnings";
+import VendorProfile from "./pages/vendor/Profile";
+import VendorSettings from "./pages/vendor/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -83,6 +88,13 @@ const App = () => (
             <Route path="/tenant/settings" element={<ProtectedRoute allowedRoles={['tenant']}><TenantSettings /></ProtectedRoute>} />
             <Route path="/tenant/contracts" element={<ProtectedRoute allowedRoles={['tenant']}><TenantContracts /></ProtectedRoute>} />
             <Route path="/tenant/invoices" element={<ProtectedRoute allowedRoles={['tenant']}><TenantInvoices /></ProtectedRoute>} />
+            
+            {/* Vendor Routes */}
+            <Route path="/vendor" element={<ProtectedRoute allowedRoles={['vendor']}><VendorDashboard /></ProtectedRoute>} />
+            <Route path="/vendor/jobs" element={<ProtectedRoute allowedRoles={['vendor']}><VendorJobs /></ProtectedRoute>} />
+            <Route path="/vendor/earnings" element={<ProtectedRoute allowedRoles={['vendor']}><VendorEarnings /></ProtectedRoute>} />
+            <Route path="/vendor/profile" element={<ProtectedRoute allowedRoles={['vendor']}><VendorProfile /></ProtectedRoute>} />
+            <Route path="/vendor/settings" element={<ProtectedRoute allowedRoles={['vendor']}><VendorSettings /></ProtectedRoute>} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
