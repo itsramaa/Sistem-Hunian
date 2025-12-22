@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { MerchantLayout } from '@/components/layouts/MerchantLayout';
+import { SubscriptionWidget } from '@/components/merchant/SubscriptionWidget';
 import { useAuth } from '@/hooks/useAuth';
 
 const stats = [
@@ -165,7 +166,14 @@ export default function MerchantDashboard() {
         </Card>
 
         {/* Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Subscription Widget */}
+          <div className="lg:col-span-1">
+            <SubscriptionWidget />
+          </div>
+
+          {/* Upcoming & Recent Payments */}
+          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Upcoming Payments */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -226,6 +234,7 @@ export default function MerchantDashboard() {
               </div>
             </CardContent>
           </Card>
+          </div>
         </div>
       </div>
     </MerchantLayout>
