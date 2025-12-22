@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.scheduled-disbursement]
 verify_jwt = false
+
+[functions.whatsapp-notification]
+verify_jwt = false

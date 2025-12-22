@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DollarSign, Clock, CheckCircle, FileText, Calendar, CreditCard } from 'lucide-react';
 import { format } from 'date-fns';
 import { XenditPaymentModal } from '@/components/payment/XenditPaymentModal';
+import { usePaymentTracking } from '@/hooks/useAnalytics';
 
 type Payment = {
   id: string;
@@ -36,7 +37,17 @@ type Invoice = {
 
 export default function TenantPayments() {
   const { user } = useAuth();
+  const { trackPaymentInitiated } = usePaymentTracking();
   const [selectedPayment, setSelectedPayment] = useState<{ type: 'payment' | 'invoice'; item: Payment | Invoice } | null>(null);
+
+  const handlePayNow = (type: 'payment' | 'invoice', item: Payment | Invoice) => {
+    setSelectedPayment({ type, item });
+    trackPaymentInitiated(
+      item.id,
+      type === 'invoice' ? Number((item as Invoice).total_amount) : Number((item as Payment).amount),
+      type
+    );
+  };
 
   const { data: payments = [], isLoading: paymentsLoading } = useQuery({
     queryKey: ['tenant-payments-all', user?.id],
@@ -186,7 +197,7 @@ export default function TenantPayments() {
                         <p className="text-lg font-bold">{formatCurrency(Number(payment.amount))}</p>
                         <Button 
                           size="sm" 
-                          onClick={() => setSelectedPayment({ type: 'payment', item: payment })}
+                          onClick={() => handlePayNow('payment', payment)}
                           className="gap-1"
                         >
                           <CreditCard className="h-4 w-4" />
@@ -221,7 +232,7 @@ export default function TenantPayments() {
                         <p className="text-lg font-bold">{formatCurrency(Number(invoice.total_amount))}</p>
                         <Button 
                           size="sm" 
-                          onClick={() => setSelectedPayment({ type: 'invoice', item: invoice })}
+                          onClick={() => handlePayNow('invoice', invoice)}
                           className="gap-1"
                         >
                           <CreditCard className="h-4 w-4" />

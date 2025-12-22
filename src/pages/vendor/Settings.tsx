@@ -17,8 +17,10 @@ import {
   Bell, 
   CreditCard, 
   Save,
-  Trash2
+  Trash2,
+  Shield
 } from 'lucide-react';
+import { VerificationUpload } from '@/components/vendor/VerificationUpload';
 
 interface VendorBankAccount {
   id: string;
@@ -238,7 +240,7 @@ export default function VendorSettings() {
         </div>
 
         <Tabs defaultValue="account" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
+          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
             <TabsTrigger value="account" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               <span className="hidden sm:inline">Account</span>
@@ -254,6 +256,10 @@ export default function VendorSettings() {
             <TabsTrigger value="banking" className="flex items-center gap-2">
               <CreditCard className="h-4 w-4" />
               <span className="hidden sm:inline">Banking</span>
+            </TabsTrigger>
+            <TabsTrigger value="verification" className="flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              <span className="hidden sm:inline">Verification</span>
             </TabsTrigger>
           </TabsList>
 
@@ -509,6 +515,19 @@ export default function VendorSettings() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Verification Tab */}
+          <TabsContent value="verification" className="mt-6 space-y-6">
+            {vendor ? (
+              <VerificationUpload vendorId={vendor.id} />
+            ) : (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <p className="text-muted-foreground">Loading vendor information...</p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </div>

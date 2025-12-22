@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2, Package, Star, Calendar, MapPin } from "lucide-react";
 import { format } from "date-fns";
+import { useOrderTracking } from "@/hooks/useAnalytics";
 
 interface Order {
   id: string;
@@ -48,6 +49,7 @@ export default function TenantOrders() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { trackOrderCancelled } = useOrderTracking();
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [reviewData, setReviewData] = useState({ rating: 5, review_text: "" });
@@ -126,9 +128,11 @@ export default function TenantOrders() {
         .update({ status: "canceled", canceled_at: new Date().toISOString() })
         .eq("id", orderId);
       if (error) throw error;
+      return orderId;
     },
-    onSuccess: () => {
+    onSuccess: (orderId) => {
       queryClient.invalidateQueries({ queryKey: ["tenant-orders"] });
+      trackOrderCancelled(orderId, "User requested cancellation");
       toast({ title: "Order canceled" });
     },
     onError: (error) => {
