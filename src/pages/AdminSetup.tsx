@@ -11,6 +11,8 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
 const adminSchema = z.object({
   email: z.string().email('Please enter a valid email'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
@@ -19,9 +21,6 @@ const adminSchema = z.object({
 });
 
 type AdminFormData = z.infer<typeof adminSchema>;
-
-// Simple secret key for admin setup - in production, use env variable
-const ADMIN_SECRET = 'sihuni-admin-setup-2024';
 
 export default function AdminSetup() {
   const [isLoading, setIsLoading] = useState(false);
@@ -38,18 +37,42 @@ export default function AdminSetup() {
     },
   });
 
-  const handleSubmit = async (data: AdminFormData) => {
-    if (data.secretKey !== ADMIN_SECRET) {
-      toast({
-        variant: 'destructive',
-        title: 'Invalid Secret Key',
-        description: 'The secret key you entered is incorrect.',
+  const validateSecretKey = async (secretKey: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/validate-admin-secret`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secretKey }),
       });
-      return;
+      
+      if (!response.ok) {
+        return false;
+      }
+      
+      const result = await response.json();
+      return result.valid === true;
+    } catch (error) {
+      console.error('Error validating secret:', error);
+      return false;
     }
+  };
 
+  const handleSubmit = async (data: AdminFormData) => {
     setIsLoading(true);
     try {
+      // Validate secret key via edge function
+      const isValidSecret = await validateSecretKey(data.secretKey);
+      
+      if (!isValidSecret) {
+        toast({
+          variant: 'destructive',
+          title: 'Invalid Secret Key',
+          description: 'The secret key you entered is incorrect.',
+        });
+        setIsLoading(false);
+        return;
+      }
+
       // Sign up the admin user
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: data.email,
@@ -65,7 +88,6 @@ export default function AdminSetup() {
 
       if (signUpError) {
         if (signUpError.message.includes('already registered')) {
-          // User exists, try to update their role to admin
           toast({
             variant: 'destructive',
             title: 'User Already Exists',
@@ -184,7 +206,7 @@ export default function AdminSetup() {
                 <p className="text-sm text-destructive">{form.formState.errors.secretKey.message}</p>
               )}
               <p className="text-xs text-muted-foreground">
-                Hint: The secret key is <code className="bg-muted px-1 rounded">sihuni-admin-setup-2024</code>
+                Contact system administrator for the secret key
               </p>
             </div>
 
