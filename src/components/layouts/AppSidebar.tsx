@@ -36,6 +36,8 @@ import {
   Store,
   MessageSquare,
   ShoppingBag,
+  Gift,
+  UserCheck,
 } from "lucide-react";
 
 interface NavItem {
@@ -48,6 +50,7 @@ const adminNavItems: NavItem[] = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
   { title: "Merchants", url: "/admin/merchants", icon: Building2 },
   { title: "Vendors", url: "/admin/vendors", icon: Wrench },
+  { title: "Verifications", url: "/admin/vendor-verifications", icon: UserCheck },
   { title: "Subscriptions", url: "/admin/subscriptions", icon: Crown },
   { title: "Tiers", url: "/admin/subscription-tiers", icon: Crown },
   { title: "Disputes", url: "/admin/disputes", icon: AlertTriangle },
@@ -65,6 +68,7 @@ const merchantNavItems: NavItem[] = [
   { title: "Payments", url: "/merchant/payments", icon: CreditCard },
   { title: "Invoices", url: "/merchant/invoices", icon: FileText },
   { title: "Escrow", url: "/merchant/escrow", icon: Wallet },
+  { title: "Referrals", url: "/merchant/referrals", icon: Gift },
   { title: "Reports", url: "/merchant/reports", icon: BarChart3 },
   { title: "Settings", url: "/merchant/settings", icon: Settings },
 ];
@@ -78,6 +82,7 @@ const tenantNavItems: NavItem[] = [
   { title: "Marketplace", url: "/tenant/marketplace", icon: Store },
   { title: "My Orders", url: "/tenant/orders", icon: ShoppingBag },
   { title: "Forum", url: "/tenant/forum", icon: MessageSquare },
+  { title: "Referrals", url: "/tenant/referrals", icon: Gift },
   { title: "Settings", url: "/tenant/settings", icon: Settings },
 ];
 

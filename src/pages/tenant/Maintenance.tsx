@@ -12,13 +12,15 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Wrench, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Plus, Wrench, Clock, CheckCircle, AlertTriangle, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 
 export default function TenantMaintenance() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -214,7 +216,11 @@ export default function TenantMaintenance() {
       ) : (
         <div className="space-y-4">
           {requests.map((request) => (
-            <Card key={request.id}>
+            <Card 
+              key={request.id} 
+              className="cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => navigate(`/tenant/maintenance/${request.id}`)}
+            >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
@@ -226,7 +232,7 @@ export default function TenantMaintenance() {
                       </Badge>
                     </div>
                     {request.description && (
-                      <p className="text-sm text-muted-foreground mb-2">{request.description}</p>
+                      <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{request.description}</p>
                     )}
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <span className="capitalize">{request.category}</span>
@@ -239,6 +245,7 @@ export default function TenantMaintenance() {
                       </p>
                     )}
                   </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
                 </div>
               </CardContent>
             </Card>
