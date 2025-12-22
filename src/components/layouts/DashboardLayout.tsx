@@ -1,8 +1,7 @@
 import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
-import { Button } from "@/components/ui/button";
-import { Menu } from "lucide-react";
+import { NotificationsDropdown } from "@/components/notifications/NotificationsDropdown";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -34,7 +33,8 @@ export function DashboardLayout({
                 )}
               </div>
             )}
-            {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
+            {actions && <div className="flex items-center gap-2">{actions}</div>}
+            <NotificationsDropdown />
           </header>
           <main className="flex-1 p-4 lg:p-6">
             {children}

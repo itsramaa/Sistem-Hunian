@@ -55,6 +55,7 @@ const adminNavItems: NavItem[] = [
 const merchantNavItems: NavItem[] = [
   { title: "Dashboard", url: "/merchant", icon: LayoutDashboard },
   { title: "Properties", url: "/merchant/properties", icon: Building2 },
+  { title: "Units", url: "/merchant/units", icon: Home },
   { title: "Tenants", url: "/merchant/tenants", icon: Users },
   { title: "Maintenance", url: "/merchant/maintenance", icon: Wrench },
   { title: "Payments", url: "/merchant/payments", icon: CreditCard },
