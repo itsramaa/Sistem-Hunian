@@ -163,6 +163,78 @@ export type Database = {
           },
         ]
       }
+      invoices: {
+        Row: {
+          amount: number
+          contract_id: string
+          created_at: string
+          description: string | null
+          due_date: string
+          id: string
+          invoice_number: string
+          issued_at: string | null
+          line_items: Json | null
+          merchant_id: string
+          paid_at: string | null
+          status: string
+          tax_amount: number | null
+          tenant_user_id: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          contract_id: string
+          created_at?: string
+          description?: string | null
+          due_date: string
+          id?: string
+          invoice_number: string
+          issued_at?: string | null
+          line_items?: Json | null
+          merchant_id: string
+          paid_at?: string | null
+          status?: string
+          tax_amount?: number | null
+          tenant_user_id: string
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          contract_id?: string
+          created_at?: string
+          description?: string | null
+          due_date?: string
+          id?: string
+          invoice_number?: string
+          issued_at?: string | null
+          line_items?: Json | null
+          merchant_id?: string
+          paid_at?: string | null
+          status?: string
+          tax_amount?: number | null
+          tenant_user_id?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       maintenance_requests: {
         Row: {
           assigned_to: string | null
