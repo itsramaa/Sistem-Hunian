@@ -104,10 +104,9 @@ new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(am
 
 ## IMPORTANT (P1) - Important for Production Quality
 
-### P1-1: Auto-Pay Setup for Pro+ Tier Missing
-**Status:** ❌ Not Implemented  
-**Impact:** Pro+ tenants can't set up automatic payments  
-**PRD Reference:** Section 4.4.3 - Auto-debit (Pro+)
+### P1-1: Auto-Pay Setup for Pro+ Tier ✅ DONE
+**Status:** ✅ Implemented  
+**Implementation:** Added auto-pay settings UI in Settings.tsx notifications tab with enable toggle and day-of-month selector. Settings persisted to tenants table.
 
 ### P1-2: Property-Specific Forum ✅ DONE
 **Status:** ✅ Implemented  
@@ -117,17 +116,21 @@ new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(am
 **Status:** ✅ Implemented  
 **Implementation:** Added location filter dropdown in Marketplace.tsx with "My Area" option based on tenant's property city. Vendors in same city sorted first.
 
-### P1-4: Invoice PDF Download from Tenant Side
-**Status:** ⚠️ Partial  
-**Note:** PDF generation exists, needs verification
+### P1-4: Invoice PDF Download from Tenant Side ✅ DONE
+**Status:** ✅ Verified Working  
+**Implementation:** PDF generation in Invoices.tsx calls generate-invoice-pdf edge function. Opens in print window for download.
 
-### P1-5: Profile Edit Page (KTP, Emergency Contact)
-**Status:** ⚠️ Partial  
-**Note:** TenantProfileForm component exists but may need integration
+### P1-5: Profile Edit Page (KTP, Emergency Contact) ✅ DONE
+**Status:** ✅ Implemented  
+**Implementation:** Full identity management tab added to Settings.tsx with:
+- KTP number and photo upload
+- Date of birth, gender, occupation, income range
+- Emergency contact (name, phone, relationship)
+- All data persisted to tenants table
 
-### P1-6: Notification Settings Not Persisted
-**Status:** ❌ Bug  
-**Note:** Settings reset on page reload
+### P1-6: Notification Settings Persistence ✅ DONE
+**Status:** ✅ Fixed  
+**Implementation:** Added notification_preferences jsonb column to tenants table. Settings now persist via Switch components with immediate save on toggle change.
 
 **Current State:**
 - `src/pages/tenant/Marketplace.tsx` only filters by category
@@ -252,19 +255,19 @@ new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(am
 
 ---
 
-### Bug-2: Notification Settings Not Saved
+### Bug-2: Notification Settings Not Saved ✅ FIXED
 **Severity:** Medium  
 **File:** `src/pages/tenant/Settings.tsx`
 
-**Issue:** Toggle changes not persisted to database
+**Fixed:** Notification preferences now persisted to tenants.notification_preferences column
 
 ---
 
-### Bug-3: Order Total Missing Service Fee Display
+### Bug-3: Order Total Missing Service Fee Display ✅ FIXED
 **Severity:** Low  
 **File:** `src/pages/tenant/VendorDetail.tsx`
 
-**Issue:** Service fee not shown in order summary before checkout
+**Fixed:** Service fee (5%) now shown in order summary before checkout
 
 ---
 
@@ -318,11 +321,11 @@ new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(am
 3. ✅ Complete tenant profile edit (KTP, emergency contact) - Full identity tab in Settings.tsx with KTP upload and emergency contact
 4. ⚠️ Fix notification settings persistence - Deferred to Sprint 3
 
-### Sprint 3 (P1 Continued)
-1. Fix notification settings persistence
-2. Auto-pay setup UI
-3. Invoice PDF download verification
-4. Service fee display in order summary
+### Sprint 3 (P1 Continued) ✅ COMPLETED
+1. ✅ Fix notification settings persistence - Added notification_preferences column, implemented Switch toggles with auto-save
+2. ✅ Auto-pay setup UI - Added auto-pay card with enable toggle and day selector
+3. ✅ Invoice PDF download verification - Confirmed working via generate-invoice-pdf edge function
+4. ✅ Service fee display in order summary - Already implemented in VendorDetail.tsx order dialog
 
 ### Sprint 4 (P2 - Enhancements)
 1. Saved payment methods

@@ -1645,6 +1645,8 @@ export type Database = {
       }
       tenants: {
         Row: {
+          auto_pay_day: number | null
+          auto_pay_enabled: boolean | null
           created_at: string
           date_of_birth: string | null
           emergency_contact_name: string | null
@@ -1656,6 +1658,7 @@ export type Database = {
           ktp_number: string | null
           ktp_photo_url: string | null
           notes: string | null
+          notification_preferences: Json | null
           occupation: string | null
           updated_at: string
           user_id: string
@@ -1664,6 +1667,8 @@ export type Database = {
           verified_by: string | null
         }
         Insert: {
+          auto_pay_day?: number | null
+          auto_pay_enabled?: boolean | null
           created_at?: string
           date_of_birth?: string | null
           emergency_contact_name?: string | null
@@ -1675,6 +1680,7 @@ export type Database = {
           ktp_number?: string | null
           ktp_photo_url?: string | null
           notes?: string | null
+          notification_preferences?: Json | null
           occupation?: string | null
           updated_at?: string
           user_id: string
@@ -1683,6 +1689,8 @@ export type Database = {
           verified_by?: string | null
         }
         Update: {
+          auto_pay_day?: number | null
+          auto_pay_enabled?: boolean | null
           created_at?: string
           date_of_birth?: string | null
           emergency_contact_name?: string | null
@@ -1694,6 +1702,7 @@ export type Database = {
           ktp_number?: string | null
           ktp_photo_url?: string | null
           notes?: string | null
+          notification_preferences?: Json | null
           occupation?: string | null
           updated_at?: string
           user_id?: string
