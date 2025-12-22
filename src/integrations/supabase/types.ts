@@ -188,6 +188,7 @@ export type Database = {
       }
       contracts: {
         Row: {
+          churn_reason: string | null
           contract_document_url: string | null
           created_at: string
           deposit_amount: number | null
@@ -208,6 +209,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          churn_reason?: string | null
           contract_document_url?: string | null
           created_at?: string
           deposit_amount?: number | null
@@ -228,6 +230,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          churn_reason?: string | null
           contract_document_url?: string | null
           created_at?: string
           deposit_amount?: number | null
@@ -982,6 +985,7 @@ export type Database = {
       merchants: {
         Row: {
           address: string | null
+          billing_day: number | null
           business_name: string
           business_type: string | null
           city: string | null
@@ -997,6 +1001,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          billing_day?: number | null
           business_name: string
           business_type?: string | null
           city?: string | null
@@ -1012,6 +1017,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          billing_day?: number | null
           business_name?: string
           business_type?: string | null
           city?: string | null

@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { FileUpload } from "@/components/FileUpload";
 import { BankAccountManager } from "@/components/merchant/BankAccountManager";
 import { SubscriptionPayment } from "@/components/merchant/SubscriptionPayment";
+import { DisbursementScheduleSettings } from "@/components/merchant/DisbursementScheduleSettings";
 import { Building2, Shield, Bell, Loader2, Save, CheckCircle, Clock, XCircle, FileText, Trash2, CreditCard } from "lucide-react";
 
 const Settings = () => {
@@ -479,6 +480,7 @@ const Settings = () => {
 
           <TabsContent value="banking" className="space-y-6">
             <BankAccountManager />
+            <DisbursementScheduleSettings />
           </TabsContent>
 
           <TabsContent value="notifications" className="space-y-6">
