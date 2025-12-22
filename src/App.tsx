@@ -61,6 +61,7 @@ import VendorEarnings from "./pages/vendor/Earnings";
 import VendorProfile from "./pages/vendor/Profile";
 import VendorSettings from "./pages/vendor/Settings";
 import VendorProducts from "./pages/vendor/Products";
+import VendorOrders from "./pages/vendor/Orders";
 import VendorReferrals from "./pages/vendor/Referrals";
 import NotFound from "./pages/NotFound";
 import { ChatbotWidget } from "./components/chatbot/ChatbotWidget";
@@ -135,6 +136,7 @@ const App = () => (
             {/* Vendor Routes */}
             <Route path="/vendor" element={<ProtectedRoute allowedRoles={['vendor']}><VendorDashboard /></ProtectedRoute>} />
             <Route path="/vendor/products" element={<ProtectedRoute allowedRoles={['vendor']}><VendorProducts /></ProtectedRoute>} />
+            <Route path="/vendor/orders" element={<ProtectedRoute allowedRoles={['vendor']}><VendorOrders /></ProtectedRoute>} />
             <Route path="/vendor/jobs" element={<ProtectedRoute allowedRoles={['vendor']}><VendorJobs /></ProtectedRoute>} />
             <Route path="/vendor/earnings" element={<ProtectedRoute allowedRoles={['vendor']}><VendorEarnings /></ProtectedRoute>} />
             <Route path="/vendor/profile" element={<ProtectedRoute allowedRoles={['vendor']}><VendorProfile /></ProtectedRoute>} />
