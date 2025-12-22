@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { TenantLayout } from "@/components/layouts/TenantLayout";
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, Star, MapPin, Loader2, Store } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { useAuth } from "@/hooks/useAuth";
 
 const SERVICE_CATEGORIES = [
   "All",
@@ -38,8 +39,40 @@ interface Vendor {
 
 export default function TenantMarketplace() {
   useAnalytics(); // Track page views automatically
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedLocation, setSelectedLocation] = useState("All");
+
+  // Fetch tenant's property location
+  const { data: tenantLocation } = useQuery({
+    queryKey: ["tenant-location", user?.id],
+    queryFn: async () => {
+      // Get tenant's active contract to find their property location
+      const { data: contract } = await supabase
+        .from("contracts")
+        .select(`
+          units:unit_id (
+            properties:property_id (
+              city,
+              province
+            )
+          )
+        `)
+        .eq("tenant_user_id", user?.id)
+        .eq("status", "active")
+        .maybeSingle();
+      
+      if (contract?.units?.properties) {
+        return {
+          city: (contract.units.properties as any).city,
+          province: (contract.units.properties as any).province,
+        };
+      }
+      return null;
+    },
+    enabled: !!user?.id,
+  });
 
   // Fetch verified vendors
   const { data: vendors, isLoading } = useQuery({
@@ -55,16 +88,49 @@ export default function TenantMarketplace() {
     },
   });
 
+  // Get unique locations from vendors
+  const availableLocations = useMemo(() => {
+    if (!vendors) return [];
+    const locations = new Set<string>();
+    vendors.forEach((v) => {
+      if (v.city) locations.add(v.city);
+    });
+    return Array.from(locations).sort();
+  }, [vendors]);
+
   // Filter vendors
-  const filteredVendors = vendors?.filter((vendor) => {
-    const matchesSearch =
-      vendor.business_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      vendor.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory =
-      selectedCategory === "All" ||
-      vendor.service_categories?.includes(selectedCategory);
-    return matchesSearch && matchesCategory;
-  });
+  const filteredVendors = useMemo(() => {
+    let result = vendors?.filter((vendor) => {
+      const matchesSearch =
+        vendor.business_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        vendor.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory =
+        selectedCategory === "All" ||
+        vendor.service_categories?.includes(selectedCategory);
+      const matchesLocation =
+        selectedLocation === "All" ||
+        selectedLocation === "My Area" ||
+        vendor.city === selectedLocation;
+      
+      // If "My Area" is selected, filter by tenant's city
+      if (selectedLocation === "My Area" && tenantLocation?.city) {
+        return matchesSearch && matchesCategory && vendor.city === tenantLocation.city;
+      }
+      
+      return matchesSearch && matchesCategory && matchesLocation;
+    });
+
+    // Sort: vendors in tenant's city first
+    if (tenantLocation?.city && result) {
+      result = [...result].sort((a, b) => {
+        const aInCity = a.city === tenantLocation.city ? 0 : 1;
+        const bInCity = b.city === tenantLocation.city ? 0 : 1;
+        return aInCity - bInCity;
+      });
+    }
+
+    return result;
+  }, [vendors, searchQuery, selectedCategory, selectedLocation, tenantLocation]);
 
   return (
     <TenantLayout
@@ -83,13 +149,32 @@ export default function TenantMarketplace() {
           />
         </div>
         <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-          <SelectTrigger className="w-full md:w-[200px]">
+          <SelectTrigger className="w-full md:w-[180px]">
             <SelectValue placeholder="Category" />
           </SelectTrigger>
           <SelectContent>
             {SERVICE_CATEGORIES.map((cat) => (
               <SelectItem key={cat} value={cat}>
                 {cat}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+          <SelectTrigger className="w-full md:w-[180px]">
+            <MapPin className="mr-2 h-4 w-4" />
+            <SelectValue placeholder="Location" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="All">All Locations</SelectItem>
+            {tenantLocation?.city && (
+              <SelectItem value="My Area">
+                My Area ({tenantLocation.city})
+              </SelectItem>
+            )}
+            {availableLocations.map((loc) => (
+              <SelectItem key={loc} value={loc}>
+                {loc}
               </SelectItem>
             ))}
           </SelectContent>
