@@ -27,10 +27,6 @@ interface ForumPost {
   like_count: number;
   created_at: string;
   author_id: string;
-  profiles: {
-    full_name: string | null;
-    email: string;
-  } | null;
 }
 
 export default function TenantForum() {
@@ -41,21 +37,31 @@ export default function TenantForum() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newPost, setNewPost] = useState({ title: "", content: "", tags: "" });
 
-  // Fetch forum posts
+  // Fetch forum posts with author profiles
   const { data: posts, isLoading } = useQuery({
     queryKey: ["forum-posts"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: postsData, error: postsError } = await supabase
         .from("forum_posts")
-        .select(`
-          *,
-          profiles:author_id (full_name, email)
-        `)
+        .select("*")
         .eq("is_visible", true)
         .order("is_pinned", { ascending: false })
         .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as ForumPost[];
+      if (postsError) throw postsError;
+
+      // Fetch author profiles separately
+      const authorIds = [...new Set(postsData.map(p => p.author_id))];
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, email")
+        .in("user_id", authorIds);
+
+      const profilesMap = new Map(profilesData?.map(p => [p.user_id, p]) || []);
+      
+      return postsData.map(post => ({
+        ...post,
+        author_profile: profilesMap.get(post.author_id) || null,
+      })) as (ForumPost & { author_profile: { full_name: string | null; email: string } | null })[];
     },
   });
 
@@ -114,16 +120,28 @@ export default function TenantForum() {
           .eq("user_id", user?.id)
           .eq("post_id", postId);
         if (error) throw error;
-        // Decrement like count
-        await supabase.rpc("decrement_like_count", { p_post_id: postId }).catch(() => {});
+        // Decrement like count directly
+        const currentPost = posts?.find(p => p.id === postId);
+        if (currentPost) {
+          await supabase
+            .from("forum_posts")
+            .update({ like_count: Math.max((currentPost.like_count || 0) - 1, 0) })
+            .eq("id", postId);
+        }
       } else {
         const { error } = await supabase.from("forum_likes").insert({
           user_id: user?.id,
           post_id: postId,
         });
         if (error) throw error;
-        // Increment like count
-        await supabase.rpc("increment_like_count", { p_post_id: postId }).catch(() => {});
+        // Increment like count directly
+        const currentPost = posts?.find(p => p.id === postId);
+        if (currentPost) {
+          await supabase
+            .from("forum_posts")
+            .update({ like_count: (currentPost.like_count || 0) + 1 })
+            .eq("id", postId);
+        }
       }
     },
     onSuccess: () => {
@@ -139,7 +157,7 @@ export default function TenantForum() {
       post.tags?.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const getInitials = (name: string | null, email: string) => {
+  const getInitials = (name: string | null | undefined, email: string | undefined) => {
     if (name) {
       return name
         .split(" ")
@@ -148,7 +166,7 @@ export default function TenantForum() {
         .toUpperCase()
         .slice(0, 2);
     }
-    return email[0].toUpperCase();
+    return email?.[0]?.toUpperCase() || "U";
   };
 
   return (
@@ -252,7 +270,7 @@ export default function TenantForum() {
                 <div className="flex items-start gap-3">
                   <Avatar className="h-10 w-10">
                     <AvatarFallback>
-                      {getInitials(post.profiles?.full_name || null, post.profiles?.email || "")}
+                      {getInitials(post.author_profile?.full_name, post.author_profile?.email)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
@@ -265,7 +283,7 @@ export default function TenantForum() {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {post.profiles?.full_name || post.profiles?.email || "Anonymous"} •{" "}
+                      {post.author_profile?.full_name || post.author_profile?.email || "Anonymous"} •{" "}
                       {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
                     </p>
                   </div>

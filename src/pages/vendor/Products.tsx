@@ -186,10 +186,12 @@ export default function VendorProducts() {
   };
 
   return (
-    <VendorLayout
-      title="Products & Services"
-      description="Manage your products and services catalog"
-      actions={
+    <VendorLayout>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Products & Services</h1>
+          <p className="text-muted-foreground">Manage your products and services catalog</p>
+        </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => handleOpenDialog()}>
@@ -297,8 +299,7 @@ export default function VendorProducts() {
             </form>
           </DialogContent>
         </Dialog>
-      }
-    >
+      </div>
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

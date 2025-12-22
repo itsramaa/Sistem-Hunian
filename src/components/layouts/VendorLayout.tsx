@@ -18,8 +18,11 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { NotificationsDropdown } from '@/components/notifications/NotificationsDropdown';
 
+import { Package } from 'lucide-react';
+
 const vendorMenuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/vendor' },
+  { icon: Package, label: 'Products', href: '/vendor/products' },
   { icon: Briefcase, label: 'Jobs', href: '/vendor/jobs' },
   { icon: Wallet, label: 'Earnings', href: '/vendor/earnings' },
   { icon: User, label: 'Profile', href: '/vendor/profile' },

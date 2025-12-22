@@ -35,12 +35,19 @@ import TenantPayments from "./pages/tenant/Payments";
 import TenantSettings from "./pages/tenant/Settings";
 import TenantContracts from "./pages/tenant/Contracts";
 import TenantInvoices from "./pages/tenant/Invoices";
+import TenantMarketplace from "./pages/tenant/Marketplace";
+import TenantVendorDetail from "./pages/tenant/VendorDetail";
+import TenantOrders from "./pages/tenant/Orders";
+import TenantForum from "./pages/tenant/Forum";
+import TenantForumPost from "./pages/tenant/ForumPost";
 import VendorDashboard from "./pages/vendor/Dashboard";
 import VendorJobs from "./pages/vendor/Jobs";
 import VendorEarnings from "./pages/vendor/Earnings";
 import VendorProfile from "./pages/vendor/Profile";
 import VendorSettings from "./pages/vendor/Settings";
+import VendorProducts from "./pages/vendor/Products";
 import NotFound from "./pages/NotFound";
+import { ChatbotWidget } from "./components/chatbot/ChatbotWidget";
 
 const queryClient = new QueryClient();
 
@@ -88,9 +95,15 @@ const App = () => (
             <Route path="/tenant/settings" element={<ProtectedRoute allowedRoles={['tenant']}><TenantSettings /></ProtectedRoute>} />
             <Route path="/tenant/contracts" element={<ProtectedRoute allowedRoles={['tenant']}><TenantContracts /></ProtectedRoute>} />
             <Route path="/tenant/invoices" element={<ProtectedRoute allowedRoles={['tenant']}><TenantInvoices /></ProtectedRoute>} />
+            <Route path="/tenant/marketplace" element={<ProtectedRoute allowedRoles={['tenant']}><TenantMarketplace /></ProtectedRoute>} />
+            <Route path="/tenant/marketplace/:vendorId" element={<ProtectedRoute allowedRoles={['tenant']}><TenantVendorDetail /></ProtectedRoute>} />
+            <Route path="/tenant/orders" element={<ProtectedRoute allowedRoles={['tenant']}><TenantOrders /></ProtectedRoute>} />
+            <Route path="/tenant/forum" element={<ProtectedRoute allowedRoles={['tenant']}><TenantForum /></ProtectedRoute>} />
+            <Route path="/tenant/forum/:postId" element={<ProtectedRoute allowedRoles={['tenant']}><TenantForumPost /></ProtectedRoute>} />
             
             {/* Vendor Routes */}
             <Route path="/vendor" element={<ProtectedRoute allowedRoles={['vendor']}><VendorDashboard /></ProtectedRoute>} />
+            <Route path="/vendor/products" element={<ProtectedRoute allowedRoles={['vendor']}><VendorProducts /></ProtectedRoute>} />
             <Route path="/vendor/jobs" element={<ProtectedRoute allowedRoles={['vendor']}><VendorJobs /></ProtectedRoute>} />
             <Route path="/vendor/earnings" element={<ProtectedRoute allowedRoles={['vendor']}><VendorEarnings /></ProtectedRoute>} />
             <Route path="/vendor/profile" element={<ProtectedRoute allowedRoles={['vendor']}><VendorProfile /></ProtectedRoute>} />
@@ -98,6 +111,7 @@ const App = () => (
             
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <ChatbotWidget />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

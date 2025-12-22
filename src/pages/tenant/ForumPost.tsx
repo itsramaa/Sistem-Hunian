@@ -8,10 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { ArrowLeft, Heart, MessageSquare, Loader2, Send, Flag, Trash2 } from "lucide-react";
+import { ArrowLeft, Heart, MessageSquare, Loader2, Send, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface ForumPost {
@@ -24,10 +23,6 @@ interface ForumPost {
   like_count: number;
   created_at: string;
   author_id: string;
-  profiles: {
-    full_name: string | null;
-    email: string;
-  } | null;
 }
 
 interface Comment {
@@ -36,10 +31,12 @@ interface Comment {
   like_count: number;
   created_at: string;
   author_id: string;
-  profiles: {
-    full_name: string | null;
-    email: string;
-  } | null;
+}
+
+interface AuthorProfile {
+  user_id: string;
+  full_name: string | null;
+  email: string;
 }
 
 export default function TenantForumPost() {
@@ -50,50 +47,68 @@ export default function TenantForumPost() {
   const queryClient = useQueryClient();
   const [newComment, setNewComment] = useState("");
 
-  // Fetch post
-  const { data: post, isLoading } = useQuery({
+  // Fetch post with author profile
+  const { data: postData, isLoading } = useQuery({
     queryKey: ["forum-post", postId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: post, error } = await supabase
         .from("forum_posts")
-        .select(`
-          *,
-          profiles:author_id (full_name, email)
-        `)
+        .select("*")
         .eq("id", postId)
         .single();
       if (error) throw error;
-      return data as ForumPost;
+
+      // Fetch author profile
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, email")
+        .eq("user_id", post.author_id)
+        .single();
+
+      return { post: post as ForumPost, authorProfile: profile as AuthorProfile | null };
     },
     enabled: !!postId,
   });
 
+  const post = postData?.post;
+  const authorProfile = postData?.authorProfile;
+
   // Increment view count on mount
   useEffect(() => {
-    if (postId) {
+    if (postId && post) {
       supabase
         .from("forum_posts")
-        .update({ view_count: (post?.view_count || 0) + 1 })
+        .update({ view_count: (post.view_count || 0) + 1 })
         .eq("id", postId)
         .then(() => {});
     }
-  }, [postId]);
+  }, [postId, post?.id]);
 
-  // Fetch comments
-  const { data: comments } = useQuery({
+  // Fetch comments with author profiles
+  const { data: commentsData } = useQuery({
     queryKey: ["forum-comments", postId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: comments, error } = await supabase
         .from("forum_comments")
-        .select(`
-          *,
-          profiles:author_id (full_name, email)
-        `)
+        .select("*")
         .eq("post_id", postId)
         .eq("is_visible", true)
         .order("created_at", { ascending: true });
       if (error) throw error;
-      return data as Comment[];
+
+      // Fetch author profiles
+      const authorIds = [...new Set(comments.map(c => c.author_id))];
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, email")
+        .in("user_id", authorIds);
+
+      const profilesMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+      
+      return comments.map(comment => ({
+        ...comment as Comment,
+        authorProfile: profilesMap.get(comment.author_id) as AuthorProfile | null,
+      }));
     },
     enabled: !!postId,
   });
@@ -181,7 +196,7 @@ export default function TenantForumPost() {
     },
   });
 
-  const getInitials = (name: string | null, email: string) => {
+  const getInitials = (name: string | null | undefined, email: string | undefined) => {
     if (name) {
       return name
         .split(" ")
@@ -190,7 +205,7 @@ export default function TenantForumPost() {
         .toUpperCase()
         .slice(0, 2);
     }
-    return email[0].toUpperCase();
+    return email?.[0]?.toUpperCase() || "U";
   };
 
   if (isLoading) {
@@ -234,13 +249,13 @@ export default function TenantForumPost() {
           <div className="flex items-start gap-3">
             <Avatar className="h-12 w-12">
               <AvatarFallback>
-                {getInitials(post.profiles?.full_name || null, post.profiles?.email || "")}
+                {getInitials(authorProfile?.full_name, authorProfile?.email)}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
               <CardTitle className="text-xl">{post.title}</CardTitle>
               <p className="text-sm text-muted-foreground">
-                {post.profiles?.full_name || post.profiles?.email || "Anonymous"} •{" "}
+                {authorProfile?.full_name || authorProfile?.email || "Anonymous"} •{" "}
                 {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
               </p>
             </div>
@@ -320,26 +335,23 @@ export default function TenantForumPost() {
       </Card>
 
       {/* Comments List */}
-      {comments?.length === 0 ? (
+      {commentsData?.length === 0 ? (
         <p className="text-center text-muted-foreground">No comments yet. Be the first!</p>
       ) : (
         <div className="space-y-4">
-          {comments?.map((comment) => (
+          {commentsData?.map((comment) => (
             <Card key={comment.id}>
               <CardContent className="pt-4">
                 <div className="flex gap-3">
                   <Avatar className="h-10 w-10">
                     <AvatarFallback>
-                      {getInitials(
-                        comment.profiles?.full_name || null,
-                        comment.profiles?.email || ""
-                      )}
+                      {getInitials(comment.authorProfile?.full_name, comment.authorProfile?.email)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-medium">
-                        {comment.profiles?.full_name || comment.profiles?.email || "Anonymous"}
+                        {comment.authorProfile?.full_name || comment.authorProfile?.email || "Anonymous"}
                       </p>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">

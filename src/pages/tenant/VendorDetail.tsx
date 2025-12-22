@@ -98,9 +98,10 @@ export default function TenantVendorDetail() {
       const totalPrice = selectedProduct.price * orderData.quantity;
       const serviceFee = totalPrice * 0.05; // 5% service fee
 
-      const { error } = await supabase.from("orders").insert({
+      const { error } = await supabase.from("orders").insert([{
+        order_number: `ORD${Date.now()}`, // Temporary - will be replaced by trigger
         tenant_user_id: user.id,
-        vendor_id: vendorId,
+        vendor_id: vendorId!,
         product_id: selectedProduct.id,
         quantity: orderData.quantity,
         unit_price: selectedProduct.price,
@@ -111,7 +112,7 @@ export default function TenantVendorDetail() {
         address: orderData.address || null,
         notes: orderData.notes || null,
         status: "pending",
-      });
+      }]);
       if (error) throw error;
     },
     onSuccess: () => {
