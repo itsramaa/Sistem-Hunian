@@ -13,8 +13,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Plus, FileText, Send, Eye, Download, DollarSign } from 'lucide-react';
+import { Search, Plus, FileText, Send, Eye, Download, DollarSign, Mail, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { sendInvoiceNotification } from '@/lib/notifications';
 
 type Invoice = {
   id: string;
@@ -122,6 +123,20 @@ export default function MerchantInvoices() {
 
   const sendMutation = useMutation({
     mutationFn: async (invoiceId: string) => {
+      // Get invoice details
+      const invoice = invoices.find(i => i.id === invoiceId);
+      if (!invoice) throw new Error('Invoice not found');
+
+      // Get tenant profile for email
+      const { data: tenantProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('email, full_name')
+        .eq('user_id', invoice.tenant_user_id)
+        .single();
+      
+      if (profileError) throw profileError;
+
+      // Update invoice status
       const { error } = await supabase
         .from('invoices')
         .update({ 
@@ -130,10 +145,28 @@ export default function MerchantInvoices() {
         })
         .eq('id', invoiceId);
       if (error) throw error;
+
+      // Send email notification
+      try {
+        await sendInvoiceNotification(
+          tenantProfile.email,
+          tenantProfile.full_name || 'Tenant',
+          {
+            invoiceNumber: invoice.invoice_number,
+            merchantName: merchant?.business_name || 'Landlord',
+            amount: Number(invoice.total_amount),
+            dueDate: format(new Date(invoice.due_date), 'MMM d, yyyy'),
+            description: invoice.description || undefined,
+          }
+        );
+      } catch (emailError) {
+        console.error('Failed to send email notification:', emailError);
+        // Don't throw - invoice is already sent, just log the error
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      toast({ title: 'Invoice sent successfully' });
+      toast({ title: 'Invoice sent successfully', description: 'Email notification sent to tenant' });
     },
     onError: () => {
       toast({ title: 'Failed to send invoice', variant: 'destructive' });
@@ -421,8 +454,13 @@ export default function MerchantInvoices() {
                               size="icon"
                               onClick={() => sendMutation.mutate(invoice.id)}
                               disabled={sendMutation.isPending}
+                              title="Send invoice with email notification"
                             >
-                              <Send className="h-4 w-4" />
+                              {sendMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Send className="h-4 w-4" />
+                              )}
                             </Button>
                           )}
                         </div>
