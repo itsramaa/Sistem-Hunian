@@ -10,8 +10,14 @@ import Auth from "./pages/Auth";
 import AdminSetup from "./pages/AdminSetup";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminMerchants from "./pages/admin/Merchants";
+import AdminEscrow from "./pages/admin/Escrow";
 import MerchantDashboard from "./pages/merchant/Dashboard";
 import MerchantProperties from "./pages/merchant/Properties";
+import MerchantTenants from "./pages/merchant/Tenants";
+import MerchantMaintenance from "./pages/merchant/Maintenance";
+import MerchantPayments from "./pages/merchant/Payments";
+import TenantDashboard from "./pages/tenant/Dashboard";
+import TenantMaintenance from "./pages/tenant/Maintenance";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -45,6 +51,14 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
+            <Route 
+              path="/admin/escrow" 
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminEscrow />
+                </ProtectedRoute>
+              } 
+            />
             
             {/* Merchant Routes */}
             <Route 
@@ -60,6 +74,48 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['merchant']}>
                   <MerchantProperties />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/merchant/tenants" 
+              element={
+                <ProtectedRoute allowedRoles={['merchant']}>
+                  <MerchantTenants />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/merchant/maintenance" 
+              element={
+                <ProtectedRoute allowedRoles={['merchant']}>
+                  <MerchantMaintenance />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/merchant/payments" 
+              element={
+                <ProtectedRoute allowedRoles={['merchant']}>
+                  <MerchantPayments />
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Tenant Routes */}
+            <Route 
+              path="/tenant" 
+              element={
+                <ProtectedRoute allowedRoles={['tenant']}>
+                  <TenantDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/tenant/maintenance" 
+              element={
+                <ProtectedRoute allowedRoles={['tenant']}>
+                  <TenantMaintenance />
                 </ProtectedRoute>
               } 
             />
