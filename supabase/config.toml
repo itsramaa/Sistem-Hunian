@@ -11,3 +11,15 @@ verify_jwt = false
 
 [functions.ai-chatbot]
 verify_jwt = true
+
+[functions.xendit-create-invoice]
+verify_jwt = false
+
+[functions.xendit-webhook]
+verify_jwt = false
+
+[functions.xendit-disbursement]
+verify_jwt = true
+
+[functions.subscription-renewal]
+verify_jwt = false
