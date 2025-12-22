@@ -23,11 +23,14 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { TrendingUp, TrendingDown, Building2, Users, DollarSign, Wrench, Download, FileText, Table2, UserMinus } from 'lucide-react';
+import { TrendingUp, TrendingDown, Building2, Users, DollarSign, Wrench, Download, FileText, Table2, UserMinus, BarChart3 } from 'lucide-react';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import { exportToCSV, exportToPDF, generateReportHTML } from '@/lib/exportUtils';
 import { useToast } from '@/hooks/use-toast';
 import { TenantChurnAnalytics } from '@/components/merchant/TenantChurnAnalytics';
+import { OnTimePaymentRate } from '@/components/merchant/OnTimePaymentRate';
+import { RevenueForecast } from '@/components/merchant/RevenueForecast';
+import { ContractNoticePeriod } from '@/components/merchant/ContractNoticePeriod';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--muted))', '#10b981', '#f59e0b'];
 
@@ -319,8 +322,12 @@ export default function MerchantReports() {
         </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="forecasting" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Forecasting
+            </TabsTrigger>
             <TabsTrigger value="churn" className="flex items-center gap-2">
               <UserMinus className="h-4 w-4" />
               Tenant Churn
@@ -329,7 +336,7 @@ export default function MerchantReports() {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
@@ -400,6 +407,8 @@ export default function MerchantReports() {
                   </p>
                 </CardContent>
               </Card>
+
+              <OnTimePaymentRate timeRange={timeRange} />
             </div>
 
             <div className="grid lg:grid-cols-2 gap-6">
@@ -447,6 +456,11 @@ export default function MerchantReports() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="forecasting" className="space-y-6">
+            <RevenueForecast />
+            <ContractNoticePeriod />
           </TabsContent>
 
           <TabsContent value="churn" className="space-y-6">
