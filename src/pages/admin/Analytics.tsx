@@ -7,10 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from "recharts";
-import { TrendingUp, Users, Building2, DollarSign, Loader2, Wrench, Home, Download, FileText, Activity, UserCheck } from "lucide-react";
+import { TrendingUp, Users, Building2, DollarSign, Loader2, Wrench, Home, Download, FileText, Activity, UserCheck, CreditCard, TrendingDown, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { exportToCSV, exportToPDF } from "@/lib/exportUtils";
 import { RealTimeAnalytics } from "@/components/admin/RealTimeAnalytics";
-import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
+import { format, subMonths, startOfMonth, endOfMonth, differenceInMonths } from "date-fns";
 
 const AdminAnalytics = () => {
   const [activeTab, setActiveTab] = useState("realtime");
@@ -60,6 +60,24 @@ const AdminAnalytics = () => {
       return {
         contracts: contractsRes.data || [],
         payments: paymentsRes.data || [],
+      };
+    },
+  });
+
+  // Subscription analytics (MRR/Churn)
+  const { data: subscriptionAnalytics } = useQuery({
+    queryKey: ['subscription-analytics'],
+    queryFn: async () => {
+      const [subscriptionsRes, tiersRes] = await Promise.all([
+        supabase
+          .from('merchant_subscriptions')
+          .select('*, subscription_tiers(name, display_name, price_monthly, price_yearly)'),
+        supabase.from('subscription_tiers').select('*'),
+      ]);
+
+      return {
+        subscriptions: subscriptionsRes.data || [],
+        tiers: tiersRes.data || [],
       };
     },
   });
@@ -250,7 +268,7 @@ const AdminAnalytics = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full max-w-lg grid-cols-3">
+          <TabsList className="grid w-full max-w-2xl grid-cols-4">
             <TabsTrigger value="realtime" className="flex items-center gap-2">
               <Activity className="h-4 w-4" />
               Real-Time
@@ -262,6 +280,10 @@ const AdminAnalytics = () => {
             <TabsTrigger value="tenants" className="flex items-center gap-2">
               <UserCheck className="h-4 w-4" />
               Tenants
+            </TabsTrigger>
+            <TabsTrigger value="subscriptions" className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4" />
+              MRR/Churn
             </TabsTrigger>
           </TabsList>
 
@@ -532,6 +554,260 @@ const AdminAnalytics = () => {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="subscriptions" className="mt-6 space-y-6">
+            {/* MRR/Churn Analytics */}
+            {(() => {
+              const subscriptions = subscriptionAnalytics?.subscriptions || [];
+              const tiers = subscriptionAnalytics?.tiers || [];
+              
+              // Calculate MRR
+              const activeSubscriptions = subscriptions.filter(
+                (s: any) => s.status === 'active' || s.status === 'trialing'
+              );
+              const mrr = activeSubscriptions.reduce((sum: number, s: any) => {
+                return sum + Number(s.subscription_tiers?.price_monthly || 0);
+              }, 0);
+
+              // Calculate ARR
+              const arr = mrr * 12;
+
+              // Calculate Churn
+              const canceledThisMonth = subscriptions.filter((s: any) => {
+                if (!s.canceled_at) return false;
+                const cancelDate = new Date(s.canceled_at);
+                const now = new Date();
+                return cancelDate.getMonth() === now.getMonth() && cancelDate.getFullYear() === now.getFullYear();
+              }).length;
+
+              const churnRate = activeSubscriptions.length > 0
+                ? ((canceledThisMonth / (activeSubscriptions.length + canceledThisMonth)) * 100).toFixed(1)
+                : '0';
+
+              // Subscription status distribution
+              const statusData = [
+                { name: 'Active', value: subscriptions.filter((s: any) => s.status === 'active').length, fill: 'hsl(var(--success))' },
+                { name: 'Trialing', value: subscriptions.filter((s: any) => s.status === 'trialing').length, fill: 'hsl(var(--info))' },
+                { name: 'Past Due', value: subscriptions.filter((s: any) => s.status === 'past_due').length, fill: 'hsl(var(--warning))' },
+                { name: 'Canceled', value: subscriptions.filter((s: any) => s.status === 'canceled').length, fill: 'hsl(var(--destructive))' },
+              ];
+
+              // Tier distribution
+              const tierData = tiers.map((tier: any) => ({
+                name: tier.display_name,
+                count: subscriptions.filter((s: any) => s.tier_id === tier.id && (s.status === 'active' || s.status === 'trialing')).length,
+                revenue: subscriptions
+                  .filter((s: any) => s.tier_id === tier.id && (s.status === 'active' || s.status === 'trialing'))
+                  .length * Number(tier.price_monthly),
+              }));
+
+              // Monthly MRR trend (last 6 months simulation based on created_at)
+              const mrrTrend = [];
+              for (let i = 5; i >= 0; i--) {
+                const date = subMonths(new Date(), i);
+                const monthStart = startOfMonth(date);
+                const monthEnd = endOfMonth(date);
+                
+                const activeAtMonth = subscriptions.filter((s: any) => {
+                  const created = new Date(s.created_at);
+                  const canceled = s.canceled_at ? new Date(s.canceled_at) : null;
+                  return created <= monthEnd && (!canceled || canceled > monthStart);
+                });
+
+                const monthMrr = activeAtMonth.reduce((sum: number, s: any) => {
+                  return sum + Number(s.subscription_tiers?.price_monthly || 0);
+                }, 0);
+
+                mrrTrend.push({
+                  month: format(date, 'MMM'),
+                  mrr: monthMrr,
+                  subscribers: activeAtMonth.length,
+                });
+              }
+
+              // Trial conversion rate
+              const trialSubs = subscriptions.filter((s: any) => s.trial_ends_at);
+              const convertedTrials = trialSubs.filter((s: any) => s.status === 'active' && s.payment_status === 'paid').length;
+              const conversionRate = trialSubs.length > 0 ? ((convertedTrials / trialSubs.length) * 100).toFixed(1) : '0';
+
+              return (
+                <>
+                  {/* Key Metrics */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 rounded-lg bg-success/10">
+                            <DollarSign className="h-6 w-6 text-success" />
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">MRR</p>
+                            <p className="text-2xl font-bold">{formatCurrency(mrr)}</p>
+                            <p className="text-xs text-muted-foreground">Monthly Recurring Revenue</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 rounded-lg bg-primary/10">
+                            <TrendingUp className="h-6 w-6 text-primary" />
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">ARR</p>
+                            <p className="text-2xl font-bold">{formatCurrency(arr)}</p>
+                            <p className="text-xs text-muted-foreground">Annual Recurring Revenue</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 rounded-lg bg-destructive/10">
+                            <TrendingDown className="h-6 w-6 text-destructive" />
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Churn Rate</p>
+                            <p className="text-2xl font-bold">{churnRate}%</p>
+                            <p className="text-xs text-muted-foreground">{canceledThisMonth} canceled this month</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 rounded-lg bg-info/10">
+                            <ArrowUpRight className="h-6 w-6 text-info" />
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Trial Conversion</p>
+                            <p className="text-2xl font-bold">{conversionRate}%</p>
+                            <p className="text-xs text-muted-foreground">{convertedTrials} of {trialSubs.length} trials</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Charts */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>MRR Trend</CardTitle>
+                        <CardDescription>Monthly recurring revenue over time</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <ChartContainer config={chartConfig} className="h-[300px]">
+                          <AreaChart data={mrrTrend}>
+                            <XAxis dataKey="month" />
+                            <YAxis tickFormatter={(v) => `${v/1000000}M`} />
+                            <ChartTooltip content={<ChartTooltipContent />} />
+                            <Area type="monotone" dataKey="mrr" stroke="hsl(var(--success))" fill="hsl(var(--success) / 0.2)" strokeWidth={2} />
+                          </AreaChart>
+                        </ChartContainer>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Subscription Status</CardTitle>
+                        <CardDescription>Distribution by status</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <ChartContainer config={chartConfig} className="h-[250px]">
+                          <PieChart>
+                            <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80}>
+                              {statusData.map((entry, index) => (
+                                <Cell key={index} fill={entry.fill} />
+                              ))}
+                            </Pie>
+                            <ChartTooltip content={<ChartTooltipContent />} />
+                          </PieChart>
+                        </ChartContainer>
+                        <div className="flex flex-wrap justify-center gap-4 mt-2">
+                          {statusData.map((item, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.fill }} />
+                              <span className="text-sm text-muted-foreground">{item.name}: {item.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Tier Distribution */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Revenue by Tier</CardTitle>
+                        <CardDescription>MRR contribution by subscription tier</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <ChartContainer config={chartConfig} className="h-[300px]">
+                          <BarChart data={tierData}>
+                            <XAxis dataKey="name" />
+                            <YAxis tickFormatter={(v) => `${v/1000}K`} />
+                            <ChartTooltip content={<ChartTooltipContent />} />
+                            <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ChartContainer>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Subscribers by Tier</CardTitle>
+                        <CardDescription>Active subscribers per tier</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {tierData.map((tier: any, i: number) => (
+                            <div key={i} className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+                              <div>
+                                <p className="font-medium">{tier.name}</p>
+                                <p className="text-sm text-muted-foreground">{formatCurrency(tier.revenue)}/month</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-2xl font-bold">{tier.count}</p>
+                                <p className="text-xs text-muted-foreground">subscribers</p>
+                              </div>
+                            </div>
+                          ))}
+                          {tierData.length === 0 && (
+                            <div className="text-center py-8 text-muted-foreground">
+                              No subscription tiers found
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Subscriber Growth */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Subscriber Growth</CardTitle>
+                      <CardDescription>Active subscribers over time</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ChartContainer config={chartConfig} className="h-[300px]">
+                        <LineChart data={mrrTrend}>
+                          <XAxis dataKey="month" />
+                          <YAxis />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Line type="monotone" dataKey="subscribers" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: 'hsl(var(--primary))' }} />
+                        </LineChart>
+                      </ChartContainer>
+                    </CardContent>
+                  </Card>
+                </>
+              );
+            })()}
           </TabsContent>
         </Tabs>
       </div>

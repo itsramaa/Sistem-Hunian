@@ -23,6 +23,8 @@ import AdminSettings from "./pages/admin/Settings";
 import AdminVendorVerifications from "./pages/admin/VendorVerifications";
 import AdminPlatformConfig from "./pages/admin/PlatformConfig";
 import AdminReferrals from "./pages/admin/Referrals";
+import AdminChatbot from "./pages/admin/Chatbot";
+import AdminOrders from "./pages/admin/Orders";
 import MerchantDashboard from "./pages/merchant/Dashboard";
 import MerchantProperties from "./pages/merchant/Properties";
 import MerchantTenants from "./pages/merchant/Tenants";
@@ -90,6 +92,8 @@ const App = () => (
             <Route path="/admin/vendor-verifications" element={<ProtectedRoute allowedRoles={['admin']}><AdminVendorVerifications /></ProtectedRoute>} />
             <Route path="/admin/platform-config" element={<ProtectedRoute allowedRoles={['admin']}><AdminPlatformConfig /></ProtectedRoute>} />
             <Route path="/admin/referrals" element={<ProtectedRoute allowedRoles={['admin']}><AdminReferrals /></ProtectedRoute>} />
+            <Route path="/admin/chatbot" element={<ProtectedRoute allowedRoles={['admin']}><AdminChatbot /></ProtectedRoute>} />
+            <Route path="/admin/orders" element={<ProtectedRoute allowedRoles={['admin']}><AdminOrders /></ProtectedRoute>} />
             
             {/* Merchant Routes */}
             <Route path="/merchant" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantDashboard /></ProtectedRoute>} />
