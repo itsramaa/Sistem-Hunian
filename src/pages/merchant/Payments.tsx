@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Search, DollarSign, Clock, CheckCircle, XCircle, Calendar } from 'lucide-react';
+import { Search, DollarSign, Clock, CheckCircle, XCircle, Calendar, Bell, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 type Payment = {
@@ -77,6 +77,41 @@ export default function MerchantPayments() {
     },
   });
 
+  const [sendingReminderId, setSendingReminderId] = useState<string | null>(null);
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+  const sendReminderMutation = useMutation({
+    mutationFn: async (paymentId: string) => {
+      setSendingReminderId(paymentId);
+      const payment = payments.find(p => p.id === paymentId);
+      if (!payment) throw new Error('Payment not found');
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/send-payment-reminder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          paymentId,
+          tenantUserId: payment.tenant_user_id,
+          type: 'manual'
+        }),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to send reminder');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Reminder sent', description: 'Payment reminder sent to tenant' });
+      setSendingReminderId(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed to send reminder', description: error.message, variant: 'destructive' });
+      setSendingReminderId(null);
+    },
+  });
+
   const filteredPayments = payments.filter(payment => {
     const matchesSearch = payment.reference?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       payment.payment_type.toLowerCase().includes(searchQuery.toLowerCase());
@@ -132,9 +167,10 @@ export default function MerchantPayments() {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
+    return new Intl.NumberFormat('id-ID', {
       style: 'currency',
-      currency: 'ZAR',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
     }).format(amount);
   };
 
@@ -248,19 +284,36 @@ export default function MerchantPayments() {
                         {payment.paid_at ? format(new Date(payment.paid_at), 'MMM d, yyyy') : '-'}
                       </TableCell>
                       <TableCell>
-                        {payment.status === 'pending' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedPayment(payment);
-                              setPaymentMethod('');
-                              setReference('');
-                            }}
-                          >
-                            Mark Paid
-                          </Button>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {(payment.status === 'pending' || payment.status === 'overdue') && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedPayment(payment);
+                                  setPaymentMethod('');
+                                  setReference('');
+                                }}
+                              >
+                                Mark Paid
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => sendReminderMutation.mutate(payment.id)}
+                                disabled={sendingReminderId === payment.id}
+                                title="Send payment reminder"
+                              >
+                                {sendingReminderId === payment.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Bell className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Home, X } from 'lucide-react';
+import { Plus, Edit, Trash2, Home, X, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,11 +8,14 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useSubscriptionLimits } from '@/hooks/useSubscriptionLimits';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Link } from 'react-router-dom';
 
 interface Unit {
   id: string;
@@ -71,6 +74,7 @@ export function UnitsManager({ propertyId, propertyName, open, onOpenChange, onU
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const { toast } = useToast();
+  const { data: limits } = useSubscriptionLimits();
 
   const form = useForm<UnitFormData>({
     resolver: zodResolver(unitSchema),
@@ -237,11 +241,53 @@ export function UnitsManager({ propertyId, propertyName, open, onOpenChange, onU
         </DialogHeader>
 
         <div className="space-y-4 mt-4">
+          {/* Subscription Limit Warning */}
+          {limits && !limits.canAddUnit && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Unit Limit Reached</AlertTitle>
+              <AlertDescription className="flex items-center justify-between">
+                <span>
+                  You've reached your {limits.tierName} plan limit of {limits.maxUnits} units.
+                </span>
+                <Button variant="outline" size="sm" asChild className="ml-4">
+                  <Link to="/merchant/settings?tab=verification">
+                    Upgrade
+                  </Link>
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+          {limits && limits.canAddUnit && limits.isNearUnitLimit && (
+            <Alert className="border-warning/50 bg-warning/10">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <AlertTitle className="text-warning">Approaching Unit Limit</AlertTitle>
+              <AlertDescription className="text-warning/90">
+                You're using {limits.currentUnits} of {limits.maxUnits} units on your {limits.tierName} plan.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="flex justify-between items-center">
             <p className="text-sm text-muted-foreground">
               {units.length} unit{units.length !== 1 ? 's' : ''} total
+              {limits && ` (${limits.maxUnits - limits.currentUnits} remaining)`}
             </p>
-            <Button onClick={() => setShowUnitDialog(true)} size="sm">
+            <Button 
+              onClick={() => {
+                if (limits && !limits.canAddUnit) {
+                  toast({
+                    variant: 'destructive',
+                    title: 'Unit limit reached',
+                    description: 'Please upgrade your subscription to add more units.',
+                  });
+                  return;
+                }
+                setShowUnitDialog(true);
+              }} 
+              size="sm"
+              disabled={limits && !limits.canAddUnit}
+            >
               <Plus className="h-4 w-4 mr-2" />
               Add Unit
             </Button>

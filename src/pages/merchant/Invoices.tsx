@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Plus, FileText, Send, Eye, Download, DollarSign, Mail, Loader2 } from 'lucide-react';
+import { Search, Plus, FileText, Send, Eye, Download, DollarSign, Mail, Loader2, Bell } from 'lucide-react';
 import { format } from 'date-fns';
 import { sendInvoiceNotification } from '@/lib/notifications';
 
@@ -196,6 +196,40 @@ export default function MerchantInvoices() {
     },
   });
 
+  const [sendingReminderId, setSendingReminderId] = useState<string | null>(null);
+  
+  const sendReminderMutation = useMutation({
+    mutationFn: async (invoiceId: string) => {
+      setSendingReminderId(invoiceId);
+      const invoice = invoices.find(i => i.id === invoiceId);
+      if (!invoice) throw new Error('Invoice not found');
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/send-payment-reminder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          invoiceId,
+          tenantUserId: invoice.tenant_user_id,
+          type: 'manual'
+        }),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to send reminder');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Reminder sent', description: 'Payment reminder sent to tenant' });
+      setSendingReminderId(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed to send reminder', description: error.message, variant: 'destructive' });
+      setSendingReminderId(null);
+    },
+  });
+
   const resetForm = () => {
     setSelectedContract('');
     setAmount('');
@@ -248,9 +282,10 @@ export default function MerchantInvoices() {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
+    return new Intl.NumberFormat('id-ID', {
       style: 'currency',
-      currency: 'ZAR',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
     }).format(amount);
   };
 
@@ -496,6 +531,21 @@ export default function MerchantInvoices() {
                                 <Loader2 className="h-4 w-4 animate-spin" />
                               ) : (
                                 <Send className="h-4 w-4" />
+                              )}
+                            </Button>
+                          )}
+                          {(invoice.status === 'sent' || invoice.status === 'overdue') && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => sendReminderMutation.mutate(invoice.id)}
+                              disabled={sendingReminderId === invoice.id}
+                              title="Send payment reminder"
+                            >
+                              {sendingReminderId === invoice.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Bell className="h-4 w-4" />
                               )}
                             </Button>
                           )}
