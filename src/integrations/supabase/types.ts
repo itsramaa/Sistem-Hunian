@@ -163,6 +163,72 @@ export type Database = {
           },
         ]
       }
+      maintenance_requests: {
+        Row: {
+          assigned_to: string | null
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          images: string[] | null
+          merchant_id: string
+          priority: string
+          resolved_at: string | null
+          status: string
+          tenant_user_id: string
+          title: string
+          unit_id: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          images?: string[] | null
+          merchant_id: string
+          priority?: string
+          resolved_at?: string | null
+          status?: string
+          tenant_user_id: string
+          title: string
+          unit_id: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          images?: string[] | null
+          merchant_id?: string
+          priority?: string
+          resolved_at?: string | null
+          status?: string
+          tenant_user_id?: string
+          title?: string
+          unit_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_requests_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_requests_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       merchant_verifications: {
         Row: {
           created_at: string
@@ -251,6 +317,69 @@ export type Database = {
           verification_status?: string | null
         }
         Relationships: []
+      }
+      payments: {
+        Row: {
+          amount: number
+          contract_id: string
+          created_at: string
+          due_date: string
+          id: string
+          merchant_id: string
+          paid_at: string | null
+          payment_method: string | null
+          payment_type: string
+          reference: string | null
+          status: string
+          tenant_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          contract_id: string
+          created_at?: string
+          due_date: string
+          id?: string
+          merchant_id: string
+          paid_at?: string | null
+          payment_method?: string | null
+          payment_type?: string
+          reference?: string | null
+          status?: string
+          tenant_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          contract_id?: string
+          created_at?: string
+          due_date?: string
+          id?: string
+          merchant_id?: string
+          paid_at?: string | null
+          payment_method?: string | null
+          payment_type?: string
+          reference?: string | null
+          status?: string
+          tenant_user_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
