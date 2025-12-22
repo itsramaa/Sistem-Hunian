@@ -613,6 +613,24 @@ export default function MerchantProperties() {
                     <MapPin className="h-4 w-4" />
                     <span>{property.city}, {property.province}</span>
                   </div>
+                  {/* Amenity Badges */}
+                  {property.amenities && property.amenities.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {property.amenities.slice(0, 4).map((amenity) => {
+                        const amenityLabel = AMENITIES_LIST.find(a => a.value === amenity)?.label || amenity;
+                        return (
+                          <Badge key={amenity} variant="secondary" className="text-xs py-0">
+                            {amenityLabel}
+                          </Badge>
+                        );
+                      })}
+                      {property.amenities.length > 4 && (
+                        <Badge variant="outline" className="text-xs py-0">
+                          +{property.amenities.length - 4}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Occupancy</p>

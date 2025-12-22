@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { FileUpload } from "@/components/FileUpload";
 import { BankAccountManager } from "@/components/merchant/BankAccountManager";
+import { SubscriptionPayment } from "@/components/merchant/SubscriptionPayment";
 import { Building2, Shield, Bell, Loader2, Save, CheckCircle, Clock, XCircle, FileText, Trash2, CreditCard } from "lucide-react";
 
 const Settings = () => {
@@ -473,24 +474,7 @@ const Settings = () => {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  Subscription
-                  {getSubscriptionBadge(merchant?.subscription_tier || 'free')}
-                </CardTitle>
-                <CardDescription>Your current plan and features</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <h4 className="font-medium mb-2">Current Plan: {merchant?.subscription_tier || 'Free'}</h4>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Upgrade to unlock more features like advanced analytics, priority support, and more.
-                  </p>
-                  <Button className="gradient-primary">Upgrade Plan</Button>
-                </div>
-              </CardContent>
-            </Card>
+            <SubscriptionPayment />
           </TabsContent>
 
           <TabsContent value="banking" className="space-y-6">
