@@ -67,98 +67,196 @@ serve(async (req) => {
 
     // If payment is successful, update the related payment/invoice/order
     if (mappedStatus === 'paid') {
-      // Update payment record if exists
-      if (transaction.payment_id) {
-        await supabase
-          .from('payments')
-          .update({
-            status: 'paid',
-            paid_at: new Date().toISOString(),
-            payment_method: payment_channel || payment_method,
-            reference: external_id,
-          })
-          .eq('id', transaction.payment_id);
-        console.log('Payment record updated');
-      }
+      // Check if this is a subscription payment
+      if (external_id.startsWith('sub_')) {
+        // Parse subscription metadata from external_id: sub_{merchant_id}_{tier_id}_{timestamp}
+        const parts = external_id.split('_');
+        if (parts.length >= 3) {
+          const merchantId = parts[1];
+          const tierId = parts[2];
 
-      // Update invoice record if exists
-      if (transaction.invoice_id) {
-        await supabase
-          .from('invoices')
-          .update({
-            status: 'paid',
-            paid_at: new Date().toISOString(),
-          })
-          .eq('id', transaction.invoice_id);
-        console.log('Invoice record updated');
-      }
-
-      // Update order record if exists
-      if (transaction.order_id) {
-        await supabase
-          .from('orders')
-          .update({
-            status: 'confirmed',
-          })
-          .eq('id', transaction.order_id);
-        console.log('Order record updated');
-      }
-
-      // Create escrow transaction for rent payments
-      if (transaction.payment_id) {
-        const { data: payment } = await supabase
-          .from('payments')
-          .select('merchant_id, amount, contract_id')
-          .eq('id', transaction.payment_id)
-          .single();
-
-        if (payment) {
-          const { data: escrowAccount } = await supabase
-            .from('escrow_accounts')
-            .select('id')
-            .eq('merchant_id', payment.merchant_id)
+          // Get tier details
+          const { data: tier } = await supabase
+            .from('subscription_tiers')
+            .select('*')
+            .eq('id', tierId)
             .single();
 
-          if (escrowAccount) {
-            await supabase.from('escrow_transactions').insert({
-              escrow_account_id: escrowAccount.id,
-              amount: payment.amount,
-              type: 'deposit',
-              status: 'completed',
-              description: `Rent payment received`,
-              contract_id: payment.contract_id,
-              reference: external_id,
-              processed_at: new Date().toISOString(),
-            });
+          if (tier) {
+            // Calculate period end (1 month or 1 year from now)
+            const periodEnd = new Date();
+            const isYearly = tier.price_yearly && paid_amount === tier.price_yearly;
+            periodEnd.setMonth(periodEnd.getMonth() + (isYearly ? 12 : 1));
 
-            // Update escrow balance
-            // Update escrow balance directly
-            const { data: currentEscrow } = await supabase
-              .from('escrow_accounts')
-              .select('balance')
-              .eq('id', escrowAccount.id)
-              .single();
+            // Update subscription
+            const { error: subError } = await supabase
+              .from('merchant_subscriptions')
+              .update({
+                tier_id: tierId,
+                status: 'active',
+                payment_status: 'paid',
+                current_period_start: new Date().toISOString(),
+                current_period_end: periodEnd.toISOString(),
+                trial_ends_at: null,
+                failed_attempts: 0,
+              })
+              .eq('merchant_id', merchantId);
 
-            if (currentEscrow) {
-              await supabase
-                .from('escrow_accounts')
-                .update({ balance: currentEscrow.balance + payment.amount })
-                .eq('id', escrowAccount.id);
+            if (subError) {
+              console.error('Subscription update error:', subError);
+            } else {
+              console.log('Subscription upgraded successfully');
             }
 
-            console.log('Escrow transaction created');
+            // Get merchant details for notification
+            const { data: merchant } = await supabase
+              .from('merchants')
+              .select('user_id, business_name')
+              .eq('id', merchantId)
+              .single();
+
+            if (merchant) {
+              // Create notification
+              await supabase.from('notifications').insert({
+                user_id: merchant.user_id,
+                title: 'Subscription Upgraded!',
+                message: `Your subscription has been upgraded to ${tier.display_name}. Enjoy your new features!`,
+                type: 'subscription',
+                link: '/merchant/settings',
+              });
+
+              // Get profile for email
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('email, full_name')
+                .eq('user_id', merchant.user_id)
+                .single();
+
+              if (profile) {
+                // Send email notification
+                try {
+                  await fetch(`${SUPABASE_URL}/functions/v1/send-notification`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                    },
+                    body: JSON.stringify({
+                      type: 'subscription_upgrade',
+                      recipientEmail: profile.email,
+                      recipientName: profile.full_name || 'Merchant',
+                      data: {
+                        tierName: tier.display_name,
+                        amount: paid_amount,
+                        validUntil: periodEnd.toLocaleDateString('id-ID'),
+                        maxProperties: tier.max_properties,
+                        maxUnits: tier.max_units,
+                        maxTenants: tier.max_tenants,
+                        features: tier.features || [],
+                        dashboardLink: '/merchant/dashboard',
+                      },
+                    }),
+                  });
+                } catch (emailError) {
+                  console.error('Email notification error:', emailError);
+                }
+              }
+            }
           }
         }
-      }
+      } else {
+        // Regular payment processing
+        // Update payment record if exists
+        if (transaction.payment_id) {
+          await supabase
+            .from('payments')
+            .update({
+              status: 'paid',
+              paid_at: new Date().toISOString(),
+              payment_method: payment_channel || payment_method,
+              reference: external_id,
+            })
+            .eq('id', transaction.payment_id);
+          console.log('Payment record updated');
+        }
 
-      // Create notification for user
-      await supabase.from('notifications').insert({
-        user_id: transaction.user_id,
-        title: 'Payment Successful',
-        message: `Your payment of Rp ${paid_amount?.toLocaleString() || transaction.amount.toLocaleString()} has been confirmed.`,
-        type: 'payment',
-        link: '/tenant/payments',
-      });
+        // Update invoice record if exists
+        if (transaction.invoice_id) {
+          await supabase
+            .from('invoices')
+            .update({
+              status: 'paid',
+              paid_at: new Date().toISOString(),
+            })
+            .eq('id', transaction.invoice_id);
+          console.log('Invoice record updated');
+        }
+
+        // Update order record if exists
+        if (transaction.order_id) {
+          await supabase
+            .from('orders')
+            .update({
+              status: 'confirmed',
+            })
+            .eq('id', transaction.order_id);
+          console.log('Order record updated');
+        }
+
+        // Create escrow transaction for rent payments
+        if (transaction.payment_id) {
+          const { data: payment } = await supabase
+            .from('payments')
+            .select('merchant_id, amount, contract_id')
+            .eq('id', transaction.payment_id)
+            .single();
+
+          if (payment) {
+            const { data: escrowAccount } = await supabase
+              .from('escrow_accounts')
+              .select('id')
+              .eq('merchant_id', payment.merchant_id)
+              .single();
+
+            if (escrowAccount) {
+              await supabase.from('escrow_transactions').insert({
+                escrow_account_id: escrowAccount.id,
+                amount: payment.amount,
+                type: 'deposit',
+                status: 'completed',
+                description: `Rent payment received`,
+                contract_id: payment.contract_id,
+                reference: external_id,
+                processed_at: new Date().toISOString(),
+              });
+
+              const { data: currentEscrow } = await supabase
+                .from('escrow_accounts')
+                .select('balance')
+                .eq('id', escrowAccount.id)
+                .single();
+
+              if (currentEscrow) {
+                await supabase
+                  .from('escrow_accounts')
+                  .update({ balance: currentEscrow.balance + payment.amount })
+                  .eq('id', escrowAccount.id);
+              }
+
+              console.log('Escrow transaction created');
+            }
+          }
+        }
+
+        // Create notification for user
+        await supabase.from('notifications').insert({
+          user_id: transaction.user_id,
+          title: 'Payment Successful',
+          message: `Your payment of Rp ${paid_amount?.toLocaleString() || transaction.amount.toLocaleString()} has been confirmed.`,
+          type: 'payment',
+          link: '/tenant/payments',
+        });
+      }
     }
 
     return new Response(

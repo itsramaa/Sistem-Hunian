@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 interface NotificationRequest {
-  type: "invoice" | "payment_reminder" | "maintenance_update" | "general";
+  type: "invoice" | "payment_reminder" | "maintenance_update" | "subscription_upgrade" | "subscription_payment" | "general";
   recipientEmail: string;
   recipientName: string;
   subject?: string;
@@ -91,6 +91,65 @@ const getEmailTemplate = (type: string, data: Record<string, any>, recipientName
               </div>
               
               <p style="color: #9ca3af; font-size: 12px; margin-top: 30px;">This is an automated notification from SiHuni.</p>
+            </div>
+          </div>
+        `,
+      };
+
+    case "subscription_upgrade":
+      return {
+        subject: `Subscription Upgraded to ${data.tierName}!`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">🎉 Subscription Upgraded!</h1>
+            </div>
+            <div style="padding: 30px; background: #f9fafb;">
+              <p style="color: #6b7280;">Hi ${recipientName},</p>
+              <p style="color: #6b7280;">Congratulations! Your subscription has been successfully upgraded.</p>
+              
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                <p style="margin: 5px 0; color: #374151;"><strong>New Plan:</strong> ${data.tierName}</p>
+                <p style="margin: 5px 0; color: #374151;"><strong>Amount Paid:</strong> Rp ${Number(data.amount).toLocaleString('id-ID')}</p>
+                <p style="margin: 5px 0; color: #374151;"><strong>Valid Until:</strong> ${data.validUntil}</p>
+              </div>
+              
+              <h3 style="color: #1f2937;">Your New Features:</h3>
+              <ul style="color: #6b7280;">
+                <li>Up to ${data.maxProperties} properties</li>
+                <li>Up to ${data.maxUnits} units</li>
+                <li>Up to ${data.maxTenants} tenants</li>
+                ${data.features?.map((f: string) => `<li>${f}</li>`).join('') || ''}
+              </ul>
+              
+              <a href="${data.dashboardLink || '#'}" style="display: inline-block; background: #0891b2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 15px;">Go to Dashboard</a>
+              
+              <p style="color: #9ca3af; font-size: 12px; margin-top: 30px;">Thank you for choosing SiHuni!</p>
+            </div>
+          </div>
+        `,
+      };
+
+    case "subscription_payment":
+      return {
+        subject: `Payment Received - Rp ${Number(data.amount).toLocaleString('id-ID')}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #0891b2 0%, #065f73 100%); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">Payment Received</h1>
+            </div>
+            <div style="padding: 30px; background: #f9fafb;">
+              <p style="color: #6b7280;">Hi ${recipientName},</p>
+              <p style="color: #6b7280;">We've received your subscription payment. Thank you!</p>
+              
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                <p style="margin: 5px 0; color: #374151;"><strong>Amount:</strong> Rp ${Number(data.amount).toLocaleString('id-ID')}</p>
+                <p style="margin: 5px 0; color: #374151;"><strong>Plan:</strong> ${data.tierName}</p>
+                <p style="margin: 5px 0; color: #374151;"><strong>Payment Date:</strong> ${data.paymentDate}</p>
+                <p style="margin: 5px 0; color: #374151;"><strong>Reference:</strong> ${data.reference}</p>
+              </div>
+              
+              <p style="color: #9ca3af; font-size: 12px; margin-top: 30px;">This is your payment confirmation from SiHuni.</p>
             </div>
           </div>
         `,

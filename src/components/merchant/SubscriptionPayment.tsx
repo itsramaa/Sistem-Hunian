@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Crown, Star, Building2, Check, Loader2, Sparkles } from "lucide-react";
+import { Crown, Star, Building2, Check, Loader2, Sparkles, ExternalLink } from "lucide-react";
 
 interface SubscriptionTier {
   id: string;
@@ -25,13 +26,25 @@ interface SubscriptionTier {
 }
 
 export function SubscriptionPayment() {
-  const { merchant, user } = useAuth();
+  const { merchant, user, profile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [selectedTierId, setSelectedTierId] = useState<string>("");
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("monthly");
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // Handle payment callback
+  useEffect(() => {
+    const paymentStatus = searchParams.get('payment');
+    if (paymentStatus === 'success') {
+      toast({ title: "Payment successful!", description: "Your subscription is being activated." });
+      queryClient.invalidateQueries({ queryKey: ["merchant-subscription"] });
+    } else if (paymentStatus === 'failed') {
+      toast({ title: "Payment failed", description: "Please try again.", variant: "destructive" });
+    }
+  }, [searchParams, toast, queryClient]);
 
   const { data: tiers = [], isLoading: tiersLoading } = useQuery({
     queryKey: ["subscription-tiers"],
@@ -87,48 +100,66 @@ export function SubscriptionPayment() {
       : selectedTier.price_monthly
     : 0;
 
-  const handlePaymentSuccess = async () => {
-    if (!selectedTier || !merchant) return;
+  const handleUpgrade = async () => {
+    if (!selectedTier || !merchant || !user) return;
+    
+    setIsProcessing(true);
     
     try {
-      const now = new Date();
-      const periodEnd = new Date();
-      if (billingPeriod === "yearly") {
-        periodEnd.setFullYear(periodEnd.getFullYear() + 1);
-      } else {
+      // For free tier, just update directly
+      if (selectedTier.price_monthly === 0) {
+        const periodEnd = new Date();
         periodEnd.setMonth(periodEnd.getMonth() + 1);
+
+        await supabase
+          .from("merchant_subscriptions")
+          .upsert({
+            merchant_id: merchant.id,
+            tier_id: selectedTier.id,
+            status: "active",
+            payment_status: "paid",
+            current_period_start: new Date().toISOString(),
+            current_period_end: periodEnd.toISOString(),
+          }, { onConflict: "merchant_id" });
+
+        await supabase
+          .from("merchants")
+          .update({ subscription_tier: selectedTier.name })
+          .eq("id", merchant.id);
+
+        queryClient.invalidateQueries({ queryKey: ["merchant-subscription"] });
+        toast({ title: "Plan updated!", description: `You are now on the ${selectedTier.display_name} plan.` });
+        setShowUpgradeDialog(false);
+        return;
       }
 
-      const { error } = await supabase
-        .from("merchant_subscriptions")
-        .upsert({
+      // Call subscription payment edge function
+      const { data, error } = await supabase.functions.invoke('subscription-payment', {
+        body: {
           merchant_id: merchant.id,
           tier_id: selectedTier.id,
-          status: "active",
-          payment_status: "paid",
-          current_period_start: now.toISOString(),
-          current_period_end: periodEnd.toISOString(),
-          next_billing_date: periodEnd.toISOString(),
-        }, {
-          onConflict: "merchant_id",
-        });
+          billing_cycle: billingPeriod,
+          user_id: user.id,
+          payer_email: profile?.email || user.email,
+          payer_name: profile?.full_name || merchant.business_name,
+        },
+      });
 
       if (error) throw error;
 
-      // Update merchant subscription tier
-      await supabase
-        .from("merchants")
-        .update({ subscription_tier: selectedTier.name })
-        .eq("id", merchant.id);
-
-      queryClient.invalidateQueries({ queryKey: ["merchant-subscription"] });
-      queryClient.invalidateQueries({ queryKey: ["merchant-settings"] });
-      
-      toast({ title: "Subscription activated!", description: `You are now on the ${selectedTier.display_name} plan.` });
-      setShowPaymentModal(false);
-      setShowUpgradeDialog(false);
+      if (data.payment_url) {
+        // Redirect to Xendit payment page
+        window.location.href = data.payment_url;
+      } else if (data.free_tier) {
+        queryClient.invalidateQueries({ queryKey: ["merchant-subscription"] });
+        toast({ title: "Plan updated!", description: `You are now on the ${selectedTier.display_name} plan.` });
+        setShowUpgradeDialog(false);
+      }
     } catch (error) {
-      toast({ title: "Error activating subscription", variant: "destructive" });
+      console.error("Payment error:", error);
+      toast({ title: "Payment error", description: "Failed to process payment. Please try again.", variant: "destructive" });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -281,35 +312,22 @@ export function SubscriptionPayment() {
             <Button variant="outline" onClick={() => setShowUpgradeDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={() => setShowPaymentModal(true)} disabled={!selectedTier || selectedTier.price_monthly === 0}>
-              Proceed to Payment
+            <Button onClick={handleUpgrade} disabled={!selectedTier || isProcessing}>
+              {isProcessing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : selectedTier?.price_monthly === 0 ? (
+                "Confirm Change"
+              ) : (
+                <>
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Proceed to Payment
+                </>
+              )}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Payment Modal - simplified for now, will redirect to Xendit */}
-      <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Complete Payment</DialogTitle>
-            <DialogDescription>
-              Pay {formatPrice(selectedPrice)} for {selectedTier?.display_name} subscription
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Payment integration with Xendit will redirect you to a secure payment page.
-            </p>
-            <div className="p-4 rounded-lg bg-muted/50 text-center">
-              <p className="text-2xl font-bold">{formatPrice(selectedPrice)}</p>
-              <p className="text-sm text-muted-foreground">{billingPeriod === 'yearly' ? 'Billed annually' : 'Billed monthly'}</p>
-            </div>
-            <Button className="w-full" onClick={handlePaymentSuccess}>
-              <Loader2 className="h-4 w-4 mr-2" />
-              Confirm & Activate
-            </Button>
-          </div>
         </DialogContent>
       </Dialog>
     </>
