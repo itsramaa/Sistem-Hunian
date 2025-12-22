@@ -28,6 +28,8 @@ const adminMenuItems = [
   { icon: BarChart3, label: 'Analytics', href: '/admin/analytics' },
   { icon: CreditCard, label: 'Platform Config', href: '/admin/platform-config' },
   { icon: Users, label: 'Referrals', href: '/admin/referrals' },
+  { icon: Menu, label: 'Chatbot KB', href: '/admin/chatbot' },
+  { icon: CreditCard, label: 'Orders', href: '/admin/orders' },
   { icon: Settings, label: 'Settings', href: '/admin/settings' },
 ];
 
