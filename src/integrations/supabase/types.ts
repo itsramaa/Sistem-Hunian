@@ -58,6 +58,104 @@ export type Database = {
           },
         ]
       }
+      chat_conversations: {
+        Row: {
+          context: Json | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      chat_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          role: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          role: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chat_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chatbot_knowledge: {
+        Row: {
+          answer: string
+          category: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          keywords: string[] | null
+          question: string
+          updated_at: string
+        }
+        Insert: {
+          answer: string
+          category: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          keywords?: string[] | null
+          question: string
+          updated_at?: string
+        }
+        Update: {
+          answer?: string
+          category?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          keywords?: string[] | null
+          question?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       contracts: {
         Row: {
           created_at: string
@@ -263,6 +361,212 @@ export type Database = {
           },
         ]
       }
+      forum_comments: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          id: string
+          is_visible: boolean | null
+          like_count: number | null
+          parent_id: string | null
+          post_id: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string
+          id?: string
+          is_visible?: boolean | null
+          like_count?: number | null
+          parent_id?: string | null
+          post_id: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          is_visible?: boolean | null
+          like_count?: number | null
+          parent_id?: string | null
+          post_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forum_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "forum_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "forum_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "forum_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forum_likes: {
+        Row: {
+          comment_id: string | null
+          created_at: string
+          id: string
+          post_id: string | null
+          user_id: string
+        }
+        Insert: {
+          comment_id?: string | null
+          created_at?: string
+          id?: string
+          post_id?: string | null
+          user_id: string
+        }
+        Update: {
+          comment_id?: string | null
+          created_at?: string
+          id?: string
+          post_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forum_likes_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "forum_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "forum_likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "forum_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forum_posts: {
+        Row: {
+          author_id: string
+          comment_count: number | null
+          content: string
+          created_at: string
+          id: string
+          is_locked: boolean | null
+          is_pinned: boolean | null
+          is_visible: boolean | null
+          like_count: number | null
+          photos: string[] | null
+          property_id: string | null
+          tags: string[] | null
+          title: string
+          updated_at: string
+          view_count: number | null
+        }
+        Insert: {
+          author_id: string
+          comment_count?: number | null
+          content: string
+          created_at?: string
+          id?: string
+          is_locked?: boolean | null
+          is_pinned?: boolean | null
+          is_visible?: boolean | null
+          like_count?: number | null
+          photos?: string[] | null
+          property_id?: string | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+          view_count?: number | null
+        }
+        Update: {
+          author_id?: string
+          comment_count?: number | null
+          content?: string
+          created_at?: string
+          id?: string
+          is_locked?: boolean | null
+          is_pinned?: boolean | null
+          is_visible?: boolean | null
+          like_count?: number | null
+          photos?: string[] | null
+          property_id?: string | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          view_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forum_posts_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forum_reports: {
+        Row: {
+          comment_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          post_id: string | null
+          reason: string
+          reporter_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string | null
+        }
+        Insert: {
+          comment_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          post_id?: string | null
+          reason: string
+          reporter_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+        }
+        Update: {
+          comment_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          post_id?: string | null
+          reason?: string
+          reporter_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forum_reports_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "forum_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "forum_reports_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "forum_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           amount: number
@@ -401,6 +705,63 @@ export type Database = {
           },
         ]
       }
+      merchant_subscriptions: {
+        Row: {
+          canceled_at: string | null
+          created_at: string
+          current_period_end: string
+          current_period_start: string
+          id: string
+          merchant_id: string
+          payment_method: string | null
+          status: string
+          tier_id: string
+          trial_ends_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          canceled_at?: string | null
+          created_at?: string
+          current_period_end: string
+          current_period_start?: string
+          id?: string
+          merchant_id: string
+          payment_method?: string | null
+          status?: string
+          tier_id: string
+          trial_ends_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          canceled_at?: string | null
+          created_at?: string
+          current_period_end?: string
+          current_period_start?: string
+          id?: string
+          merchant_id?: string
+          payment_method?: string | null
+          status?: string
+          tier_id?: string
+          trial_ends_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "merchant_subscriptions_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: true
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merchant_subscriptions_tier_id_fkey"
+            columns: ["tier_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_tiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       merchant_verifications: {
         Row: {
           created_at: string
@@ -526,6 +887,157 @@ export type Database = {
         }
         Relationships: []
       }
+      order_reviews: {
+        Row: {
+          created_at: string
+          id: string
+          is_visible: boolean | null
+          order_id: string
+          photos: string[] | null
+          rating: number
+          review_text: string | null
+          tenant_user_id: string
+          updated_at: string
+          vendor_id: string
+          vendor_replied_at: string | null
+          vendor_reply: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_visible?: boolean | null
+          order_id: string
+          photos?: string[] | null
+          rating: number
+          review_text?: string | null
+          tenant_user_id: string
+          updated_at?: string
+          vendor_id: string
+          vendor_replied_at?: string | null
+          vendor_reply?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_visible?: boolean | null
+          order_id?: string
+          photos?: string[] | null
+          rating?: number
+          review_text?: string | null
+          tenant_user_id?: string
+          updated_at?: string
+          vendor_id?: string
+          vendor_replied_at?: string | null
+          vendor_reply?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_reviews_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_reviews_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          address: string | null
+          cancel_reason: string | null
+          canceled_at: string | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          order_number: string
+          product_id: string
+          quantity: number
+          scheduled_date: string | null
+          scheduled_time: string | null
+          service_fee: number | null
+          status: string
+          tenant_user_id: string
+          total_price: number
+          unit_id: string | null
+          unit_price: number
+          updated_at: string
+          vendor_id: string
+        }
+        Insert: {
+          address?: string | null
+          cancel_reason?: string | null
+          canceled_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_number: string
+          product_id: string
+          quantity?: number
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          service_fee?: number | null
+          status?: string
+          tenant_user_id: string
+          total_price: number
+          unit_id?: string | null
+          unit_price: number
+          updated_at?: string
+          vendor_id: string
+        }
+        Update: {
+          address?: string | null
+          cancel_reason?: string | null
+          canceled_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_number?: string
+          product_id?: string
+          quantity?: number
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          service_fee?: number | null
+          status?: string
+          tenant_user_id?: string
+          total_price?: number
+          unit_id?: string | null
+          unit_price?: number
+          updated_at?: string
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number
@@ -585,6 +1097,71 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          estimated_duration: string | null
+          id: string
+          is_available: boolean | null
+          max_order: number | null
+          min_order: number | null
+          name: string
+          photos: string[] | null
+          price: number
+          service_area: string[] | null
+          stock: number | null
+          unit: string | null
+          updated_at: string
+          vendor_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          estimated_duration?: string | null
+          id?: string
+          is_available?: boolean | null
+          max_order?: number | null
+          min_order?: number | null
+          name: string
+          photos?: string[] | null
+          price: number
+          service_area?: string[] | null
+          stock?: number | null
+          unit?: string | null
+          updated_at?: string
+          vendor_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          estimated_duration?: string | null
+          id?: string
+          is_available?: boolean | null
+          max_order?: number | null
+          min_order?: number | null
+          name?: string
+          photos?: string[] | null
+          price?: number
+          service_area?: string[] | null
+          stock?: number | null
+          unit?: string | null
+          updated_at?: string
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
             referencedColumns: ["id"]
           },
         ]
@@ -687,6 +1264,60 @@ export type Database = {
           },
         ]
       }
+      subscription_tiers: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_name: string
+          features: Json | null
+          id: string
+          is_active: boolean | null
+          max_properties: number
+          max_tenants: number
+          max_units: number
+          name: string
+          price_monthly: number
+          price_yearly: number | null
+          sort_order: number | null
+          trial_days: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_name: string
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          max_properties?: number
+          max_tenants?: number
+          max_units?: number
+          name: string
+          price_monthly?: number
+          price_yearly?: number | null
+          sort_order?: number | null
+          trial_days?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_name?: string
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          max_properties?: number
+          max_tenants?: number
+          max_units?: number
+          name?: string
+          price_monthly?: number
+          price_yearly?: number | null
+          sort_order?: number | null
+          trial_days?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tenant_invitations: {
         Row: {
           created_at: string
@@ -737,6 +1368,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tenants: {
+        Row: {
+          created_at: string
+          date_of_birth: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          emergency_contact_relation: string | null
+          gender: string | null
+          id: string
+          income_range: string | null
+          ktp_number: string | null
+          ktp_photo_url: string | null
+          notes: string | null
+          occupation: string | null
+          updated_at: string
+          user_id: string
+          verification_status: string | null
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          date_of_birth?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relation?: string | null
+          gender?: string | null
+          id?: string
+          income_range?: string | null
+          ktp_number?: string | null
+          ktp_photo_url?: string | null
+          notes?: string | null
+          occupation?: string | null
+          updated_at?: string
+          user_id: string
+          verification_status?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          date_of_birth?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relation?: string | null
+          gender?: string | null
+          id?: string
+          income_range?: string | null
+          ktp_number?: string | null
+          ktp_photo_url?: string | null
+          notes?: string | null
+          occupation?: string | null
+          updated_at?: string
+          user_id?: string
+          verification_status?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: []
       }
       units: {
         Row: {
