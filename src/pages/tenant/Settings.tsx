@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { TenantLayout } from "@/components/layouts/TenantLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +12,8 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { User, Bell, Shield, Loader2, Save, CreditCard, AlertCircle, Upload, Calendar, Wallet } from "lucide-react";
+import { User, Bell, Shield, Loader2, Save, CreditCard, AlertCircle, Upload, Calendar, Wallet, Banknote } from "lucide-react";
+import { format } from "date-fns";
 
 interface NotificationPreferences {
   payment_reminders: boolean;
@@ -286,7 +288,7 @@ const TenantSettings = () => {
       description="Manage your profile and preferences"
     >
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="profile" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             <span className="hidden sm:inline">Profile</span>
@@ -294,6 +296,10 @@ const TenantSettings = () => {
           <TabsTrigger value="identity" className="flex items-center gap-2">
             <CreditCard className="h-4 w-4" />
             <span className="hidden sm:inline">Identity</span>
+          </TabsTrigger>
+          <TabsTrigger value="payments" className="flex items-center gap-2">
+            <Banknote className="h-4 w-4" />
+            <span className="hidden sm:inline">Payments</span>
           </TabsTrigger>
           <TabsTrigger value="security" className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
@@ -523,6 +529,11 @@ const TenantSettings = () => {
           </Card>
         </TabsContent>
 
+        {/* Saved Payment Methods Tab */}
+        <TabsContent value="payments" className="space-y-6">
+          <SavedPaymentMethodsSection userId={user?.id} />
+        </TabsContent>
+
         <TabsContent value="security" className="space-y-6">
           <Card>
             <CardHeader>
@@ -661,5 +672,109 @@ const TenantSettings = () => {
     </TenantLayout>
   );
 };
+
+// Saved Payment Methods Component
+function SavedPaymentMethodsSection({ userId }: { userId?: string }) {
+  const { data: paymentMethods, isLoading } = useQuery({
+    queryKey: ["saved-payment-methods", userId],
+    queryFn: async () => {
+      // Get distinct payment methods from successful xendit transactions
+      const { data, error } = await supabase
+        .from("xendit_transactions")
+        .select("payment_method, payment_channel, created_at")
+        .eq("user_id", userId)
+        .eq("status", "paid")
+        .not("payment_method", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      
+      if (error) throw error;
+      
+      // Deduplicate by payment method + channel
+      const seen = new Set<string>();
+      const unique = data?.filter(pm => {
+        const key = `${pm.payment_method}-${pm.payment_channel}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }) || [];
+      
+      return unique;
+    },
+    enabled: !!userId,
+  });
+
+  const formatMethodName = (method: string | null, channel: string | null) => {
+    if (channel) {
+      return channel.replace(/_/g, ' ').toUpperCase();
+    }
+    if (method) {
+      return method.replace(/_/g, ' ').toUpperCase();
+    }
+    return 'Unknown Method';
+  };
+
+  const getMethodIcon = (method: string | null) => {
+    switch (method?.toLowerCase()) {
+      case 'virtual_account':
+        return '🏦';
+      case 'ewallet':
+        return '📱';
+      case 'qr_code':
+        return '📷';
+      case 'credit_card':
+        return '💳';
+      default:
+        return '💰';
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Banknote className="h-5 w-5" />
+          Payment Methods
+        </CardTitle>
+        <CardDescription>Your recently used payment methods</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : paymentMethods && paymentMethods.length > 0 ? (
+          <div className="space-y-3">
+            {paymentMethods.map((pm, index) => (
+              <div key={index} className="flex items-center justify-between p-4 rounded-lg border">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">{getMethodIcon(pm.payment_method)}</span>
+                  <div>
+                    <p className="font-medium">{formatMethodName(pm.payment_method, pm.payment_channel)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Last used: {format(new Date(pm.created_at), 'dd MMM yyyy')}
+                    </p>
+                  </div>
+                </div>
+                <Badge variant="secondary">Available</Badge>
+              </div>
+            ))}
+            <p className="text-xs text-muted-foreground mt-4">
+              These payment methods can be used for faster checkout on future payments.
+            </p>
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <Banknote className="h-12 w-12 mx-auto text-muted-foreground" />
+            <h3 className="mt-4 font-medium">No payment methods yet</h3>
+            <p className="text-sm text-muted-foreground mt-2">
+              Your payment methods will appear here after your first successful payment.
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default TenantSettings;
