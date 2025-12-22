@@ -4,6 +4,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { MerchantLayout } from '@/components/layouts/MerchantLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useState } from 'react';
 import {
   AreaChart,
@@ -20,13 +22,16 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { TrendingUp, TrendingDown, Building2, Users, DollarSign, Wrench } from 'lucide-react';
+import { TrendingUp, TrendingDown, Building2, Users, DollarSign, Wrench, Download, FileText, Table2 } from 'lucide-react';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
+import { exportToCSV, exportToPDF, generateReportHTML } from '@/lib/exportUtils';
+import { useToast } from '@/hooks/use-toast';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--muted))', '#10b981', '#f59e0b'];
 
 export default function MerchantReports() {
   const { merchant } = useAuth();
+  const { toast } = useToast();
   const [timeRange, setTimeRange] = useState('6');
 
   // Fetch properties with units
@@ -193,11 +198,78 @@ export default function MerchantReports() {
   const maintenanceTrend = getMaintenanceTrend();
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-ZA', {
+    return new Intl.NumberFormat('id-ID', {
       style: 'currency',
-      currency: 'ZAR',
+      currency: 'IDR',
       minimumFractionDigits: 0,
     }).format(value);
+  };
+
+  // Export functions
+  const handleExportPaymentsCSV = () => {
+    const exportData = payments.map(p => ({
+      date: format(new Date(p.created_at), 'yyyy-MM-dd'),
+      amount: p.amount,
+      status: p.status,
+      payment_type: p.payment_type,
+      due_date: p.due_date,
+      paid_at: p.paid_at || '',
+    }));
+    exportToCSV(exportData, 'payments_report', [
+      { key: 'date', label: 'Date' },
+      { key: 'amount', label: 'Amount' },
+      { key: 'status', label: 'Status' },
+      { key: 'payment_type', label: 'Type' },
+      { key: 'due_date', label: 'Due Date' },
+      { key: 'paid_at', label: 'Paid At' },
+    ]);
+    toast({ title: 'Export complete', description: 'Payments report downloaded as CSV.' });
+  };
+
+  const handleExportMaintenanceCSV = () => {
+    const exportData = maintenanceRequests.map(r => ({
+      date: format(new Date(r.created_at), 'yyyy-MM-dd'),
+      title: r.title,
+      category: r.category,
+      priority: r.priority,
+      status: r.status,
+    }));
+    exportToCSV(exportData, 'maintenance_report', [
+      { key: 'date', label: 'Date' },
+      { key: 'title', label: 'Title' },
+      { key: 'category', label: 'Category' },
+      { key: 'priority', label: 'Priority' },
+      { key: 'status', label: 'Status' },
+    ]);
+    toast({ title: 'Export complete', description: 'Maintenance report downloaded as CSV.' });
+  };
+
+  const handleExportPDF = () => {
+    const paymentData = payments.filter(p => p.status === 'paid').map(p => ({
+      date: format(new Date(p.paid_at || p.created_at), 'dd MMM yyyy'),
+      amount: formatCurrency(Number(p.amount)),
+      type: p.payment_type,
+      status: p.status,
+    }));
+
+    const content = generateReportHTML(
+      paymentData,
+      [
+        { key: 'date', label: 'Date' },
+        { key: 'amount', label: 'Amount' },
+        { key: 'type', label: 'Type' },
+        { key: 'status', label: 'Status' },
+      ],
+      [
+        { label: 'Total Revenue', value: formatCurrency(totalRevenue) },
+        { label: 'Pending Payments', value: formatCurrency(pendingPayments) },
+        { label: 'Occupancy Rate', value: `${occupancyRate}%` },
+        { label: 'Total Properties', value: String(properties.length) },
+      ]
+    );
+
+    exportToPDF('Property Analytics Report', content, 'analytics_report');
+    toast({ title: 'Export complete', description: 'Report opened for printing/saving as PDF.' });
   };
 
   return (
@@ -208,16 +280,40 @@ export default function MerchantReports() {
             <h1 className="text-2xl font-display font-bold">Reports & Analytics</h1>
             <p className="text-muted-foreground">Track your property performance</p>
           </div>
-          <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Time range" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="3">Last 3 months</SelectItem>
-              <SelectItem value="6">Last 6 months</SelectItem>
-              <SelectItem value="12">Last 12 months</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleExportPDF}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Export as PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportPaymentsCSV}>
+                  <Table2 className="h-4 w-4 mr-2" />
+                  Export Payments (CSV)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportMaintenanceCSV}>
+                  <Table2 className="h-4 w-4 mr-2" />
+                  Export Maintenance (CSV)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Select value={timeRange} onValueChange={setTimeRange}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Time range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="3">Last 3 months</SelectItem>
+                <SelectItem value="6">Last 6 months</SelectItem>
+                <SelectItem value="12">Last 12 months</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* KPI Cards */}
