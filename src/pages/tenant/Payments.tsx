@@ -81,9 +81,10 @@ export default function TenantPayments() {
   });
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
+    return new Intl.NumberFormat('id-ID', {
       style: 'currency',
-      currency: 'ZAR',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
     }).format(amount);
   };
 

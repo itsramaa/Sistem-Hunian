@@ -14,9 +14,10 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { Star, MapPin, Phone, Mail, CalendarIcon, ArrowLeft, Loader2, ShoppingCart } from "lucide-react";
+import { Star, MapPin, Phone, Mail, CalendarIcon, ArrowLeft, Loader2, ShoppingCart, CreditCard } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { XenditPaymentModal } from "@/components/payment/XenditPaymentModal";
 
 interface Product {
   id: string;
@@ -58,6 +59,8 @@ export default function TenantVendorDetail() {
     address: "",
     notes: "",
   });
+  const [createdOrder, setCreatedOrder] = useState<{ id: string; total: number } | null>(null);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 
   // Fetch vendor details
   const { data: vendor, isLoading: vendorLoading } = useQuery({
@@ -97,42 +100,52 @@ export default function TenantVendorDetail() {
 
       const totalPrice = selectedProduct.price * orderData.quantity;
       const serviceFee = totalPrice * 0.05; // 5% service fee
+      const finalTotal = totalPrice + serviceFee;
 
-      const { error } = await supabase.from("orders").insert([{
-        order_number: `ORD${Date.now()}`, // Temporary - will be replaced by trigger
+      const { data, error } = await supabase.from("orders").insert([{
+        order_number: `ORD${Date.now()}`,
         tenant_user_id: user.id,
         vendor_id: vendorId!,
         product_id: selectedProduct.id,
         quantity: orderData.quantity,
         unit_price: selectedProduct.price,
-        total_price: totalPrice + serviceFee,
+        total_price: finalTotal,
         service_fee: serviceFee,
         scheduled_date: orderData.scheduledDate ? format(orderData.scheduledDate, "yyyy-MM-dd") : null,
         scheduled_time: orderData.scheduledTime || null,
         address: orderData.address || null,
         notes: orderData.notes || null,
         status: "pending",
-      }]);
+      }]).select().single();
+      
       if (error) throw error;
+      return { id: data.id, total: finalTotal };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["tenant-orders"] });
-      toast({ title: "Order placed successfully!" });
       setOrderDialogOpen(false);
-      setSelectedProduct(null);
-      setOrderData({
-        quantity: 1,
-        scheduledDate: undefined,
-        scheduledTime: "",
-        address: "",
-        notes: "",
-      });
-      navigate("/tenant/orders");
+      setCreatedOrder(data);
+      setPaymentModalOpen(true);
+      toast({ title: "Order created! Proceeding to payment..." });
     },
     onError: (error) => {
       toast({ title: "Failed to place order", description: error.message, variant: "destructive" });
     },
   });
+
+  const handlePaymentComplete = () => {
+    setPaymentModalOpen(false);
+    setCreatedOrder(null);
+    setSelectedProduct(null);
+    setOrderData({
+      quantity: 1,
+      scheduledDate: undefined,
+      scheduledTime: "",
+      address: "",
+      notes: "",
+    });
+    navigate("/tenant/orders");
+  };
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("id-ID", {
@@ -394,13 +407,31 @@ export default function TenantVendorDetail() {
                   {createOrderMutation.isPending && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
-                  Confirm Order
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Order & Pay
                 </Button>
               </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Xendit Payment Modal for Order */}
+      {createdOrder && user && (
+        <XenditPaymentModal
+          open={paymentModalOpen}
+          onOpenChange={(open) => {
+            if (!open) handlePaymentComplete();
+          }}
+          amount={createdOrder.total}
+          description={`Order ${selectedProduct?.name || 'Service'}`}
+          orderId={createdOrder.id}
+          payerEmail={user.email || ''}
+          payerName={user.user_metadata?.full_name || 'Tenant'}
+          userId={user.id}
+          paymentType="order"
+        />
+      )}
     </TenantLayout>
   );
 }
