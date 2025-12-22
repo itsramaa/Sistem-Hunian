@@ -8,8 +8,10 @@ import {
   LogOut,
   ChevronLeft,
   Menu,
-  Bell,
-  Wrench
+  Wrench,
+  Package,
+  ShoppingCart,
+  Gift
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -18,13 +20,13 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { NotificationsDropdown } from '@/components/notifications/NotificationsDropdown';
 
-import { Package } from 'lucide-react';
-
 const vendorMenuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/vendor' },
   { icon: Package, label: 'Products', href: '/vendor/products' },
+  { icon: ShoppingCart, label: 'Orders', href: '/vendor/orders' },
   { icon: Briefcase, label: 'Jobs', href: '/vendor/jobs' },
   { icon: Wallet, label: 'Earnings', href: '/vendor/earnings' },
+  { icon: Gift, label: 'Referrals', href: '/vendor/referrals' },
   { icon: User, label: 'Profile', href: '/vendor/profile' },
   { icon: Settings, label: 'Settings', href: '/vendor/settings' },
 ];
