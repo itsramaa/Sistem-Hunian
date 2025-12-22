@@ -49,6 +49,7 @@ const adminNavItems: NavItem[] = [
   { title: "Merchants", url: "/admin/merchants", icon: Building2 },
   { title: "Vendors", url: "/admin/vendors", icon: Wrench },
   { title: "Subscriptions", url: "/admin/subscriptions", icon: Crown },
+  { title: "Tiers", url: "/admin/subscription-tiers", icon: Crown },
   { title: "Disputes", url: "/admin/disputes", icon: AlertTriangle },
   { title: "Escrow", url: "/admin/escrow", icon: Wallet },
   { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },

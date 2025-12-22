@@ -8,13 +8,16 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Home, Loader2, CheckCircle, XCircle, Building2, MapPin } from "lucide-react";
+import { Home, Loader2, CheckCircle, XCircle, Building2, MapPin, ArrowRight } from "lucide-react";
+import { TenantProfileForm } from "@/components/tenant/TenantProfileForm";
 
 const Invite = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const { user, signUp } = useAuth();
   const [isNewUser, setIsNewUser] = useState(true);
+  const [step, setStep] = useState<'auth' | 'profile' | 'complete'>('auth');
+  const [createdUserId, setCreatedUserId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -54,30 +57,44 @@ const Invite = () => {
     }
   }, [invitation]);
 
-  const acceptInvitation = useMutation({
+  // If user is already logged in, go to profile step
+  useEffect(() => {
+    if (user && step === 'auth') {
+      setCreatedUserId(user.id);
+      setStep('profile');
+    }
+  }, [user, step]);
+
+  const createAccount = useMutation({
     mutationFn: async () => {
       if (!invitation) throw new Error('Invitation not found');
 
-      let currentUserId = user?.id;
+      const { data: authData, error: signUpError } = await signUp(
+        formData.email,
+        formData.password,
+        {
+          full_name: formData.fullName,
+          role: 'tenant',
+        }
+      );
+      if (signUpError) throw signUpError;
+      if (!authData?.user?.id) throw new Error('Failed to create account');
 
-      // If new user, create account
-      if (isNewUser && !user) {
-        const { data: authData, error: signUpError } = await signUp(
-          formData.email,
-          formData.password,
-          {
-            full_name: formData.fullName,
-            role: 'tenant',
-          }
-        );
-        if (signUpError) throw signUpError;
-        currentUserId = authData?.user?.id;
-      }
+      setCreatedUserId(authData.user.id);
+      return authData.user.id;
+    },
+    onSuccess: () => {
+      setStep('profile');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
 
-      if (!currentUserId) {
-        throw new Error('User not authenticated');
-      }
+  const completeInvitation = async () => {
+    if (!invitation || !createdUserId) return;
 
+    try {
       // Update invitation status
       const { error: updateError } = await supabase
         .from('tenant_invitations')
@@ -95,14 +112,14 @@ const Invite = () => {
       // Create contract for the tenant
       const startDate = new Date();
       const endDate = new Date();
-      endDate.setFullYear(endDate.getFullYear() + 1); // 1 year lease by default
+      endDate.setFullYear(endDate.getFullYear() + 1);
 
       const { error: contractError } = await supabase
         .from('contracts')
         .insert({
           merchant_id: invitation.merchant_id,
           unit_id: invitation.unit_id,
-          tenant_user_id: currentUserId,
+          tenant_user_id: createdUserId,
           start_date: startDate.toISOString().split('T')[0],
           end_date: endDate.toISOString().split('T')[0],
           rent_amount: invitation.unit?.rent_amount || 0,
@@ -111,16 +128,12 @@ const Invite = () => {
         });
       if (contractError) throw contractError;
 
-      return true;
-    },
-    onSuccess: () => {
-      toast.success('Invitation accepted! Welcome to your new home.');
+      toast.success('Welcome to your new home!');
       navigate('/tenant');
-    },
-    onError: (error: Error) => {
+    } catch (error: any) {
       toast.error(error.message);
-    },
-  });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -140,9 +153,7 @@ const Invite = () => {
             <p className="text-muted-foreground mb-6">
               This invitation link is invalid or has expired.
             </p>
-            <Button onClick={() => navigate('/')}>
-              Go Home
-            </Button>
+            <Button onClick={() => navigate('/')}>Go Home</Button>
           </CardContent>
         </Card>
       </div>
@@ -159,9 +170,7 @@ const Invite = () => {
             <p className="text-muted-foreground mb-6">
               This invitation has already been accepted.
             </p>
-            <Button onClick={() => navigate('/auth')}>
-              Sign In
-            </Button>
+            <Button onClick={() => navigate('/auth')}>Sign In</Button>
           </CardContent>
         </Card>
       </div>
@@ -178,15 +187,86 @@ const Invite = () => {
             <p className="text-muted-foreground mb-6">
               This invitation has expired. Please contact your landlord for a new invitation.
             </p>
-            <Button onClick={() => navigate('/')}>
-              Go Home
-            </Button>
+            <Button onClick={() => navigate('/')}>Go Home</Button>
           </CardContent>
         </Card>
       </div>
     );
   }
 
+  // Profile completion step
+  if (step === 'profile' && createdUserId) {
+    return (
+      <div className="min-h-screen bg-muted/30 py-8 px-4">
+        <div className="max-w-2xl mx-auto">
+          {/* Progress indicator */}
+          <div className="flex items-center justify-center gap-2 mb-8">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-success flex items-center justify-center text-success-foreground">
+                <CheckCircle className="h-5 w-5" />
+              </div>
+              <span className="text-sm font-medium">Account</span>
+            </div>
+            <div className="h-px w-8 bg-primary" />
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-bold">
+                2
+              </div>
+              <span className="text-sm font-medium">Profile</span>
+            </div>
+            <div className="h-px w-8 bg-muted-foreground/30" />
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-sm font-bold">
+                3
+              </div>
+              <span className="text-sm text-muted-foreground">Complete</span>
+            </div>
+          </div>
+
+          {/* Property info banner */}
+          <Card className="mb-6">
+            <CardContent className="py-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Building2 className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-semibold">{invitation.unit?.property?.name}</p>
+                  <p className="text-sm text-muted-foreground">Unit {invitation.unit?.unit_number}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Profile form */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Complete Your Profile</CardTitle>
+              <CardDescription>
+                Please provide your information for verification purposes
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TenantProfileForm
+                userId={createdUserId}
+                onComplete={completeInvitation}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Skip option */}
+          <div className="text-center">
+            <Button variant="ghost" onClick={completeInvitation}>
+              Skip for now
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Auth step
   return (
     <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
       <Card className="max-w-lg w-full">
@@ -195,9 +275,7 @@ const Invite = () => {
             <Home className="h-8 w-8 text-primary" />
           </div>
           <CardTitle className="text-2xl">You're Invited!</CardTitle>
-          <CardDescription>
-            You've been invited to become a tenant
-          </CardDescription>
+          <CardDescription>You've been invited to become a tenant</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Property Details */}
@@ -214,7 +292,7 @@ const Invite = () => {
                   {invitation.unit?.property?.address}, {invitation.unit?.property?.city}
                 </div>
                 <p className="mt-2 font-medium text-primary">
-                  R {Number(invitation.unit?.rent_amount || 0).toLocaleString()}/month
+                  Rp {Number(invitation.unit?.rent_amount || 0).toLocaleString()}/month
                 </p>
               </div>
             </div>
@@ -295,15 +373,22 @@ const Invite = () => {
 
           <Button
             className="w-full gradient-primary"
-            onClick={() => acceptInvitation.mutate()}
-            disabled={acceptInvitation.isPending || (!user && isNewUser && (!formData.email || !formData.password || !formData.fullName))}
+            onClick={() => {
+              if (user) {
+                setCreatedUserId(user.id);
+                setStep('profile');
+              } else if (isNewUser) {
+                createAccount.mutate();
+              }
+            }}
+            disabled={createAccount.isPending || (!user && isNewUser && (!formData.email || !formData.password || !formData.fullName))}
           >
-            {acceptInvitation.isPending ? (
+            {createAccount.isPending ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (
-              <CheckCircle className="h-4 w-4 mr-2" />
+              <ArrowRight className="h-4 w-4 mr-2" />
             )}
-            Accept Invitation
+            {user ? "Continue to Profile" : "Create Account & Continue"}
           </Button>
         </CardContent>
       </Card>
