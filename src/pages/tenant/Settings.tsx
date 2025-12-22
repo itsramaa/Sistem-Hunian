@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { TenantLayout } from "@/components/layouts/TenantLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,8 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { User, Bell, Shield, Loader2, Save, ArrowLeft } from "lucide-react";
-import { Link } from "react-router-dom";
+import { User, Bell, Shield, Loader2, Save } from "lucide-react";
 
 const TenantSettings = () => {
   const { user } = useAuth();
@@ -74,153 +74,140 @@ const TenantSettings = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <TenantLayout title="Settings">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </TenantLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <header className="bg-card border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <Link to="/tenant">
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="h-5 w-5" />
+    <TenantLayout 
+      title="Settings"
+      description="Manage your profile and preferences"
+    >
+      <Tabs defaultValue="profile" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="profile" className="flex items-center gap-2">
+            <User className="h-4 w-4" />
+            Profile
+          </TabsTrigger>
+          <TabsTrigger value="security" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            Security
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="flex items-center gap-2">
+            <Bell className="h-4 w-4" />
+            Notifications
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="profile" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Personal Information</CardTitle>
+              <CardDescription>Update your personal details</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Full Name</Label>
+                  <Input
+                    value={profileForm.full_name || profile?.full_name || ''}
+                    onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })}
+                    placeholder="Your full name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Phone Number</Label>
+                  <Input
+                    value={profileForm.phone || profile?.phone || ''}
+                    onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                    placeholder="Your phone number"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input value={profile?.email || ''} disabled />
+                  <p className="text-xs text-muted-foreground">Contact support to change your email</p>
+                </div>
+              </div>
+              <Button 
+                onClick={() => updateProfile.mutate(profileForm)}
+                disabled={updateProfile.isPending}
+              >
+                {updateProfile.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                Save Changes
               </Button>
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-              <p className="text-muted-foreground">Manage your profile and preferences</p>
-            </div>
-          </div>
-        </div>
-      </header>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      <main className="container mx-auto px-4 py-8">
-        <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="profile" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Profile
-            </TabsTrigger>
-            <TabsTrigger value="security" className="flex items-center gap-2">
-              <Shield className="h-4 w-4" />
-              Security
-            </TabsTrigger>
-            <TabsTrigger value="notifications" className="flex items-center gap-2">
-              <Bell className="h-4 w-4" />
-              Notifications
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="profile" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Personal Information</CardTitle>
-                <CardDescription>Update your personal details</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Full Name</Label>
-                    <Input
-                      value={profileForm.full_name || profile?.full_name || ''}
-                      onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })}
-                      placeholder="Your full name"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Phone Number</Label>
-                    <Input
-                      value={profileForm.phone || profile?.phone || ''}
-                      onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                      placeholder="Your phone number"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Email</Label>
-                    <Input value={profile?.email || ''} disabled />
-                    <p className="text-xs text-muted-foreground">Contact support to change your email</p>
-                  </div>
+        <TabsContent value="security" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Change Password</CardTitle>
+              <CardDescription>Update your password to keep your account secure</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-4 max-w-md">
+                <div className="space-y-2">
+                  <Label>New Password</Label>
+                  <Input
+                    type="password"
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                    placeholder="Enter new password"
+                  />
                 </div>
-                <Button 
-                  onClick={() => updateProfile.mutate(profileForm)}
-                  disabled={updateProfile.isPending}
-                >
-                  {updateProfile.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                  Save Changes
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="security" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Change Password</CardTitle>
-                <CardDescription>Update your password to keep your account secure</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-4 max-w-md">
-                  <div className="space-y-2">
-                    <Label>New Password</Label>
-                    <Input
-                      type="password"
-                      value={passwordForm.newPassword}
-                      onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                      placeholder="Enter new password"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Confirm Password</Label>
-                    <Input
-                      type="password"
-                      value={passwordForm.confirmPassword}
-                      onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                      placeholder="Confirm new password"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label>Confirm Password</Label>
+                  <Input
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                    placeholder="Confirm new password"
+                  />
                 </div>
-                <Button 
-                  onClick={() => changePassword.mutate()}
-                  disabled={changePassword.isPending || !passwordForm.newPassword}
-                >
-                  {changePassword.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Shield className="h-4 w-4 mr-2" />}
-                  Change Password
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
+              </div>
+              <Button 
+                onClick={() => changePassword.mutate()}
+                disabled={changePassword.isPending || !passwordForm.newPassword}
+              >
+                {changePassword.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Shield className="h-4 w-4 mr-2" />}
+                Change Password
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          <TabsContent value="notifications" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Notification Preferences</CardTitle>
-                <CardDescription>Choose what notifications you receive</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {[
-                  { label: 'Payment Reminders', description: 'Get reminders before rent is due' },
-                  { label: 'Maintenance Updates', description: 'Updates on your maintenance requests' },
-                  { label: 'New Invoices', description: 'Notifications when new invoices are created' },
-                  { label: 'Contract Updates', description: 'Important updates about your lease' },
-                ].map((item, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 rounded-lg border">
-                    <div>
-                      <p className="font-medium">{item.label}</p>
-                      <p className="text-sm text-muted-foreground">{item.description}</p>
-                    </div>
-                    <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-input" />
+        <TabsContent value="notifications" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Notification Preferences</CardTitle>
+              <CardDescription>Choose what notifications you receive</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {[
+                { label: 'Payment Reminders', description: 'Get reminders before rent is due' },
+                { label: 'Maintenance Updates', description: 'Updates on your maintenance requests' },
+                { label: 'New Invoices', description: 'Notifications when new invoices are created' },
+                { label: 'Contract Updates', description: 'Important updates about your lease' },
+              ].map((item, index) => (
+                <div key={index} className="flex items-center justify-between p-4 rounded-lg border">
+                  <div>
+                    <p className="font-medium">{item.label}</p>
+                    <p className="text-sm text-muted-foreground">{item.description}</p>
                   </div>
-                ))}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </main>
-    </div>
+                  <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-input" />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </TenantLayout>
   );
 };
 
