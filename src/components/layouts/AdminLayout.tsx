@@ -26,6 +26,8 @@ const adminMenuItems = [
   { icon: CreditCard, label: 'Subscriptions', href: '/admin/subscriptions' },
   { icon: AlertTriangle, label: 'Disputes', href: '/admin/disputes' },
   { icon: BarChart3, label: 'Analytics', href: '/admin/analytics' },
+  { icon: CreditCard, label: 'Platform Config', href: '/admin/platform-config' },
+  { icon: Users, label: 'Referrals', href: '/admin/referrals' },
   { icon: Settings, label: 'Settings', href: '/admin/settings' },
 ];
 

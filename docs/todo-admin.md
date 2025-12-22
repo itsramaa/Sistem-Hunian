@@ -343,10 +343,10 @@ const ADMIN_SECRET_KEY = 'SIHUNI_ADMIN_2024';
 4. ✅ P0-1: Dashboard real stats - DONE (queries merchants, payments, escrow_accounts, vendor_verifications)
 5. ✅ Bug-2: Settings persistence - DONE (platform_settings table created)
 
-### Sprint 2 (1-2 weeks)
-1. P0-2: Platform fee configuration (4-5 hrs)
-2. P1-2: Referral program management (4-5 hrs)
-3. P1-4: Tenant analytics (3-4 hrs)
+### Sprint 2 (1-2 weeks) ✅ COMPLETED
+1. ✅ P0-2: Platform fee configuration - DONE (/admin/platform-config)
+2. ✅ P1-2: Referral program management - DONE (/admin/referrals)
+3. ✅ P1-4: Tenant analytics - DONE (added Tenants tab to Analytics page)
 
 ### Sprint 3 (2-3 weeks)
 1. P1-3: Chatbot knowledge base UI (3-4 hrs)
