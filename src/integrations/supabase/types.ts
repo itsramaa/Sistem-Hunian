@@ -815,6 +815,171 @@ export type Database = {
         }
         Relationships: []
       }
+      vendor_bank_accounts: {
+        Row: {
+          account_name: string
+          account_number: string
+          bank_name: string
+          branch_code: string | null
+          created_at: string
+          id: string
+          is_primary: boolean | null
+          updated_at: string
+          vendor_id: string
+        }
+        Insert: {
+          account_name: string
+          account_number: string
+          bank_name: string
+          branch_code?: string | null
+          created_at?: string
+          id?: string
+          is_primary?: boolean | null
+          updated_at?: string
+          vendor_id: string
+        }
+        Update: {
+          account_name?: string
+          account_number?: string
+          bank_name?: string
+          branch_code?: string | null
+          created_at?: string
+          id?: string
+          is_primary?: boolean | null
+          updated_at?: string
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_bank_accounts_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendor_earnings: {
+        Row: {
+          amount: number
+          created_at: string
+          fee_amount: number
+          id: string
+          net_amount: number
+          paid_at: string | null
+          status: string
+          updated_at: string
+          vendor_id: string
+          vendor_job_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          fee_amount?: number
+          id?: string
+          net_amount: number
+          paid_at?: string | null
+          status?: string
+          updated_at?: string
+          vendor_id: string
+          vendor_job_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          fee_amount?: number
+          id?: string
+          net_amount?: number
+          paid_at?: string | null
+          status?: string
+          updated_at?: string
+          vendor_id?: string
+          vendor_job_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_earnings_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_earnings_vendor_job_id_fkey"
+            columns: ["vendor_job_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendor_jobs: {
+        Row: {
+          agreed_price: number | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          maintenance_request_id: string
+          merchant_id: string
+          notes: string | null
+          quoted_price: number | null
+          started_at: string | null
+          status: string
+          updated_at: string
+          vendor_id: string
+        }
+        Insert: {
+          agreed_price?: number | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          maintenance_request_id: string
+          merchant_id: string
+          notes?: string | null
+          quoted_price?: number | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          vendor_id: string
+        }
+        Update: {
+          agreed_price?: number | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          maintenance_request_id?: string
+          merchant_id?: string
+          notes?: string | null
+          quoted_price?: number | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_jobs_maintenance_request_id_fkey"
+            columns: ["maintenance_request_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_jobs_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_jobs_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendors: {
         Row: {
           address: string | null

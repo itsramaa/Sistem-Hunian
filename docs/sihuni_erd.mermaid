@@ -1,0 +1,571 @@
+erDiagram
+    %% USER & AUTHENTICATION
+    users ||--o{ merchants : "is"
+    users ||--o{ tenants : "is"
+    users ||--o{ vendors : "is"
+    users ||--o{ admins : "is"
+    users ||--o{ user_sessions : "has"
+    users ||--o{ chat_messages : "sends"
+    users ||--o{ referrals : "refers"
+    
+    users {
+        uuid id PK
+        string email UK
+        string phone UK
+        string password_hash
+        enum role "admin|merchant|tenant|vendor"
+        string full_name
+        timestamp created_at
+        timestamp updated_at
+        boolean is_active
+        timestamp last_login
+    }
+    
+    user_sessions {
+        uuid id PK
+        uuid user_id FK
+        string refresh_token UK
+        string device_info
+        timestamp expires_at
+        timestamp created_at
+    }
+    
+    admins {
+        uuid id PK
+        uuid user_id FK UK
+        json permissions
+        timestamp created_at
+    }
+    
+    %% MERCHANT & SUBSCRIPTION
+    merchants ||--o{ properties : "owns"
+    merchants ||--o{ merchant_subscriptions : "has"
+    merchants ||--o{ merchant_verifications : "has"
+    merchants ||--o{ escrow_accounts : "has"
+    
+    merchants {
+        uuid id PK
+        uuid user_id FK UK
+        string business_name
+        enum verification_status "pending|verified|rejected"
+        timestamp verified_at
+        uuid verified_by FK
+        json verification_docs
+        timestamp created_at
+        timestamp updated_at
+        boolean is_active
+    }
+    
+    merchant_verifications {
+        uuid id PK
+        uuid merchant_id FK
+        string ktp_number
+        string ktp_photo_url
+        string npwp_number
+        string npwp_photo_url
+        string property_doc_url
+        enum status "pending|approved|rejected"
+        text rejection_reason
+        uuid reviewed_by FK
+        timestamp reviewed_at
+        timestamp created_at
+    }
+    
+    subscription_tiers {
+        uuid id PK
+        string name UK "Free|Basic|Pro|Enterprise"
+        integer max_properties
+        integer max_units
+        integer max_tenants
+        decimal price_monthly
+        decimal price_yearly
+        integer trial_days
+        json features
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    merchants ||--o{ merchant_subscriptions : "subscribes"
+    subscription_tiers ||--o{ merchant_subscriptions : "defines"
+    
+    merchant_subscriptions {
+        uuid id PK
+        uuid merchant_id FK
+        uuid tier_id FK
+        enum status "trial|active|expired|cancelled"
+        date trial_start_date
+        date trial_end_date
+        date subscription_start_date
+        date subscription_end_date
+        enum billing_cycle "monthly|yearly"
+        decimal amount
+        timestamp last_payment_date
+        timestamp next_payment_date
+        boolean auto_renew
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    %% PROPERTY MANAGEMENT
+    properties ||--o{ units : "has"
+    properties ||--o{ property_amenities : "has"
+    
+    properties {
+        uuid id PK
+        uuid merchant_id FK
+        enum type "gudang|ruko|kosan|apartemen"
+        string name
+        text description
+        text address
+        string city
+        string province
+        string postal_code
+        decimal latitude
+        decimal longitude
+        json photos
+        json facilities
+        timestamp created_at
+        timestamp updated_at
+        boolean is_active
+    }
+    
+    units {
+        uuid id PK
+        uuid property_id FK
+        string unit_number UK
+        enum type "studio|1br|2br|warehouse_small|etc"
+        decimal size_sqm
+        integer floor
+        decimal price_monthly
+        decimal price_yearly
+        enum status "available|occupied|maintenance"
+        json photos
+        text description
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    property_amenities {
+        uuid id PK
+        uuid property_id FK
+        string amenity_name
+        text description
+        boolean is_available
+    }
+    
+    %% TENANT MANAGEMENT
+    tenants ||--o{ tenant_contracts : "has"
+    units ||--o{ tenant_contracts : "rented_by"
+    tenant_contracts ||--o{ invoices : "generates"
+    
+    tenants {
+        uuid id PK
+        uuid user_id FK UK
+        string ktp_number UK
+        string ktp_photo_url
+        date date_of_birth
+        text address
+        string emergency_contact_name
+        string emergency_contact_phone
+        enum verification_status "pending|verified|rejected"
+        timestamp verified_at
+        uuid invited_by FK
+        string invitation_token
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    tenant_contracts {
+        uuid id PK
+        uuid tenant_id FK
+        uuid unit_id FK
+        date start_date
+        date end_date
+        decimal monthly_rent
+        decimal deposit
+        json additional_fees
+        enum status "active|expired|terminated"
+        string contract_url
+        string signature_tenant
+        string signature_merchant
+        timestamp signed_at
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    %% ESCROW & PAYMENT SYSTEM
+    merchants ||--o{ escrow_accounts : "owns"
+    vendors ||--o{ escrow_accounts : "owns"
+    escrow_accounts ||--o{ escrow_transactions : "has"
+    escrow_accounts ||--o{ disbursements : "receives"
+    
+    escrow_accounts {
+        uuid id PK
+        uuid owner_id FK "merchant_id or vendor_id"
+        enum owner_type "merchant|vendor"
+        decimal available_balance
+        decimal pending_balance
+        decimal total_received
+        decimal total_disbursed
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    escrow_transactions {
+        uuid id PK
+        uuid escrow_account_id FK
+        uuid payment_id FK
+        enum transaction_type "credit|debit|fee"
+        decimal amount
+        decimal fee_amount
+        decimal net_amount
+        text description
+        enum status "pending|completed|failed"
+        timestamp created_at
+    }
+    
+    disbursements {
+        uuid id PK
+        uuid escrow_account_id FK
+        string disbursement_number UK
+        enum schedule_type "daily|weekly|monthly|on_demand"
+        decimal amount
+        decimal fee_amount
+        decimal fee_percentage
+        decimal net_amount
+        string bank_account_number
+        string bank_name
+        string account_holder_name
+        enum status "pending|processing|completed|failed"
+        string xendit_disbursement_id
+        json xendit_response
+        timestamp requested_at
+        timestamp processed_at
+        timestamp created_at
+    }
+    
+    %% BILLING & PAYMENT
+    invoices ||--o{ payments : "paid_by"
+    
+    invoices {
+        uuid id PK
+        uuid contract_id FK
+        string invoice_number UK
+        decimal amount
+        date due_date
+        date billing_period_start
+        date billing_period_end
+        json line_items
+        enum status "pending|paid|overdue|cancelled"
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    payments {
+        uuid id PK
+        uuid invoice_id FK
+        uuid order_id FK
+        string xendit_transaction_id UK
+        decimal amount
+        enum payment_method "va|qris|ewallet|credit_card"
+        string payment_channel
+        enum status "pending|success|failed|expired"
+        json xendit_response
+        enum flow_type "rent|vendor_order|subscription"
+        timestamp paid_at
+        timestamp created_at
+    }
+    
+    %% VENDOR & MARKETPLACE
+    vendors ||--o{ products : "sells"
+    vendors ||--o{ vendor_verifications : "has"
+    products ||--o{ orders : "in"
+    tenants ||--o{ orders : "places"
+    orders ||--o{ order_reviews : "has"
+    products ||--o{ product_reviews : "has"
+    
+    vendors {
+        uuid id PK
+        uuid user_id FK UK
+        string business_name
+        enum category "laundry|food|repair|grocery|cleaning|other"
+        text description
+        string business_license_number
+        string license_photo_url
+        text address
+        string phone
+        json photos
+        enum verification_status "pending|verified|rejected"
+        timestamp verified_at
+        uuid verified_by FK
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    vendor_verifications {
+        uuid id PK
+        uuid vendor_id FK
+        string ktp_number
+        string ktp_photo_url
+        string nib_siup_number
+        string nib_photo_url
+        json business_photos
+        enum status "pending|approved|rejected"
+        text rejection_reason
+        uuid reviewed_by FK
+        timestamp reviewed_at
+        timestamp created_at
+    }
+    
+    products {
+        uuid id PK
+        uuid vendor_id FK
+        string name
+        text description
+        enum category "food|grocery|laundry|repair|cleaning|other"
+        decimal price
+        string unit "porsi|kg|pcs|jam"
+        json photos
+        boolean is_available
+        integer stock
+        json tags
+        integer total_sold
+        decimal avg_rating
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    orders {
+        uuid id PK
+        uuid tenant_id FK
+        uuid product_id FK
+        string order_number UK
+        integer quantity
+        decimal unit_price
+        decimal total_price
+        text notes
+        enum status "pending|confirmed|processing|completed|cancelled"
+        timestamp created_at
+        timestamp updated_at
+        timestamp completed_at
+        timestamp cancelled_at
+    }
+    
+    order_reviews {
+        uuid id PK
+        uuid order_id FK UK
+        integer rating
+        text review_text
+        json photos
+        timestamp created_at
+    }
+    
+    product_reviews {
+        uuid id PK
+        uuid product_id FK
+        uuid tenant_id FK
+        integer rating
+        text review_text
+        timestamp created_at
+    }
+    
+    %% MAINTENANCE & COMPLAINTS
+    tenants ||--o{ maintenance_requests : "submits"
+    units ||--o{ maintenance_requests : "for"
+    maintenance_requests ||--o{ maintenance_updates : "has"
+    
+    maintenance_requests {
+        uuid id PK
+        uuid tenant_id FK
+        uuid unit_id FK
+        string ticket_number UK
+        string title
+        text description
+        enum category "plumbing|electrical|furniture|cleaning|other"
+        enum priority "low|medium|high|urgent"
+        enum status "pending|assigned|in_progress|resolved|closed"
+        json photos
+        uuid assigned_to FK
+        timestamp created_at
+        timestamp updated_at
+        timestamp resolved_at
+    }
+    
+    maintenance_updates {
+        uuid id PK
+        uuid request_id FK
+        uuid updated_by FK
+        text update_message
+        json photos
+        enum status "info|in_progress|resolved"
+        timestamp created_at
+    }
+    
+    %% REFERRAL SYSTEM
+    users ||--o{ referrals : "referred_by"
+    referrals ||--o{ referral_rewards : "earns"
+    
+    referrals {
+        uuid id PK
+        uuid referrer_id FK
+        uuid referee_id FK
+        string referral_code UK
+        enum referee_type "merchant|tenant|vendor"
+        enum status "registered|milestone_1|milestone_2|completed"
+        timestamp created_at
+        timestamp completed_at
+    }
+    
+    referral_rewards {
+        uuid id PK
+        uuid referral_id FK
+        uuid user_id FK
+        enum reward_type "credit|voucher|cashback"
+        decimal amount
+        string description
+        enum status "pending|issued|used|expired"
+        timestamp issued_at
+        timestamp used_at
+        timestamp expires_at
+    }
+    
+    %% COMMUNITY FORUM
+    tenants ||--o{ forum_posts : "creates"
+    forum_posts ||--o{ forum_comments : "has"
+    forum_posts ||--o{ forum_likes : "has"
+    tenants ||--o{ forum_comments : "writes"
+    tenants ||--o{ forum_likes : "gives"
+    forum_posts ||--o{ forum_reports : "reported"
+    forum_comments ||--o{ forum_reports : "reported"
+    properties ||--o{ forum_posts : "scoped_to"
+    
+    forum_posts {
+        uuid id PK
+        uuid tenant_id FK
+        uuid property_id FK "NULL for global forum"
+        enum forum_type "global|property"
+        string title
+        text content
+        json photos
+        json tags
+        integer views_count
+        integer likes_count
+        integer comments_count
+        boolean is_pinned
+        enum status "active|hidden|deleted"
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    forum_comments {
+        uuid id PK
+        uuid post_id FK
+        uuid tenant_id FK
+        uuid parent_comment_id FK
+        text content
+        integer likes_count
+        enum status "active|hidden|deleted"
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    forum_likes {
+        uuid id PK
+        uuid tenant_id FK
+        uuid post_id FK
+        uuid comment_id FK
+        timestamp created_at
+    }
+    
+    forum_reports {
+        uuid id PK
+        uuid reporter_id FK
+        uuid post_id FK
+        uuid comment_id FK
+        enum reason "spam|harassment|inappropriate|other"
+        text description
+        enum status "pending|reviewed|resolved"
+        timestamp created_at
+        timestamp reviewed_at
+    }
+    
+    %% NOTIFICATIONS
+    users ||--o{ notifications : "receives"
+    
+    notifications {
+        uuid id PK
+        uuid user_id FK
+        enum type "payment|maintenance|order|promo|community|system|referral"
+        string title
+        text message
+        json data
+        boolean is_read
+        timestamp created_at
+        timestamp read_at
+    }
+    
+    %% AI CHATBOT
+    users ||--o{ chat_conversations : "has"
+    chat_conversations ||--o{ chat_messages : "contains"
+    
+    chat_conversations {
+        uuid id PK
+        uuid user_id FK
+        string session_id UK
+        enum status "active|closed"
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    chat_messages {
+        uuid id PK
+        uuid conversation_id FK
+        uuid user_id FK
+        enum sender "user|bot"
+        text message
+        json intent_detected
+        decimal confidence_score
+        boolean escalated_to_human
+        json context
+        timestamp created_at
+    }
+    
+    chatbot_knowledge {
+        uuid id PK
+        enum category "faq|property|merchant|vendor|payment"
+        text question
+        text answer
+        json keywords
+        integer usage_count
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    %% ANALYTICS & TRACKING
+    analytics_events {
+        uuid id PK
+        uuid user_id FK
+        string event_name
+        enum event_category "page_view|button_click|purchase|search|referral"
+        json event_properties
+        string session_id
+        string device_type
+        string browser
+        timestamp created_at
+    }
+    
+    %% AUDIT LOGS
+    audit_logs {
+        uuid id PK
+        uuid user_id FK
+        enum action_type "create|update|delete|approve|reject"
+        string table_name
+        uuid record_id
+        json old_values
+        json new_values
+        string ip_address
+        string user_agent
+        timestamp created_at
+    }

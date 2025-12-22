@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/useAuth';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
@@ -16,12 +16,23 @@ import {
   Lock, 
   Bell, 
   CreditCard, 
-  Building2,
-  Save
+  Save,
+  Trash2
 } from 'lucide-react';
 
+interface VendorBankAccount {
+  id: string;
+  vendor_id: string;
+  bank_name: string;
+  account_name: string;
+  account_number: string;
+  branch_code: string | null;
+  is_primary: boolean;
+}
+
 export default function VendorSettings() {
-  const { profile, refreshProfile, user } = useAuth();
+  const { profile, refreshProfile, vendor } = useAuth();
+  const queryClient = useQueryClient();
 
   const [profileData, setProfileData] = useState({
     full_name: '',
@@ -43,6 +54,24 @@ export default function VendorSettings() {
     branch_code: '',
   });
 
+  // Fetch existing bank accounts
+  const { data: bankAccounts = [] } = useQuery({
+    queryKey: ['vendor-bank-accounts', vendor?.id],
+    queryFn: async () => {
+      if (!vendor) return [];
+      
+      const { data, error } = await supabase
+        .from('vendor_bank_accounts')
+        .select('*')
+        .eq('vendor_id', vendor.id)
+        .order('is_primary', { ascending: false });
+      
+      if (error) throw error;
+      return data as VendorBankAccount[];
+    },
+    enabled: !!vendor,
+  });
+
   useEffect(() => {
     if (profile) {
       setProfileData({
@@ -51,6 +80,19 @@ export default function VendorSettings() {
       });
     }
   }, [profile]);
+
+  // Load primary bank account into form
+  useEffect(() => {
+    const primaryAccount = bankAccounts.find(a => a.is_primary);
+    if (primaryAccount) {
+      setBankDetails({
+        bank_name: primaryAccount.bank_name,
+        account_name: primaryAccount.account_name,
+        account_number: primaryAccount.account_number,
+        branch_code: primaryAccount.branch_code || '',
+      });
+    }
+  }, [bankAccounts]);
 
   const updateProfileMutation = useMutation({
     mutationFn: async () => {
@@ -90,6 +132,75 @@ export default function VendorSettings() {
     },
   });
 
+  const saveBankDetailsMutation = useMutation({
+    mutationFn: async () => {
+      if (!vendor) throw new Error('Vendor not found');
+
+      // Check if there's an existing primary account
+      const existingPrimary = bankAccounts.find(a => a.is_primary);
+
+      if (existingPrimary) {
+        // Update existing
+        const { error } = await supabase
+          .from('vendor_bank_accounts')
+          .update({
+            bank_name: bankDetails.bank_name,
+            account_name: bankDetails.account_name,
+            account_number: bankDetails.account_number,
+            branch_code: bankDetails.branch_code || null,
+          })
+          .eq('id', existingPrimary.id);
+
+        if (error) throw error;
+      } else {
+        // Insert new
+        const { error } = await supabase
+          .from('vendor_bank_accounts')
+          .insert({
+            vendor_id: vendor.id,
+            bank_name: bankDetails.bank_name,
+            account_name: bankDetails.account_name,
+            account_number: bankDetails.account_number,
+            branch_code: bankDetails.branch_code || null,
+            is_primary: true,
+          });
+
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      toast.success('Bank details saved successfully');
+      queryClient.invalidateQueries({ queryKey: ['vendor-bank-accounts'] });
+    },
+    onError: (error) => {
+      toast.error('Failed to save bank details: ' + error.message);
+    },
+  });
+
+  const deleteBankAccountMutation = useMutation({
+    mutationFn: async (accountId: string) => {
+      const { error } = await supabase
+        .from('vendor_bank_accounts')
+        .delete()
+        .eq('id', accountId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Bank account deleted');
+      queryClient.invalidateQueries({ queryKey: ['vendor-bank-accounts'] });
+      setBankDetails({
+        bank_name: '',
+        account_name: '',
+        account_number: '',
+        branch_code: '',
+      });
+    },
+    onError: (error) => {
+      toast.error('Failed to delete bank account: ' + error.message);
+    },
+  });
+
   const handlePasswordChange = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -108,6 +219,14 @@ export default function VendorSettings() {
 
     updatePasswordMutation.mutate(newPassword);
     e.currentTarget.reset();
+  };
+
+  const handleSaveBankDetails = () => {
+    if (!bankDetails.bank_name || !bankDetails.account_name || !bankDetails.account_number) {
+      toast.error('Please fill in all required bank details');
+      return;
+    }
+    saveBankDetailsMutation.mutate();
   };
 
   return (
@@ -326,7 +445,7 @@ export default function VendorSettings() {
               <CardContent className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="bank_name">Bank Name</Label>
+                    <Label htmlFor="bank_name">Bank Name *</Label>
                     <Input
                       id="bank_name"
                       value={bankDetails.bank_name}
@@ -335,7 +454,7 @@ export default function VendorSettings() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="account_name">Account Holder Name</Label>
+                    <Label htmlFor="account_name">Account Holder Name *</Label>
                     <Input
                       id="account_name"
                       value={bankDetails.account_name}
@@ -344,7 +463,7 @@ export default function VendorSettings() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="account_number">Account Number</Label>
+                    <Label htmlFor="account_number">Account Number *</Label>
                     <Input
                       id="account_number"
                       value={bankDetails.account_number}
@@ -362,10 +481,30 @@ export default function VendorSettings() {
                     />
                   </div>
                 </div>
-                <div className="flex justify-end">
-                  <Button>
+                <div className="flex justify-between items-center pt-2">
+                  {bankAccounts.length > 0 && (
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      onClick={() => {
+                        const primaryAccount = bankAccounts.find(a => a.is_primary);
+                        if (primaryAccount) {
+                          deleteBankAccountMutation.mutate(primaryAccount.id);
+                        }
+                      }}
+                      disabled={deleteBankAccountMutation.isPending}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Account
+                    </Button>
+                  )}
+                  <Button 
+                    onClick={handleSaveBankDetails}
+                    disabled={saveBankDetailsMutation.isPending}
+                    className="ml-auto"
+                  >
                     <Save className="h-4 w-4 mr-2" />
-                    Save Bank Details
+                    {saveBankDetailsMutation.isPending ? 'Saving...' : 'Save Bank Details'}
                   </Button>
                 </div>
               </CardContent>
