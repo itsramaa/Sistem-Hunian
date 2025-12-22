@@ -1,14 +1,18 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/layouts/AdminLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from "recharts";
-import { TrendingUp, Users, Building2, DollarSign, Loader2, Wrench, Home, Download, FileText } from "lucide-react";
+import { TrendingUp, Users, Building2, DollarSign, Loader2, Wrench, Home, Download, FileText, Activity } from "lucide-react";
 import { exportToCSV, exportToPDF } from "@/lib/exportUtils";
+import { RealTimeAnalytics } from "@/components/admin/RealTimeAnalytics";
 
 const AdminAnalytics = () => {
+  const [activeTab, setActiveTab] = useState("realtime");
   const { data: stats, isLoading } = useQuery({
     queryKey: ['admin-analytics'],
     queryFn: async () => {
@@ -133,7 +137,25 @@ const AdminAnalytics = () => {
           </div>
         </div>
 
-        {/* Summary Stats */}
+        {/* Tabs for different analytics views */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="realtime" className="flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              Real-Time
+            </TabsTrigger>
+            <TabsTrigger value="platform" className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Platform
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="realtime" className="mt-6">
+            <RealTimeAnalytics />
+          </TabsContent>
+
+          <TabsContent value="platform" className="mt-6 space-y-6">
+            {/* Summary Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-6">
@@ -330,6 +352,8 @@ const AdminAnalytics = () => {
             </CardContent>
           </Card>
         </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </AdminLayout>
   );
