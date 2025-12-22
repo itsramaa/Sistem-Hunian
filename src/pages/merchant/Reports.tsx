@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useState } from 'react';
 import {
   AreaChart,
@@ -22,10 +23,11 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { TrendingUp, TrendingDown, Building2, Users, DollarSign, Wrench, Download, FileText, Table2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Building2, Users, DollarSign, Wrench, Download, FileText, Table2, UserMinus } from 'lucide-react';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import { exportToCSV, exportToPDF, generateReportHTML } from '@/lib/exportUtils';
 import { useToast } from '@/hooks/use-toast';
+import { TenantChurnAnalytics } from '@/components/merchant/TenantChurnAnalytics';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--muted))', '#10b981', '#f59e0b'];
 
@@ -316,209 +318,195 @@ export default function MerchantReports() {
           </div>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Revenue</p>
-                  <p className="text-2xl font-bold">{formatCurrency(totalRevenue)}</p>
-                </div>
-                <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
-                  <DollarSign className="h-5 w-5 text-green-600" />
-                </div>
-              </div>
-              <div className="flex items-center gap-1 mt-2 text-sm text-green-600">
-                <TrendingUp className="h-4 w-4" />
-                <span>+12% from last period</span>
-              </div>
-            </CardContent>
-          </Card>
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="churn" className="flex items-center gap-2">
+              <UserMinus className="h-4 w-4" />
+              Tenant Churn
+            </TabsTrigger>
+            <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
+          </TabsList>
 
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Occupancy Rate</p>
-                  <p className="text-2xl font-bold">{occupancyRate}%</p>
-                </div>
-                <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
-                  <Building2 className="h-5 w-5 text-blue-600" />
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground mt-2">
-                {occupiedUnits} of {totalUnits} units
-              </p>
-            </CardContent>
-          </Card>
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Revenue</p>
+                      <p className="text-2xl font-bold">{formatCurrency(totalRevenue)}</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
+                      <DollarSign className="h-5 w-5 text-green-600" />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 mt-2 text-sm text-green-600">
+                    <TrendingUp className="h-4 w-4" />
+                    <span>+12% from last period</span>
+                  </div>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Pending Payments</p>
-                  <p className="text-2xl font-bold">{formatCurrency(pendingPayments)}</p>
-                </div>
-                <div className="w-10 h-10 rounded-full bg-yellow-500/10 flex items-center justify-center">
-                  <DollarSign className="h-5 w-5 text-yellow-600" />
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground mt-2">
-                {payments.filter(p => p.status === 'pending').length} invoices due
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Active Requests</p>
-                  <p className="text-2xl font-bold">
-                    {maintenanceRequests.filter(r => r.status !== 'completed').length}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Occupancy Rate</p>
+                      <p className="text-2xl font-bold">{occupancyRate}%</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+                      <Building2 className="h-5 w-5 text-blue-600" />
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {occupiedUnits} of {totalUnits} units
                   </p>
-                </div>
-                <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center">
-                  <Wrench className="h-5 w-5 text-purple-600" />
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground mt-2">
-                {maintenanceRequests.filter(r => r.status === 'completed').length} completed
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+                </CardContent>
+              </Card>
 
-        {/* Charts */}
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Revenue Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Revenue Trend</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={revenueData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="month" className="text-xs" />
-                    <YAxis 
-                      tickFormatter={(value) => `R${(value / 1000).toFixed(0)}k`}
-                      className="text-xs"
-                    />
-                    <Tooltip 
-                      formatter={(value: number) => [formatCurrency(value), 'Revenue']}
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                      }}
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="revenue" 
-                      stroke="hsl(var(--primary))" 
-                      fill="hsl(var(--primary) / 0.2)"
-                      strokeWidth={2}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Pending Payments</p>
+                      <p className="text-2xl font-bold">{formatCurrency(pendingPayments)}</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-yellow-500/10 flex items-center justify-center">
+                      <DollarSign className="h-5 w-5 text-yellow-600" />
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {payments.filter(p => p.status === 'pending').length} invoices due
+                  </p>
+                </CardContent>
+              </Card>
 
-          {/* Occupancy by Type */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Occupancy by Property Type</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={occupancyByType} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis type="number" domain={[0, 100]} className="text-xs" />
-                    <YAxis dataKey="name" type="category" width={100} className="text-xs capitalize" />
-                    <Tooltip 
-                      formatter={(value: number, name: string) => [`${value}%`, 'Occupancy']}
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                      }}
-                    />
-                    <Bar dataKey="occupancy" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Active Requests</p>
+                      <p className="text-2xl font-bold">
+                        {maintenanceRequests.filter(r => r.status !== 'completed').length}
+                      </p>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center">
+                      <Wrench className="h-5 w-5 text-purple-600" />
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {maintenanceRequests.filter(r => r.status === 'completed').length} completed
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
 
-          {/* Maintenance by Category */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Maintenance by Category</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={maintenanceByCategory}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={2}
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {maintenanceByCategory.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+            <div className="grid lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Revenue Trend</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={revenueData}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="month" className="text-xs" />
+                        <YAxis tickFormatter={(value) => `R${(value / 1000).toFixed(0)}k`} className="text-xs" />
+                        <Tooltip 
+                          formatter={(value: number) => [formatCurrency(value), 'Revenue']}
+                          contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
+                        />
+                        <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.2)" strokeWidth={2} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
 
-          {/* Maintenance Trend */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Maintenance Trend</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={maintenanceTrend}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="month" className="text-xs" />
-                    <YAxis className="text-xs" />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                      }}
-                    />
-                    <Legend />
-                    <Bar dataKey="pending" name="Pending" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="completed" name="Completed" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Occupancy by Property Type</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={occupancyByType} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis type="number" domain={[0, 100]} className="text-xs" />
+                        <YAxis dataKey="name" type="category" width={100} className="text-xs capitalize" />
+                        <Tooltip 
+                          formatter={(value: number) => [`${value}%`, 'Occupancy']}
+                          contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
+                        />
+                        <Bar dataKey="occupancy" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="churn" className="space-y-6">
+            <TenantChurnAnalytics />
+          </TabsContent>
+
+          <TabsContent value="maintenance" className="space-y-6">
+            <div className="grid lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Maintenance by Category</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={maintenanceByCategory}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={100}
+                          paddingAngle={2}
+                          dataKey="value"
+                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        >
+                          {maintenanceByCategory.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Maintenance Trend</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={maintenanceTrend}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="month" className="text-xs" />
+                        <YAxis className="text-xs" />
+                        <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
+                        <Legend />
+                        <Bar dataKey="pending" name="Pending" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="completed" name="Completed" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </MerchantLayout>
   );
