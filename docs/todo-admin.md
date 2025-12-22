@@ -336,12 +336,12 @@ const ADMIN_SECRET_KEY = 'SIHUNI_ADMIN_2024';
 
 ## 📋 IMPLEMENTATION PRIORITY
 
-### Sprint 1 (Immediate - 1 week)
-1. ✅ Fix Bug-1: Currency ZAR → IDR (15 min)
-2. ✅ Fix Bug-4: Move admin secret to edge function (2 hrs)
-3. ✅ P0-3: Currency consistency (15 min)
-4. ✅ P0-1: Dashboard real stats (2-3 hrs)
-5. ✅ Bug-2: Settings persistence (2 hrs)
+### Sprint 1 (Immediate - 1 week) ✅ COMPLETED
+1. ✅ Fix Bug-1: Currency ZAR → IDR - DONE
+2. ✅ Fix Bug-4: Move admin secret to edge function - DONE (validate-admin-secret edge function)
+3. ✅ P0-3: Currency consistency - DONE
+4. ✅ P0-1: Dashboard real stats - DONE (queries merchants, payments, escrow_accounts, vendor_verifications)
+5. ✅ Bug-2: Settings persistence - DONE (platform_settings table created)
 
 ### Sprint 2 (1-2 weeks)
 1. P0-2: Platform fee configuration (4-5 hrs)
