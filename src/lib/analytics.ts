@@ -12,7 +12,7 @@ const getSessionId = (): string => {
 
 interface TrackEventParams {
   eventType: string;
-  eventData?: Record<string, unknown>;
+  eventData?: Record<string, string | number | boolean | null>;
   page?: string;
 }
 
@@ -20,13 +20,13 @@ export const trackEvent = async ({ eventType, eventData = {}, page }: TrackEvent
   try {
     const { data: { user } } = await supabase.auth.getUser();
     
-    await supabase.from('analytics_events').insert([{
+    await supabase.from('analytics_events').insert({
       user_id: user?.id || null,
       event_type: eventType,
-      event_data: eventData,
+      event_data: eventData as Record<string, string | number | boolean | null>,
       page: page || window.location.pathname,
       session_id: getSessionId(),
-    }]);
+    });
   } catch (error) {
     console.error('Failed to track event:', error);
   }

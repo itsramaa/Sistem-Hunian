@@ -1,12 +1,15 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { TenantLayout } from '@/components/layouts/TenantLayout';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DollarSign, Clock, CheckCircle, FileText, Calendar } from 'lucide-react';
+import { DollarSign, Clock, CheckCircle, FileText, Calendar, CreditCard } from 'lucide-react';
 import { format } from 'date-fns';
+import { XenditPaymentModal } from '@/components/payment/XenditPaymentModal';
 
 type Payment = {
   id: string;
@@ -33,6 +36,7 @@ type Invoice = {
 
 export default function TenantPayments() {
   const { user } = useAuth();
+  const [selectedPayment, setSelectedPayment] = useState<{ type: 'payment' | 'invoice'; item: Payment | Invoice } | null>(null);
 
   const { data: payments = [], isLoading: paymentsLoading } = useQuery({
     queryKey: ['tenant-payments-all', user?.id],
@@ -178,9 +182,16 @@ export default function TenantPayments() {
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right space-y-2">
                         <p className="text-lg font-bold">{formatCurrency(Number(payment.amount))}</p>
-                        <Badge variant="secondary">Pending</Badge>
+                        <Button 
+                          size="sm" 
+                          onClick={() => setSelectedPayment({ type: 'payment', item: payment })}
+                          className="gap-1"
+                        >
+                          <CreditCard className="h-4 w-4" />
+                          Pay Now
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
@@ -206,9 +217,16 @@ export default function TenantPayments() {
                           )}
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right space-y-2">
                         <p className="text-lg font-bold">{formatCurrency(Number(invoice.total_amount))}</p>
-                        <Badge variant="secondary">Awaiting Payment</Badge>
+                        <Button 
+                          size="sm" 
+                          onClick={() => setSelectedPayment({ type: 'invoice', item: invoice })}
+                          className="gap-1"
+                        >
+                          <CreditCard className="h-4 w-4" />
+                          Pay Now
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
@@ -321,6 +339,28 @@ export default function TenantPayments() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Xendit Payment Modal */}
+      {selectedPayment && user && (
+        <XenditPaymentModal
+          open={!!selectedPayment}
+          onOpenChange={(open) => !open && setSelectedPayment(null)}
+          amount={selectedPayment.type === 'invoice' 
+            ? Number((selectedPayment.item as Invoice).total_amount)
+            : Number((selectedPayment.item as Payment).amount)
+          }
+          description={selectedPayment.type === 'invoice'
+            ? `Invoice ${(selectedPayment.item as Invoice).invoice_number}`
+            : `${(selectedPayment.item as Payment).payment_type} Payment`
+          }
+          invoiceId={selectedPayment.type === 'invoice' ? selectedPayment.item.id : undefined}
+          paymentId={selectedPayment.type === 'payment' ? selectedPayment.item.id : undefined}
+          payerEmail={user.email || ''}
+          payerName={user.user_metadata?.full_name || 'Tenant'}
+          userId={user.id}
+          paymentType={selectedPayment.type === 'invoice' ? 'invoice' : 'rent'}
+        />
+      )}
     </TenantLayout>
   );
 }

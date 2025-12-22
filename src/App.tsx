@@ -30,6 +30,7 @@ import MerchantInvoices from "./pages/merchant/Invoices";
 import MerchantSettings from "./pages/merchant/Settings";
 import MerchantUnits from "./pages/merchant/Units";
 import MerchantEscrow from "./pages/merchant/Escrow";
+import MerchantReferrals from "./pages/merchant/Referrals";
 import TenantDashboard from "./pages/tenant/Dashboard";
 import TenantMaintenance from "./pages/tenant/Maintenance";
 import TenantPayments from "./pages/tenant/Payments";
@@ -41,12 +42,14 @@ import TenantVendorDetail from "./pages/tenant/VendorDetail";
 import TenantOrders from "./pages/tenant/Orders";
 import TenantForum from "./pages/tenant/Forum";
 import TenantForumPost from "./pages/tenant/ForumPost";
+import TenantReferrals from "./pages/tenant/Referrals";
 import VendorDashboard from "./pages/vendor/Dashboard";
 import VendorJobs from "./pages/vendor/Jobs";
 import VendorEarnings from "./pages/vendor/Earnings";
 import VendorProfile from "./pages/vendor/Profile";
 import VendorSettings from "./pages/vendor/Settings";
 import VendorProducts from "./pages/vendor/Products";
+import VendorReferrals from "./pages/vendor/Referrals";
 import NotFound from "./pages/NotFound";
 import { ChatbotWidget } from "./components/chatbot/ChatbotWidget";
 
@@ -89,6 +92,7 @@ const App = () => (
             <Route path="/merchant/settings" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantSettings /></ProtectedRoute>} />
             <Route path="/merchant/units" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantUnits /></ProtectedRoute>} />
             <Route path="/merchant/escrow" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantEscrow /></ProtectedRoute>} />
+            <Route path="/merchant/referrals" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantReferrals /></ProtectedRoute>} />
             
             {/* Tenant Routes */}
             <Route path="/tenant" element={<ProtectedRoute allowedRoles={['tenant']}><TenantDashboard /></ProtectedRoute>} />
@@ -102,6 +106,7 @@ const App = () => (
             <Route path="/tenant/orders" element={<ProtectedRoute allowedRoles={['tenant']}><TenantOrders /></ProtectedRoute>} />
             <Route path="/tenant/forum" element={<ProtectedRoute allowedRoles={['tenant']}><TenantForum /></ProtectedRoute>} />
             <Route path="/tenant/forum/:postId" element={<ProtectedRoute allowedRoles={['tenant']}><TenantForumPost /></ProtectedRoute>} />
+            <Route path="/tenant/referrals" element={<ProtectedRoute allowedRoles={['tenant']}><TenantReferrals /></ProtectedRoute>} />
             
             {/* Vendor Routes */}
             <Route path="/vendor" element={<ProtectedRoute allowedRoles={['vendor']}><VendorDashboard /></ProtectedRoute>} />
@@ -110,6 +115,7 @@ const App = () => (
             <Route path="/vendor/earnings" element={<ProtectedRoute allowedRoles={['vendor']}><VendorEarnings /></ProtectedRoute>} />
             <Route path="/vendor/profile" element={<ProtectedRoute allowedRoles={['vendor']}><VendorProfile /></ProtectedRoute>} />
             <Route path="/vendor/settings" element={<ProtectedRoute allowedRoles={['vendor']}><VendorSettings /></ProtectedRoute>} />
+            <Route path="/vendor/referrals" element={<ProtectedRoute allowedRoles={['vendor']}><VendorReferrals /></ProtectedRoute>} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
