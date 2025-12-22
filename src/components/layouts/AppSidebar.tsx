@@ -33,6 +33,9 @@ import {
   Crown,
   Shield,
   ChevronRight,
+  Store,
+  MessageSquare,
+  ShoppingBag,
 } from "lucide-react";
 
 interface NavItem {
@@ -71,6 +74,9 @@ const tenantNavItems: NavItem[] = [
   { title: "Payments", url: "/tenant/payments", icon: CreditCard },
   { title: "Invoices", url: "/tenant/invoices", icon: FileText },
   { title: "Maintenance", url: "/tenant/maintenance", icon: Wrench },
+  { title: "Marketplace", url: "/tenant/marketplace", icon: Store },
+  { title: "My Orders", url: "/tenant/orders", icon: ShoppingBag },
+  { title: "Forum", url: "/tenant/forum", icon: MessageSquare },
   { title: "Settings", url: "/tenant/settings", icon: Settings },
 ];
 
