@@ -25,7 +25,9 @@ import {
   Search,
   Users,
   Eye,
-  Edit
+  Edit,
+  AlertTriangle,
+  Clock
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -194,6 +196,30 @@ export default function MerchantContracts() {
     },
   });
 
+  const markNoticeMutation = useMutation({
+    mutationFn: async ({ contractId, status }: { contractId: string; status: string }) => {
+      const { error } = await supabase
+        .from('contracts')
+        .update({ status })
+        .eq('id', contractId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['merchant-contracts'] });
+      toast.success('Contract marked as notice period');
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to update status: ${error.message}`);
+    },
+  });
+
+  const handleMarkNotice = (contract: Contract) => {
+    markNoticeMutation.mutate({
+      contractId: contract.id,
+      status: 'notice',
+    });
+  };
+
   const handleSaveSignature = (dataUrl: string) => {
     setSignatureDataUrl(dataUrl);
     toast.success('Signature captured');
@@ -241,6 +267,8 @@ export default function MerchantContracts() {
     switch (status) {
       case 'active':
         return <Badge className="bg-success text-success-foreground">Active</Badge>;
+      case 'notice':
+        return <Badge variant="outline" className="text-warning border-warning gap-1"><Clock className="h-3 w-3" /> Notice Period</Badge>;
       case 'expired':
         return <Badge variant="secondary">Expired</Badge>;
       case 'terminated':
@@ -387,6 +415,8 @@ export default function MerchantContracts() {
                       setSelectedContract(contract);
                       setViewDialogOpen(true);
                     }}
+                    onMarkNotice={() => handleMarkNotice(contract)}
+                    isMarkingNotice={markNoticeMutation.isPending}
                   />
                 ))}
               </div>
@@ -701,8 +731,10 @@ function ContractCard({
   getSignatureStatusBadge,
   onSign,
   onView,
+  onMarkNotice,
   highlight = false,
   isPast = false,
+  isMarkingNotice = false,
 }: { 
   contract: Contract;
   tenantProfile?: { full_name: string | null; email: string } | null;
@@ -710,9 +742,13 @@ function ContractCard({
   getSignatureStatusBadge: (contract: Contract) => JSX.Element;
   onSign: () => void;
   onView: () => void;
+  onMarkNotice?: () => void;
   highlight?: boolean;
   isPast?: boolean;
+  isMarkingNotice?: boolean;
 }) {
+  const canMarkNotice = contract.status === 'active' && !isPast;
+  
   return (
     <Card className={highlight ? 'border-warning/50 bg-warning/5' : ''}>
       <CardContent className="p-4">
@@ -750,6 +786,24 @@ function ContractCard({
                 <Button size="sm" onClick={onSign}>
                   <PenLine className="h-4 w-4 mr-1" />
                   Sign
+                </Button>
+              )}
+              {canMarkNotice && onMarkNotice && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={onMarkNotice}
+                  disabled={isMarkingNotice}
+                  className="text-warning border-warning hover:bg-warning/10"
+                >
+                  {isMarkingNotice ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <AlertTriangle className="h-4 w-4 mr-1" />
+                      Mark Notice
+                    </>
+                  )}
                 </Button>
               )}
             </div>
