@@ -41,3 +41,6 @@ verify_jwt = true
 
 [functions.order-auto-reject]
 verify_jwt = false
+
+[functions.vendor-ai-assistant]
+verify_jwt = true
