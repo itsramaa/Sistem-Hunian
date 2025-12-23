@@ -42,28 +42,30 @@ export function TenantLayout({
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
         <TenantSidebar />
-        <SidebarInset>
+        <SidebarInset className="flex flex-col">
           {/* Desktop Header */}
-          <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-            <SidebarTrigger className="-ml-1" />
+          <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-6">
+            <SidebarTrigger className="-ml-2" />
             <Separator orientation="vertical" className="mr-2 h-4" />
             <div className="flex-1 min-w-0">
               {title && (
-                <h1 className="text-lg font-semibold truncate">{title}</h1>
+                <h1 className="text-base font-semibold truncate">{title}</h1>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               {actions}
               <NotificationsDropdown />
             </div>
           </header>
           
           {/* Main Content */}
-          <main className="flex-1 p-6">
-            {description && (
-              <p className="text-muted-foreground mb-4">{description}</p>
-            )}
-            {children}
+          <main className="flex-1 overflow-auto">
+            <div className="p-6">
+              {description && (
+                <p className="text-sm text-muted-foreground mb-6">{description}</p>
+              )}
+              {children}
+            </div>
           </main>
         </SidebarInset>
       </div>
