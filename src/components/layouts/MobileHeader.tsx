@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { ArrowLeft, Settings, Menu, ChevronRight } from "lucide-react";
+import { ArrowLeft, Settings, ChevronRight } from "lucide-react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { NotificationsDropdown } from "@/components/notifications/NotificationsDropdown";
@@ -11,7 +11,6 @@ interface MobileHeaderProps {
   description?: string;
   actions?: ReactNode;
   showBack?: boolean;
-  onMenuClick?: () => void;
 }
 
 // Helper to get current page label from navigation config
@@ -44,7 +43,6 @@ export function MobileHeader({
   description,
   actions,
   showBack,
-  onMenuClick,
 }: MobileHeaderProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -58,31 +56,16 @@ export function MobileHeader({
   // For tenant with bottom nav, main pages don't show back button
   const bottomNavPaths = config.bottomNav?.map((item) => item.path) || [];
   const isMainPage = bottomNavPaths.includes(location.pathname);
-  const shouldShowBack = showBack ?? (config.hasBottomNav ? !isMainPage : false);
+  const shouldShowBack = showBack ?? (config.hasBottomNav ? !isMainPage : !isRootPage);
 
   // Check if we're on the profile page
   const isProfilePage = location.pathname === `/${role}/profile`;
 
-  // Show hamburger menu for roles without bottom nav
-  const showHamburger = !config.hasBottomNav && onMenuClick;
-
   return (
     <header className="sticky top-0 z-40 bg-background border-b">
       <div className="flex items-center gap-3 h-14 px-4">
-        {/* Hamburger menu for non-tenant roles */}
-        {showHamburger && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0"
-            onClick={onMenuClick}
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-        )}
-
-        {/* Back button for tenant or sub-pages */}
-        {shouldShowBack && !showHamburger && (
+        {/* Back button */}
+        {shouldShowBack && (
           <Button
             variant="ghost"
             size="icon"

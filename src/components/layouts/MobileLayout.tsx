@@ -3,7 +3,6 @@ import { useLocation } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { MobileHeader } from "./MobileHeader";
 import { MobileBottomNav } from "./MobileBottomNav";
-import { MobileDrawer } from "./MobileDrawer";
 import { FloatingActionButton } from "./FloatingActionButton";
 import { ChatbotDialog } from "@/components/chatbot/ChatbotDialog";
 import { useChatbotTracking } from "@/hooks/useAnalytics";
@@ -33,7 +32,6 @@ export function MobileLayout({
   floatingAction,
 }: MobileLayoutProps) {
   const location = useLocation();
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const { trackChatbotOpened } = useChatbotTracking();
 
@@ -63,7 +61,6 @@ export function MobileLayout({
         description={description}
         actions={actions}
         showBack={showBack}
-        onMenuClick={!config.hasBottomNav ? () => setIsDrawerOpen(true) : undefined}
       />
 
       <main
@@ -78,15 +75,6 @@ export function MobileLayout({
       {/* Bottom Nav - Only for roles with hasBottomNav */}
       {config.hasBottomNav && config.bottomNav && (
         <MobileBottomNav items={config.bottomNav} basePath={basePath} />
-      )}
-
-      {/* Drawer - For roles without bottom nav */}
-      {!config.hasBottomNav && (
-        <MobileDrawer
-          role={role}
-          isOpen={isDrawerOpen}
-          onClose={() => setIsDrawerOpen(false)}
-        />
       )}
 
       {/* AI Floating Button - for main pages */}
