@@ -82,15 +82,18 @@
 - **Verified:** 2025-01-22
 
 ### 5. Contract Terms & Document Upload
-- **Status:** ✅ Terms Edit Implemented (Document upload pending)
-- **Location:** `src/pages/merchant/Contracts.tsx`
-- **Completed:**
-  - [x] Add Edit Terms button in contract view dialog
-  - [x] Add Edit Terms dialog with textarea
+- **Status:** ✅ COMPLETE
+- **Location:** 
+  - `src/pages/merchant/Contracts.tsx`
+  - `src/components/merchant/ContractDocumentUpload.tsx`
+- **Implementation:**
+  - [x] Edit Terms button in contract view dialog
+  - [x] Edit Terms dialog with textarea
   - [x] Save terms to database
-- **Remaining:**
-  - [ ] Add file upload for contract document (PDF)
-  - [ ] Download link for contract document
+  - [x] **NEW:** ContractDocumentUpload component for PDF upload
+  - [x] **NEW:** contract-documents storage bucket with RLS
+  - [x] **NEW:** Download link for contract document
+- **Verified:** 2025-01-23
 
 ### 6. Tenants Page - Complete Review
 - **Status:** ✅ REVIEWED & ENHANCED
@@ -125,43 +128,33 @@
 ## 🟢 ENHANCEMENT (P2) - Nice to Have
 
 ### 8. Chatbot AI for Merchant Business Insights
-- **Status:** 📝 Not implemented
-- **Location:** `src/components/chatbot/ChatbotWidget.tsx`
-- **Issue:**
-  - General chatbot exists
-  - No merchant-specific queries like "tenant mana yang belum bayar?"
-  - No business insights shortcuts
-- **Docs Reference:** PRD Section 5.5 "For Merchant: Business Insights, Admin Shortcuts"
-- **Solution:**
-  - [ ] Add merchant context to chatbot
-  - [ ] Support queries: unpaid tenants, revenue this month, expiring contracts
-  - [ ] Quick action shortcuts from chatbot
+- **Status:** ✅ IMPLEMENTED
+- **Location:** 
+  - `src/components/merchant/MerchantChatbot.tsx`
+  - `supabase/functions/merchant-ai-assistant/index.ts`
+- **Implementation:**
+  - [x] MerchantChatbot floating widget component
+  - [x] Quick action buttons: unpaid tenants, revenue, expiring contracts, occupancy
+  - [x] Edge function fetches real merchant data context
+  - [x] Uses Lovable AI (Gemini 2.5 Flash) with business context
+  - [x] Integrated into merchant Dashboard
+- **Verified:** 2025-01-23
 
 ### 9. Property Search with Elasticsearch
-- **Status:** 📝 Basic filter only
+- **Status:** 📝 Basic filter only (OK for MVP)
 - **Location:** `src/pages/merchant/Properties.tsx`
-- **Issue:**
-  - Using basic client-side filtering
-  - Elasticsearch not implemented
-  - OK for MVP, needed for scale
-- **Docs Reference:** Tasks Section Sprint 4 "Implement property search API (Elasticsearch setup)"
-- **Solution:**
-  - [ ] For MVP: Basic filter is acceptable
-  - [ ] Future: Implement Elasticsearch for large datasets
+- **Note:** Future enhancement for scale
 
 ### 10. Custom Billing Date per Contract
-- **Status:** 📝 Global only
+- **Status:** ✅ IMPLEMENTED
 - **Location:** 
-  - `merchants.billing_day` (database)
-  - `src/components/merchant/DisbursementScheduleSettings.tsx`
-- **Issue:**
-  - billing_day adalah per-merchant, bukan per-contract
-  - Semua tenant mendapat invoice di tanggal yang sama
-- **Docs Reference:** PRD Section 5.2 "Auto Invoice Generation: Monthly recurring invoice (tanggal customizable)"
-- **Solution:**
-  - [ ] Option 1: Add billing_day per contract
-  - [ ] Option 2: Add billing_day per property
-  - [ ] Update auto-generate-invoices to use contract-level billing date
+  - `contracts.billing_day` column (database)
+  - `supabase/functions/auto-generate-invoices/index.ts`
+- **Implementation:**
+  - [x] Added billing_day column to contracts table
+  - [x] Updated auto-generate-invoices to use contract.billing_day
+  - [x] Falls back to merchant.billing_day if contract.billing_day is null
+- **Verified:** 2025-01-23
 
 ### 11. Dashboard Analytics with Trend Comparison
 - **Status:** ✅ IMPLEMENTED

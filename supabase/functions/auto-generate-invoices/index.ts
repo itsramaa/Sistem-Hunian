@@ -25,14 +25,7 @@ serve(async (req) => {
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
 
-    // Calculate next month's due date (same day or end of month if day doesn't exist)
-    const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
-    const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
-    const daysInNextMonth = new Date(nextYear, nextMonth + 1, 0).getDate();
-    const dueDay = Math.min(currentDay, daysInNextMonth);
-    const dueDate = new Date(nextYear, nextMonth, dueDay);
-
-    // Fetch all active contracts
+    // Fetch all active contracts with their billing day (contract level or merchant fallback)
     const { data: activeContracts, error: contractsError } = await supabase
       .from('contracts')
       .select(`
@@ -42,11 +35,15 @@ serve(async (req) => {
         rent_amount,
         start_date,
         end_date,
+        billing_day,
         unit:units (
           unit_number,
           property:properties (
             name
           )
+        ),
+        merchant:merchants (
+          billing_day
         )
       `)
       .eq('status', 'active')
@@ -64,6 +61,16 @@ serve(async (req) => {
 
     for (const contract of activeContracts || []) {
       try {
+        // Determine billing day: contract billing_day > merchant billing_day > default 1
+        const merchantData = contract.merchant as unknown as { billing_day: number | null } | null;
+        const billingDay = contract.billing_day || merchantData?.billing_day || 1;
+
+        // Only generate invoice if today matches the billing day
+        if (currentDay !== billingDay) {
+          console.log(`Skipping contract ${contract.id}: billing day is ${billingDay}, today is ${currentDay}`);
+          continue;
+        }
+
         // Check if invoice already exists for this contract and month
         const monthStart = new Date(currentYear, currentMonth, 1);
         const monthEnd = new Date(currentYear, currentMonth + 1, 0);
@@ -80,6 +87,13 @@ serve(async (req) => {
           console.log(`Invoice already exists for contract ${contract.id} this month, skipping`);
           continue;
         }
+
+        // Calculate due date (same billing day next month, or end of month if day doesn't exist)
+        const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
+        const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
+        const daysInNextMonth = new Date(nextYear, nextMonth + 1, 0).getDate();
+        const dueDay = Math.min(billingDay, daysInNextMonth);
+        const dueDate = new Date(nextYear, nextMonth, dueDay);
 
         // Create invoice
         const unitData = contract.unit as unknown as { unit_number: string; property: { name: string } | null } | null;
@@ -109,7 +123,7 @@ serve(async (req) => {
         }
 
         invoicesCreated.push(newInvoice.invoice_number);
-        console.log(`Created invoice ${newInvoice.invoice_number} for contract ${contract.id}`);
+        console.log(`Created invoice ${newInvoice.invoice_number} for contract ${contract.id} (billing day: ${billingDay})`);
 
         // Create notification for tenant
         await supabase.from('notifications').insert({
