@@ -136,14 +136,15 @@ export function ChatbotWidget() {
 
   return (
     <>
-      {/* Floating Button */}
+      {/* Floating Button - positioned above bottom nav on mobile */}
       <Button
         onClick={() => {
           setIsOpen(!isOpen);
           if (!isOpen) trackChatbotOpened();
         }}
         className={cn(
-          "fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg transition-all duration-300",
+          "fixed z-50 h-14 w-14 rounded-full shadow-lg transition-all duration-300",
+          "bottom-24 right-4 md:bottom-6 md:right-6", // Above bottom nav on mobile
           isOpen && "rotate-90"
         )}
         size="icon"
@@ -151,26 +152,40 @@ export function ChatbotWidget() {
         {isOpen ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
       </Button>
 
-      {/* Chat Widget */}
+      {/* Chat Widget - Full screen on mobile, floating on desktop */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 z-50 w-[380px] max-w-[calc(100vw-3rem)] overflow-hidden rounded-xl border bg-card shadow-2xl">
+        <div className={cn(
+          "fixed z-50 overflow-hidden bg-card shadow-2xl",
+          // Mobile: Full screen with safe areas
+          "inset-0 md:inset-auto",
+          // Desktop: Floating widget
+          "md:bottom-24 md:right-6 md:w-[380px] md:max-w-[calc(100vw-3rem)] md:rounded-xl md:border"
+        )}>
           {/* Header */}
-          <div className="flex items-center gap-3 bg-primary p-4 text-primary-foreground">
+          <div className="flex items-center gap-3 bg-primary p-4 text-primary-foreground safe-area-top">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden h-9 w-9 text-primary-foreground hover:bg-primary-foreground/20"
+              onClick={() => setIsOpen(false)}
+            >
+              <X className="h-5 w-5" />
+            </Button>
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-foreground/20">
               <Bot className="h-5 w-5" />
             </div>
-            <div>
+            <div className="flex-1">
               <h3 className="font-semibold">Sihuni Assistant</h3>
-              <p className="text-xs opacity-80">Ask me anything!</p>
+              <p className="text-xs opacity-80">Tanya apa saja!</p>
             </div>
           </div>
 
           {/* Messages */}
-          <ScrollArea className="h-[350px] p-4" ref={scrollRef}>
+          <ScrollArea className="h-[calc(100vh-180px)] md:h-[350px] p-4" ref={scrollRef}>
             {messages.length === 0 ? (
               <div className="flex flex-col gap-4">
                 <p className="text-sm text-muted-foreground">
-                  Hi! I'm here to help you with payments, maintenance, vendors, and more. How can I assist you today?
+                  Hai! Saya siap membantu Anda dengan pembayaran, maintenance, vendor, dan lainnya. Ada yang bisa saya bantu?
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {FAQ_SUGGESTIONS.map((suggestion) => (
@@ -210,7 +225,7 @@ export function ChatbotWidget() {
                     </div>
                     <div
                       className={cn(
-                        "max-w-[75%] rounded-lg px-3 py-2 text-sm",
+                        "max-w-[75%] rounded-2xl px-4 py-2 text-sm",
                         message.role === "user"
                           ? "bg-primary text-primary-foreground"
                           : "bg-muted"
@@ -226,16 +241,16 @@ export function ChatbotWidget() {
             )}
           </ScrollArea>
 
-          {/* Input */}
-          <form onSubmit={handleSubmit} className="flex gap-2 border-t p-4">
+          {/* Input - with safe area on mobile */}
+          <form onSubmit={handleSubmit} className="flex gap-2 border-t p-4 bg-background safe-area-bottom">
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your message..."
+              placeholder="Ketik pesan..."
               disabled={isLoading}
-              className="flex-1"
+              className="flex-1 rounded-full"
             />
-            <Button type="submit" size="icon" disabled={isLoading || !input.trim()}>
+            <Button type="submit" size="icon" disabled={isLoading || !input.trim()} className="rounded-full">
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
