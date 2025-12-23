@@ -2,18 +2,12 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { TenantLayout } from "@/components/layouts/TenantLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Bell, Shield, Loader2, CreditCard, Calendar, Wallet, Banknote, Palette, Moon, Sun } from "lucide-react";
-import { format } from "date-fns";
+import { Bell, Loader2, Palette, Moon, Sun } from "lucide-react";
 
 interface NotificationPreferences {
   payment_reminders: boolean;
@@ -47,16 +41,6 @@ const TenantSettings = () => {
     contract_updates: true,
   });
 
-  const [autoPaySettings, setAutoPaySettings] = useState({
-    enabled: false,
-    day: 1,
-  });
-
-  const [passwordForm, setPasswordForm] = useState({
-    newPassword: '',
-    confirmPassword: '',
-  });
-
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
 
   // Initialize settings when data loads
@@ -66,10 +50,6 @@ const TenantSettings = () => {
       if (prefs) {
         setNotificationPrefs(prefs);
       }
-      setAutoPaySettings({
-        enabled: (tenant as { auto_pay_enabled?: boolean }).auto_pay_enabled || false,
-        day: (tenant as { auto_pay_day?: number }).auto_pay_day || 1,
-      });
     }
   }, [tenant]);
 
@@ -105,23 +85,6 @@ const TenantSettings = () => {
     toast.success('Tema berhasil diubah');
   };
 
-  const changePassword = useMutation({
-    mutationFn: async () => {
-      if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-        throw new Error('Password tidak cocok');
-      }
-      const { error } = await supabase.auth.updateUser({
-        password: passwordForm.newPassword,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success('Password berhasil diubah');
-      setPasswordForm({ newPassword: '', confirmPassword: '' });
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
-
   const updateNotificationPrefs = useMutation({
     mutationFn: async (prefs: NotificationPreferences) => {
       if (!user?.id) throw new Error('User not found');
@@ -142,27 +105,6 @@ const TenantSettings = () => {
     onError: () => toast.error('Gagal menyimpan preferensi'),
   });
 
-  const updateAutoPaySettings = useMutation({
-    mutationFn: async (settings: { enabled: boolean; day: number }) => {
-      if (!user?.id) throw new Error('User not found');
-      
-      const { error } = await supabase
-        .from('tenants')
-        .update({ 
-          auto_pay_enabled: settings.enabled, 
-          auto_pay_day: settings.day 
-        } as any)
-        .eq('user_id', user.id);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tenant'] });
-      toast.success('Pengaturan auto-pay disimpan');
-    },
-    onError: () => toast.error('Gagal menyimpan pengaturan auto-pay'),
-  });
-
   if (tenantLoading) {
     return (
       <TenantLayout title="Pengaturan">
@@ -179,22 +121,14 @@ const TenantSettings = () => {
       description="Konfigurasi aplikasi dan preferensi"
     >
       <Tabs defaultValue="appearance" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="appearance" className="flex items-center gap-2">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="appearance" className="flex items-center gap-1.5">
             <Palette className="h-4 w-4" />
             <span className="hidden sm:inline">Tampilan</span>
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center gap-2">
+          <TabsTrigger value="notifications" className="flex items-center gap-1.5">
             <Bell className="h-4 w-4" />
             <span className="hidden sm:inline">Notifikasi</span>
-          </TabsTrigger>
-          <TabsTrigger value="payments" className="flex items-center gap-2">
-            <CreditCard className="h-4 w-4" />
-            <span className="hidden sm:inline">Pembayaran</span>
-          </TabsTrigger>
-          <TabsTrigger value="security" className="flex items-center gap-2">
-            <Shield className="h-4 w-4" />
-            <span className="hidden sm:inline">Keamanan</span>
           </TabsTrigger>
         </TabsList>
 
@@ -289,219 +223,9 @@ const TenantSettings = () => {
             </CardContent>
           </Card>
         </TabsContent>
-
-        {/* Payments Tab */}
-        <TabsContent value="payments" className="space-y-6">
-          {/* Auto-Pay Settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Wallet className="h-5 w-5" />
-                Pengaturan Auto-Pay
-              </CardTitle>
-              <CardDescription>Atur pembayaran otomatis untuk sewa Anda</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-4 rounded-lg border">
-                <div>
-                  <p className="font-medium">Aktifkan Auto-Pay</p>
-                  <p className="text-sm text-muted-foreground">
-                    Bayar sewa secara otomatis setiap bulan
-                  </p>
-                </div>
-                <Switch
-                  checked={autoPaySettings.enabled}
-                  onCheckedChange={(checked) => {
-                    const newSettings = { ...autoPaySettings, enabled: checked };
-                    setAutoPaySettings(newSettings);
-                    updateAutoPaySettings.mutate(newSettings);
-                  }}
-                />
-              </div>
-
-              {autoPaySettings.enabled && (
-                <div className="space-y-2 p-4 rounded-lg border bg-muted/50">
-                  <Label className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    Tanggal Pembayaran
-                  </Label>
-                  <Select
-                    value={autoPaySettings.day.toString()}
-                    onValueChange={(value) => {
-                      const newSettings = { ...autoPaySettings, day: parseInt(value) };
-                      setAutoPaySettings(newSettings);
-                      updateAutoPaySettings.mutate(newSettings);
-                    }}
-                  >
-                    <SelectTrigger className="w-full max-w-xs">
-                      <SelectValue placeholder="Pilih tanggal" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
-                        <SelectItem key={day} value={day.toString()}>
-                          Tanggal {day} setiap bulan
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Pembayaran akan diproses otomatis pada tanggal ini setiap bulan.
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Saved Payment Methods */}
-          <SavedPaymentMethodsSection userId={user?.id} />
-        </TabsContent>
-
-        {/* Security Tab */}
-        <TabsContent value="security" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
-                Ubah Password
-              </CardTitle>
-              <CardDescription>Perbarui password untuk keamanan akun</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-4 max-w-md">
-                <div className="space-y-2">
-                  <Label>Password Baru</Label>
-                  <Input
-                    type="password"
-                    value={passwordForm.newPassword}
-                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                    placeholder="Masukkan password baru"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Konfirmasi Password</Label>
-                  <Input
-                    type="password"
-                    value={passwordForm.confirmPassword}
-                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                    placeholder="Konfirmasi password baru"
-                  />
-                </div>
-              </div>
-              <Button 
-                onClick={() => changePassword.mutate()}
-                disabled={changePassword.isPending || !passwordForm.newPassword}
-              >
-                {changePassword.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Shield className="h-4 w-4 mr-2" />}
-                Ubah Password
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
     </TenantLayout>
   );
 };
-
-// Saved Payment Methods Component
-function SavedPaymentMethodsSection({ userId }: { userId?: string }) {
-  const { data: paymentMethods, isLoading } = useQuery({
-    queryKey: ["saved-payment-methods", userId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("xendit_transactions")
-        .select("payment_method, payment_channel, created_at")
-        .eq("user_id", userId)
-        .eq("status", "paid")
-        .not("payment_method", "is", null)
-        .order("created_at", { ascending: false })
-        .limit(10);
-      
-      if (error) throw error;
-      
-      const seen = new Set<string>();
-      const unique = data?.filter(pm => {
-        const key = `${pm.payment_method}-${pm.payment_channel}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      }) || [];
-      
-      return unique;
-    },
-    enabled: !!userId,
-  });
-
-  const formatMethodName = (method: string | null, channel: string | null) => {
-    if (channel) {
-      return channel.replace(/_/g, ' ').toUpperCase();
-    }
-    if (method) {
-      return method.replace(/_/g, ' ').toUpperCase();
-    }
-    return 'Metode Tidak Diketahui';
-  };
-
-  const getMethodIcon = (method: string | null) => {
-    switch (method?.toLowerCase()) {
-      case 'virtual_account':
-        return '🏦';
-      case 'ewallet':
-        return '📱';
-      case 'qr_code':
-        return '📷';
-      case 'credit_card':
-        return '💳';
-      default:
-        return '💰';
-    }
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Banknote className="h-5 w-5" />
-          Metode Pembayaran
-        </CardTitle>
-        <CardDescription>Metode pembayaran yang pernah digunakan</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : paymentMethods && paymentMethods.length > 0 ? (
-          <div className="space-y-3">
-            {paymentMethods.map((pm, index) => (
-              <div key={index} className="flex items-center justify-between p-4 rounded-lg border">
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">{getMethodIcon(pm.payment_method)}</span>
-                  <div>
-                    <p className="font-medium">{formatMethodName(pm.payment_method, pm.payment_channel)}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Terakhir: {format(new Date(pm.created_at), 'dd MMM yyyy')}
-                    </p>
-                  </div>
-                </div>
-                <Badge variant="secondary">Tersedia</Badge>
-              </div>
-            ))}
-            <p className="text-xs text-muted-foreground mt-4">
-              Metode ini dapat digunakan untuk pembayaran lebih cepat.
-            </p>
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <Banknote className="h-12 w-12 mx-auto text-muted-foreground" />
-            <h3 className="mt-4 font-medium">Belum ada metode pembayaran</h3>
-            <p className="text-sm text-muted-foreground mt-2">
-              Metode pembayaran akan muncul setelah pembayaran pertama berhasil.
-            </p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
 
 export default TenantSettings;
