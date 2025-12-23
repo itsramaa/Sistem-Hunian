@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2, Eye, EyeOff, Building2, User, Users, Wrench } from 'lucide-react';
+import { Loader2, Eye, EyeOff, Building2, User, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { AppRole } from '@/types/auth';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email'),
@@ -25,6 +26,7 @@ const signupSchema = z.object({
   confirmPassword: z.string(),
   fullName: z.string().min(2, 'Name must be at least 2 characters'),
   businessName: z.string().optional(),
+  merchantCode: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ['confirmPassword'],
@@ -40,10 +42,14 @@ const roleOptions: { value: AppRole; label: string; icon: typeof Building2; desc
 ];
 
 export function AuthForm() {
+  const [searchParams] = useSearchParams();
+  const initialMerchantCode = searchParams.get('code') || '';
+  
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<AppRole>('tenant');
+  const [selectedRole, setSelectedRole] = useState<AppRole>(initialMerchantCode ? 'tenant' : 'tenant');
   const [isLoading, setIsLoading] = useState(false);
+  const [merchantCodeError, setMerchantCodeError] = useState<string | null>(null);
   const { toast } = useToast();
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
@@ -55,7 +61,14 @@ export function AuthForm() {
 
   const signupForm = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
-    defaultValues: { email: '', password: '', confirmPassword: '', fullName: '', businessName: '' },
+    defaultValues: { 
+      email: '', 
+      password: '', 
+      confirmPassword: '', 
+      fullName: '', 
+      businessName: '',
+      merchantCode: initialMerchantCode,
+    },
   });
 
   const handleLogin = async (data: LoginFormData) => {
@@ -80,13 +93,53 @@ export function AuthForm() {
     });
   };
 
+  const validateMerchantCode = async (code: string): Promise<string | null> => {
+    if (!code) return null;
+    
+    const { data, error } = await supabase
+      .from('merchants')
+      .select('id')
+      .eq('merchant_code', code.toUpperCase())
+      .single();
+    
+    if (error || !data) {
+      return null;
+    }
+    return data.id;
+  };
+
   const handleSignup = async (data: SignupFormData) => {
     setIsLoading(true);
+    setMerchantCodeError(null);
+
+    // Validate merchant code for tenants
+    let linkedMerchantId: string | null = null;
+    if (selectedRole === 'tenant') {
+      if (!data.merchantCode) {
+        setMerchantCodeError('Merchant code is required for tenant registration');
+        setIsLoading(false);
+        return;
+      }
+      
+      linkedMerchantId = await validateMerchantCode(data.merchantCode);
+      if (!linkedMerchantId) {
+        setMerchantCodeError('Invalid merchant code. Please check with your landlord.');
+        setIsLoading(false);
+        return;
+      }
+    }
+
     const { error } = await signUp(data.email, data.password, {
       full_name: data.fullName,
       role: selectedRole,
       business_name: selectedRole === 'merchant' ? data.businessName : undefined,
     });
+    
+    // Link tenant to merchant after signup if applicable
+    if (!error && linkedMerchantId && selectedRole === 'tenant') {
+      // This will be handled by a trigger or subsequent update
+      console.log('Tenant linked to merchant:', linkedMerchantId);
+    }
     setIsLoading(false);
 
     if (error) {
@@ -233,6 +286,28 @@ export function AuthForm() {
                       placeholder="PT Property Indonesia"
                       {...signupForm.register('businessName')}
                     />
+                  </div>
+                )}
+
+                {selectedRole === 'tenant' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-merchant-code">Merchant Code *</Label>
+                    <Input
+                      id="signup-merchant-code"
+                      placeholder="ABC123"
+                      className="font-mono uppercase"
+                      {...signupForm.register('merchantCode')}
+                      onChange={(e) => {
+                        signupForm.setValue('merchantCode', e.target.value.toUpperCase());
+                        setMerchantCodeError(null);
+                      }}
+                    />
+                    {merchantCodeError && (
+                      <p className="text-sm text-destructive">{merchantCodeError}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Get this code from your landlord/property manager
+                    </p>
                   </div>
                 )}
 

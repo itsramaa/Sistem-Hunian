@@ -1037,6 +1037,7 @@ export type Database = {
           created_at: string
           disbursement_schedule: string | null
           id: string
+          merchant_code: string | null
           postal_code: string | null
           province: string | null
           subscription_tier: string | null
@@ -1053,6 +1054,7 @@ export type Database = {
           created_at?: string
           disbursement_schedule?: string | null
           id?: string
+          merchant_code?: string | null
           postal_code?: string | null
           province?: string | null
           subscription_tier?: string | null
@@ -1069,6 +1071,7 @@ export type Database = {
           created_at?: string
           disbursement_schedule?: string | null
           id?: string
+          merchant_code?: string | null
           postal_code?: string | null
           province?: string | null
           subscription_tier?: string | null
@@ -1744,6 +1747,7 @@ export type Database = {
           income_range: string | null
           ktp_number: string | null
           ktp_photo_url: string | null
+          linked_merchant_id: string | null
           notes: string | null
           notification_preferences: Json | null
           occupation: string | null
@@ -1766,6 +1770,7 @@ export type Database = {
           income_range?: string | null
           ktp_number?: string | null
           ktp_photo_url?: string | null
+          linked_merchant_id?: string | null
           notes?: string | null
           notification_preferences?: Json | null
           occupation?: string | null
@@ -1788,6 +1793,7 @@ export type Database = {
           income_range?: string | null
           ktp_number?: string | null
           ktp_photo_url?: string | null
+          linked_merchant_id?: string | null
           notes?: string | null
           notification_preferences?: Json | null
           occupation?: string | null
@@ -1797,7 +1803,15 @@ export type Database = {
           verified_at?: string | null
           verified_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tenants_linked_merchant_id_fkey"
+            columns: ["linked_merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       units: {
         Row: {
@@ -2234,6 +2248,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_merchant_code: { Args: never; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
