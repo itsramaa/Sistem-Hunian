@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, Wrench, Clock, CheckCircle, AlertTriangle, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function TenantMaintenance() {
   const { user } = useAuth();
@@ -110,86 +111,98 @@ export default function TenantMaintenance() {
     }
   };
 
+  const isMobile = useIsMobile();
+
+  // Dialog content component to reuse
+  const MaintenanceDialogContent = (
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>Submit Maintenance Request</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label>Title</Label>
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Brief description of the issue"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Category</Label>
+          <Select value={category} onValueChange={setCategory}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="general">General</SelectItem>
+              <SelectItem value="plumbing">Plumbing</SelectItem>
+              <SelectItem value="electrical">Electrical</SelectItem>
+              <SelectItem value="appliance">Appliance</SelectItem>
+              <SelectItem value="hvac">HVAC</SelectItem>
+              <SelectItem value="structural">Structural</SelectItem>
+              <SelectItem value="pest_control">Pest Control</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Priority</Label>
+          <Select value={priority} onValueChange={setPriority}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="low">Low</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+              <SelectItem value="urgent">Urgent</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Description</Label>
+          <Textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Provide details about the issue..."
+            rows={4}
+          />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={() => createMutation.mutate()} 
+            disabled={!title || createMutation.isPending}
+          >
+            {createMutation.isPending ? 'Submitting...' : 'Submit Request'}
+          </Button>
+        </div>
+      </div>
+    </DialogContent>
+  );
+
   return (
     <TenantLayout 
       title="Maintenance Requests"
       description="Submit and track maintenance issues"
       actions={
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button disabled={!contract}>
-              <Plus className="h-4 w-4 mr-2" />
-              New Request
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Submit Maintenance Request</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Title</Label>
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Brief description of the issue"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Category</Label>
-                <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="general">General</SelectItem>
-                    <SelectItem value="plumbing">Plumbing</SelectItem>
-                    <SelectItem value="electrical">Electrical</SelectItem>
-                    <SelectItem value="appliance">Appliance</SelectItem>
-                    <SelectItem value="hvac">HVAC</SelectItem>
-                    <SelectItem value="structural">Structural</SelectItem>
-                    <SelectItem value="pest_control">Pest Control</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Priority</Label>
-                <Select value={priority} onValueChange={setPriority}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Provide details about the issue..."
-                  rows={4}
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={() => createMutation.mutate()} 
-                  disabled={!title || createMutation.isPending}
-                >
-                  {createMutation.isPending ? 'Submitting...' : 'Submit Request'}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        // Only show button in header on desktop
+        !isMobile ? (
+          <Button disabled={!contract} onClick={() => setIsDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Request
+          </Button>
+        ) : undefined
+      }
+      floatingAction={
+        // On mobile, use floating button
+        isMobile ? {
+          type: 'create' as const,
+          onClick: () => contract && setIsDialogOpen(true)
+        } : undefined
       }
     >
       {!contract && (
@@ -252,6 +265,11 @@ export default function TenantMaintenance() {
           ))}
         </div>
       )}
+
+      {/* Dialog for creating maintenance request - rendered outside layout */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        {MaintenanceDialogContent}
+      </Dialog>
     </TenantLayout>
   );
 }

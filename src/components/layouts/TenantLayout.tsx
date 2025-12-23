@@ -18,6 +18,10 @@ interface TenantLayoutProps {
   description?: string;
   actions?: ReactNode;
   showBack?: boolean;
+  floatingAction?: {
+    type: 'create';
+    onClick: () => void;
+  };
 }
 
 export function TenantLayout({ 
@@ -25,7 +29,8 @@ export function TenantLayout({
   title, 
   description,
   actions,
-  showBack
+  showBack,
+  floatingAction
 }: TenantLayoutProps) {
   const isMobile = useIsMobile();
 
@@ -37,6 +42,7 @@ export function TenantLayout({
         description={description}
         actions={actions}
         showBack={showBack}
+        floatingAction={floatingAction}
       >
         {children}
       </MobileTenantLayout>
