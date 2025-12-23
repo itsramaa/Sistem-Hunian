@@ -112,7 +112,6 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/merchant/payments", icon: Wallet, label: "Payments" },
           { path: "/merchant/maintenance", icon: Wrench, label: "Maintenance" },
           { path: "/merchant/reports", icon: BarChart3, label: "Reports" },
-          { path: "/merchant/settings", icon: Settings, label: "Settings" },
         ],
       },
     ],

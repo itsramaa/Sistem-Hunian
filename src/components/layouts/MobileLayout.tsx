@@ -95,6 +95,7 @@ export function MobileLayout({
           type="ai"
           isOpen={isChatOpen}
           onClick={handleAIButtonClick}
+          hasBottomNav={config.hasBottomNav}
         />
       )}
 
@@ -104,6 +105,7 @@ export function MobileLayout({
           type="create"
           onClick={floatingAction.onClick}
           icon={Plus}
+          hasBottomNav={config.hasBottomNav}
         />
       )}
 

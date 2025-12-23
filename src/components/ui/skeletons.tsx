@@ -201,7 +201,7 @@ export function PaymentCardSkeleton() {
   );
 }
 
-// Dashboard skeleton
+// Dashboard skeleton (tenant)
 export function DashboardSkeleton() {
   return (
     <div className="space-y-6">
@@ -236,6 +236,108 @@ export function DashboardSkeleton() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// Merchant dashboard skeleton
+export function MerchantDashboardSkeleton() {
+  return (
+    <div className="space-y-6">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i}>
+            <CardContent className="pt-6">
+              <div className="flex items-start justify-between">
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-7 w-32" />
+                </div>
+                <Skeleton className="h-10 w-10 rounded-lg" />
+              </div>
+              <div className="flex items-center gap-2 mt-3">
+                <Skeleton className="h-4 w-12" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      
+      {/* Occupancy Progress */}
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-4 w-64" />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="space-y-2">
+              <div className="flex justify-between">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-4 w-16" />
+              </div>
+              <Skeleton className="h-2 w-full" />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Properties grid skeleton
+export function PropertiesGridSkeleton({ count = 6 }: { count?: number }) {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {Array.from({ length: count }).map((_, i) => (
+        <Card key={i}>
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between mb-3">
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-36" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+              <Skeleton className="h-6 w-16 rounded-full" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-2/3" />
+            </div>
+            <div className="mt-4 flex items-center justify-between">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-2 w-24" />
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+// Units table skeleton
+export function UnitsTableSkeleton() {
+  return (
+    <Card>
+      <div className="p-4 space-y-4">
+        <div className="flex gap-4 border-b pb-3">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-4 w-20" />
+        </div>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex gap-4 items-center py-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-8 w-20" />
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 
@@ -294,3 +396,29 @@ export function ContractCardSkeleton() {
     </Card>
   );
 }
+
+// Page skeleton with header area
+export function PageSkeleton() {
+  return (
+    <div className="space-y-6">
+      {/* Stats cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <StatsCardSkeleton key={i} />
+        ))}
+      </div>
+      {/* Content area */}
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-5 w-40" />
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full" />
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
