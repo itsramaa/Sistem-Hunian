@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { LogOut, Settings, User, ChevronUp } from "lucide-react";
+import { LogOut, Settings, User, ChevronUp, CreditCard, BadgeCheck, Crown, Sparkles } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarRail,
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -54,9 +55,54 @@ export function DashboardSidebar({ role }: DashboardSidebarProps) {
   const entityInfo = role === "merchant" ? merchant : role === "vendor" ? vendor : null;
   const entityName = entityInfo?.business_name;
   const verificationStatus = entityInfo?.verification_status;
+  const subscriptionTier = role === "merchant" ? merchant?.subscription_tier : null;
+
+  const getTierBadge = () => {
+    if (!subscriptionTier) return null;
+    if (subscriptionTier === 'enterprise') {
+      return (
+        <Badge className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white border-0 text-[10px] px-1.5">
+          <Crown className="h-3 w-3 mr-0.5" />
+          Enterprise
+        </Badge>
+      );
+    }
+    if (subscriptionTier === 'pro') {
+      return (
+        <Badge className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground border-0 text-[10px] px-1.5">
+          <Sparkles className="h-3 w-3 mr-0.5" />
+          Pro
+        </Badge>
+      );
+    }
+    if (subscriptionTier === 'basic') {
+      return (
+        <Badge variant="outline" className="text-[10px] px-1.5">
+          Basic
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="secondary" className="text-[10px] px-1.5">
+        Free
+      </Badge>
+    );
+  };
+
+  const getVerifiedBadge = () => {
+    if (verificationStatus === 'verified') {
+      return (
+        <Badge variant="outline" className="bg-success/10 text-success border-success/30 text-[10px] px-1.5">
+          <BadgeCheck className="h-3 w-3 mr-0.5" />
+          Verified
+        </Badge>
+      );
+    }
+    return null;
+  };
 
   return (
-    <Sidebar variant="inset" collapsible="icon">
+    <Sidebar collapsible="icon">
       {/* Header - Brand/Logo */}
       <SidebarHeader>
         <SidebarMenu>
@@ -110,10 +156,6 @@ export function DashboardSidebar({ role }: DashboardSidebarProps) {
                           e.preventDefault();
                           navigate(item.path);
                         }}
-                        className={cn(
-                          isPathActive(item.path, location.pathname, basePath) &&
-                            "bg-sidebar-accent text-sidebar-accent-foreground"
-                        )}
                       >
                         <item.icon />
                         <span>{item.label}</span>
@@ -129,21 +171,6 @@ export function DashboardSidebar({ role }: DashboardSidebarProps) {
 
       {/* Footer - User Account */}
       <SidebarFooter>
-        {/* Entity info for merchant/vendor */}
-        {entityName && (
-          <div className="px-3 py-2 border-b border-sidebar-border mb-2">
-            <p className="text-sm font-medium truncate">{entityName}</p>
-            {verificationStatus && (
-              <Badge
-                variant={verificationStatus === "verified" ? "default" : "secondary"}
-                className="text-xs mt-1"
-              >
-                {verificationStatus}
-              </Badge>
-            )}
-          </div>
-        )}
-
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
@@ -161,9 +188,12 @@ export function DashboardSidebar({ role }: DashboardSidebarProps) {
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-semibold">
-                      {profile?.full_name || "User"}
+                      {entityName || profile?.full_name || "User"}
                     </span>
-                    <span className="truncate text-xs">{profile?.email}</span>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      {getTierBadge()}
+                      {getVerifiedBadge()}
+                    </div>
                   </div>
                   <ChevronUp className="ml-auto size-4" />
                 </SidebarMenuButton>
@@ -174,24 +204,42 @@ export function DashboardSidebar({ role }: DashboardSidebarProps) {
                 align="end"
                 sideOffset={4}
               >
+                <div className="flex items-center gap-2 px-2 py-1.5 text-left text-sm">
+                  <Avatar className="h-8 w-8 rounded-lg">
+                    <AvatarImage src={profile?.avatar_url || ""} alt={profile?.full_name || "User"} />
+                    <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
+                  </Avatar>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">{profile?.full_name || "User"}</span>
+                    <span className="truncate text-xs text-muted-foreground">{profile?.email}</span>
+                  </div>
+                </div>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate(`/${role}/profile`)}>
                   <User className="mr-2 size-4" />
-                  Profil Saya
+                  Profile
                 </DropdownMenuItem>
+                {role === "merchant" && (
+                  <DropdownMenuItem onClick={() => navigate(`/${role}/billing`)}>
+                    <CreditCard className="mr-2 size-4" />
+                    Billing
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={() => navigate(`/${role}/settings`)}>
                   <Settings className="mr-2 size-4" />
-                  Pengaturan
+                  Settings
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="mr-2 size-4" />
-                  Keluar
+                  Log out
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
   );
 }
