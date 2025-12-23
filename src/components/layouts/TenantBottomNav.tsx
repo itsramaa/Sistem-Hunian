@@ -13,7 +13,7 @@ const navItems = [
   { path: "/tenant/payments", icon: Wallet, label: "Bayar" },
   { path: "/tenant/forum", icon: MessageSquare, label: "Forum" },
   { path: "/tenant/orders", icon: ShoppingBag, label: "Pesanan" },
-  { path: "/tenant/settings", icon: User, label: "Profil" },
+  { path: "/tenant/profile", icon: User, label: "Profil" },
 ];
 
 export function TenantBottomNav() {
@@ -24,8 +24,8 @@ export function TenantBottomNav() {
     if (path === "/tenant") {
       return location.pathname === "/tenant";
     }
-    if (path === "/tenant/settings") {
-      return location.pathname.startsWith("/tenant/settings");
+    if (path === "/tenant/profile") {
+      return location.pathname.startsWith("/tenant/profile");
     }
     return location.pathname.startsWith(path);
   };
