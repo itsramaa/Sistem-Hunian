@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Star, MapPin, Loader2, Store } from "lucide-react";
+import { Search, Star, MapPin, Store } from "lucide-react";
+import { GridSkeleton } from "@/components/ui/skeletons";
 import { Link } from "react-router-dom";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { useAuth } from "@/hooks/useAuth";
@@ -183,9 +184,7 @@ export default function TenantMarketplace() {
 
       {/* Vendors Grid */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
+        <GridSkeleton count={6} />
       ) : filteredVendors?.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">

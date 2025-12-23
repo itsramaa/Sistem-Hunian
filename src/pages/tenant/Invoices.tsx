@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { FileText, Loader2, Download, Eye, CreditCard } from "lucide-react";
+import { FileText, Loader2, Download, CreditCard } from "lucide-react";
+import { StatsCardSkeleton, InvoiceTableSkeleton } from "@/components/ui/skeletons";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
@@ -83,9 +84,10 @@ const TenantInvoices = () => {
   if (isLoading) {
     return (
       <TenantLayout title="My Invoices">
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          {Array.from({ length: 3 }).map((_, i) => <StatsCardSkeleton key={i} />)}
         </div>
+        <InvoiceTableSkeleton />
       </TenantLayout>
     );
   }
