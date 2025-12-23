@@ -27,6 +27,7 @@ export interface MerchantProfile {
   city: string | null;
   province: string | null;
   postal_code: string | null;
+  merchant_code: string | null;
   verification_status: 'pending' | 'verified' | 'rejected' | 'suspended';
   subscription_tier: 'free' | 'basic' | 'pro' | 'enterprise';
   disbursement_schedule: 'daily' | 'weekly' | 'biweekly' | 'monthly' | null;

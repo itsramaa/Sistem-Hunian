@@ -43,11 +43,13 @@ const roleOptions: { value: AppRole; label: string; icon: typeof Building2; desc
 
 export function AuthForm() {
   const [searchParams] = useSearchParams();
-  const initialMerchantCode = searchParams.get('code') || '';
+  const initialMode = searchParams.get('mode') as 'login' | 'signup' | null;
+  const initialRole = searchParams.get('role') as AppRole | null;
+  const initialMerchantCode = searchParams.get('merchantCode') || searchParams.get('code') || '';
   
-  const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
+  const [activeTab, setActiveTab] = useState<'login' | 'signup'>(initialMode || 'login');
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<AppRole>(initialMerchantCode ? 'tenant' : 'tenant');
+  const [selectedRole, setSelectedRole] = useState<AppRole>(initialRole || 'tenant');
   const [isLoading, setIsLoading] = useState(false);
   const [merchantCodeError, setMerchantCodeError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -135,10 +137,51 @@ export function AuthForm() {
       business_name: selectedRole === 'merchant' ? data.businessName : undefined,
     });
     
-    // Link tenant to merchant after signup if applicable
+    // Link tenant to merchant after signup and send notification
     if (!error && linkedMerchantId && selectedRole === 'tenant') {
-      // This will be handled by a trigger or subsequent update
       console.log('Tenant linked to merchant:', linkedMerchantId);
+      
+      // Fetch merchant details for notification
+      try {
+        const { data: merchantData } = await supabase
+          .from('merchants')
+          .select('user_id, business_name')
+          .eq('id', linkedMerchantId)
+          .single();
+        
+        if (merchantData) {
+          const { data: merchantProfile } = await supabase
+            .from('profiles')
+            .select('email, full_name')
+            .eq('user_id', merchantData.user_id)
+            .single();
+          
+          if (merchantProfile?.email) {
+            // Send email notification to merchant
+            await supabase.functions.invoke('send-notification', {
+              body: {
+                type: 'tenant_registration',
+                recipientEmail: merchantProfile.email,
+                recipientName: merchantProfile.full_name || merchantData.business_name,
+                data: {
+                  tenantName: data.fullName,
+                  tenantEmail: data.email,
+                  tenantPhone: null,
+                  registeredAt: new Date().toLocaleString('id-ID', { 
+                    dateStyle: 'full', 
+                    timeStyle: 'short' 
+                  }),
+                  dashboardLink: `${window.location.origin}/merchant/tenants`,
+                },
+              },
+            });
+            console.log('Tenant registration notification sent to merchant');
+          }
+        }
+      } catch (notifError) {
+        console.error('Failed to send tenant registration notification:', notifError);
+        // Don't fail the signup if notification fails
+      }
     }
     setIsLoading(false);
 
