@@ -267,6 +267,25 @@ CREATE TABLE public.analytics_events (
 
 
 --
+-- Name: audit_logs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.audit_logs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid,
+    action text NOT NULL,
+    entity_type text NOT NULL,
+    entity_id uuid,
+    old_data jsonb,
+    new_data jsonb,
+    ip_address text,
+    user_agent text,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: bank_accounts; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -352,6 +371,7 @@ CREATE TABLE public.contracts (
     tenant_signed_at timestamp with time zone,
     merchant_signed_at timestamp with time zone,
     contract_document_url text,
+    churn_reason text,
     CONSTRAINT contracts_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'active'::text, 'expired'::text, 'terminated'::text])))
 );
 
@@ -631,6 +651,8 @@ CREATE TABLE public.merchants (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     disbursement_schedule text DEFAULT 'weekly'::text,
+    billing_day integer DEFAULT 1,
+    CONSTRAINT merchants_billing_day_check CHECK (((billing_day >= 1) AND (billing_day <= 28))),
     CONSTRAINT merchants_business_type_check CHECK ((business_type = ANY (ARRAY['individual'::text, 'company'::text]))),
     CONSTRAINT merchants_subscription_tier_check CHECK ((subscription_tier = ANY (ARRAY['free'::text, 'basic'::text, 'pro'::text, 'enterprise'::text]))),
     CONSTRAINT merchants_verification_status_check CHECK ((verification_status = ANY (ARRAY['pending'::text, 'verified'::text, 'rejected'::text, 'suspended'::text])))
@@ -725,6 +747,20 @@ CREATE TABLE public.payments (
 
 
 --
+-- Name: platform_settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.platform_settings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    setting_key text NOT NULL,
+    setting_value jsonb DEFAULT '{}'::jsonb NOT NULL,
+    description text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: products; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -744,7 +780,10 @@ CREATE TABLE public.products (
     service_area text[],
     estimated_duration text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    promo_price numeric,
+    promo_start timestamp with time zone,
+    promo_end timestamp with time zone
 );
 
 
@@ -760,7 +799,9 @@ CREATE TABLE public.profiles (
     phone text,
     avatar_url text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    admin_2fa_enabled boolean DEFAULT false,
+    admin_2fa_secret text
 );
 
 
@@ -892,6 +933,9 @@ CREATE TABLE public.tenants (
     notes text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    notification_preferences jsonb DEFAULT '{"new_invoices": true, "contract_updates": true, "payment_reminders": true, "maintenance_updates": true}'::jsonb,
+    auto_pay_enabled boolean DEFAULT false,
+    auto_pay_day integer DEFAULT 1,
     CONSTRAINT tenants_gender_check CHECK ((gender = ANY (ARRAY['male'::text, 'female'::text, 'other'::text]))),
     CONSTRAINT tenants_verification_status_check CHECK ((verification_status = ANY (ARRAY['pending'::text, 'verified'::text, 'rejected'::text])))
 );
@@ -1025,7 +1069,10 @@ CREATE TABLE public.vendors (
     rating numeric DEFAULT 0,
     total_jobs integer DEFAULT 0,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    disbursement_schedule text DEFAULT 'weekly'::text,
+    min_payout_threshold numeric DEFAULT 50000,
+    notification_settings jsonb DEFAULT '{"push_new_jobs": true, "email_new_jobs": true, "email_payments": true, "push_job_updates": true, "email_job_updates": true}'::jsonb
 );
 
 
@@ -1062,6 +1109,14 @@ CREATE TABLE public.xendit_transactions (
 
 ALTER TABLE ONLY public.analytics_events
     ADD CONSTRAINT analytics_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: audit_logs audit_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audit_logs
+    ADD CONSTRAINT audit_logs_pkey PRIMARY KEY (id);
 
 
 --
@@ -1297,6 +1352,22 @@ ALTER TABLE ONLY public.payments
 
 
 --
+-- Name: platform_settings platform_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.platform_settings
+    ADD CONSTRAINT platform_settings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: platform_settings platform_settings_setting_key_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.platform_settings
+    ADD CONSTRAINT platform_settings_setting_key_key UNIQUE (setting_key);
+
+
+--
 -- Name: products products_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1478,6 +1549,41 @@ ALTER TABLE ONLY public.vendors
 
 ALTER TABLE ONLY public.xendit_transactions
     ADD CONSTRAINT xendit_transactions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: idx_audit_logs_action; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_audit_logs_action ON public.audit_logs USING btree (action);
+
+
+--
+-- Name: idx_audit_logs_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_audit_logs_created_at ON public.audit_logs USING btree (created_at DESC);
+
+
+--
+-- Name: idx_audit_logs_entity_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_audit_logs_entity_type ON public.audit_logs USING btree (entity_type);
+
+
+--
+-- Name: idx_audit_logs_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_audit_logs_user_id ON public.audit_logs USING btree (user_id);
+
+
+--
+-- Name: idx_products_promo_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_products_promo_active ON public.products USING btree (vendor_id, promo_start, promo_end) WHERE (promo_price IS NOT NULL);
 
 
 --
@@ -1670,6 +1776,13 @@ CREATE TRIGGER update_payments_updated_at BEFORE UPDATE ON public.payments FOR E
 
 
 --
+-- Name: platform_settings update_platform_settings_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_platform_settings_updated_at BEFORE UPDATE ON public.platform_settings FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
 -- Name: products update_products_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -1765,6 +1878,14 @@ CREATE TRIGGER update_vendors_updated_at BEFORE UPDATE ON public.vendors FOR EAC
 --
 
 CREATE TRIGGER update_xendit_transactions_updated_at BEFORE UPDATE ON public.xendit_transactions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: audit_logs audit_logs_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audit_logs
+    ADD CONSTRAINT audit_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
 
 
 --
@@ -2465,6 +2586,13 @@ CREATE POLICY "Admins can manage knowledge" ON public.chatbot_knowledge USING (p
 
 
 --
+-- Name: platform_settings Admins can manage platform settings; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can manage platform settings" ON public.platform_settings USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+
+
+--
 -- Name: user_roles Admins can manage roles; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -2483,6 +2611,13 @@ CREATE POLICY "Admins can manage subscription tiers" ON public.subscription_tier
 --
 
 CREATE POLICY "Admins can view all analytics" ON public.analytics_events FOR SELECT USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+
+
+--
+-- Name: audit_logs Admins can view all audit logs; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can view all audit logs" ON public.audit_logs FOR SELECT USING (public.has_role(auth.uid(), 'admin'::public.app_role));
 
 
 --
@@ -2525,6 +2660,13 @@ CREATE POLICY "Anyone can insert analytics events" ON public.analytics_events FO
 --
 
 CREATE POLICY "Anyone can read active knowledge" ON public.chatbot_knowledge FOR SELECT USING ((is_active = true));
+
+
+--
+-- Name: platform_settings Anyone can read platform settings; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Anyone can read platform settings" ON public.platform_settings FOR SELECT USING (true);
 
 
 --
@@ -2929,6 +3071,13 @@ CREATE POLICY "System can create notifications" ON public.notifications FOR INSE
 --
 
 CREATE POLICY "System can create transactions" ON public.xendit_transactions FOR INSERT WITH CHECK (true);
+
+
+--
+-- Name: audit_logs System can insert audit logs; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "System can insert audit logs" ON public.audit_logs FOR INSERT WITH CHECK (true);
 
 
 --
@@ -3342,6 +3491,12 @@ CREATE POLICY "Vendors can view their verifications" ON public.vendor_verificati
 ALTER TABLE public.analytics_events ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: audit_logs; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: bank_accounts; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -3478,6 +3633,12 @@ ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: platform_settings; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.platform_settings ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: products; Type: ROW SECURITY; Schema: public; Owner: -
