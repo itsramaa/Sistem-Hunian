@@ -20,8 +20,17 @@ export function TenantMobileHeader({
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Show back button if not on main dashboard or explicitly requested
-  const isMainPage = location.pathname === "/tenant";
+  // Main pages in bottom nav - these don't show back button
+  const mainPages = [
+    "/tenant",
+    "/tenant/payments", 
+    "/tenant/maintenance",
+    "/tenant/marketplace",
+    "/tenant/settings"
+  ];
+  
+  // Check if current path is a main page (exact match)
+  const isMainPage = mainPages.includes(location.pathname);
   const shouldShowBack = showBack ?? !isMainPage;
 
   return (
