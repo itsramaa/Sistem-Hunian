@@ -1,9 +1,9 @@
 import { ReactNode } from "react";
-import { ArrowLeft, Settings, Menu } from "lucide-react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { ArrowLeft, Settings, Menu, ChevronRight } from "lucide-react";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { NotificationsDropdown } from "@/components/notifications/NotificationsDropdown";
-import { UserRole, navigationConfig } from "./navigation-config";
+import { UserRole, navigationConfig, getAllNavItems } from "./navigation-config";
 
 interface MobileHeaderProps {
   role: UserRole;
@@ -12,6 +12,30 @@ interface MobileHeaderProps {
   actions?: ReactNode;
   showBack?: boolean;
   onMenuClick?: () => void;
+}
+
+// Helper to get current page label from navigation config
+function getCurrentPageLabel(role: UserRole, pathname: string): string | null {
+  const navItems = getAllNavItems(role);
+  const basePath = `/${role}`;
+  
+  const matchedItem = navItems.find(item => {
+    if (item.path === basePath) return pathname === basePath;
+    return pathname.startsWith(item.path);
+  });
+  
+  return matchedItem?.label || null;
+}
+
+// Helper to get breadcrumb label for role dashboard
+function getRoleDashboardLabel(role: UserRole): string {
+  switch (role) {
+    case "tenant": return "Beranda";
+    case "merchant": return "Dashboard";
+    case "vendor": return "Dashboard";
+    case "admin": return "Dashboard";
+    default: return "Dashboard";
+  }
 }
 
 export function MobileHeader({
@@ -25,6 +49,11 @@ export function MobileHeader({
   const navigate = useNavigate();
   const location = useLocation();
   const config = navigationConfig[role];
+  const basePath = `/${role}`;
+  const isRootPage = location.pathname === basePath || location.pathname === `${basePath}/`;
+
+  // Auto-detect page label from navigation config if no title provided
+  const pageLabel = title || getCurrentPageLabel(role, location.pathname);
 
   // For tenant with bottom nav, main pages don't show back button
   const bottomNavPaths = config.bottomNav?.map((item) => item.path) || [];
@@ -64,19 +93,26 @@ export function MobileHeader({
           </Button>
         )}
 
-        {/* Title area */}
-        <div className="flex-1 min-w-0">
-          {title && (
-            <h1 className="text-base font-semibold truncate leading-tight">{title}</h1>
+        {/* Breadcrumb-style title */}
+        <div className="flex-1 min-w-0 flex items-center gap-1">
+          {!isRootPage && (
+            <>
+              <Link 
+                to={basePath} 
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {getRoleDashboardLabel(role)}
+              </Link>
+              <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+            </>
           )}
-          {description && (
-            <p className="text-xs text-muted-foreground truncate">{description}</p>
+          {pageLabel && (
+            <span className="text-sm font-medium truncate">{pageLabel}</span>
           )}
         </div>
 
-        {/* Actions */}
+        {/* Actions - only notifications, no action buttons */}
         <div className="flex items-center gap-2 shrink-0">
-          {actions}
           {isProfilePage ? (
             <Button
               variant="ghost"

@@ -37,6 +37,7 @@ import MerchantPayments from "./pages/merchant/Payments";
 import MerchantReports from "./pages/merchant/Reports";
 import MerchantInvoices from "./pages/merchant/Invoices";
 import MerchantSettings from "./pages/merchant/Settings";
+import MerchantProfile from "./pages/merchant/Profile";
 import MerchantUnits from "./pages/merchant/Units";
 import MerchantEscrow from "./pages/merchant/Escrow";
 import MerchantReferrals from "./pages/merchant/Referrals";
@@ -105,6 +106,7 @@ const App = () => (
             
             {/* Merchant Routes */}
             <Route path="/merchant" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantDashboard /></ProtectedRoute>} />
+            <Route path="/merchant/profile" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantProfile /></ProtectedRoute>} />
             <Route path="/merchant/properties" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantProperties /></ProtectedRoute>} />
             <Route path="/merchant/tenants" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantTenants /></ProtectedRoute>} />
             <Route path="/merchant/maintenance" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantMaintenance /></ProtectedRoute>} />
