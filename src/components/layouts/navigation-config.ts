@@ -49,6 +49,7 @@ export interface RoleConfig {
   bottomNav?: NavItem[];
   hasBottomNav: boolean;
   hasFloatingAI: boolean;
+  globalFloatingAI?: boolean;
   mainPagesWithAI?: string[];
 }
 
@@ -90,6 +91,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
     ],
     hasBottomNav: true,
     hasFloatingAI: true,
+    globalFloatingAI: true,
     mainPagesWithAI: ["/tenant", "/tenant/payments", "/tenant/orders"],
   },
   merchant: {

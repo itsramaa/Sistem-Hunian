@@ -39,9 +39,11 @@ export function MobileLayout({
   const basePath = `/${role}`;
 
   // Determine if AI button should show based on config and current page
+  // If globalFloatingAI is true, show on all pages; otherwise check mainPagesWithAI
   const showAIButton =
     config.hasFloatingAI &&
-    (config.mainPagesWithAI?.includes(location.pathname) ||
+    (config.globalFloatingAI ||
+      config.mainPagesWithAI?.includes(location.pathname) ||
       location.pathname === basePath + "/");
 
   const showCreateButton = floatingAction?.type === "create";

@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SignaturePad } from '@/components/signature/SignaturePad';
 import { ContractDocumentUpload } from '@/components/merchant/ContractDocumentUpload';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,10 +29,15 @@ import {
   Eye,
   Edit,
   AlertTriangle,
-  Clock
+  Clock,
+  Plus
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { z } from 'zod';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { ContractCardSkeleton, StatsCardSkeleton } from '@/components/ui/skeletons';
 
 interface Contract {
   id: string;
@@ -58,6 +64,25 @@ interface Contract {
   } | null;
 }
 
+interface Property {
+  id: string;
+  name: string;
+  units: { id: string; unit_number: string; status: string; rent_amount: number }[];
+}
+
+const contractSchema = z.object({
+  unit_id: z.string().min(1, 'Please select a unit'),
+  tenant_email: z.string().email('Tenant email is required'),
+  start_date: z.string().min(1, 'Start date is required'),
+  end_date: z.string().min(1, 'End date is required'),
+  rent_amount: z.coerce.number().positive('Rent must be positive'),
+  deposit_amount: z.coerce.number().min(0),
+  billing_day: z.coerce.number().min(1).max(28).optional(),
+  terms: z.string().optional(),
+});
+
+type ContractFormData = z.infer<typeof contractSchema>;
+
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
@@ -77,7 +102,22 @@ export default function MerchantContracts() {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [editTermsDialogOpen, setEditTermsDialogOpen] = useState(false);
   const [editingTerms, setEditingTerms] = useState('');
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
 
+  const contractForm = useForm<ContractFormData>({
+    resolver: zodResolver(contractSchema),
+    defaultValues: {
+      unit_id: '',
+      tenant_email: '',
+      start_date: '',
+      end_date: '',
+      rent_amount: 0,
+      deposit_amount: 0,
+      billing_day: undefined,
+      terms: '',
+    },
+  });
   const { data: contracts, isLoading } = useQuery({
     queryKey: ['merchant-contracts', merchant?.id],
     queryFn: async () => {
@@ -103,6 +143,27 @@ export default function MerchantContracts() {
     enabled: !!merchant?.id,
   });
 
+  // Fetch properties with units for create dialog
+  const { data: properties = [] } = useQuery({
+    queryKey: ['properties-with-units', merchant?.id],
+    queryFn: async () => {
+      if (!merchant?.id) return [];
+      const { data, error } = await supabase
+        .from('properties')
+        .select('id, name, units(id, unit_number, status, rent_amount)')
+        .eq('merchant_id', merchant.id);
+      if (error) throw error;
+      return data as Property[];
+    },
+    enabled: !!merchant?.id,
+  });
+
+  const availableUnits = properties.flatMap(p => 
+    (p.units || [])
+      .filter(u => u.status === 'available')
+      .map(u => ({ ...u, propertyName: p.name }))
+  );
+
   // Fetch tenant profiles
   const tenantIds = contracts?.map(c => c.tenant_user_id) || [];
   const { data: tenantProfiles } = useQuery({
@@ -118,6 +179,36 @@ export default function MerchantContracts() {
     },
     enabled: tenantIds.length > 0,
   });
+
+  const handleCreateContract = async (data: ContractFormData) => {
+    if (!merchant) return;
+    setCreateLoading(true);
+    try {
+      const { error } = await supabase
+        .from('contracts')
+        .insert({
+          merchant_id: merchant.id,
+          unit_id: data.unit_id,
+          tenant_user_id: '00000000-0000-0000-0000-000000000000',
+          start_date: data.start_date,
+          end_date: data.end_date,
+          rent_amount: data.rent_amount,
+          deposit_amount: data.deposit_amount,
+          billing_day: data.billing_day || null,
+          terms: data.terms || null,
+          status: 'draft',
+        });
+      if (error) throw error;
+      toast.success('Contract created successfully');
+      setShowCreateDialog(false);
+      contractForm.reset();
+      queryClient.invalidateQueries({ queryKey: ['merchant-contracts'] });
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to create contract');
+    } finally {
+      setCreateLoading(false);
+    }
+  };
 
   const profileMap = new Map(tenantProfiles?.map(p => [p.user_id, p]) || []);
 
@@ -299,15 +390,60 @@ export default function MerchantContracts() {
   const pastContracts = filteredContracts.filter(c => c.status !== 'active');
 
   return (
-    <MerchantLayout>
+    <MerchantLayout
+      title="Contracts"
+      description="Manage rental agreements with your tenants"
+      actions={
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Contract
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create Contract</DialogTitle>
+              <DialogDescription>Create a new rental contract for a tenant</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={contractForm.handleSubmit(handleCreateContract)} className="space-y-4">
+              <div>
+                <Label>Select Unit</Label>
+                <Select value={contractForm.watch('unit_id')} onValueChange={(v) => contractForm.setValue('unit_id', v)}>
+                  <SelectTrigger><SelectValue placeholder="Choose a unit" /></SelectTrigger>
+                  <SelectContent>
+                    {availableUnits.map((unit) => (
+                      <SelectItem key={unit.id} value={unit.id}>{unit.propertyName} - Unit {unit.unit_number}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Tenant Email</Label>
+                <Input type="email" placeholder="tenant@example.com" {...contractForm.register('tenant_email')} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><Label>Start Date</Label><Input type="date" {...contractForm.register('start_date')} /></div>
+                <div><Label>End Date</Label><Input type="date" {...contractForm.register('end_date')} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><Label>Monthly Rent (IDR)</Label><Input type="number" {...contractForm.register('rent_amount')} /></div>
+                <div><Label>Deposit (IDR)</Label><Input type="number" {...contractForm.register('deposit_amount')} /></div>
+              </div>
+              <div>
+                <Label>Terms & Conditions</Label>
+                <Textarea placeholder="Contract terms..." {...contractForm.register('terms')} rows={3} />
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>Cancel</Button>
+                <Button type="submit" disabled={createLoading}>{createLoading ? 'Creating...' : 'Create Contract'}</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      }
+    >
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-display font-bold">Contracts</h1>
-            <p className="text-muted-foreground">Manage rental agreements with your tenants</p>
-          </div>
-        </div>
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
