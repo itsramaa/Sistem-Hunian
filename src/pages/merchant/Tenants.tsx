@@ -79,6 +79,7 @@ const contractSchema = z.object({
   end_date: z.string().min(1, 'End date is required'),
   rent_amount: z.coerce.number().positive('Rent must be positive'),
   deposit_amount: z.coerce.number().min(0),
+  billing_day: z.coerce.number().min(1).max(28).optional(),
   terms: z.string().optional(),
 });
 
@@ -126,6 +127,7 @@ export default function MerchantTenants() {
       end_date: '',
       rent_amount: 0,
       deposit_amount: 0,
+      billing_day: undefined,
       terms: '',
     },
   });
@@ -243,6 +245,7 @@ export default function MerchantTenants() {
           end_date: data.end_date,
           rent_amount: data.rent_amount,
           deposit_amount: data.deposit_amount,
+          billing_day: data.billing_day || null,
           terms: data.terms || null,
           status: 'draft',
         });
@@ -462,6 +465,28 @@ export default function MerchantTenants() {
                         {...contractForm.register('deposit_amount')}
                       />
                     </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="billing_day">Billing Day (1-28)</Label>
+                    <Select 
+                      value={contractForm.watch('billing_day')?.toString() || ''} 
+                      onValueChange={(value) => contractForm.setValue('billing_day', value ? parseInt(value) : undefined)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Use merchant default" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Use merchant default</SelectItem>
+                        {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
+                          <SelectItem key={day} value={day.toString()}>
+                            Day {day}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Leave empty to use your default billing day
+                    </p>
                   </div>
                   <div>
                     <Label htmlFor="terms">Terms & Conditions</Label>
