@@ -312,27 +312,24 @@ export default function MerchantProperties() {
   const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
 
   return (
-    <MerchantLayout>
+    <MerchantLayout 
+      title="Properties" 
+      description="Manage your rental properties"
+      actions={
+        <Button 
+          onClick={() => setShowAddDialog(true)}
+          disabled={limits && !limits.canAddProperty}
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Add Property
+        </Button>
+      }
+    >
       <div className="space-y-6">
         {/* Subscription limit warning */}
         <SubscriptionLimitWarning type="property" />
         
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-display font-bold">Properties</h1>
-            <p className="text-muted-foreground">Manage your rental properties</p>
-          </div>
-          <Dialog open={showAddDialog} onOpenChange={handleDialogClose}>
-            <DialogTrigger asChild>
-              <Button 
-                onClick={() => setShowAddDialog(true)}
-                disabled={limits && !limits.canAddProperty && !editingProperty}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Property
-              </Button>
-            </DialogTrigger>
+        <Dialog open={showAddDialog} onOpenChange={handleDialogClose}>
             <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle>{editingProperty ? 'Edit Property' : 'Add New Property'}</DialogTitle>
@@ -449,7 +446,6 @@ export default function MerchantProperties() {
               </form>
             </DialogContent>
           </Dialog>
-        </div>
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

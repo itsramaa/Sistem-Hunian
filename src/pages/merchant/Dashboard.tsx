@@ -261,28 +261,8 @@ export default function MerchantDashboard() {
   ];
 
   return (
-    <MerchantLayout>
+    <MerchantLayout description="Welcome back! Here's an overview of your properties.">
       <div className="space-y-6">
-        {/* Page Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-display font-bold">Dashboard</h1>
-            <p className="text-muted-foreground">
-              Welcome back! Here's an overview of your properties.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button variant="outline" onClick={() => navigate('/merchant/reports')}>
-              <FileText className="h-4 w-4 mr-2" />
-              Generate Report
-            </Button>
-            <Button onClick={() => navigate('/merchant/properties')}>
-              <Home className="h-4 w-4 mr-2" />
-              Add Property
-            </Button>
-          </div>
-        </div>
-
         {/* Trial Countdown Widget */}
         <TrialCountdownWidget />
 

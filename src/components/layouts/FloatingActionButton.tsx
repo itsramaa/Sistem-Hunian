@@ -11,6 +11,7 @@ interface FloatingActionButtonProps {
   onClick: () => void;
   icon?: LucideIcon;
   className?: string;
+  hasBottomNav?: boolean;
 }
 
 export function FloatingActionButton({ 
@@ -18,7 +19,8 @@ export function FloatingActionButton({
   isOpen = false, 
   onClick, 
   icon: CustomIcon,
-  className 
+  className,
+  hasBottomNav = false,
 }: FloatingActionButtonProps) {
   if (type === 'none') return null;
 
@@ -31,7 +33,7 @@ export function FloatingActionButton({
       onClick={onClick}
       className={cn(
         "fixed z-50 h-14 w-14 rounded-full shadow-lg transition-all duration-300",
-        "bottom-20 right-4", // Above bottom nav
+        hasBottomNav ? "bottom-20 right-4" : "bottom-6 right-4",
         type === 'ai' && isOpen && "rotate-90",
         type === 'create' && "bg-primary hover:bg-primary/90",
         className
