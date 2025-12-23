@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { Link2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -320,6 +321,30 @@ export default function MerchantTenants() {
             <p className="text-muted-foreground">Manage tenant invitations and contracts</p>
           </div>
           <div className="flex gap-2">
+            {/* Copy Invitation Link Button */}
+            <Button 
+              variant="outline"
+              onClick={() => {
+                if (!merchant?.merchant_code) {
+                  toast({
+                    variant: 'destructive',
+                    title: 'Error',
+                    description: 'Merchant code not found. Please contact support.',
+                  });
+                  return;
+                }
+                const inviteUrl = `${window.location.origin}/auth?mode=signup&role=tenant&merchantCode=${merchant.merchant_code}`;
+                navigator.clipboard.writeText(inviteUrl);
+                toast({
+                  title: 'Link Copied!',
+                  description: 'Tenant invitation link copied to clipboard',
+                });
+              }}
+            >
+              <Link2 className="h-4 w-4 mr-2" />
+              Copy Invite Link
+            </Button>
+            
             <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
               <DialogTrigger asChild>
                 <Button variant="outline">

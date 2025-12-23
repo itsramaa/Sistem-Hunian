@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 interface NotificationRequest {
-  type: "invoice" | "payment_reminder" | "maintenance_update" | "subscription_upgrade" | "subscription_payment" | "general";
+  type: "invoice" | "payment_reminder" | "maintenance_update" | "subscription_upgrade" | "subscription_payment" | "tenant_registration" | "general";
   recipientEmail: string;
   recipientName: string;
   subject?: string;
@@ -150,6 +150,35 @@ const getEmailTemplate = (type: string, data: Record<string, any>, recipientName
               </div>
               
               <p style="color: #9ca3af; font-size: 12px; margin-top: 30px;">This is your payment confirmation from SiHuni.</p>
+            </div>
+          </div>
+        `,
+      };
+
+    case "tenant_registration":
+      return {
+        subject: `New Tenant Registered: ${data.tenantName}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">🎉 New Tenant!</h1>
+            </div>
+            <div style="padding: 30px; background: #f9fafb;">
+              <p style="color: #6b7280;">Hi ${recipientName},</p>
+              <p style="color: #6b7280;">Great news! A new tenant has registered using your merchant code.</p>
+              
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                <p style="margin: 5px 0; color: #374151;"><strong>Tenant Name:</strong> ${data.tenantName}</p>
+                <p style="margin: 5px 0; color: #374151;"><strong>Email:</strong> ${data.tenantEmail}</p>
+                <p style="margin: 5px 0; color: #374151;"><strong>Phone:</strong> ${data.tenantPhone || 'Not provided'}</p>
+                <p style="margin: 5px 0; color: #374151;"><strong>Registered At:</strong> ${data.registeredAt}</p>
+              </div>
+              
+              <p style="color: #6b7280;">You can now create a contract for this tenant and assign them to a unit.</p>
+              
+              <a href="${data.dashboardLink || '#'}" style="display: inline-block; background: #0891b2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 15px;">Go to Tenants</a>
+              
+              <p style="color: #9ca3af; font-size: 12px; margin-top: 30px;">This email was sent by SiHuni Property Management.</p>
             </div>
           </div>
         `,
