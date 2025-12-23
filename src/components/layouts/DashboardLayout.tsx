@@ -12,7 +12,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { DashboardSidebar } from "./DashboardSidebar";
+import { AppSidebar } from "./sidebar/app-sidebar";
 import { MobileLayout } from "./MobileLayout";
 import { UserRole, navigationConfig, getAllNavItems } from "./navigation-config";
 
@@ -71,7 +71,7 @@ export function DashboardLayout({
   // Auto-detect page label from navigation config if no title provided
   const pageLabel = title || getCurrentPageLabel(role, location.pathname);
 
-  // Mobile: Use mobile layout with bottom nav (tenant) or drawer (others)
+  // Mobile: Use mobile layout with bottom nav (tenant) or simplified header (others)
   if (isMobile) {
     return (
       <MobileLayout
@@ -87,69 +87,67 @@ export function DashboardLayout({
     );
   }
 
-  // Desktop: Use sidebar layout (same for all roles)
+  // Desktop: Use sidebar layout with inset variant (sidebar-08 pattern)
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
-        <DashboardSidebar role={role} />
-        <SidebarInset>
-          {/* Header with breadcrumb only */}
-          <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="flex items-center gap-2 px-4">
-              <SidebarTrigger className="-ml-1" />
-              <Separator orientation="vertical" className="mr-2 h-4" />
-              <Breadcrumb>
-                <BreadcrumbList>
-                  <BreadcrumbItem>
-                    {isRootPage ? (
-                      <BreadcrumbPage className="text-sm font-medium">
+      <AppSidebar role={role} />
+      <SidebarInset>
+        {/* Header with breadcrumb */}
+        <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+          <div className="flex items-center gap-2 px-4">
+            <SidebarTrigger className="-ml-1" />
+            <Separator orientation="vertical" className="mr-2 h-4" />
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem className="hidden md:block">
+                  {isRootPage ? (
+                    <BreadcrumbPage className="text-sm font-medium">
+                      {getRoleDashboardLabel(role)}
+                    </BreadcrumbPage>
+                  ) : (
+                    <BreadcrumbLink asChild>
+                      <Link to={basePath} className="text-sm">
                         {getRoleDashboardLabel(role)}
-                      </BreadcrumbPage>
-                    ) : (
-                      <BreadcrumbLink asChild>
-                        <Link to={basePath} className="text-sm">
-                          {getRoleDashboardLabel(role)}
-                        </Link>
-                      </BreadcrumbLink>
-                    )}
-                  </BreadcrumbItem>
-                  {!isRootPage && pageLabel && (
-                    <>
-                      <BreadcrumbSeparator />
-                      <BreadcrumbItem>
-                        <BreadcrumbPage className="text-sm font-medium">
-                          {pageLabel}
-                        </BreadcrumbPage>
-                      </BreadcrumbItem>
-                    </>
+                      </Link>
+                    </BreadcrumbLink>
                   )}
-                </BreadcrumbList>
-              </Breadcrumb>
-            </div>
-            <div className="ml-auto flex items-center gap-2 px-4">
-              <NotificationsDropdown />
-            </div>
-          </header>
-
-          {/* Main Content */}
-          <div className="flex flex-1 flex-col gap-6 p-6">
-            {/* Page Toolbar - description and actions */}
-            {(description || actions) && (
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                {description && (
-                  <p className="text-sm text-muted-foreground">{description}</p>
+                </BreadcrumbItem>
+                {!isRootPage && pageLabel && (
+                  <>
+                    <BreadcrumbSeparator className="hidden md:block" />
+                    <BreadcrumbItem>
+                      <BreadcrumbPage className="text-sm font-medium">
+                        {pageLabel}
+                      </BreadcrumbPage>
+                    </BreadcrumbItem>
+                  </>
                 )}
-                {actions && (
-                  <div className="flex items-center gap-2 shrink-0">
-                    {actions}
-                  </div>
-                )}
-              </div>
-            )}
-            {children}
+              </BreadcrumbList>
+            </Breadcrumb>
           </div>
-        </SidebarInset>
-      </div>
+          <div className="ml-auto flex items-center gap-2 px-4">
+            <NotificationsDropdown />
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+          {/* Page Toolbar - description and actions */}
+          {(description || actions) && (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              {description && (
+                <p className="text-sm text-muted-foreground">{description}</p>
+              )}
+              {actions && (
+                <div className="flex items-center gap-2 shrink-0">
+                  {actions}
+                </div>
+              )}
+            </div>
+          )}
+          {children}
+        </div>
+      </SidebarInset>
     </SidebarProvider>
   );
 }
