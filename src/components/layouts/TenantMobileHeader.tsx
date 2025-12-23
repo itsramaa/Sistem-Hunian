@@ -24,8 +24,8 @@ export function TenantMobileHeader({
   const mainPages = [
     "/tenant",
     "/tenant/payments", 
-    "/tenant/maintenance",
-    "/tenant/marketplace",
+    "/tenant/forum",
+    "/tenant/orders",
     "/tenant/settings"
   ];
   
