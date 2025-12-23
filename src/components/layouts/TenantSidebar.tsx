@@ -14,6 +14,7 @@ import {
   ChevronUp,
   Bell,
   User,
+  Command,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -21,11 +22,13 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
 import {
@@ -37,15 +40,23 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-// All navigation items in one flat list
-const navItems = [
+// Main navigation items
+const mainNavItems = [
   { path: "/tenant", icon: LayoutDashboard, label: "Dashboard" },
   { path: "/tenant/payments", icon: Wallet, label: "Pembayaran" },
   { path: "/tenant/invoices", icon: FileText, label: "Tagihan" },
   { path: "/tenant/contracts", icon: ClipboardList, label: "Kontrak" },
+];
+
+// Activity items
+const activityItems = [
   { path: "/tenant/maintenance", icon: Wrench, label: "Maintenance" },
   { path: "/tenant/orders", icon: ShoppingBag, label: "Pesanan" },
   { path: "/tenant/forum", icon: MessageSquare, label: "Forum" },
+];
+
+// Other items
+const otherItems = [
   { path: "/tenant/marketplace", icon: Store, label: "Marketplace" },
   { path: "/tenant/referrals", icon: Gift, label: "Referral" },
 ];
@@ -76,97 +87,131 @@ export function TenantSidebar() {
     .toUpperCase()
     .slice(0, 2) || "T";
 
-  return (
-    <Sidebar collapsible="icon" className="border-r">
-      {/* Header - Logo/Brand */}
-      <SidebarHeader className="border-b px-4 py-3">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
-            <LayoutDashboard className="h-4 w-4 text-primary-foreground" />
-          </div>
-          {!isCollapsed && (
-            <span className="text-base font-semibold">SiHuni</span>
+  const NavItem = ({ item }: { item: { path: string; icon: any; label: string } }) => (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        asChild
+        isActive={isActive(item.path)}
+        tooltip={item.label}
+      >
+        <a
+          href={item.path}
+          onClick={(e) => {
+            e.preventDefault();
+            navigate(item.path);
+          }}
+          className={cn(
+            isActive(item.path) && "bg-sidebar-accent text-sidebar-accent-foreground"
           )}
-        </div>
+        >
+          <item.icon />
+          <span>{item.label}</span>
+        </a>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+
+  return (
+    <Sidebar variant="inset" collapsible="icon">
+      {/* Header - Brand/Logo */}
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" asChild>
+              <a href="/tenant" onClick={(e) => { e.preventDefault(); navigate("/tenant"); }}>
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                  <Command className="size-4" />
+                </div>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold">SiHuni</span>
+                  <span className="truncate text-xs">Tenant Portal</span>
+                </div>
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
 
-      {/* Content - Navigation Menu */}
-      <SidebarContent className="px-2 py-2">
-        <SidebarMenu>
-          {navItems.map((item) => (
-            <SidebarMenuItem key={item.path}>
-              <SidebarMenuButton
-                asChild
-                isActive={isActive(item.path)}
-                tooltip={item.label}
-                className="h-9"
-              >
-                <a
-                  href={item.path}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    navigate(item.path);
-                  }}
-                  className={cn(
-                    "rounded-lg",
-                    isActive(item.path) && "bg-primary/10 text-primary font-medium"
-                  )}
-                >
-                  <item.icon className="h-4 w-4" />
-                  <span>{item.label}</span>
-                </a>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
+      {/* Content - Navigation */}
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Menu Utama</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {mainNavItems.map((item) => (
+                <NavItem key={item.path} item={item} />
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Aktivitas</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {activityItems.map((item) => (
+                <NavItem key={item.path} item={item} />
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Lainnya</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {otherItems.map((item) => (
+                <NavItem key={item.path} item={item} />
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
-      {/* Footer - User Dropdown */}
-      <SidebarFooter className="border-t p-2">
+      {/* Footer - User Account */}
+      <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size="lg"
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground h-auto py-2"
+                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
-                  <Avatar className="h-8 w-8 shrink-0 rounded-lg">
+                  <Avatar className="h-8 w-8 rounded-lg">
                     <AvatarImage src={profile?.avatar_url || ""} alt={profile?.full_name || "Tenant"} />
-                    <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-xs font-semibold">
+                    <AvatarFallback className="rounded-lg">
                       {initials}
                     </AvatarFallback>
                   </Avatar>
-                  {!isCollapsed && (
-                    <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-medium text-sm">{profile?.full_name || "Tenant"}</span>
-                      <span className="truncate text-xs text-muted-foreground">{profile?.email}</span>
-                    </div>
-                  )}
-                  {!isCollapsed && <ChevronUp className="ml-auto h-4 w-4 shrink-0" />}
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">{profile?.full_name || "Tenant"}</span>
+                    <span className="truncate text-xs">{profile?.email}</span>
+                  </div>
+                  <ChevronUp className="ml-auto size-4" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
-                className="w-56 rounded-lg bg-popover"
-                side="top"
-                align="start"
-                sideOffset={8}
+                className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+                side="bottom"
+                align="end"
+                sideOffset={4}
               >
                 <DropdownMenuItem onClick={() => navigate("/tenant/settings")}>
-                  <User className="mr-2 h-4 w-4" />
+                  <User className="mr-2 size-4" />
                   Profil Saya
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/tenant/settings")}>
-                  <Settings className="mr-2 h-4 w-4" />
+                  <Settings className="mr-2 size-4" />
                   Pengaturan
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/tenant/settings")}>
-                  <Bell className="mr-2 h-4 w-4" />
+                  <Bell className="mr-2 size-4" />
                   Notifikasi
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
-                  <LogOut className="mr-2 h-4 w-4" />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 size-4" />
                   Keluar
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -174,8 +219,6 @@ export function TenantSidebar() {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
-
-      <SidebarRail />
     </Sidebar>
   );
 }
