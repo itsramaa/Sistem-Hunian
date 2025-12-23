@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Plus, MessageSquare, Heart, Eye, Loader2, Search, Pin, ImageIcon, X } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
@@ -33,6 +34,7 @@ export default function TenantForum() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newPost, setNewPost] = useState({ title: "", content: "", tags: "", photos: [] as string[] });
@@ -232,97 +234,106 @@ export default function TenantForum() {
     return email?.[0]?.toUpperCase() || "U";
   };
 
+  // Create post dialog content
+  const createPostDialog = (
+    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      {!isMobile && (
+        <DialogTrigger asChild>
+          <Button size="sm">
+            <Plus className="mr-1.5 h-4 w-4" />
+            <span className="hidden sm:inline">Buat Post</span>
+            <span className="sm:hidden">Post</span>
+          </Button>
+        </DialogTrigger>
+      )}
+      <DialogContent className="max-w-lg mx-4">
+        <DialogHeader>
+          <DialogTitle>Buat Post Baru</DialogTitle>
+        </DialogHeader>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            createPostMutation.mutate();
+          }}
+          className="space-y-4"
+        >
+          <div className="space-y-2">
+            <Label htmlFor="title">Judul *</Label>
+            <Input
+              id="title"
+              value={newPost.title}
+              onChange={(e) => setNewPost({ ...newPost, title: e.target.value })}
+              placeholder="Apa yang ingin kamu bagikan?"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="content">Konten *</Label>
+            <Textarea
+              id="content"
+              value={newPost.content}
+              onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
+              placeholder="Tulis detail di sini..."
+              rows={4}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="tags">Tags (pisahkan dengan koma)</Label>
+            <Input
+              id="tags"
+              value={newPost.tags}
+              onChange={(e) => setNewPost({ ...newPost, tags: e.target.value })}
+              placeholder="contoh: pertanyaan, tips, diskusi"
+            />
+          </div>
+          {/* Photo Upload */}
+          <div className="space-y-2">
+            <Label>Foto (opsional)</Label>
+            <div className="flex flex-wrap gap-2">
+              {newPost.photos.map((url, i) => (
+                <div key={i} className="relative h-14 w-14">
+                  <img src={url} alt="" className="h-full w-full rounded-lg object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setNewPost(p => ({ ...p, photos: p.photos.filter((_, idx) => idx !== i) }))}
+                    className="absolute -right-1 -top-1 rounded-full bg-destructive p-0.5 text-destructive-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              {newPost.photos.length < 4 && (
+                <label className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed hover:border-primary transition-colors">
+                  <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
+                  <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                </label>
+              )}
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsDialogOpen(false)}>
+              Batal
+            </Button>
+            <Button type="submit" size="sm" disabled={createPostMutation.isPending}>
+              {createPostMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Posting
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+
   return (
     <TenantLayout
       title="Forum Komunitas"
       description="Terhubung dengan penghuni lain"
-      actions={
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Plus className="mr-1.5 h-4 w-4" />
-              <span className="hidden sm:inline">Buat Post</span>
-              <span className="sm:hidden">Post</span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg mx-4">
-            <DialogHeader>
-              <DialogTitle>Buat Post Baru</DialogTitle>
-            </DialogHeader>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                createPostMutation.mutate();
-              }}
-              className="space-y-4"
-            >
-              <div className="space-y-2">
-                <Label htmlFor="title">Judul *</Label>
-                <Input
-                  id="title"
-                  value={newPost.title}
-                  onChange={(e) => setNewPost({ ...newPost, title: e.target.value })}
-                  placeholder="Apa yang ingin kamu bagikan?"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="content">Konten *</Label>
-                <Textarea
-                  id="content"
-                  value={newPost.content}
-                  onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
-                  placeholder="Tulis detail di sini..."
-                  rows={4}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="tags">Tags (pisahkan dengan koma)</Label>
-                <Input
-                  id="tags"
-                  value={newPost.tags}
-                  onChange={(e) => setNewPost({ ...newPost, tags: e.target.value })}
-                  placeholder="contoh: pertanyaan, tips, diskusi"
-                />
-              </div>
-              {/* Photo Upload */}
-              <div className="space-y-2">
-                <Label>Foto (opsional)</Label>
-                <div className="flex flex-wrap gap-2">
-                  {newPost.photos.map((url, i) => (
-                    <div key={i} className="relative h-14 w-14">
-                      <img src={url} alt="" className="h-full w-full rounded-lg object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => setNewPost(p => ({ ...p, photos: p.photos.filter((_, idx) => idx !== i) }))}
-                        className="absolute -right-1 -top-1 rounded-full bg-destructive p-0.5 text-destructive-foreground"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                  {newPost.photos.length < 4 && (
-                    <label className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed hover:border-primary transition-colors">
-                      <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
-                      <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                    </label>
-                  )}
-                </div>
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => setIsDialogOpen(false)}>
-                  Batal
-                </Button>
-                <Button type="submit" size="sm" disabled={createPostMutation.isPending}>
-                  {createPostMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Posting
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      }
+      actions={createPostDialog}
+      floatingAction={isMobile ? {
+        type: 'create',
+        onClick: () => setIsDialogOpen(true)
+      } : undefined}
     >
       <div className="space-y-4">
         {/* Property Filter Info & Toggle */}

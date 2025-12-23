@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Settings } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { NotificationsDropdown } from "@/components/notifications/NotificationsDropdown";
@@ -26,12 +26,15 @@ export function TenantMobileHeader({
     "/tenant/payments", 
     "/tenant/forum",
     "/tenant/orders",
-    "/tenant/settings"
+    "/tenant/profile"
   ];
   
   // Check if current path is a main page (exact match)
   const isMainPage = mainPages.includes(location.pathname);
   const shouldShowBack = showBack ?? !isMainPage;
+  
+  // Check if we're on the profile page
+  const isProfilePage = location.pathname === '/tenant/profile';
 
   return (
     <header className="sticky top-0 z-40 bg-background border-b">
@@ -58,7 +61,18 @@ export function TenantMobileHeader({
 
         <div className="flex items-center gap-2 shrink-0">
           {actions}
-          <NotificationsDropdown />
+          {isProfilePage ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => navigate('/tenant/settings')}
+            >
+              <Settings className="h-5 w-5" />
+            </Button>
+          ) : (
+            <NotificationsDropdown />
+          )}
         </div>
       </div>
     </header>
