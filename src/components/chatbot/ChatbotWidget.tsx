@@ -143,45 +143,45 @@ export function ChatbotWidget() {
           if (!isOpen) trackChatbotOpened();
         }}
         className={cn(
-          "fixed z-50 h-14 w-14 rounded-full shadow-lg transition-all duration-300",
-          "bottom-24 right-4 md:bottom-6 md:right-6", // Above bottom nav on mobile
+          "fixed z-50 h-12 w-12 rounded-full shadow-lg transition-all duration-300",
+          "bottom-20 right-4 md:bottom-6 md:right-6", // Above bottom nav on mobile
           isOpen && "rotate-90"
         )}
         size="icon"
       >
-        {isOpen ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
+        {isOpen ? <X className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}
       </Button>
 
       {/* Chat Widget - Full screen on mobile, floating on desktop */}
       {isOpen && (
         <div className={cn(
-          "fixed z-50 overflow-hidden bg-card shadow-2xl",
+          "fixed z-50 overflow-hidden bg-background shadow-2xl flex flex-col",
           // Mobile: Full screen with safe areas
           "inset-0 md:inset-auto",
           // Desktop: Floating widget
-          "md:bottom-24 md:right-6 md:w-[380px] md:max-w-[calc(100vw-3rem)] md:rounded-xl md:border"
+          "md:bottom-24 md:right-6 md:w-[380px] md:h-[500px] md:max-w-[calc(100vw-3rem)] md:rounded-2xl md:border"
         )}>
           {/* Header */}
-          <div className="flex items-center gap-3 bg-primary p-4 text-primary-foreground safe-area-top">
+          <div className="flex items-center gap-3 bg-primary p-3 text-primary-foreground shrink-0">
             <Button
               variant="ghost"
               size="icon"
-              className="md:hidden h-9 w-9 text-primary-foreground hover:bg-primary-foreground/20"
+              className="md:hidden h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
               onClick={() => setIsOpen(false)}
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
             </Button>
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-foreground/20">
-              <Bot className="h-5 w-5" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-foreground/20">
+              <Bot className="h-4 w-4" />
             </div>
-            <div className="flex-1">
-              <h3 className="font-semibold">Sihuni Assistant</h3>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-sm">Sihuni Assistant</h3>
               <p className="text-xs opacity-80">Tanya apa saja!</p>
             </div>
           </div>
 
           {/* Messages */}
-          <ScrollArea className="h-[calc(100vh-180px)] md:h-[350px] p-4" ref={scrollRef}>
+          <ScrollArea className="flex-1 p-4" ref={scrollRef}>
             {messages.length === 0 ? (
               <div className="flex flex-col gap-4">
                 <p className="text-sm text-muted-foreground">
@@ -242,15 +242,15 @@ export function ChatbotWidget() {
           </ScrollArea>
 
           {/* Input - with safe area on mobile */}
-          <form onSubmit={handleSubmit} className="flex gap-2 border-t p-4 bg-background safe-area-bottom">
+          <form onSubmit={handleSubmit} className="flex gap-2 border-t p-3 bg-background shrink-0 safe-area-bottom">
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Ketik pesan..."
               disabled={isLoading}
-              className="flex-1 rounded-full"
+              className="flex-1 rounded-full h-10"
             />
-            <Button type="submit" size="icon" disabled={isLoading || !input.trim()} className="rounded-full">
+            <Button type="submit" size="icon" disabled={isLoading || !input.trim()} className="rounded-full h-10 w-10 shrink-0">
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (

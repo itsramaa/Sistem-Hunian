@@ -2,8 +2,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard, 
   Wallet, 
-  Wrench, 
-  Store, 
+  MessageSquare, 
+  ShoppingBag, 
   User
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -11,8 +11,8 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { path: "/tenant", icon: LayoutDashboard, label: "Beranda" },
   { path: "/tenant/payments", icon: Wallet, label: "Bayar" },
-  { path: "/tenant/maintenance", icon: Wrench, label: "Lapor" },
-  { path: "/tenant/marketplace", icon: Store, label: "Market" },
+  { path: "/tenant/forum", icon: MessageSquare, label: "Forum" },
+  { path: "/tenant/orders", icon: ShoppingBag, label: "Pesanan" },
   { path: "/tenant/settings", icon: User, label: "Profil" },
 ];
 

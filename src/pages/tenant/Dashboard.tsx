@@ -4,26 +4,25 @@ import { useAuth } from '@/hooks/useAuth';
 import { TenantLayout } from '@/components/layouts/TenantLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { 
   Wrench, 
   DollarSign, 
   FileText, 
-  ShoppingBag,
-  MessageSquare,
+  Store,
   Gift,
-  ChevronRight
+  ChevronRight,
+  ClipboardList
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { useAnalytics } from '@/hooks/useAnalytics';
 
-// Quick action items for homepage (like Shopee/Tokopedia)
+// Quick action items for homepage - 4 column grid (excludes items in bottom nav)
 const quickActions = [
-  { path: "/tenant/orders", icon: ShoppingBag, label: "Pesanan", color: "bg-orange-500/10 text-orange-600" },
+  { path: "/tenant/maintenance", icon: Wrench, label: "Lapor", color: "bg-orange-500/10 text-orange-600" },
   { path: "/tenant/invoices", icon: FileText, label: "Tagihan", color: "bg-purple-500/10 text-purple-600" },
-  { path: "/tenant/contracts", icon: FileText, label: "Kontrak", color: "bg-blue-500/10 text-blue-600" },
-  { path: "/tenant/forum", icon: MessageSquare, label: "Forum", color: "bg-green-500/10 text-green-600" },
+  { path: "/tenant/contracts", icon: ClipboardList, label: "Kontrak", color: "bg-blue-500/10 text-blue-600" },
+  { path: "/tenant/marketplace", icon: Store, label: "Market", color: "bg-emerald-500/10 text-emerald-600" },
   { path: "/tenant/referrals", icon: Gift, label: "Referral", color: "bg-pink-500/10 text-pink-600" },
 ];
 
@@ -88,31 +87,26 @@ export default function TenantDashboard() {
       description="Kelola hunian & kebutuhanmu"
       showBack={false}
     >
-      {/* Quick Actions - Horizontal Scroll like Shopee/Tokopedia */}
-      <div className="mb-6">
-        <ScrollArea className="w-full whitespace-nowrap">
-          <div className="flex gap-3 pb-2">
-            {quickActions.map((action) => (
-              <Link 
-                key={action.path} 
-                to={action.path}
-                className="flex flex-col items-center gap-2 min-w-[72px]"
-              >
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${action.color}`}>
-                  <action.icon className="h-5 w-5" />
-                </div>
-                <span className="text-xs font-medium text-muted-foreground">{action.label}</span>
-              </Link>
-            ))}
-          </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
+      {/* Quick Actions - 4 Column Grid */}
+      <div className="grid grid-cols-4 gap-3 mb-6">
+        {quickActions.map((action) => (
+          <Link 
+            key={action.path} 
+            to={action.path}
+            className="flex flex-col items-center gap-2"
+          >
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${action.color} transition-transform hover:scale-105`}>
+              <action.icon className="h-6 w-6" />
+            </div>
+            <span className="text-xs font-medium text-muted-foreground text-center leading-tight">{action.label}</span>
+          </Link>
+        ))}
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-3 mb-6">
         <Link to="/tenant/maintenance">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-primary">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-primary h-full">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -127,12 +121,12 @@ export default function TenantDashboard() {
           </Card>
         </Link>
         <Link to="/tenant/payments">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-destructive">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-destructive h-full">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-2xl font-bold">{pendingPayments.length}</p>
-                  <p className="text-xs text-muted-foreground">Tagihan Belum Bayar</p>
+                  <p className="text-xs text-muted-foreground">Tagihan Pending</p>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center">
                   <DollarSign className="h-5 w-5 text-destructive" />
@@ -147,13 +141,13 @@ export default function TenantDashboard() {
       <Card className="mb-4">
         <CardHeader className="flex flex-row items-center justify-between py-3 px-4">
           <CardTitle className="text-base font-semibold">Pembayaran Terbaru</CardTitle>
-          <Link to="/tenant/payments" className="text-xs text-primary flex items-center gap-1">
+          <Link to="/tenant/payments" className="text-xs text-primary flex items-center gap-1 font-medium">
             Lihat Semua <ChevronRight className="h-3 w-3" />
           </Link>
         </CardHeader>
         <CardContent className="px-4 pb-4 pt-0">
           {payments.length === 0 ? (
-            <p className="text-muted-foreground text-center py-4 text-sm">Belum ada pembayaran</p>
+            <p className="text-muted-foreground text-center py-6 text-sm">Belum ada pembayaran</p>
           ) : (
             <div className="space-y-2">
               {payments.slice(0, 3).map((payment) => (
@@ -188,23 +182,23 @@ export default function TenantDashboard() {
       </Card>
 
       {/* Maintenance Requests */}
-      <Card>
+      <Card className="mb-20">
         <CardHeader className="flex flex-row items-center justify-between py-3 px-4">
           <CardTitle className="text-base font-semibold">Laporan Maintenance</CardTitle>
-          <Link to="/tenant/maintenance" className="text-xs text-primary flex items-center gap-1">
+          <Link to="/tenant/maintenance" className="text-xs text-primary flex items-center gap-1 font-medium">
             Buat Laporan <ChevronRight className="h-3 w-3" />
           </Link>
         </CardHeader>
         <CardContent className="px-4 pb-4 pt-0">
           {maintenanceRequests.length === 0 ? (
-            <p className="text-muted-foreground text-center py-4 text-sm">Belum ada laporan</p>
+            <p className="text-muted-foreground text-center py-6 text-sm">Belum ada laporan</p>
           ) : (
             <div className="space-y-2">
               {maintenanceRequests.slice(0, 3).map((request) => (
                 <Link 
                   key={request.id} 
                   to={`/tenant/maintenance/${request.id}`}
-                  className="flex items-center justify-between p-3 bg-muted/50 rounded-xl hover:bg-muted transition-colors"
+                  className="flex items-center justify-between p-3 bg-muted/50 rounded-xl hover:bg-muted transition-colors block"
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-background flex items-center justify-center">
@@ -220,7 +214,7 @@ export default function TenantDashboard() {
                   <Badge variant={
                     request.status === 'completed' ? 'default' :
                     request.status === 'in_progress' ? 'secondary' : 'outline'
-                  } className="text-[10px] px-1.5 py-0">
+                  } className="text-[10px] px-1.5 py-0 shrink-0">
                     {request.status === 'completed' ? 'Selesai' : 
                      request.status === 'in_progress' ? 'Dikerjakan' : 'Pending'}
                   </Badge>
