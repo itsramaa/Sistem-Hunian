@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Plus, MessageSquare, Heart, Eye, Loader2, Search, Pin, ImageIcon, X } from "lucide-react";
+import { ForumPostSkeleton } from "@/components/ui/skeletons";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
 
@@ -367,8 +368,8 @@ export default function TenantForum() {
 
         {/* Posts */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => <ForumPostSkeleton key={i} />)}
           </div>
         ) : filteredPosts?.length === 0 ? (
           <Card>

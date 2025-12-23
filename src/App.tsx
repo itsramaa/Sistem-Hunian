@@ -65,7 +65,7 @@ import VendorProducts from "./pages/vendor/Products";
 import VendorOrders from "./pages/vendor/Orders";
 import VendorReferrals from "./pages/vendor/Referrals";
 import NotFound from "./pages/NotFound";
-import { ChatbotWidget } from "./components/chatbot/ChatbotWidget";
+
 
 const queryClient = new QueryClient();
 
@@ -147,7 +147,7 @@ const App = () => (
             
             <Route path="*" element={<NotFound />} />
           </Routes>
-          <ChatbotWidget />
+          
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Wrench, Clock, CheckCircle, AlertTriangle, ChevronRight } from 'lucide-react';
+import { MaintenanceCardSkeleton } from "@/components/ui/skeletons";
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -218,7 +219,9 @@ export default function TenantMaintenance() {
       )}
 
       {isLoading ? (
-        <div className="text-center py-8 text-muted-foreground">Loading...</div>
+        <div className="space-y-4">
+          {Array.from({ length: 3 }).map((_, i) => <MaintenanceCardSkeleton key={i} />)}
+        </div>
       ) : requests.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center">

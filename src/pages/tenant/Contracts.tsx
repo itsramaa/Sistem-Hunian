@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { FileText, Calendar, Home, Loader2, Download, DollarSign, PenLine, CheckCircle } from "lucide-react";
+import { FileText, Calendar, Home, Download, DollarSign, PenLine, CheckCircle } from "lucide-react";
+import { ContractCardSkeleton } from "@/components/ui/skeletons";
 import { format } from "date-fns";
 
 const TenantContracts = () => {
@@ -64,9 +65,7 @@ const TenantContracts = () => {
   if (isLoading) {
     return (
       <TenantLayout title="My Contracts">
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
+        <ContractCardSkeleton />
       </TenantLayout>
     );
   }

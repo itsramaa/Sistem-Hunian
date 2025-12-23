@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { User, Loader2, Save, CreditCard, Upload, Phone, Shield, Wallet, Calendar, Banknote } from "lucide-react";
+import { ProfileFormSkeleton } from "@/components/ui/skeletons";
 import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
 
@@ -235,9 +236,7 @@ const TenantProfile = () => {
   if (isLoading) {
     return (
       <TenantLayout title="Profil">
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
+        <ProfileFormSkeleton />
       </TenantLayout>
     );
   }

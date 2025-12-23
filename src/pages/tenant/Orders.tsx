@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2, Package, Star, Calendar, MapPin } from "lucide-react";
+import { CardSkeleton } from "@/components/ui/skeletons";
 import { format } from "date-fns";
 import { useOrderTracking } from "@/hooks/useAnalytics";
 
@@ -156,8 +157,8 @@ export default function TenantOrders() {
   return (
     <TenantLayout title="My Orders" description="Track and manage your service orders">
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="space-y-4">
+          {Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)}
         </div>
       ) : orders?.length === 0 ? (
         <Card>
