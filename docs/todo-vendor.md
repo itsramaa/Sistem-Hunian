@@ -380,10 +380,26 @@
    - Now uses generated types from Supabase
    - Properly typed with Tables<'vendor_jobs'>
 
-### Sprint 4 (Polish)
-1. [ ] **P2-2**: Promotional Pricing
-2. [ ] **P2-3**: Customer Insights
-3. [ ] **P2-4**: AI Chatbot for Vendors
+### Sprint 4 (Polish) ✅ COMPLETED
+1. ✅ **P2-2**: Promotional Pricing - DONE
+   - Added promo_price, promo_start, promo_end columns to products table
+   - Promo pricing form in product dialog
+   - Active promo display on product cards with badge
+   - Upcoming promo indicator
+   
+2. ✅ **P2-3**: Customer Insights - DONE
+   - CustomerInsights component on vendor dashboard
+   - Repeat customer rate calculation
+   - Average order value
+   - Customer location distribution pie chart
+   - Orders by day of week chart
+   
+3. ✅ **P2-4**: AI Chatbot for Vendors - DONE
+   - VendorChatbot component with AI business advisor
+   - vendor-ai-assistant edge function using Lovable AI
+   - Sales tips based on actual vendor performance data
+   - Product recommendations
+   - Demand forecasting context
 
 ---
 

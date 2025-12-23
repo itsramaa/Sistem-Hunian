@@ -1362,6 +1362,9 @@ export type Database = {
           name: string
           photos: string[] | null
           price: number
+          promo_end: string | null
+          promo_price: number | null
+          promo_start: string | null
           service_area: string[] | null
           stock: number | null
           unit: string | null
@@ -1380,6 +1383,9 @@ export type Database = {
           name: string
           photos?: string[] | null
           price: number
+          promo_end?: string | null
+          promo_price?: number | null
+          promo_start?: string | null
           service_area?: string[] | null
           stock?: number | null
           unit?: string | null
@@ -1398,6 +1404,9 @@ export type Database = {
           name?: string
           photos?: string[] | null
           price?: number
+          promo_end?: string | null
+          promo_price?: number | null
+          promo_start?: string | null
           service_area?: string[] | null
           stock?: number | null
           unit?: string | null

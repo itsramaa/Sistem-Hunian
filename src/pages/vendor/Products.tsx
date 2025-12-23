@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { Plus, Edit2, Trash2, Package, Loader2, ImageIcon, AlertTriangle } from "lucide-react";
+import { Plus, Edit2, Trash2, Package, Loader2, ImageIcon, AlertTriangle, Tag } from "lucide-react";
 import { ProductPhotoUpload } from "@/components/vendor/ProductPhotoUpload";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -42,6 +42,9 @@ interface Product {
   estimated_duration: string | null;
   photos: string[] | null;
   stock: number | null;
+  promo_price: number | null;
+  promo_start: string | null;
+  promo_end: string | null;
 }
 
 export default function VendorProducts() {
@@ -61,6 +64,9 @@ export default function VendorProducts() {
     estimated_duration: "",
     photos: [] as string[],
     stock: "",
+    promo_price: "",
+    promo_start: "",
+    promo_end: "",
   });
 
   // Get vendor ID
@@ -108,6 +114,9 @@ export default function VendorProducts() {
         estimated_duration: data.estimated_duration || null,
         photos: data.photos.length > 0 ? data.photos : null,
         stock: data.stock ? parseInt(data.stock) : null,
+        promo_price: data.promo_price ? parseFloat(data.promo_price) : null,
+        promo_start: data.promo_start || null,
+        promo_end: data.promo_end || null,
       };
 
       if (data.id) {
@@ -160,6 +169,9 @@ export default function VendorProducts() {
         estimated_duration: product.estimated_duration || "",
         photos: product.photos || [],
         stock: product.stock?.toString() || "",
+        promo_price: product.promo_price?.toString() || "",
+        promo_start: product.promo_start ? product.promo_start.split("T")[0] : "",
+        promo_end: product.promo_end ? product.promo_end.split("T")[0] : "",
       });
     } else {
       setEditingProduct(null);
@@ -174,6 +186,9 @@ export default function VendorProducts() {
         estimated_duration: "",
         photos: [],
         stock: "",
+        promo_price: "",
+        promo_start: "",
+        promo_end: "",
       });
     }
     setIsDialogOpen(true);
@@ -314,6 +329,49 @@ export default function VendorProducts() {
                 />
               </div>
 
+              {/* Promotional Pricing Section */}
+              <div className="space-y-3 p-4 rounded-lg border border-dashed">
+                <Label className="text-base font-medium">Promotional Pricing (Optional)</Label>
+                <p className="text-xs text-muted-foreground">
+                  Set a discounted price for a limited time period
+                </p>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="promo_price">Promo Price (IDR)</Label>
+                  <Input
+                    id="promo_price"
+                    type="number"
+                    value={formData.promo_price}
+                    onChange={(e) => setFormData({ ...formData, promo_price: e.target.value })}
+                    placeholder="Leave empty for no promotion"
+                    min="0"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="promo_start">Start Date</Label>
+                    <Input
+                      id="promo_start"
+                      type="date"
+                      value={formData.promo_start}
+                      onChange={(e) => setFormData({ ...formData, promo_start: e.target.value })}
+                      disabled={!formData.promo_price}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="promo_end">End Date</Label>
+                    <Input
+                      id="promo_end"
+                      type="date"
+                      value={formData.promo_end}
+                      onChange={(e) => setFormData({ ...formData, promo_end: e.target.value })}
+                      disabled={!formData.promo_price}
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="flex items-center justify-between">
                 <Label htmlFor="is_available">Available for orders</Label>
                 <Switch
@@ -415,11 +473,33 @@ export default function VendorProducts() {
                 
                 <div className="mt-4 flex items-center justify-between">
                   <div>
-                    <p className="text-lg font-semibold">{formatPrice(product.price)}</p>
+                    {/* Check if promo is active */}
+                    {product.promo_price && product.promo_start && product.promo_end && 
+                     new Date() >= new Date(product.promo_start) && 
+                     new Date() <= new Date(product.promo_end) ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-lg font-semibold text-success">{formatPrice(product.promo_price)}</p>
+                          <Badge variant="secondary" className="bg-success/10 text-success text-xs">
+                            <Tag className="h-3 w-3 mr-1" />
+                            Promo
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground line-through">{formatPrice(product.price)}</p>
+                      </div>
+                    ) : (
+                      <p className="text-lg font-semibold">{formatPrice(product.price)}</p>
+                    )}
                     <p className="text-xs text-muted-foreground">
                       per {product.unit}
                       {product.stock !== null && ` • ${product.stock} in stock`}
                     </p>
+                    {/* Show upcoming promo */}
+                    {product.promo_price && product.promo_start && new Date() < new Date(product.promo_start) && (
+                      <p className="text-xs text-primary mt-1">
+                        Promo starts {new Date(product.promo_start).toLocaleDateString()}
+                      </p>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     <Button

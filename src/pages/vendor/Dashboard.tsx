@@ -19,6 +19,8 @@ import { format } from 'date-fns';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { VendorEscrowWidget } from '@/components/vendor/VendorEscrowWidget';
 import { SalesAnalytics } from '@/components/vendor/SalesAnalytics';
+import { CustomerInsights } from '@/components/vendor/CustomerInsights';
+import { VendorChatbot } from '@/components/vendor/VendorChatbot';
 
 interface VendorJob {
   id: string;
@@ -275,8 +277,14 @@ export default function VendorDashboard() {
           {vendor && <VendorEscrowWidget vendorId={vendor.id} />}
         </div>
 
+        {/* AI Business Assistant */}
+        {vendor && <VendorChatbot vendorId={vendor.id} businessName={vendor.business_name} />}
+
         {/* Sales Analytics */}
         {vendor && <SalesAnalytics vendorId={vendor.id} />}
+
+        {/* Customer Insights */}
+        {vendor && <CustomerInsights vendorId={vendor.id} />}
 
         {/* Service Categories */}
         <Card>
