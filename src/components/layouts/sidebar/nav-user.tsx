@@ -121,10 +121,16 @@ export function NavUser({
                 <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">{user.name}</span>
-                <span className="truncate text-xs text-muted-foreground">
-                  {user.email}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate font-semibold">{user.name}</span>
+                  {getTierBadge()}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate text-xs text-muted-foreground">
+                    {user.email}
+                  </span>
+                  {getVerifiedBadge()}
+                </div>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>
