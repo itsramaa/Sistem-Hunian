@@ -268,7 +268,6 @@ export default function MerchantUnits() {
   return (
     <DashboardLayout 
       role="merchant" 
-      title="Units Management"
       description="View and manage all your rental units"
       actions={
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

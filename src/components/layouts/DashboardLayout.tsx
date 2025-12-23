@@ -14,7 +14,7 @@ import {
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { MobileLayout } from "./MobileLayout";
-import { UserRole, navigationConfig } from "./navigation-config";
+import { UserRole, navigationConfig, getAllNavItems } from "./navigation-config";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -40,6 +40,20 @@ function getRoleDashboardLabel(role: UserRole): string {
   }
 }
 
+// Helper to get current page label from navigation config
+function getCurrentPageLabel(role: UserRole, pathname: string): string | null {
+  const navItems = getAllNavItems(role);
+  const basePath = `/${role}`;
+  
+  // Find matching nav item
+  const matchedItem = navItems.find(item => {
+    if (item.path === basePath) return pathname === basePath;
+    return pathname.startsWith(item.path);
+  });
+  
+  return matchedItem?.label || null;
+}
+
 export function DashboardLayout({
   children,
   role,
@@ -53,6 +67,9 @@ export function DashboardLayout({
   const location = useLocation();
   const basePath = `/${role}`;
   const isRootPage = location.pathname === basePath || location.pathname === `${basePath}/`;
+  
+  // Auto-detect page label from navigation config if no title provided
+  const pageLabel = title || getCurrentPageLabel(role, location.pathname);
 
   // Mobile: Use mobile layout with bottom nav (tenant) or drawer (others)
   if (isMobile) {
@@ -76,7 +93,7 @@ export function DashboardLayout({
       <div className="min-h-screen flex w-full">
         <DashboardSidebar role={role} />
         <SidebarInset>
-          {/* Header with breadcrumb */}
+          {/* Header with breadcrumb only */}
           <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className="flex items-center gap-2 px-4">
               <SidebarTrigger className="-ml-1" />
@@ -96,12 +113,12 @@ export function DashboardLayout({
                       </BreadcrumbLink>
                     )}
                   </BreadcrumbItem>
-                  {!isRootPage && title && (
+                  {!isRootPage && pageLabel && (
                     <>
                       <BreadcrumbSeparator />
                       <BreadcrumbItem>
                         <BreadcrumbPage className="text-sm font-medium">
-                          {title}
+                          {pageLabel}
                         </BreadcrumbPage>
                       </BreadcrumbItem>
                     </>
@@ -110,15 +127,24 @@ export function DashboardLayout({
               </Breadcrumb>
             </div>
             <div className="ml-auto flex items-center gap-2 px-4">
-              {actions}
               <NotificationsDropdown />
             </div>
           </header>
 
           {/* Main Content */}
-          <div className="flex flex-1 flex-col gap-4 p-4">
-            {description && (
-              <p className="text-sm text-muted-foreground">{description}</p>
+          <div className="flex flex-1 flex-col gap-6 p-6">
+            {/* Page Toolbar - description and actions */}
+            {(description || actions) && (
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                {description && (
+                  <p className="text-sm text-muted-foreground">{description}</p>
+                )}
+                {actions && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    {actions}
+                  </div>
+                )}
+              </div>
             )}
             {children}
           </div>

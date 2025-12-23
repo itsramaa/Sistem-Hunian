@@ -10,18 +10,15 @@ import {
   ArrowDownRight,
   Calendar,
   Bell,
-  FileText,
-  Loader2,
   Minus
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { MerchantLayout } from '@/components/layouts/MerchantLayout';
 import { SubscriptionWidget } from '@/components/merchant/SubscriptionWidget';
 import { TrialCountdownWidget } from '@/components/merchant/TrialCountdownWidget';
-import { MerchantChatbot } from '@/components/merchant/MerchantChatbot';
+import { MerchantDashboardSkeleton } from '@/components/ui/skeletons';
 import { useAuth } from '@/hooks/useAuth';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { supabase } from '@/integrations/supabase/client';
@@ -260,6 +257,14 @@ export default function MerchantDashboard() {
     },
   ];
 
+  if (isLoading) {
+    return (
+      <MerchantLayout description="Welcome back! Here's an overview of your properties.">
+        <MerchantDashboardSkeleton />
+      </MerchantLayout>
+    );
+  }
+
   return (
     <MerchantLayout description="Welcome back! Here's an overview of your properties.">
       <div className="space-y-6">
@@ -277,7 +282,7 @@ export default function MerchantDashboard() {
                   <p className="text-sm text-muted-foreground">Upload required documents to start receiving payments</p>
                 </div>
               </div>
-              <Button variant="outline" size="sm" onClick={() => navigate('/merchant/settings')}>
+              <Button variant="outline" size="sm" onClick={() => navigate('/merchant/profile')}>
                 Complete Now
               </Button>
             </CardContent>
@@ -292,9 +297,7 @@ export default function MerchantDashboard() {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">{stat.title}</p>
-                    <p className="text-2xl font-bold mt-1">
-                      {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : stat.value}
-                    </p>
+                    <p className="text-2xl font-bold mt-1">{stat.value}</p>
                   </div>
                   <div className="p-2 rounded-lg bg-primary/10">
                     <stat.icon className="h-5 w-5 text-primary" />
@@ -333,11 +336,7 @@ export default function MerchantDashboard() {
             <CardDescription>Current occupancy across all your properties</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              </div>
-            ) : dashboardData?.properties.length === 0 ? (
+            {dashboardData?.properties.length === 0 ? (
               <p className="text-muted-foreground text-center py-4">No properties yet</p>
             ) : (
               dashboardData?.properties.map((property) => {
@@ -381,11 +380,7 @@ export default function MerchantDashboard() {
                 </Button>
               </CardHeader>
               <CardContent>
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                  </div>
-                ) : dashboardData?.upcomingPayments.length === 0 ? (
+                {dashboardData?.upcomingPayments.length === 0 ? (
                   <p className="text-muted-foreground text-center py-4">No upcoming payments</p>
                 ) : (
                   <div className="space-y-4">
@@ -423,11 +418,7 @@ export default function MerchantDashboard() {
                 </Button>
               </CardHeader>
               <CardContent>
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                  </div>
-                ) : dashboardData?.recentPayments.length === 0 ? (
+                {dashboardData?.recentPayments.length === 0 ? (
                   <p className="text-muted-foreground text-center py-4">No recent payments</p>
                 ) : (
                   <div className="space-y-4">
@@ -439,11 +430,7 @@ export default function MerchantDashboard() {
                         </div>
                         <div className="text-right">
                           <p className="font-medium text-sm text-success">{formatCurrency(Number(payment.amount))}</p>
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <Badge variant="outline" className="text-xs text-success border-success/30">
-                              Paid
-                            </Badge>
-                          </div>
+                          <p className="text-xs text-muted-foreground">Paid</p>
                         </div>
                       </div>
                     ))}
@@ -454,9 +441,6 @@ export default function MerchantDashboard() {
           </div>
         </div>
       </div>
-
-      {/* Merchant AI Chatbot */}
-      <MerchantChatbot />
     </MerchantLayout>
   );
 }

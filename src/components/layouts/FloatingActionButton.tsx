@@ -33,7 +33,10 @@ export function FloatingActionButton({
       onClick={onClick}
       className={cn(
         "fixed z-50 h-14 w-14 rounded-full shadow-lg transition-all duration-300",
-        hasBottomNav ? "bottom-20 right-4" : "bottom-6 right-4",
+        // Safe positioning with extra space for bottom nav + safe area
+        hasBottomNav 
+          ? "bottom-24 right-4 pb-[env(safe-area-inset-bottom)]" 
+          : "bottom-6 right-4 pb-[env(safe-area-inset-bottom)]",
         type === 'ai' && isOpen && "rotate-90",
         type === 'create' && "bg-primary hover:bg-primary/90",
         className
