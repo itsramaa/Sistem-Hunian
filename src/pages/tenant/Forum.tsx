@@ -234,19 +234,20 @@ export default function TenantForum() {
 
   return (
     <TenantLayout
-      title="Community Forum"
-      description="Connect with other residents and share experiences"
+      title="Forum Komunitas"
+      description="Terhubung dengan penghuni lain"
       actions={
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              New Post
+            <Button size="sm">
+              <Plus className="mr-1.5 h-4 w-4" />
+              <span className="hidden sm:inline">Buat Post</span>
+              <span className="sm:hidden">Post</span>
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg mx-4">
             <DialogHeader>
-              <DialogTitle>Create New Post</DialogTitle>
+              <DialogTitle>Buat Post Baru</DialogTitle>
             </DialogHeader>
             <form
               onSubmit={(e) => {
@@ -256,42 +257,42 @@ export default function TenantForum() {
               className="space-y-4"
             >
               <div className="space-y-2">
-                <Label htmlFor="title">Title *</Label>
+                <Label htmlFor="title">Judul *</Label>
                 <Input
                   id="title"
                   value={newPost.title}
                   onChange={(e) => setNewPost({ ...newPost, title: e.target.value })}
-                  placeholder="What's on your mind?"
+                  placeholder="Apa yang ingin kamu bagikan?"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="content">Content *</Label>
+                <Label htmlFor="content">Konten *</Label>
                 <Textarea
                   id="content"
                   value={newPost.content}
                   onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
-                  placeholder="Share your thoughts, questions, or experiences..."
-                  rows={5}
+                  placeholder="Tulis detail di sini..."
+                  rows={4}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="tags">Tags (comma separated)</Label>
+                <Label htmlFor="tags">Tags (pisahkan dengan koma)</Label>
                 <Input
                   id="tags"
                   value={newPost.tags}
                   onChange={(e) => setNewPost({ ...newPost, tags: e.target.value })}
-                  placeholder="e.g., question, maintenance, tips"
+                  placeholder="contoh: pertanyaan, tips, diskusi"
                 />
               </div>
               {/* Photo Upload */}
               <div className="space-y-2">
-                <Label>Photos (optional)</Label>
+                <Label>Foto (opsional)</Label>
                 <div className="flex flex-wrap gap-2">
                   {newPost.photos.map((url, i) => (
-                    <div key={i} className="relative h-16 w-16">
-                      <img src={url} alt="" className="h-full w-full rounded object-cover" />
+                    <div key={i} className="relative h-14 w-14">
+                      <img src={url} alt="" className="h-full w-full rounded-lg object-cover" />
                       <button
                         type="button"
                         onClick={() => setNewPost(p => ({ ...p, photos: p.photos.filter((_, idx) => idx !== i) }))}
@@ -302,20 +303,20 @@ export default function TenantForum() {
                     </div>
                   ))}
                   {newPost.photos.length < 4 && (
-                    <label className="flex h-16 w-16 cursor-pointer items-center justify-center rounded border-2 border-dashed hover:border-primary">
+                    <label className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed hover:border-primary transition-colors">
                       <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
                       <ImageIcon className="h-5 w-5 text-muted-foreground" />
                     </label>
                   )}
                 </div>
               </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setIsDialogOpen(false)}>
+                  Batal
                 </Button>
-                <Button type="submit" disabled={createPostMutation.isPending}>
+                <Button type="submit" size="sm" disabled={createPostMutation.isPending}>
                   {createPostMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Post
+                  Posting
                 </Button>
               </div>
             </form>
@@ -323,119 +324,122 @@ export default function TenantForum() {
         </Dialog>
       }
     >
-      {/* Property Filter Info & Toggle */}
-      {propertyName && (
-        <div className="mb-4 flex items-center justify-between rounded-lg bg-muted/50 p-3">
-          <div className="text-sm">
-            <span className="text-muted-foreground">Viewing posts from: </span>
-            <span className="font-medium">{showAllPosts ? "All Properties" : propertyName}</span>
+      <div className="space-y-4">
+        {/* Property Filter Info & Toggle */}
+        {propertyName && (
+          <div className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
+            <div className="text-sm">
+              <span className="text-muted-foreground">Menampilkan: </span>
+              <span className="font-medium">{showAllPosts ? "Semua Properti" : propertyName}</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowAllPosts(!showAllPosts)}
+              className="text-xs h-8"
+            >
+              {showAllPosts ? "Properti Saya" : "Semua"}
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowAllPosts(!showAllPosts)}
-          >
-            {showAllPosts ? "Show My Property Only" : "Show All Posts"}
-          </Button>
-        </div>
-      )}
+        )}
 
-      {/* Search */}
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search posts..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
-        />
-      </div>
-
-      {/* Posts */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Cari post..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 h-10"
+          />
         </div>
-      ) : filteredPosts?.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <MessageSquare className="h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-4 text-lg font-medium">No posts yet</h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Be the first to start a conversation!
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {filteredPosts?.map((post) => (
-            <Card key={post.id} className="transition-shadow hover:shadow-md">
-              <CardHeader className="pb-2">
-                <div className="flex items-start gap-3">
-                  <Avatar className="h-10 w-10">
-                    <AvatarFallback>
-                      {getInitials(post.author_profile?.full_name, post.author_profile?.email)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <Link to={`/tenant/forum/${post.id}`} className="hover:underline">
-                        <CardTitle className="text-base">{post.title}</CardTitle>
-                      </Link>
-                      {post.is_pinned && (
-                        <Pin className="h-4 w-4 text-primary" />
-                      )}
+
+        {/* Posts */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : filteredPosts?.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <MessageSquare className="h-10 w-10 text-muted-foreground" />
+              <h3 className="mt-4 text-base font-medium">Belum ada post</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Jadilah yang pertama memulai diskusi!
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {filteredPosts?.map((post) => (
+              <Card key={post.id} className="transition-shadow hover:shadow-md">
+                <CardHeader className="pb-2 px-4 pt-4">
+                  <div className="flex items-start gap-3">
+                    <Avatar className="h-9 w-9 shrink-0">
+                      <AvatarFallback className="text-xs">
+                        {getInitials(post.author_profile?.full_name, post.author_profile?.email)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Link to={`/tenant/forum/${post.id}`} className="hover:underline flex-1 min-w-0">
+                          <CardTitle className="text-sm font-semibold truncate">{post.title}</CardTitle>
+                        </Link>
+                        {post.is_pinned && (
+                          <Pin className="h-3.5 w-3.5 text-primary shrink-0" />
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {post.author_profile?.full_name || post.author_profile?.email || "Anonymous"} •{" "}
+                        {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {post.author_profile?.full_name || post.author_profile?.email || "Anonymous"} •{" "}
-                      {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
-                    </p>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground line-clamp-2">{post.content}</p>
+                </CardHeader>
+                <CardContent className="px-4 pb-4">
+                  <p className="text-sm text-muted-foreground line-clamp-2">{post.content}</p>
 
-                {post.tags && post.tags.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {post.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="text-xs">
-                        #{tag}
-                      </Badge>
-                    ))}
+                  {post.tags && post.tags.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {post.tags.slice(0, 3).map((tag) => (
+                        <Badge key={tag} variant="secondary" className="text-[10px] px-1.5 py-0">
+                          #{tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+                    <button
+                      onClick={() => likeMutation.mutate(post.id)}
+                      className={`flex items-center gap-1 transition-colors hover:text-red-500 ${
+                        userLikes?.includes(post.id) ? "text-red-500" : ""
+                      }`}
+                      disabled={likeMutation.isPending}
+                    >
+                      <Heart
+                        className={`h-4 w-4 ${userLikes?.includes(post.id) ? "fill-current" : ""}`}
+                      />
+                      {post.like_count}
+                    </button>
+                    <Link
+                      to={`/tenant/forum/${post.id}`}
+                      className="flex items-center gap-1 hover:text-primary"
+                    >
+                      <MessageSquare className="h-4 w-4" />
+                      {post.comment_count}
+                    </Link>
+                    <span className="flex items-center gap-1">
+                      <Eye className="h-4 w-4" />
+                      {post.view_count}
+                    </span>
                   </div>
-                )}
-
-                <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
-                  <button
-                    onClick={() => likeMutation.mutate(post.id)}
-                    className={`flex items-center gap-1 transition-colors hover:text-red-500 ${
-                      userLikes?.includes(post.id) ? "text-red-500" : ""
-                    }`}
-                    disabled={likeMutation.isPending}
-                  >
-                    <Heart
-                      className={`h-4 w-4 ${userLikes?.includes(post.id) ? "fill-current" : ""}`}
-                    />
-                    {post.like_count}
-                  </button>
-                  <Link
-                    to={`/tenant/forum/${post.id}`}
-                    className="flex items-center gap-1 hover:text-primary"
-                  >
-                    <MessageSquare className="h-4 w-4" />
-                    {post.comment_count}
-                  </Link>
-                  <span className="flex items-center gap-1">
-                    <Eye className="h-4 w-4" />
-                    {post.view_count}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
     </TenantLayout>
   );
 }

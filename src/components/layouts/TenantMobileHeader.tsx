@@ -34,22 +34,22 @@ export function TenantMobileHeader({
   const shouldShowBack = showBack ?? !isMainPage;
 
   return (
-    <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border safe-area-top">
+    <header className="sticky top-0 z-40 bg-background border-b">
       <div className="flex items-center gap-3 h-14 px-4">
         {shouldShowBack && (
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9 shrink-0"
+            className="h-8 w-8 shrink-0"
             onClick={() => navigate(-1)}
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-4 w-4" />
           </Button>
         )}
         
         <div className="flex-1 min-w-0">
           {title && (
-            <h1 className="text-lg font-semibold truncate">{title}</h1>
+            <h1 className="text-base font-semibold truncate leading-tight">{title}</h1>
           )}
           {description && (
             <p className="text-xs text-muted-foreground truncate">{description}</p>

@@ -11,7 +11,7 @@ import {
   Gift,
   Settings,
   LogOut,
-  ChevronDown,
+  ChevronUp,
   Bell,
   User,
 } from "lucide-react";
@@ -21,9 +21,6 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -40,23 +37,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-// Main navigation items
-const mainNavItems = [
+// All navigation items in one flat list
+const navItems = [
   { path: "/tenant", icon: LayoutDashboard, label: "Dashboard" },
   { path: "/tenant/payments", icon: Wallet, label: "Pembayaran" },
   { path: "/tenant/invoices", icon: FileText, label: "Tagihan" },
   { path: "/tenant/contracts", icon: ClipboardList, label: "Kontrak" },
-];
-
-// Activity items
-const activityItems = [
-  { path: "/tenant/maintenance", icon: Wrench, label: "Laporan Maintenance" },
+  { path: "/tenant/maintenance", icon: Wrench, label: "Maintenance" },
   { path: "/tenant/orders", icon: ShoppingBag, label: "Pesanan" },
   { path: "/tenant/forum", icon: MessageSquare, label: "Forum" },
-];
-
-// Marketplace items
-const marketplaceItems = [
   { path: "/tenant/marketplace", icon: Store, label: "Marketplace" },
   { path: "/tenant/referrals", icon: Gift, label: "Referral" },
 ];
@@ -89,33 +78,79 @@ export function TenantSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r">
-      <SidebarHeader className="border-b">
+      {/* Header - Logo/Brand */}
+      <SidebarHeader className="border-b px-4 py-3">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
+            <LayoutDashboard className="h-4 w-4 text-primary-foreground" />
+          </div>
+          {!isCollapsed && (
+            <span className="text-base font-semibold">SiHuni</span>
+          )}
+        </div>
+      </SidebarHeader>
+
+      {/* Content - Navigation Menu */}
+      <SidebarContent className="px-2 py-2">
+        <SidebarMenu>
+          {navItems.map((item) => (
+            <SidebarMenuItem key={item.path}>
+              <SidebarMenuButton
+                asChild
+                isActive={isActive(item.path)}
+                tooltip={item.label}
+                className="h-9"
+              >
+                <a
+                  href={item.path}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate(item.path);
+                  }}
+                  className={cn(
+                    "rounded-lg",
+                    isActive(item.path) && "bg-primary/10 text-primary font-medium"
+                  )}
+                >
+                  <item.icon className="h-4 w-4" />
+                  <span>{item.label}</span>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+      </SidebarContent>
+
+      {/* Footer - User Dropdown */}
+      <SidebarFooter className="border-t p-2">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size="lg"
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground h-auto py-2"
                 >
-                  <Avatar className="h-8 w-8 rounded-lg">
+                  <Avatar className="h-8 w-8 shrink-0 rounded-lg">
                     <AvatarImage src={profile?.avatar_url || ""} alt={profile?.full_name || "Tenant"} />
-                    <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-sm font-semibold">
+                    <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-xs font-semibold">
                       {initials}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">{profile?.full_name || "Tenant"}</span>
-                    <span className="truncate text-xs text-muted-foreground">{profile?.email}</span>
-                  </div>
-                  <ChevronDown className="ml-auto size-4" />
+                  {!isCollapsed && (
+                    <div className="grid flex-1 text-left text-sm leading-tight">
+                      <span className="truncate font-medium text-sm">{profile?.full_name || "Tenant"}</span>
+                      <span className="truncate text-xs text-muted-foreground">{profile?.email}</span>
+                    </div>
+                  )}
+                  {!isCollapsed && <ChevronUp className="ml-auto h-4 w-4 shrink-0" />}
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
-                className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
-                side="bottom"
-                align="end"
-                sideOffset={4}
+                className="w-56 rounded-lg bg-popover"
+                side="top"
+                align="start"
+                sideOffset={8}
               >
                 <DropdownMenuItem onClick={() => navigate("/tenant/settings")}>
                   <User className="mr-2 h-4 w-4" />
@@ -130,136 +165,12 @@ export function TenantSidebar() {
                   Notifikasi
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
                   <LogOut className="mr-2 h-4 w-4" />
                   Keluar
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
-
-      <SidebarContent>
-        {/* Main Navigation */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Menu Utama</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {mainNavItems.map((item) => (
-                <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive(item.path)}
-                    tooltip={item.label}
-                  >
-                    <a
-                      href={item.path}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        navigate(item.path);
-                      }}
-                      className={cn(
-                        isActive(item.path) && "bg-primary/10 text-primary"
-                      )}
-                    >
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.label}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Activity */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Aktivitas</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {activityItems.map((item) => (
-                <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive(item.path)}
-                    tooltip={item.label}
-                  >
-                    <a
-                      href={item.path}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        navigate(item.path);
-                      }}
-                      className={cn(
-                        isActive(item.path) && "bg-primary/10 text-primary"
-                      )}
-                    >
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.label}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Marketplace & Others */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Lainnya</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {marketplaceItems.map((item) => (
-                <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive(item.path)}
-                    tooltip={item.label}
-                  >
-                    <a
-                      href={item.path}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        navigate(item.path);
-                      }}
-                      className={cn(
-                        isActive(item.path) && "bg-primary/10 text-primary"
-                      )}
-                    >
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.label}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-
-      <SidebarFooter className="border-t">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={isActive("/tenant/settings")}
-              tooltip="Pengaturan"
-            >
-              <a
-                href="/tenant/settings"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate("/tenant/settings");
-                }}
-                className={cn(
-                  isActive("/tenant/settings") && "bg-primary/10 text-primary"
-                )}
-              >
-                <Settings className="h-4 w-4" />
-                <span>Pengaturan</span>
-              </a>
-            </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>

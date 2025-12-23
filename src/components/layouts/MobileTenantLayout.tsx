@@ -26,7 +26,7 @@ export function MobileTenantLayout({
         showBack={showBack}
       />
       
-      <main className="flex-1 p-4 pb-24 overflow-auto">
+      <main className="flex-1 px-4 pt-4 pb-20 overflow-auto">
         {children}
       </main>
       
