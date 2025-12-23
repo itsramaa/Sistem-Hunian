@@ -21,6 +21,7 @@ import { Progress } from '@/components/ui/progress';
 import { MerchantLayout } from '@/components/layouts/MerchantLayout';
 import { SubscriptionWidget } from '@/components/merchant/SubscriptionWidget';
 import { TrialCountdownWidget } from '@/components/merchant/TrialCountdownWidget';
+import { MerchantChatbot } from '@/components/merchant/MerchantChatbot';
 import { useAuth } from '@/hooks/useAuth';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { supabase } from '@/integrations/supabase/client';
@@ -473,6 +474,9 @@ export default function MerchantDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Merchant AI Chatbot */}
+      <MerchantChatbot />
     </MerchantLayout>
   );
 }

@@ -230,6 +230,7 @@ export type Database = {
       }
       contracts: {
         Row: {
+          billing_day: number | null
           churn_reason: string | null
           contract_document_url: string | null
           created_at: string
@@ -251,6 +252,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          billing_day?: number | null
           churn_reason?: string | null
           contract_document_url?: string | null
           created_at?: string
@@ -272,6 +274,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          billing_day?: number | null
           churn_reason?: string | null
           contract_document_url?: string | null
           created_at?: string

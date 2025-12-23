@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SignaturePad } from '@/components/signature/SignaturePad';
+import { ContractDocumentUpload } from '@/components/merchant/ContractDocumentUpload';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { 
@@ -639,6 +640,17 @@ export default function MerchantContracts() {
                       )}
                     </div>
                   </div>
+                </div>
+
+                {/* Contract Document Upload */}
+                <div className="border rounded-lg p-4">
+                  <ContractDocumentUpload
+                    contractId={selectedContract.id}
+                    currentDocumentUrl={selectedContract.contract_document_url}
+                    onUploadComplete={() => {
+                      queryClient.invalidateQueries({ queryKey: ['merchant-contracts'] });
+                    }}
+                  />
                 </div>
 
                 <div className="border rounded-lg p-4">
