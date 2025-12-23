@@ -1,0 +1,258 @@
+import { useState, useRef, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { X, Send, Bot, User, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { useChatbotTracking } from "@/hooks/useAnalytics";
+
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+}
+
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chatbot`;
+
+const FAQ_SUGGESTIONS = [
+  "How do I pay my rent?",
+  "How to report maintenance?",
+  "Find a vendor",
+  "View my contract",
+];
+
+interface ChatbotDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
+  const { trackChatbotMessage } = useChatbotTracking();
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const streamChat = async (userMessage: string) => {
+    setIsLoading(true);
+    trackChatbotMessage('user');
+    const newMessages = [...messages, { role: "user" as const, content: userMessage }];
+    setMessages(newMessages);
+    setInput("");
+
+    try {
+      const resp = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
+          userId: user?.id,
+          context: { role: user?.user_metadata?.role },
+        }),
+      });
+
+      if (!resp.ok || !resp.body) {
+        const errorData = await resp.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to connect to assistant");
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = "";
+      let assistantContent = "";
+      let streamDone = false;
+
+      // Add empty assistant message
+      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+
+      while (!streamDone) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") {
+            streamDone = true;
+            break;
+          }
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              assistantContent += content;
+              setMessages((prev) => {
+                const updated = [...prev];
+                updated[updated.length - 1] = { role: "assistant", content: assistantContent };
+                return updated;
+              });
+            }
+          } catch {
+            textBuffer = line + "\n" + textBuffer;
+            break;
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Chat error:", error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "I'm sorry, I encountered an error. Please try again later.",
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
+      trackChatbotMessage('bot');
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+    streamChat(input.trim());
+  };
+
+  const handleSuggestion = (suggestion: string) => {
+    if (isLoading) return;
+    streamChat(suggestion);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className={cn(
+      "fixed z-50 overflow-hidden bg-background shadow-2xl flex flex-col",
+      // Mobile: Full screen with safe areas
+      "inset-0 md:inset-auto",
+      // Desktop: Floating widget
+      "md:bottom-24 md:right-6 md:w-[380px] md:h-[500px] md:max-w-[calc(100vw-3rem)] md:rounded-2xl md:border"
+    )}>
+      {/* Header */}
+      <div className="flex items-center gap-3 bg-primary p-3 text-primary-foreground shrink-0">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:hidden h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
+          onClick={onClose}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-foreground/20">
+          <Bot className="h-4 w-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-sm">Sihuni Assistant</h3>
+          <p className="text-xs opacity-80">Tanya apa saja!</p>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="hidden md:flex h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
+          onClick={onClose}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* Messages */}
+      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+        {messages.length === 0 ? (
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-muted-foreground">
+              Hai! Saya siap membantu Anda dengan pembayaran, maintenance, vendor, dan lainnya. Ada yang bisa saya bantu?
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {FAQ_SUGGESTIONS.map((suggestion) => (
+                <Button
+                  key={suggestion}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => handleSuggestion(suggestion)}
+                >
+                  {suggestion}
+                </Button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {messages.map((message, index) => (
+              <div
+                key={index}
+                className={cn(
+                  "flex gap-2",
+                  message.role === "user" ? "flex-row-reverse" : "flex-row"
+                )}
+              >
+                <div
+                  className={cn(
+                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+                    message.role === "user" ? "bg-primary" : "bg-muted"
+                  )}
+                >
+                  {message.role === "user" ? (
+                    <User className="h-4 w-4 text-primary-foreground" />
+                  ) : (
+                    <Bot className="h-4 w-4" />
+                  )}
+                </div>
+                <div
+                  className={cn(
+                    "max-w-[75%] rounded-2xl px-4 py-2 text-sm",
+                    message.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted"
+                  )}
+                >
+                  {message.content || (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </ScrollArea>
+
+      {/* Input - with safe area on mobile */}
+      <form onSubmit={handleSubmit} className="flex gap-2 border-t p-3 bg-background shrink-0 safe-area-bottom">
+        <Input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Ketik pesan..."
+          disabled={isLoading}
+          className="flex-1 rounded-full h-10"
+        />
+        <Button type="submit" size="icon" disabled={isLoading || !input.trim()} className="rounded-full h-10 w-10 shrink-0">
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Send className="h-4 w-4" />
+          )}
+        </Button>
+      </form>
+    </div>
+  );
+}

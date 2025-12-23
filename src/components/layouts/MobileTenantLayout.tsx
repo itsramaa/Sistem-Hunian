@@ -1,6 +1,11 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { TenantMobileHeader } from "./TenantMobileHeader";
 import { TenantBottomNav } from "./TenantBottomNav";
+import { FloatingActionButton, FloatingButtonType } from "./FloatingActionButton";
+import { ChatbotDialog } from "@/components/chatbot/ChatbotDialog";
+import { useChatbotTracking } from "@/hooks/useAnalytics";
+import { Plus } from "lucide-react";
 
 interface MobileTenantLayoutProps {
   children: ReactNode;
@@ -8,6 +13,40 @@ interface MobileTenantLayoutProps {
   description?: string;
   actions?: ReactNode;
   showBack?: boolean;
+  floatingAction?: {
+    type: 'create';
+    onClick: () => void;
+  };
+}
+
+interface FloatingButtonConfig {
+  type: FloatingButtonType;
+  action?: string;
+}
+
+// Determine floating button config based on route
+function getFloatingButtonConfig(pathname: string): FloatingButtonConfig {
+  // Main pages with AI button (bottom nav pages except settings)
+  const mainPagesWithAI = ['/tenant', '/tenant/payments', '/tenant/forum', '/tenant/orders'];
+  
+  // Check exact match for main pages
+  if (mainPagesWithAI.includes(pathname)) {
+    return { type: 'ai' };
+  }
+  
+  // Dashboard root also gets AI button
+  if (pathname === '/tenant' || pathname === '/tenant/') {
+    return { type: 'ai' };
+  }
+  
+  // Settings/Profile page - no floating button
+  if (pathname === '/tenant/settings') {
+    return { type: 'none' };
+  }
+  
+  // All other sub-pages - no floating button by default
+  // (create buttons will be passed via floatingAction prop)
+  return { type: 'none' };
 }
 
 export function MobileTenantLayout({ 
@@ -15,8 +54,26 @@ export function MobileTenantLayout({
   title, 
   description,
   actions,
-  showBack
+  showBack,
+  floatingAction
 }: MobileTenantLayoutProps) {
+  const location = useLocation();
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const { trackChatbotOpened } = useChatbotTracking();
+  
+  const floatingConfig = getFloatingButtonConfig(location.pathname);
+  
+  // Determine which floating button to show
+  const showAIButton = floatingConfig.type === 'ai';
+  const showCreateButton = floatingAction?.type === 'create';
+
+  const handleAIButtonClick = () => {
+    if (!isChatOpen) {
+      trackChatbotOpened();
+    }
+    setIsChatOpen(!isChatOpen);
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <TenantMobileHeader 
@@ -31,6 +88,27 @@ export function MobileTenantLayout({
       </main>
       
       <TenantBottomNav />
+
+      {/* AI Floating Button - for main pages */}
+      {showAIButton && (
+        <FloatingActionButton
+          type="ai"
+          isOpen={isChatOpen}
+          onClick={handleAIButtonClick}
+        />
+      )}
+
+      {/* Create Floating Button - for sub-pages with create action */}
+      {showCreateButton && (
+        <FloatingActionButton
+          type="create"
+          onClick={floatingAction.onClick}
+          icon={Plus}
+        />
+      )}
+
+      {/* Chatbot Dialog */}
+      <ChatbotDialog isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
     </div>
   );
 }
