@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,6 +17,31 @@ import {
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { useAnalytics } from '@/hooks/useAnalytics';
+import useEmblaCarousel from 'embla-carousel-react';
+import Autoplay from 'embla-carousel-autoplay';
+import { cn } from '@/lib/utils';
+
+// Banner slides data
+const bannerSlides = [
+  {
+    id: 1,
+    title: "Promo Akhir Tahun",
+    subtitle: "Diskon 20% untuk layanan cleaning",
+    bgColor: "bg-gradient-to-r from-primary to-primary/80",
+  },
+  {
+    id: 2,
+    title: "Bayar Tepat Waktu",
+    subtitle: "Dapatkan reward poin setiap pembayaran",
+    bgColor: "bg-gradient-to-r from-emerald-500 to-emerald-600",
+  },
+  {
+    id: 3,
+    title: "Ajak Teman, Dapat Bonus",
+    subtitle: "Referral program dengan hadiah menarik",
+    bgColor: "bg-gradient-to-r from-purple-500 to-purple-600",
+  },
+];
 
 // Quick action items for homepage - 4 column grid (excludes items in bottom nav)
 const quickActions = [
@@ -29,6 +55,30 @@ const quickActions = [
 export default function TenantDashboard() {
   const { user, profile } = useAuth();
   useAnalytics();
+  
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true }, [
+    Autoplay({ delay: 5000, stopOnInteraction: false })
+  ]);
+
+  const onSelect = useCallback(() => {
+    if (!emblaApi) return;
+    setSelectedIndex(emblaApi.selectedScrollSnap());
+  }, [emblaApi]);
+
+  useEffect(() => {
+    if (!emblaApi) return;
+    onSelect();
+    emblaApi.on('select', onSelect);
+    return () => {
+      emblaApi.off('select', onSelect);
+    };
+  }, [emblaApi, onSelect]);
+
+  const scrollTo = useCallback(
+    (index: number) => emblaApi && emblaApi.scrollTo(index),
+    [emblaApi]
+  );
 
   const { data: contracts = [] } = useQuery({
     queryKey: ['tenant-contracts', user?.id],
@@ -84,10 +134,42 @@ export default function TenantDashboard() {
   return (
     <TenantLayout 
       title={`Halo, ${profile?.full_name || 'Tenant'}`}
-      description="Kelola hunian & kebutuhanmu"
       showBack={false}
     >
       <div className="space-y-6">
+        {/* Banner Carousel */}
+        <div className="overflow-hidden rounded-xl" ref={emblaRef}>
+          <div className="flex">
+            {bannerSlides.map((slide) => (
+              <div key={slide.id} className="flex-[0_0_100%] min-w-0">
+                <div className={cn(
+                  "relative h-32 md:h-40 rounded-xl flex flex-col justify-center px-5 md:px-6",
+                  slide.bgColor
+                )}>
+                  <h3 className="text-white font-bold text-lg md:text-xl">{slide.title}</h3>
+                  <p className="text-white/90 text-sm md:text-base mt-1">{slide.subtitle}</p>
+                  
+                  {/* Bullet indicators inside */}
+                  <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
+                    {bannerSlides.map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => scrollTo(index)}
+                        className={cn(
+                          "w-2 h-2 rounded-full transition-all",
+                          selectedIndex === index 
+                            ? "bg-white w-4" 
+                            : "bg-white/50 hover:bg-white/70"
+                        )}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Quick Actions - 4 Column Grid */}
         <div className="grid grid-cols-4 md:grid-cols-5 gap-4">
           {quickActions.map((action) => (
