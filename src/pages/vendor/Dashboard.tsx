@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { Tables } from '@/integrations/supabase/types';
 import { 
   Briefcase, 
   Wallet, 
@@ -22,22 +23,14 @@ import { SalesAnalytics } from '@/components/vendor/SalesAnalytics';
 import { CustomerInsights } from '@/components/vendor/CustomerInsights';
 import { VendorChatbot } from '@/components/vendor/VendorChatbot';
 
-interface VendorJob {
-  id: string;
-  status: string;
-  agreed_price: number | null;
-  created_at: string;
-  maintenance_requests: {
-    title: string;
-    priority: string;
-    units: {
-      unit_number: string;
-      properties: {
-        name: string;
-      };
+// Type for vendor job with joined maintenance request data
+type VendorJobWithDetails = Tables<'vendor_jobs'> & {
+  maintenance_requests: Pick<Tables<'maintenance_requests'>, 'title' | 'priority'> & {
+    units: Pick<Tables<'units'>, 'unit_number'> & {
+      properties: Pick<Tables<'properties'>, 'name'>;
     };
   };
-}
+};
 
 export default function VendorDashboard() {
   const { vendor, profile } = useAuth();
@@ -73,7 +66,7 @@ export default function VendorDashboard() {
         .limit(5);
       
       if (error) throw error;
-      return data as VendorJob[];
+      return data as VendorJobWithDetails[];
     },
     enabled: !!vendor,
   });
