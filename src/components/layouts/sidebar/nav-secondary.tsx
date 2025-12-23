@@ -1,7 +1,8 @@
 "use client";
 
-import { LifeBuoy, Send, type LucideIcon } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import * as React from "react";
+import { type LucideIcon } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import {
   SidebarGroup,
@@ -17,31 +18,29 @@ interface NavSecondaryItem {
   icon: LucideIcon;
 }
 
-interface NavSecondaryProps {
+interface NavSecondaryProps extends React.ComponentPropsWithoutRef<typeof SidebarGroup> {
   items: NavSecondaryItem[];
 }
 
-export function NavSecondary({ items }: NavSecondaryProps) {
-  const navigate = useNavigate();
-
+export function NavSecondary({ items, ...props }: NavSecondaryProps) {
   return (
-    <SidebarGroup className="mt-auto">
+    <SidebarGroup {...props}>
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton
-                size="sm"
-                onClick={() => {
-                  if (item.url.startsWith("http")) {
-                    window.open(item.url, "_blank");
-                  } else {
-                    navigate(item.url);
-                  }
-                }}
-              >
-                <item.icon />
-                <span>{item.title}</span>
+              <SidebarMenuButton asChild size="sm">
+                {item.url.startsWith("mailto:") || item.url.startsWith("http") ? (
+                  <a href={item.url} target={item.url.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer">
+                    <item.icon />
+                    <span>{item.title}</span>
+                  </a>
+                ) : (
+                  <Link to={item.url}>
+                    <item.icon />
+                    <span>{item.title}</span>
+                  </Link>
+                )}
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}

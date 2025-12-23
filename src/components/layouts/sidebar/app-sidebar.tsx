@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { LifeBuoy, Send } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 

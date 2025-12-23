@@ -1,7 +1,7 @@
 "use client";
 
-import { ChevronRight } from "lucide-react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { ChevronRight, type LucideIcon } from "lucide-react";
+import { useLocation, Link } from "react-router-dom";
 
 import {
   Collapsible,
@@ -12,6 +12,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarMenu,
+  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
@@ -27,7 +28,6 @@ interface NavMainProps {
 
 export function NavMain({ groups, basePath }: NavMainProps) {
   const location = useLocation();
-  const navigate = useNavigate();
 
   return (
     <>
@@ -37,16 +37,14 @@ export function NavMain({ groups, basePath }: NavMainProps) {
           <SidebarMenu>
             {group.items.map((item) => {
               const isActive = isPathActive(item.path, location.pathname, basePath);
-              
+
               return (
                 <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton
-                    tooltip={item.label}
-                    isActive={isActive}
-                    onClick={() => navigate(item.path)}
-                  >
-                    <item.icon />
-                    <span>{item.label}</span>
+                  <SidebarMenuButton asChild tooltip={item.label} isActive={isActive}>
+                    <Link to={item.path}>
+                      <item.icon />
+                      <span>{item.label}</span>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               );
