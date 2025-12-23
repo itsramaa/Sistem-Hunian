@@ -26,21 +26,16 @@ interface FloatingButtonConfig {
 
 // Determine floating button config based on route
 function getFloatingButtonConfig(pathname: string): FloatingButtonConfig {
-  // Main pages with AI button (bottom nav pages except settings)
+  // Main pages with AI button (bottom nav pages except profile)
   const mainPagesWithAI = ['/tenant', '/tenant/payments', '/tenant/forum', '/tenant/orders'];
   
   // Check exact match for main pages
-  if (mainPagesWithAI.includes(pathname)) {
+  if (mainPagesWithAI.includes(pathname) || pathname === '/tenant/') {
     return { type: 'ai' };
   }
   
-  // Dashboard root also gets AI button
-  if (pathname === '/tenant' || pathname === '/tenant/') {
-    return { type: 'ai' };
-  }
-  
-  // Settings/Profile page - no floating button
-  if (pathname === '/tenant/settings') {
+  // Profile and Settings pages - no floating button
+  if (pathname === '/tenant/profile' || pathname === '/tenant/settings') {
     return { type: 'none' };
   }
   

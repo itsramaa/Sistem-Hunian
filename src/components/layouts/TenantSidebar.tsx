@@ -40,24 +40,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-// Main navigation items
+// Main navigation items (including Marketplace)
 const mainNavItems = [
   { path: "/tenant", icon: LayoutDashboard, label: "Dashboard" },
   { path: "/tenant/payments", icon: Wallet, label: "Pembayaran" },
   { path: "/tenant/invoices", icon: FileText, label: "Tagihan" },
   { path: "/tenant/contracts", icon: ClipboardList, label: "Kontrak" },
+  { path: "/tenant/marketplace", icon: Store, label: "Marketplace" },
 ];
 
-// Activity items
+// Activity items (including Referral)
 const activityItems = [
   { path: "/tenant/maintenance", icon: Wrench, label: "Maintenance" },
   { path: "/tenant/orders", icon: ShoppingBag, label: "Pesanan" },
   { path: "/tenant/forum", icon: MessageSquare, label: "Forum" },
-];
-
-// Other items
-const otherItems = [
-  { path: "/tenant/marketplace", icon: Store, label: "Marketplace" },
   { path: "/tenant/referrals", icon: Gift, label: "Referral" },
 ];
 
@@ -156,16 +152,6 @@ export function TenantSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Lainnya</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {otherItems.map((item) => (
-                <NavItem key={item.path} item={item} />
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
       </SidebarContent>
 
       {/* Footer - User Account */}
@@ -197,17 +183,13 @@ export function TenantSidebar() {
                 align="end"
                 sideOffset={4}
               >
-                <DropdownMenuItem onClick={() => navigate("/tenant/settings")}>
+                <DropdownMenuItem onClick={() => navigate("/tenant/profile")}>
                   <User className="mr-2 size-4" />
                   Profil Saya
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/tenant/settings")}>
                   <Settings className="mr-2 size-4" />
                   Pengaturan
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/tenant/settings")}>
-                  <Bell className="mr-2 size-4" />
-                  Notifikasi
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>

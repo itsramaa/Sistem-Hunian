@@ -47,6 +47,7 @@ import TenantMaintenanceDetail from "./pages/tenant/MaintenanceDetail";
 import TenantSignContract from "./pages/tenant/SignContract";
 import TenantPayments from "./pages/tenant/Payments";
 import TenantSettings from "./pages/tenant/Settings";
+import TenantProfile from "./pages/tenant/Profile";
 import TenantContracts from "./pages/tenant/Contracts";
 import TenantInvoices from "./pages/tenant/Invoices";
 import TenantMarketplace from "./pages/tenant/Marketplace";
@@ -124,6 +125,7 @@ const App = () => (
             <Route path="/tenant/sign-contract/:contractId" element={<ProtectedRoute allowedRoles={['tenant']}><TenantSignContract /></ProtectedRoute>} />
             <Route path="/tenant/payments" element={<ProtectedRoute allowedRoles={['tenant']}><TenantPayments /></ProtectedRoute>} />
             <Route path="/tenant/settings" element={<ProtectedRoute allowedRoles={['tenant']}><TenantSettings /></ProtectedRoute>} />
+            <Route path="/tenant/profile" element={<ProtectedRoute allowedRoles={['tenant']}><TenantProfile /></ProtectedRoute>} />
             <Route path="/tenant/contracts" element={<ProtectedRoute allowedRoles={['tenant']}><TenantContracts /></ProtectedRoute>} />
             <Route path="/tenant/invoices" element={<ProtectedRoute allowedRoles={['tenant']}><TenantInvoices /></ProtectedRoute>} />
             <Route path="/tenant/marketplace" element={<ProtectedRoute allowedRoles={['tenant']}><TenantMarketplace /></ProtectedRoute>} />
