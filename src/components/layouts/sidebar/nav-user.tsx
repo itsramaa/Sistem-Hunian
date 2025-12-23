@@ -148,31 +148,44 @@ export function NavUser({
                   </span>
                 </div>
               </div>
-              <div className="flex items-center gap-1 px-3 pb-2">
-                {getTierBadge()}
-                {getVerifiedBadge()}
-              </div>
+              {(getTierBadge() || getVerifiedBadge()) && (
+                <div className="flex items-center gap-1 px-3 pb-2">
+                  {getTierBadge()}
+                  {getVerifiedBadge()}
+                </div>
+              )}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            {role === "merchant" && subscriptionTier !== "enterprise" && (
+              <>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem onClick={() => navigate(`/${role}/billing`)}>
+                    <Sparkles />
+                    Upgrade to Pro
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuGroup>
               <DropdownMenuItem onClick={() => navigate(`/${role}/profile`)}>
-                <User className="mr-2 size-4" />
+                <User />
                 Profile
               </DropdownMenuItem>
               {role === "merchant" && (
                 <DropdownMenuItem onClick={() => navigate(`/${role}/billing`)}>
-                  <CreditCard className="mr-2 size-4" />
+                  <CreditCard />
                   Billing
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem onClick={() => navigate(`/${role}/settings`)}>
-                <Settings className="mr-2 size-4" />
+                <Settings />
                 Settings
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onLogout}>
-              <LogOut className="mr-2 size-4" />
+              <LogOut />
               Log out
             </DropdownMenuItem>
           </DropdownMenuContent>
