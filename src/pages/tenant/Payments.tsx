@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DollarSign, Clock, CheckCircle, FileText, Calendar, CreditCard } from 'lucide-react';
+import { DollarSign, Clock, CheckCircle, FileText, Calendar, CreditCard, AlertTriangle } from 'lucide-react';
 import { StatsCardSkeleton, PaymentCardSkeleton } from "@/components/ui/skeletons";
 import { format } from 'date-fns';
 import { XenditPaymentModal } from '@/components/payment/XenditPaymentModal';
@@ -28,12 +28,16 @@ type Payment = {
 type Invoice = {
   id: string;
   invoice_number: string;
+  amount: number;
   total_amount: number;
   description: string | null;
   status: string;
   due_date: string;
   issued_at: string | null;
   paid_at: string | null;
+  late_fee: number | null;
+  original_amount: number | null;
+  late_fee_applied_at: string | null;
 };
 
 export default function TenantPayments() {
@@ -210,41 +214,60 @@ export default function TenantPayments() {
                   </CardContent>
                 </Card>
               ))}
-              {pendingInvoices.map((invoice) => (
-                <Card key={invoice.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
-                          <FileText className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{invoice.invoice_number}</p>
-                          <p className="text-sm text-muted-foreground">
-                            Due: {format(new Date(invoice.due_date), 'MMM d, yyyy')}
-                          </p>
-                          {invoice.description && (
-                            <p className="text-sm text-muted-foreground truncate max-w-[200px]">
-                              {invoice.description}
+              {pendingInvoices.map((invoice) => {
+                const hasLateFee = invoice.late_fee && invoice.late_fee > 0;
+                return (
+                  <Card key={invoice.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            hasLateFee ? 'bg-destructive/10' : 'bg-blue-500/10'
+                          }`}>
+                            <FileText className={`h-5 w-5 ${hasLateFee ? 'text-destructive' : 'text-blue-600'}`} />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">{invoice.invoice_number}</p>
+                              {hasLateFee && (
+                                <Badge variant="destructive" className="gap-1 text-xs">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  Late Fee
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              Due: {format(new Date(invoice.due_date), 'MMM d, yyyy')}
                             </p>
+                            {invoice.description && (
+                              <p className="text-sm text-muted-foreground truncate max-w-[200px]">
+                                {invoice.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right space-y-2">
+                          {hasLateFee && (
+                            <div className="text-xs text-muted-foreground">
+                              <span className="line-through">{formatCurrency(Number(invoice.original_amount || invoice.amount))}</span>
+                              <span className="text-destructive ml-1">+{formatCurrency(Number(invoice.late_fee))}</span>
+                            </div>
                           )}
+                          <p className="text-lg font-bold">{formatCurrency(Number(invoice.total_amount))}</p>
+                          <Button 
+                            size="sm" 
+                            onClick={() => handlePayNow('invoice', invoice)}
+                            className="gap-1"
+                          >
+                            <CreditCard className="h-4 w-4" />
+                            Pay Now
+                          </Button>
                         </div>
                       </div>
-                      <div className="text-right space-y-2">
-                        <p className="text-lg font-bold">{formatCurrency(Number(invoice.total_amount))}</p>
-                        <Button 
-                          size="sm" 
-                          onClick={() => handlePayNow('invoice', invoice)}
-                          className="gap-1"
-                        >
-                          <CreditCard className="h-4 w-4" />
-                          Pay Now
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </>
           )}
         </TabsContent>
@@ -365,6 +388,14 @@ export default function TenantPayments() {
           amount={selectedPayment.type === 'invoice' 
             ? Number((selectedPayment.item as Invoice).total_amount)
             : Number((selectedPayment.item as Payment).amount)
+          }
+          originalAmount={selectedPayment.type === 'invoice' && (selectedPayment.item as Invoice).original_amount 
+            ? Number((selectedPayment.item as Invoice).original_amount)
+            : undefined
+          }
+          lateFee={selectedPayment.type === 'invoice' && (selectedPayment.item as Invoice).late_fee
+            ? Number((selectedPayment.item as Invoice).late_fee)
+            : undefined
           }
           description={selectedPayment.type === 'invoice'
             ? `Invoice ${(selectedPayment.item as Invoice).invoice_number}`

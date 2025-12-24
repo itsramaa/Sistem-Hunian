@@ -7,17 +7,34 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { FileText, Loader2, Download, CreditCard } from "lucide-react";
+import { FileText, Loader2, Download, CreditCard, AlertTriangle } from "lucide-react";
 import { StatsCardSkeleton, InvoiceTableSkeleton } from "@/components/ui/skeletons";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { XenditPaymentModal } from "@/components/payment/XenditPaymentModal";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+type Invoice = {
+  id: string;
+  invoice_number: string;
+  amount: number;
+  total_amount: number;
+  description: string | null;
+  status: string;
+  due_date: string;
+  issued_at: string | null;
+  paid_at: string | null;
+  late_fee: number | null;
+  original_amount: number | null;
+  late_fee_applied_at: string | null;
+};
 
 const TenantInvoices = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
 
   const { data: invoices, isLoading } = useQuery({
     queryKey: ['tenant-invoices', user?.id],
@@ -28,7 +45,7 @@ const TenantInvoices = () => {
         .eq('tenant_user_id', user?.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      return data as Invoice[];
     },
     enabled: !!user?.id,
   });
@@ -47,7 +64,6 @@ const TenantInvoices = () => {
       
       const result = await response.json();
       
-      // Open HTML in new window for printing
       const printWindow = window.open('', '_blank');
       if (printWindow) {
         printWindow.document.write(result.html);
@@ -75,6 +91,14 @@ const TenantInvoices = () => {
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+    }).format(amount);
   };
 
   const pendingInvoices = invoices?.filter(i => ['pending', 'sent', 'overdue'].includes(i.status)) || [];
@@ -107,7 +131,7 @@ const TenantInvoices = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Pending Amount</p>
-                <p className="text-2xl font-bold">Rp {totalPending.toLocaleString('id-ID')}</p>
+                <p className="text-2xl font-bold">{formatCurrency(totalPending)}</p>
               </div>
             </div>
           </CardContent>
@@ -152,41 +176,71 @@ const TenantInvoices = () => {
                   <TableHead>Description</TableHead>
                   <TableHead>Due Date</TableHead>
                   <TableHead>Amount</TableHead>
+                  <TableHead>Late Fee</TableHead>
+                  <TableHead>Total</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pendingInvoices.map((invoice) => (
-                  <TableRow key={invoice.id}>
-                    <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
-                    <TableCell>{invoice.description || 'Monthly Rent'}</TableCell>
-                    <TableCell>{format(new Date(invoice.due_date), 'MMM dd, yyyy')}</TableCell>
-                    <TableCell className="font-semibold">Rp {Number(invoice.total_amount).toLocaleString('id-ID')}</TableCell>
-                    <TableCell>{getStatusBadge(invoice.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => downloadInvoicePdf(invoice.id)}
-                          disabled={downloadingId === invoice.id}
-                        >
-                          {downloadingId === invoice.id ? (
-                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                          ) : (
-                            <Download className="h-4 w-4 mr-1" />
-                          )}
-                          Download
-                        </Button>
-                        <Button size="sm" className="bg-primary text-primary-foreground">
-                          <CreditCard className="h-4 w-4 mr-1" />
-                          Pay Now
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {pendingInvoices.map((invoice) => {
+                  const hasLateFee = invoice.late_fee && invoice.late_fee > 0;
+                  return (
+                    <TableRow key={invoice.id}>
+                      <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
+                      <TableCell>{invoice.description || 'Monthly Rent'}</TableCell>
+                      <TableCell>{format(new Date(invoice.due_date), 'MMM dd, yyyy')}</TableCell>
+                      <TableCell>
+                        {hasLateFee ? (
+                          <span className="text-muted-foreground line-through">
+                            {formatCurrency(Number(invoice.original_amount || invoice.amount))}
+                          </span>
+                        ) : (
+                          formatCurrency(Number(invoice.amount))
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {hasLateFee ? (
+                          <Badge variant="destructive" className="gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            +{formatCurrency(Number(invoice.late_fee))}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-semibold">
+                        {formatCurrency(Number(invoice.total_amount))}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(invoice.status)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => downloadInvoicePdf(invoice.id)}
+                            disabled={downloadingId === invoice.id}
+                          >
+                            {downloadingId === invoice.id ? (
+                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                            ) : (
+                              <Download className="h-4 w-4 mr-1" />
+                            )}
+                            Download
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            className="bg-primary text-primary-foreground"
+                            onClick={() => setSelectedInvoice(invoice)}
+                          >
+                            <CreditCard className="h-4 w-4 mr-1" />
+                            Pay Now
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </Card>
@@ -205,37 +259,56 @@ const TenantInvoices = () => {
                   <TableHead>Description</TableHead>
                   <TableHead>Paid Date</TableHead>
                   <TableHead>Amount</TableHead>
+                  <TableHead>Late Fee</TableHead>
+                  <TableHead>Total</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paidInvoices.map((invoice) => (
-                  <TableRow key={invoice.id}>
-                    <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
-                    <TableCell>{invoice.description || 'Monthly Rent'}</TableCell>
-                    <TableCell>
-                      {invoice.paid_at ? format(new Date(invoice.paid_at), 'MMM dd, yyyy') : '-'}
-                    </TableCell>
-                    <TableCell>Rp {Number(invoice.total_amount).toLocaleString('id-ID')}</TableCell>
-                    <TableCell>{getStatusBadge(invoice.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => downloadInvoicePdf(invoice.id)}
-                        disabled={downloadingId === invoice.id}
-                      >
-                        {downloadingId === invoice.id ? (
-                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                {paidInvoices.map((invoice) => {
+                  const hasLateFee = invoice.late_fee && invoice.late_fee > 0;
+                  return (
+                    <TableRow key={invoice.id}>
+                      <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
+                      <TableCell>{invoice.description || 'Monthly Rent'}</TableCell>
+                      <TableCell>
+                        {invoice.paid_at ? format(new Date(invoice.paid_at), 'MMM dd, yyyy') : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {formatCurrency(Number(invoice.original_amount || invoice.amount))}
+                      </TableCell>
+                      <TableCell>
+                        {hasLateFee ? (
+                          <span className="text-destructive">
+                            +{formatCurrency(Number(invoice.late_fee))}
+                          </span>
                         ) : (
-                          <Download className="h-4 w-4 mr-1" />
+                          <span className="text-muted-foreground">-</span>
                         )}
-                        Download
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell className="font-semibold">
+                        {formatCurrency(Number(invoice.total_amount))}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(invoice.status)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => downloadInvoicePdf(invoice.id)}
+                          disabled={downloadingId === invoice.id}
+                        >
+                          {downloadingId === invoice.id ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4 mr-1" />
+                          )}
+                          Download
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </Card>
@@ -248,6 +321,23 @@ const TenantInvoices = () => {
           </Card>
         )}
       </section>
+
+      {/* Xendit Payment Modal */}
+      {selectedInvoice && user && (
+        <XenditPaymentModal
+          open={!!selectedInvoice}
+          onOpenChange={(open) => !open && setSelectedInvoice(null)}
+          amount={Number(selectedInvoice.total_amount)}
+          originalAmount={selectedInvoice.original_amount ? Number(selectedInvoice.original_amount) : undefined}
+          lateFee={selectedInvoice.late_fee ? Number(selectedInvoice.late_fee) : undefined}
+          description={`Invoice ${selectedInvoice.invoice_number}`}
+          invoiceId={selectedInvoice.id}
+          payerEmail={user.email || ''}
+          payerName={user.user_metadata?.full_name || 'Tenant'}
+          userId={user.id}
+          paymentType="invoice"
+        />
+      )}
     </TenantLayout>
   );
 };
