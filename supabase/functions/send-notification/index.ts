@@ -14,6 +14,10 @@ interface NotificationRequest {
     | "maintenance_update" 
     | "subscription_upgrade" 
     | "subscription_payment" 
+    | "subscription_invoice"
+    | "subscription_suspended"
+    | "subscription_cancelled"
+    | "subscription_renewal_reminder"
     | "tenant_registration" 
     | "payment_receipt"
     | "payment_received"
@@ -442,6 +446,151 @@ const getEmailTemplate = (type: string, data: Record<string, any>, recipientName
               <a href="${data.paymentLink}" style="display: inline-block; background: #0891b2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 15px;">Pay Now</a>
               
               <p style="color: #9ca3af; font-size: 12px; margin-top: 30px;">You're receiving this because you have Auto-Pay enabled. To disable, update your profile settings.</p>
+            </div>
+          </div>
+        `,
+      };
+
+    // NEW TEMPLATE: Subscription Invoice (Monthly/Yearly Renewal)
+    case "subscription_invoice":
+      return {
+        subject: `Subscription Invoice - ${formatCurrency(data.amount)} Due`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #0891b2 0%, #065f73 100%); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">📋 Subscription Invoice</h1>
+            </div>
+            <div style="padding: 30px; background: #f9fafb;">
+              <p style="color: #6b7280;">Hi ${recipientName},</p>
+              <p style="color: #6b7280;">Your ${data.tierName} subscription renewal is due.</p>
+              
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                <h3 style="margin: 0 0 15px 0; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px;">Invoice Details</h3>
+                <p style="margin: 5px 0; color: #374151;"><strong>Plan:</strong> ${data.tierName}</p>
+                <p style="margin: 5px 0; color: #374151;"><strong>Billing Period:</strong> ${data.billingPeriod}</p>
+                <p style="margin: 5px 0; color: #374151;"><strong>Amount:</strong> <span style="color: #0891b2; font-size: 18px;">${formatCurrency(data.amount)}</span></p>
+                <p style="margin: 5px 0; color: #374151;"><strong>Due Date:</strong> ${data.dueDate}</p>
+                <p style="margin: 5px 0; color: #374151;"><strong>Invoice ID:</strong> ${data.invoiceId}</p>
+              </div>
+              
+              <p style="color: #6b7280;">Please complete your payment before the due date to avoid service interruption.</p>
+              
+              <a href="${data.paymentUrl || '#'}" style="display: inline-block; background: #0891b2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 15px;">Pay Now</a>
+              
+              <p style="color: #9ca3af; font-size: 12px; margin-top: 30px;">If payment is not received within 7 days after the due date, your subscription will be suspended.</p>
+            </div>
+          </div>
+        `,
+      };
+
+    // NEW TEMPLATE: Subscription Suspended (Grace Period Warning)
+    case "subscription_suspended":
+      return {
+        subject: `⚠️ Subscription Suspended - Action Required`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">⚠️ Subscription Suspended</h1>
+            </div>
+            <div style="padding: 30px; background: #f9fafb;">
+              <p style="color: #6b7280;">Hi ${recipientName},</p>
+              <p style="color: #6b7280;">Your ${data.tierName} subscription has been <strong style="color: #d97706;">suspended</strong> due to overdue payment.</p>
+              
+              <div style="background: #fef3c7; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #fcd34d;">
+                <h3 style="margin: 0 0 10px 0; color: #92400e;">⏰ Grace Period</h3>
+                <p style="margin: 5px 0; color: #92400e;"><strong>You have ${data.gracePeriodDays} days to pay</strong></p>
+                <p style="margin: 5px 0; color: #92400e;">Deadline: ${data.gracePeriodEnd}</p>
+              </div>
+              
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                <p style="margin: 5px 0; color: #374151;"><strong>Amount Due:</strong> ${formatCurrency(data.amount)}</p>
+                <p style="margin: 5px 0; color: #374151;"><strong>Plan:</strong> ${data.tierName}</p>
+              </div>
+              
+              <p style="color: #dc2626;"><strong>What happens if you don't pay:</strong></p>
+              <ul style="color: #6b7280;">
+                <li>Your subscription will be cancelled</li>
+                <li>You'll be downgraded to the Free plan</li>
+                <li>Access to premium features will be restricted</li>
+              </ul>
+              
+              <a href="${data.paymentUrl || '#'}" style="display: inline-block; background: #d97706; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 15px;">Pay Now to Reactivate</a>
+              
+              <p style="color: #9ca3af; font-size: 12px; margin-top: 30px;">If you have any questions, please contact our support team.</p>
+            </div>
+          </div>
+        `,
+      };
+
+    // NEW TEMPLATE: Subscription Cancelled
+    case "subscription_cancelled":
+      return {
+        subject: `Subscription Cancelled - ${data.tierName}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">❌ Subscription Cancelled</h1>
+            </div>
+            <div style="padding: 30px; background: #f9fafb;">
+              <p style="color: #6b7280;">Hi ${recipientName},</p>
+              <p style="color: #6b7280;">Unfortunately, your ${data.tierName} subscription has been cancelled.</p>
+              
+              <div style="background: #fef2f2; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #fecaca;">
+                <p style="margin: 0; color: #dc2626;"><strong>Reason:</strong> ${data.reason}</p>
+              </div>
+              
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                <h3 style="margin: 0 0 10px 0; color: #1f2937;">What's changed:</h3>
+                <ul style="color: #6b7280; margin: 0; padding-left: 20px;">
+                  <li>You've been downgraded to the Free plan</li>
+                  <li>Property, unit, and tenant limits now apply</li>
+                  <li>Premium features are no longer available</li>
+                </ul>
+              </div>
+              
+              <p style="color: #6b7280;">Want to reactivate? You can upgrade again anytime.</p>
+              
+              <a href="${data.reactivateUrl || '#'}" style="display: inline-block; background: #0891b2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 15px;">Reactivate Subscription</a>
+              
+              <p style="color: #9ca3af; font-size: 12px; margin-top: 30px;">We're sorry to see you go. If you have any feedback, please let us know.</p>
+            </div>
+          </div>
+        `,
+      };
+
+    // NEW TEMPLATE: Subscription Renewal Reminder (Pre-billing + Grace Period)
+    case "subscription_renewal_reminder":
+      return {
+        subject: data.isGracePeriod 
+          ? `⚠️ Payment Overdue - ${data.daysRemaining} Days Left` 
+          : `Subscription Renewal Reminder - ${data.daysRemaining} Days`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, ${data.isGracePeriod ? '#dc2626 0%, #b91c1c' : '#f59e0b 0%, #d97706'} 100%); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">${data.isGracePeriod ? '⚠️ Payment Overdue' : '⏰ Renewal Reminder'}</h1>
+            </div>
+            <div style="padding: 30px; background: #f9fafb;">
+              <p style="color: #6b7280;">Hi ${recipientName},</p>
+              <p style="color: #6b7280;">
+                ${data.isGracePeriod 
+                  ? `Your subscription payment is overdue. You have <strong style="color: #dc2626;">${data.daysRemaining} days left</strong> to pay before your subscription is cancelled.`
+                  : `Your ${data.tierName} subscription will renew in <strong>${data.daysRemaining} days</strong>.`
+                }
+              </p>
+              
+              <div style="background: ${data.isGracePeriod ? '#fef2f2' : '#fef3c7'}; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid ${data.isGracePeriod ? '#fecaca' : '#fcd34d'};">
+                <p style="margin: 5px 0; color: ${data.isGracePeriod ? '#dc2626' : '#92400e'}; font-size: 24px; text-align: center;"><strong>${data.daysRemaining}</strong></p>
+                <p style="margin: 0; color: ${data.isGracePeriod ? '#dc2626' : '#92400e'}; text-align: center;">${data.isGracePeriod ? 'days until cancellation' : 'days until renewal'}</p>
+              </div>
+              
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                <p style="margin: 5px 0; color: #374151;"><strong>Plan:</strong> ${data.tierName}</p>
+                <p style="margin: 5px 0; color: #374151;"><strong>Amount:</strong> ${formatCurrency(data.amount)}</p>
+              </div>
+              
+              <a href="${data.paymentUrl || '#'}" style="display: inline-block; background: ${data.isGracePeriod ? '#dc2626' : '#0891b2'}; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 15px;">Pay Now</a>
+              
+              <p style="color: #9ca3af; font-size: 12px; margin-top: 30px;">${data.isGracePeriod ? 'Please pay immediately to avoid losing access to your subscription features.' : 'Make sure your payment method is up to date.'}</p>
             </div>
           </div>
         `,
