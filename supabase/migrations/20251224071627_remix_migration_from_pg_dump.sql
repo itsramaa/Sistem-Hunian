@@ -87,6 +87,28 @@ $$;
 
 
 --
+-- Name: generate_merchant_code(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.generate_merchant_code() RETURNS text
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  new_code TEXT;
+  code_exists BOOLEAN;
+BEGIN
+  LOOP
+    new_code := UPPER(SUBSTRING(MD5(RANDOM()::TEXT) FROM 1 FOR 6));
+    SELECT EXISTS(SELECT 1 FROM public.merchants WHERE merchant_code = new_code) INTO code_exists;
+    EXIT WHEN NOT code_exists;
+  END LOOP;
+  RETURN new_code;
+END;
+$$;
+
+
+--
 -- Name: generate_order_number(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -205,6 +227,23 @@ CREATE FUNCTION public.has_role(_user_id uuid, _role public.app_role) RETURNS bo
     WHERE user_id = _user_id
       AND role = _role
   )
+$$;
+
+
+--
+-- Name: set_merchant_code(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.set_merchant_code() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  IF NEW.merchant_code IS NULL THEN
+    NEW.merchant_code := public.generate_merchant_code();
+  END IF;
+  RETURN NEW;
+END;
 $$;
 
 
@@ -372,6 +411,7 @@ CREATE TABLE public.contracts (
     merchant_signed_at timestamp with time zone,
     contract_document_url text,
     churn_reason text,
+    billing_day integer,
     CONSTRAINT contracts_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'active'::text, 'expired'::text, 'terminated'::text])))
 );
 
@@ -652,6 +692,7 @@ CREATE TABLE public.merchants (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     disbursement_schedule text DEFAULT 'weekly'::text,
     billing_day integer DEFAULT 1,
+    merchant_code text,
     CONSTRAINT merchants_billing_day_check CHECK (((billing_day >= 1) AND (billing_day <= 28))),
     CONSTRAINT merchants_business_type_check CHECK ((business_type = ANY (ARRAY['individual'::text, 'company'::text]))),
     CONSTRAINT merchants_subscription_tier_check CHECK ((subscription_tier = ANY (ARRAY['free'::text, 'basic'::text, 'pro'::text, 'enterprise'::text]))),
@@ -936,6 +977,7 @@ CREATE TABLE public.tenants (
     notification_preferences jsonb DEFAULT '{"new_invoices": true, "contract_updates": true, "payment_reminders": true, "maintenance_updates": true}'::jsonb,
     auto_pay_enabled boolean DEFAULT false,
     auto_pay_day integer DEFAULT 1,
+    linked_merchant_id uuid,
     CONSTRAINT tenants_gender_check CHECK ((gender = ANY (ARRAY['male'::text, 'female'::text, 'other'::text]))),
     CONSTRAINT tenants_verification_status_check CHECK ((verification_status = ANY (ARRAY['pending'::text, 'verified'::text, 'rejected'::text])))
 );
@@ -1288,6 +1330,14 @@ ALTER TABLE ONLY public.merchant_verifications
 
 
 --
+-- Name: merchants merchants_merchant_code_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.merchants
+    ADD CONSTRAINT merchants_merchant_code_key UNIQUE (merchant_code);
+
+
+--
 -- Name: merchants merchants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1580,10 +1630,24 @@ CREATE INDEX idx_audit_logs_user_id ON public.audit_logs USING btree (user_id);
 
 
 --
+-- Name: idx_merchants_merchant_code; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_merchants_merchant_code ON public.merchants USING btree (merchant_code);
+
+
+--
 -- Name: idx_products_promo_active; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_products_promo_active ON public.products USING btree (vendor_id, promo_start, promo_end) WHERE (promo_price IS NOT NULL);
+
+
+--
+-- Name: idx_tenants_linked_merchant; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tenants_linked_merchant ON public.tenants USING btree (linked_merchant_id);
 
 
 --
@@ -1661,6 +1725,13 @@ CREATE TRIGGER generate_referral_code_trigger BEFORE INSERT ON public.referrals 
 --
 
 CREATE TRIGGER on_merchant_created_create_escrow AFTER INSERT ON public.merchants FOR EACH ROW EXECUTE FUNCTION public.create_merchant_escrow();
+
+
+--
+-- Name: merchants trigger_set_merchant_code; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_set_merchant_code BEFORE INSERT ON public.merchants FOR EACH ROW EXECUTE FUNCTION public.set_merchant_code();
 
 
 --
@@ -2270,6 +2341,14 @@ ALTER TABLE ONLY public.tenant_invitations
 
 ALTER TABLE ONLY public.tenant_invitations
     ADD CONSTRAINT tenant_invitations_unit_id_fkey FOREIGN KEY (unit_id) REFERENCES public.units(id) ON DELETE CASCADE;
+
+
+--
+-- Name: tenants tenants_linked_merchant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenants
+    ADD CONSTRAINT tenants_linked_merchant_id_fkey FOREIGN KEY (linked_merchant_id) REFERENCES public.merchants(id);
 
 
 --
