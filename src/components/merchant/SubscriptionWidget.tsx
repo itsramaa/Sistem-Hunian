@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -5,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Crown, Star, Building2, Users, Home, ArrowRight, Loader2 } from "lucide-react";
+import { Crown, Star, Building2, Users, Home, ArrowRight, Loader2, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
+import { CancelSubscriptionDialog } from "./CancelSubscriptionDialog";
 
 interface SubscriptionTier {
   id: string;
@@ -30,6 +32,7 @@ interface SubscriptionData {
 
 export function SubscriptionWidget() {
   const { merchant } = useAuth();
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   const { data: subscription, isLoading } = useQuery({
     queryKey: ["merchant-subscription", merchant?.id],
@@ -202,15 +205,40 @@ export function SubscriptionWidget() {
           </div>
         </div>
 
-        {tier.name === "free" && (
+        {tier.name === "free" ? (
           <Button className="w-full" asChild>
-            <Link to="/merchant/settings">
+            <Link to="/merchant/billing">
               Upgrade Plan
               <ArrowRight className="h-4 w-4 ml-2" />
             </Link>
           </Button>
+        ) : (
+          <div className="flex gap-2">
+            <Button className="flex-1" asChild>
+              <Link to="/merchant/billing">
+                Manage Plan
+              </Link>
+            </Button>
+            <Button 
+              variant="outline" 
+              size="icon"
+              className="text-muted-foreground hover:text-destructive"
+              onClick={() => setShowCancelDialog(true)}
+              title="Cancel Subscription"
+            >
+              <XCircle className="h-4 w-4" />
+            </Button>
+          </div>
         )}
       </CardContent>
+
+      {subscription && (
+        <CancelSubscriptionDialog
+          open={showCancelDialog}
+          onOpenChange={setShowCancelDialog}
+          subscriptionId={subscription.id}
+        />
+      )}
     </Card>
   );
 }
