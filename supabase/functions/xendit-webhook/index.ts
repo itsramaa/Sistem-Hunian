@@ -71,8 +71,119 @@ serve(async (req) => {
 
     // If payment is successful, update the related payment/invoice/order
     if (mappedStatus === 'paid') {
-      // Check if this is a subscription payment
-      if (external_id.startsWith('sub_')) {
+      // Check if this is a subscription invoice renewal payment (subinv_ prefix)
+      if (external_id.startsWith('subinv_')) {
+        // Parse subscription invoice metadata from external_id: subinv_{merchant_id}_{tier_id}_{timestamp}
+        const parts = external_id.split('_');
+        if (parts.length >= 3) {
+          const merchantId = parts[1];
+          const tierId = parts[2];
+
+          console.log(`Processing subscription invoice payment for merchant ${merchantId}`);
+
+          // Update subscription_invoices record
+          const { data: subInvoice, error: invoiceUpdateError } = await supabase
+            .from('subscription_invoices')
+            .update({
+              status: 'paid',
+              paid_at: new Date().toISOString(),
+              payment_method: payment_channel || payment_method,
+            })
+            .eq('xendit_invoice_id', id)
+            .select('*')
+            .single();
+
+          if (invoiceUpdateError) {
+            console.error('Subscription invoice update error:', invoiceUpdateError);
+          } else {
+            console.log('Subscription invoice marked as paid:', subInvoice?.id);
+
+            // Get tier details
+            const { data: tier } = await supabase
+              .from('subscription_tiers')
+              .select('*')
+              .eq('id', tierId)
+              .single();
+
+            if (tier && subInvoice) {
+              // Update merchant subscription - reactivate if suspended
+              const { error: subError } = await supabase
+                .from('merchant_subscriptions')
+                .update({
+                  tier_id: tierId,
+                  status: 'active',
+                  payment_status: 'paid',
+                  current_period_start: subInvoice.billing_period_start,
+                  current_period_end: subInvoice.billing_period_end,
+                  next_billing_date: subInvoice.billing_period_end,
+                  grace_period_end: null, // Clear grace period
+                  failed_attempts: 0,
+                })
+                .eq('merchant_id', merchantId);
+
+              if (subError) {
+                console.error('Subscription update error:', subError);
+              } else {
+                console.log('Subscription reactivated/renewed successfully');
+              }
+
+              // Get merchant details for notification
+              const { data: merchant } = await supabase
+                .from('merchants')
+                .select('user_id, business_name')
+                .eq('id', merchantId)
+                .single();
+
+              if (merchant) {
+                // Create notification
+                await supabase.from('notifications').insert({
+                  user_id: merchant.user_id,
+                  title: 'Subscription Renewed!',
+                  message: `Your ${tier.display_name} subscription has been renewed successfully. Valid until ${new Date(subInvoice.billing_period_end).toLocaleDateString('id-ID')}.`,
+                  type: 'subscription',
+                  link: '/merchant/settings',
+                });
+
+                // Get profile for email
+                const { data: profile } = await supabase
+                  .from('profiles')
+                  .select('email, full_name')
+                  .eq('user_id', merchant.user_id)
+                  .single();
+
+                if (profile) {
+                  // Send email notification
+                  try {
+                    await fetch(`${SUPABASE_URL}/functions/v1/send-notification`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                      },
+                      body: JSON.stringify({
+                        type: 'subscription_payment',
+                        recipientEmail: profile.email,
+                        recipientName: profile.full_name || 'Merchant',
+                        data: {
+                          tierName: tier.display_name,
+                          amount: paid_amount,
+                          paymentDate: new Date().toLocaleDateString('id-ID'),
+                          reference: external_id,
+                          validUntil: new Date(subInvoice.billing_period_end).toLocaleDateString('id-ID'),
+                        },
+                      }),
+                    });
+                  } catch (emailError) {
+                    console.error('Email notification error:', emailError);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      // Check if this is an initial subscription payment (sub_ prefix)
+      else if (external_id.startsWith('sub_')) {
         // Parse subscription metadata from external_id: sub_{merchant_id}_{tier_id}_{timestamp}
         const parts = external_id.split('_');
         if (parts.length >= 3) {
@@ -101,7 +212,9 @@ serve(async (req) => {
                 payment_status: 'paid',
                 current_period_start: new Date().toISOString(),
                 current_period_end: periodEnd.toISOString(),
+                next_billing_date: periodEnd.toISOString(),
                 trial_ends_at: null,
+                grace_period_end: null,
                 failed_attempts: 0,
               })
               .eq('merchant_id', merchantId);

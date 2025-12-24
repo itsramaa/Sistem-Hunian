@@ -2,3 +2,12 @@ project_id = "ubnrxbetzipskrpodumx"
 
 [functions.auto-pay-execute]
 verify_jwt = false
+
+[functions.subscription-billing]
+verify_jwt = false
+
+[functions.subscription-grace-check]
+verify_jwt = false
+
+[functions.subscription-renewal]
+verify_jwt = false
