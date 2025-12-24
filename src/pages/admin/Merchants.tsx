@@ -1,21 +1,23 @@
 import { useState, useEffect } from 'react';
 import { 
   Search, 
-  Filter, 
   Building2, 
   CheckCircle, 
   XCircle, 
   Clock, 
   AlertTriangle,
-  MoreHorizontal,
   Eye,
-  ChevronLeft,
-  ChevronRight,
   FileText,
-  Download
+  Download,
+  Calendar,
+  Users,
+  CreditCard,
+  Image,
+  History,
+  Home
 } from 'lucide-react';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -24,9 +26,18 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { exportToCSV, exportToPDF } from '@/lib/exportUtils';
+import { format } from 'date-fns';
+import { MerchantVerificationHistory } from '@/components/admin/MerchantVerificationHistory';
+import { MerchantPropertiesTab } from '@/components/admin/MerchantPropertiesTab';
+import { DocumentLightbox } from '@/components/admin/DocumentLightbox';
+import { RejectionReasonForm } from '@/components/admin/RejectionReasonForm';
+import { BulkApprovalDialog } from '@/components/admin/BulkApprovalDialog';
 
 interface Merchant {
   id: string;
@@ -39,6 +50,9 @@ interface Merchant {
   verification_status: string;
   subscription_tier: string;
   created_at: string;
+  verified_at: string | null;
+  verified_by: string | null;
+  rejected_at: string | null;
   profiles?: {
     email: string;
     full_name: string | null;
@@ -76,17 +90,30 @@ export default function AdminMerchants() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [tierFilter, setTierFilter] = useState<string>('all');
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
   const [selectedMerchant, setSelectedMerchant] = useState<Merchant | null>(null);
   const [verifications, setVerifications] = useState<Verification[]>([]);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
-  const [showVerifyDialog, setShowVerifyDialog] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState('');
+  const [showRejectionDialog, setShowRejectionDialog] = useState(false);
+  const [showApprovalNotesDialog, setShowApprovalNotesDialog] = useState(false);
+  const [approvalNotes, setApprovalNotes] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [activePaidCount, setActivePaidCount] = useState(0);
+  
+  // Bulk selection state
+  const [selectedMerchantIds, setSelectedMerchantIds] = useState<string[]>([]);
+  const [showBulkApprovalDialog, setShowBulkApprovalDialog] = useState(false);
+  
+  // Lightbox state
+  const [showLightbox, setShowLightbox] = useState(false);
+  const [lightboxInitialIndex, setLightboxInitialIndex] = useState(0);
+  
   const { toast } = useToast();
 
   useEffect(() => {
     fetchMerchants();
-  }, [statusFilter, tierFilter]);
+    fetchActivePaidCount();
+  }, [statusFilter, tierFilter, dateRange]);
 
   const fetchMerchants = async () => {
     setLoading(true);
@@ -109,6 +136,12 @@ export default function AdminMerchants() {
       if (tierFilter !== 'all') {
         query = query.eq('subscription_tier', tierFilter);
       }
+      if (dateRange.from) {
+        query = query.gte('created_at', dateRange.from.toISOString());
+      }
+      if (dateRange.to) {
+        query = query.lte('created_at', dateRange.to.toISOString());
+      }
 
       const { data, error } = await query;
 
@@ -123,6 +156,21 @@ export default function AdminMerchants() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchActivePaidCount = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('merchant_subscriptions')
+        .select('*, subscription_tiers!inner(name)', { count: 'exact', head: true })
+        .eq('status', 'active')
+        .neq('subscription_tiers.name', 'free');
+
+      if (error) throw error;
+      setActivePaidCount(count || 0);
+    } catch (error) {
+      console.error('Error fetching active paid count:', error);
     }
   };
 
@@ -147,44 +195,91 @@ export default function AdminMerchants() {
     setShowDetailDialog(true);
   };
 
-  const handleVerifyMerchant = async (status: 'verified' | 'rejected') => {
+  const handleVerifyMerchant = async (status: 'verified' | 'rejected', rejectionData?: {
+    reason: string;
+    reasonLabel: string;
+    details: string;
+    resubmissionInstructions: string;
+  }) => {
     if (!selectedMerchant) return;
-    
-    if (status === 'rejected' && !rejectionReason.trim()) {
-      toast({
-        variant: 'destructive',
-        title: 'Rejection reason required',
-        description: 'Please provide a reason for rejection',
-      });
-      return;
-    }
 
     setActionLoading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const adminId = user?.id;
+
+      const updateData: Record<string, unknown> = {
+        verification_status: status,
+      };
+
+      if (status === 'verified') {
+        updateData.verified_at = new Date().toISOString();
+        updateData.verified_by = adminId;
+      } else if (status === 'rejected' && rejectionData) {
+        updateData.rejected_at = new Date().toISOString();
+        updateData.rejected_by = adminId;
+        updateData.rejection_details = rejectionData.details;
+        updateData.resubmission_instructions = rejectionData.resubmissionInstructions;
+      }
+
       const { error } = await supabase
         .from('merchants')
-        .update({ 
-          verification_status: status,
-        })
+        .update(updateData)
         .eq('id', selectedMerchant.id);
 
       if (error) throw error;
 
-      toast({
-        title: status === 'verified' ? 'Merchant Verified' : 'Merchant Rejected',
-        description: `${selectedMerchant.business_name} has been ${status}`,
+      // Insert verification history
+      await supabase.from('merchant_verification_history').insert({
+        merchant_id: selectedMerchant.id,
+        action: status === 'verified' ? 'approved' : 'rejected',
+        performed_by: adminId,
+        approval_notes: status === 'verified' ? approvalNotes : null,
+        rejection_reason: rejectionData?.reasonLabel,
+        rejection_details: rejectionData?.details,
+        resubmission_instructions: rejectionData?.resubmissionInstructions,
+        old_status: selectedMerchant.verification_status,
+        new_status: status,
       });
 
-      setShowVerifyDialog(false);
+      // Insert audit log
+      await supabase.from('audit_logs').insert({
+        user_id: adminId,
+        action: status === 'verified' ? 'verification_approved' : 'verification_rejected',
+        entity_type: 'merchant',
+        entity_id: selectedMerchant.id,
+        old_data: { verification_status: selectedMerchant.verification_status },
+        new_data: { verification_status: status, ...rejectionData },
+        user_agent: navigator.userAgent,
+      });
+
+      // Create notification for merchant
+      await supabase.from('notifications').insert({
+        user_id: selectedMerchant.user_id,
+        type: status === 'verified' ? 'verification_approved' : 'verification_rejected',
+        title: status === 'verified' ? 'Akun Terverifikasi!' : 'Verifikasi Ditolak',
+        message: status === 'verified' 
+          ? 'Selamat! Akun bisnis Anda telah terverifikasi. Semua fitur telah dibuka.'
+          : `Pengajuan verifikasi Anda ditolak: ${rejectionData?.reasonLabel}. Silakan perbaiki dan ajukan kembali.`,
+        link: '/merchant',
+      });
+
+      toast({
+        title: status === 'verified' ? 'Merchant Diverifikasi' : 'Merchant Ditolak',
+        description: `${selectedMerchant.business_name} telah ${status === 'verified' ? 'diverifikasi' : 'ditolak'}`,
+      });
+
+      setShowRejectionDialog(false);
+      setShowApprovalNotesDialog(false);
       setShowDetailDialog(false);
-      setRejectionReason('');
+      setApprovalNotes('');
       fetchMerchants();
     } catch (error) {
       console.error('Error updating merchant:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to update merchant status',
+        description: 'Gagal mengupdate status merchant',
       });
     } finally {
       setActionLoading(false);
@@ -196,6 +291,9 @@ export default function AdminMerchants() {
     
     setActionLoading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const adminId = user?.id;
+      
       const newStatus = selectedMerchant.verification_status === 'suspended' ? 'verified' : 'suspended';
       const { error } = await supabase
         .from('merchants')
@@ -204,9 +302,29 @@ export default function AdminMerchants() {
 
       if (error) throw error;
 
+      // Insert verification history
+      await supabase.from('merchant_verification_history').insert({
+        merchant_id: selectedMerchant.id,
+        action: newStatus === 'suspended' ? 'suspended' : 'reactivated',
+        performed_by: adminId,
+        old_status: selectedMerchant.verification_status,
+        new_status: newStatus,
+      });
+
+      // Insert audit log
+      await supabase.from('audit_logs').insert({
+        user_id: adminId,
+        action: newStatus === 'suspended' ? 'merchant_suspended' : 'merchant_reactivated',
+        entity_type: 'merchant',
+        entity_id: selectedMerchant.id,
+        old_data: { verification_status: selectedMerchant.verification_status },
+        new_data: { verification_status: newStatus },
+        user_agent: navigator.userAgent,
+      });
+
       toast({
-        title: newStatus === 'suspended' ? 'Merchant Suspended' : 'Merchant Reactivated',
-        description: `${selectedMerchant.business_name} has been ${newStatus}`,
+        title: newStatus === 'suspended' ? 'Merchant Ditangguhkan' : 'Merchant Diaktifkan Kembali',
+        description: `${selectedMerchant.business_name} telah ${newStatus === 'suspended' ? 'ditangguhkan' : 'diaktifkan kembali'}`,
       });
 
       setShowDetailDialog(false);
@@ -216,10 +334,81 @@ export default function AdminMerchants() {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to update merchant status',
+        description: 'Gagal mengupdate status merchant',
       });
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleBulkApproval = async (notes: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const adminId = user?.id;
+
+    for (const merchantId of selectedMerchantIds) {
+      const merchant = merchants.find(m => m.id === merchantId);
+      if (!merchant || merchant.verification_status !== 'pending') continue;
+
+      await supabase
+        .from('merchants')
+        .update({
+          verification_status: 'verified',
+          verified_at: new Date().toISOString(),
+          verified_by: adminId,
+        })
+        .eq('id', merchantId);
+
+      await supabase.from('merchant_verification_history').insert({
+        merchant_id: merchantId,
+        action: 'approved',
+        performed_by: adminId,
+        approval_notes: notes,
+        old_status: 'pending',
+        new_status: 'verified',
+      });
+
+      await supabase.from('audit_logs').insert({
+        user_id: adminId,
+        action: 'verification_approved',
+        entity_type: 'merchant',
+        entity_id: merchantId,
+        old_data: { verification_status: 'pending' },
+        new_data: { verification_status: 'verified', approval_notes: notes },
+        user_agent: navigator.userAgent,
+      });
+
+      await supabase.from('notifications').insert({
+        user_id: merchant.user_id,
+        type: 'verification_approved',
+        title: 'Akun Terverifikasi!',
+        message: 'Selamat! Akun bisnis Anda telah terverifikasi. Semua fitur telah dibuka.',
+        link: '/merchant',
+      });
+    }
+
+    toast({
+      title: 'Bulk Approval Selesai',
+      description: `${selectedMerchantIds.length} merchant telah diverifikasi`,
+    });
+
+    setSelectedMerchantIds([]);
+    fetchMerchants();
+  };
+
+  const toggleMerchantSelection = (merchantId: string) => {
+    setSelectedMerchantIds(prev => 
+      prev.includes(merchantId)
+        ? prev.filter(id => id !== merchantId)
+        : [...prev, merchantId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    const pendingMerchants = filteredMerchants.filter(m => m.verification_status === 'pending');
+    if (selectedMerchantIds.length === pendingMerchants.length) {
+      setSelectedMerchantIds([]);
+    } else {
+      setSelectedMerchantIds(pendingMerchants.map(m => m.id));
     }
   };
 
@@ -263,6 +452,13 @@ export default function AdminMerchants() {
     exportToPDF(data, 'Merchants Report', 'merchants-report');
   };
 
+  const openLightbox = (index: number) => {
+    setLightboxInitialIndex(index);
+    setShowLightbox(true);
+  };
+
+  const pendingMerchantsCount = filteredMerchants.filter(m => m.verification_status === 'pending').length;
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -284,8 +480,21 @@ export default function AdminMerchants() {
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Stats Cards - 6 columns */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Users className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{merchants.length}</p>
+                  <p className="text-xs text-muted-foreground">Total</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
           <Card>
             <CardContent className="pt-4">
               <div className="flex items-center gap-2">
@@ -338,12 +547,25 @@ export default function AdminMerchants() {
               </div>
             </CardContent>
           </Card>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <CreditCard className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{activePaidCount}</p>
+                  <p className="text-xs text-muted-foreground">Paid Active</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Filters */}
         <Card>
           <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex flex-col lg:flex-row gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -354,7 +576,7 @@ export default function AdminMerchants() {
                 />
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full md:w-[180px]">
+                <SelectTrigger className="w-full lg:w-[160px]">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -366,7 +588,7 @@ export default function AdminMerchants() {
                 </SelectContent>
               </Select>
               <Select value={tierFilter} onValueChange={setTierFilter}>
-                <SelectTrigger className="w-full md:w-[180px]">
+                <SelectTrigger className="w-full lg:w-[160px]">
                   <SelectValue placeholder="Tier" />
                 </SelectTrigger>
                 <SelectContent>
@@ -377,9 +599,70 @@ export default function AdminMerchants() {
                   <SelectItem value="enterprise">Enterprise</SelectItem>
                 </SelectContent>
               </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full lg:w-auto justify-start">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    {dateRange.from ? (
+                      dateRange.to ? (
+                        <>
+                          {format(dateRange.from, "dd/MM/yy")} - {format(dateRange.to, "dd/MM/yy")}
+                        </>
+                      ) : (
+                        format(dateRange.from, "dd/MM/yyyy")
+                      )
+                    ) : (
+                      "Date Range"
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <CalendarComponent
+                    mode="range"
+                    selected={{ from: dateRange.from, to: dateRange.to }}
+                    onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
+                    numberOfMonths={2}
+                  />
+                  {(dateRange.from || dateRange.to) && (
+                    <div className="p-2 border-t">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="w-full" 
+                        onClick={() => setDateRange({ from: undefined, to: undefined })}
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
             </div>
           </CardContent>
         </Card>
+
+        {/* Bulk Action Bar */}
+        {selectedMerchantIds.length > 0 && (
+          <Card className="border-primary bg-primary/5">
+            <CardContent className="py-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Checkbox 
+                    checked={selectedMerchantIds.length === pendingMerchantsCount && pendingMerchantsCount > 0}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                  <span className="text-sm font-medium">
+                    {selectedMerchantIds.length} merchant dipilih
+                  </span>
+                </div>
+                <Button onClick={() => setShowBulkApprovalDialog(true)}>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Bulk Approve ({selectedMerchantIds.length})
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Merchants Table */}
         <Card>
@@ -400,6 +683,13 @@ export default function AdminMerchants() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border">
+                      <th className="text-left py-3 px-2 w-10">
+                        <Checkbox 
+                          checked={selectedMerchantIds.length === pendingMerchantsCount && pendingMerchantsCount > 0}
+                          onCheckedChange={toggleSelectAll}
+                          disabled={pendingMerchantsCount === 0}
+                        />
+                      </th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Business</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Contact</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Location</th>
@@ -412,6 +702,14 @@ export default function AdminMerchants() {
                   <tbody>
                     {filteredMerchants.map((merchant) => (
                       <tr key={merchant.id} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
+                        <td className="py-3 px-2">
+                          {merchant.verification_status === 'pending' && (
+                            <Checkbox 
+                              checked={selectedMerchantIds.includes(merchant.id)}
+                              onCheckedChange={() => toggleMerchantSelection(merchant.id)}
+                            />
+                          )}
+                        </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -464,9 +762,9 @@ export default function AdminMerchants() {
           </CardContent>
         </Card>
 
-        {/* Merchant Detail Dialog */}
+        {/* Merchant Detail Dialog - Enhanced with 4 tabs */}
         <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Building2 className="h-5 w-5" />
@@ -479,9 +777,20 @@ export default function AdminMerchants() {
 
             {selectedMerchant && (
               <Tabs defaultValue="details" className="mt-4">
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="details">Details</TabsTrigger>
-                  <TabsTrigger value="documents">Documents ({verifications.length})</TabsTrigger>
+                  <TabsTrigger value="documents" className="flex items-center gap-1">
+                    <Image className="h-3 w-3" />
+                    Docs ({verifications.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="properties" className="flex items-center gap-1">
+                    <Home className="h-3 w-3" />
+                    Properties
+                  </TabsTrigger>
+                  <TabsTrigger value="history" className="flex items-center gap-1">
+                    <History className="h-3 w-3" />
+                    History
+                  </TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="details" className="space-y-4 mt-4">
@@ -533,24 +842,45 @@ export default function AdminMerchants() {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {verifications.map((doc) => (
-                        <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                      {verifications.map((doc, index) => (
+                        <div 
+                          key={doc.id} 
+                          className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted/70 cursor-pointer transition-colors"
+                          onClick={() => openLightbox(index)}
+                        >
                           <div className="flex items-center gap-3">
-                            <FileText className="h-5 w-5 text-muted-foreground" />
+                            <div className="w-12 h-12 rounded bg-background border overflow-hidden">
+                              <img 
+                                src={doc.document_url} 
+                                alt={doc.document_type}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
                             <div>
-                              <p className="font-medium capitalize">{doc.document_type.replace('_', ' ')}</p>
+                              <p className="font-medium capitalize">{doc.document_type.replace(/_/g, ' ')}</p>
                               <p className="text-xs text-muted-foreground">
                                 Uploaded {new Date(doc.created_at).toLocaleDateString()}
                               </p>
                             </div>
                           </div>
-                          <Badge variant="outline" className={statusColors[doc.status]}>
-                            {doc.status}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className={statusColors[doc.status]}>
+                              {doc.status}
+                            </Badge>
+                            <Eye className="h-4 w-4 text-muted-foreground" />
+                          </div>
                         </div>
                       ))}
                     </div>
                   )}
+                </TabsContent>
+
+                <TabsContent value="properties" className="mt-4">
+                  <MerchantPropertiesTab merchantId={selectedMerchant.id} />
+                </TabsContent>
+
+                <TabsContent value="history" className="mt-4">
+                  <MerchantVerificationHistory merchantId={selectedMerchant.id} />
                 </TabsContent>
               </Tabs>
             )}
@@ -560,12 +890,12 @@ export default function AdminMerchants() {
                 <>
                   <Button
                     variant="outline"
-                    onClick={() => setShowVerifyDialog(true)}
+                    onClick={() => setShowRejectionDialog(true)}
                     className="text-destructive hover:text-destructive"
                   >
                     Reject
                   </Button>
-                  <Button onClick={() => handleVerifyMerchant('verified')} disabled={actionLoading}>
+                  <Button onClick={() => setShowApprovalNotesDialog(true)} disabled={actionLoading}>
                     <CheckCircle className="h-4 w-4 mr-2" />
                     Approve
                   </Button>
@@ -585,40 +915,68 @@ export default function AdminMerchants() {
           </DialogContent>
         </Dialog>
 
-        {/* Rejection Dialog */}
-        <Dialog open={showVerifyDialog} onOpenChange={setShowVerifyDialog}>
+        {/* Approval Notes Dialog */}
+        <Dialog open={showApprovalNotesDialog} onOpenChange={setShowApprovalNotesDialog}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Reject Merchant</DialogTitle>
+              <DialogTitle className="flex items-center gap-2 text-success">
+                <CheckCircle className="h-5 w-5" />
+                Approve Merchant
+              </DialogTitle>
               <DialogDescription>
-                Please provide a reason for rejecting this merchant application.
+                Approve {selectedMerchant?.business_name} verification. Add optional notes.
               </DialogDescription>
             </DialogHeader>
-            <div className="py-4">
-              <Label htmlFor="rejection-reason">Rejection Reason</Label>
-              <Textarea
-                id="rejection-reason"
-                placeholder="Enter the reason for rejection..."
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                className="mt-2"
-                rows={4}
-              />
+            <div className="py-4 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="approval-notes">Catatan Approval (Opsional)</Label>
+                <Textarea
+                  id="approval-notes"
+                  placeholder="Tambahkan catatan untuk approval ini..."
+                  value={approvalNotes}
+                  onChange={(e) => setApprovalNotes(e.target.value)}
+                  rows={3}
+                />
+              </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowVerifyDialog(false)}>
+              <Button variant="outline" onClick={() => setShowApprovalNotesDialog(false)}>
                 Cancel
               </Button>
               <Button 
-                variant="destructive" 
-                onClick={() => handleVerifyMerchant('rejected')}
-                disabled={actionLoading || !rejectionReason.trim()}
+                onClick={() => handleVerifyMerchant('verified')}
+                disabled={actionLoading}
               >
-                Confirm Rejection
+                {actionLoading ? 'Memproses...' : 'Confirm Approval'}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Rejection Dialog with Enhanced Form */}
+        <RejectionReasonForm
+          open={showRejectionDialog}
+          onOpenChange={setShowRejectionDialog}
+          merchantName={selectedMerchant?.business_name || ''}
+          onConfirm={(data) => handleVerifyMerchant('rejected', data)}
+          loading={actionLoading}
+        />
+
+        {/* Document Lightbox */}
+        <DocumentLightbox
+          open={showLightbox}
+          onOpenChange={setShowLightbox}
+          documents={verifications}
+          initialIndex={lightboxInitialIndex}
+        />
+
+        {/* Bulk Approval Dialog */}
+        <BulkApprovalDialog
+          open={showBulkApprovalDialog}
+          onOpenChange={setShowBulkApprovalDialog}
+          selectedCount={selectedMerchantIds.length}
+          onConfirm={handleBulkApproval}
+        />
       </div>
     </AdminLayout>
   );
