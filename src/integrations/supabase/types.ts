@@ -872,15 +872,22 @@ export type Database = {
       }
       maintenance_requests: {
         Row: {
+          accepted_at: string | null
           assigned_to: string | null
+          assigned_vendor_id: string | null
           category: string
+          completion_notes: string | null
+          completion_photos: string[] | null
           created_at: string
           description: string | null
           id: string
           images: string[] | null
           merchant_id: string
+          preferred_schedule: string | null
           priority: string
           resolved_at: string | null
+          sla_deadline: string | null
+          started_at: string | null
           status: string
           tenant_user_id: string
           title: string
@@ -888,15 +895,22 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          accepted_at?: string | null
           assigned_to?: string | null
+          assigned_vendor_id?: string | null
           category?: string
+          completion_notes?: string | null
+          completion_photos?: string[] | null
           created_at?: string
           description?: string | null
           id?: string
           images?: string[] | null
           merchant_id: string
+          preferred_schedule?: string | null
           priority?: string
           resolved_at?: string | null
+          sla_deadline?: string | null
+          started_at?: string | null
           status?: string
           tenant_user_id: string
           title: string
@@ -904,15 +918,22 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          accepted_at?: string | null
           assigned_to?: string | null
+          assigned_vendor_id?: string | null
           category?: string
+          completion_notes?: string | null
+          completion_photos?: string[] | null
           created_at?: string
           description?: string | null
           id?: string
           images?: string[] | null
           merchant_id?: string
+          preferred_schedule?: string | null
           priority?: string
           resolved_at?: string | null
+          sla_deadline?: string | null
+          started_at?: string | null
           status?: string
           tenant_user_id?: string
           title?: string
@@ -920,6 +941,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "maintenance_requests_assigned_vendor_id_fkey"
+            columns: ["assigned_vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "maintenance_requests_merchant_id_fkey"
             columns: ["merchant_id"]
@@ -932,6 +960,95 @@ export type Database = {
             columns: ["unit_id"]
             isOneToOne: false
             referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maintenance_reviews: {
+        Row: {
+          created_at: string | null
+          id: string
+          maintenance_request_id: string
+          photos: string[] | null
+          rating: number
+          review_text: string | null
+          tenant_user_id: string
+          vendor_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          maintenance_request_id: string
+          photos?: string[] | null
+          rating: number
+          review_text?: string | null
+          tenant_user_id: string
+          vendor_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          maintenance_request_id?: string
+          photos?: string[] | null
+          rating?: number
+          review_text?: string | null
+          tenant_user_id?: string
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_reviews_maintenance_request_id_fkey"
+            columns: ["maintenance_request_id"]
+            isOneToOne: true
+            referencedRelation: "maintenance_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_reviews_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maintenance_timeline: {
+        Row: {
+          actor_id: string | null
+          actor_role: string | null
+          created_at: string | null
+          id: string
+          maintenance_request_id: string
+          message: string
+          metadata: Json | null
+          status: string
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_role?: string | null
+          created_at?: string | null
+          id?: string
+          maintenance_request_id: string
+          message: string
+          metadata?: Json | null
+          status: string
+        }
+        Update: {
+          actor_id?: string | null
+          actor_role?: string | null
+          created_at?: string | null
+          id?: string
+          maintenance_request_id?: string
+          message?: string
+          metadata?: Json | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_timeline_maintenance_request_id_fkey"
+            columns: ["maintenance_request_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_requests"
             referencedColumns: ["id"]
           },
         ]
@@ -2562,6 +2679,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_sla_deadline: { Args: { priority: string }; Returns: string }
       generate_merchant_code: { Args: never; Returns: string }
       get_user_role: {
         Args: { _user_id: string }

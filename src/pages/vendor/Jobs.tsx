@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { VendorLayout } from '@/components/layouts/VendorLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,10 +17,13 @@ import {
   Building2,
   AlertCircle,
   Play,
-  Check
+  Check,
+  ImageIcon
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { CompletionDialog } from '@/components/maintenance/CompletionDialog';
+import { SLABadge } from '@/components/maintenance/SLABadge';
 
 // Use generated types from Supabase with relationships
 type VendorJobRow = Tables<'vendor_jobs'>;
@@ -36,8 +40,10 @@ interface VendorJob extends VendorJobRow {
 }
 
 export default function VendorJobs() {
-  const { vendor } = useAuth();
+  const { vendor, user } = useAuth();
   const queryClient = useQueryClient();
+  const [completionDialogOpen, setCompletionDialogOpen] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<VendorJob | null>(null);
 
   // Fetch vendor jobs from vendor_jobs table
   const { data: jobs = [], isLoading } = useQuery({
@@ -56,6 +62,8 @@ export default function VendorJobs() {
             category,
             priority,
             status,
+            images,
+            sla_deadline,
             created_at,
             units (
               unit_number,
@@ -77,26 +85,88 @@ export default function VendorJobs() {
   });
 
   const updateJobMutation = useMutation({
-    mutationFn: async ({ jobId, status }: { jobId: string; status: string }) => {
-      const updateData: Record<string, unknown> = { status };
+    mutationFn: async ({ 
+      jobId, 
+      status,
+      completionNotes,
+      completionPhotos
+    }: { 
+      jobId: string; 
+      status: string;
+      completionNotes?: string;
+      completionPhotos?: string[];
+    }) => {
+      const job = jobs.find(j => j.id === jobId);
+      if (!job) throw new Error('Job not found');
+
+      const jobUpdateData: Record<string, unknown> = { status };
+      const maintenanceUpdateData: Record<string, unknown> = {};
+      let newMaintenanceStatus = '';
       
-      if (status === 'in_progress') {
-        updateData.started_at = new Date().toISOString();
+      if (status === 'accepted') {
+        jobUpdateData.accepted_at = new Date().toISOString();
+        maintenanceUpdateData.accepted_at = new Date().toISOString();
+        maintenanceUpdateData.status = 'assigned';
+        newMaintenanceStatus = 'assigned';
+      } else if (status === 'in_progress') {
+        jobUpdateData.started_at = new Date().toISOString();
+        maintenanceUpdateData.started_at = new Date().toISOString();
+        maintenanceUpdateData.status = 'in_progress';
+        newMaintenanceStatus = 'in_progress';
       } else if (status === 'completed') {
-        updateData.completed_at = new Date().toISOString();
+        jobUpdateData.completed_at = new Date().toISOString();
+        maintenanceUpdateData.resolved_at = new Date().toISOString();
+        maintenanceUpdateData.status = 'completed';
+        maintenanceUpdateData.completion_notes = completionNotes || null;
+        maintenanceUpdateData.completion_photos = completionPhotos || null;
+        newMaintenanceStatus = 'completed';
+      } else if (status === 'rejected') {
+        maintenanceUpdateData.assigned_vendor_id = null;
+        maintenanceUpdateData.assigned_to = null;
+        maintenanceUpdateData.status = 'pending';
+        newMaintenanceStatus = 'pending';
       }
 
-      const { error } = await supabase
+      // Update vendor_jobs
+      const { error: jobError } = await supabase
         .from('vendor_jobs')
-        .update(updateData)
+        .update(jobUpdateData)
         .eq('id', jobId);
 
-      if (error) throw error;
+      if (jobError) throw jobError;
 
-      // If job is completed, create an earning record
+      // Sync with maintenance_requests
+      if (job.maintenance_request_id && Object.keys(maintenanceUpdateData).length > 0) {
+        const { error: maintenanceError } = await supabase
+          .from('maintenance_requests')
+          .update(maintenanceUpdateData)
+          .eq('id', job.maintenance_request_id);
+
+        if (maintenanceError) throw maintenanceError;
+      }
+
+      // Insert timeline entry
+      if (job.maintenance_request_id && user) {
+        const statusMessages: Record<string, string> = {
+          accepted: 'Vendor accepted the job',
+          in_progress: 'Work has started',
+          completed: 'Job completed',
+          rejected: 'Vendor declined the job',
+        };
+
+        await supabase.from('maintenance_timeline').insert({
+          maintenance_request_id: job.maintenance_request_id,
+          status: newMaintenanceStatus || status,
+          message: statusMessages[status] || `Status changed to ${status}`,
+          actor_id: user.id,
+          actor_role: 'vendor',
+          metadata: completionNotes ? { notes: completionNotes } : {},
+        });
+      }
+
+      // If job is completed, create an earning record and notify
       if (status === 'completed') {
-        const job = jobs.find(j => j.id === jobId);
-        if (job && job.agreed_price) {
+        if (job.agreed_price) {
           const feeAmount = job.agreed_price * 0.05; // 5% platform fee
           const netAmount = job.agreed_price - feeAmount;
 
@@ -113,12 +183,43 @@ export default function VendorJobs() {
 
           if (earningError) throw earningError;
         }
+
+        // Notify tenant
+        if (job.maintenance_requests) {
+          const mr = job.maintenance_requests as MaintenanceRequestRow;
+          await supabase.from('notifications').insert({
+            user_id: mr.tenant_user_id,
+            title: 'Maintenance Completed',
+            message: `Your maintenance request "${mr.title}" has been completed`,
+            type: 'success',
+            link: `/tenant/maintenance/${job.maintenance_request_id}`,
+          });
+
+          // Notify merchant
+          const { data: merchantData } = await supabase
+            .from('merchants')
+            .select('user_id')
+            .eq('id', mr.merchant_id)
+            .single();
+
+          if (merchantData) {
+            await supabase.from('notifications').insert({
+              user_id: merchantData.user_id,
+              title: 'Maintenance Completed',
+              message: `Maintenance request "${mr.title}" has been completed by vendor`,
+              type: 'info',
+              link: `/merchant/maintenance/${job.maintenance_request_id}`,
+            });
+          }
+        }
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vendor-jobs'] });
       queryClient.invalidateQueries({ queryKey: ['vendor-earnings'] });
       toast.success('Job status updated successfully');
+      setCompletionDialogOpen(false);
+      setSelectedJob(null);
     },
     onError: (error) => {
       toast.error('Failed to update job: ' + error.message);
@@ -166,8 +267,20 @@ export default function VendorJobs() {
     updateJobMutation.mutate({ jobId, status: 'in_progress' });
   };
 
-  const handleCompleteJob = (jobId: string) => {
-    updateJobMutation.mutate({ jobId, status: 'completed' });
+  const handleOpenCompletionDialog = (job: VendorJob) => {
+    setSelectedJob(job);
+    setCompletionDialogOpen(true);
+  };
+
+  const handleCompleteJob = (notes: string, photos: string[]) => {
+    if (selectedJob) {
+      updateJobMutation.mutate({ 
+        jobId: selectedJob.id, 
+        status: 'completed',
+        completionNotes: notes,
+        completionPhotos: photos,
+      });
+    }
   };
 
   const JobCard = ({ job }: { job: VendorJob }) => (
@@ -181,19 +294,44 @@ export default function VendorJobs() {
               {job.maintenance_requests?.units?.properties?.name} - Unit {job.maintenance_requests?.units?.unit_number}
             </CardDescription>
           </div>
-          <div className="flex gap-2">
-            <Badge variant={getPriorityColor(job.maintenance_requests?.priority)} className="capitalize">
+          <div className="flex gap-2 flex-wrap justify-end">
+            <Badge variant={getPriorityColor(job.maintenance_requests?.priority || '')} className="capitalize">
               {job.maintenance_requests?.priority}
             </Badge>
             <Badge variant={getStatusColor(job.status)} className="capitalize">
               {job.status.replace('_', ' ')}
             </Badge>
+            <SLABadge 
+              slaDeadline={job.maintenance_requests?.sla_deadline || null} 
+              status={job.maintenance_requests?.status || ''} 
+            />
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {job.maintenance_requests?.description && (
           <p className="text-sm text-muted-foreground">{job.maintenance_requests.description}</p>
+        )}
+
+        {/* Issue Photos */}
+        {job.maintenance_requests?.images && job.maintenance_requests.images.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <ImageIcon className="h-4 w-4" />
+              <span>Issue Photos</span>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {job.maintenance_requests.images.map((img, index) => (
+                <img
+                  key={index}
+                  src={img}
+                  alt={`Issue photo ${index + 1}`}
+                  className="h-16 w-16 object-cover rounded-lg border cursor-pointer hover:opacity-80"
+                  onClick={() => window.open(img, '_blank')}
+                />
+              ))}
+            </div>
+          </div>
         )}
         
         <div className="grid grid-cols-2 gap-4 text-sm">
@@ -257,7 +395,7 @@ export default function VendorJobs() {
               <Button 
                 size="sm" 
                 className="flex-1"
-                onClick={() => handleCompleteJob(job.id)}
+                onClick={() => handleOpenCompletionDialog(job)}
                 disabled={updateJobMutation.isPending}
               >
                 <CheckCircle2 className="h-4 w-4 mr-1" />
@@ -352,6 +490,15 @@ export default function VendorJobs() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Completion Dialog */}
+      <CompletionDialog
+        open={completionDialogOpen}
+        onOpenChange={setCompletionDialogOpen}
+        onConfirm={handleCompleteJob}
+        isLoading={updateJobMutation.isPending}
+        jobTitle={selectedJob?.maintenance_requests?.title}
+      />
     </VendorLayout>
   );
 }

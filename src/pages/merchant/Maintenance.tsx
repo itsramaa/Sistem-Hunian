@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Search, Wrench, Clock, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
+import { SLABadge } from '@/components/maintenance/SLABadge';
 
 type MaintenanceRequest = {
   id: string;
@@ -220,6 +221,7 @@ export default function MerchantMaintenance() {
                     <TableHead>Category</TableHead>
                     <TableHead>Priority</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>SLA</TableHead>
                     <TableHead>Assigned To</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead>Actions</TableHead>
@@ -232,6 +234,7 @@ export default function MerchantMaintenance() {
                       <TableCell className="capitalize">{request.category}</TableCell>
                       <TableCell><Badge variant={getPriorityColor(request.priority) as "default" | "secondary" | "destructive" | "outline"}>{request.priority}</Badge></TableCell>
                       <TableCell><Badge variant={getStatusColor(request.status) as "default" | "secondary" | "destructive" | "outline"} className="gap-1">{getStatusIcon(request.status)}{request.status.replace('_', ' ')}</Badge></TableCell>
+                      <TableCell><SLABadge slaDeadline={(request as any).sla_deadline} status={request.status} /></TableCell>
                       <TableCell>{request.assigned_to || '-'}</TableCell>
                       <TableCell>{format(new Date(request.created_at), 'MMM d, yyyy')}</TableCell>
                       <TableCell className="flex gap-2">
