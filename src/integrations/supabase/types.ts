@@ -482,7 +482,10 @@ export type Database = {
           created_at: string
           description: string | null
           escrow_account_id: string
+          gateway_fee: number | null
+          gross_amount: number | null
           id: string
+          platform_fee: number | null
           processed_at: string | null
           reference: string | null
           status: string | null
@@ -494,7 +497,10 @@ export type Database = {
           created_at?: string
           description?: string | null
           escrow_account_id: string
+          gateway_fee?: number | null
+          gross_amount?: number | null
           id?: string
+          platform_fee?: number | null
           processed_at?: string | null
           reference?: string | null
           status?: string | null
@@ -506,7 +512,10 @@ export type Database = {
           created_at?: string
           description?: string | null
           escrow_account_id?: string
+          gateway_fee?: number | null
+          gross_amount?: number | null
           id?: string
+          platform_fee?: number | null
           processed_at?: string | null
           reference?: string | null
           status?: string | null
@@ -745,8 +754,11 @@ export type Database = {
           id: string
           invoice_number: string
           issued_at: string | null
+          late_fee: number | null
+          late_fee_applied_at: string | null
           line_items: Json | null
           merchant_id: string
+          original_amount: number | null
           paid_at: string | null
           status: string
           tax_amount: number | null
@@ -763,8 +775,11 @@ export type Database = {
           id?: string
           invoice_number: string
           issued_at?: string | null
+          late_fee?: number | null
+          late_fee_applied_at?: string | null
           line_items?: Json | null
           merchant_id: string
+          original_amount?: number | null
           paid_at?: string | null
           status?: string
           tax_amount?: number | null
@@ -781,8 +796,11 @@ export type Database = {
           id?: string
           invoice_number?: string
           issued_at?: string | null
+          late_fee?: number | null
+          late_fee_applied_at?: string | null
           line_items?: Json | null
           merchant_id?: string
+          original_amount?: number | null
           paid_at?: string | null
           status?: string
           tax_amount?: number | null
@@ -1038,6 +1056,7 @@ export type Database = {
           disbursement_schedule: string | null
           id: string
           merchant_code: string | null
+          penalty_rate: number | null
           postal_code: string | null
           province: string | null
           subscription_tier: string | null
@@ -1055,6 +1074,7 @@ export type Database = {
           disbursement_schedule?: string | null
           id?: string
           merchant_code?: string | null
+          penalty_rate?: number | null
           postal_code?: string | null
           province?: string | null
           subscription_tier?: string | null
@@ -1072,6 +1092,7 @@ export type Database = {
           disbursement_schedule?: string | null
           id?: string
           merchant_code?: string | null
+          penalty_rate?: number | null
           postal_code?: string | null
           province?: string | null
           subscription_tier?: string | null

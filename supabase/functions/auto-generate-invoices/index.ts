@@ -24,6 +24,73 @@ serve(async (req) => {
     const currentDay = today.getDate();
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
+    const todayDateStr = today.toISOString().split('T')[0];
+
+    // ===== PART 1: APPLY LATE FEES TO OVERDUE INVOICES =====
+    console.log('Checking for overdue invoices to apply late fees...');
+
+    // Get overdue invoices that haven't had late fee applied yet
+    const { data: overdueInvoices, error: overdueError } = await supabase
+      .from('invoices')
+      .select(`
+        id,
+        invoice_number,
+        amount,
+        total_amount,
+        due_date,
+        tenant_user_id,
+        merchant_id,
+        merchant:merchants (
+          penalty_rate
+        )
+      `)
+      .eq('status', 'pending')
+      .lt('due_date', todayDateStr)
+      .is('late_fee_applied_at', null);
+
+    if (overdueError) {
+      console.error('Error fetching overdue invoices:', overdueError);
+    } else {
+      console.log(`Found ${overdueInvoices?.length || 0} overdue invoices without late fee`);
+
+      for (const invoice of overdueInvoices || []) {
+        try {
+          const merchantData = invoice.merchant as unknown as { penalty_rate: number | null } | null;
+          const penaltyRate = merchantData?.penalty_rate || 0.02; // Default 2%
+          const lateFee = Math.round(invoice.amount * penaltyRate);
+          const newTotalAmount = invoice.amount + lateFee;
+
+          console.log(`Applying late fee to invoice ${invoice.invoice_number}: ${lateFee} (${penaltyRate * 100}%)`);
+
+          // Update invoice with late fee
+          await supabase
+            .from('invoices')
+            .update({
+              late_fee: lateFee,
+              total_amount: newTotalAmount,
+              original_amount: invoice.amount,
+              late_fee_applied_at: new Date().toISOString(),
+            })
+            .eq('id', invoice.id);
+
+          // Notify tenant about late fee
+          await supabase.from('notifications').insert({
+            user_id: invoice.tenant_user_id,
+            title: 'Denda Keterlambatan Diterapkan',
+            message: `Invoice ${invoice.invoice_number} telah melewati jatuh tempo. Denda Rp ${lateFee.toLocaleString('id-ID')} (${penaltyRate * 100}%) telah ditambahkan. Total: Rp ${newTotalAmount.toLocaleString('id-ID')}`,
+            type: 'payment',
+            link: '/tenant/invoices',
+          });
+
+          console.log(`Late fee applied to invoice ${invoice.invoice_number}`);
+        } catch (err) {
+          console.error(`Error applying late fee to invoice ${invoice.id}:`, err);
+        }
+      }
+    }
+
+    // ===== PART 2: GENERATE NEW INVOICES =====
+    console.log('Checking contracts for invoice generation...');
 
     // Fetch all active contracts with their billing day (contract level or merchant fallback)
     const { data: activeContracts, error: contractsError } = await supabase
@@ -57,6 +124,7 @@ serve(async (req) => {
     console.log(`Found ${activeContracts?.length || 0} active contracts`);
 
     const invoicesCreated: string[] = [];
+    const lateFeesApplied: string[] = [];
     const errors: string[] = [];
 
     for (const contract of activeContracts || []) {
@@ -67,9 +135,10 @@ serve(async (req) => {
 
         // Only generate invoice if today matches the billing day
         if (currentDay !== billingDay) {
-          console.log(`Skipping contract ${contract.id}: billing day is ${billingDay}, today is ${currentDay}`);
           continue;
         }
+
+        console.log(`Processing contract ${contract.id} (billing day: ${billingDay})`);
 
         // Check if invoice already exists for this contract and month
         const monthStart = new Date(currentYear, currentMonth, 1);
@@ -106,8 +175,10 @@ serve(async (req) => {
             merchant_id: contract.merchant_id,
             tenant_user_id: contract.tenant_user_id,
             amount: contract.rent_amount,
+            original_amount: contract.rent_amount,
             tax_amount: 0,
             total_amount: contract.rent_amount,
+            late_fee: 0,
             due_date: dueDate.toISOString().split('T')[0],
             description,
             status: 'pending',
@@ -128,8 +199,8 @@ serve(async (req) => {
         // Create notification for tenant
         await supabase.from('notifications').insert({
           user_id: contract.tenant_user_id,
-          title: 'New Invoice',
-          message: `A new invoice (${newInvoice.invoice_number}) has been generated for your rent payment. Due date: ${dueDate.toLocaleDateString('id-ID')}`,
+          title: 'Invoice Baru',
+          message: `Invoice baru (${newInvoice.invoice_number}) telah diterbitkan untuk pembayaran sewa Anda. Jatuh tempo: ${dueDate.toLocaleDateString('id-ID')}`,
           type: 'payment',
           link: '/tenant/invoices',
         });
@@ -144,6 +215,7 @@ serve(async (req) => {
       success: true,
       invoicesCreated: invoicesCreated.length,
       invoiceNumbers: invoicesCreated,
+      lateFeesApplied: overdueInvoices?.length || 0,
       errors: errors.length > 0 ? errors : undefined,
       processedAt: new Date().toISOString(),
     };
