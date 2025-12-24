@@ -20,8 +20,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [merchant, setMerchant] = useState<MerchantProfile | null>(null);
   const [vendor, setVendor] = useState<VendorProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
 
   const fetchUserData = useCallback(async (userId: string) => {
+    setIsProfileLoading(true);
     try {
       // Fetch profile
       const { data: profileData } = await supabase
@@ -72,6 +74,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
+    } finally {
+      setIsProfileLoading(false);
     }
   }, []);
 
@@ -159,6 +163,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Combined loading state - only false when both auth and profile are loaded
+  const contextIsLoading = isLoading || isProfileLoading;
+
   return (
     <AuthContext.Provider
       value={{
@@ -168,7 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role,
         merchant,
         vendor,
-        isLoading,
+        isLoading: contextIsLoading,
         signIn,
         signUp,
         signOut,

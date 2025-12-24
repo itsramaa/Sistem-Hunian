@@ -36,13 +36,9 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
-  // No role yet (still loading or no role assigned)
+  // No role assigned after loading complete - redirect to unauthorized
   if (!role) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <Navigate to="/unauthorized" replace />;
   }
 
   // Check role access
