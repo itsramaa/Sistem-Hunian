@@ -1058,6 +1058,56 @@ export type Database = {
           },
         ]
       }
+      merchant_verification_history: {
+        Row: {
+          action: string
+          approval_notes: string | null
+          created_at: string | null
+          id: string
+          merchant_id: string
+          new_status: string | null
+          old_status: string | null
+          performed_by: string | null
+          rejection_details: string | null
+          rejection_reason: string | null
+          resubmission_instructions: string | null
+        }
+        Insert: {
+          action: string
+          approval_notes?: string | null
+          created_at?: string | null
+          id?: string
+          merchant_id: string
+          new_status?: string | null
+          old_status?: string | null
+          performed_by?: string | null
+          rejection_details?: string | null
+          rejection_reason?: string | null
+          resubmission_instructions?: string | null
+        }
+        Update: {
+          action?: string
+          approval_notes?: string | null
+          created_at?: string | null
+          id?: string
+          merchant_id?: string
+          new_status?: string | null
+          old_status?: string | null
+          performed_by?: string | null
+          rejection_details?: string | null
+          rejection_reason?: string | null
+          resubmission_instructions?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "merchant_verification_history_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       merchant_verifications: {
         Row: {
           created_at: string
@@ -1116,10 +1166,18 @@ export type Database = {
           penalty_rate: number | null
           postal_code: string | null
           province: string | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_details: string | null
+          resubmission_count: number | null
+          resubmission_instructions: string | null
           subscription_tier: string | null
           updated_at: string
           user_id: string
           verification_status: string | null
+          verification_submitted_at: string | null
+          verified_at: string | null
+          verified_by: string | null
         }
         Insert: {
           address?: string | null
@@ -1134,10 +1192,18 @@ export type Database = {
           penalty_rate?: number | null
           postal_code?: string | null
           province?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_details?: string | null
+          resubmission_count?: number | null
+          resubmission_instructions?: string | null
           subscription_tier?: string | null
           updated_at?: string
           user_id: string
           verification_status?: string | null
+          verification_submitted_at?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Update: {
           address?: string | null
@@ -1152,10 +1218,18 @@ export type Database = {
           penalty_rate?: number | null
           postal_code?: string | null
           province?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_details?: string | null
+          resubmission_count?: number | null
+          resubmission_instructions?: string | null
           subscription_tier?: string | null
           updated_at?: string
           user_id?: string
           verification_status?: string | null
+          verification_submitted_at?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Relationships: []
       }
