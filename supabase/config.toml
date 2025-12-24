@@ -1,1 +1,4 @@
 project_id = "ubnrxbetzipskrpodumx"
+
+[functions.auto-pay-execute]
+verify_jwt = false
