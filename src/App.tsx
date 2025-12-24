@@ -68,6 +68,8 @@ import VendorOrders from "./pages/vendor/Orders";
 import VendorReferrals from "./pages/vendor/Referrals";
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
+import PaymentSuccess from "./pages/payment/Success";
+import PaymentFailed from "./pages/payment/Failed";
 
 
 const queryClient = new QueryClient();
@@ -149,6 +151,10 @@ const App = () => (
             <Route path="/vendor/profile" element={<ProtectedRoute allowedRoles={['vendor']}><VendorProfile /></ProtectedRoute>} />
             <Route path="/vendor/settings" element={<ProtectedRoute allowedRoles={['vendor']}><VendorSettings /></ProtectedRoute>} />
             <Route path="/vendor/referrals" element={<ProtectedRoute allowedRoles={['vendor']}><VendorReferrals /></ProtectedRoute>} />
+            
+            {/* Payment Redirect Pages (no auth required - redirect from Xendit) */}
+            <Route path="/payment/success" element={<PaymentSuccess />} />
+            <Route path="/payment/failed" element={<PaymentFailed />} />
             
             <Route path="/unauthorized" element={<Unauthorized />} />
             <Route path="*" element={<NotFound />} />

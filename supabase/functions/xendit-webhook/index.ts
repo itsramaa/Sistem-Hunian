@@ -6,6 +6,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-callback-token',
 };
 
+// Fee rates
+const PLATFORM_FEE_RATE = 0.01; // 1%
+const GATEWAY_FEE_RATE = 0.025; // 2.5%
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -166,6 +170,15 @@ serve(async (req) => {
         }
       } else {
         // Regular payment processing
+        const grossAmount = paid_amount || transaction.amount;
+        
+        // Calculate fees
+        const platformFee = Math.round(grossAmount * PLATFORM_FEE_RATE);
+        const gatewayFee = Math.round(grossAmount * GATEWAY_FEE_RATE);
+        const netAmount = grossAmount - platformFee - gatewayFee;
+
+        console.log(`Fee calculation: Gross=${grossAmount}, Platform=${platformFee}, Gateway=${gatewayFee}, Net=${netAmount}`);
+
         // Update payment record if exists
         if (transaction.payment_id) {
           await supabase
@@ -203,7 +216,7 @@ serve(async (req) => {
           console.log('Order record updated');
         }
 
-        // Create escrow transaction for rent payments
+        // Create escrow transaction for rent payments with fee calculation
         if (transaction.payment_id) {
           const { data: payment } = await supabase
             .from('payments')
@@ -219,17 +232,22 @@ serve(async (req) => {
               .single();
 
             if (escrowAccount) {
+              // Insert escrow transaction with fee breakdown
               await supabase.from('escrow_transactions').insert({
                 escrow_account_id: escrowAccount.id,
-                amount: payment.amount,
+                amount: netAmount, // Net amount after fees
+                gross_amount: grossAmount,
+                platform_fee: platformFee,
+                gateway_fee: gatewayFee,
                 type: 'deposit',
                 status: 'completed',
-                description: `Rent payment received`,
+                description: `Rent payment received (Net after ${PLATFORM_FEE_RATE * 100}% platform + ${GATEWAY_FEE_RATE * 100}% gateway fee)`,
                 contract_id: payment.contract_id,
                 reference: external_id,
                 processed_at: new Date().toISOString(),
               });
 
+              // Update escrow account balance with NET amount only
               const { data: currentEscrow } = await supabase
                 .from('escrow_accounts')
                 .select('balance')
@@ -239,23 +257,121 @@ serve(async (req) => {
               if (currentEscrow) {
                 await supabase
                   .from('escrow_accounts')
-                  .update({ balance: currentEscrow.balance + payment.amount })
+                  .update({ balance: currentEscrow.balance + netAmount })
                   .eq('id', escrowAccount.id);
               }
 
-              console.log('Escrow transaction created');
+              console.log('Escrow transaction created with fees');
+
+              // Notify merchant about payment received
+              const { data: merchant } = await supabase
+                .from('merchants')
+                .select('user_id, business_name')
+                .eq('id', payment.merchant_id)
+                .single();
+
+              if (merchant) {
+                // Get tenant info for merchant notification
+                const { data: tenantProfile } = await supabase
+                  .from('profiles')
+                  .select('full_name')
+                  .eq('user_id', transaction.user_id)
+                  .single();
+
+                const tenantName = tenantProfile?.full_name || 'Penyewa';
+
+                // Create in-app notification for merchant
+                await supabase.from('notifications').insert({
+                  user_id: merchant.user_id,
+                  title: 'Pembayaran Diterima',
+                  message: `Pembayaran Rp ${grossAmount.toLocaleString('id-ID')} dari ${tenantName} telah diterima. Net ke escrow: Rp ${netAmount.toLocaleString('id-ID')}`,
+                  type: 'payment',
+                  link: '/merchant/payments',
+                });
+
+                console.log('Merchant notification created');
+
+                // Send email to merchant
+                const { data: merchantProfile } = await supabase
+                  .from('profiles')
+                  .select('email, full_name')
+                  .eq('user_id', merchant.user_id)
+                  .single();
+
+                if (merchantProfile) {
+                  try {
+                    await fetch(`${SUPABASE_URL}/functions/v1/send-notification`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                      },
+                      body: JSON.stringify({
+                        type: 'payment_received',
+                        recipientEmail: merchantProfile.email,
+                        recipientName: merchantProfile.full_name || 'Merchant',
+                        data: {
+                          tenantName,
+                          grossAmount,
+                          platformFee,
+                          gatewayFee,
+                          netAmount,
+                          paymentMethod: payment_channel || payment_method,
+                          transactionId: external_id,
+                        },
+                      }),
+                    });
+                    console.log('Merchant email notification sent');
+                  } catch (emailError) {
+                    console.error('Merchant email notification error:', emailError);
+                  }
+                }
+              }
             }
           }
         }
 
-        // Create notification for user
+        // Create notification for tenant
         await supabase.from('notifications').insert({
           user_id: transaction.user_id,
-          title: 'Payment Successful',
-          message: `Your payment of Rp ${paid_amount?.toLocaleString() || transaction.amount.toLocaleString()} has been confirmed.`,
+          title: 'Pembayaran Berhasil',
+          message: `Pembayaran Rp ${grossAmount.toLocaleString('id-ID')} telah dikonfirmasi.`,
           type: 'payment',
           link: '/tenant/payments',
         });
+
+        // Send email receipt to tenant
+        const { data: tenantProfile } = await supabase
+          .from('profiles')
+          .select('email, full_name')
+          .eq('user_id', transaction.user_id)
+          .single();
+
+        if (tenantProfile) {
+          try {
+            await fetch(`${SUPABASE_URL}/functions/v1/send-notification`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              },
+              body: JSON.stringify({
+                type: 'payment_receipt',
+                recipientEmail: tenantProfile.email,
+                recipientName: tenantProfile.full_name || 'Tenant',
+                data: {
+                  amount: grossAmount,
+                  paymentMethod: payment_channel || payment_method,
+                  transactionId: external_id,
+                  paidAt: new Date().toISOString(),
+                },
+              }),
+            });
+            console.log('Tenant email receipt sent');
+          } catch (emailError) {
+            console.error('Tenant email receipt error:', emailError);
+          }
+        }
       }
     }
 
