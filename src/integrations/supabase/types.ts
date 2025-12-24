@@ -130,6 +130,51 @@ export type Database = {
           },
         ]
       }
+      cancellation_feedback: {
+        Row: {
+          created_at: string
+          feedback: string | null
+          id: string
+          merchant_id: string
+          reason: string
+          subscription_id: string | null
+          would_return: boolean | null
+        }
+        Insert: {
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          merchant_id: string
+          reason: string
+          subscription_id?: string | null
+          would_return?: boolean | null
+        }
+        Update: {
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          merchant_id?: string
+          reason?: string
+          subscription_id?: string | null
+          would_return?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cancellation_feedback_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancellation_feedback_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_conversations: {
         Row: {
           context: Json | null
@@ -935,10 +980,14 @@ export type Database = {
       merchant_subscriptions: {
         Row: {
           canceled_at: string | null
+          cancellation_effective_date: string | null
+          cancellation_reason: string | null
+          cancellation_requested_at: string | null
           created_at: string
           current_period_end: string
           current_period_start: string
           failed_attempts: number | null
+          grace_period_end: string | null
           id: string
           merchant_id: string
           next_billing_date: string | null
@@ -952,10 +1001,14 @@ export type Database = {
         }
         Insert: {
           canceled_at?: string | null
+          cancellation_effective_date?: string | null
+          cancellation_reason?: string | null
+          cancellation_requested_at?: string | null
           created_at?: string
           current_period_end: string
           current_period_start?: string
           failed_attempts?: number | null
+          grace_period_end?: string | null
           id?: string
           merchant_id: string
           next_billing_date?: string | null
@@ -969,10 +1022,14 @@ export type Database = {
         }
         Update: {
           canceled_at?: string | null
+          cancellation_effective_date?: string | null
+          cancellation_reason?: string | null
+          cancellation_requested_at?: string | null
           created_at?: string
           current_period_end?: string
           current_period_start?: string
           failed_attempts?: number | null
+          grace_period_end?: string | null
           id?: string
           merchant_id?: string
           next_billing_date?: string | null
@@ -1349,6 +1406,83 @@ export type Database = {
           },
         ]
       }
+      pending_subscription_changes: {
+        Row: {
+          applied_at: string | null
+          cancelled_at: string | null
+          change_type: string
+          created_at: string
+          current_tier_id: string | null
+          effective_date: string
+          id: string
+          merchant_id: string
+          pending_tier_id: string
+          reason: string | null
+          status: string
+          subscription_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string | null
+          cancelled_at?: string | null
+          change_type?: string
+          created_at?: string
+          current_tier_id?: string | null
+          effective_date: string
+          id?: string
+          merchant_id: string
+          pending_tier_id: string
+          reason?: string | null
+          status?: string
+          subscription_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string | null
+          cancelled_at?: string | null
+          change_type?: string
+          created_at?: string
+          current_tier_id?: string | null
+          effective_date?: string
+          id?: string
+          merchant_id?: string
+          pending_tier_id?: string
+          reason?: string | null
+          status?: string
+          subscription_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_subscription_changes_current_tier_id_fkey"
+            columns: ["current_tier_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_tiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_subscription_changes_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_subscription_changes_pending_tier_id_fkey"
+            columns: ["pending_tier_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_tiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_subscription_changes_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platform_settings: {
         Row: {
           created_at: string
@@ -1648,6 +1782,91 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      subscription_invoices: {
+        Row: {
+          amount: number
+          attempt_count: number | null
+          billing_period_end: string
+          billing_period_start: string
+          created_at: string
+          due_date: string
+          failure_reason: string | null
+          id: string
+          last_attempt_at: string | null
+          merchant_id: string
+          paid_at: string | null
+          payment_method: string | null
+          status: string
+          subscription_id: string | null
+          tier_id: string
+          updated_at: string
+          xendit_invoice_id: string | null
+          xendit_payment_url: string | null
+        }
+        Insert: {
+          amount: number
+          attempt_count?: number | null
+          billing_period_end: string
+          billing_period_start: string
+          created_at?: string
+          due_date: string
+          failure_reason?: string | null
+          id?: string
+          last_attempt_at?: string | null
+          merchant_id: string
+          paid_at?: string | null
+          payment_method?: string | null
+          status?: string
+          subscription_id?: string | null
+          tier_id: string
+          updated_at?: string
+          xendit_invoice_id?: string | null
+          xendit_payment_url?: string | null
+        }
+        Update: {
+          amount?: number
+          attempt_count?: number | null
+          billing_period_end?: string
+          billing_period_start?: string
+          created_at?: string
+          due_date?: string
+          failure_reason?: string | null
+          id?: string
+          last_attempt_at?: string | null
+          merchant_id?: string
+          paid_at?: string | null
+          payment_method?: string | null
+          status?: string
+          subscription_id?: string | null
+          tier_id?: string
+          updated_at?: string
+          xendit_invoice_id?: string | null
+          xendit_payment_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_invoices_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_invoices_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_invoices_tier_id_fkey"
+            columns: ["tier_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_tiers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subscription_tiers: {
         Row: {
