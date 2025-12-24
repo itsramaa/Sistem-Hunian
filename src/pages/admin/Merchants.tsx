@@ -14,7 +14,9 @@ import {
   CreditCard,
   Image,
   History,
-  Home
+  Home,
+  BarChart3,
+  Activity
 } from 'lucide-react';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,6 +40,8 @@ import { MerchantPropertiesTab } from '@/components/admin/MerchantPropertiesTab'
 import { DocumentLightbox } from '@/components/admin/DocumentLightbox';
 import { RejectionReasonForm } from '@/components/admin/RejectionReasonForm';
 import { BulkApprovalDialog } from '@/components/admin/BulkApprovalDialog';
+import { MerchantAnalyticsTab } from '@/components/admin/MerchantAnalyticsTab';
+import { MerchantActivityTab } from '@/components/admin/MerchantActivityTab';
 
 interface Merchant {
   id: string;
@@ -264,6 +268,29 @@ export default function AdminMerchants() {
         link: '/merchant',
       });
 
+      // Send email notification
+      try {
+        await supabase.functions.invoke('send-notification', {
+          body: {
+            type: status === 'verified' ? 'verification_approved' : 'verification_rejected',
+            recipientEmail: selectedMerchant.profiles?.email,
+            recipientName: selectedMerchant.profiles?.full_name || 'Merchant',
+            data: {
+              businessName: selectedMerchant.business_name,
+              dashboardLink: `${window.location.origin}/merchant`,
+              approvalNotes: status === 'verified' ? approvalNotes : null,
+              rejectionReason: rejectionData?.reasonLabel,
+              rejectionDetails: rejectionData?.details,
+              resubmissionInstructions: rejectionData?.resubmissionInstructions,
+            }
+          }
+        });
+        console.log('Verification email sent successfully');
+      } catch (emailError) {
+        console.error('Failed to send verification email:', emailError);
+        // Don't throw - email is not critical
+      }
+
       toast({
         title: status === 'verified' ? 'Merchant Diverifikasi' : 'Merchant Ditolak',
         description: `${selectedMerchant.business_name} telah ${status === 'verified' ? 'diverifikasi' : 'ditolak'}`,
@@ -384,6 +411,24 @@ export default function AdminMerchants() {
         message: 'Selamat! Akun bisnis Anda telah terverifikasi. Semua fitur telah dibuka.',
         link: '/merchant',
       });
+
+      // Send email notification for bulk approval
+      try {
+        await supabase.functions.invoke('send-notification', {
+          body: {
+            type: 'verification_approved',
+            recipientEmail: merchant.profiles?.email,
+            recipientName: merchant.profiles?.full_name || 'Merchant',
+            data: {
+              businessName: merchant.business_name,
+              dashboardLink: `${window.location.origin}/merchant`,
+              approvalNotes: notes || null,
+            }
+          }
+        });
+      } catch (emailError) {
+        console.error('Failed to send bulk approval email:', emailError);
+      }
     }
 
     toast({
@@ -762,9 +807,9 @@ export default function AdminMerchants() {
           </CardContent>
         </Card>
 
-        {/* Merchant Detail Dialog - Enhanced with 4 tabs */}
+        {/* Merchant Detail Dialog - Enhanced with 6 tabs */}
         <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Building2 className="h-5 w-5" />
@@ -777,19 +822,27 @@ export default function AdminMerchants() {
 
             {selectedMerchant && (
               <Tabs defaultValue="details" className="mt-4">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-6">
                   <TabsTrigger value="details">Details</TabsTrigger>
                   <TabsTrigger value="documents" className="flex items-center gap-1">
                     <Image className="h-3 w-3" />
-                    Docs ({verifications.length})
+                    Docs
                   </TabsTrigger>
                   <TabsTrigger value="properties" className="flex items-center gap-1">
                     <Home className="h-3 w-3" />
                     Properties
                   </TabsTrigger>
+                  <TabsTrigger value="analytics" className="flex items-center gap-1">
+                    <BarChart3 className="h-3 w-3" />
+                    Analytics
+                  </TabsTrigger>
                   <TabsTrigger value="history" className="flex items-center gap-1">
                     <History className="h-3 w-3" />
                     History
+                  </TabsTrigger>
+                  <TabsTrigger value="activity" className="flex items-center gap-1">
+                    <Activity className="h-3 w-3" />
+                    Activity
                   </TabsTrigger>
                 </TabsList>
                 
@@ -879,8 +932,16 @@ export default function AdminMerchants() {
                   <MerchantPropertiesTab merchantId={selectedMerchant.id} />
                 </TabsContent>
 
+                <TabsContent value="analytics" className="mt-4">
+                  <MerchantAnalyticsTab merchantId={selectedMerchant.id} />
+                </TabsContent>
+
                 <TabsContent value="history" className="mt-4">
                   <MerchantVerificationHistory merchantId={selectedMerchant.id} />
+                </TabsContent>
+
+                <TabsContent value="activity" className="mt-4">
+                  <MerchantActivityTab merchantId={selectedMerchant.id} />
                 </TabsContent>
               </Tabs>
             )}

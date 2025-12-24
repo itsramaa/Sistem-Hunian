@@ -26,6 +26,8 @@ interface NotificationRequest {
     | "disbursement_success"
     | "disbursement_failed"
     | "auto_pay_invoice"
+    | "verification_approved"
+    | "verification_rejected"
     | "general";
   recipientEmail: string;
   recipientName: string;
@@ -591,6 +593,85 @@ const getEmailTemplate = (type: string, data: Record<string, any>, recipientName
               <a href="${data.paymentUrl || '#'}" style="display: inline-block; background: ${data.isGracePeriod ? '#dc2626' : '#0891b2'}; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 15px;">Pay Now</a>
               
               <p style="color: #9ca3af; font-size: 12px; margin-top: 30px;">${data.isGracePeriod ? 'Please pay immediately to avoid losing access to your subscription features.' : 'Make sure your payment method is up to date.'}</p>
+            </div>
+          </div>
+        `,
+      };
+
+    // NEW TEMPLATE: Merchant Verification Approved
+    case "verification_approved":
+      return {
+        subject: `✅ Selamat! Akun Bisnis ${data.businessName} Terverifikasi`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">🎉 Akun Terverifikasi!</h1>
+            </div>
+            <div style="padding: 30px; background: #f9fafb;">
+              <p style="color: #6b7280;">Selamat ${recipientName},</p>
+              <p style="color: #6b7280;">Akun bisnis <strong>${data.businessName}</strong> telah berhasil diverifikasi oleh tim SiHuni.</p>
+              
+              <div style="background: #d1fae5; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #a7f3d0;">
+                <p style="margin: 0; color: #065f46; font-size: 18px; text-align: center;">✓ Verifikasi Berhasil</p>
+              </div>
+              
+              <p style="color: #6b7280;">Semua fitur platform kini telah dibuka untuk Anda:</p>
+              <ul style="color: #6b7280; margin: 15px 0; padding-left: 20px;">
+                <li style="margin: 8px 0;">Kelola properti dan unit tanpa batas</li>
+                <li style="margin: 8px 0;">Tambahkan tenant dan buat kontrak</li>
+                <li style="margin: 8px 0;">Buat invoice dan terima pembayaran online</li>
+                <li style="margin: 8px 0;">Akses dashboard analitik lengkap</li>
+                <li style="margin: 8px 0;">Pencairan dana otomatis ke rekening bank</li>
+              </ul>
+              
+              ${data.approvalNotes ? `
+              <div style="background: white; border-radius: 8px; padding: 15px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                <p style="margin: 0; color: #374151;"><strong>Catatan dari Admin:</strong></p>
+                <p style="margin: 5px 0 0 0; color: #6b7280;">${data.approvalNotes}</p>
+              </div>
+              ` : ''}
+              
+              <a href="${data.dashboardLink || '#'}" style="display: inline-block; background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 15px;">Masuk ke Dashboard</a>
+              
+              <p style="color: #9ca3af; font-size: 12px; margin-top: 30px;">Terima kasih telah mempercayakan pengelolaan properti Anda kepada SiHuni!</p>
+            </div>
+          </div>
+        `,
+      };
+
+    // NEW TEMPLATE: Merchant Verification Rejected
+    case "verification_rejected":
+      return {
+        subject: `⚠️ Tindakan Diperlukan - Verifikasi ${data.businessName}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">⚠️ Verifikasi Ditolak</h1>
+            </div>
+            <div style="padding: 30px; background: #f9fafb;">
+              <p style="color: #6b7280;">Hi ${recipientName},</p>
+              <p style="color: #6b7280;">Mohon maaf, pengajuan verifikasi untuk <strong>${data.businessName}</strong> belum dapat disetujui.</p>
+              
+              <div style="background: #fef3c7; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #fcd34d;">
+                <p style="margin: 0 0 10px 0; color: #92400e;"><strong>Alasan Penolakan:</strong></p>
+                <p style="margin: 0; color: #78350f; font-size: 16px;">${data.rejectionReason || 'Dokumen tidak memenuhi persyaratan'}</p>
+              </div>
+              
+              ${data.rejectionDetails ? `
+              <div style="background: white; border-radius: 8px; padding: 15px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                <p style="margin: 0; color: #374151;"><strong>Detail:</strong></p>
+                <p style="margin: 5px 0 0 0; color: #6b7280;">${data.rejectionDetails}</p>
+              </div>
+              ` : ''}
+              
+              <div style="background: #eff6ff; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #bfdbfe;">
+                <p style="margin: 0 0 10px 0; color: #1e40af;"><strong>Langkah Selanjutnya:</strong></p>
+                <p style="margin: 0; color: #1e3a8a;">${data.resubmissionInstructions || 'Silakan perbaiki dokumen yang diminta dan ajukan kembali verifikasi melalui dashboard.'}</p>
+              </div>
+              
+              <a href="${data.dashboardLink || '#'}" style="display: inline-block; background: #0891b2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 15px;">Perbaiki & Ajukan Kembali</a>
+              
+              <p style="color: #9ca3af; font-size: 12px; margin-top: 30px;">Jika Anda memiliki pertanyaan, silakan hubungi tim support kami.</p>
             </div>
           </div>
         `,
