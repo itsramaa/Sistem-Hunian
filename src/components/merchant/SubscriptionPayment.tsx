@@ -7,11 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Crown, Star, Building2, Check, Loader2, Sparkles, ExternalLink } from "lucide-react";
-
+import { useSubscriptionLimits } from "@/hooks/useSubscriptionLimits";
+import { Crown, Star, Building2, Check, Loader2, Sparkles, ExternalLink, AlertTriangle } from "lucide-react";
 interface SubscriptionTier {
   id: string;
   name: string;
@@ -34,7 +35,10 @@ export function SubscriptionPayment() {
   const [selectedTierId, setSelectedTierId] = useState<string>("");
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("monthly");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showDowngradeWarning, setShowDowngradeWarning] = useState(false);
+  const [downgradeTarget, setDowngradeTarget] = useState<SubscriptionTier | null>(null);
 
+  const { data: limits } = useSubscriptionLimits();
   // Handle payment callback
   useEffect(() => {
     const paymentStatus = searchParams.get('payment');
@@ -99,6 +103,77 @@ export function SubscriptionPayment() {
       ? selectedTier.price_yearly 
       : selectedTier.price_monthly
     : 0;
+
+  // Check if this is a downgrade that exceeds limits
+  const isDowngrade = (targetTier: SubscriptionTier) => {
+    if (!currentSubscription?.tier) return false;
+    const currentTier = currentSubscription.tier;
+    return (
+      targetTier.max_properties < currentTier.max_properties ||
+      targetTier.max_units < currentTier.max_units ||
+      targetTier.max_tenants < currentTier.max_tenants
+    );
+  };
+
+  const exceedsLimits = (targetTier: SubscriptionTier) => {
+    if (!limits) return false;
+    return (
+      limits.currentProperties > targetTier.max_properties ||
+      limits.currentUnits > targetTier.max_units ||
+      limits.currentTenants > targetTier.max_tenants
+    );
+  };
+
+  const handleTierSelect = (tier: SubscriptionTier) => {
+    // Check if downgrade exceeds current usage
+    if (isDowngrade(tier) && exceedsLimits(tier)) {
+      setDowngradeTarget(tier);
+      setShowDowngradeWarning(true);
+      return;
+    }
+    
+    setSelectedTierId(tier.id);
+    setShowUpgradeDialog(true);
+  };
+
+  const handleScheduleDowngrade = async () => {
+    if (!downgradeTarget || !merchant || !currentSubscription) return;
+    
+    setIsProcessing(true);
+    try {
+      const { error } = await supabase
+        .from("pending_subscription_changes")
+        .insert({
+          merchant_id: merchant.id,
+          subscription_id: currentSubscription.id,
+          current_tier_id: currentSubscription.tier_id,
+          pending_tier_id: downgradeTarget.id,
+          change_type: "downgrade",
+          effective_date: currentSubscription.current_period_end,
+          reason: "Usage exceeds target tier limits - scheduled for end of period",
+          status: "pending",
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Downgrade scheduled",
+        description: `Your plan will change to ${downgradeTarget.display_name} at the end of your current billing period.`,
+      });
+      setShowDowngradeWarning(false);
+      setDowngradeTarget(null);
+      queryClient.invalidateQueries({ queryKey: ["pending-subscription-changes"] });
+    } catch (error) {
+      console.error("Schedule downgrade error:", error);
+      toast({
+        title: "Error",
+        description: "Could not schedule the downgrade. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const handleUpgrade = async () => {
     if (!selectedTier || !merchant || !user) return;
@@ -243,10 +318,7 @@ export function SubscriptionPayment() {
                         className="w-full"
                         variant={isCurrent ? "outline" : isPopular ? "default" : "secondary"}
                         disabled={isCurrent}
-                        onClick={() => {
-                          setSelectedTierId(tier.id);
-                          setShowUpgradeDialog(true);
-                        }}
+                        onClick={() => handleTierSelect(tier)}
                       >
                         {isCurrent ? "Current Plan" : tier.price_monthly === 0 ? "Downgrade" : "Upgrade"}
                       </Button>
@@ -325,6 +397,70 @@ export function SubscriptionPayment() {
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Proceed to Payment
                 </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Downgrade Warning Dialog */}
+      <Dialog open={showDowngradeWarning} onOpenChange={setShowDowngradeWarning}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-warning" />
+              Usage Exceeds Target Plan Limits
+            </DialogTitle>
+            <DialogDescription>
+              Your current usage exceeds the limits of the {downgradeTarget?.display_name} plan.
+            </DialogDescription>
+          </DialogHeader>
+
+          {downgradeTarget && limits && (
+            <div className="space-y-4">
+              <Alert variant="destructive" className="bg-destructive/10">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  You cannot immediately switch to this plan. You must reduce your usage first, or schedule this change for the end of your billing period.
+                </AlertDescription>
+              </Alert>
+
+              <div className="p-4 rounded-lg bg-muted/50 space-y-2">
+                <p className="font-medium text-sm">Current Usage vs {downgradeTarget.display_name} Limits:</p>
+                <ul className="space-y-1 text-sm">
+                  <li className={limits.currentProperties > downgradeTarget.max_properties ? "text-destructive font-medium" : ""}>
+                    Properties: {limits.currentProperties} / {downgradeTarget.max_properties}
+                    {limits.currentProperties > downgradeTarget.max_properties && " ⚠️"}
+                  </li>
+                  <li className={limits.currentUnits > downgradeTarget.max_units ? "text-destructive font-medium" : ""}>
+                    Units: {limits.currentUnits} / {downgradeTarget.max_units}
+                    {limits.currentUnits > downgradeTarget.max_units && " ⚠️"}
+                  </li>
+                  <li className={limits.currentTenants > downgradeTarget.max_tenants ? "text-destructive font-medium" : ""}>
+                    Tenants: {limits.currentTenants} / {downgradeTarget.max_tenants}
+                    {limits.currentTenants > downgradeTarget.max_tenants && " ⚠️"}
+                  </li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowDowngradeWarning(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="secondary"
+              onClick={handleScheduleDowngrade}
+              disabled={isProcessing}
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Scheduling...
+                </>
+              ) : (
+                "Schedule for End of Period"
               )}
             </Button>
           </DialogFooter>
