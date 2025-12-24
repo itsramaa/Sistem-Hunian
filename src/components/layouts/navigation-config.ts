@@ -118,7 +118,8 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
       },
     ],
     hasBottomNav: false,
-    hasFloatingAI: false,
+    hasFloatingAI: true,
+    globalFloatingAI: true,
   },
   vendor: {
     brand: {
@@ -143,7 +144,8 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
       },
     ],
     hasBottomNav: false,
-    hasFloatingAI: false,
+    hasFloatingAI: true,
+    globalFloatingAI: true,
   },
   admin: {
     brand: {
@@ -175,7 +177,8 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
       },
     ],
     hasBottomNav: false,
-    hasFloatingAI: false,
+    hasFloatingAI: true,
+    globalFloatingAI: true,
   },
 };
 

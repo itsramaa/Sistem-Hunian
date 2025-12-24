@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { useLocation, Link } from "react-router-dom";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
@@ -15,6 +15,9 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { AppSidebar } from "./sidebar/app-sidebar";
 import { MobileLayout } from "./MobileLayout";
 import { UserRole, navigationConfig, getAllNavItems } from "./navigation-config";
+import { FloatingActionButton } from "./FloatingActionButton";
+import { ChatbotDialog } from "@/components/chatbot/ChatbotDialog";
+import { useChatbotTracking } from "@/hooks/useAnalytics";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -67,6 +70,19 @@ export function DashboardLayout({
   const location = useLocation();
   const basePath = `/${role}`;
   const isRootPage = location.pathname === basePath || location.pathname === `${basePath}/`;
+  
+  // Floating AI state
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const { trackChatbotOpened } = useChatbotTracking();
+  
+  const config = navigationConfig[role];
+  const showAIButton = config.hasFloatingAI && config.globalFloatingAI;
+  const showCreateButton = floatingAction?.type === "create";
+  
+  const handleAIButtonClick = () => {
+    if (!isChatOpen) trackChatbotOpened();
+    setIsChatOpen(!isChatOpen);
+  };
   
   // Auto-detect page label from navigation config if no title provided
   const pageLabel = title || getCurrentPageLabel(role, location.pathname);
@@ -148,6 +164,27 @@ export function DashboardLayout({
           {children}
         </div>
       </SidebarInset>
+      
+      {/* Global Floating Buttons - visible on all screen sizes */}
+      {showCreateButton && (
+        <FloatingActionButton
+          type="create"
+          onClick={floatingAction.onClick}
+          className="bottom-24"
+        />
+      )}
+      
+      {showAIButton && (
+        <FloatingActionButton
+          type="ai"
+          isOpen={isChatOpen}
+          onClick={handleAIButtonClick}
+        />
+      )}
+      
+      {config.hasFloatingAI && (
+        <ChatbotDialog isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+      )}
     </SidebarProvider>
   );
 }
