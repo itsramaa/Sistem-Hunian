@@ -4,10 +4,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { TenantLayout } from '@/components/layouts/TenantLayout';
 import { UpdateTimeline } from '@/components/maintenance/UpdateTimeline';
+import { MaintenanceReviewForm } from '@/components/maintenance/MaintenanceReviewForm';
+import { SLABadge } from '@/components/maintenance/SLABadge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Wrench, Clock, CheckCircle, AlertTriangle, Calendar, MapPin, Loader2 } from 'lucide-react';
+import { ArrowLeft, Wrench, Clock, CheckCircle, AlertTriangle, Calendar, MapPin, Loader2, Star } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function MaintenanceDetail() {
@@ -38,6 +40,21 @@ export default function MaintenanceDetail() {
       return data;
     },
     enabled: !!requestId && !!user?.id,
+  });
+
+  // Check if review already exists
+  const { data: existingReview } = useQuery({
+    queryKey: ['maintenance-review', requestId],
+    queryFn: async () => {
+      if (!requestId) return null;
+      const { data } = await supabase
+        .from('maintenance_reviews')
+        .select('*, vendors(business_name)')
+        .eq('maintenance_request_id', requestId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!requestId && request?.status === 'completed',
   });
 
   const getStatusIcon = (status: string) => {
@@ -125,7 +142,10 @@ export default function MaintenanceDetail() {
                   <CardTitle>{request.title}</CardTitle>
                   <CardDescription className="capitalize">{request.category}</CardDescription>
                 </div>
-                {getStatusBadge(request.status)}
+                <div className="flex flex-col gap-1 items-end">
+                  {getStatusBadge(request.status)}
+                  <SLABadge slaDeadline={request.sla_deadline} status={request.status} />
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -201,13 +221,55 @@ export default function MaintenanceDetail() {
           </Card>
         </div>
 
-        {/* Timeline */}
-        <div className="lg:col-span-2">
+        {/* Timeline & Review */}
+        <div className="lg:col-span-2 space-y-6">
           <UpdateTimeline 
             maintenanceRequestId={requestId!}
             canAddUpdate={request.status !== 'completed'}
             authorRole="tenant"
           />
+
+          {/* Review Section - Show for completed requests */}
+          {request.status === 'completed' && request.assigned_vendor_id && !existingReview && (
+            <MaintenanceReviewForm
+              maintenanceRequestId={requestId!}
+              vendorId={request.assigned_vendor_id}
+              vendorName={request.assigned_to || 'Vendor'}
+              tenantUserId={user!.id}
+            />
+          )}
+
+          {/* Existing Review Display */}
+          {existingReview && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />
+                  Your Review
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-1 mb-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      className={`h-5 w-5 ${
+                        star <= existingReview.rating
+                          ? 'fill-yellow-400 text-yellow-400'
+                          : 'text-muted-foreground'
+                      }`}
+                    />
+                  ))}
+                </div>
+                {existingReview.review_text && (
+                  <p className="text-sm text-muted-foreground">{existingReview.review_text}</p>
+                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  Submitted on {format(new Date(existingReview.created_at), 'MMM d, yyyy')}
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </TenantLayout>
