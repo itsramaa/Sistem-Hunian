@@ -25,12 +25,129 @@ serve(async (req) => {
     const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
     const oneDayFromNow = new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000);
 
-    // Find subscriptions that are:
-    // 1. Trial ending soon (H-7, H-3, H-1)
-    // 2. Current period ending soon
-    // 3. Already expired
+    const results = {
+      expiredTrials: 0,
+      expiredSubscriptions: 0,
+      scheduledCancellations: 0,
+      pendingChangesApplied: 0,
+      reminders7Days: 0,
+      reminders3Days: 0,
+      reminders1Day: 0,
+    };
 
-    // Get all active subscriptions
+    // ===== STEP 1: Handle Scheduled Cancellations =====
+    console.log('Checking for scheduled cancellations...');
+    
+    const { data: scheduledCancellations, error: cancelError } = await supabase
+      .from('merchant_subscriptions')
+      .select(`
+        *,
+        merchants!inner(id, user_id, business_name)
+      `)
+      .not('cancellation_effective_date', 'is', null)
+      .lte('cancellation_effective_date', now.toISOString())
+      .eq('status', 'active');
+
+    if (cancelError) {
+      console.error('Error fetching scheduled cancellations:', cancelError);
+    } else {
+      console.log(`Found ${scheduledCancellations?.length || 0} scheduled cancellations to process`);
+
+      for (const sub of scheduledCancellations || []) {
+        console.log(`Processing scheduled cancellation for merchant ${sub.merchant_id}`);
+
+        // Get free tier
+        const { data: freeTier } = await supabase
+          .from('subscription_tiers')
+          .select('id')
+          .eq('name', 'free')
+          .maybeSingle();
+
+        if (freeTier) {
+          // Downgrade to free tier and mark as cancelled
+          await supabase
+            .from('merchant_subscriptions')
+            .update({
+              tier_id: freeTier.id,
+              status: 'cancelled',
+              canceled_at: now.toISOString(),
+            })
+            .eq('id', sub.id);
+
+          // Notify merchant
+          await supabase.from('notifications').insert({
+            user_id: sub.merchants.user_id,
+            title: 'Subscription Cancelled',
+            message: `Your subscription has been cancelled as scheduled. You've been moved to the Free plan.`,
+            type: 'subscription',
+            link: '/merchant/settings',
+          });
+
+          results.scheduledCancellations++;
+        }
+      }
+    }
+
+    // ===== STEP 2: Handle Pending Subscription Changes =====
+    console.log('Checking for pending subscription changes...');
+
+    const { data: pendingChanges, error: pendingError } = await supabase
+      .from('pending_subscription_changes')
+      .select(`
+        *,
+        merchants!inner(id, user_id, business_name),
+        pending_tier:subscription_tiers!pending_subscription_changes_pending_tier_id_fkey(id, name, display_name)
+      `)
+      .eq('status', 'pending')
+      .lte('effective_date', now.toISOString());
+
+    if (pendingError) {
+      console.error('Error fetching pending changes:', pendingError);
+    } else {
+      console.log(`Found ${pendingChanges?.length || 0} pending changes to apply`);
+
+      for (const change of pendingChanges || []) {
+        console.log(`Applying pending change for merchant ${change.merchant_id}: ${change.change_type}`);
+
+        // Update subscription to new tier
+        const { error: updateError } = await supabase
+          .from('merchant_subscriptions')
+          .update({
+            tier_id: change.pending_tier_id,
+            current_period_start: now.toISOString(),
+            current_period_end: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          })
+          .eq('merchant_id', change.merchant_id);
+
+        if (!updateError) {
+          // Mark pending change as applied
+          await supabase
+            .from('pending_subscription_changes')
+            .update({
+              status: 'applied',
+              applied_at: now.toISOString(),
+            })
+            .eq('id', change.id);
+
+          // Notify merchant
+          await supabase.from('notifications').insert({
+            user_id: change.merchants.user_id,
+            title: 'Subscription Plan Changed',
+            message: `Your subscription has been changed to ${change.pending_tier?.display_name || 'new plan'} as scheduled.`,
+            type: 'subscription',
+            link: '/merchant/settings',
+          });
+
+          results.pendingChangesApplied++;
+        } else {
+          console.error(`Error applying pending change ${change.id}:`, updateError);
+        }
+      }
+    }
+
+    // ===== STEP 3: Handle Trial Expirations and Renewals =====
+    console.log('Checking for trial expirations and renewals...');
+
     const { data: subscriptions, error } = await supabase
       .from('merchant_subscriptions')
       .select(`
@@ -38,22 +155,15 @@ serve(async (req) => {
         merchants!inner(id, user_id, business_name),
         subscription_tiers!inner(id, name, price_monthly)
       `)
-      .in('status', ['trialing', 'active']);
+      .in('status', ['trialing', 'active'])
+      .is('cancellation_effective_date', null); // Skip subscriptions with scheduled cancellation
 
     if (error) {
       console.error('Error fetching subscriptions:', error);
       throw error;
     }
 
-    console.log(`Found ${subscriptions?.length || 0} active subscriptions`);
-
-    const results = {
-      expiredTrials: 0,
-      expiredSubscriptions: 0,
-      reminders7Days: 0,
-      reminders3Days: 0,
-      reminders1Day: 0,
-    };
+    console.log(`Found ${subscriptions?.length || 0} active subscriptions to check`);
 
     for (const sub of subscriptions || []) {
       const trialEnds = sub.trial_ends_at ? new Date(sub.trial_ends_at) : null;
@@ -71,7 +181,7 @@ serve(async (req) => {
             .from('subscription_tiers')
             .select('id')
             .eq('name', 'free')
-            .single();
+            .maybeSingle();
 
           if (freeTier) {
             // Downgrade to free tier
@@ -144,7 +254,7 @@ serve(async (req) => {
             .from('subscription_tiers')
             .select('id')
             .eq('name', 'free')
-            .single();
+            .maybeSingle();
 
           if (freeTier) {
             // Downgrade to free tier
