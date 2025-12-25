@@ -140,8 +140,6 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/vendor/jobs", icon: Briefcase, label: "Jobs" },
           { path: "/vendor/earnings", icon: Wallet, label: "Earnings" },
           { path: "/vendor/referrals", icon: Gift, label: "Referrals" },
-          { path: "/vendor/profile", icon: User, label: "Profile" },
-          { path: "/vendor/settings", icon: Settings, label: "Settings" },
         ],
       },
     ],

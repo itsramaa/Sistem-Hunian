@@ -33,6 +33,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { ImageGalleryUpload } from '@/components/FileUpload';
 import { SubscriptionLimitWarning } from '@/components/merchant/SubscriptionLimitWarning';
 import { useSubscriptionLimits } from '@/hooks/useSubscriptionLimits';
+import { LocationPicker } from '@/components/merchant/LocationPicker';
+import { ProvincesCitiesSelect } from '@/components/merchant/ProvincesCitiesSelect';
+import { CustomAmenities } from '@/components/merchant/CustomAmenities';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -67,21 +70,6 @@ const propertySchema = z.object({
 });
 
 type PropertyFormData = z.infer<typeof propertySchema>;
-
-const AMENITIES_LIST = [
-  { value: 'wifi', label: 'WiFi' },
-  { value: 'ac', label: 'AC' },
-  { value: 'parking', label: 'Parking' },
-  { value: 'laundry', label: 'Laundry' },
-  { value: 'kitchen', label: 'Shared Kitchen' },
-  { value: 'security', label: '24/7 Security' },
-  { value: 'cctv', label: 'CCTV' },
-  { value: 'water_heater', label: 'Water Heater' },
-  { value: 'gym', label: 'Gym' },
-  { value: 'pool', label: 'Swimming Pool' },
-  { value: 'furnished', label: 'Furnished' },
-  { value: 'cleaning', label: 'Cleaning Service' },
-];
 
 const propertyTypes = [
   { value: 'kost', label: 'Kost' },
@@ -128,14 +116,6 @@ export default function MerchantProperties() {
   });
 
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
-
-  const toggleAmenity = (value: string) => {
-    setSelectedAmenities(prev => 
-      prev.includes(value) 
-        ? prev.filter(a => a !== value)
-        : [...prev, value]
-    );
-  };
 
   useEffect(() => {
     if (merchant) {
@@ -337,21 +317,21 @@ export default function MerchantProperties() {
                   {editingProperty ? 'Update property details' : 'Add a new rental property to your portfolio'}
                 </DialogDescription>
               </DialogHeader>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 mt-4">
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 mt-4 max-h-[70vh] overflow-y-auto pr-2">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
-                    <Label htmlFor="name">Property Name</Label>
+                    <Label htmlFor="name">Nama Properti</Label>
                     <Input
                       id="name"
-                      placeholder="e.g., Kost Harmoni"
+                      placeholder="Contoh: Kost Harmoni"
                       {...form.register('name')}
                     />
                     {form.formState.errors.name && (
                       <p className="text-sm text-destructive mt-1">{form.formState.errors.name.message}</p>
                     )}
                   </div>
-                  <div>
-                    <Label htmlFor="property_type">Property Type</Label>
+                  <div className="col-span-2">
+                    <Label htmlFor="property_type">Tipe Properti</Label>
                     <Select 
                       value={form.watch('property_type')} 
                       onValueChange={(value) => form.setValue('property_type', value as any)}
@@ -368,71 +348,52 @@ export default function MerchantProperties() {
                       </SelectContent>
                     </Select>
                   </div>
+                  
+                  {/* Province & City Dropdowns */}
+                  <ProvincesCitiesSelect
+                    provinceValue={form.watch('province')}
+                    cityValue={form.watch('city')}
+                    onProvinceChange={(value) => form.setValue('province', value)}
+                    onCityChange={(value) => form.setValue('city', value)}
+                    provinceError={form.formState.errors.province?.message}
+                    cityError={form.formState.errors.city?.message}
+                  />
+
+                  {/* Address with Map */}
                   <div className="col-span-2">
-                    <Label htmlFor="address">Address</Label>
-                    <Input
-                      id="address"
-                      placeholder="Street address"
-                      {...form.register('address')}
+                    <Label htmlFor="address">Alamat</Label>
+                    <LocationPicker
+                      value={form.watch('address')}
+                      onChange={(address) => form.setValue('address', address)}
+                      placeholder="Cari atau klik peta untuk lokasi..."
                     />
                     {form.formState.errors.address && (
                       <p className="text-sm text-destructive mt-1">{form.formState.errors.address.message}</p>
                     )}
                   </div>
-                  <div>
-                    <Label htmlFor="city">City</Label>
-                    <Input
-                      id="city"
-                      placeholder="e.g., Jakarta"
-                      {...form.register('city')}
-                    />
-                    {form.formState.errors.city && (
-                      <p className="text-sm text-destructive mt-1">{form.formState.errors.city.message}</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="province">Province</Label>
-                    <Input
-                      id="province"
-                      placeholder="e.g., DKI Jakarta"
-                      {...form.register('province')}
-                    />
-                    {form.formState.errors.province && (
-                      <p className="text-sm text-destructive mt-1">{form.formState.errors.province.message}</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="postal_code">Postal Code</Label>
+
+                  <div className="col-span-2">
+                    <Label htmlFor="postal_code">Kode Pos</Label>
                     <Input
                       id="postal_code"
-                      placeholder="e.g., 12345"
+                      placeholder="Contoh: 12345"
                       {...form.register('postal_code')}
                     />
                   </div>
                   <div className="col-span-2">
-                    <Label htmlFor="description">Description (Optional)</Label>
+                    <Label htmlFor="description">Deskripsi (Opsional)</Label>
                     <Textarea
                       id="description"
-                      placeholder="Describe your property..."
+                      placeholder="Deskripsikan properti Anda..."
                       {...form.register('description')}
                       rows={3}
                     />
                   </div>
                   <div className="col-span-2">
-                    <Label>Amenities</Label>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {AMENITIES_LIST.map((amenity) => (
-                        <Badge
-                          key={amenity.value}
-                          variant={selectedAmenities.includes(amenity.value) ? 'default' : 'outline'}
-                          className="cursor-pointer transition-colors"
-                          onClick={() => toggleAmenity(amenity.value)}
-                        >
-                          {amenity.label}
-                        </Badge>
-                      ))}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">Click to select/deselect amenities</p>
+                    <CustomAmenities
+                      selectedAmenities={selectedAmenities}
+                      onAmenitiesChange={setSelectedAmenities}
+                    />
                   </div>
                 </div>
                 <DialogFooter>
@@ -622,7 +583,8 @@ export default function MerchantProperties() {
                   {property.amenities && property.amenities.length > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {property.amenities.slice(0, 4).map((amenity) => {
-                        const amenityLabel = AMENITIES_LIST.find(a => a.value === amenity)?.label || amenity;
+                        // Format amenity: replace underscores with spaces and capitalize
+                        const amenityLabel = amenity.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
                         return (
                           <Badge key={amenity} variant="secondary" className="text-xs py-0">
                             {amenityLabel}
