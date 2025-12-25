@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2, Eye, EyeOff, Building2, User, Wrench, Phone } from 'lucide-react';
+import { Loader2, Eye, EyeOff, Building2, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,53 +11,52 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { AppRole } from '@/types/auth';
-import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 
 const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  email: z.string().email('Masukkan email yang valid'),
+  password: z.string().min(6, 'Password minimal 6 karakter'),
 });
 
 const signupSchema = z.object({
-  email: z.string().email('Please enter a valid email'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  email: z.string().email('Masukkan email yang valid'),
+  password: z.string().min(6, 'Password minimal 6 karakter'),
   confirmPassword: z.string(),
-  fullName: z.string().min(2, 'Name must be at least 2 characters'),
+  fullName: z.string().min(2, 'Nama minimal 2 karakter'),
   phone: z.string().optional(),
-  businessName: z.string().optional(),
   merchantCode: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
+  message: "Password tidak cocok",
   path: ['confirmPassword'],
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
 type SignupFormData = z.infer<typeof signupSchema>;
 
-const roleOptions: { value: AppRole; label: string; icon: typeof Building2; description: string }[] = [
-  { value: 'merchant', label: 'Merchant', icon: Building2, description: 'Property owner/manager' },
-  { value: 'tenant', label: 'Tenant', icon: User, description: 'Rent a property' },
-  { value: 'vendor', label: 'Vendor', icon: Wrench, description: 'Service provider' },
-];
-
 export function AuthForm() {
   const [searchParams] = useSearchParams();
   const initialMode = searchParams.get('mode') as 'login' | 'signup' | null;
-  const initialRole = searchParams.get('role') as AppRole | null;
   const initialMerchantCode = searchParams.get('merchantCode') || searchParams.get('code') || '';
   const initialReferralCode = searchParams.get('ref') || sessionStorage.getItem('referral_code') || '';
   
-  const [activeTab, setActiveTab] = useState<'login' | 'signup'>(initialMode || 'login');
+  // If has merchantCode, user is a tenant signup
+  const isTenantSignup = !!initialMerchantCode;
+  
+  const [activeTab, setActiveTab] = useState<'login' | 'signup'>(isTenantSignup ? 'signup' : (initialMode || 'login'));
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<AppRole>(initialRole || 'tenant');
   const [isLoading, setIsLoading] = useState(false);
   const [merchantCodeError, setMerchantCodeError] = useState<string | null>(null);
   const [referrerInfo, setReferrerInfo] = useState<{ name: string; role: string } | null>(null);
   const { toast } = useToast();
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
+
+  // Store referral code in session storage
+  useEffect(() => {
+    if (initialReferralCode) {
+      sessionStorage.setItem('referral_code', initialReferralCode);
+    }
+  }, [initialReferralCode]);
 
   // Validate referral code and get referrer info
   useEffect(() => {
@@ -80,7 +79,7 @@ export function AuthForm() {
             .single();
 
           setReferrerInfo({
-            name: profile?.full_name || 'A SiHuni user',
+            name: profile?.full_name || 'Pengguna SiHuni',
             role: referral.referrer_role,
           });
         }
@@ -105,7 +104,6 @@ export function AuthForm() {
       confirmPassword: '', 
       fullName: '',
       phone: '',
-      businessName: '',
       merchantCode: initialMerchantCode,
     },
   });
@@ -118,17 +116,17 @@ export function AuthForm() {
     if (error) {
       toast({
         variant: 'destructive',
-        title: 'Login failed',
+        title: 'Login gagal',
         description: error.message === 'Invalid login credentials' 
-          ? 'Invalid email or password. Please try again.'
+          ? 'Email atau password salah. Silakan coba lagi.'
           : error.message,
       });
       return;
     }
 
     toast({
-      title: 'Welcome back!',
-      description: 'You have successfully logged in.',
+      title: 'Selamat datang kembali!',
+      description: 'Anda berhasil masuk.',
     });
   };
 
@@ -151,44 +149,46 @@ export function AuthForm() {
     setIsLoading(true);
     setMerchantCodeError(null);
 
-    // Validate merchant code for tenants
+    // If has merchant code, validate it (tenant signup)
     let linkedMerchantId: string | null = null;
-    if (selectedRole === 'tenant') {
+    if (isTenantSignup) {
       if (!data.merchantCode) {
-        setMerchantCodeError('Merchant code is required for tenant registration');
+        setMerchantCodeError('Kode merchant diperlukan untuk pendaftaran tenant');
         setIsLoading(false);
         return;
       }
       
       linkedMerchantId = await validateMerchantCode(data.merchantCode);
       if (!linkedMerchantId) {
-        setMerchantCodeError('Invalid merchant code. Please check with your landlord.');
+        setMerchantCodeError('Kode merchant tidak valid. Silakan cek dengan pemilik properti Anda.');
         setIsLoading(false);
         return;
       }
     }
 
+    // For tenant signup (with merchantCode), assign role directly
+    // For general signup (no merchantCode), redirect to onboarding
+    const userRole = isTenantSignup ? 'tenant' : undefined;
+
     const { data: signUpData, error } = await signUp(data.email, data.password, {
       full_name: data.fullName,
       phone: data.phone || undefined,
-      role: selectedRole,
-      business_name: (selectedRole === 'merchant' || selectedRole === 'vendor') ? data.businessName : undefined,
-      merchant_code: selectedRole === 'tenant' ? data.merchantCode : undefined,
+      role: userRole,
+      merchant_code: isTenantSignup ? data.merchantCode : undefined,
     });
 
-    // Call auth-webhook to ensure profile/role creation with referral code
-    if (!error && signUpData?.user) {
+    // If tenant signup (with merchantCode), call auth-webhook to complete setup
+    if (!error && signUpData?.user && isTenantSignup) {
       try {
-        console.log('Calling auth-webhook for user setup...');
+        console.log('Calling auth-webhook for tenant setup...');
         const { error: webhookError } = await supabase.functions.invoke('auth-webhook', {
           body: {
             user_id: signUpData.user.id,
             email: data.email,
             full_name: data.fullName,
             phone: data.phone || null,
-            role: selectedRole,
-            business_name: (selectedRole === 'merchant' || selectedRole === 'vendor') ? data.businessName : undefined,
-            merchant_code: selectedRole === 'tenant' ? data.merchantCode : undefined,
+            role: 'tenant',
+            merchant_code: data.merchantCode,
             referral_code: initialReferralCode || undefined,
           },
         });
@@ -196,79 +196,81 @@ export function AuthForm() {
           console.error('Auth webhook failed:', webhookError);
         } else {
           console.log('Auth webhook completed successfully');
-          // Clear stored referral code
           sessionStorage.removeItem('referral_code');
         }
       } catch (webhookErr) {
         console.error('Auth webhook invocation error:', webhookErr);
       }
-    }
-    
-    // Link tenant to merchant after signup and send notification
-    if (!error && linkedMerchantId && selectedRole === 'tenant') {
-      console.log('Tenant linked to merchant:', linkedMerchantId);
       
-      // Fetch merchant details for notification
-      try {
-        const { data: merchantData } = await supabase
-          .from('merchants')
-          .select('user_id, business_name')
-          .eq('id', linkedMerchantId)
-          .single();
-        
-        if (merchantData) {
-          const { data: merchantProfile } = await supabase
-            .from('profiles')
-            .select('email, full_name')
-            .eq('user_id', merchantData.user_id)
+      // Send notification to merchant
+      if (linkedMerchantId) {
+        try {
+          const { data: merchantData } = await supabase
+            .from('merchants')
+            .select('user_id, business_name')
+            .eq('id', linkedMerchantId)
             .single();
           
-          if (merchantProfile?.email) {
-            // Send email notification to merchant
-            await supabase.functions.invoke('send-notification', {
-              body: {
-                type: 'tenant_registration',
-                recipientEmail: merchantProfile.email,
-                recipientName: merchantProfile.full_name || merchantData.business_name,
-                data: {
-                  tenantName: data.fullName,
-                  tenantEmail: data.email,
-                  tenantPhone: data.phone || null,
-                  registeredAt: new Date().toLocaleString('id-ID', { 
-                    dateStyle: 'full', 
-                    timeStyle: 'short' 
-                  }),
-                  dashboardLink: `${window.location.origin}/merchant/tenants`,
+          if (merchantData) {
+            const { data: merchantProfile } = await supabase
+              .from('profiles')
+              .select('email, full_name')
+              .eq('user_id', merchantData.user_id)
+              .single();
+            
+            if (merchantProfile?.email) {
+              await supabase.functions.invoke('send-notification', {
+                body: {
+                  type: 'tenant_registration',
+                  recipientEmail: merchantProfile.email,
+                  recipientName: merchantProfile.full_name || merchantData.business_name,
+                  data: {
+                    tenantName: data.fullName,
+                    tenantEmail: data.email,
+                    tenantPhone: data.phone || null,
+                    registeredAt: new Date().toLocaleString('id-ID', { 
+                      dateStyle: 'full', 
+                      timeStyle: 'short' 
+                    }),
+                    dashboardLink: `${window.location.origin}/merchant/tenants`,
+                  },
                 },
-              },
-            });
-            console.log('Tenant registration notification sent to merchant');
+              });
+              console.log('Tenant registration notification sent to merchant');
+            }
           }
+        } catch (notifError) {
+          console.error('Failed to send tenant registration notification:', notifError);
         }
-      } catch (notifError) {
-        console.error('Failed to send tenant registration notification:', notifError);
-        // Don't fail the signup if notification fails
       }
     }
+    
     setIsLoading(false);
 
     if (error) {
       let errorMessage = error.message;
       if (error.message.includes('already registered')) {
-        errorMessage = 'An account with this email already exists. Please log in instead.';
+        errorMessage = 'Email sudah terdaftar. Silakan login.';
       }
       toast({
         variant: 'destructive',
-        title: 'Signup failed',
+        title: 'Pendaftaran gagal',
         description: errorMessage,
       });
       return;
     }
 
     toast({
-      title: 'Account created!',
-      description: 'Welcome to SiHuni. You are now logged in.',
+      title: 'Akun berhasil dibuat!',
+      description: isTenantSignup 
+        ? 'Selamat datang di SiHuni. Anda telah terdaftar sebagai tenant.'
+        : 'Silakan lengkapi profil Anda.',
     });
+
+    // If NOT tenant signup (general signup), redirect to onboarding
+    if (!isTenantSignup) {
+      navigate('/onboarding', { replace: true });
+    }
   };
 
   return (
@@ -278,9 +280,11 @@ export function AuthForm() {
           <div className="mx-auto w-12 h-12 rounded-xl gradient-primary flex items-center justify-center mb-2">
             <Building2 className="w-6 h-6 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl font-display">Welcome to SiHuni</CardTitle>
+          <CardTitle className="text-2xl font-display">Selamat Datang di SiHuni</CardTitle>
           <CardDescription>
-            Indonesia's Property Management Platform
+            {isTenantSignup 
+              ? 'Daftar sebagai tenant properti'
+              : 'Platform Manajemen Properti Indonesia'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -288,17 +292,17 @@ export function AuthForm() {
           {referrerInfo && activeTab === 'signup' && (
             <div className="mb-4 p-3 rounded-lg border border-primary/20 bg-primary/5">
               <p className="text-sm text-center">
-                <span className="font-medium text-primary">Invited by {referrerInfo.name}</span>
+                <span className="font-medium text-primary">Diundang oleh {referrerInfo.name}</span>
                 <br />
-                <span className="text-muted-foreground">You'll receive special bonuses!</span>
+                <span className="text-muted-foreground">Anda akan mendapat bonus spesial!</span>
               </p>
             </div>
           )}
           
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'login' | 'signup')}>
             <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+              <TabsTrigger value="login">Masuk</TabsTrigger>
+              <TabsTrigger value="signup">Daftar</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login" className="space-y-4">
@@ -308,7 +312,7 @@ export function AuthForm() {
                   <Input
                     id="login-email"
                     type="email"
-                    placeholder="you@example.com"
+                    placeholder="anda@contoh.com"
                     {...loginForm.register('email')}
                   />
                   {loginForm.formState.errors.email && (
@@ -340,7 +344,7 @@ export function AuthForm() {
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Login
+                  Masuk
                 </Button>
                 <div className="text-center">
                   <button
@@ -348,7 +352,7 @@ export function AuthForm() {
                     onClick={() => navigate('/reset-password')}
                     className="text-sm text-primary hover:underline"
                   >
-                    Forgot your password?
+                    Lupa password?
                   </button>
                 </div>
               </form>
@@ -356,39 +360,8 @@ export function AuthForm() {
 
             <TabsContent value="signup" className="space-y-4">
               <form onSubmit={signupForm.handleSubmit(handleSignup)} className="space-y-4">
-                {/* Role Selection */}
                 <div className="space-y-2">
-                  <Label>I am a...</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {roleOptions.map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => setSelectedRole(option.value)}
-                        className={cn(
-                          'flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all',
-                          selectedRole === option.value
-                            ? 'border-primary bg-primary/5'
-                            : 'border-border hover:border-primary/50'
-                        )}
-                      >
-                        <option.icon className={cn(
-                          'h-5 w-5',
-                          selectedRole === option.value ? 'text-primary' : 'text-muted-foreground'
-                        )} />
-                        <span className={cn(
-                          'text-xs font-medium',
-                          selectedRole === option.value ? 'text-primary' : 'text-muted-foreground'
-                        )}>
-                          {option.label}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="signup-name">Full Name</Label>
+                  <Label htmlFor="signup-name">Nama Lengkap</Label>
                   <Input
                     id="signup-name"
                     placeholder="John Doe"
@@ -402,7 +375,7 @@ export function AuthForm() {
                 <div className="space-y-2">
                   <Label htmlFor="signup-phone" className="flex items-center gap-2">
                     <Phone className="h-3 w-3" />
-                    Phone Number
+                    Nomor Telepon
                   </Label>
                   <Input
                     id="signup-phone"
@@ -411,29 +384,14 @@ export function AuthForm() {
                     {...signupForm.register('phone')}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Optional - for receiving important notifications
+                    Opsional - untuk menerima notifikasi penting
                   </p>
                 </div>
 
-                {(selectedRole === 'merchant' || selectedRole === 'vendor') && (
+                {/* Merchant Code field - only show for tenant signup */}
+                {isTenantSignup && (
                   <div className="space-y-2">
-                    <Label htmlFor="signup-business">Business Name</Label>
-                    <Input
-                      id="signup-business"
-                      placeholder={selectedRole === 'merchant' ? 'PT Property Indonesia' : 'Jasa Cleaning Service'}
-                      {...signupForm.register('businessName')}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {selectedRole === 'merchant' 
-                        ? 'Your property management company name'
-                        : 'Your service business name'}
-                    </p>
-                  </div>
-                )}
-
-                {selectedRole === 'tenant' && (
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-merchant-code">Merchant Code *</Label>
+                    <Label htmlFor="signup-merchant-code">Kode Merchant *</Label>
                     <Input
                       id="signup-merchant-code"
                       placeholder="ABC123"
@@ -443,12 +401,13 @@ export function AuthForm() {
                         signupForm.setValue('merchantCode', e.target.value.toUpperCase());
                         setMerchantCodeError(null);
                       }}
+                      disabled={!!initialMerchantCode}
                     />
                     {merchantCodeError && (
                       <p className="text-sm text-destructive">{merchantCodeError}</p>
                     )}
                     <p className="text-xs text-muted-foreground">
-                      Get this code from your landlord/property manager
+                      Kode unik dari pemilik properti Anda
                     </p>
                   </div>
                 )}
@@ -458,7 +417,7 @@ export function AuthForm() {
                   <Input
                     id="signup-email"
                     type="email"
-                    placeholder="you@example.com"
+                    placeholder="anda@contoh.com"
                     {...signupForm.register('email')}
                   />
                   {signupForm.formState.errors.email && (
@@ -491,7 +450,7 @@ export function AuthForm() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="signup-confirm">Confirm Password</Label>
+                  <Label htmlFor="signup-confirm">Konfirmasi Password</Label>
                   <Input
                     id="signup-confirm"
                     type="password"
@@ -505,8 +464,14 @@ export function AuthForm() {
 
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Create Account
+                  {isTenantSignup ? 'Daftar sebagai Tenant' : 'Daftar'}
                 </Button>
+
+                {!isTenantSignup && (
+                  <p className="text-xs text-center text-muted-foreground">
+                    Setelah mendaftar, Anda akan memilih jenis akun (Merchant atau Vendor)
+                  </p>
+                )}
               </form>
             </TabsContent>
           </Tabs>
