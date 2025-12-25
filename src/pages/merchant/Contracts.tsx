@@ -72,7 +72,7 @@ interface Property {
 
 const contractSchema = z.object({
   unit_id: z.string().min(1, 'Please select a unit'),
-  tenant_email: z.string().email('Tenant email is required'),
+  tenant_user_id: z.string().min(1, 'Please select a tenant'),
   start_date: z.string().min(1, 'Start date is required'),
   end_date: z.string().min(1, 'End date is required'),
   rent_amount: z.coerce.number().positive('Rent must be positive'),
@@ -109,7 +109,7 @@ export default function MerchantContracts() {
     resolver: zodResolver(contractSchema),
     defaultValues: {
       unit_id: '',
-      tenant_email: '',
+      tenant_user_id: '',
       start_date: '',
       end_date: '',
       rent_amount: 0,
@@ -180,6 +180,25 @@ export default function MerchantContracts() {
     enabled: tenantIds.length > 0,
   });
 
+  // Fetch merchant's tenants
+  const { data: merchantTenants = [] } = useQuery({
+    queryKey: ['merchant-tenants', merchant?.id],
+    queryFn: async () => {
+      if (!merchant?.id) return [];
+      const { data, error } = await supabase
+        .from('tenants')
+        .select('user_id, profiles(user_id, full_name, email)')
+        .eq('linked_merchant_id', merchant.id);
+      if (error) throw error;
+      return data?.map((t: any) => ({
+        user_id: t.user_id,
+        full_name: t.profiles?.full_name || 'Unknown',
+        email: t.profiles?.email || '',
+      })) || [];
+    },
+    enabled: !!merchant?.id,
+  });
+
   const handleCreateContract = async (data: ContractFormData) => {
     if (!merchant) return;
     setCreateLoading(true);
@@ -189,7 +208,7 @@ export default function MerchantContracts() {
         .insert({
           merchant_id: merchant.id,
           unit_id: data.unit_id,
-          tenant_user_id: '00000000-0000-0000-0000-000000000000',
+          tenant_user_id: data.tenant_user_id,
           start_date: data.start_date,
           end_date: data.end_date,
           rent_amount: data.rent_amount,
@@ -419,8 +438,17 @@ export default function MerchantContracts() {
                 </Select>
               </div>
               <div>
-                <Label>Tenant Email</Label>
-                <Input type="email" placeholder="tenant@example.com" {...contractForm.register('tenant_email')} />
+                <Label>Pilih Tenant</Label>
+                <Select value={contractForm.watch('tenant_user_id')} onValueChange={(v) => contractForm.setValue('tenant_user_id', v)}>
+                  <SelectTrigger><SelectValue placeholder="Pilih tenant" /></SelectTrigger>
+                  <SelectContent>
+                    {merchantTenants.map((tenant: any) => (
+                      <SelectItem key={tenant.user_id} value={tenant.user_id}>
+                        {tenant.full_name} ({tenant.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div><Label>Start Date</Label><Input type="date" {...contractForm.register('start_date')} /></div>

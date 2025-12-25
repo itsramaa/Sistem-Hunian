@@ -66,16 +66,55 @@ interface Property {
   id: string;
   name: string;
   address: string;
+  property_type: string;
 }
 
-const unitTypes = [
-  { value: 'studio', label: 'Studio' },
-  { value: 'apartment', label: 'Apartment' },
-  { value: 'house', label: 'House' },
-  { value: 'room', label: 'Room' },
-  { value: 'office', label: 'Office' },
-  { value: 'retail', label: 'Retail' },
-];
+// Dynamic unit types based on property type
+const getUnitTypesForProperty = (propertyType: string | undefined): { value: string; label: string }[] => {
+  switch (propertyType) {
+    case 'kost':
+      return [
+        { value: 'kamar_standard', label: 'Kamar Standard' },
+        { value: 'kamar_vip', label: 'Kamar VIP' },
+        { value: 'kamar_deluxe', label: 'Kamar Deluxe' },
+        { value: 'kamar_ac', label: 'Kamar AC' },
+        { value: 'kamar_non_ac', label: 'Kamar Non-AC' },
+      ];
+    case 'apartment':
+      return [
+        { value: 'studio', label: 'Studio' },
+        { value: '1br', label: '1 Bedroom' },
+        { value: '2br', label: '2 Bedroom' },
+        { value: '3br', label: '3 Bedroom' },
+        { value: 'penthouse', label: 'Penthouse' },
+      ];
+    case 'house':
+      return [
+        { value: 'full_house', label: 'Full House' },
+      ];
+    case 'kontrakan':
+      return [
+        { value: 'petak', label: 'Petak' },
+        { value: 'full_bangunan', label: 'Full Bangunan' },
+      ];
+    case 'ruko':
+      return [
+        { value: 'lantai_1', label: 'Lantai 1' },
+        { value: 'lantai_2', label: 'Lantai 2' },
+        { value: 'lantai_3', label: 'Lantai 3' },
+        { value: 'full_building', label: 'Full Building' },
+      ];
+    default:
+      return [
+        { value: 'studio', label: 'Studio' },
+        { value: 'room', label: 'Room' },
+        { value: 'apartment', label: 'Apartment' },
+        { value: 'house', label: 'House' },
+        { value: 'office', label: 'Office' },
+        { value: 'retail', label: 'Retail' },
+      ];
+  }
+};
 
 const statusColors: Record<string, string> = {
   available: 'bg-success/10 text-success border-success/20',
@@ -127,7 +166,7 @@ export default function MerchantUnits() {
       if (!merchant?.id) return [];
       const { data, error } = await supabase
         .from('properties')
-        .select('id, name, address')
+        .select('id, name, address, property_type')
         .eq('merchant_id', merchant.id)
         .order('name');
       if (error) throw error;
@@ -321,7 +360,7 @@ export default function MerchantUnits() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {unitTypes.map(type => (
+                      {getUnitTypesForProperty(properties.find(p => p.id === formData.property_id)?.property_type).map(type => (
                         <SelectItem key={type.value} value={type.value}>
                           {type.label}
                         </SelectItem>
