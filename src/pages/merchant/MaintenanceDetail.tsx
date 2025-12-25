@@ -12,8 +12,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UpdateTimeline } from '@/components/maintenance/UpdateTimeline';
+import { SLABadge, getSLAText } from '@/components/maintenance/SLABadge';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Clock, Wrench, CheckCircle, XCircle, AlertTriangle, User, MapPin, Calendar, Phone } from 'lucide-react';
+import { ArrowLeft, Clock, Wrench, CheckCircle, XCircle, AlertTriangle, User, MapPin, Calendar, Phone, Star } from 'lucide-react';
 import { format } from 'date-fns';
 
 type MaintenanceRequest = {
@@ -24,12 +25,15 @@ type MaintenanceRequest = {
   priority: string;
   status: string;
   assigned_to: string | null;
+  assigned_vendor_id: string | null;
   created_at: string;
   resolved_at: string | null;
   images: string[] | null;
   unit_id: string;
   tenant_user_id: string;
   merchant_id: string;
+  sla_deadline: string | null;
+  preferred_schedule: string | null;
 };
 
 type Unit = {
@@ -52,6 +56,8 @@ type Vendor = {
   id: string;
   business_name: string;
   service_categories: string[] | null;
+  rating: number | null;
+  user_id: string;
 };
 
 export default function MerchantMaintenanceDetail() {
@@ -109,7 +115,7 @@ export default function MerchantMaintenanceDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('vendors')
-        .select('id, business_name, service_categories')
+        .select('id, business_name, service_categories, rating, user_id')
         .eq('verification_status', 'verified');
       if (error) throw error;
       return data as Vendor[];
@@ -133,14 +139,15 @@ export default function MerchantMaintenanceDetail() {
   const updateStatusMutation = useMutation({
     mutationFn: async ({ status, vendor_id, agreed_price }: { status: string; vendor_id?: string; agreed_price?: number }) => {
       const updateData: Record<string, unknown> = { status };
+      const vendor = vendor_id ? vendors.find(v => v.id === vendor_id) : null;
       
       if (status === 'completed') {
         updateData.resolved_at = new Date().toISOString();
       }
 
-      if (vendor_id) {
-        const vendor = vendors.find(v => v.id === vendor_id);
-        updateData.assigned_to = vendor?.business_name || null;
+      if (vendor_id && vendor) {
+        updateData.assigned_to = vendor.business_name;
+        updateData.assigned_vendor_id = vendor_id;
       }
 
       const { error } = await supabase
@@ -148,6 +155,24 @@ export default function MerchantMaintenanceDetail() {
         .update(updateData)
         .eq('id', id);
       if (error) throw error;
+
+      // Insert timeline entry
+      const timelineMessage = status === 'in_progress' && vendor
+        ? `Assigned to vendor: ${vendor.business_name}`
+        : status === 'completed'
+          ? 'Maintenance request marked as completed'
+          : status === 'cancelled'
+            ? 'Maintenance request cancelled'
+            : `Status changed to ${status}`;
+
+      await supabase.from('maintenance_timeline').insert({
+        maintenance_request_id: id,
+        status,
+        message: timelineMessage,
+        actor_id: merchant?.user_id,
+        actor_role: 'merchant',
+        metadata: vendor_id ? { vendor_id, vendor_name: vendor?.business_name } : {},
+      });
 
       // Create vendor job when assigning vendor
       if (vendor_id && merchant && status === 'in_progress') {
@@ -170,11 +195,32 @@ export default function MerchantMaintenanceDetail() {
             });
           if (jobError) throw jobError;
         }
+
+        // Create notification for vendor
+        if (vendor) {
+          await supabase.from('notifications').insert({
+            user_id: vendor.user_id,
+            title: 'New Job Assignment',
+            message: `You have been assigned to maintenance request: ${request?.title}`,
+            type: 'maintenance',
+            link: '/vendor/jobs',
+          });
+        }
+
+        // Create notification for tenant
+        if (request?.tenant_user_id) {
+          await supabase.from('notifications').insert({
+            user_id: request.tenant_user_id,
+            title: 'Vendor Assigned',
+            message: `A vendor (${vendor?.business_name}) has been assigned to your maintenance request: ${request.title}`,
+            type: 'maintenance',
+            link: `/tenant/maintenance/${id}`,
+          });
+        }
       }
 
       // When completing a job with a vendor, update vendor_job and create earnings
       if (status === 'completed' && request?.assigned_to) {
-        // Find the vendor job for this request
         const { data: vendorJob } = await supabase
           .from('vendor_jobs')
           .select('id, vendor_id, agreed_price')
@@ -183,7 +229,6 @@ export default function MerchantMaintenanceDetail() {
           .maybeSingle();
 
         if (vendorJob && vendorJob.agreed_price) {
-          // Update vendor job status
           await supabase
             .from('vendor_jobs')
             .update({
@@ -192,30 +237,35 @@ export default function MerchantMaintenanceDetail() {
             })
             .eq('id', vendorJob.id);
 
-          // Create vendor earnings record
           const amount = vendorJob.agreed_price;
-          const feeAmount = amount * 0.1; // 10% platform fee
+          const feeAmount = amount * 0.1;
           const netAmount = amount - feeAmount;
 
-          const { error: earningsError } = await supabase
-            .from('vendor_earnings')
-            .insert({
-              vendor_id: vendorJob.vendor_id,
-              vendor_job_id: vendorJob.id,
-              amount,
-              fee_amount: feeAmount,
-              net_amount: netAmount,
-              status: 'pending',
-            });
+          await supabase.from('vendor_earnings').insert({
+            vendor_id: vendorJob.vendor_id,
+            vendor_job_id: vendorJob.id,
+            amount,
+            fee_amount: feeAmount,
+            net_amount: netAmount,
+            status: 'pending',
+          });
+        }
 
-          if (earningsError) {
-            console.error('Failed to create vendor earnings:', earningsError);
-          }
+        // Notify tenant of completion
+        if (request?.tenant_user_id) {
+          await supabase.from('notifications').insert({
+            user_id: request.tenant_user_id,
+            title: 'Maintenance Completed',
+            message: `Your maintenance request "${request.title}" has been completed. Please review the work.`,
+            type: 'maintenance',
+            link: `/tenant/maintenance/${id}`,
+          });
         }
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['maintenance-request', id] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance-timeline', id] });
       toast({ title: 'Status updated successfully' });
       setSelectedVendorId('');
       setAgreedPrice('');
@@ -302,12 +352,15 @@ export default function MerchantMaintenanceDetail() {
                 {request.priority}
               </Badge>
             </div>
-            <p className="text-muted-foreground">#{id?.slice(0, 8)}</p>
+            <p className="text-muted-foreground">#{id?.slice(0, 8)} • SLA: {getSLAText(request.priority)}</p>
           </div>
-          <Badge variant="outline" className={`gap-1 ${getStatusColor(request.status)}`}>
-            {getStatusIcon(request.status)}
-            {request.status.replace('_', ' ')}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <SLABadge slaDeadline={request.sla_deadline} status={request.status} />
+            <Badge variant="outline" className={`gap-1 ${getStatusColor(request.status)}`}>
+              {getStatusIcon(request.status)}
+              {request.status.replace('_', ' ')}
+            </Badge>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -435,7 +488,15 @@ export default function MerchantMaintenanceDetail() {
                           <SelectItem value="">No vendor</SelectItem>
                           {vendors.map(vendor => (
                             <SelectItem key={vendor.id} value={vendor.id}>
-                              {vendor.business_name}
+                              <div className="flex items-center gap-2">
+                                <span>{vendor.business_name}</span>
+                                {vendor.rating && vendor.rating > 0 && (
+                                  <span className="flex items-center gap-0.5 text-xs text-warning">
+                                    <Star className="h-3 w-3 fill-current" />
+                                    {vendor.rating.toFixed(1)}
+                                  </span>
+                                )}
+                              </div>
                             </SelectItem>
                           ))}
                         </SelectContent>
