@@ -3,22 +3,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageCircle, X, Send, Bot, User, Loader2, Sparkles, TrendingUp, Lightbulb } from "lucide-react";
+import { MessageCircle, X, Send, Sparkles, Loader2, TrendingUp, Lightbulb, Package, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
-
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
+import { useChatbotConversation } from "@/hooks/useChatbotConversation";
+import { ChatMessageRenderer } from "@/components/chatbot/ChatMessageRenderer";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/vendor-ai-assistant`;
 
-const VENDOR_SUGGESTIONS = [
-  "How can I increase my sales?",
-  "What products should I add?",
-  "Analyze my performance",
-  "Tips for better ratings",
+const VENDOR_QUICK_ACTIONS = [
+  { label: "Tips tingkatkan penjualan", icon: TrendingUp, query: "Berikan tips untuk meningkatkan penjualan saya berdasarkan data performa." },
+  { label: "Rekomendasi produk baru", icon: Package, query: "Produk apa yang sebaiknya saya tambahkan berdasarkan kategori saya?" },
+  { label: "Analisis performa", icon: Lightbulb, query: "Analisis performa bisnis saya dan berikan insight." },
+  { label: "Cara tingkatkan rating", icon: Star, query: "Tips untuk meningkatkan rating dan review dari pelanggan." },
 ];
 
 interface VendorChatbotProps {
@@ -28,11 +25,18 @@ interface VendorChatbotProps {
 
 export function VendorChatbot({ vendorId, businessName }: VendorChatbotProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
+  
+  const {
+    messages,
+    setMessages,
+    addMessage,
+    saveMessage,
+    trackAnalytics,
+  } = useChatbotConversation({ autoLoad: isOpen });
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -41,9 +45,12 @@ export function VendorChatbot({ vendorId, businessName }: VendorChatbotProps) {
   }, [messages]);
 
   const streamChat = async (userMessage: string) => {
-    setIsLoading(true);
-    const newMessages = [...messages, { role: "user" as const, content: userMessage }];
+    setIsStreaming(true);
+    const startTime = Date.now();
+    const userMsg = { role: "user" as const, content: userMessage };
+    const newMessages = [...messages, userMsg];
     setMessages(newMessages);
+    addMessage(userMsg);
     setInput("");
 
     try {
@@ -110,29 +117,46 @@ export function VendorChatbot({ vendorId, businessName }: VendorChatbotProps) {
           }
         }
       }
+
+      // Save assistant message
+      if (assistantContent) {
+        saveMessage({ role: "assistant", content: assistantContent });
+      }
+
+      // Track analytics
+      const responseTime = Date.now() - startTime;
+      trackAnalytics({
+        queryType: 'vendor_advice',
+        responseTimeMs: responseTime,
+      });
+
     } catch (error) {
       console.error("Chat error:", error);
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "I'm sorry, I encountered an error. Please try again later.",
+          content: "Maaf, terjadi kesalahan. Silakan coba lagi nanti.",
         },
       ]);
     } finally {
-      setIsLoading(false);
+      setIsStreaming(false);
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || isStreaming) return;
     streamChat(input.trim());
   };
 
-  const handleSuggestion = (suggestion: string) => {
-    if (isLoading) return;
-    streamChat(suggestion);
+  const handleQuickAction = (query: string) => {
+    if (isStreaming) return;
+    streamChat(query);
+  };
+
+  const handleFeedback = async (satisfied: boolean) => {
+    await trackAnalytics({ userSatisfied: satisfied });
   };
 
   if (!isOpen) {
@@ -151,16 +175,16 @@ export function VendorChatbot({ vendorId, businessName }: VendorChatbotProps) {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground mb-3">
-            Get personalized tips, sales forecasts, and product recommendations
+            Dapatkan tips personal, prediksi penjualan, dan rekomendasi produk
           </p>
           <div className="flex gap-2">
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <TrendingUp className="h-3 w-3" />
-              <span>Sales Tips</span>
+              <span>Tips Penjualan</span>
             </div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Lightbulb className="h-3 w-3" />
-              <span>Product Ideas</span>
+              <span>Ide Produk</span>
             </div>
           </div>
         </CardContent>
@@ -169,16 +193,16 @@ export function VendorChatbot({ vendorId, businessName }: VendorChatbotProps) {
   }
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden h-[500px] flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between bg-primary p-4 text-primary-foreground">
+      <div className="flex items-center justify-between bg-primary p-4 text-primary-foreground shrink-0">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-foreground/20">
             <Sparkles className="h-5 w-5" />
           </div>
           <div>
             <h3 className="font-semibold">AI Business Assistant</h3>
-            <p className="text-xs opacity-80">Your personal vendor advisor</p>
+            <p className="text-xs opacity-80">Penasihat bisnis personal Anda</p>
           </div>
         </div>
         <Button 
@@ -192,28 +216,29 @@ export function VendorChatbot({ vendorId, businessName }: VendorChatbotProps) {
       </div>
 
       {/* Messages */}
-      <ScrollArea className="h-[350px] p-4" ref={scrollRef}>
+      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
         {messages.length === 0 ? (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-muted-foreground">
-              Hi {businessName ? businessName : "there"}! I'm your AI business advisor. I can help you with:
+              Hai {businessName ? businessName : ""}! Saya bisa membantu Anda dengan:
             </p>
             <ul className="text-sm text-muted-foreground space-y-1">
-              <li>• Sales optimization strategies</li>
-              <li>• Product recommendations</li>
-              <li>• Demand forecasting</li>
-              <li>• Customer insights</li>
+              <li>• Strategi optimasi penjualan</li>
+              <li>• Rekomendasi produk baru</li>
+              <li>• Prediksi permintaan</li>
+              <li>• Insight pelanggan</li>
             </ul>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {VENDOR_SUGGESTIONS.map((suggestion) => (
+            <div className="flex flex-col gap-2 mt-2">
+              {VENDOR_QUICK_ACTIONS.map((action) => (
                 <Button
-                  key={suggestion}
+                  key={action.label}
                   variant="outline"
                   size="sm"
-                  className="text-xs"
-                  onClick={() => handleSuggestion(suggestion)}
+                  className="text-xs justify-start h-auto py-2"
+                  onClick={() => handleQuickAction(action.query)}
                 >
-                  {suggestion}
+                  <action.icon className="h-4 w-4 mr-2" />
+                  {action.label}
                 </Button>
               ))}
             </div>
@@ -221,54 +246,35 @@ export function VendorChatbot({ vendorId, businessName }: VendorChatbotProps) {
         ) : (
           <div className="flex flex-col gap-4">
             {messages.map((message, index) => (
-              <div
+              <ChatMessageRenderer
                 key={index}
-                className={cn(
-                  "flex gap-2",
-                  message.role === "user" ? "flex-row-reverse" : "flex-row"
-                )}
-              >
-                <div
-                  className={cn(
-                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-                    message.role === "user" ? "bg-primary" : "bg-muted"
-                  )}
-                >
-                  {message.role === "user" ? (
-                    <User className="h-4 w-4 text-primary-foreground" />
-                  ) : (
-                    <Sparkles className="h-4 w-4" />
-                  )}
-                </div>
-                <div
-                  className={cn(
-                    "max-w-[75%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap",
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted"
-                  )}
-                >
-                  {message.content || (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  )}
-                </div>
-              </div>
+                content={message.content}
+                role={message.role}
+                isLoading={isStreaming && index === messages.length - 1 && message.role === "assistant"}
+                showFeedback={
+                  message.role === "assistant" && 
+                  index === messages.length - 1 && 
+                  !isStreaming && 
+                  message.content.length > 0
+                }
+                onFeedback={handleFeedback}
+              />
             ))}
           </div>
         )}
       </ScrollArea>
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="flex gap-2 border-t p-4">
+      <form onSubmit={handleSubmit} className="flex gap-2 border-t p-4 shrink-0">
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask for business advice..."
-          disabled={isLoading}
+          placeholder="Tanya tips bisnis..."
+          disabled={isStreaming}
           className="flex-1"
         />
-        <Button type="submit" size="icon" disabled={isLoading || !input.trim()}>
-          {isLoading ? (
+        <Button type="submit" size="icon" disabled={isStreaming || !input.trim()}>
+          {isStreaming ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <Send className="h-4 w-4" />
