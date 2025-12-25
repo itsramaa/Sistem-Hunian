@@ -26,10 +26,39 @@ serve(async (req) => {
     const currentYear = today.getFullYear();
     const todayDateStr = today.toISOString().split('T')[0];
 
-    // ===== PART 1: APPLY LATE FEES TO OVERDUE INVOICES =====
-    console.log('Checking for overdue invoices to apply late fees...');
+    // ===== PART 1: CHECK INVOICES DUE TODAY =====
+    console.log('Checking for invoices due today...');
 
-    // Get overdue invoices that haven't had late fee applied yet
+    const { data: invoicesDueToday, error: dueTodayError } = await supabase
+      .from('invoices')
+      .select(`
+        id,
+        invoice_number,
+        amount,
+        total_amount,
+        tenant_user_id,
+        merchant_id
+      `)
+      .eq('status', 'pending')
+      .eq('due_date', todayDateStr);
+
+    if (!dueTodayError && invoicesDueToday?.length) {
+      console.log(`Found ${invoicesDueToday.length} invoices due today`);
+      for (const invoice of invoicesDueToday) {
+        await supabase.from('notifications').insert({
+          user_id: invoice.tenant_user_id,
+          title: '⏰ Pembayaran Jatuh Tempo Hari Ini',
+          message: `Invoice ${invoice.invoice_number} sebesar Rp ${Number(invoice.total_amount).toLocaleString('id-ID')} jatuh tempo hari ini. Segera lakukan pembayaran untuk menghindari denda.`,
+          type: 'payment',
+          link: '/tenant/invoices',
+        });
+      }
+    }
+
+    // ===== PART 2: PROCESS OVERDUE INVOICES WITH GRACE PERIOD =====
+    console.log('Checking for overdue invoices...');
+
+    // Get overdue invoices
     const { data: overdueInvoices, error: overdueError } = await supabase
       .from('invoices')
       .select(`
@@ -40,59 +69,197 @@ serve(async (req) => {
         due_date,
         tenant_user_id,
         merchant_id,
+        grace_period_active,
+        overdue_since,
+        late_fee_applied_at,
+        contract_id,
+        contract:contracts (
+          grace_period_days,
+          late_fee_type,
+          late_payment_penalty_rate
+        ),
         merchant:merchants (
-          penalty_rate
+          penalty_rate,
+          user_id
         )
       `)
       .eq('status', 'pending')
       .lt('due_date', todayDateStr)
-      .is('late_fee_applied_at', null);
+      .is('payment_plan_id', null);
 
     if (overdueError) {
       console.error('Error fetching overdue invoices:', overdueError);
     } else {
-      console.log(`Found ${overdueInvoices?.length || 0} overdue invoices without late fee`);
+      console.log(`Found ${overdueInvoices?.length || 0} overdue invoices`);
 
       for (const invoice of overdueInvoices || []) {
         try {
-          const merchantData = invoice.merchant as unknown as { penalty_rate: number | null } | null;
-          const penaltyRate = merchantData?.penalty_rate || 0.02; // Default 2%
-          const lateFee = Math.round(invoice.amount * penaltyRate);
-          const newTotalAmount = invoice.amount + lateFee;
+          const contractData = invoice.contract as unknown as { 
+            grace_period_days: number | null; 
+            late_fee_type: string | null;
+            late_payment_penalty_rate: number | null;
+          } | null;
+          const merchantData = invoice.merchant as unknown as { 
+            penalty_rate: number | null;
+            user_id: string;
+          } | null;
 
-          console.log(`Applying late fee to invoice ${invoice.invoice_number}: ${lateFee} (${penaltyRate * 100}%)`);
+          const gracePeriodDays = contractData?.grace_period_days ?? 3;
+          const lateFeeType = contractData?.late_fee_type || 'percentage';
+          const penaltyRate = contractData?.late_payment_penalty_rate || merchantData?.penalty_rate || 0.02;
 
-          // Update invoice with late fee
-          await supabase
-            .from('invoices')
-            .update({
-              late_fee: lateFee,
-              total_amount: newTotalAmount,
+          const dueDate = new Date(invoice.due_date);
+          const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+
+          console.log(`Invoice ${invoice.invoice_number}: ${daysOverdue} days overdue, grace period: ${gracePeriodDays} days`);
+
+          // Mark as overdue if not already
+          if (!invoice.overdue_since) {
+            await supabase
+              .from('invoices')
+              .update({
+                overdue_since: today.toISOString(),
+                grace_period_active: daysOverdue <= gracePeriodDays,
+              })
+              .eq('id', invoice.id);
+          }
+
+          // Within grace period
+          if (daysOverdue <= gracePeriodDays) {
+            if (!invoice.grace_period_active) {
+              // Update grace period status
+              await supabase
+                .from('invoices')
+                .update({ grace_period_active: true })
+                .eq('id', invoice.id);
+            }
+
+            // Send grace period reminder
+            const remainingGraceDays = gracePeriodDays - daysOverdue;
+            await supabase.from('notifications').insert({
+              user_id: invoice.tenant_user_id,
+              title: '⚠️ Pembayaran Terlambat - Masa Tenggang',
+              message: `Invoice ${invoice.invoice_number} telah melewati jatuh tempo. Sisa masa tenggang: ${remainingGraceDays} hari. Segera bayar untuk menghindari denda Rp ${Math.round(invoice.amount * penaltyRate).toLocaleString('id-ID')}.`,
+              type: 'payment',
+              link: '/tenant/invoices',
+            });
+
+            console.log(`Invoice ${invoice.invoice_number}: In grace period, ${remainingGraceDays} days remaining`);
+          } 
+          // Grace period expired - apply late fee
+          else if (!invoice.late_fee_applied_at) {
+            let lateFee = 0;
+            let calculationMethod = '';
+
+            switch (lateFeeType) {
+              case 'fixed':
+                lateFee = 50000; // Fixed Rp 50,000
+                calculationMethod = 'fixed_50000';
+                break;
+              case 'progressive':
+                lateFee = daysOverdue * 10000; // Rp 10,000 per day
+                calculationMethod = `progressive_${daysOverdue}days_10000perday`;
+                break;
+              case 'percentage':
+              default:
+                lateFee = Math.round(invoice.amount * penaltyRate);
+                calculationMethod = `percentage_${penaltyRate * 100}%`;
+                break;
+            }
+
+            const newTotalAmount = invoice.amount + lateFee;
+
+            console.log(`Applying late fee to invoice ${invoice.invoice_number}: ${lateFee} (${calculationMethod})`);
+
+            // Update invoice with late fee
+            await supabase
+              .from('invoices')
+              .update({
+                late_fee: lateFee,
+                total_amount: newTotalAmount,
+                original_amount: invoice.amount,
+                late_fee_applied_at: today.toISOString(),
+                grace_period_active: false,
+              })
+              .eq('id', invoice.id);
+
+            // Create late fee record for audit trail
+            await supabase.from('late_fee_records').insert({
+              invoice_id: invoice.id,
               original_amount: invoice.amount,
-              late_fee_applied_at: new Date().toISOString(),
-            })
-            .eq('id', invoice.id);
+              late_fee_amount: lateFee,
+              days_overdue: daysOverdue,
+              calculation_method: calculationMethod,
+            });
 
-          // Notify tenant about late fee
-          await supabase.from('notifications').insert({
-            user_id: invoice.tenant_user_id,
-            title: 'Denda Keterlambatan Diterapkan',
-            message: `Invoice ${invoice.invoice_number} telah melewati jatuh tempo. Denda Rp ${lateFee.toLocaleString('id-ID')} (${penaltyRate * 100}%) telah ditambahkan. Total: Rp ${newTotalAmount.toLocaleString('id-ID')}`,
-            type: 'payment',
-            link: '/tenant/invoices',
-          });
+            // Notify tenant about late fee
+            await supabase.from('notifications').insert({
+              user_id: invoice.tenant_user_id,
+              title: '🚨 Denda Keterlambatan Diterapkan',
+              message: `Invoice ${invoice.invoice_number} telah melewati jatuh tempo. Denda Rp ${lateFee.toLocaleString('id-ID')} telah ditambahkan. Total: Rp ${newTotalAmount.toLocaleString('id-ID')}. Segera bayar untuk menghindari tindakan lebih lanjut.`,
+              type: 'payment',
+              link: '/tenant/invoices',
+            });
 
-          console.log(`Late fee applied to invoice ${invoice.invoice_number}`);
+            // Notify merchant about late fee
+            if (merchantData?.user_id) {
+              await supabase.from('notifications').insert({
+                user_id: merchantData.user_id,
+                title: '💰 Denda Keterlambatan Diterapkan',
+                message: `Denda Rp ${lateFee.toLocaleString('id-ID')} telah diterapkan pada invoice ${invoice.invoice_number}. Total tagihan: Rp ${newTotalAmount.toLocaleString('id-ID')}.`,
+                type: 'payment',
+                link: '/merchant/payments',
+              });
+            }
+
+            console.log(`Late fee applied to invoice ${invoice.invoice_number}`);
+          }
+
+          // Check for collections escalation (15+ days overdue)
+          if (daysOverdue >= 15 && invoice.late_fee_applied_at) {
+            // Check if collections case already exists
+            const { data: existingCase } = await supabase
+              .from('collections_cases')
+              .select('id')
+              .eq('invoice_id', invoice.id)
+              .single();
+
+            if (!existingCase) {
+              // Create collections case
+              await supabase.from('collections_cases').insert({
+                tenant_user_id: invoice.tenant_user_id,
+                merchant_id: invoice.merchant_id,
+                invoice_id: invoice.id,
+                total_due: invoice.total_amount,
+                days_overdue: daysOverdue,
+                status: 'initiated',
+                escalation_level: 1,
+              });
+
+              // Notify merchant about collections
+              if (merchantData?.user_id) {
+                await supabase.from('notifications').insert({
+                  user_id: merchantData.user_id,
+                  title: '⚠️ Kasus Penagihan Dibuat',
+                  message: `Invoice ${invoice.invoice_number} telah melewati 15 hari dan masuk ke proses penagihan. Silakan hubungi penyewa atau pertimbangkan tindakan lebih lanjut.`,
+                  type: 'system',
+                  link: '/merchant/payments',
+                });
+              }
+
+              console.log(`Collections case created for invoice ${invoice.invoice_number}`);
+            }
+          }
         } catch (err) {
-          console.error(`Error applying late fee to invoice ${invoice.id}:`, err);
+          console.error(`Error processing invoice ${invoice.id}:`, err);
         }
       }
     }
 
-    // ===== PART 2: GENERATE NEW INVOICES =====
+    // ===== PART 3: GENERATE NEW INVOICES =====
     console.log('Checking contracts for invoice generation...');
 
-    // Fetch all active contracts with their billing day (contract level or merchant fallback)
+    // Fetch all active contracts with their billing day
     const { data: activeContracts, error: contractsError } = await supabase
       .from('contracts')
       .select(`
@@ -103,6 +270,9 @@ serve(async (req) => {
         start_date,
         end_date,
         billing_day,
+        grace_period_days,
+        late_fee_type,
+        late_payment_penalty_rate,
         unit:units (
           unit_number,
           property:properties (
@@ -124,7 +294,6 @@ serve(async (req) => {
     console.log(`Found ${activeContracts?.length || 0} active contracts`);
 
     const invoicesCreated: string[] = [];
-    const lateFeesApplied: string[] = [];
     const errors: string[] = [];
 
     for (const contract of activeContracts || []) {
@@ -183,6 +352,7 @@ serve(async (req) => {
             description,
             status: 'pending',
             issued_at: new Date().toISOString(),
+            grace_period_active: false,
           })
           .select('id, invoice_number')
           .single();
@@ -215,7 +385,8 @@ serve(async (req) => {
       success: true,
       invoicesCreated: invoicesCreated.length,
       invoiceNumbers: invoicesCreated,
-      lateFeesApplied: overdueInvoices?.length || 0,
+      overdueProcessed: overdueInvoices?.length || 0,
+      invoicesDueToday: invoicesDueToday?.length || 0,
       errors: errors.length > 0 ? errors : undefined,
       processedAt: new Date().toISOString(),
     };

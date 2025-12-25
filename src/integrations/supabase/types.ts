@@ -320,6 +320,75 @@ export type Database = {
         }
         Relationships: []
       }
+      collections_cases: {
+        Row: {
+          created_at: string | null
+          days_overdue: number
+          escalation_level: number
+          id: string
+          invoice_id: string
+          last_contact_at: string | null
+          merchant_id: string
+          next_action_date: string | null
+          notes: string | null
+          resolution_type: string | null
+          resolved_at: string | null
+          status: string
+          tenant_user_id: string
+          total_due: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          days_overdue: number
+          escalation_level?: number
+          id?: string
+          invoice_id: string
+          last_contact_at?: string | null
+          merchant_id: string
+          next_action_date?: string | null
+          notes?: string | null
+          resolution_type?: string | null
+          resolved_at?: string | null
+          status?: string
+          tenant_user_id: string
+          total_due: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          days_overdue?: number
+          escalation_level?: number
+          id?: string
+          invoice_id?: string
+          last_contact_at?: string | null
+          merchant_id?: string
+          next_action_date?: string | null
+          notes?: string | null
+          resolution_type?: string | null
+          resolved_at?: string | null
+          status?: string
+          tenant_user_id?: string
+          total_due?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collections_cases_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collections_cases_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contracts: {
         Row: {
           billing_day: number | null
@@ -328,7 +397,10 @@ export type Database = {
           created_at: string
           deposit_amount: number | null
           end_date: string
+          grace_period_days: number | null
           id: string
+          late_fee_type: string | null
+          late_payment_penalty_rate: number | null
           merchant_id: string
           merchant_signature_url: string | null
           merchant_signed_at: string | null
@@ -352,7 +424,10 @@ export type Database = {
           created_at?: string
           deposit_amount?: number | null
           end_date: string
+          grace_period_days?: number | null
           id?: string
+          late_fee_type?: string | null
+          late_payment_penalty_rate?: number | null
           merchant_id: string
           merchant_signature_url?: string | null
           merchant_signed_at?: string | null
@@ -376,7 +451,10 @@ export type Database = {
           created_at?: string
           deposit_amount?: number | null
           end_date?: string
+          grace_period_days?: number | null
           id?: string
+          late_fee_type?: string | null
+          late_payment_penalty_rate?: number | null
           merchant_id?: string
           merchant_signature_url?: string | null
           merchant_signed_at?: string | null
@@ -864,6 +942,7 @@ export type Database = {
           created_at: string
           description: string | null
           due_date: string
+          grace_period_active: boolean | null
           id: string
           invoice_number: string
           issued_at: string | null
@@ -872,7 +951,9 @@ export type Database = {
           line_items: Json | null
           merchant_id: string
           original_amount: number | null
+          overdue_since: string | null
           paid_at: string | null
+          payment_plan_id: string | null
           status: string
           tax_amount: number | null
           tenant_user_id: string
@@ -885,6 +966,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_date: string
+          grace_period_active?: boolean | null
           id?: string
           invoice_number: string
           issued_at?: string | null
@@ -893,7 +975,9 @@ export type Database = {
           line_items?: Json | null
           merchant_id: string
           original_amount?: number | null
+          overdue_since?: string | null
           paid_at?: string | null
+          payment_plan_id?: string | null
           status?: string
           tax_amount?: number | null
           tenant_user_id: string
@@ -906,6 +990,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_date?: string
+          grace_period_active?: boolean | null
           id?: string
           invoice_number?: string
           issued_at?: string | null
@@ -914,7 +999,9 @@ export type Database = {
           line_items?: Json | null
           merchant_id?: string
           original_amount?: number | null
+          overdue_since?: string | null
           paid_at?: string | null
+          payment_plan_id?: string | null
           status?: string
           tax_amount?: number | null
           tenant_user_id?: string
@@ -934,6 +1021,54 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_payment_plan_id_fkey"
+            columns: ["payment_plan_id"]
+            isOneToOne: false
+            referencedRelation: "payment_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      late_fee_records: {
+        Row: {
+          applied_at: string | null
+          calculation_method: string
+          created_at: string | null
+          days_overdue: number
+          id: string
+          invoice_id: string
+          late_fee_amount: number
+          original_amount: number
+        }
+        Insert: {
+          applied_at?: string | null
+          calculation_method: string
+          created_at?: string | null
+          days_overdue: number
+          id?: string
+          invoice_id: string
+          late_fee_amount: number
+          original_amount: number
+        }
+        Update: {
+          applied_at?: string | null
+          calculation_method?: string
+          created_at?: string | null
+          days_overdue?: number
+          id?: string
+          invoice_id?: string
+          late_fee_amount?: number
+          original_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "late_fee_records_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
         ]
@@ -1616,6 +1751,138 @@ export type Database = {
             columns: ["vendor_id"]
             isOneToOne: false
             referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_plan_installments: {
+        Row: {
+          amount: number
+          created_at: string | null
+          due_date: string
+          id: string
+          installment_number: number
+          invoice_id: string | null
+          paid_at: string | null
+          payment_plan_id: string
+          status: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          due_date: string
+          id?: string
+          installment_number: number
+          invoice_id?: string | null
+          paid_at?: string | null
+          payment_plan_id: string
+          status?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          due_date?: string
+          id?: string
+          installment_number?: number
+          invoice_id?: string | null
+          paid_at?: string | null
+          payment_plan_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_plan_installments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_plan_installments_payment_plan_id_fkey"
+            columns: ["payment_plan_id"]
+            isOneToOne: false
+            referencedRelation: "payment_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_plans: {
+        Row: {
+          accepted_at: string | null
+          completed_at: string | null
+          created_at: string | null
+          defaulted_at: string | null
+          frequency: string
+          id: string
+          installment_amount: number
+          installment_count: number
+          invoice_id: string
+          late_fee_waived: boolean | null
+          merchant_id: string
+          original_amount: number
+          plan_type: string
+          start_date: string
+          status: string
+          tenant_user_id: string
+          terms: string | null
+          updated_at: string | null
+          waived_amount: number | null
+        }
+        Insert: {
+          accepted_at?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          defaulted_at?: string | null
+          frequency?: string
+          id?: string
+          installment_amount: number
+          installment_count?: number
+          invoice_id: string
+          late_fee_waived?: boolean | null
+          merchant_id: string
+          original_amount: number
+          plan_type?: string
+          start_date: string
+          status?: string
+          tenant_user_id: string
+          terms?: string | null
+          updated_at?: string | null
+          waived_amount?: number | null
+        }
+        Update: {
+          accepted_at?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          defaulted_at?: string | null
+          frequency?: string
+          id?: string
+          installment_amount?: number
+          installment_count?: number
+          invoice_id?: string
+          late_fee_waived?: boolean | null
+          merchant_id?: string
+          original_amount?: number
+          plan_type?: string
+          start_date?: string
+          status?: string
+          tenant_user_id?: string
+          terms?: string | null
+          updated_at?: string | null
+          waived_amount?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_plans_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_plans_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
         ]
