@@ -5,7 +5,7 @@ import { AuthState, AppRole, UserProfile, MerchantProfile, VendorProfile } from 
 
 interface AuthContextType extends AuthState {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, metadata?: { full_name?: string; role?: AppRole; business_name?: string }) => Promise<{ data: { user: User | null } | null; error: Error | null }>;
+  signUp: (email: string, password: string, metadata?: { full_name?: string; phone?: string; role?: AppRole; business_name?: string; merchant_code?: string }) => Promise<{ data: { user: User | null } | null; error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -128,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = async (
     email: string, 
     password: string, 
-    metadata?: { full_name?: string; role?: AppRole; business_name?: string }
+    metadata?: { full_name?: string; phone?: string; role?: AppRole; business_name?: string; merchant_code?: string }
   ) => {
     const redirectUrl = `${window.location.origin}/`;
     
@@ -139,8 +139,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         emailRedirectTo: redirectUrl,
         data: {
           full_name: metadata?.full_name || '',
+          phone: metadata?.phone || '',
           role: metadata?.role || 'tenant',
           business_name: metadata?.business_name || '',
+          merchant_code: metadata?.merchant_code || '',
         },
       },
     });

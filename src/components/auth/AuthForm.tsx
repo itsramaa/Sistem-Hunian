@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2, Eye, EyeOff, Building2, User, Wrench } from 'lucide-react';
+import { Loader2, Eye, EyeOff, Building2, User, Wrench, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,6 +25,7 @@ const signupSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string(),
   fullName: z.string().min(2, 'Name must be at least 2 characters'),
+  phone: z.string().optional(),
   businessName: z.string().optional(),
   merchantCode: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
@@ -67,7 +68,8 @@ export function AuthForm() {
       email: '', 
       password: '', 
       confirmPassword: '', 
-      fullName: '', 
+      fullName: '',
+      phone: '',
       businessName: '',
       merchantCode: initialMerchantCode,
     },
@@ -133,8 +135,10 @@ export function AuthForm() {
 
     const { error } = await signUp(data.email, data.password, {
       full_name: data.fullName,
+      phone: data.phone || undefined,
       role: selectedRole,
-      business_name: selectedRole === 'merchant' ? data.businessName : undefined,
+      business_name: (selectedRole === 'merchant' || selectedRole === 'vendor') ? data.businessName : undefined,
+      merchant_code: selectedRole === 'tenant' ? data.merchantCode : undefined,
     });
     
     // Link tenant to merchant after signup and send notification
@@ -166,7 +170,7 @@ export function AuthForm() {
                 data: {
                   tenantName: data.fullName,
                   tenantEmail: data.email,
-                  tenantPhone: null,
+                  tenantPhone: data.phone || null,
                   registeredAt: new Date().toLocaleString('id-ID', { 
                     dateStyle: 'full', 
                     timeStyle: 'short' 
@@ -321,14 +325,35 @@ export function AuthForm() {
                   )}
                 </div>
 
-                {selectedRole === 'merchant' && (
+                <div className="space-y-2">
+                  <Label htmlFor="signup-phone" className="flex items-center gap-2">
+                    <Phone className="h-3 w-3" />
+                    Phone Number
+                  </Label>
+                  <Input
+                    id="signup-phone"
+                    type="tel"
+                    placeholder="+62 812 3456 7890"
+                    {...signupForm.register('phone')}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Optional - for receiving important notifications
+                  </p>
+                </div>
+
+                {(selectedRole === 'merchant' || selectedRole === 'vendor') && (
                   <div className="space-y-2">
                     <Label htmlFor="signup-business">Business Name</Label>
                     <Input
                       id="signup-business"
-                      placeholder="PT Property Indonesia"
+                      placeholder={selectedRole === 'merchant' ? 'PT Property Indonesia' : 'Jasa Cleaning Service'}
                       {...signupForm.register('businessName')}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      {selectedRole === 'merchant' 
+                        ? 'Your property management company name'
+                        : 'Your service business name'}
+                    </p>
                   </div>
                 )}
 
