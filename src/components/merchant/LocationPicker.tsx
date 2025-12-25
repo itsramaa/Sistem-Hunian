@@ -1,22 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
-import { LatLng, Icon } from 'leaflet';
+import { useState, useCallback, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { MapPin, Search, Loader2 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
-
-// Fix for default marker icon
-const defaultIcon = new Icon({
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
 
 interface LocationPickerProps {
   value: string;
@@ -24,29 +10,126 @@ interface LocationPickerProps {
   placeholder?: string;
 }
 
-function MapClickHandler({ onLocationSelect }: { onLocationSelect: (lat: number, lng: number) => void }) {
-  useMapEvents({
-    click: (e) => {
-      onLocationSelect(e.latlng.lat, e.latlng.lng);
-    },
-  });
-  return null;
-}
+// Dynamic import for map components to avoid SSR issues
+const LazyMap = ({ position, onLocationSelect, defaultCenter }: {
+  position: { lat: number; lng: number } | null;
+  onLocationSelect: (lat: number, lng: number) => void;
+  defaultCenter: [number, number];
+}) => {
+  const [MapComponents, setMapComponents] = useState<{
+    MapContainer: any;
+    TileLayer: any;
+    Marker: any;
+    useMapEvents: any;
+    useMap: any;
+  } | null>(null);
+  const [L, setL] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
-function MapCenterUpdater({ position }: { position: LatLng | null }) {
-  const map = useMap();
   useEffect(() => {
-    if (position) {
-      map.setView(position, 17);
-    }
-  }, [position, map]);
-  return null;
-}
+    let mounted = true;
+    
+    const loadMap = async () => {
+      try {
+        const [leaflet, reactLeaflet] = await Promise.all([
+          import('leaflet'),
+          import('react-leaflet')
+        ]);
+        
+        if (mounted) {
+          setL(leaflet.default || leaflet);
+          setMapComponents({
+            MapContainer: reactLeaflet.MapContainer,
+            TileLayer: reactLeaflet.TileLayer,
+            Marker: reactLeaflet.Marker,
+            useMapEvents: reactLeaflet.useMapEvents,
+            useMap: reactLeaflet.useMap
+          });
+        }
+      } catch (err) {
+        console.error('Error loading map:', err);
+        if (mounted) {
+          setError('Gagal memuat peta. Silakan refresh halaman.');
+        }
+      }
+    };
+    
+    loadMap();
+    
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (error) {
+    return (
+      <div className="h-64 rounded-lg border bg-muted flex items-center justify-center text-muted-foreground">
+        {error}
+      </div>
+    );
+  }
+
+  if (!MapComponents || !L) {
+    return (
+      <div className="h-64 rounded-lg border bg-muted animate-pulse flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const { MapContainer, TileLayer, Marker, useMapEvents, useMap } = MapComponents;
+
+  // Fix for default marker icon
+  const defaultIcon = new L.Icon({
+    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41],
+  });
+
+  const MapClickHandler = () => {
+    useMapEvents({
+      click: (e: any) => {
+        onLocationSelect(e.latlng.lat, e.latlng.lng);
+      },
+    });
+    return null;
+  };
+
+  const MapCenterUpdater = ({ pos }: { pos: { lat: number; lng: number } | null }) => {
+    const map = useMap();
+    useEffect(() => {
+      if (pos) {
+        map.setView([pos.lat, pos.lng], 17);
+      }
+    }, [pos, map]);
+    return null;
+  };
+
+  return (
+    <MapContainer
+      center={position ? [position.lat, position.lng] : defaultCenter}
+      zoom={13}
+      style={{ height: '100%', width: '100%' }}
+    >
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      <MapClickHandler />
+      <MapCenterUpdater pos={position} />
+      {position && <Marker position={[position.lat, position.lng]} icon={defaultIcon} />}
+    </MapContainer>
+  );
+};
 
 export function LocationPicker({ value, onChange, placeholder = "Cari alamat..." }: LocationPickerProps) {
   const [searchQuery, setSearchQuery] = useState(value);
   const [isSearching, setIsSearching] = useState(false);
-  const [position, setPosition] = useState<LatLng | null>(null);
+  const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null);
   const [showMap, setShowMap] = useState(false);
 
   // Default center: Jakarta
@@ -66,7 +149,7 @@ export function LocationPicker({ value, onChange, placeholder = "Cari alamat..."
         const result = data[0];
         const lat = parseFloat(result.lat);
         const lng = parseFloat(result.lon);
-        setPosition(new LatLng(lat, lng));
+        setPosition({ lat, lng });
         onChange(result.display_name, lat, lng);
         setSearchQuery(result.display_name);
         setShowMap(true);
@@ -98,7 +181,7 @@ export function LocationPicker({ value, onChange, placeholder = "Cari alamat..."
   }, [onChange]);
 
   const handleMapClick = useCallback((lat: number, lng: number) => {
-    setPosition(new LatLng(lat, lng));
+    setPosition({ lat, lng });
     reverseGeocode(lat, lng);
   }, [reverseGeocode]);
 
@@ -149,19 +232,11 @@ export function LocationPicker({ value, onChange, placeholder = "Cari alamat..."
       
       {showMap && (
         <div className="h-64 rounded-lg overflow-hidden border">
-          <MapContainer
-            center={position ? [position.lat, position.lng] : defaultCenter}
-            zoom={13}
-            style={{ height: '100%', width: '100%' }}
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            <MapClickHandler onLocationSelect={handleMapClick} />
-            <MapCenterUpdater position={position} />
-            {position && <Marker position={position} icon={defaultIcon} />}
-          </MapContainer>
+          <LazyMap 
+            position={position} 
+            onLocationSelect={handleMapClick} 
+            defaultCenter={defaultCenter}
+          />
           <p className="text-xs text-muted-foreground mt-1 px-1">
             Klik pada peta untuk memilih lokasi, atau cari alamat di atas
           </p>
