@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -47,15 +47,50 @@ export function AuthForm() {
   const initialMode = searchParams.get('mode') as 'login' | 'signup' | null;
   const initialRole = searchParams.get('role') as AppRole | null;
   const initialMerchantCode = searchParams.get('merchantCode') || searchParams.get('code') || '';
+  const initialReferralCode = searchParams.get('ref') || sessionStorage.getItem('referral_code') || '';
   
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>(initialMode || 'login');
   const [showPassword, setShowPassword] = useState(false);
   const [selectedRole, setSelectedRole] = useState<AppRole>(initialRole || 'tenant');
   const [isLoading, setIsLoading] = useState(false);
   const [merchantCodeError, setMerchantCodeError] = useState<string | null>(null);
+  const [referrerInfo, setReferrerInfo] = useState<{ name: string; role: string } | null>(null);
   const { toast } = useToast();
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
+
+  // Validate referral code and get referrer info
+  useEffect(() => {
+    const validateReferral = async () => {
+      if (!initialReferralCode) return;
+      
+      try {
+        const { data: referral } = await supabase
+          .from('referrals')
+          .select('referrer_user_id, referrer_role')
+          .eq('referral_code', initialReferralCode)
+          .is('referee_user_id', null)
+          .single();
+
+        if (referral) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('user_id', referral.referrer_user_id)
+            .single();
+
+          setReferrerInfo({
+            name: profile?.full_name || 'A SiHuni user',
+            role: referral.referrer_role,
+          });
+        }
+      } catch (err) {
+        console.log('Referral code not found or already used');
+      }
+    };
+
+    validateReferral();
+  }, [initialReferralCode]);
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -141,7 +176,7 @@ export function AuthForm() {
       merchant_code: selectedRole === 'tenant' ? data.merchantCode : undefined,
     });
 
-    // Call auth-webhook to ensure profile/role creation
+    // Call auth-webhook to ensure profile/role creation with referral code
     if (!error && signUpData?.user) {
       try {
         console.log('Calling auth-webhook for user setup...');
@@ -154,12 +189,15 @@ export function AuthForm() {
             role: selectedRole,
             business_name: (selectedRole === 'merchant' || selectedRole === 'vendor') ? data.businessName : undefined,
             merchant_code: selectedRole === 'tenant' ? data.merchantCode : undefined,
+            referral_code: initialReferralCode || undefined,
           },
         });
         if (webhookError) {
           console.error('Auth webhook failed:', webhookError);
         } else {
           console.log('Auth webhook completed successfully');
+          // Clear stored referral code
+          sessionStorage.removeItem('referral_code');
         }
       } catch (webhookErr) {
         console.error('Auth webhook invocation error:', webhookErr);
@@ -246,6 +284,17 @@ export function AuthForm() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Referral Banner */}
+          {referrerInfo && activeTab === 'signup' && (
+            <div className="mb-4 p-3 rounded-lg border border-primary/20 bg-primary/5">
+              <p className="text-sm text-center">
+                <span className="font-medium text-primary">Invited by {referrerInfo.name}</span>
+                <br />
+                <span className="text-muted-foreground">You'll receive special bonuses!</span>
+              </p>
+            </div>
+          )}
+          
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'login' | 'signup')}>
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="login">Login</TabsTrigger>

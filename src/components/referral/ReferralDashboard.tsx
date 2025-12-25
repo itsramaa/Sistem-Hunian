@@ -112,11 +112,11 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
   const getRewardInfo = () => {
     switch (userRole) {
       case 'merchant':
-        return { amount: 'Rp 100.000', description: 'subscription credit when your referral pays their first month' };
+        return { amount: '20%', description: 'of referee subscription for 6 months when they upgrade' };
       case 'tenant':
-        return { amount: 'Rp 25.000', description: 'voucher when your referral moves in' };
+        return { amount: 'Rp 25.000', description: 'voucher when your friend pays first rent (+ Rp 25k bonus for 3 consecutive months!)' };
       case 'vendor':
-        return { amount: 'Rp 50.000', description: 'cashback when your referral completes 5 orders' };
+        return { amount: 'Rp 50.000', description: 'cashback when your referral completes 10 orders (+ Rp 100k bonus at 3 months!)' };
       default:
         return { amount: 'Rp 0', description: '' };
     }
