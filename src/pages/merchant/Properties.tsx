@@ -366,6 +366,8 @@ export default function MerchantProperties() {
                       value={form.watch('address')}
                       onChange={(address) => form.setValue('address', address)}
                       placeholder="Cari atau klik peta untuk lokasi..."
+                      province={form.watch('province')}
+                      city={form.watch('city')}
                     />
                     {form.formState.errors.address && (
                       <p className="text-sm text-destructive mt-1">{form.formState.errors.address.message}</p>

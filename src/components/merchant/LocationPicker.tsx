@@ -1,147 +1,153 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { MapPin, Search, Loader2 } from 'lucide-react';
+import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 interface LocationPickerProps {
   value: string;
   onChange: (address: string, lat?: number, lng?: number) => void;
   placeholder?: string;
+  province?: string;
+  city?: string;
 }
 
-// Dynamic import for map components to avoid SSR issues
-const LazyMap = ({ position, onLocationSelect, defaultCenter }: {
-  position: { lat: number; lng: number } | null;
-  onLocationSelect: (lat: number, lng: number) => void;
-  defaultCenter: [number, number];
-}) => {
-  const [MapComponents, setMapComponents] = useState<{
-    MapContainer: any;
-    TileLayer: any;
-    Marker: any;
-    useMapEvents: any;
-    useMap: any;
-  } | null>(null);
-  const [L, setL] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
+// Fix for default marker icon
+const defaultIcon = new L.Icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
 
-  useEffect(() => {
-    let mounted = true;
-    
-    const loadMap = async () => {
-      try {
-        const [leaflet, reactLeaflet] = await Promise.all([
-          import('leaflet'),
-          import('react-leaflet')
-        ]);
-        
-        if (mounted) {
-          setL(leaflet.default || leaflet);
-          setMapComponents({
-            MapContainer: reactLeaflet.MapContainer,
-            TileLayer: reactLeaflet.TileLayer,
-            Marker: reactLeaflet.Marker,
-            useMapEvents: reactLeaflet.useMapEvents,
-            useMap: reactLeaflet.useMap
-          });
-        }
-      } catch (err) {
-        console.error('Error loading map:', err);
-        if (mounted) {
-          setError('Gagal memuat peta. Silakan refresh halaman.');
-        }
-      }
-    };
-    
-    loadMap();
-    
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  if (error) {
-    return (
-      <div className="h-64 rounded-lg border bg-muted flex items-center justify-center text-muted-foreground">
-        {error}
-      </div>
-    );
-  }
-
-  if (!MapComponents || !L) {
-    return (
-      <div className="h-64 rounded-lg border bg-muted animate-pulse flex items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  const { MapContainer, TileLayer, Marker, useMapEvents, useMap } = MapComponents;
-
-  // Fix for default marker icon
-  const defaultIcon = new L.Icon({
-    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41],
-  });
-
-  const MapClickHandler = () => {
-    useMapEvents({
-      click: (e: any) => {
-        onLocationSelect(e.latlng.lat, e.latlng.lng);
-      },
-    });
-    return null;
-  };
-
-  const MapCenterUpdater = ({ pos }: { pos: { lat: number; lng: number } | null }) => {
-    const map = useMap();
-    useEffect(() => {
-      if (pos) {
-        map.setView([pos.lat, pos.lng], 17);
-      }
-    }, [pos, map]);
-    return null;
-  };
-
-  return (
-    <MapContainer
-      center={position ? [position.lat, position.lng] : defaultCenter}
-      zoom={13}
-      style={{ height: '100%', width: '100%' }}
-    >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      <MapClickHandler />
-      <MapCenterUpdater pos={position} />
-      {position && <Marker position={[position.lat, position.lng]} icon={defaultIcon} />}
-    </MapContainer>
-  );
-};
-
-export function LocationPicker({ value, onChange, placeholder = "Cari alamat..." }: LocationPickerProps) {
+export function LocationPicker({ 
+  value, 
+  onChange, 
+  placeholder = "Cari alamat...",
+  province,
+  city 
+}: LocationPickerProps) {
   const [searchQuery, setSearchQuery] = useState(value);
   const [isSearching, setIsSearching] = useState(false);
   const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null);
   const [showMap, setShowMap] = useState(false);
+  
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const markerRef = useRef<L.Marker | null>(null);
 
   // Default center: Jakarta
   const defaultCenter: [number, number] = [-6.2088, 106.8456];
+
+  // Initialize map when showMap becomes true
+  useEffect(() => {
+    if (!showMap || !mapContainerRef.current) return;
+    
+    // Don't reinitialize if map already exists
+    if (mapRef.current) return;
+
+    // Initialize map
+    const map = L.map(mapContainerRef.current).setView(
+      position ? [position.lat, position.lng] : defaultCenter,
+      position ? 17 : 13
+    );
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+
+    // Add click handler
+    map.on('click', (e: L.LeafletMouseEvent) => {
+      const { lat, lng } = e.latlng;
+      setPosition({ lat, lng });
+      reverseGeocode(lat, lng);
+    });
+
+    mapRef.current = map;
+
+    // Add initial marker if position exists
+    if (position) {
+      markerRef.current = L.marker([position.lat, position.lng], { icon: defaultIcon }).addTo(map);
+    }
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+        markerRef.current = null;
+      }
+    };
+  }, [showMap]);
+
+  // Update marker when position changes
+  useEffect(() => {
+    if (!mapRef.current || !position) return;
+
+    // Remove existing marker
+    if (markerRef.current) {
+      markerRef.current.remove();
+    }
+
+    // Add new marker
+    markerRef.current = L.marker([position.lat, position.lng], { icon: defaultIcon }).addTo(mapRef.current);
+    
+    // Pan to new position
+    mapRef.current.setView([position.lat, position.lng], 17);
+  }, [position]);
+
+  // Auto-center map when city/province changes
+  useEffect(() => {
+    if (!city && !province) return;
+
+    const searchLocation = async () => {
+      const query = city 
+        ? `${city}, ${province || ''}, Indonesia`
+        : `${province}, Indonesia`;
+      
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=id&limit=1`
+        );
+        const data = await response.json();
+        
+        if (data && data.length > 0) {
+          const result = data[0];
+          const lat = parseFloat(result.lat);
+          const lng = parseFloat(result.lon);
+          
+          // Update map center without setting marker
+          if (mapRef.current) {
+            mapRef.current.setView([lat, lng], city ? 13 : 10);
+          }
+        }
+      } catch (error) {
+        console.error('Error searching city coordinates:', error);
+      }
+    };
+
+    searchLocation();
+  }, [city, province]);
 
   const searchAddress = useCallback(async (query: string) => {
     if (!query.trim()) return;
     
     setIsSearching(true);
     try {
+      // Build context-aware query
+      let fullQuery = query;
+      if (city || province) {
+        const context = [city, province, 'Indonesia'].filter(Boolean).join(', ');
+        fullQuery = `${query}, ${context}`;
+      } else {
+        fullQuery = `${query}, Indonesia`;
+      }
+
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=id&limit=1`
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullQuery)}&countrycodes=id&limit=1`
       );
       const data = await response.json();
       
@@ -159,7 +165,7 @@ export function LocationPicker({ value, onChange, placeholder = "Cari alamat..."
     } finally {
       setIsSearching(false);
     }
-  }, [onChange]);
+  }, [onChange, city, province]);
 
   const reverseGeocode = useCallback(async (lat: number, lng: number) => {
     setIsSearching(true);
@@ -179,11 +185,6 @@ export function LocationPicker({ value, onChange, placeholder = "Cari alamat..."
       setIsSearching(false);
     }
   }, [onChange]);
-
-  const handleMapClick = useCallback((lat: number, lng: number) => {
-    setPosition({ lat, lng });
-    reverseGeocode(lat, lng);
-  }, [reverseGeocode]);
 
   const handleSearch = () => {
     searchAddress(searchQuery);
@@ -231,13 +232,13 @@ export function LocationPicker({ value, onChange, placeholder = "Cari alamat..."
       </div>
       
       {showMap && (
-        <div className="h-64 rounded-lg overflow-hidden border">
-          <LazyMap 
-            position={position} 
-            onLocationSelect={handleMapClick} 
-            defaultCenter={defaultCenter}
+        <div className="space-y-1">
+          <div 
+            ref={mapContainerRef}
+            className="h-64 rounded-lg overflow-hidden border"
+            style={{ zIndex: 0 }}
           />
-          <p className="text-xs text-muted-foreground mt-1 px-1">
+          <p className="text-xs text-muted-foreground px-1">
             Klik pada peta untuk memilih lokasi, atau cari alamat di atas
           </p>
         </div>
