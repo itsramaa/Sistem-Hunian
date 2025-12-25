@@ -139,6 +139,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/vendor/orders", icon: ShoppingCart, label: "Orders" },
           { path: "/vendor/jobs", icon: Briefcase, label: "Jobs" },
           { path: "/vendor/earnings", icon: Wallet, label: "Earnings" },
+          { path: "/vendor/analytics", icon: BarChart3, label: "Analytics" },
           { path: "/vendor/referrals", icon: Gift, label: "Referrals" },
         ],
       },

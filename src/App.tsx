@@ -69,6 +69,7 @@ import VendorSettings from "./pages/vendor/Settings";
 import VendorProducts from "./pages/vendor/Products";
 import VendorOrders from "./pages/vendor/Orders";
 import VendorReferrals from "./pages/vendor/Referrals";
+import VendorAnalytics from "./pages/vendor/Analytics";
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
 import PaymentSuccess from "./pages/payment/Success";
@@ -157,6 +158,7 @@ const App = () => (
             <Route path="/vendor/profile" element={<ProtectedRoute allowedRoles={['vendor']}><VendorProfile /></ProtectedRoute>} />
             <Route path="/vendor/settings" element={<ProtectedRoute allowedRoles={['vendor']}><VendorSettings /></ProtectedRoute>} />
             <Route path="/vendor/referrals" element={<ProtectedRoute allowedRoles={['vendor']}><VendorReferrals /></ProtectedRoute>} />
+            <Route path="/vendor/analytics" element={<ProtectedRoute allowedRoles={['vendor']}><VendorAnalytics /></ProtectedRoute>} />
             
             {/* Payment Redirect Pages (no auth required - redirect from Xendit) */}
             <Route path="/payment/success" element={<PaymentSuccess />} />
