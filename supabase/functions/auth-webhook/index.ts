@@ -18,7 +18,7 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { user_id, email, full_name, phone, role, business_name, merchant_code } = await req.json();
+    const { user_id, email, full_name, phone, role, business_name, merchant_code, referral_code } = await req.json();
 
     if (!user_id || !email) {
       console.error('Missing required fields: user_id or email');
@@ -78,13 +78,61 @@ serve(async (req) => {
     console.log('User role created:', userRole);
 
     // 3. Handle role-specific inserts
+    let referrerInfo: { userId: string; role: string } | null = null;
+
+    // Check and process referral code first
+    if (referral_code) {
+      const { data: referral } = await supabase
+        .from('referrals')
+        .select('id, referrer_user_id, referrer_role')
+        .eq('referral_code', referral_code)
+        .is('referee_user_id', null)
+        .single();
+
+      if (referral) {
+        referrerInfo = { userId: referral.referrer_user_id, role: referral.referrer_role };
+        
+        // Update referral with referee info
+        await supabase
+          .from('referrals')
+          .update({
+            referee_user_id: user_id,
+            referee_role: userRole,
+            status: 'registered',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', referral.id);
+
+        console.log('Linked referral:', referral.id);
+
+        // Notify referrer
+        await supabase
+          .from('notifications')
+          .insert({
+            user_id: referral.referrer_user_id,
+            type: 'referral_registered',
+            title: '🎉 New Referral!',
+            message: `${full_name || 'Someone'} signed up using your referral link!`,
+            link: `/${referral.referrer_role}/referrals`,
+          });
+      }
+    }
+
     if (userRole === 'merchant') {
+      // Calculate referral bonus if applicable
+      const trialDays = referrerInfo ? 21 : 14; // Extra 7 days for referral
+      const referralDiscount = referrerInfo ? 10 : 0; // 10% off first month
+      const referralDiscountMonths = referrerInfo ? 1 : 0;
+
       // Create merchant record
       const { data: newMerchant, error: merchantError } = await supabase
         .from('merchants')
         .insert({
           user_id,
           business_name: business_name || 'My Business',
+          referral_discount: referralDiscount,
+          referral_discount_months: referralDiscountMonths,
+          referred_by: referrerInfo?.userId || null,
         })
         .select('id')
         .single();
@@ -121,7 +169,7 @@ serve(async (req) => {
 
       if (freeTier) {
         const trialEnd = new Date();
-        trialEnd.setDate(trialEnd.getDate() + 14);
+        trialEnd.setDate(trialEnd.getDate() + trialDays);
 
         const { error: subscriptionError } = await supabase
           .from('merchant_subscriptions')
@@ -138,7 +186,7 @@ serve(async (req) => {
         if (subscriptionError) {
           console.error('Error creating subscription:', subscriptionError);
         } else {
-          console.log('Merchant subscription created with free tier');
+          console.log(`Merchant subscription created with ${trialDays}-day trial`);
         }
       } else {
         console.log('No free tier found, skipping subscription creation');
@@ -153,6 +201,7 @@ serve(async (req) => {
           business_name: business_name || 'My Business',
           contact_email: email,
           verification_status: 'pending',
+          referred_by: referrerInfo?.userId || null,
         });
 
       if (vendorError) {

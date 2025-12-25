@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import AdminSetup from "./pages/AdminSetup";
 import Invite from "./pages/Invite";
+import ReferralInvite from "./pages/ReferralInvite";
 import ResetPassword from "./pages/ResetPassword";
 import UpdatePassword from "./pages/UpdatePassword";
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -88,6 +89,7 @@ const App = () => (
             <Route path="/update-password" element={<UpdatePassword />} />
             <Route path="/admin-setup" element={<AdminSetup />} />
             <Route path="/invite/:token" element={<Invite />} />
+            <Route path="/referral" element={<ReferralInvite />} />
             
             {/* Admin Routes */}
             <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />

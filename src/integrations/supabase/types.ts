@@ -285,6 +285,8 @@ export type Database = {
           merchant_id: string
           merchant_signature_url: string | null
           merchant_signed_at: string | null
+          referral_bonus_amount: number | null
+          referral_bonus_applied: boolean | null
           rent_amount: number
           signature_status: string | null
           start_date: string
@@ -307,6 +309,8 @@ export type Database = {
           merchant_id: string
           merchant_signature_url?: string | null
           merchant_signed_at?: string | null
+          referral_bonus_amount?: number | null
+          referral_bonus_applied?: boolean | null
           rent_amount: number
           signature_status?: string | null
           start_date: string
@@ -329,6 +333,8 @@ export type Database = {
           merchant_id?: string
           merchant_signature_url?: string | null
           merchant_signed_at?: string | null
+          referral_bonus_amount?: number | null
+          referral_bonus_applied?: boolean | null
           rent_amount?: number
           signature_status?: string | null
           start_date?: string
@@ -1300,6 +1306,9 @@ export type Database = {
           penalty_rate: number | null
           postal_code: string | null
           province: string | null
+          referral_discount: number | null
+          referral_discount_months: number | null
+          referred_by: string | null
           rejected_at: string | null
           rejected_by: string | null
           rejection_details: string | null
@@ -1329,6 +1338,9 @@ export type Database = {
           penalty_rate?: number | null
           postal_code?: string | null
           province?: string | null
+          referral_discount?: number | null
+          referral_discount_months?: number | null
+          referred_by?: string | null
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_details?: string | null
@@ -1358,6 +1370,9 @@ export type Database = {
           penalty_rate?: number | null
           postal_code?: string | null
           province?: string | null
+          referral_discount?: number | null
+          referral_discount_months?: number | null
+          referred_by?: string | null
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_details?: string | null
@@ -1903,6 +1918,65 @@ export type Database = {
           },
         ]
       }
+      referral_commissions: {
+        Row: {
+          cancellation_reason: string | null
+          commission_amount: number
+          commission_rate: number
+          created_at: string
+          eligible_date: string | null
+          id: string
+          month_number: number
+          paid_at: string | null
+          referee_id: string
+          referral_id: string
+          referrer_id: string
+          status: string
+          subscription_amount: number
+          updated_at: string
+        }
+        Insert: {
+          cancellation_reason?: string | null
+          commission_amount?: number
+          commission_rate?: number
+          created_at?: string
+          eligible_date?: string | null
+          id?: string
+          month_number?: number
+          paid_at?: string | null
+          referee_id: string
+          referral_id: string
+          referrer_id: string
+          status?: string
+          subscription_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          cancellation_reason?: string | null
+          commission_amount?: number
+          commission_rate?: number
+          created_at?: string
+          eligible_date?: string | null
+          id?: string
+          month_number?: number
+          paid_at?: string | null
+          referee_id?: string
+          referral_id?: string
+          referrer_id?: string
+          status?: string
+          subscription_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_commissions_referral_id_fkey"
+            columns: ["referral_id"]
+            isOneToOne: false
+            referencedRelation: "referrals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       referral_rewards: {
         Row: {
           amount: number
@@ -1955,10 +2029,18 @@ export type Database = {
       }
       referrals: {
         Row: {
+          bonus_paid: boolean | null
+          bonus_paid_at: string | null
           completed_at: string | null
+          converted_at: string | null
           created_at: string
+          first_payment_at: string | null
           id: string
+          referee_avg_rating: number | null
+          referee_monthly_payment: number | null
+          referee_order_count: number | null
           referee_role: string | null
+          referee_subscription_tier: string | null
           referee_user_id: string | null
           referral_code: string
           referrer_role: string
@@ -1969,10 +2051,18 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bonus_paid?: boolean | null
+          bonus_paid_at?: string | null
           completed_at?: string | null
+          converted_at?: string | null
           created_at?: string
+          first_payment_at?: string | null
           id?: string
+          referee_avg_rating?: number | null
+          referee_monthly_payment?: number | null
+          referee_order_count?: number | null
           referee_role?: string | null
+          referee_subscription_tier?: string | null
           referee_user_id?: string | null
           referral_code: string
           referrer_role: string
@@ -1983,10 +2073,18 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bonus_paid?: boolean | null
+          bonus_paid_at?: string | null
           completed_at?: string | null
+          converted_at?: string | null
           created_at?: string
+          first_payment_at?: string | null
           id?: string
+          referee_avg_rating?: number | null
+          referee_monthly_payment?: number | null
+          referee_order_count?: number | null
           referee_role?: string | null
+          referee_subscription_tier?: string | null
           referee_user_id?: string | null
           referral_code?: string
           referrer_role?: string
@@ -2569,6 +2667,8 @@ export type Database = {
           notification_settings: Json | null
           province: string | null
           rating: number | null
+          referral_earnings: number | null
+          referred_by: string | null
           service_categories: string[] | null
           total_jobs: number | null
           updated_at: string
@@ -2589,6 +2689,8 @@ export type Database = {
           notification_settings?: Json | null
           province?: string | null
           rating?: number | null
+          referral_earnings?: number | null
+          referred_by?: string | null
           service_categories?: string[] | null
           total_jobs?: number | null
           updated_at?: string
@@ -2609,6 +2711,8 @@ export type Database = {
           notification_settings?: Json | null
           province?: string | null
           rating?: number | null
+          referral_earnings?: number | null
+          referred_by?: string | null
           service_categories?: string[] | null
           total_jobs?: number | null
           updated_at?: string
@@ -2616,6 +2720,71 @@ export type Database = {
           verification_status?: string | null
         }
         Relationships: []
+      }
+      vouchers: {
+        Row: {
+          applicable_to: string | null
+          code: string
+          created_at: string
+          discount_type: string
+          discount_value: number
+          id: string
+          is_active: boolean | null
+          max_discount: number | null
+          min_order: number | null
+          owner_id: string
+          referral_id: string | null
+          updated_at: string
+          usage_limit: number | null
+          used_count: number | null
+          valid_from: string | null
+          valid_until: string
+        }
+        Insert: {
+          applicable_to?: string | null
+          code: string
+          created_at?: string
+          discount_type?: string
+          discount_value?: number
+          id?: string
+          is_active?: boolean | null
+          max_discount?: number | null
+          min_order?: number | null
+          owner_id: string
+          referral_id?: string | null
+          updated_at?: string
+          usage_limit?: number | null
+          used_count?: number | null
+          valid_from?: string | null
+          valid_until: string
+        }
+        Update: {
+          applicable_to?: string | null
+          code?: string
+          created_at?: string
+          discount_type?: string
+          discount_value?: number
+          id?: string
+          is_active?: boolean | null
+          max_discount?: number | null
+          min_order?: number | null
+          owner_id?: string
+          referral_id?: string | null
+          updated_at?: string
+          usage_limit?: number | null
+          used_count?: number | null
+          valid_from?: string | null
+          valid_until?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vouchers_referral_id_fkey"
+            columns: ["referral_id"]
+            isOneToOne: false
+            referencedRelation: "referrals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       xendit_transactions: {
         Row: {
@@ -2705,6 +2874,7 @@ export type Database = {
     Functions: {
       calculate_sla_deadline: { Args: { priority: string }; Returns: string }
       generate_merchant_code: { Args: never; Returns: string }
+      generate_voucher_code: { Args: never; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
