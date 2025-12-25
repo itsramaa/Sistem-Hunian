@@ -2,25 +2,38 @@ import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Loader2, Save, CalendarDays } from 'lucide-react';
+import { Loader2, Save, CalendarDays, Wallet } from 'lucide-react';
 
 export function DisbursementScheduleSettings() {
   const { user, merchant } = useAuth();
   const queryClient = useQueryClient();
   const [schedule, setSchedule] = useState('weekly');
   const [billingDay, setBillingDay] = useState('1');
+  const [minAmount, setMinAmount] = useState('100000');
 
   useEffect(() => {
     if (merchant) {
       setSchedule(merchant.disbursement_schedule ?? 'weekly');
       setBillingDay(String(merchant.billing_day ?? 1));
+      setMinAmount(String((merchant as any).min_disbursement_amount ?? 100000));
     }
   }, [merchant]);
+
+  const formatCurrency = (value: string) => {
+    const num = parseInt(value.replace(/\D/g, '')) || 0;
+    return num.toLocaleString('id-ID');
+  };
+
+  const handleMinAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value.replace(/\D/g, '');
+    setMinAmount(rawValue);
+  };
 
   const updateSchedule = useMutation({
     mutationFn: async () => {
@@ -29,6 +42,7 @@ export function DisbursementScheduleSettings() {
         .update({ 
           disbursement_schedule: schedule,
           billing_day: parseInt(billingDay),
+          min_disbursement_amount: parseInt(minAmount) || 100000,
         })
         .eq('user_id', user?.id);
       if (error) throw error;
@@ -88,7 +102,29 @@ export function DisbursementScheduleSettings() {
           </p>
         </div>
 
-        <Button 
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2">
+            <Wallet className="h-4 w-4" />
+            Minimum Disbursement Amount
+          </Label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+              Rp
+            </span>
+            <Input
+              type="text"
+              value={formatCurrency(minAmount)}
+              onChange={handleMinAmountChange}
+              className="pl-10"
+              placeholder="100,000"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Auto disbursement will only process if your escrow balance exceeds this amount
+          </p>
+        </div>
+
+        <Button
           onClick={() => updateSchedule.mutate()}
           disabled={updateSchedule.isPending}
           className="w-full"
