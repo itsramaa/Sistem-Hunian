@@ -133,13 +133,38 @@ export function AuthForm() {
       }
     }
 
-    const { error } = await signUp(data.email, data.password, {
+    const { data: signUpData, error } = await signUp(data.email, data.password, {
       full_name: data.fullName,
       phone: data.phone || undefined,
       role: selectedRole,
       business_name: (selectedRole === 'merchant' || selectedRole === 'vendor') ? data.businessName : undefined,
       merchant_code: selectedRole === 'tenant' ? data.merchantCode : undefined,
     });
+
+    // Call auth-webhook to ensure profile/role creation
+    if (!error && signUpData?.user) {
+      try {
+        console.log('Calling auth-webhook for user setup...');
+        const { error: webhookError } = await supabase.functions.invoke('auth-webhook', {
+          body: {
+            user_id: signUpData.user.id,
+            email: data.email,
+            full_name: data.fullName,
+            phone: data.phone || null,
+            role: selectedRole,
+            business_name: (selectedRole === 'merchant' || selectedRole === 'vendor') ? data.businessName : undefined,
+            merchant_code: selectedRole === 'tenant' ? data.merchantCode : undefined,
+          },
+        });
+        if (webhookError) {
+          console.error('Auth webhook failed:', webhookError);
+        } else {
+          console.log('Auth webhook completed successfully');
+        }
+      } catch (webhookErr) {
+        console.error('Auth webhook invocation error:', webhookErr);
+      }
+    }
     
     // Link tenant to merchant after signup and send notification
     if (!error && linkedMerchantId && selectedRole === 'tenant') {
