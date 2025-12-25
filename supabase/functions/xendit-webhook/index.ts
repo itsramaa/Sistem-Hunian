@@ -177,6 +177,26 @@ serve(async (req) => {
                     console.error('Email notification error:', emailError);
                   }
                 }
+
+                // Process referral reward for subscription renewal
+                try {
+                  await fetch(`${SUPABASE_URL}/functions/v1/process-referral-reward`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                    },
+                    body: JSON.stringify({
+                      event_type: 'subscription_paid',
+                      user_id: merchant.user_id,
+                      amount: paid_amount,
+                      subscription_tier: tier.name,
+                    }),
+                  });
+                  console.log('Referral reward processing triggered for subscription renewal');
+                } catch (referralError) {
+                  console.error('Referral reward trigger error:', referralError);
+                }
               }
             }
           }
@@ -277,6 +297,26 @@ serve(async (req) => {
                 } catch (emailError) {
                   console.error('Email notification error:', emailError);
                 }
+              }
+
+              // Process referral reward for initial subscription
+              try {
+                await fetch(`${SUPABASE_URL}/functions/v1/process-referral-reward`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                  },
+                  body: JSON.stringify({
+                    event_type: 'subscription_paid',
+                    user_id: merchant.user_id,
+                    amount: paid_amount,
+                    subscription_tier: tier.name,
+                  }),
+                });
+                console.log('Referral reward processing triggered for initial subscription');
+              } catch (referralError) {
+                console.error('Referral reward trigger error:', referralError);
               }
             }
           }
@@ -483,6 +523,27 @@ serve(async (req) => {
             console.log('Tenant email receipt sent');
           } catch (emailError) {
             console.error('Tenant email receipt error:', emailError);
+          }
+        }
+
+        // Process referral reward for tenant rent payment
+        if (transaction.payment_id) {
+          try {
+            await fetch(`${SUPABASE_URL}/functions/v1/process-referral-reward`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              },
+              body: JSON.stringify({
+                event_type: 'rent_paid',
+                user_id: transaction.user_id,
+                amount: grossAmount,
+              }),
+            });
+            console.log('Referral reward processing triggered for rent payment');
+          } catch (referralError) {
+            console.error('Referral reward trigger error:', referralError);
           }
         }
       }
