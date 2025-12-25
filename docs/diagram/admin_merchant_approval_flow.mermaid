@@ -1,0 +1,235 @@
+sequenceDiagram
+    participant A as Admin
+    participant FE as Frontend
+    participant DB as Database
+    participant STORAGE as Supabase Storage
+    participant M as Merchant
+
+    Note over A,M: Admin Dashboard Overview
+
+    A->>FE: Navigate to /admin/merchants
+    FE->>DB: Query merchant statistics
+    Note right of DB: Aggregate counts:<br/>- Total merchants<br/>- Pending verification<br/>- Verified merchants<br/>- Rejected merchants<br/>- Active subscriptions
+    
+    DB-->>FE: Return statistics
+    
+    FE->>A: Display merchant dashboard
+    Note right of A: Summary cards:<br/>- Total: 1,247<br/>- Pending Review: 23<br/>- Verified: 1,180<br/>- Rejected: 44<br/>- Active Paid: 892
+    
+    FE->>DB: Query pending verification list
+    Note right of DB: SELECT * FROM merchants<br/>WHERE verification_status = 'pending'<br/>ORDER BY verification_submitted_at ASC
+    
+    DB-->>FE: Return pending merchants
+    
+    FE->>A: Display pending review queue
+    Note right of A: Table shows:<br/>- Merchant name<br/>- Submission date<br/>- Subscription tier<br/>- Days waiting<br/>- Quick actions
+    
+    Note over A,M: Review Merchant Documents
+    
+    A->>FE: Click merchant to review
+    FE->>DB: Query merchant full profile
+    Note right of DB: JOIN merchants<br/>WITH verification_documents<br/>WITH properties (if any)<br/>WITH audit_logs
+    
+    DB-->>FE: Return complete merchant data
+    
+    FE->>A: Display merchant review page
+    Note right of A: Layout sections:<br/>1. Basic Info<br/>2. Documents<br/>3. Properties preview<br/>4. Verification history<br/>5. Approve/Reject actions
+    
+    A->>FE: View basic information
+    FE->>A: Display merchant profile
+    Note right of A: Shows:<br/>- Full name<br/>- Email, Phone<br/>- Business name<br/>- Registered date<br/>- Subscription tier<br/>- Trial status
+    
+    A->>FE: View uploaded documents
+    FE->>DB: Query verification_documents
+    Note right of DB: WHERE merchant_id<br/>AND document_type IN<br/>('ktp', 'npwp', 'property_deed')
+    
+    DB-->>FE: Return document URLs
+    
+    FE->>A: Display document viewer
+    Note right of A: 3 tabs:<br/>1. KTP (ID Card)<br/>2. NPWP (Tax ID)<br/>3. Surat Properti (Deed)
+    
+    A->>FE: Click to enlarge document
+    FE->>STORAGE: Fetch full-resolution image
+    STORAGE-->>A: Display document in lightbox
+    
+    A->>A: Verify document authenticity
+    Note right of A: Check:<br/>✓ Document clarity<br/>✓ Name matches profile<br/>✓ ID number format valid<br/>✓ Address readable<br/>✓ Not expired<br/>✓ No tampering signs
+    
+    A->>FE: View properties (if created)
+    FE->>DB: Query properties WHERE merchant_id
+    DB-->>FE: Return properties list
+    
+    FE->>A: Display properties preview
+    Note right of A: Shows merchant's properties<br/>to verify legitimacy
+    
+    A->>FE: Check verification history
+    FE->>DB: Query audit_logs WHERE merchant_id
+    DB-->>FE: Return history
+    
+    FE->>A: Display timeline
+    Note right of A: Shows:<br/>- Registration date<br/>- Document uploads<br/>- Previous rejections (if any)<br/>- Resubmissions
+    
+    Note over A,M: Approve Merchant Verification
+    
+    A->>FE: Click "Approve Verification"
+    FE->>A: Show confirmation modal
+    Note right of A: "Approve this merchant?<br/>This will:<br/>- Grant verified status<br/>- Enable auto-disbursement<br/>- Remove tenant limits<br/>- Full tier capacity"
+    
+    A->>FE: Add approval notes (optional)
+    Note right of A: "Documents verified.<br/>Property deed confirmed."
+    
+    A->>FE: Confirm approval
+    
+    FE->>DB: BEGIN TRANSACTION
+    
+    DB->>DB: UPDATE merchants SET
+    Note right of DB: verified: true,<br/>verification_status: 'approved',<br/>verified_at: NOW(),<br/>verified_by: admin_id
+    
+    DB->>DB: Remove non-verified restrictions
+    Note right of DB: Before (Non-Verified):<br/>- max_tenants: 50% of tier<br/>- disbursement: manual (1-3 days)<br/>- max_pending: limited<br/><br/>After (Verified):<br/>- max_tenants: full tier limit<br/>- disbursement: auto (same day)<br/>- max_pending: unlimited
+    
+    DB->>DB: INSERT INTO merchant_verification_history
+    Note right of DB: merchant_id, action: 'approved',<br/>performed_by: admin_id,<br/>approval_notes,<br/>timestamp
+    
+    DB->>DB: INSERT INTO notifications (merchant)
+    Note right of DB: type: 'verification_approved',<br/>title: 'Account Verified!',<br/>message: 'Full features unlocked'
+    
+    DB->>DB: INSERT INTO audit_logs
+    Note right of DB: entity_type: 'merchant',<br/>entity_id: merchant_id,<br/>action: 'verification_approved',<br/>performed_by: admin_id,<br/>ip_address, user_agent
+    
+    DB->>DB: Update platform metrics
+    Note right of DB: verified_merchants_count++
+    
+    DB->>DB: COMMIT TRANSACTION
+    
+    DB-->>M: Email: "Verification Approved!"
+    Note right of M: Email content:<br/>Subject: Your SiHuni account is verified!<br/><br/>Body:<br/>- Congratulations message<br/>- Full features list<br/>- Auto-disbursement enabled<br/>- Full tenant capacity<br/>- Premium support access<br/>- Login button
+    
+    DB-->>M: Push notification: Verification approved
+    
+    DB-->>M: In-app banner: "Welcome to verified merchants!"
+    
+    FE->>A: Success toast: "Merchant approved"
+    FE->>A: Move to next pending merchant
+    
+    Note over A,M: Reject Merchant Verification
+    
+    A->>FE: Click "Reject Verification"
+    FE->>A: Show rejection form
+    Note right of A: Required:<br/>- Rejection reason (dropdown)<br/>- Detailed explanation<br/>- Resubmission instructions
+    
+    A->>FE: Select rejection reason
+    Note right of A: Predefined reasons:<br/>- Document unclear/blurry<br/>- Information mismatch<br/>- Expired documents<br/>- Invalid property deed<br/>- Suspicious activity<br/>- Incomplete submission<br/>- Other (specify)
+    
+    A->>FE: Write detailed explanation
+    Note right of A: "KTP image is too blurry to verify.<br/>Please upload a clearer photo<br/>with good lighting."
+    
+    A->>FE: Add resubmission guidance
+    Note right of A: "To resubmit:<br/>1. Take new photo in daylight<br/>2. Ensure all text is readable<br/>3. No shadows or glare<br/>4. Upload via Profile page"
+    
+    A->>FE: Confirm rejection
+    
+    FE->>DB: BEGIN TRANSACTION
+    
+    DB->>DB: UPDATE merchants SET
+    Note right of DB: verification_status: 'rejected',<br/>rejected_at: NOW(),<br/>rejected_by: admin_id,<br/>rejection_reason: selected_reason,<br/>rejection_details: explanation,<br/>resubmission_instructions
+    
+    DB->>DB: Keep non-verified restrictions
+    Note right of DB: Merchant continues with:<br/>- Limited tenant capacity<br/>- Manual disbursement<br/>- Restricted features
+    
+    DB->>DB: INSERT INTO merchant_verification_history
+    Note right of DB: action: 'rejected',<br/>rejection_reason,<br/>performed_by: admin_id
+    
+    DB->>DB: INSERT INTO notifications (merchant)
+    Note right of DB: type: 'verification_rejected',<br/>reason, details, instructions
+    
+    DB->>DB: INSERT INTO audit_logs
+    Note right of DB: action: 'verification_rejected',<br/>reason, admin_id
+    
+    DB->>DB: COMMIT TRANSACTION
+    
+    DB-->>M: Email: "Verification Rejected"
+    Note right of M: Email content:<br/>Subject: Action Required - Verification Issue<br/><br/>Body:<br/>- Rejection reason<br/>- Detailed explanation<br/>- What to fix<br/>- How to resubmit<br/>- Support contact<br/>- Resubmit button
+    
+    DB-->>M: Push: Verification rejected - action required
+    
+    FE->>A: Success: "Rejection sent with instructions"
+    FE->>A: Update pending count
+    
+    Note over A,M: Merchant Resubmission Review
+    
+    M->>FE: Fix issues + resubmit documents
+    FE->>DB: UPDATE merchants SET
+    Note right of DB: verification_status: 'pending',<br/>resubmission_count++,<br/>verification_submitted_at: NOW()
+    
+    DB-->>A: Notification: "Merchant resubmitted"
+    
+    A->>FE: View resubmission
+    FE->>DB: Query verification history
+    DB-->>FE: Return previous rejection + new submission
+    
+    FE->>A: Display resubmission review
+    Note right of A: Shows:<br/>- Previous rejection reason<br/>- Admin who rejected<br/>- New documents<br/>- Resubmission count<br/>- Time since rejection
+    
+    A->>A: Compare old vs new documents
+    A->>FE: Approve or reject again
+    
+    Note over A,M: Bulk Approval Actions
+    
+    A->>FE: Select multiple merchants (checkbox)
+    Note right of A: Select merchants with<br/>similar issues or<br/>clearly valid docs
+    
+    A->>FE: Click "Bulk Approve"
+    FE->>A: Show bulk confirmation
+    Note right of A: "Approve 5 selected merchants?<br/>This action cannot be undone."
+    
+    A->>FE: Confirm bulk approval
+    
+    FE->>DB: BEGIN TRANSACTION
+    
+    loop For each selected merchant
+        DB->>DB: UPDATE merchants SET verified = true
+        DB->>DB: INSERT audit_logs
+        DB->>DB: INSERT notifications
+        DB-->>M: Send approval emails
+    end
+    
+    DB->>DB: COMMIT TRANSACTION
+    
+    FE->>A: Success: "5 merchants approved"
+    
+    Note over A,M: Search & Filter Merchants
+    
+    A->>FE: Use search bar
+    Note right of A: Search by:<br/>- Name<br/>- Email<br/>- Phone<br/>- Business name
+    
+    FE->>DB: Query merchants WHERE
+    Note right of DB: full_name ILIKE '%search%'<br/>OR email ILIKE '%search%'<br/>OR business_name ILIKE '%search%'
+    
+    DB-->>FE: Return matching merchants
+    
+    A->>FE: Apply filters
+    Note right of A: Filters:<br/>- Status (verified/pending/rejected)<br/>- Subscription tier<br/>- Registration date range<br/>- Properties count<br/>- Tenant count
+    
+    FE->>DB: Complex query with filters
+    DB-->>FE: Return filtered results
+    
+    Note over A,M: View Merchant Analytics
+    
+    A->>FE: Click merchant for detailed view
+    FE->>DB: Query merchant analytics
+    
+    DB->>DB: Aggregate merchant data
+    Note right of DB: Calculate:<br/>- Total revenue collected<br/>- Total tenants<br/>- Properties & units<br/>- Payment collection rate<br/>- Active contracts<br/>- Subscription value (MRR)
+    
+    DB-->>FE: Return analytics
+    
+    FE->>A: Display merchant profile page
+    Note right of A: Tabs:<br/>1. Overview (stats)<br/>2. Properties<br/>3. Tenants<br/>4. Transactions<br/>5. Verification docs<br/>6. Activity logs<br/>7. Actions
+    
+    A->>FE: View activity logs tab
+    FE->>DB: Query audit_logs
+    DB-->>FE: Return merchant activities
+    
+    FE->>A: Display activity timeline
+    Note right of A: Shows:<br/>- Login history<br/>- Property changes<br/>- Tenant additions<br/>- Payment activities<br/>- Settings changes

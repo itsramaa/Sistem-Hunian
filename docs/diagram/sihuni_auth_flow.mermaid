@@ -1,0 +1,58 @@
+sequenceDiagram
+    participant U as User
+    participant FE as Frontend
+    participant SB as Supabase Auth
+    participant DB as Database
+
+    Note over U,DB: User Registration Flow
+
+    U->>FE: Access /auth
+    FE->>U: Display auth page with role selector
+    
+    U->>FE: Click "Register" + Select role
+    Note right of U: Roles: Tenant, Merchant, Vendor
+    
+    FE->>U: Show registration form
+    U->>FE: Submit form data
+    Note right of U: email, password, full_name,<br/>phone, selected_role
+    
+    FE->>FE: Validate form data
+    FE->>SB: signUp(email, password, metadata)
+    
+    SB->>DB: INSERT INTO auth.users
+    Note right of DB: id (UUID), email,<br/>encrypted_password,<br/>email_confirmed_at: NULL
+    
+    SB->>DB: TRIGGER: on_auth_user_created()
+    
+    DB->>DB: INSERT INTO user_roles
+    Note right of DB: user_id, role,<br/>created_at
+    
+    DB->>DB: INSERT INTO profiles
+    Note right of DB: user_id, role, full_name,<br/>phone, created_at
+    
+    alt Role = Merchant
+        DB->>DB: INSERT INTO merchants
+        Note right of DB: If redirect from plan page, Calculate trial_end_date<br/>based on selected tier:<br/>Basic: +14 days<br/>Pro: +7 days<br/>Enterprise: +3 days
+        
+        DB->>DB: Set subscription defaults
+        Note right of DB: subscription_status: free<br/>verified: false<br/>escrow_balance: 0
+        
+    else Role = Vendor
+        DB->>DB: INSERT INTO vendors
+        Note right of DB: verified: false<br/>max_pending_orders: 10<br/>max_order_value: 500000<br/>earnings_balance: 0
+        
+    else Role = Tenant
+        DB->>DB: INSERT INTO tenant
+        Note right of DB: two_factor_enabled: false<br/>super_admin: false
+    end
+    
+    DB-->>SB: Profile created successfully
+    SB-->>FE: Return auth session + user data
+    
+    FE->>FE: Store session in localStorage
+    FE->>FE: Extract user role from session
+    
+    FE-->>U: Show success notification
+    FE->>U: Redirect to role dashboard
+    
+    Note over U,DB: Email confirmation sent to user inbox
