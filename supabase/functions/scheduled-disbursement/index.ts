@@ -10,6 +10,8 @@ interface MerchantWithEscrow {
   business_name: string;
   disbursement_schedule: string;
   user_id: string;
+  min_disbursement_amount: number | null;
+  total_disbursed: number | null;
   escrow_accounts: {
     id: string;
     balance: number;
@@ -23,6 +25,13 @@ interface MerchantWithEscrow {
   }[];
 }
 
+// Fee rates based on schedule
+const FEE_RATES: Record<string, number> = {
+  daily: 0.0025,   // 0.25%
+  weekly: 0,       // Free
+  monthly: 0,      // Free
+};
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -32,6 +41,7 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const xenditSecretKey = Deno.env.get('XENDIT_SECRET_KEY');
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -65,6 +75,8 @@ Deno.serve(async (req) => {
         business_name,
         disbursement_schedule,
         user_id,
+        min_disbursement_amount,
+        total_disbursed,
         escrow_accounts (
           id,
           balance
@@ -101,8 +113,9 @@ Deno.serve(async (req) => {
         const primaryBankAccount = merchant.bank_accounts?.find(ba => ba.is_primary) || merchant.bank_accounts?.[0];
 
         // Skip if no escrow account or insufficient balance
-        if (!escrowAccount || escrowAccount.balance <= 0) {
-          console.log(`Skipping ${merchant.business_name}: No balance or escrow account`);
+        const minAmount = merchant.min_disbursement_amount || 100000;
+        if (!escrowAccount || escrowAccount.balance < minAmount) {
+          console.log(`Skipping ${merchant.business_name}: Balance ${escrowAccount?.balance || 0} below minimum ${minAmount}`);
           results.skipped++;
           continue;
         }
@@ -116,10 +129,73 @@ Deno.serve(async (req) => {
         }
 
         const amount = escrowAccount.balance;
-        const feeAmount = amount * 0.01; // 1% platform fee
+        const feeRate = FEE_RATES[merchant.disbursement_schedule] || 0;
+        const feeAmount = amount * feeRate;
         const netAmount = amount - feeAmount;
 
-        console.log(`Processing disbursement for ${merchant.business_name}: ${amount}`);
+        console.log(`Processing disbursement for ${merchant.business_name}: ${amount} (fee: ${feeAmount}, net: ${netAmount})`);
+
+        // Generate unique external_id for Xendit
+        const externalId = `scheduled_${merchant.id}_${Date.now()}`;
+
+        // If Xendit key is available, call Xendit API
+        let xenditResponse = null;
+        let disbursementStatus = 'pending';
+        let xenditDisbursementId = null;
+
+        if (xenditSecretKey) {
+          try {
+            // Map bank names to Xendit bank codes
+            const bankCodeMap: Record<string, string> = {
+              'BCA': 'BCA',
+              'BNI': 'BNI',
+              'BRI': 'BRI',
+              'MANDIRI': 'MANDIRI',
+              'CIMB': 'CIMB',
+              'PERMATA': 'PERMATA',
+              'BSI': 'BSI',
+              'DANAMON': 'DANAMON',
+            };
+            const bankCode = bankCodeMap[primaryBankAccount.bank_name.toUpperCase()] || primaryBankAccount.bank_name;
+
+            const xenditPayload = {
+              external_id: externalId,
+              amount: netAmount,
+              bank_code: bankCode,
+              account_holder_name: primaryBankAccount.account_name,
+              account_number: primaryBankAccount.account_number,
+              description: `Scheduled ${merchant.disbursement_schedule} disbursement`,
+            };
+
+            const response = await fetch('https://api.xendit.co/disbursements', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Basic ${btoa(xenditSecretKey + ':')}`,
+                'X-IDEMPOTENCY-KEY': externalId,
+              },
+              body: JSON.stringify(xenditPayload),
+            });
+
+            if (response.ok) {
+              xenditResponse = await response.json();
+              xenditDisbursementId = xenditResponse.id;
+              disbursementStatus = xenditResponse.status === 'COMPLETED' ? 'completed' : 'processing';
+              console.log(`Xendit disbursement created: ${xenditDisbursementId}`);
+            } else {
+              const errorText = await response.text();
+              console.error(`Xendit API error for ${merchant.business_name}:`, errorText);
+              results.failed++;
+              results.errors.push(`${merchant.business_name}: Xendit API error - ${errorText}`);
+              continue;
+            }
+          } catch (xenditError) {
+            console.error(`Xendit call failed for ${merchant.business_name}:`, xenditError);
+            results.failed++;
+            results.errors.push(`${merchant.business_name}: ${xenditError instanceof Error ? xenditError.message : 'Xendit error'}`);
+            continue;
+          }
+        }
 
         // Create disbursement record
         const { data: disbursement, error: disbursementError } = await supabase
@@ -130,9 +206,13 @@ Deno.serve(async (req) => {
             amount,
             fee_amount: feeAmount,
             net_amount: netAmount,
-            type: 'rent',
-            status: 'pending',
+            type: 'scheduled',
+            status: disbursementStatus,
             scheduled_for: now.toISOString(),
+            xendit_disbursement_id: xenditDisbursementId,
+            xendit_reference: externalId,
+            processed_at: disbursementStatus === 'completed' ? now.toISOString() : null,
+            completed_at: disbursementStatus === 'completed' ? now.toISOString() : null,
           })
           .select()
           .single();
@@ -144,17 +224,37 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Update escrow balance (move to pending)
-        const { error: escrowError } = await supabase
-          .from('escrow_accounts')
-          .update({
-            balance: 0,
-            pending_balance: amount,
-          })
-          .eq('id', escrowAccount.id);
+        // Update escrow balance (move to pending or clear if completed)
+        if (disbursementStatus === 'completed') {
+          const { error: escrowError } = await supabase
+            .from('escrow_accounts')
+            .update({ balance: 0 })
+            .eq('id', escrowAccount.id);
 
-        if (escrowError) {
-          console.error(`Error updating escrow for ${merchant.business_name}:`, escrowError);
+          if (escrowError) {
+            console.error(`Error updating escrow for ${merchant.business_name}:`, escrowError);
+          }
+
+          // Update merchant stats
+          await supabase
+            .from('merchants')
+            .update({
+              total_disbursed: (merchant.total_disbursed || 0) + netAmount,
+              last_disbursement_date: now.toISOString(),
+            })
+            .eq('id', merchant.id);
+        } else {
+          const { error: escrowError } = await supabase
+            .from('escrow_accounts')
+            .update({
+              balance: 0,
+              pending_balance: amount,
+            })
+            .eq('id', escrowAccount.id);
+
+          if (escrowError) {
+            console.error(`Error updating escrow for ${merchant.business_name}:`, escrowError);
+          }
         }
 
         // Create escrow transaction record
@@ -164,8 +264,8 @@ Deno.serve(async (req) => {
             escrow_account_id: escrowAccount.id,
             amount: -amount,
             type: 'disbursement',
-            status: 'pending',
-            description: `Scheduled ${merchant.disbursement_schedule} disbursement`,
+            status: disbursementStatus === 'completed' ? 'completed' : 'processing',
+            description: `Scheduled ${merchant.disbursement_schedule} disbursement${feeAmount > 0 ? ` (fee: Rp ${feeAmount.toLocaleString()})` : ''}`,
             reference: disbursement.id,
           });
 
@@ -174,16 +274,40 @@ Deno.serve(async (req) => {
           .from('notifications')
           .insert({
             user_id: merchant.user_id,
-            title: 'Disbursement Scheduled',
-            message: `A disbursement of Rp ${netAmount.toLocaleString()} has been scheduled for your account.`,
+            title: disbursementStatus === 'completed' ? 'Disbursement Completed' : 'Disbursement Processing',
+            message: disbursementStatus === 'completed' 
+              ? `Your disbursement of Rp ${netAmount.toLocaleString()} has been transferred.`
+              : `A disbursement of Rp ${netAmount.toLocaleString()} is being processed to your account.`,
             type: 'payment',
             link: '/merchant/escrow',
           });
 
+        // Send processing email
+        try {
+          await supabase.functions.invoke('send-notification', {
+            body: {
+              type: disbursementStatus === 'completed' ? 'disbursement_success' : 'disbursement_processing',
+              recipientEmail: '',
+              recipientName: merchant.business_name,
+              data: {
+                amount: netAmount,
+                bankName: primaryBankAccount.bank_name,
+                accountName: primaryBankAccount.account_name,
+                accountNumber: primaryBankAccount.account_number,
+                reference: externalId,
+                expectedDate: '1-2 business days',
+                completedAt: new Date().toLocaleDateString('id-ID'),
+              },
+            },
+          });
+        } catch (emailError) {
+          console.error(`Failed to send email for ${merchant.business_name}:`, emailError);
+        }
+
         results.processed++;
         results.totalAmount += netAmount;
 
-        console.log(`Successfully scheduled disbursement for ${merchant.business_name}`);
+        console.log(`Successfully processed disbursement for ${merchant.business_name}`);
 
       } catch (error) {
         console.error(`Error processing merchant ${merchant.business_name}:`, error);

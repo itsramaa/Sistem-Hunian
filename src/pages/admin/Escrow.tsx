@@ -10,7 +10,10 @@ import {
   Building2,
   TrendingUp,
   DollarSign,
-  Send
+  Send,
+  ShieldAlert,
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
@@ -56,10 +60,37 @@ interface EscrowTransaction {
   };
 }
 
+interface PendingDisbursement {
+  id: string;
+  amount: number;
+  fee_amount: number;
+  net_amount: number;
+  type: string;
+  status: string;
+  created_at: string;
+  requires_manual_review: boolean;
+  escrow_account_id: string;
+  bank_account_id: string;
+  merchant?: {
+    id: string;
+    business_name: string;
+    user_id: string;
+    verification_status: string;
+  };
+  bank_account?: {
+    bank_name: string;
+    account_number: string;
+    account_name: string;
+  };
+}
+
 const statusColors: Record<string, string> = {
   pending: 'bg-warning/10 text-warning border-warning/30',
+  pending_review: 'bg-orange-500/10 text-orange-600 border-orange-300',
+  processing: 'bg-blue-500/10 text-blue-600 border-blue-300',
   completed: 'bg-success/10 text-success border-success/30',
   failed: 'bg-destructive/10 text-destructive border-destructive/30',
+  rejected: 'bg-destructive/10 text-destructive border-destructive/30',
   cancelled: 'bg-muted text-muted-foreground border-muted',
 };
 
@@ -74,13 +105,17 @@ const typeColors: Record<string, string> = {
 export default function AdminEscrow() {
   const [accounts, setAccounts] = useState<EscrowAccount[]>([]);
   const [transactions, setTransactions] = useState<EscrowTransaction[]>([]);
+  const [pendingReviews, setPendingReviews] = useState<PendingDisbursement[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [showDisbursementDialog, setShowDisbursementDialog] = useState(false);
+  const [showReviewDialog, setShowReviewDialog] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<EscrowAccount | null>(null);
+  const [selectedReview, setSelectedReview] = useState<PendingDisbursement | null>(null);
   const [disbursementAmount, setDisbursementAmount] = useState('');
+  const [reviewNotes, setReviewNotes] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const { toast } = useToast();
 
@@ -128,6 +163,30 @@ export default function AdminEscrow() {
         } : undefined
       }));
       setTransactions(transformedTransactions);
+
+      // Fetch pending review disbursements
+      const { data: pendingData, error: pendingError } = await supabase
+        .from('disbursements')
+        .select(`
+          *,
+          escrow_accounts:escrow_account_id(
+            merchants:merchant_id(id, business_name, user_id, verification_status)
+          ),
+          bank_accounts:bank_account_id(bank_name, account_number, account_name)
+        `)
+        .eq('requires_manual_review', true)
+        .eq('status', 'pending_review')
+        .order('created_at', { ascending: true });
+
+      if (pendingError) throw pendingError;
+
+      const transformedPending = (pendingData || []).map((d: any) => ({
+        ...d,
+        merchant: d.escrow_accounts?.merchants || undefined,
+        bank_account: d.bank_accounts || undefined,
+      }));
+      setPendingReviews(transformedPending);
+
     } catch (error) {
       console.error('Error fetching escrow data:', error);
       toast({
@@ -209,9 +268,130 @@ export default function AdminEscrow() {
     }
   };
 
+  const handleApproveReview = async () => {
+    if (!selectedReview) return;
+    
+    setActionLoading(true);
+    try {
+      // Call xendit-disbursement edge function
+      const { data, error } = await supabase.functions.invoke('xendit-disbursement', {
+        body: {
+          escrow_account_id: selectedReview.escrow_account_id,
+          bank_account_id: selectedReview.bank_account_id,
+          amount: selectedReview.amount,
+          type: 'on_demand',
+          description: `Approved manual review disbursement`,
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Disbursement failed');
+
+      // Update the original pending disbursement to approved
+      await supabase
+        .from('disbursements')
+        .update({
+          status: 'approved',
+          reviewed_at: new Date().toISOString(),
+          review_notes: reviewNotes || 'Approved by admin',
+        })
+        .eq('id', selectedReview.id);
+
+      // Notify merchant
+      if (selectedReview.merchant?.user_id) {
+        await supabase.from('notifications').insert({
+          user_id: selectedReview.merchant.user_id,
+          title: 'Disbursement Approved',
+          message: `Your disbursement request of Rp ${selectedReview.net_amount.toLocaleString()} has been approved and is being processed.`,
+          type: 'payment',
+          link: '/merchant/escrow',
+        });
+      }
+
+      toast({
+        title: 'Disbursement Approved',
+        description: `Disbursement of ${formatCurrency(selectedReview.net_amount)} is being processed`,
+      });
+      
+      setShowReviewDialog(false);
+      setSelectedReview(null);
+      setReviewNotes('');
+      fetchData();
+    } catch (error: any) {
+      console.error('Error approving disbursement:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to approve disbursement',
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRejectReview = async () => {
+    if (!selectedReview || !reviewNotes.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Notes Required',
+        description: 'Please provide a reason for rejection',
+      });
+      return;
+    }
+    
+    setActionLoading(true);
+    try {
+      // Update disbursement to rejected
+      await supabase
+        .from('disbursements')
+        .update({
+          status: 'rejected',
+          reviewed_at: new Date().toISOString(),
+          review_notes: reviewNotes,
+        })
+        .eq('id', selectedReview.id);
+
+      // Notify merchant
+      if (selectedReview.merchant?.user_id) {
+        await supabase.from('notifications').insert({
+          user_id: selectedReview.merchant.user_id,
+          title: 'Disbursement Rejected',
+          message: `Your disbursement request was rejected. Reason: ${reviewNotes}. Your funds remain in your escrow account.`,
+          type: 'payment',
+          link: '/merchant/escrow',
+        });
+      }
+
+      toast({
+        title: 'Disbursement Rejected',
+        description: 'The merchant has been notified',
+      });
+      
+      setShowReviewDialog(false);
+      setSelectedReview(null);
+      setReviewNotes('');
+      fetchData();
+    } catch (error: any) {
+      console.error('Error rejecting disbursement:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to reject disbursement',
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const openDisbursementDialog = (account: EscrowAccount) => {
     setSelectedAccount(account);
     setShowDisbursementDialog(true);
+  };
+
+  const openReviewDialog = (disbursement: PendingDisbursement) => {
+    setSelectedReview(disbursement);
+    setReviewNotes('');
+    setShowReviewDialog(true);
   };
 
   const formatCurrency = (amount: number) => {
@@ -249,7 +429,7 @@ export default function AdminEscrow() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
@@ -302,16 +482,35 @@ export default function AdminEscrow() {
               </div>
             </CardContent>
           </Card>
+          <Card className={pendingReviews.length > 0 ? 'border-orange-500/50 bg-orange-500/5' : ''}>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Pending Review</p>
+                  <p className="text-2xl font-bold">{pendingReviews.length}</p>
+                </div>
+                <div className={`p-3 rounded-lg ${pendingReviews.length > 0 ? 'bg-orange-500/20' : 'bg-muted'}`}>
+                  <ShieldAlert className={`h-6 w-6 ${pendingReviews.length > 0 ? 'text-orange-600' : 'text-muted-foreground'}`} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="accounts" className="space-y-4">
+        <Tabs defaultValue={pendingReviews.length > 0 ? 'pending_review' : 'accounts'} className="space-y-4">
           <TabsList>
             <TabsTrigger value="accounts">
               Accounts ({accounts.length})
             </TabsTrigger>
             <TabsTrigger value="transactions">
               Transactions ({transactions.length})
+            </TabsTrigger>
+            <TabsTrigger value="pending_review" className="relative">
+              Pending Review
+              {pendingReviews.length > 0 && (
+                <Badge className="ml-2 bg-orange-500 text-white">{pendingReviews.length}</Badge>
+              )}
             </TabsTrigger>
           </TabsList>
 
@@ -502,6 +701,91 @@ export default function AdminEscrow() {
               </Card>
             )}
           </TabsContent>
+
+          {/* Pending Review Tab */}
+          <TabsContent value="pending_review" className="space-y-4">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : pendingReviews.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <CheckCircle className="h-12 w-12 text-success mb-4" />
+                  <h3 className="text-lg font-medium mb-2">All caught up!</h3>
+                  <p className="text-muted-foreground text-center">
+                    No disbursement requests pending review
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {pendingReviews.map((review) => (
+                  <Card key={review.id} className="border-orange-500/30">
+                    <CardContent className="p-6">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-start gap-4">
+                          <div className="w-12 h-12 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                            <AlertTriangle className="h-6 w-6 text-orange-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-lg">
+                              {review.merchant?.business_name || 'Unknown Merchant'}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                              Requested {format(new Date(review.created_at), 'MMM d, yyyy HH:mm')}
+                            </p>
+                            <div className="flex items-center gap-2 mt-2">
+                              <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-300">
+                                {review.merchant?.verification_status === 'verified' ? 'Verified' : 'Unverified'}
+                              </Badge>
+                              <Badge variant="outline">
+                                {review.type.replace('_', ' ')}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col md:items-end gap-2">
+                          <div className="text-right">
+                            <p className="text-sm text-muted-foreground">Amount</p>
+                            <p className="text-2xl font-bold">{formatCurrency(review.amount)}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Fee: {formatCurrency(review.fee_amount)} → Net: {formatCurrency(review.net_amount)}
+                            </p>
+                          </div>
+                          {review.bank_account && (
+                            <div className="text-right text-sm text-muted-foreground">
+                              <p>{review.bank_account.bank_name} - ****{review.bank_account.account_number.slice(-4)}</p>
+                              <p>{review.bank_account.account_name}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="outline" 
+                            className="border-destructive text-destructive hover:bg-destructive/10"
+                            onClick={() => openReviewDialog(review)}
+                          >
+                            <XCircle className="h-4 w-4 mr-2" />
+                            Reject
+                          </Button>
+                          <Button 
+                            className="bg-success hover:bg-success/90"
+                            onClick={() => openReviewDialog(review)}
+                          >
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Review & Approve
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
         </Tabs>
 
         {/* Disbursement Dialog */}
@@ -537,6 +821,77 @@ export default function AdminEscrow() {
               </Button>
               <Button onClick={handleDisbursement} disabled={actionLoading}>
                 {actionLoading ? 'Processing...' : 'Confirm Disbursement'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Review Dialog */}
+        <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Review Disbursement Request</DialogTitle>
+              <DialogDescription>
+                Review and approve or reject this disbursement request
+              </DialogDescription>
+            </DialogHeader>
+            {selectedReview && (
+              <div className="space-y-4 mt-4">
+                <div className="p-4 rounded-lg bg-muted">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-medium">{selectedReview.merchant?.business_name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Status: {selectedReview.merchant?.verification_status || 'Unknown'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold">{formatCurrency(selectedReview.net_amount)}</p>
+                      <p className="text-sm text-muted-foreground">Net amount</p>
+                    </div>
+                  </div>
+                </div>
+
+                {selectedReview.bank_account && (
+                  <div className="p-4 rounded-lg border">
+                    <p className="text-sm font-medium mb-2">Bank Details</p>
+                    <p className="text-sm">{selectedReview.bank_account.bank_name}</p>
+                    <p className="text-sm">{selectedReview.bank_account.account_number}</p>
+                    <p className="text-sm text-muted-foreground">{selectedReview.bank_account.account_name}</p>
+                  </div>
+                )}
+
+                <div>
+                  <Label htmlFor="notes">Review Notes</Label>
+                  <Textarea
+                    id="notes"
+                    placeholder="Add notes (required for rejection)"
+                    value={reviewNotes}
+                    onChange={(e) => setReviewNotes(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+              </div>
+            )}
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setShowReviewDialog(false)}>
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={handleRejectReview} 
+                disabled={actionLoading}
+              >
+                {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <XCircle className="h-4 w-4 mr-2" />}
+                Reject
+              </Button>
+              <Button 
+                className="bg-success hover:bg-success/90"
+                onClick={handleApproveReview} 
+                disabled={actionLoading}
+              >
+                {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                Approve & Process
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -9,8 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { Wallet, ArrowUpRight, ArrowDownLeft, Clock, Calendar, Loader2, Info, Send, AlertCircle } from 'lucide-react';
+import { Wallet, ArrowUpRight, ArrowDownLeft, Clock, Calendar, Loader2, Info, Send, AlertCircle, ShieldAlert, TrendingUp } from 'lucide-react';
 import { format } from 'date-fns';
 
 const DISBURSEMENT_OPTIONS = [
@@ -23,7 +24,7 @@ const DISBURSEMENT_OPTIONS = [
 const ON_DEMAND_FEE_RATE = 0.005; // 0.5%
 
 export default function MerchantEscrow() {
-  const { merchant } = useAuth();
+  const { merchant, user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [disbursementDialogOpen, setDisbursementDialogOpen] = useState(false);
@@ -61,14 +62,14 @@ export default function MerchantEscrow() {
     enabled: !!escrowAccount?.id,
   });
 
-  // Fetch merchant for disbursement schedule
+  // Fetch merchant for disbursement schedule and stats
   const { data: merchantData } = useQuery({
     queryKey: ['merchant-disbursement', merchant?.id],
     queryFn: async () => {
       if (!merchant?.id) return null;
       const { data, error } = await supabase
         .from('merchants')
-        .select('disbursement_schedule')
+        .select('disbursement_schedule, verification_status, total_disbursed, last_disbursement_date, min_disbursement_amount')
         .eq('id', merchant.id)
         .single();
       if (error) throw error;
@@ -112,39 +113,89 @@ export default function MerchantEscrow() {
     },
   });
 
-  // Request on-demand disbursement
+  // Check if merchant is verified
+  const isVerified = merchantData?.verification_status === 'verified';
+
+  // Request on-demand disbursement - calls Xendit edge function
   const requestDisbursement = useMutation({
     mutationFn: async () => {
-      if (!escrowAccount?.id || !bankAccount?.id) throw new Error('Missing account info');
+      if (!escrowAccount?.id || !bankAccount?.id || !merchant?.id) {
+        throw new Error('Missing account info');
+      }
       
       const balance = escrowAccount.balance || 0;
-      const feeAmount = balance * ON_DEMAND_FEE_RATE;
-      const netAmount = balance - feeAmount;
+      const minAmount = merchantData?.min_disbursement_amount || 100000;
 
-      // Create disbursement record
-      const { error } = await supabase
-        .from('disbursements')
-        .insert({
+      if (balance < minAmount) {
+        throw new Error(`Minimum disbursement amount is Rp ${minAmount.toLocaleString()}`);
+      }
+
+      // If not verified, create disbursement with manual review flag
+      if (!isVerified) {
+        const feeAmount = balance * ON_DEMAND_FEE_RATE;
+        const netAmount = balance - feeAmount;
+
+        const { error } = await supabase
+          .from('disbursements')
+          .insert({
+            escrow_account_id: escrowAccount.id,
+            bank_account_id: bankAccount.id,
+            amount: balance,
+            fee_amount: feeAmount,
+            net_amount: netAmount,
+            type: 'on_demand',
+            status: 'pending_review',
+            requires_manual_review: true,
+            scheduled_for: new Date().toISOString(),
+          });
+
+        if (error) throw error;
+
+        // Create notification for admins (using a general admin notification approach)
+        await supabase.from('notifications').insert({
+          user_id: user?.id || '',
+          title: 'Disbursement Pending Review',
+          message: 'Your disbursement request requires manual review and will be processed within 1-3 business days.',
+          type: 'payment',
+          link: '/merchant/escrow',
+        });
+
+        return { requires_review: true };
+      }
+
+      // Verified merchants - call Xendit disbursement edge function
+      const { data, error } = await supabase.functions.invoke('xendit-disbursement', {
+        body: {
           escrow_account_id: escrowAccount.id,
           bank_account_id: bankAccount.id,
           amount: balance,
-          fee_amount: feeAmount,
-          net_amount: netAmount,
           type: 'on_demand',
-          status: 'pending',
-          scheduled_for: new Date().toISOString(),
-        });
+          description: 'On-demand disbursement request',
+        },
+      });
 
       if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Disbursement failed');
+
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['escrow-account'] });
       queryClient.invalidateQueries({ queryKey: ['escrow-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['merchant-disbursement'] });
       setDisbursementDialogOpen(false);
-      toast({ 
-        title: 'Disbursement Requested', 
-        description: 'Your funds will be transferred within 1-2 business days.' 
-      });
+      
+      if (data?.requires_review) {
+        toast({ 
+          title: 'Disbursement Pending Review', 
+          description: 'Your request requires manual review and will be processed within 1-3 business days.' 
+        });
+      } else {
+        toast({ 
+          title: 'Disbursement Processing', 
+          description: 'Your funds are being transferred. You will receive a confirmation shortly.' 
+        });
+      }
     },
     onError: (error: Error) => {
       toast({ 
@@ -208,8 +259,19 @@ export default function MerchantEscrow() {
           <p className="text-muted-foreground">Manage your escrow balance and disbursements</p>
         </div>
 
+        {/* Non-verified merchant warning */}
+        {!isVerified && (
+          <Alert variant="destructive" className="border-warning bg-warning/10">
+            <ShieldAlert className="h-4 w-4" />
+            <AlertTitle>Verification Required</AlertTitle>
+            <AlertDescription>
+              Your account is not verified. Disbursement requests will require manual review and may take 1-3 business days to process.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Balance Cards */}
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -249,13 +311,34 @@ export default function MerchantEscrow() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
+                  <p className="text-sm text-muted-foreground">Total Disbursed</p>
+                  <p className="text-3xl font-bold text-primary">
+                    {formatCurrency(merchantData?.total_disbursed || 0)}
+                  </p>
+                </div>
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <TrendingUp className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+              {merchantData?.last_disbursement_date && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Last: {format(new Date(merchantData.last_disbursement_date), 'dd MMM yyyy')}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
                   <p className="text-sm text-muted-foreground">Total Balance</p>
                   <p className="text-3xl font-bold">
                     {formatCurrency((escrowAccount?.balance || 0) + (escrowAccount?.pending_balance || 0))}
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Wallet className="h-6 w-6 text-primary" />
+                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                  <Wallet className="h-6 w-6 text-muted-foreground" />
                 </div>
               </div>
             </CardContent>
