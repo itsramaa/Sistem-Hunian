@@ -320,6 +320,32 @@ export type Database = {
         }
         Relationships: []
       }
+      cities: {
+        Row: {
+          id: string
+          name: string
+          province_id: string
+        }
+        Insert: {
+          id: string
+          name: string
+          province_id: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          province_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cities_province_id_fkey"
+            columns: ["province_id"]
+            isOneToOne: false
+            referencedRelation: "provinces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       collections_cases: {
         Row: {
           created_at: string | null
@@ -2649,6 +2675,21 @@ export type Database = {
           },
         ]
       }
+      provinces: {
+        Row: {
+          id: string
+          name: string
+        }
+        Insert: {
+          id: string
+          name: string
+        }
+        Update: {
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       referral_commissions: {
         Row: {
           cancellation_reason: string | null
@@ -3676,6 +3717,14 @@ export type Database = {
     }
     Functions: {
       calculate_sla_deadline: { Args: { priority: string }; Returns: string }
+      check_phone_unique_per_role: {
+        Args: {
+          _exclude_user_id?: string
+          _phone: string
+          _role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: boolean
+      }
       generate_merchant_code: { Args: never; Returns: string }
       generate_voucher_code: { Args: never; Returns: string }
       get_user_role: {
