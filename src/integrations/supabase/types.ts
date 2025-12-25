@@ -240,6 +240,53 @@ export type Database = {
           },
         ]
       }
+      chatbot_analytics: {
+        Row: {
+          action_taken: string | null
+          conversation_id: string | null
+          created_at: string
+          id: string
+          message_count: number | null
+          query_type: string | null
+          response_time_ms: number | null
+          user_id: string | null
+          user_role: string | null
+          user_satisfied: boolean | null
+        }
+        Insert: {
+          action_taken?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          message_count?: number | null
+          query_type?: string | null
+          response_time_ms?: number | null
+          user_id?: string | null
+          user_role?: string | null
+          user_satisfied?: boolean | null
+        }
+        Update: {
+          action_taken?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          message_count?: number | null
+          query_type?: string | null
+          response_time_ms?: number | null
+          user_id?: string | null
+          user_role?: string | null
+          user_satisfied?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatbot_analytics_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chat_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chatbot_knowledge: {
         Row: {
           answer: string

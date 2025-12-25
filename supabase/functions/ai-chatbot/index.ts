@@ -6,28 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SYSTEM_PROMPT = `You are Sihuni AI Assistant, a helpful chatbot for a property management platform in Indonesia. You help tenants, merchants (property owners), and vendors with their questions.
-
-Your capabilities:
-1. Answer FAQs about payments, maintenance, contracts, and general platform usage
-2. Recommend vendors based on service categories (plumbing, electrical, cleaning, etc.)
-3. Provide guidance on using the platform features
-4. Help users navigate to the right section of the app
-
-Guidelines:
-- Be friendly, professional, and helpful
-- Use both Indonesian and English as needed based on the user's language
-- Keep responses concise but informative
-- If you don't know something specific about a user's account, guide them to the appropriate section
-- For vendor recommendations, mention that they can browse the Marketplace for verified vendors
-- For payment issues, direct them to the Payments section
-- For maintenance requests, guide them to submit a maintenance request
-
-Context about the platform:
-- Tenants can: pay rent, submit maintenance requests, view contracts, browse vendor marketplace, participate in community forum
-- Merchants can: manage properties/units, handle tenant payments, track maintenance, manage invoices
-- Vendors can: list products/services, receive job requests, track earnings`;
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -41,61 +19,174 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Create Supabase client for knowledge base lookup
+    // Create Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get relevant FAQ knowledge based on latest user message
     const latestMessage = messages[messages.length - 1]?.content || "";
+    const userRole = context?.role || "tenant";
+    const userName = context?.userName || "";
+
+    console.log(`AI Chatbot: Processing for role=${userRole}, message: ${latestMessage.substring(0, 50)}...`);
+
+    // Build role-specific context
+    let userContext = "";
     let knowledgeContext = "";
-    
-    if (latestMessage) {
-      const keywords = latestMessage.toLowerCase().split(/\s+/);
-      const { data: knowledge } = await supabase
-        .from("chatbot_knowledge")
-        .select("question, answer")
-        .eq("is_active", true);
 
-      if (knowledge) {
-        const relevantFaqs = knowledge.filter((k: any) => {
-          const qLower = k.question.toLowerCase();
-          const aLower = k.answer.toLowerCase();
-          return keywords.some((kw: string) => 
-            kw.length > 3 && (qLower.includes(kw) || aLower.includes(kw))
-          );
-        }).slice(0, 3);
+    // Fetch FAQ knowledge base
+    const keywords = latestMessage.toLowerCase().split(/\s+/);
+    const { data: knowledge } = await supabase
+      .from("chatbot_knowledge")
+      .select("question, answer, category")
+      .eq("is_active", true);
 
-        if (relevantFaqs.length > 0) {
-          knowledgeContext = "\n\nRelevant FAQ information:\n" + 
-            relevantFaqs.map((f: any) => `Q: ${f.question}\nA: ${f.answer}`).join("\n\n");
-        }
+    if (knowledge) {
+      const relevantFaqs = knowledge.filter((k: any) => {
+        const qLower = k.question.toLowerCase();
+        const aLower = k.answer.toLowerCase();
+        return keywords.some((kw: string) => 
+          kw.length > 3 && (qLower.includes(kw) || aLower.includes(kw))
+        );
+      }).slice(0, 3);
+
+      if (relevantFaqs.length > 0) {
+        knowledgeContext = "\n\nFAQ Terkait:\n" + 
+          relevantFaqs.map((f: any) => `Q: ${f.question}\nA: ${f.answer}`).join("\n\n");
       }
     }
 
-    // Get vendor recommendations if user is asking about services
-    const serviceKeywords = ["vendor", "tukang", "jasa", "plumber", "electrician", "cleaning", "service", "repair", "perbaikan"];
+    // Build tenant-specific context
+    if (userRole === "tenant" && userId) {
+      // Get tenant's active contract and invoices
+      const { data: contracts } = await supabase
+        .from("contracts")
+        .select(`
+          id, rent_amount, start_date, end_date, status,
+          unit:units(unit_number, property:properties(name, address))
+        `)
+        .eq("tenant_user_id", userId)
+        .eq("status", "active")
+        .limit(1);
+
+      const activeContract = contracts?.[0];
+
+      // Get unpaid invoices
+      const { data: invoices } = await supabase
+        .from("invoices")
+        .select("id, amount, due_date, status, invoice_number")
+        .eq("tenant_user_id", userId)
+        .in("status", ["pending", "overdue"])
+        .order("due_date", { ascending: true })
+        .limit(5);
+
+      // Get tenant profile
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name, email, phone")
+        .eq("user_id", userId)
+        .single();
+
+      // Get recent maintenance requests
+      const { data: maintenance } = await supabase
+        .from("maintenance_requests")
+        .select("id, title, status, created_at")
+        .eq("tenant_user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(3);
+
+      const unit = activeContract?.unit as any;
+      const unpaidTotal = invoices?.reduce((sum, inv) => sum + Number(inv.amount), 0) || 0;
+
+      userContext = `
+DATA TENANT SAAT INI:
+- Nama: ${profile?.full_name || userName || "Tidak diketahui"}
+- Properti: ${unit?.property?.name || "Tidak ada kontrak aktif"}
+- Unit: ${unit?.unit_number || "-"}
+- Alamat: ${unit?.property?.address || "-"}
+- Sewa bulanan: Rp${activeContract?.rent_amount?.toLocaleString("id-ID") || 0}
+- Kontrak berakhir: ${activeContract?.end_date || "-"}
+
+TAGIHAN BELUM DIBAYAR (${invoices?.length || 0}):
+${invoices?.map(inv => `- ${inv.invoice_number}: Rp${Number(inv.amount).toLocaleString("id-ID")} (${inv.status === "overdue" ? "TERLAMBAT" : "Jatuh tempo"}: ${inv.due_date})`).join("\n") || "Tidak ada tagihan"}
+Total belum dibayar: Rp${unpaidTotal.toLocaleString("id-ID")}
+
+REQUEST MAINTENANCE TERBARU:
+${maintenance?.map(m => `- ${m.title} (${m.status})`).join("\n") || "Tidak ada"}
+`;
+    }
+
+    // Check for vendor recommendations
+    const serviceKeywords = ["vendor", "tukang", "jasa", "plumber", "electrician", "cleaning", "service", "repair", "perbaikan", "laundry", "cuci", "kebersihan", "listrik", "ac"];
     const isAskingForVendor = serviceKeywords.some(kw => latestMessage.toLowerCase().includes(kw));
     
     let vendorContext = "";
     if (isAskingForVendor) {
-      const { data: vendors } = await supabase
+      // Detect category from message
+      let category = null;
+      if (latestMessage.toLowerCase().includes("laundry") || latestMessage.toLowerCase().includes("cuci")) {
+        category = "Laundry";
+      } else if (latestMessage.toLowerCase().includes("listrik") || latestMessage.toLowerCase().includes("electrical")) {
+        category = "Electrical";
+      } else if (latestMessage.toLowerCase().includes("plumb") || latestMessage.toLowerCase().includes("pipa")) {
+        category = "Plumbing";
+      } else if (latestMessage.toLowerCase().includes("clean") || latestMessage.toLowerCase().includes("bersih")) {
+        category = "Cleaning";
+      } else if (latestMessage.toLowerCase().includes("ac")) {
+        category = "AC";
+      }
+
+      let vendorQuery = supabase
         .from("vendors")
-        .select("business_name, service_categories, rating, city")
+        .select("business_name, service_categories, rating, city, description")
         .eq("verification_status", "verified")
+        .order("rating", { ascending: false })
         .limit(5);
 
+      const { data: vendors } = await vendorQuery;
+
       if (vendors && vendors.length > 0) {
-        vendorContext = "\n\nAvailable verified vendors:\n" + 
-          vendors.map((v: any) => 
-            `- ${v.business_name} (${v.service_categories?.join(", ") || "General"}) - Rating: ${v.rating || "New"} - ${v.city || "Various locations"}`
-          ).join("\n");
+        vendorContext = "\n\nVENDOR TERSEDIA:\n" + 
+          vendors.map((v: any, idx: number) => 
+            `${idx + 1}. ${v.business_name}
+   - Kategori: ${v.service_categories?.join(", ") || "Umum"}
+   - Rating: ${v.rating ? `⭐ ${v.rating}` : "Baru"}
+   - Lokasi: ${v.city || "Berbagai lokasi"}
+   - ${v.description?.substring(0, 100) || ""}`
+          ).join("\n\n");
       }
     }
 
-    // Add context to system prompt
-    const enhancedSystemPrompt = SYSTEM_PROMPT + knowledgeContext + vendorContext + 
-      (context ? `\n\nUser context: ${JSON.stringify(context)}` : "");
+    // Build system prompt based on role
+    const SYSTEM_PROMPT = `Kamu adalah Sihuni AI Assistant, asisten chatbot untuk platform manajemen properti di Indonesia. Kamu membantu tenant, merchant (pemilik properti), dan vendor dengan pertanyaan mereka.
+
+PERAN USER: ${userRole.toUpperCase()}
+${userContext}
+${knowledgeContext}
+${vendorContext}
+
+PANDUAN MENJAWAB:
+1. Jawab dalam Bahasa Indonesia yang sopan dan ramah
+2. Gunakan data aktual user untuk personalisasi jawaban
+3. Untuk pertanyaan pembayaran, sebutkan jumlah tagihan aktual jika ada
+4. Format angka dengan Rp dan pemisah ribuan (contoh: Rp1.500.000)
+5. Jika user bertanya cara melakukan sesuatu, berikan langkah-langkah jelas
+6. Sertakan action button dengan format [Label](path) jika relevan:
+   - Pembayaran: [Bayar Sekarang](/tenant/invoices)
+   - Maintenance: [Lapor Maintenance](/tenant/maintenance)
+   - Kontrak: [Lihat Kontrak](/tenant/contracts)
+   - Marketplace: [Lihat Vendor](/tenant/marketplace)
+7. Jika tidak tahu, jangan mengarang, arahkan ke bagian yang tepat
+8. Jaga jawaban tetap ringkas tapi informatif
+
+CONTOH RESPONS DENGAN ACTION:
+"Kamu punya 2 tagihan belum dibayar total Rp3.000.000.
+Untuk bayar:
+1. Buka halaman Tagihan
+2. Pilih invoice yang mau dibayar
+3. Pilih metode pembayaran
+
+[Bayar Sekarang](/tenant/invoices)"`;
 
     // Call Lovable AI Gateway
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -107,7 +198,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: enhancedSystemPrompt },
+          { role: "system", content: SYSTEM_PROMPT },
           ...messages,
         ],
         stream: true,

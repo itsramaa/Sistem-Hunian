@@ -12,11 +12,15 @@ serve(async (req) => {
   }
 
   try {
-    const { message, merchantId, userId } = await req.json();
+    const { messages, message, merchantId, userId } = await req.json();
     
-    if (!merchantId || !message) {
+    // Support both streaming (messages array) and non-streaming (message string)
+    const userMessages = messages || [{ role: "user", content: message }];
+    const latestMessage = userMessages[userMessages.length - 1]?.content || message || "";
+
+    if (!merchantId) {
       return new Response(
-        JSON.stringify({ error: "Missing merchantId or message" }),
+        JSON.stringify({ error: "Missing merchantId" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -25,7 +29,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log(`Merchant AI: Processing query for merchant ${merchantId}: ${message}`);
+    console.log(`Merchant AI: Processing for merchant ${merchantId}: ${latestMessage.substring(0, 50)}...`);
 
     // Fetch merchant context data
     const today = new Date();
@@ -38,7 +42,7 @@ serve(async (req) => {
     const { data: unpaidInvoices } = await supabase
       .from("invoices")
       .select(`
-        id, amount, due_date, invoice_number, tenant_user_id,
+        id, amount, due_date, invoice_number, tenant_user_id, status,
         contract:contracts(unit:units(unit_number, property:properties(name)))
       `)
       .eq("merchant_id", merchantId)
@@ -49,21 +53,44 @@ serve(async (req) => {
     const unpaidTenantIds = unpaidInvoices?.map(i => i.tenant_user_id) || [];
     const { data: unpaidTenantProfiles } = await supabase
       .from("profiles")
-      .select("user_id, full_name, email")
+      .select("user_id, full_name, email, phone")
       .in("user_id", unpaidTenantIds);
     
     const tenantMap = new Map(unpaidTenantProfiles?.map(p => [p.user_id, p]) || []);
 
-    // Fetch monthly revenue
-    const { data: monthlyPayments } = await supabase
+    // Fetch monthly revenue for last 6 months for prediction
+    const sixMonthsAgo = new Date(today);
+    sixMonthsAgo.setMonth(today.getMonth() - 6);
+
+    const { data: revenueHistory } = await supabase
       .from("payments")
-      .select("amount")
+      .select("amount, paid_at")
       .eq("merchant_id", merchantId)
       .eq("status", "paid")
-      .gte("paid_at", startOfMonth.toISOString())
-      .lte("paid_at", endOfMonth.toISOString());
+      .gte("paid_at", sixMonthsAgo.toISOString());
 
-    const monthlyRevenue = monthlyPayments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+    // Calculate monthly revenue breakdown
+    const monthlyRevenue: Record<string, number> = {};
+    revenueHistory?.forEach(p => {
+      const month = new Date(p.paid_at).toISOString().substring(0, 7);
+      monthlyRevenue[month] = (monthlyRevenue[month] || 0) + Number(p.amount);
+    });
+
+    const currentMonthRevenue = monthlyRevenue[today.toISOString().substring(0, 7)] || 0;
+    const revenueValues = Object.values(monthlyRevenue);
+    const avgMonthlyRevenue = revenueValues.length > 0 
+      ? revenueValues.reduce((a, b) => a + b, 0) / revenueValues.length 
+      : 0;
+
+    // Simple prediction: average + trend
+    const sortedMonths = Object.keys(monthlyRevenue).sort();
+    let trend = 0;
+    if (sortedMonths.length >= 2) {
+      const recent = monthlyRevenue[sortedMonths[sortedMonths.length - 1]] || 0;
+      const previous = monthlyRevenue[sortedMonths[sortedMonths.length - 2]] || 0;
+      trend = recent - previous;
+    }
+    const predictedNextMonth = Math.max(0, avgMonthlyRevenue + trend);
 
     // Fetch expiring contracts
     const { data: expiringContracts } = await supabase
@@ -81,7 +108,7 @@ serve(async (req) => {
     const expiringTenantIds = expiringContracts?.map(c => c.tenant_user_id) || [];
     const { data: expiringTenantProfiles } = await supabase
       .from("profiles")
-      .select("user_id, full_name")
+      .select("user_id, full_name, phone")
       .in("user_id", expiringTenantIds);
     
     const expiringTenantMap = new Map(expiringTenantProfiles?.map(p => [p.user_id, p]) || []);
@@ -96,36 +123,59 @@ serve(async (req) => {
     const occupiedUnits = properties?.reduce((sum, p) => sum + (p.occupied_units || 0), 0) || 0;
     const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
 
-    // Build context for AI
+    // Calculate overdue days for each invoice
     const unpaidList = unpaidInvoices?.map(inv => {
       const tenant = tenantMap.get(inv.tenant_user_id);
       const contract = inv.contract as unknown as { unit: { unit_number: string; property: { name: string } } } | null;
-      return `- ${tenant?.full_name || 'Unknown'}: Rp${Number(inv.amount).toLocaleString('id-ID')} (${contract?.unit?.property?.name || 'N/A'} Unit ${contract?.unit?.unit_number || 'N/A'}, due ${inv.due_date})`;
-    }).join('\n') || 'Tidak ada';
+      const dueDate = new Date(inv.due_date);
+      const daysOverdue = inv.status === "overdue" 
+        ? Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+      const overdueBadge = daysOverdue > 0 ? ` ⚠️ TERLAMBAT ${daysOverdue} hari` : "";
+      return `- ${tenant?.full_name || 'Unknown'} (${contract?.unit?.property?.name || 'N/A'} Unit ${contract?.unit?.unit_number || 'N/A'})
+  Rp${Number(inv.amount).toLocaleString('id-ID')} - Jatuh tempo: ${inv.due_date}${overdueBadge}
+  [Kirim Reminder](/merchant/invoices/${inv.id})`;
+    }).join('\n') || 'Tidak ada tagihan tertunggak';
 
     const expiringList = expiringContracts?.map(c => {
       const tenant = expiringTenantMap.get(c.tenant_user_id);
       const unit = c.unit as unknown as { unit_number: string; property: { name: string } } | null;
-      return `- ${tenant?.full_name || 'Unknown'}: ${unit?.property?.name || 'N/A'} Unit ${unit?.unit_number || 'N/A'} (expires ${c.end_date})`;
-    }).join('\n') || 'Tidak ada';
+      const daysLeft = Math.floor((new Date(c.end_date).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      return `- ${tenant?.full_name || 'Unknown'}: ${unit?.property?.name || 'N/A'} Unit ${unit?.unit_number || 'N/A'}
+  Berakhir: ${c.end_date} (${daysLeft} hari lagi)
+  Sewa: Rp${Number(c.rent_amount).toLocaleString('id-ID')}/bulan
+  [Follow Up](/merchant/contracts/${c.id})`;
+    }).join('\n') || 'Tidak ada kontrak yang akan berakhir';
 
     const propertyList = properties?.map(p => 
       `- ${p.name}: ${p.occupied_units || 0}/${p.total_units || 0} units (${p.total_units ? Math.round(((p.occupied_units || 0) / p.total_units) * 100) : 0}%)`
     ).join('\n') || 'Tidak ada properti';
 
+    // Revenue trend info
+    const revenueTrendInfo = sortedMonths.map(month => {
+      const [year, mon] = month.split('-');
+      const monthName = new Date(parseInt(year), parseInt(mon) - 1).toLocaleString('id-ID', { month: 'short', year: 'numeric' });
+      return `${monthName}: Rp${monthlyRevenue[month].toLocaleString('id-ID')}`;
+    }).join('\n');
+
     const contextData = `
-MERCHANT BUSINESS DATA (Current as of ${today.toLocaleDateString('id-ID')}):
+DATA BISNIS MERCHANT (${today.toLocaleDateString('id-ID')}):
 
 📊 RINGKASAN:
-- Total Revenue Bulan Ini: Rp${monthlyRevenue.toLocaleString('id-ID')}
+- Revenue Bulan Ini: Rp${currentMonthRevenue.toLocaleString('id-ID')}
+- Rata-rata Revenue/Bulan: Rp${Math.round(avgMonthlyRevenue).toLocaleString('id-ID')}
+- Prediksi Bulan Depan: Rp${Math.round(predictedNextMonth).toLocaleString('id-ID')}
 - Occupancy Rate: ${occupancyRate}% (${occupiedUnits}/${totalUnits} units)
-- Invoice Belum Dibayar: ${unpaidInvoices?.length || 0}
-- Kontrak Expiring (30 hari): ${expiringContracts?.length || 0}
+- Invoice Belum Dibayar: ${unpaidInvoices?.length || 0} (Total: Rp${unpaidInvoices?.reduce((sum, inv) => sum + Number(inv.amount), 0).toLocaleString('id-ID') || 0})
+- Kontrak Akan Berakhir (30 hari): ${expiringContracts?.length || 0}
+
+📈 TREN REVENUE 6 BULAN:
+${revenueTrendInfo || 'Belum ada data'}
 
 💰 INVOICE BELUM DIBAYAR:
 ${unpaidList}
 
-📅 KONTRAK AKAN BERAKHIR (30 hari):
+📅 KONTRAK AKAN BERAKHIR:
 ${expiringList}
 
 🏠 PROPERTI:
@@ -133,17 +183,23 @@ ${propertyList}
 `;
 
     const systemPrompt = `Kamu adalah asisten bisnis AI untuk merchant properti di platform SiHuni. 
-Tugasmu adalah membantu merchant dengan informasi bisnis mereka.
+Tugasmu adalah membantu merchant dengan informasi bisnis dan insight yang actionable.
 
 ${contextData}
 
 INSTRUKSI:
 - Jawab dalam Bahasa Indonesia yang sopan dan profesional
 - Gunakan data aktual di atas untuk menjawab pertanyaan
-- Format angka currency dengan Rp dan pemisah ribuan (contoh: Rp1.500.000)
-- Jika ditanya sesuatu yang tidak ada datanya, sampaikan bahwa informasi tidak tersedia
-- Berikan saran praktis jika relevan
-- Jawab dengan ringkas dan to the point`;
+- Format currency: Rp dengan pemisah ribuan (contoh: Rp1.500.000)
+- Berikan insight dan saran praktis berdasarkan data
+- Sertakan action button dengan format [Label](path) jika relevan:
+  - Lihat detail invoice: [Lihat Invoice](/merchant/invoices)
+  - Kirim reminder: [Kirim Reminder](/merchant/invoices)
+  - Lihat kontrak: [Lihat Kontrak](/merchant/contracts)
+  - Lihat laporan: [Lihat Laporan](/merchant/reports)
+- Jika diminta prediksi, jelaskan basis analisisnya
+- Jawab dengan ringkas tapi informatif
+- Untuk data yang tidak tersedia, sampaikan dengan jelas`;
 
     // Call Lovable AI
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -161,8 +217,9 @@ INSTRUKSI:
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: message },
+          ...userMessages,
         ],
+        stream: true,
       }),
     });
 
@@ -172,35 +229,29 @@ INSTRUKSI:
       
       if (aiResponse.status === 429) {
         return new Response(
-          JSON.stringify({ response: "Maaf, sistem sedang sibuk. Silakan coba lagi dalam beberapa saat." }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       if (aiResponse.status === 402) {
         return new Response(
-          JSON.stringify({ response: "Maaf, layanan AI sementara tidak tersedia." }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "Service temporarily unavailable." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       throw new Error(`AI Gateway error: ${aiResponse.status}`);
     }
 
-    const aiData = await aiResponse.json();
-    const responseText = aiData.choices?.[0]?.message?.content || "Maaf, saya tidak bisa memproses permintaan Anda.";
-
-    console.log(`Merchant AI: Response generated for merchant ${merchantId}`);
-
-    return new Response(
-      JSON.stringify({ response: responseText }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    // Return streaming response
+    return new Response(aiResponse.body, {
+      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+    });
 
   } catch (error) {
     console.error("Merchant AI error:", error);
     return new Response(
       JSON.stringify({ 
-        response: "Maaf, terjadi kesalahan dalam memproses permintaan Anda. Silakan coba lagi.",
-        error: error instanceof Error ? error.message : "Unknown error" 
+        error: "Maaf, terjadi kesalahan dalam memproses permintaan Anda. Silakan coba lagi.",
       }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

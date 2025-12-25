@@ -24,9 +24,15 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    console.log(`Vendor AI: Processing for vendor ${vendorId}`);
+
     let vendorContext = "";
     
     if (vendorId) {
+      const today = new Date();
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setDate(today.getDate() - 30);
+
       // Fetch vendor data
       const { data: vendor } = await supabase
         .from("vendors")
@@ -40,117 +46,145 @@ serve(async (req) => {
         .select("*")
         .eq("vendor_id", vendorId);
 
-      // Fetch recent orders
+      // Fetch all orders for this vendor
       const { data: orders } = await supabase
         .from("orders")
         .select("*")
         .eq("vendor_id", vendorId)
-        .order("created_at", { ascending: false })
-        .limit(50);
+        .order("created_at", { ascending: false });
 
-      // Fetch earnings
-      const { data: earnings } = await supabase
-        .from("vendor_earnings")
-        .select("*")
-        .eq("vendor_id", vendorId);
+      // Fetch reviews
+      const { data: reviews } = await supabase
+        .from("order_reviews")
+        .select("rating, review_text, created_at")
+        .eq("vendor_id", vendorId)
+        .order("created_at", { ascending: false })
+        .limit(10);
 
       // Calculate analytics
       const completedOrders = orders?.filter(o => o.status === "completed") || [];
+      const recentOrders = orders?.filter(o => new Date(o.created_at) >= thirtyDaysAgo) || [];
+      const recentCompleted = recentOrders.filter(o => o.status === "completed");
+      
       const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.total_price || 0), 0);
+      const recentRevenue = recentCompleted.reduce((sum, o) => sum + (o.total_price || 0), 0);
       const avgOrderValue = completedOrders.length > 0 ? totalRevenue / completedOrders.length : 0;
       
       // Product performance
-      const productSales: Record<string, { count: number; revenue: number }> = {};
+      const productSales: Record<string, { count: number; revenue: number; name: string }> = {};
       completedOrders.forEach(order => {
         if (!productSales[order.product_id]) {
-          productSales[order.product_id] = { count: 0, revenue: 0 };
+          const product = products?.find(p => p.id === order.product_id);
+          productSales[order.product_id] = { count: 0, revenue: 0, name: product?.name || "Unknown" };
         }
         productSales[order.product_id].count++;
         productSales[order.product_id].revenue += order.total_price || 0;
       });
 
-      const topProducts = products
-        ?.map(p => ({
-          name: p.name,
-          category: p.category,
-          price: p.price,
-          sales: productSales[p.id]?.count || 0,
-          revenue: productSales[p.id]?.revenue || 0,
-          isAvailable: p.is_available,
-          stock: p.stock,
+      const topProducts = Object.entries(productSales)
+        .map(([id, data]) => ({
+          name: data.name,
+          sales: data.count,
+          revenue: data.revenue,
         }))
         .sort((a, b) => b.revenue - a.revenue)
         .slice(0, 5);
 
-      // Order trends
-      const last30Days = orders?.filter(o => {
-        const orderDate = new Date(o.created_at);
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        return orderDate >= thirtyDaysAgo;
-      });
-
+      // Order status breakdown
       const pendingOrders = orders?.filter(o => o.status === "pending").length || 0;
       const cancelledOrders = orders?.filter(o => o.status === "cancelled").length || 0;
       const completionRate = orders && orders.length > 0 
         ? ((completedOrders.length / orders.length) * 100).toFixed(1) 
         : "0";
 
+      // Review insights
+      const avgRating = reviews && reviews.length > 0
+        ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+        : vendor?.rating || "Belum ada rating";
+      
+      const recentReviews = reviews?.slice(0, 3).map(r => 
+        `- ⭐${r.rating}: "${r.review_text?.substring(0, 50) || 'Tidak ada komentar'}..."`
+      ).join('\n') || 'Belum ada review';
+
+      // Peak hours analysis (simplified)
+      const orderHours: Record<number, number> = {};
+      recentOrders.forEach(o => {
+        const hour = new Date(o.created_at).getHours();
+        orderHours[hour] = (orderHours[hour] || 0) + 1;
+      });
+      const peakHour = Object.entries(orderHours)
+        .sort((a, b) => b[1] - a[1])[0];
+      const peakHourInfo = peakHour ? `${peakHour[0]}:00 - ${parseInt(peakHour[0]) + 1}:00` : "Belum cukup data";
+
+      // Inactive products
+      const activeProducts = products?.filter(p => p.is_available) || [];
+      const inactiveProducts = products?.filter(p => !p.is_available) || [];
+      const lowStockProducts = products?.filter(p => p.stock !== null && p.stock < 5) || [];
+
       vendorContext = `
-VENDOR BUSINESS CONTEXT:
-- Business Name: ${vendor?.business_name || "Unknown"}
-- Verification Status: ${vendor?.verification_status || "pending"}
-- Service Categories: ${vendor?.service_categories?.join(", ") || "None set"}
-- Rating: ${vendor?.rating || "No ratings yet"}
+DATA BISNIS VENDOR (${today.toLocaleDateString('id-ID')}):
 
-PRODUCT PORTFOLIO:
-- Total Products: ${products?.length || 0}
-- Active Products: ${products?.filter(p => p.is_available).length || 0}
-- Categories: ${[...new Set(products?.map(p => p.category))].join(", ") || "None"}
+🏪 PROFIL BISNIS:
+- Nama: ${vendor?.business_name || "Unknown"}
+- Status Verifikasi: ${vendor?.verification_status || "pending"}
+- Kategori: ${vendor?.service_categories?.join(", ") || "Belum diset"}
+- Rating: ${avgRating} ⭐
+- Lokasi: ${vendor?.city || "Tidak diset"}
 
-TOP PERFORMING PRODUCTS:
-${topProducts?.map(p => `- ${p.name} (${p.category}): ${p.sales} sales, Rp ${p.revenue.toLocaleString()}`).join("\n") || "No sales yet"}
+📦 PRODUK:
+- Total Produk: ${products?.length || 0}
+- Produk Aktif: ${activeProducts.length}
+- Produk Non-aktif: ${inactiveProducts.length}
+- Stok Rendah (<5): ${lowStockProducts.length}
 
-SALES PERFORMANCE (Last 30 Days):
-- Orders Received: ${last30Days?.length || 0}
-- Completed Orders: ${completedOrders.length}
-- Pending Orders: ${pendingOrders}
-- Cancelled/Rejected: ${cancelledOrders}
+🏆 TOP PRODUK:
+${topProducts.map((p, i) => `${i + 1}. ${p.name}: ${p.sales} terjual, Rp${p.revenue.toLocaleString()}`).join('\n') || 'Belum ada penjualan'}
+
+📊 PERFORMA 30 HARI TERAKHIR:
+- Pesanan Masuk: ${recentOrders.length}
+- Pesanan Selesai: ${recentCompleted.length}
+- Pending: ${pendingOrders}
+- Dibatalkan: ${cancelledOrders}
 - Completion Rate: ${completionRate}%
-- Total Revenue: Rp ${totalRevenue.toLocaleString()}
-- Average Order Value: Rp ${avgOrderValue.toLocaleString()}
+- Revenue: Rp${recentRevenue.toLocaleString()}
+- Rata-rata Nilai Order: Rp${Math.round(avgOrderValue).toLocaleString()}
 
-EARNINGS:
-- Total Earned: Rp ${earnings?.reduce((sum, e) => sum + e.net_amount, 0).toLocaleString() || 0}
-- Pending Payout: Rp ${earnings?.filter(e => e.status === "pending").reduce((sum, e) => sum + e.net_amount, 0).toLocaleString() || 0}
+⏰ JAM SIBUK: ${peakHourInfo}
+
+💬 REVIEW TERBARU:
+${recentReviews}
+
+📈 TOTAL (ALL TIME):
+- Total Pesanan: ${orders?.length || 0}
+- Total Revenue: Rp${totalRevenue.toLocaleString()}
 `;
     }
 
-    const systemPrompt = `You are an AI business advisor for vendors on Sihuni, a property management marketplace platform in Indonesia. Your role is to provide actionable business advice to help vendors grow their sales and improve their services.
+    const systemPrompt = `Kamu adalah AI business advisor untuk vendor di platform SiHuni, marketplace layanan properti di Indonesia. Tugasmu memberikan saran bisnis yang actionable.
 
 ${vendorContext}
 
-GUIDELINES:
-1. Give specific, actionable advice based on the vendor's actual data
-2. Suggest product improvements or new products based on their category
-3. Provide tips for improving ratings and customer satisfaction
-4. Help with pricing strategies
-5. Suggest ways to increase order completion rate
-6. Recommend marketing strategies for the platform
-7. Keep responses concise and practical
-8. Use Indonesian Rupiah (Rp) for currency
-9. Be encouraging but realistic
+PANDUAN:
+1. Berikan saran spesifik berdasarkan data aktual vendor
+2. Jawab dalam Bahasa Indonesia yang ramah dan profesional
+3. Gunakan format currency Rp dengan pemisah ribuan
+4. Identifikasi peluang improvement dari data
+5. Berikan tips praktis yang bisa langsung dilakukan
+6. Sertakan action button dengan format [Label](path):
+   - Kelola produk: [Buka Produk](/vendor/products)
+   - Buat promo: [Buat Promo](/vendor/products)
+   - Lihat analytics: [Lihat Analytics](/vendor/earnings)
+   - Cek pesanan: [Lihat Pesanan](/vendor/orders)
 
-When analyzing performance:
-- Compare their metrics to industry standards
-- Identify areas for improvement
-- Suggest specific actions they can take
-- Consider seasonal trends for property services
+INSIGHT YANG BISA DIBERIKAN:
+- Optimasi harga berdasarkan performa
+- Rekomendasi produk baru berdasarkan kategori
+- Tips meningkatkan rating dari review
+- Strategi meningkatkan completion rate
+- Analisis tren penjualan
+- Saran pemanfaatan jam sibuk
 
-For product recommendations:
-- Look at their current categories
-- Suggest complementary services
-- Consider pricing gaps in their portfolio`;
+Jawab dengan ringkas tapi informatif. Fokus pada actionable insights.`;
 
     console.log("Calling Lovable AI Gateway for vendor assistant");
 
