@@ -16,6 +16,7 @@ import {
   X
 } from 'lucide-react';
 import { UnitsManager } from '@/components/merchant/UnitsManager';
+import { UnitPhotoUpload } from '@/components/merchant/UnitPhotoUpload';
 import { MerchantLayout } from '@/components/layouts/MerchantLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -116,6 +117,7 @@ export default function MerchantProperties() {
   });
 
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+  const [formImages, setFormImages] = useState<string[]>([]);
 
   useEffect(() => {
     if (merchant) {
@@ -165,6 +167,7 @@ export default function MerchantProperties() {
             postal_code: data.postal_code || null,
             description: data.description || null,
             amenities: selectedAmenities,
+            images: formImages,
           })
           .eq('id', editingProperty.id);
 
@@ -182,7 +185,7 @@ export default function MerchantProperties() {
             province: data.province,
             postal_code: data.postal_code || null,
             description: data.description || null,
-            images: [],
+            images: formImages,
             amenities: selectedAmenities,
           });
 
@@ -193,6 +196,7 @@ export default function MerchantProperties() {
       setShowAddDialog(false);
       setEditingProperty(null);
       setSelectedAmenities([]);
+      setFormImages([]);
       form.reset();
       fetchProperties();
     } catch (error: any) {
@@ -248,6 +252,7 @@ export default function MerchantProperties() {
       amenities: property.amenities || [],
     });
     setSelectedAmenities(property.amenities || []);
+    setFormImages(property.images || []);
     setShowAddDialog(true);
   };
 
@@ -277,6 +282,7 @@ export default function MerchantProperties() {
     setShowAddDialog(false);
     setEditingProperty(null);
     setSelectedAmenities([]);
+    setFormImages([]);
     form.reset();
   };
 
@@ -389,6 +395,14 @@ export default function MerchantProperties() {
                       placeholder="Deskripsikan properti Anda..."
                       {...form.register('description')}
                       rows={3}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Foto Properti</Label>
+                    <UnitPhotoUpload
+                      photos={formImages}
+                      onPhotosChange={setFormImages}
+                      maxPhotos={10}
                     />
                   </div>
                   <div className="col-span-2">

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Send, Search, Users, Mail, Clock, CheckCircle, XCircle, Home } from 'lucide-react';
+import { Send, Search, Users, Mail, Clock, CheckCircle, XCircle, Home, Copy } from 'lucide-react';
 import { MerchantLayout } from '@/components/layouts/MerchantLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -62,6 +62,7 @@ export default function MerchantTenants() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const { toast } = useToast();
@@ -191,17 +192,28 @@ export default function MerchantTenants() {
     });
   };
 
+  const copyInvitationLink = (invitation: TenantInvitation) => {
+    const inviteUrl = `${window.location.origin}/invite/${invitation.token}`;
+    navigator.clipboard.writeText(inviteUrl);
+    toast({ 
+      title: 'Copied!', 
+      description: 'Invitation link copied to clipboard' 
+    });
+  };
+
   const availableUnits = properties.flatMap(p => 
     (p.units || [])
       .filter(u => u.status === 'available')
       .map(u => ({ ...u, propertyName: p.name }))
   );
 
-  const filteredInvitations = invitations.filter(inv =>
-    inv.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    inv.unit?.property?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    inv.unit?.unit_number?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredInvitations = invitations.filter(inv => {
+    const matchesSearch = inv.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      inv.unit?.property?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      inv.unit?.unit_number?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || inv.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <MerchantLayout
@@ -344,15 +356,29 @@ export default function MerchantTenants() {
           </div>
         )}
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by email, property, or unit..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
+        {/* Search & Filter */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by email, property, or unit..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="accepted">Accepted</SelectItem>
+              <SelectItem value="expired">Expired</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Invitations List */}
@@ -418,6 +444,15 @@ export default function MerchantTenants() {
                               <Button 
                                 variant="ghost" 
                                 size="sm"
+                                title="Copy invitation link"
+                                onClick={() => copyInvitationLink(inv)}
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                title="Resend invitation"
                                 onClick={() => resendInvitation(inv)}
                               >
                                 <Send className="h-4 w-4" />
@@ -426,6 +461,7 @@ export default function MerchantTenants() {
                                 variant="ghost" 
                                 size="sm"
                                 className="text-destructive"
+                                title="Cancel invitation"
                                 onClick={() => cancelInvitation(inv.id)}
                               >
                                 <XCircle className="h-4 w-4" />

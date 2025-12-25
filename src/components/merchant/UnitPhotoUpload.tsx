@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { ImagePlus, X, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
 interface UnitPhotoUploadProps {
@@ -16,10 +16,16 @@ export const UnitPhotoUpload = ({
   maxPhotos = 10 
 }: UnitPhotoUploadProps) => {
   const [uploading, setUploading] = useState(false);
+  const { user } = useAuth();
 
   const handleFilesSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
+
+    if (!user) {
+      toast.error('You must be logged in to upload photos');
+      return;
+    }
 
     const remainingSlots = maxPhotos - photos.length;
     if (remainingSlots <= 0) {
@@ -46,7 +52,8 @@ export const UnitPhotoUpload = ({
 
         const fileExt = file.name.split('.').pop();
         const fileName = `unit-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-        const filePath = `units/${fileName}`;
+        // Include user.id in path for RLS compliance
+        const filePath = `${user.id}/units/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from('property-images')
