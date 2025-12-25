@@ -47,6 +47,26 @@ CREATE TYPE public.app_role AS ENUM (
 
 
 --
+-- Name: calculate_sla_deadline(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.calculate_sla_deadline(priority text) RETURNS timestamp with time zone
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  RETURN CASE priority
+    WHEN 'urgent' THEN NOW() + INTERVAL '4 hours'
+    WHEN 'high' THEN NOW() + INTERVAL '24 hours'
+    WHEN 'medium' THEN NOW() + INTERVAL '72 hours'
+    WHEN 'low' THEN NOW() + INTERVAL '7 days'
+    ELSE NOW() + INTERVAL '72 hours'
+  END;
+END;
+$$;
+
+
+--
 -- Name: create_merchant_escrow(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -156,6 +176,28 @@ $$;
 
 
 --
+-- Name: generate_voucher_code(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.generate_voucher_code() RETURNS text
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  new_code TEXT;
+  code_exists BOOLEAN;
+BEGIN
+  LOOP
+    new_code := 'VCHR-' || UPPER(SUBSTRING(md5(random()::text), 1, 8));
+    SELECT EXISTS(SELECT 1 FROM vouchers WHERE code = new_code) INTO code_exists;
+    EXIT WHEN NOT code_exists;
+  END LOOP;
+  RETURN new_code;
+END;
+$$;
+
+
+--
 -- Name: get_user_role(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -180,34 +222,96 @@ CREATE FUNCTION public.handle_new_user() RETURNS trigger
     AS $$
 DECLARE
     user_role app_role;
+    default_tier_id uuid;
+    new_merchant_id uuid;
+    linked_merchant_id uuid;
 BEGIN
-    -- Get role from metadata, default to 'tenant'
+    -- Get role from metadata, default to tenant
     user_role := COALESCE(
         (NEW.raw_user_meta_data ->> 'role')::app_role,
         'tenant'::app_role
     );
-    
-    -- Insert profile
-    INSERT INTO public.profiles (user_id, email, full_name)
+
+    -- Insert profile with phone
+    INSERT INTO public.profiles (user_id, email, full_name, phone)
     VALUES (
         NEW.id,
         NEW.email,
-        COALESCE(NEW.raw_user_meta_data ->> 'full_name', '')
+        COALESCE(NEW.raw_user_meta_data ->> 'full_name', ''),
+        NEW.raw_user_meta_data ->> 'phone'
     );
-    
-    -- Insert role
+
+    -- Insert user role
     INSERT INTO public.user_roles (user_id, role)
     VALUES (NEW.id, user_role);
-    
-    -- If merchant, create merchant record
+
+    -- Handle role-specific inserts
     IF user_role = 'merchant' THEN
+        -- Create merchant record
         INSERT INTO public.merchants (user_id, business_name)
         VALUES (
-            NEW.id,
+            NEW.id, 
             COALESCE(NEW.raw_user_meta_data ->> 'business_name', 'My Business')
+        )
+        RETURNING id INTO new_merchant_id;
+        
+        -- Create escrow account for merchant
+        INSERT INTO public.escrow_accounts (merchant_id, balance, pending_balance)
+        VALUES (new_merchant_id, 0, 0);
+        
+        -- Create default free subscription if tier exists
+        SELECT id INTO default_tier_id 
+        FROM subscription_tiers 
+        WHERE name = 'free' AND is_active = true
+        ORDER BY sort_order 
+        LIMIT 1;
+        
+        IF default_tier_id IS NOT NULL THEN
+            INSERT INTO public.merchant_subscriptions (
+                merchant_id, 
+                tier_id, 
+                status, 
+                trial_ends_at, 
+                current_period_end,
+                next_billing_date
+            )
+            VALUES (
+                new_merchant_id,
+                default_tier_id, 
+                'trialing',
+                now() + interval '14 days',
+                now() + interval '14 days',
+                now() + interval '14 days'
+            );
+        END IF;
+        
+    ELSIF user_role = 'vendor' THEN
+        -- Create vendor record with contact_email (required field)
+        INSERT INTO public.vendors (user_id, business_name, contact_email, verification_status)
+        VALUES (
+            NEW.id,
+            COALESCE(NEW.raw_user_meta_data ->> 'business_name', 'My Business'),
+            NEW.email,
+            'pending'
+        );
+        
+    ELSIF user_role = 'tenant' THEN
+        -- Get linked merchant from metadata if provided
+        IF NEW.raw_user_meta_data ->> 'merchant_code' IS NOT NULL THEN
+            SELECT id INTO linked_merchant_id
+            FROM merchants
+            WHERE merchant_code = UPPER(NEW.raw_user_meta_data ->> 'merchant_code');
+        END IF;
+        
+        -- Create tenant record
+        INSERT INTO public.tenants (user_id, linked_merchant_id, verification_status)
+        VALUES (
+            NEW.id,
+            linked_merchant_id,
+            'pending'
         );
     END IF;
-    
+
     RETURN NEW;
 END;
 $$;
@@ -227,6 +331,46 @@ CREATE FUNCTION public.has_role(_user_id uuid, _role public.app_role) RETURNS bo
     WHERE user_id = _user_id
       AND role = _role
   )
+$$;
+
+
+--
+-- Name: set_cancellation_effective_date(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.set_cancellation_effective_date() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  -- Only set when cancellation_requested_at is newly set and effective_date is null
+  IF NEW.cancellation_requested_at IS NOT NULL 
+     AND OLD.cancellation_requested_at IS NULL 
+     AND NEW.cancellation_effective_date IS NULL THEN
+    NEW.cancellation_effective_date := COALESCE(
+      NEW.current_period_end, 
+      (NOW() + INTERVAL '1 month')::timestamp with time zone
+    );
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: set_maintenance_sla_deadline(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.set_maintenance_sla_deadline() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  IF NEW.sla_deadline IS NULL THEN
+    NEW.sla_deadline := calculate_sla_deadline(NEW.priority);
+  END IF;
+  RETURN NEW;
+END;
 $$;
 
 
@@ -288,6 +432,25 @@ END;
 $$;
 
 
+--
+-- Name: update_vendor_maintenance_rating(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_vendor_maintenance_rating() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  UPDATE vendors 
+  SET rating = (
+    SELECT COALESCE(AVG(rating), 0) FROM maintenance_reviews WHERE vendor_id = NEW.vendor_id
+  )
+  WHERE id = NEW.vendor_id;
+  RETURN NEW;
+END;
+$$;
+
+
 SET default_table_access_method = heap;
 
 --
@@ -342,6 +505,21 @@ CREATE TABLE public.bank_accounts (
 
 
 --
+-- Name: cancellation_feedback; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.cancellation_feedback (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    merchant_id uuid NOT NULL,
+    subscription_id uuid,
+    reason text NOT NULL,
+    feedback text,
+    would_return boolean,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: chat_conversations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -372,6 +550,24 @@ CREATE TABLE public.chat_messages (
 
 
 --
+-- Name: chatbot_analytics; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.chatbot_analytics (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    conversation_id uuid,
+    user_id uuid,
+    user_role text,
+    query_type text,
+    action_taken text,
+    response_time_ms integer,
+    user_satisfied boolean,
+    message_count integer DEFAULT 1,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: chatbot_knowledge; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -384,6 +580,29 @@ CREATE TABLE public.chatbot_knowledge (
     is_active boolean DEFAULT true,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: collections_cases; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.collections_cases (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_user_id uuid NOT NULL,
+    merchant_id uuid NOT NULL,
+    invoice_id uuid NOT NULL,
+    total_due numeric NOT NULL,
+    days_overdue integer NOT NULL,
+    status text DEFAULT 'initiated'::text NOT NULL,
+    escalation_level integer DEFAULT 1 NOT NULL,
+    last_contact_at timestamp with time zone,
+    next_action_date date,
+    resolved_at timestamp with time zone,
+    resolution_type text,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -412,7 +631,67 @@ CREATE TABLE public.contracts (
     contract_document_url text,
     churn_reason text,
     billing_day integer,
+    referral_bonus_applied boolean DEFAULT false,
+    referral_bonus_amount numeric DEFAULT 0,
+    grace_period_days integer DEFAULT 3,
+    late_fee_type text DEFAULT 'percentage'::text,
+    late_payment_penalty_rate numeric DEFAULT 0.02,
+    move_out_notice_given boolean DEFAULT false,
+    move_out_notice_date timestamp with time zone,
+    expected_move_out_date date,
+    actual_end_date date,
+    termination_penalty numeric DEFAULT 0,
+    notice_period_days integer DEFAULT 30,
+    early_termination_penalty_rate numeric DEFAULT 2,
     CONSTRAINT contracts_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'active'::text, 'expired'::text, 'terminated'::text])))
+);
+
+
+--
+-- Name: deposit_disputes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.deposit_disputes (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    deposit_refund_id uuid NOT NULL,
+    tenant_user_id uuid NOT NULL,
+    disputed_amount numeric NOT NULL,
+    dispute_reason text NOT NULL,
+    evidence_photos text[],
+    status text DEFAULT 'pending'::text,
+    merchant_response text,
+    admin_notes text,
+    resolution text,
+    resolved_amount numeric,
+    resolved_at timestamp with time zone,
+    resolved_by uuid,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: deposit_refunds; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.deposit_refunds (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_user_id uuid NOT NULL,
+    contract_id uuid NOT NULL,
+    inspection_id uuid,
+    original_deposit numeric NOT NULL,
+    deductions numeric DEFAULT 0,
+    deduction_details jsonb DEFAULT '[]'::jsonb,
+    refund_amount numeric NOT NULL,
+    status text DEFAULT 'pending_processing'::text,
+    due_date date,
+    refunded_at timestamp with time zone,
+    xendit_disbursement_id text,
+    bank_account_number text,
+    bank_name text,
+    account_holder_name text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -436,7 +715,12 @@ CREATE TABLE public.disbursements (
     processed_at timestamp with time zone,
     failure_reason text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    requires_manual_review boolean DEFAULT false,
+    reviewed_by uuid,
+    reviewed_at timestamp with time zone,
+    review_notes text,
+    completed_at timestamp with time zone
 );
 
 
@@ -458,6 +742,28 @@ CREATE TABLE public.disputes (
     resolved_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: early_termination_requests; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.early_termination_requests (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_user_id uuid NOT NULL,
+    contract_id uuid NOT NULL,
+    requested_date date NOT NULL,
+    reason text,
+    supporting_docs text[],
+    penalty_amount numeric DEFAULT 0,
+    status text DEFAULT 'pending_approval'::text,
+    merchant_response text,
+    counter_offer_amount numeric,
+    approved_at timestamp with time zone,
+    denied_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -490,6 +796,9 @@ CREATE TABLE public.escrow_transactions (
     description text,
     processed_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
+    platform_fee numeric DEFAULT 0,
+    gateway_fee numeric DEFAULT 0,
+    gross_amount numeric,
     CONSTRAINT escrow_transactions_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text, 'cancelled'::text]))),
     CONSTRAINT escrow_transactions_type_check CHECK ((type = ANY (ARRAY['deposit'::text, 'rent_payment'::text, 'disbursement'::text, 'refund'::text, 'fee'::text])))
 );
@@ -588,7 +897,29 @@ CREATE TABLE public.invoices (
     issued_at timestamp with time zone,
     paid_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    late_fee numeric DEFAULT 0,
+    original_amount numeric,
+    late_fee_applied_at timestamp with time zone,
+    grace_period_active boolean DEFAULT false,
+    overdue_since timestamp with time zone,
+    payment_plan_id uuid
+);
+
+
+--
+-- Name: late_fee_records; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.late_fee_records (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    invoice_id uuid NOT NULL,
+    original_amount numeric NOT NULL,
+    late_fee_amount numeric NOT NULL,
+    days_overdue integer NOT NULL,
+    calculation_method text NOT NULL,
+    applied_at timestamp with time zone DEFAULT now(),
+    created_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -610,7 +941,47 @@ CREATE TABLE public.maintenance_requests (
     assigned_to text,
     resolved_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    preferred_schedule timestamp with time zone,
+    sla_deadline timestamp with time zone,
+    assigned_vendor_id uuid,
+    accepted_at timestamp with time zone,
+    started_at timestamp with time zone,
+    completion_notes text,
+    completion_photos text[]
+);
+
+
+--
+-- Name: maintenance_reviews; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.maintenance_reviews (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    maintenance_request_id uuid NOT NULL,
+    vendor_id uuid NOT NULL,
+    tenant_user_id uuid NOT NULL,
+    rating integer NOT NULL,
+    review_text text,
+    photos text[],
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT maintenance_reviews_rating_check CHECK (((rating >= 1) AND (rating <= 5)))
+);
+
+
+--
+-- Name: maintenance_timeline; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.maintenance_timeline (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    maintenance_request_id uuid NOT NULL,
+    status text NOT NULL,
+    message text NOT NULL,
+    actor_id uuid,
+    actor_role text,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -650,7 +1021,30 @@ CREATE TABLE public.merchant_subscriptions (
     next_billing_date timestamp with time zone,
     payment_status text DEFAULT 'pending'::text,
     failed_attempts integer DEFAULT 0,
+    grace_period_end timestamp with time zone,
+    cancellation_requested_at timestamp with time zone,
+    cancellation_effective_date timestamp with time zone,
+    cancellation_reason text,
     CONSTRAINT merchant_subscriptions_status_check CHECK ((status = ANY (ARRAY['trialing'::text, 'active'::text, 'past_due'::text, 'canceled'::text, 'expired'::text])))
+);
+
+
+--
+-- Name: merchant_verification_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.merchant_verification_history (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    merchant_id uuid NOT NULL,
+    action text NOT NULL,
+    performed_by uuid,
+    approval_notes text,
+    rejection_reason text,
+    rejection_details text,
+    resubmission_instructions text,
+    old_status text,
+    new_status text,
+    created_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -693,10 +1087,101 @@ CREATE TABLE public.merchants (
     disbursement_schedule text DEFAULT 'weekly'::text,
     billing_day integer DEFAULT 1,
     merchant_code text,
+    penalty_rate numeric DEFAULT 0.02,
+    verified_at timestamp with time zone,
+    verified_by uuid,
+    rejected_at timestamp with time zone,
+    rejected_by uuid,
+    rejection_details text,
+    resubmission_instructions text,
+    resubmission_count integer DEFAULT 0,
+    verification_submitted_at timestamp with time zone,
+    min_disbursement_amount numeric DEFAULT 100000,
+    last_disbursement_date timestamp with time zone,
+    total_disbursed numeric DEFAULT 0,
+    referral_discount numeric DEFAULT 0,
+    referral_discount_months integer DEFAULT 0,
+    referred_by uuid,
     CONSTRAINT merchants_billing_day_check CHECK (((billing_day >= 1) AND (billing_day <= 28))),
     CONSTRAINT merchants_business_type_check CHECK ((business_type = ANY (ARRAY['individual'::text, 'company'::text]))),
     CONSTRAINT merchants_subscription_tier_check CHECK ((subscription_tier = ANY (ARRAY['free'::text, 'basic'::text, 'pro'::text, 'enterprise'::text]))),
     CONSTRAINT merchants_verification_status_check CHECK ((verification_status = ANY (ARRAY['pending'::text, 'verified'::text, 'rejected'::text, 'suspended'::text])))
+);
+
+
+--
+-- Name: move_out_inspections; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.move_out_inspections (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    move_out_notice_id uuid NOT NULL,
+    scheduled_date timestamp with time zone,
+    inspector_id uuid,
+    status text DEFAULT 'scheduled'::text,
+    tenant_confirmed boolean DEFAULT false,
+    inspection_report jsonb DEFAULT '{}'::jsonb,
+    total_deductions numeric DEFAULT 0,
+    deposit_refund_amount numeric,
+    deduction_details jsonb DEFAULT '[]'::jsonb,
+    tenant_signature text,
+    inspector_signature text,
+    photos text[],
+    completed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: move_out_notices; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.move_out_notices (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_user_id uuid NOT NULL,
+    contract_id uuid NOT NULL,
+    notice_date timestamp with time zone DEFAULT now(),
+    intended_move_out_date date NOT NULL,
+    is_early_termination boolean DEFAULT false,
+    reason text,
+    notes text,
+    status text DEFAULT 'submitted'::text,
+    acknowledged_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: move_out_tasks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.move_out_tasks (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    move_out_notice_id uuid NOT NULL,
+    task_name text NOT NULL,
+    description text,
+    due_date date,
+    completed boolean DEFAULT false,
+    completed_at timestamp with time zone,
+    order_index integer DEFAULT 0,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: move_out_timeline; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.move_out_timeline (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    move_out_notice_id uuid NOT NULL,
+    step text NOT NULL,
+    completed boolean DEFAULT false,
+    completed_at timestamp with time zone,
+    notes text,
+    created_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -767,6 +1252,50 @@ CREATE TABLE public.orders (
 
 
 --
+-- Name: payment_plan_installments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.payment_plan_installments (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    payment_plan_id uuid NOT NULL,
+    installment_number integer NOT NULL,
+    amount numeric NOT NULL,
+    due_date date NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    paid_at timestamp with time zone,
+    invoice_id uuid,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: payment_plans; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.payment_plans (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    invoice_id uuid NOT NULL,
+    tenant_user_id uuid NOT NULL,
+    merchant_id uuid NOT NULL,
+    original_amount numeric NOT NULL,
+    plan_type text DEFAULT 'installments'::text NOT NULL,
+    installment_count integer DEFAULT 3 NOT NULL,
+    installment_amount numeric NOT NULL,
+    frequency text DEFAULT 'bi-weekly'::text NOT NULL,
+    start_date date NOT NULL,
+    late_fee_waived boolean DEFAULT false,
+    waived_amount numeric DEFAULT 0,
+    status text DEFAULT 'pending_acceptance'::text NOT NULL,
+    terms text,
+    accepted_at timestamp with time zone,
+    completed_at timestamp with time zone,
+    defaulted_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
 -- Name: payments; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -782,6 +1311,27 @@ CREATE TABLE public.payments (
     status text DEFAULT 'pending'::text NOT NULL,
     due_date date NOT NULL,
     paid_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: pending_subscription_changes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pending_subscription_changes (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    merchant_id uuid NOT NULL,
+    subscription_id uuid,
+    current_tier_id uuid,
+    pending_tier_id uuid NOT NULL,
+    change_type text DEFAULT 'downgrade'::text NOT NULL,
+    effective_date date NOT NULL,
+    reason text,
+    status text DEFAULT 'pending'::text NOT NULL,
+    applied_at timestamp with time zone,
+    cancelled_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -873,6 +1423,28 @@ CREATE TABLE public.properties (
 
 
 --
+-- Name: referral_commissions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.referral_commissions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    referral_id uuid NOT NULL,
+    referrer_id uuid NOT NULL,
+    referee_id uuid NOT NULL,
+    month_number integer DEFAULT 1 NOT NULL,
+    subscription_amount numeric DEFAULT 0 NOT NULL,
+    commission_rate numeric DEFAULT 0.20 NOT NULL,
+    commission_amount numeric DEFAULT 0 NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    eligible_date timestamp with time zone,
+    paid_at timestamp with time zone,
+    cancellation_reason text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: referral_rewards; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -906,6 +1478,40 @@ CREATE TABLE public.referrals (
     reward_amount numeric DEFAULT 0,
     reward_paid boolean DEFAULT false,
     completed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    referee_subscription_tier text,
+    referee_monthly_payment numeric DEFAULT 0,
+    first_payment_at timestamp with time zone,
+    converted_at timestamp with time zone,
+    bonus_paid boolean DEFAULT false,
+    bonus_paid_at timestamp with time zone,
+    referee_order_count integer DEFAULT 0,
+    referee_avg_rating numeric DEFAULT 0
+);
+
+
+--
+-- Name: subscription_invoices; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.subscription_invoices (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    merchant_id uuid NOT NULL,
+    subscription_id uuid,
+    tier_id uuid NOT NULL,
+    amount numeric NOT NULL,
+    billing_period_start date NOT NULL,
+    billing_period_end date NOT NULL,
+    due_date date NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    xendit_invoice_id text,
+    xendit_payment_url text,
+    paid_at timestamp with time zone,
+    payment_method text,
+    failure_reason text,
+    attempt_count integer DEFAULT 0,
+    last_attempt_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -984,6 +1590,27 @@ CREATE TABLE public.tenants (
 
 
 --
+-- Name: unit_listings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.unit_listings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    unit_id uuid NOT NULL,
+    merchant_id uuid NOT NULL,
+    monthly_rent numeric NOT NULL,
+    description text,
+    photos text[],
+    status text DEFAULT 'active'::text,
+    listed_at timestamp with time zone DEFAULT now(),
+    promoted boolean DEFAULT false,
+    views integer DEFAULT 0,
+    inquiries integer DEFAULT 0,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
 -- Name: units; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1001,6 +1628,9 @@ CREATE TABLE public.units (
     description text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    vacant_since timestamp with time zone,
+    available_from date,
+    is_listed boolean DEFAULT false,
     CONSTRAINT units_status_check CHECK ((status = ANY (ARRAY['available'::text, 'occupied'::text, 'reserved'::text, 'maintenance'::text]))),
     CONSTRAINT units_unit_type_check CHECK ((unit_type = ANY (ARRAY['single'::text, 'double'::text, 'studio'::text, 'suite'::text, 'standard'::text])))
 );
@@ -1114,7 +1744,33 @@ CREATE TABLE public.vendors (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     disbursement_schedule text DEFAULT 'weekly'::text,
     min_payout_threshold numeric DEFAULT 50000,
-    notification_settings jsonb DEFAULT '{"push_new_jobs": true, "email_new_jobs": true, "email_payments": true, "push_job_updates": true, "email_job_updates": true}'::jsonb
+    notification_settings jsonb DEFAULT '{"push_new_jobs": true, "email_new_jobs": true, "email_payments": true, "push_job_updates": true, "email_job_updates": true}'::jsonb,
+    referral_earnings numeric DEFAULT 0,
+    referred_by uuid
+);
+
+
+--
+-- Name: vouchers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.vouchers (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    owner_id uuid NOT NULL,
+    code text NOT NULL,
+    discount_type text DEFAULT 'fixed'::text NOT NULL,
+    discount_value numeric DEFAULT 0 NOT NULL,
+    min_order numeric DEFAULT 0,
+    max_discount numeric,
+    valid_from timestamp with time zone DEFAULT now(),
+    valid_until timestamp with time zone NOT NULL,
+    applicable_to text DEFAULT 'marketplace_orders'::text,
+    usage_limit integer DEFAULT 1,
+    used_count integer DEFAULT 0,
+    is_active boolean DEFAULT true,
+    referral_id uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -1170,6 +1826,14 @@ ALTER TABLE ONLY public.bank_accounts
 
 
 --
+-- Name: cancellation_feedback cancellation_feedback_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cancellation_feedback
+    ADD CONSTRAINT cancellation_feedback_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: chat_conversations chat_conversations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1186,6 +1850,14 @@ ALTER TABLE ONLY public.chat_messages
 
 
 --
+-- Name: chatbot_analytics chatbot_analytics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.chatbot_analytics
+    ADD CONSTRAINT chatbot_analytics_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: chatbot_knowledge chatbot_knowledge_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1194,11 +1866,35 @@ ALTER TABLE ONLY public.chatbot_knowledge
 
 
 --
+-- Name: collections_cases collections_cases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.collections_cases
+    ADD CONSTRAINT collections_cases_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: contracts contracts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.contracts
     ADD CONSTRAINT contracts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: deposit_disputes deposit_disputes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.deposit_disputes
+    ADD CONSTRAINT deposit_disputes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: deposit_refunds deposit_refunds_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.deposit_refunds
+    ADD CONSTRAINT deposit_refunds_pkey PRIMARY KEY (id);
 
 
 --
@@ -1215,6 +1911,14 @@ ALTER TABLE ONLY public.disbursements
 
 ALTER TABLE ONLY public.disputes
     ADD CONSTRAINT disputes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: early_termination_requests early_termination_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.early_termination_requests
+    ADD CONSTRAINT early_termination_requests_pkey PRIMARY KEY (id);
 
 
 --
@@ -1290,11 +1994,43 @@ ALTER TABLE ONLY public.invoices
 
 
 --
+-- Name: late_fee_records late_fee_records_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.late_fee_records
+    ADD CONSTRAINT late_fee_records_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: maintenance_requests maintenance_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.maintenance_requests
     ADD CONSTRAINT maintenance_requests_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: maintenance_reviews maintenance_reviews_maintenance_request_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.maintenance_reviews
+    ADD CONSTRAINT maintenance_reviews_maintenance_request_id_key UNIQUE (maintenance_request_id);
+
+
+--
+-- Name: maintenance_reviews maintenance_reviews_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.maintenance_reviews
+    ADD CONSTRAINT maintenance_reviews_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: maintenance_timeline maintenance_timeline_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.maintenance_timeline
+    ADD CONSTRAINT maintenance_timeline_pkey PRIMARY KEY (id);
 
 
 --
@@ -1319,6 +2055,14 @@ ALTER TABLE ONLY public.merchant_subscriptions
 
 ALTER TABLE ONLY public.merchant_subscriptions
     ADD CONSTRAINT merchant_subscriptions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: merchant_verification_history merchant_verification_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.merchant_verification_history
+    ADD CONSTRAINT merchant_verification_history_pkey PRIMARY KEY (id);
 
 
 --
@@ -1351,6 +2095,38 @@ ALTER TABLE ONLY public.merchants
 
 ALTER TABLE ONLY public.merchants
     ADD CONSTRAINT merchants_user_id_key UNIQUE (user_id);
+
+
+--
+-- Name: move_out_inspections move_out_inspections_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.move_out_inspections
+    ADD CONSTRAINT move_out_inspections_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: move_out_notices move_out_notices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.move_out_notices
+    ADD CONSTRAINT move_out_notices_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: move_out_tasks move_out_tasks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.move_out_tasks
+    ADD CONSTRAINT move_out_tasks_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: move_out_timeline move_out_timeline_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.move_out_timeline
+    ADD CONSTRAINT move_out_timeline_pkey PRIMARY KEY (id);
 
 
 --
@@ -1394,11 +2170,35 @@ ALTER TABLE ONLY public.orders
 
 
 --
+-- Name: payment_plan_installments payment_plan_installments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.payment_plan_installments
+    ADD CONSTRAINT payment_plan_installments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: payment_plans payment_plans_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.payment_plans
+    ADD CONSTRAINT payment_plans_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: payments payments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.payments
     ADD CONSTRAINT payments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: pending_subscription_changes pending_subscription_changes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pending_subscription_changes
+    ADD CONSTRAINT pending_subscription_changes_pkey PRIMARY KEY (id);
 
 
 --
@@ -1450,6 +2250,14 @@ ALTER TABLE ONLY public.properties
 
 
 --
+-- Name: referral_commissions referral_commissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_commissions
+    ADD CONSTRAINT referral_commissions_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: referral_rewards referral_rewards_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1471,6 +2279,14 @@ ALTER TABLE ONLY public.referrals
 
 ALTER TABLE ONLY public.referrals
     ADD CONSTRAINT referrals_referral_code_key UNIQUE (referral_code);
+
+
+--
+-- Name: subscription_invoices subscription_invoices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subscription_invoices
+    ADD CONSTRAINT subscription_invoices_pkey PRIMARY KEY (id);
 
 
 --
@@ -1519,6 +2335,14 @@ ALTER TABLE ONLY public.tenants
 
 ALTER TABLE ONLY public.tenants
     ADD CONSTRAINT tenants_user_id_key UNIQUE (user_id);
+
+
+--
+-- Name: unit_listings unit_listings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.unit_listings
+    ADD CONSTRAINT unit_listings_pkey PRIMARY KEY (id);
 
 
 --
@@ -1594,6 +2418,22 @@ ALTER TABLE ONLY public.vendors
 
 
 --
+-- Name: vouchers vouchers_code_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vouchers
+    ADD CONSTRAINT vouchers_code_key UNIQUE (code);
+
+
+--
+-- Name: vouchers vouchers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vouchers
+    ADD CONSTRAINT vouchers_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: xendit_transactions xendit_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1630,10 +2470,220 @@ CREATE INDEX idx_audit_logs_user_id ON public.audit_logs USING btree (user_id);
 
 
 --
+-- Name: idx_cancellation_feedback_merchant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cancellation_feedback_merchant_id ON public.cancellation_feedback USING btree (merchant_id);
+
+
+--
+-- Name: idx_chatbot_analytics_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_chatbot_analytics_created_at ON public.chatbot_analytics USING btree (created_at DESC);
+
+
+--
+-- Name: idx_chatbot_analytics_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_chatbot_analytics_user_id ON public.chatbot_analytics USING btree (user_id);
+
+
+--
+-- Name: idx_collections_cases_merchant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collections_cases_merchant_id ON public.collections_cases USING btree (merchant_id);
+
+
+--
+-- Name: idx_collections_cases_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_collections_cases_status ON public.collections_cases USING btree (status);
+
+
+--
+-- Name: idx_contracts_move_out; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_contracts_move_out ON public.contracts USING btree (move_out_notice_given) WHERE (move_out_notice_given = true);
+
+
+--
+-- Name: idx_deposit_refunds_contract; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_deposit_refunds_contract ON public.deposit_refunds USING btree (contract_id);
+
+
+--
+-- Name: idx_deposit_refunds_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_deposit_refunds_status ON public.deposit_refunds USING btree (status);
+
+
+--
+-- Name: idx_disbursements_pending_review; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_disbursements_pending_review ON public.disbursements USING btree (requires_manual_review, status) WHERE (requires_manual_review = true);
+
+
+--
+-- Name: idx_early_term_contract; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_early_term_contract ON public.early_termination_requests USING btree (contract_id);
+
+
+--
+-- Name: idx_inspections_notice; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_inspections_notice ON public.move_out_inspections USING btree (move_out_notice_id);
+
+
+--
+-- Name: idx_invoices_grace_period_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_invoices_grace_period_active ON public.invoices USING btree (grace_period_active);
+
+
+--
+-- Name: idx_invoices_overdue_since; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_invoices_overdue_since ON public.invoices USING btree (overdue_since);
+
+
+--
+-- Name: idx_late_fee_records_invoice_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_late_fee_records_invoice_id ON public.late_fee_records USING btree (invoice_id);
+
+
+--
+-- Name: idx_merchant_verification_history_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_merchant_verification_history_created_at ON public.merchant_verification_history USING btree (created_at DESC);
+
+
+--
+-- Name: idx_merchant_verification_history_merchant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_merchant_verification_history_merchant_id ON public.merchant_verification_history USING btree (merchant_id);
+
+
+--
 -- Name: idx_merchants_merchant_code; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_merchants_merchant_code ON public.merchants USING btree (merchant_code);
+
+
+--
+-- Name: idx_move_out_notices_contract; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_move_out_notices_contract ON public.move_out_notices USING btree (contract_id);
+
+
+--
+-- Name: idx_move_out_notices_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_move_out_notices_status ON public.move_out_notices USING btree (status);
+
+
+--
+-- Name: idx_move_out_notices_tenant; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_move_out_notices_tenant ON public.move_out_notices USING btree (tenant_user_id);
+
+
+--
+-- Name: idx_move_out_tasks_notice; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_move_out_tasks_notice ON public.move_out_tasks USING btree (move_out_notice_id);
+
+
+--
+-- Name: idx_move_out_timeline_notice; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_move_out_timeline_notice ON public.move_out_timeline USING btree (move_out_notice_id);
+
+
+--
+-- Name: idx_payment_plan_installments_due_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_payment_plan_installments_due_date ON public.payment_plan_installments USING btree (due_date);
+
+
+--
+-- Name: idx_payment_plan_installments_plan_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_payment_plan_installments_plan_id ON public.payment_plan_installments USING btree (payment_plan_id);
+
+
+--
+-- Name: idx_payment_plans_invoice_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_payment_plans_invoice_id ON public.payment_plans USING btree (invoice_id);
+
+
+--
+-- Name: idx_payment_plans_merchant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_payment_plans_merchant_id ON public.payment_plans USING btree (merchant_id);
+
+
+--
+-- Name: idx_payment_plans_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_payment_plans_status ON public.payment_plans USING btree (status);
+
+
+--
+-- Name: idx_payment_plans_tenant_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_payment_plans_tenant_user_id ON public.payment_plans USING btree (tenant_user_id);
+
+
+--
+-- Name: idx_pending_subscription_changes_effective_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pending_subscription_changes_effective_date ON public.pending_subscription_changes USING btree (effective_date);
+
+
+--
+-- Name: idx_pending_subscription_changes_merchant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pending_subscription_changes_merchant_id ON public.pending_subscription_changes USING btree (merchant_id);
+
+
+--
+-- Name: idx_pending_subscription_changes_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pending_subscription_changes_status ON public.pending_subscription_changes USING btree (status);
 
 
 --
@@ -1644,10 +2694,73 @@ CREATE INDEX idx_products_promo_active ON public.products USING btree (vendor_id
 
 
 --
+-- Name: idx_referral_commissions_referrer; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_referral_commissions_referrer ON public.referral_commissions USING btree (referrer_id);
+
+
+--
+-- Name: idx_referral_commissions_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_referral_commissions_status ON public.referral_commissions USING btree (status);
+
+
+--
+-- Name: idx_referrals_referral_code; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_referrals_referral_code ON public.referrals USING btree (referral_code);
+
+
+--
+-- Name: idx_subscription_invoices_due_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_subscription_invoices_due_date ON public.subscription_invoices USING btree (due_date);
+
+
+--
+-- Name: idx_subscription_invoices_merchant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_subscription_invoices_merchant_id ON public.subscription_invoices USING btree (merchant_id);
+
+
+--
+-- Name: idx_subscription_invoices_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_subscription_invoices_status ON public.subscription_invoices USING btree (status);
+
+
+--
 -- Name: idx_tenants_linked_merchant; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_tenants_linked_merchant ON public.tenants USING btree (linked_merchant_id);
+
+
+--
+-- Name: idx_unit_listings_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_unit_listings_status ON public.unit_listings USING btree (status);
+
+
+--
+-- Name: idx_unit_listings_unit; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_unit_listings_unit ON public.unit_listings USING btree (unit_id);
+
+
+--
+-- Name: idx_units_vacant; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_units_vacant ON public.units USING btree (vacant_since) WHERE (vacant_since IS NOT NULL);
 
 
 --
@@ -1700,6 +2813,20 @@ CREATE INDEX idx_vendor_jobs_vendor_id ON public.vendor_jobs USING btree (vendor
 
 
 --
+-- Name: idx_vouchers_code; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_vouchers_code ON public.vouchers USING btree (code);
+
+
+--
+-- Name: idx_vouchers_owner; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_vouchers_owner ON public.vouchers USING btree (owner_id);
+
+
+--
 -- Name: invoices generate_invoice_number_trigger; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -1728,10 +2855,31 @@ CREATE TRIGGER on_merchant_created_create_escrow AFTER INSERT ON public.merchant
 
 
 --
+-- Name: merchant_subscriptions trigger_set_cancellation_effective_date; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_set_cancellation_effective_date BEFORE UPDATE ON public.merchant_subscriptions FOR EACH ROW EXECUTE FUNCTION public.set_cancellation_effective_date();
+
+
+--
 -- Name: merchants trigger_set_merchant_code; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trigger_set_merchant_code BEFORE INSERT ON public.merchants FOR EACH ROW EXECUTE FUNCTION public.set_merchant_code();
+
+
+--
+-- Name: maintenance_requests trigger_set_sla_deadline; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_set_sla_deadline BEFORE INSERT ON public.maintenance_requests FOR EACH ROW EXECUTE FUNCTION public.set_maintenance_sla_deadline();
+
+
+--
+-- Name: maintenance_reviews trigger_update_vendor_maintenance_rating; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_update_vendor_maintenance_rating AFTER INSERT ON public.maintenance_reviews FOR EACH ROW EXECUTE FUNCTION public.update_vendor_maintenance_rating();
 
 
 --
@@ -1753,6 +2901,13 @@ CREATE TRIGGER update_chat_conversations_updated_at BEFORE UPDATE ON public.chat
 --
 
 CREATE TRIGGER update_chatbot_knowledge_updated_at BEFORE UPDATE ON public.chatbot_knowledge FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: collections_cases update_collections_cases_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_collections_cases_updated_at BEFORE UPDATE ON public.collections_cases FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
@@ -1840,10 +2995,24 @@ CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON public.orders FOR EACH 
 
 
 --
+-- Name: payment_plans update_payment_plans_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_payment_plans_updated_at BEFORE UPDATE ON public.payment_plans FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
 -- Name: payments update_payments_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER update_payments_updated_at BEFORE UPDATE ON public.payments FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: pending_subscription_changes update_pending_subscription_changes_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_pending_subscription_changes_updated_at BEFORE UPDATE ON public.pending_subscription_changes FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
@@ -1893,6 +3062,13 @@ CREATE TRIGGER update_referral_rewards_updated_at BEFORE UPDATE ON public.referr
 --
 
 CREATE TRIGGER update_referrals_updated_at BEFORE UPDATE ON public.referrals FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: subscription_invoices update_subscription_invoices_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_subscription_invoices_updated_at BEFORE UPDATE ON public.subscription_invoices FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
@@ -1968,6 +3144,22 @@ ALTER TABLE ONLY public.bank_accounts
 
 
 --
+-- Name: cancellation_feedback cancellation_feedback_merchant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cancellation_feedback
+    ADD CONSTRAINT cancellation_feedback_merchant_id_fkey FOREIGN KEY (merchant_id) REFERENCES public.merchants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: cancellation_feedback cancellation_feedback_subscription_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cancellation_feedback
+    ADD CONSTRAINT cancellation_feedback_subscription_id_fkey FOREIGN KEY (subscription_id) REFERENCES public.merchant_subscriptions(id) ON DELETE SET NULL;
+
+
+--
 -- Name: chat_conversations chat_conversations_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1984,6 +3176,30 @@ ALTER TABLE ONLY public.chat_messages
 
 
 --
+-- Name: chatbot_analytics chatbot_analytics_conversation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.chatbot_analytics
+    ADD CONSTRAINT chatbot_analytics_conversation_id_fkey FOREIGN KEY (conversation_id) REFERENCES public.chat_conversations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: collections_cases collections_cases_invoice_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.collections_cases
+    ADD CONSTRAINT collections_cases_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES public.invoices(id) ON DELETE CASCADE;
+
+
+--
+-- Name: collections_cases collections_cases_merchant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.collections_cases
+    ADD CONSTRAINT collections_cases_merchant_id_fkey FOREIGN KEY (merchant_id) REFERENCES public.merchants(id) ON DELETE CASCADE;
+
+
+--
 -- Name: contracts contracts_merchant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1997,6 +3213,30 @@ ALTER TABLE ONLY public.contracts
 
 ALTER TABLE ONLY public.contracts
     ADD CONSTRAINT contracts_unit_id_fkey FOREIGN KEY (unit_id) REFERENCES public.units(id) ON DELETE CASCADE;
+
+
+--
+-- Name: deposit_disputes deposit_disputes_deposit_refund_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.deposit_disputes
+    ADD CONSTRAINT deposit_disputes_deposit_refund_id_fkey FOREIGN KEY (deposit_refund_id) REFERENCES public.deposit_refunds(id) ON DELETE CASCADE;
+
+
+--
+-- Name: deposit_refunds deposit_refunds_contract_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.deposit_refunds
+    ADD CONSTRAINT deposit_refunds_contract_id_fkey FOREIGN KEY (contract_id) REFERENCES public.contracts(id) ON DELETE CASCADE;
+
+
+--
+-- Name: deposit_refunds deposit_refunds_inspection_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.deposit_refunds
+    ADD CONSTRAINT deposit_refunds_inspection_id_fkey FOREIGN KEY (inspection_id) REFERENCES public.move_out_inspections(id);
 
 
 --
@@ -2021,6 +3261,14 @@ ALTER TABLE ONLY public.disbursements
 
 ALTER TABLE ONLY public.disputes
     ADD CONSTRAINT disputes_contract_id_fkey FOREIGN KEY (contract_id) REFERENCES public.contracts(id);
+
+
+--
+-- Name: early_termination_requests early_termination_requests_contract_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.early_termination_requests
+    ADD CONSTRAINT early_termination_requests_contract_id_fkey FOREIGN KEY (contract_id) REFERENCES public.contracts(id) ON DELETE CASCADE;
 
 
 --
@@ -2160,6 +3408,30 @@ ALTER TABLE ONLY public.invoices
 
 
 --
+-- Name: invoices invoices_payment_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.invoices
+    ADD CONSTRAINT invoices_payment_plan_id_fkey FOREIGN KEY (payment_plan_id) REFERENCES public.payment_plans(id) ON DELETE SET NULL;
+
+
+--
+-- Name: late_fee_records late_fee_records_invoice_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.late_fee_records
+    ADD CONSTRAINT late_fee_records_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES public.invoices(id) ON DELETE CASCADE;
+
+
+--
+-- Name: maintenance_requests maintenance_requests_assigned_vendor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.maintenance_requests
+    ADD CONSTRAINT maintenance_requests_assigned_vendor_id_fkey FOREIGN KEY (assigned_vendor_id) REFERENCES public.vendors(id);
+
+
+--
 -- Name: maintenance_requests maintenance_requests_merchant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2173,6 +3445,30 @@ ALTER TABLE ONLY public.maintenance_requests
 
 ALTER TABLE ONLY public.maintenance_requests
     ADD CONSTRAINT maintenance_requests_unit_id_fkey FOREIGN KEY (unit_id) REFERENCES public.units(id) ON DELETE CASCADE;
+
+
+--
+-- Name: maintenance_reviews maintenance_reviews_maintenance_request_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.maintenance_reviews
+    ADD CONSTRAINT maintenance_reviews_maintenance_request_id_fkey FOREIGN KEY (maintenance_request_id) REFERENCES public.maintenance_requests(id) ON DELETE CASCADE;
+
+
+--
+-- Name: maintenance_reviews maintenance_reviews_vendor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.maintenance_reviews
+    ADD CONSTRAINT maintenance_reviews_vendor_id_fkey FOREIGN KEY (vendor_id) REFERENCES public.vendors(id);
+
+
+--
+-- Name: maintenance_timeline maintenance_timeline_maintenance_request_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.maintenance_timeline
+    ADD CONSTRAINT maintenance_timeline_maintenance_request_id_fkey FOREIGN KEY (maintenance_request_id) REFERENCES public.maintenance_requests(id) ON DELETE CASCADE;
 
 
 --
@@ -2200,6 +3496,14 @@ ALTER TABLE ONLY public.merchant_subscriptions
 
 
 --
+-- Name: merchant_verification_history merchant_verification_history_merchant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.merchant_verification_history
+    ADD CONSTRAINT merchant_verification_history_merchant_id_fkey FOREIGN KEY (merchant_id) REFERENCES public.merchants(id) ON DELETE CASCADE;
+
+
+--
 -- Name: merchant_verifications merchant_verifications_merchant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2221,6 +3525,38 @@ ALTER TABLE ONLY public.merchant_verifications
 
 ALTER TABLE ONLY public.merchants
     ADD CONSTRAINT merchants_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: move_out_inspections move_out_inspections_move_out_notice_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.move_out_inspections
+    ADD CONSTRAINT move_out_inspections_move_out_notice_id_fkey FOREIGN KEY (move_out_notice_id) REFERENCES public.move_out_notices(id) ON DELETE CASCADE;
+
+
+--
+-- Name: move_out_notices move_out_notices_contract_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.move_out_notices
+    ADD CONSTRAINT move_out_notices_contract_id_fkey FOREIGN KEY (contract_id) REFERENCES public.contracts(id) ON DELETE CASCADE;
+
+
+--
+-- Name: move_out_tasks move_out_tasks_move_out_notice_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.move_out_tasks
+    ADD CONSTRAINT move_out_tasks_move_out_notice_id_fkey FOREIGN KEY (move_out_notice_id) REFERENCES public.move_out_notices(id) ON DELETE CASCADE;
+
+
+--
+-- Name: move_out_timeline move_out_timeline_move_out_notice_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.move_out_timeline
+    ADD CONSTRAINT move_out_timeline_move_out_notice_id_fkey FOREIGN KEY (move_out_notice_id) REFERENCES public.move_out_notices(id) ON DELETE CASCADE;
 
 
 --
@@ -2280,6 +3616,38 @@ ALTER TABLE ONLY public.orders
 
 
 --
+-- Name: payment_plan_installments payment_plan_installments_invoice_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.payment_plan_installments
+    ADD CONSTRAINT payment_plan_installments_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES public.invoices(id);
+
+
+--
+-- Name: payment_plan_installments payment_plan_installments_payment_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.payment_plan_installments
+    ADD CONSTRAINT payment_plan_installments_payment_plan_id_fkey FOREIGN KEY (payment_plan_id) REFERENCES public.payment_plans(id) ON DELETE CASCADE;
+
+
+--
+-- Name: payment_plans payment_plans_invoice_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.payment_plans
+    ADD CONSTRAINT payment_plans_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES public.invoices(id) ON DELETE CASCADE;
+
+
+--
+-- Name: payment_plans payment_plans_merchant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.payment_plans
+    ADD CONSTRAINT payment_plans_merchant_id_fkey FOREIGN KEY (merchant_id) REFERENCES public.merchants(id) ON DELETE CASCADE;
+
+
+--
 -- Name: payments payments_contract_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2293,6 +3661,38 @@ ALTER TABLE ONLY public.payments
 
 ALTER TABLE ONLY public.payments
     ADD CONSTRAINT payments_merchant_id_fkey FOREIGN KEY (merchant_id) REFERENCES public.merchants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: pending_subscription_changes pending_subscription_changes_current_tier_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pending_subscription_changes
+    ADD CONSTRAINT pending_subscription_changes_current_tier_id_fkey FOREIGN KEY (current_tier_id) REFERENCES public.subscription_tiers(id);
+
+
+--
+-- Name: pending_subscription_changes pending_subscription_changes_merchant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pending_subscription_changes
+    ADD CONSTRAINT pending_subscription_changes_merchant_id_fkey FOREIGN KEY (merchant_id) REFERENCES public.merchants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: pending_subscription_changes pending_subscription_changes_pending_tier_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pending_subscription_changes
+    ADD CONSTRAINT pending_subscription_changes_pending_tier_id_fkey FOREIGN KEY (pending_tier_id) REFERENCES public.subscription_tiers(id);
+
+
+--
+-- Name: pending_subscription_changes pending_subscription_changes_subscription_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pending_subscription_changes
+    ADD CONSTRAINT pending_subscription_changes_subscription_id_fkey FOREIGN KEY (subscription_id) REFERENCES public.merchant_subscriptions(id) ON DELETE CASCADE;
 
 
 --
@@ -2320,11 +3720,43 @@ ALTER TABLE ONLY public.properties
 
 
 --
+-- Name: referral_commissions referral_commissions_referral_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_commissions
+    ADD CONSTRAINT referral_commissions_referral_id_fkey FOREIGN KEY (referral_id) REFERENCES public.referrals(id);
+
+
+--
 -- Name: referral_rewards referral_rewards_referral_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.referral_rewards
     ADD CONSTRAINT referral_rewards_referral_id_fkey FOREIGN KEY (referral_id) REFERENCES public.referrals(id);
+
+
+--
+-- Name: subscription_invoices subscription_invoices_merchant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subscription_invoices
+    ADD CONSTRAINT subscription_invoices_merchant_id_fkey FOREIGN KEY (merchant_id) REFERENCES public.merchants(id) ON DELETE CASCADE;
+
+
+--
+-- Name: subscription_invoices subscription_invoices_subscription_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subscription_invoices
+    ADD CONSTRAINT subscription_invoices_subscription_id_fkey FOREIGN KEY (subscription_id) REFERENCES public.merchant_subscriptions(id) ON DELETE SET NULL;
+
+
+--
+-- Name: subscription_invoices subscription_invoices_tier_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subscription_invoices
+    ADD CONSTRAINT subscription_invoices_tier_id_fkey FOREIGN KEY (tier_id) REFERENCES public.subscription_tiers(id);
 
 
 --
@@ -2357,6 +3789,22 @@ ALTER TABLE ONLY public.tenants
 
 ALTER TABLE ONLY public.tenants
     ADD CONSTRAINT tenants_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: unit_listings unit_listings_merchant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.unit_listings
+    ADD CONSTRAINT unit_listings_merchant_id_fkey FOREIGN KEY (merchant_id) REFERENCES public.merchants(id);
+
+
+--
+-- Name: unit_listings unit_listings_unit_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.unit_listings
+    ADD CONSTRAINT unit_listings_unit_id_fkey FOREIGN KEY (unit_id) REFERENCES public.units(id) ON DELETE CASCADE;
 
 
 --
@@ -2432,6 +3880,14 @@ ALTER TABLE ONLY public.vendor_verifications
 
 
 --
+-- Name: vouchers vouchers_referral_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vouchers
+    ADD CONSTRAINT vouchers_referral_id_fkey FOREIGN KEY (referral_id) REFERENCES public.referrals(id);
+
+
+--
 -- Name: xendit_transactions xendit_transactions_invoice_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2462,10 +3918,31 @@ CREATE POLICY "Admins can manage all comments" ON public.forum_comments USING (p
 
 
 --
+-- Name: referral_commissions Admins can manage all commissions; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can manage all commissions" ON public.referral_commissions USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+
+
+--
 -- Name: contracts Admins can manage all contracts; Type: POLICY; Schema: public; Owner: -
 --
 
 CREATE POLICY "Admins can manage all contracts" ON public.contracts USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+
+
+--
+-- Name: deposit_disputes Admins can manage all deposit disputes; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can manage all deposit disputes" ON public.deposit_disputes USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+
+
+--
+-- Name: deposit_refunds Admins can manage all deposit refunds; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can manage all deposit refunds" ON public.deposit_refunds USING (public.has_role(auth.uid(), 'admin'::public.app_role));
 
 
 --
@@ -2483,6 +3960,13 @@ CREATE POLICY "Admins can manage all disputes" ON public.disputes USING (public.
 
 
 --
+-- Name: early_termination_requests Admins can manage all early termination requests; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can manage all early termination requests" ON public.early_termination_requests USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+
+
+--
 -- Name: escrow_accounts Admins can manage all escrow accounts; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -2490,10 +3974,24 @@ CREATE POLICY "Admins can manage all escrow accounts" ON public.escrow_accounts 
 
 
 --
+-- Name: move_out_inspections Admins can manage all inspections; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can manage all inspections" ON public.move_out_inspections USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+
+
+--
 -- Name: invoices Admins can manage all invoices; Type: POLICY; Schema: public; Owner: -
 --
 
 CREATE POLICY "Admins can manage all invoices" ON public.invoices USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+
+
+--
+-- Name: unit_listings Admins can manage all listings; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can manage all listings" ON public.unit_listings USING (public.has_role(auth.uid(), 'admin'::public.app_role));
 
 
 --
@@ -2518,6 +4016,13 @@ CREATE POLICY "Admins can manage all merchants" ON public.merchants TO authentic
 
 
 --
+-- Name: move_out_notices Admins can manage all move-out notices; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can manage all move-out notices" ON public.move_out_notices USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+
+
+--
 -- Name: orders Admins can manage all orders; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -2529,6 +4034,13 @@ CREATE POLICY "Admins can manage all orders" ON public.orders USING (public.has_
 --
 
 CREATE POLICY "Admins can manage all payments" ON public.payments USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+
+
+--
+-- Name: pending_subscription_changes Admins can manage all pending changes; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can manage all pending changes" ON public.pending_subscription_changes USING (public.has_role(auth.uid(), 'admin'::public.app_role));
 
 
 --
@@ -2567,6 +4079,13 @@ CREATE POLICY "Admins can manage all reports" ON public.forum_reports USING (pub
 
 
 --
+-- Name: maintenance_reviews Admins can manage all reviews; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can manage all reviews" ON public.maintenance_reviews USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+
+
+--
 -- Name: order_reviews Admins can manage all reviews; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -2581,6 +4100,13 @@ CREATE POLICY "Admins can manage all rewards" ON public.referral_rewards USING (
 
 
 --
+-- Name: subscription_invoices Admins can manage all subscription invoices; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can manage all subscription invoices" ON public.subscription_invoices USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+
+
+--
 -- Name: merchant_subscriptions Admins can manage all subscriptions; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -2588,10 +4114,31 @@ CREATE POLICY "Admins can manage all subscriptions" ON public.merchant_subscript
 
 
 --
+-- Name: move_out_tasks Admins can manage all tasks; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can manage all tasks" ON public.move_out_tasks USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+
+
+--
 -- Name: tenants Admins can manage all tenant profiles; Type: POLICY; Schema: public; Owner: -
 --
 
 CREATE POLICY "Admins can manage all tenant profiles" ON public.tenants USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+
+
+--
+-- Name: move_out_timeline Admins can manage all timeline; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can manage all timeline" ON public.move_out_timeline USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+
+
+--
+-- Name: maintenance_timeline Admins can manage all timeline entries; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can manage all timeline entries" ON public.maintenance_timeline USING (public.has_role(auth.uid(), 'admin'::public.app_role));
 
 
 --
@@ -2651,10 +4198,24 @@ CREATE POLICY "Admins can manage all vendors" ON public.vendors USING (public.ha
 
 
 --
+-- Name: merchant_verification_history Admins can manage all verification history; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can manage all verification history" ON public.merchant_verification_history USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+
+
+--
 -- Name: merchant_verifications Admins can manage all verifications; Type: POLICY; Schema: public; Owner: -
 --
 
 CREATE POLICY "Admins can manage all verifications" ON public.merchant_verifications TO authenticated USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+
+
+--
+-- Name: vouchers Admins can manage all vouchers; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can manage all vouchers" ON public.vouchers USING (public.has_role(auth.uid(), 'admin'::public.app_role));
 
 
 --
@@ -2697,6 +4258,33 @@ CREATE POLICY "Admins can view all analytics" ON public.analytics_events FOR SEL
 --
 
 CREATE POLICY "Admins can view all audit logs" ON public.audit_logs FOR SELECT USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+
+
+--
+-- Name: cancellation_feedback Admins can view all cancellation feedback; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can view all cancellation feedback" ON public.cancellation_feedback FOR SELECT USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+
+
+--
+-- Name: chatbot_analytics Admins can view all chatbot analytics; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can view all chatbot analytics" ON public.chatbot_analytics FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM public.profiles p
+  WHERE ((p.user_id = auth.uid()) AND (EXISTS ( SELECT 1
+           FROM auth.users u
+          WHERE ((u.id = auth.uid()) AND ((u.raw_user_meta_data ->> 'role'::text) = 'admin'::text))))))));
+
+
+--
+-- Name: collections_cases Admins can view all collections cases; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can view all collections cases" ON public.collections_cases FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM public.user_roles ur
+  WHERE ((ur.user_id = auth.uid()) AND (ur.role = 'admin'::public.app_role)))));
 
 
 --
@@ -2749,6 +4337,13 @@ CREATE POLICY "Anyone can read platform settings" ON public.platform_settings FO
 
 
 --
+-- Name: unit_listings Anyone can view active listings; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Anyone can view active listings" ON public.unit_listings FOR SELECT USING ((status = 'active'::text));
+
+
+--
 -- Name: subscription_tiers Anyone can view active subscription tiers; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -2767,6 +4362,13 @@ CREATE POLICY "Anyone can view available products" ON public.products FOR SELECT
 --
 
 CREATE POLICY "Anyone can view likes" ON public.forum_likes FOR SELECT USING (true);
+
+
+--
+-- Name: maintenance_reviews Anyone can view reviews; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Anyone can view reviews" ON public.maintenance_reviews FOR SELECT USING (true);
 
 
 --
@@ -2830,6 +4432,15 @@ CREATE POLICY "Authors can update their comments" ON public.forum_comments FOR U
 --
 
 CREATE POLICY "Authors can update their posts" ON public.forum_posts FOR UPDATE USING (((author_id = auth.uid()) AND (is_locked = false)));
+
+
+--
+-- Name: pending_subscription_changes Merchants can cancel their pending changes; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Merchants can cancel their pending changes" ON public.pending_subscription_changes FOR UPDATE USING ((EXISTS ( SELECT 1
+   FROM public.merchants m
+  WHERE ((m.id = pending_subscription_changes.merchant_id) AND (m.user_id = auth.uid())))));
 
 
 --
@@ -2898,6 +4509,15 @@ CREATE POLICY "Merchants can insert their bank accounts" ON public.bank_accounts
 
 
 --
+-- Name: cancellation_feedback Merchants can insert their cancellation feedback; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Merchants can insert their cancellation feedback" ON public.cancellation_feedback FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
+   FROM public.merchants m
+  WHERE ((m.id = cancellation_feedback.merchant_id) AND (m.user_id = auth.uid())))));
+
+
+--
 -- Name: merchants Merchants can insert their own data; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -2923,6 +4543,15 @@ CREATE POLICY "Merchants can insert their own verifications" ON public.merchant_
 
 
 --
+-- Name: pending_subscription_changes Merchants can insert their pending changes; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Merchants can insert their pending changes" ON public.pending_subscription_changes FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
+   FROM public.merchants m
+  WHERE ((m.id = pending_subscription_changes.merchant_id) AND (m.user_id = auth.uid())))));
+
+
+--
 -- Name: units Merchants can insert their units; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -2930,6 +4559,45 @@ CREATE POLICY "Merchants can insert their units" ON public.units FOR INSERT TO a
    FROM (public.properties p
      JOIN public.merchants m ON ((m.id = p.merchant_id)))
   WHERE ((p.id = units.property_id) AND (m.user_id = auth.uid())))));
+
+
+--
+-- Name: deposit_refunds Merchants can manage deposit refunds; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Merchants can manage deposit refunds" ON public.deposit_refunds USING ((EXISTS ( SELECT 1
+   FROM (public.contracts c
+     JOIN public.merchants m ON ((m.id = c.merchant_id)))
+  WHERE ((c.id = deposit_refunds.contract_id) AND (m.user_id = auth.uid())))));
+
+
+--
+-- Name: move_out_inspections Merchants can manage inspections; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Merchants can manage inspections" ON public.move_out_inspections USING ((EXISTS ( SELECT 1
+   FROM ((public.move_out_notices mon
+     JOIN public.contracts c ON ((c.id = mon.contract_id)))
+     JOIN public.merchants m ON ((m.id = c.merchant_id)))
+  WHERE ((mon.id = move_out_inspections.move_out_notice_id) AND (m.user_id = auth.uid())))));
+
+
+--
+-- Name: payment_plans Merchants can manage payment plans for their tenants; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Merchants can manage payment plans for their tenants" ON public.payment_plans USING ((EXISTS ( SELECT 1
+   FROM public.merchants m
+  WHERE ((m.id = payment_plans.merchant_id) AND (m.user_id = auth.uid())))));
+
+
+--
+-- Name: collections_cases Merchants can manage their collections cases; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Merchants can manage their collections cases" ON public.collections_cases USING ((EXISTS ( SELECT 1
+   FROM public.merchants m
+  WHERE ((m.id = collections_cases.merchant_id) AND (m.user_id = auth.uid())))));
 
 
 --
@@ -2960,6 +4628,15 @@ CREATE POLICY "Merchants can manage their invoices" ON public.invoices USING ((E
 
 
 --
+-- Name: unit_listings Merchants can manage their listings; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Merchants can manage their listings" ON public.unit_listings USING ((EXISTS ( SELECT 1
+   FROM public.merchants m
+  WHERE ((m.id = unit_listings.merchant_id) AND (m.user_id = auth.uid())))));
+
+
+--
 -- Name: maintenance_requests Merchants can manage their maintenance requests; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -2984,6 +4661,16 @@ CREATE POLICY "Merchants can manage their payments" ON public.payments USING ((E
 CREATE POLICY "Merchants can update jobs for their requests" ON public.vendor_jobs FOR UPDATE USING ((EXISTS ( SELECT 1
    FROM public.merchants m
   WHERE ((m.id = vendor_jobs.merchant_id) AND (m.user_id = auth.uid())))));
+
+
+--
+-- Name: move_out_notices Merchants can update move-out notices; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Merchants can update move-out notices" ON public.move_out_notices FOR UPDATE USING ((EXISTS ( SELECT 1
+   FROM (public.contracts c
+     JOIN public.merchants m ON ((m.id = c.merchant_id)))
+  WHERE ((c.id = move_out_notices.contract_id) AND (m.user_id = auth.uid())))));
 
 
 --
@@ -3022,6 +4709,37 @@ CREATE POLICY "Merchants can update their units" ON public.units FOR UPDATE TO a
 
 
 --
+-- Name: deposit_disputes Merchants can view and respond to disputes; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Merchants can view and respond to disputes" ON public.deposit_disputes USING ((EXISTS ( SELECT 1
+   FROM ((public.deposit_refunds dr
+     JOIN public.contracts c ON ((c.id = dr.contract_id)))
+     JOIN public.merchants m ON ((m.id = c.merchant_id)))
+  WHERE ((dr.id = deposit_disputes.deposit_refund_id) AND (m.user_id = auth.uid())))));
+
+
+--
+-- Name: early_termination_requests Merchants can view and update early termination requests; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Merchants can view and update early termination requests" ON public.early_termination_requests USING ((EXISTS ( SELECT 1
+   FROM (public.contracts c
+     JOIN public.merchants m ON ((m.id = c.merchant_id)))
+  WHERE ((c.id = early_termination_requests.contract_id) AND (m.user_id = auth.uid())))));
+
+
+--
+-- Name: payment_plan_installments Merchants can view installments for their payment plans; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Merchants can view installments for their payment plans" ON public.payment_plan_installments FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM (public.payment_plans pp
+     JOIN public.merchants m ON ((pp.merchant_id = m.id)))
+  WHERE ((pp.id = payment_plan_installments.payment_plan_id) AND (m.user_id = auth.uid())))));
+
+
+--
 -- Name: vendor_jobs Merchants can view jobs for their requests; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -3031,12 +4749,52 @@ CREATE POLICY "Merchants can view jobs for their requests" ON public.vendor_jobs
 
 
 --
+-- Name: late_fee_records Merchants can view late fee records for their invoices; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Merchants can view late fee records for their invoices" ON public.late_fee_records FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM (public.invoices i
+     JOIN public.merchants m ON ((i.merchant_id = m.id)))
+  WHERE ((i.id = late_fee_records.invoice_id) AND (m.user_id = auth.uid())))));
+
+
+--
+-- Name: move_out_notices Merchants can view move-out notices for their contracts; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Merchants can view move-out notices for their contracts" ON public.move_out_notices FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM (public.contracts c
+     JOIN public.merchants m ON ((m.id = c.merchant_id)))
+  WHERE ((c.id = move_out_notices.contract_id) AND (m.user_id = auth.uid())))));
+
+
+--
+-- Name: move_out_tasks Merchants can view move-out tasks; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Merchants can view move-out tasks" ON public.move_out_tasks FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM ((public.move_out_notices mon
+     JOIN public.contracts c ON ((c.id = mon.contract_id)))
+     JOIN public.merchants m ON ((m.id = c.merchant_id)))
+  WHERE ((mon.id = move_out_tasks.move_out_notice_id) AND (m.user_id = auth.uid())))));
+
+
+--
 -- Name: bank_accounts Merchants can view their bank accounts; Type: POLICY; Schema: public; Owner: -
 --
 
 CREATE POLICY "Merchants can view their bank accounts" ON public.bank_accounts FOR SELECT USING ((EXISTS ( SELECT 1
    FROM public.merchants m
   WHERE ((m.id = bank_accounts.merchant_id) AND (m.user_id = auth.uid())))));
+
+
+--
+-- Name: cancellation_feedback Merchants can view their cancellation feedback; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Merchants can view their cancellation feedback" ON public.cancellation_feedback FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM public.merchants m
+  WHERE ((m.id = cancellation_feedback.merchant_id) AND (m.user_id = auth.uid())))));
 
 
 --
@@ -3075,6 +4833,15 @@ CREATE POLICY "Merchants can view their own data" ON public.merchants FOR SELECT
 
 
 --
+-- Name: merchant_verification_history Merchants can view their own history; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Merchants can view their own history" ON public.merchant_verification_history FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM public.merchants m
+  WHERE ((m.id = merchant_verification_history.merchant_id) AND (m.user_id = auth.uid())))));
+
+
+--
 -- Name: properties Merchants can view their own properties; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -3093,12 +4860,30 @@ CREATE POLICY "Merchants can view their own verifications" ON public.merchant_ve
 
 
 --
+-- Name: pending_subscription_changes Merchants can view their pending changes; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Merchants can view their pending changes" ON public.pending_subscription_changes FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM public.merchants m
+  WHERE ((m.id = pending_subscription_changes.merchant_id) AND (m.user_id = auth.uid())))));
+
+
+--
 -- Name: merchant_subscriptions Merchants can view their subscription; Type: POLICY; Schema: public; Owner: -
 --
 
 CREATE POLICY "Merchants can view their subscription" ON public.merchant_subscriptions FOR SELECT USING ((EXISTS ( SELECT 1
    FROM public.merchants m
   WHERE ((m.id = merchant_subscriptions.merchant_id) AND (m.user_id = auth.uid())))));
+
+
+--
+-- Name: subscription_invoices Merchants can view their subscription invoices; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Merchants can view their subscription invoices" ON public.subscription_invoices FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM public.merchants m
+  WHERE ((m.id = subscription_invoices.merchant_id) AND (m.user_id = auth.uid())))));
 
 
 --
@@ -3139,6 +4924,20 @@ CREATE POLICY "Merchants can view verified vendors" ON public.vendors FOR SELECT
 
 
 --
+-- Name: referrals Referees can update their referral status; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Referees can update their referral status" ON public.referrals FOR UPDATE USING ((referee_user_id = auth.uid()));
+
+
+--
+-- Name: referral_commissions Referrers can view their commissions; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Referrers can view their commissions" ON public.referral_commissions FOR SELECT USING ((referrer_id = auth.uid()));
+
+
+--
 -- Name: notifications System can create notifications; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -3160,10 +4959,31 @@ CREATE POLICY "System can insert audit logs" ON public.audit_logs FOR INSERT WIT
 
 
 --
+-- Name: move_out_timeline System can insert timeline entries; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "System can insert timeline entries" ON public.move_out_timeline FOR INSERT WITH CHECK (true);
+
+
+--
 -- Name: vendor_earnings System can insert vendor earnings; Type: POLICY; Schema: public; Owner: -
 --
 
 CREATE POLICY "System can insert vendor earnings" ON public.vendor_earnings FOR INSERT WITH CHECK (true);
+
+
+--
+-- Name: vouchers System can insert vouchers; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "System can insert vouchers" ON public.vouchers FOR INSERT WITH CHECK (true);
+
+
+--
+-- Name: referral_commissions System can manage commissions; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "System can manage commissions" ON public.referral_commissions USING (true);
 
 
 --
@@ -3195,6 +5015,15 @@ CREATE POLICY "Tenants can create orders" ON public.orders FOR INSERT WITH CHECK
 
 
 --
+-- Name: maintenance_reviews Tenants can create reviews for their completed requests; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Tenants can create reviews for their completed requests" ON public.maintenance_reviews FOR INSERT WITH CHECK (((tenant_user_id = auth.uid()) AND (EXISTS ( SELECT 1
+   FROM public.maintenance_requests mr
+  WHERE ((mr.id = maintenance_reviews.maintenance_request_id) AND (mr.tenant_user_id = auth.uid()) AND (mr.status = 'completed'::text))))));
+
+
+--
 -- Name: order_reviews Tenants can create reviews for their orders; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -3213,6 +5042,59 @@ CREATE POLICY "Tenants can create updates for their requests" ON public.maintena
 
 
 --
+-- Name: deposit_disputes Tenants can manage their deposit disputes; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Tenants can manage their deposit disputes" ON public.deposit_disputes USING ((tenant_user_id = auth.uid()));
+
+
+--
+-- Name: early_termination_requests Tenants can manage their early termination requests; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Tenants can manage their early termination requests" ON public.early_termination_requests USING ((tenant_user_id = auth.uid()));
+
+
+--
+-- Name: move_out_notices Tenants can manage their move-out notices; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Tenants can manage their move-out notices" ON public.move_out_notices USING ((tenant_user_id = auth.uid()));
+
+
+--
+-- Name: move_out_tasks Tenants can manage their move-out tasks; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Tenants can manage their move-out tasks" ON public.move_out_tasks USING ((EXISTS ( SELECT 1
+   FROM public.move_out_notices mon
+  WHERE ((mon.id = move_out_tasks.move_out_notice_id) AND (mon.tenant_user_id = auth.uid())))));
+
+
+--
+-- Name: deposit_refunds Tenants can update bank details; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Tenants can update bank details" ON public.deposit_refunds FOR UPDATE USING ((tenant_user_id = auth.uid()));
+
+
+--
+-- Name: move_out_inspections Tenants can update inspection confirmation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Tenants can update inspection confirmation" ON public.move_out_inspections FOR UPDATE USING ((EXISTS ( SELECT 1
+   FROM public.move_out_notices mon
+  WHERE ((mon.id = move_out_inspections.move_out_notice_id) AND (mon.tenant_user_id = auth.uid())))));
+
+
+--
+-- Name: payment_plans Tenants can update their payment plans (accept/decline); Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Tenants can update their payment plans (accept/decline)" ON public.payment_plans FOR UPDATE USING ((tenant_user_id = auth.uid())) WITH CHECK ((tenant_user_id = auth.uid()));
+
+
+--
 -- Name: maintenance_requests Tenants can update their pending maintenance requests; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -3220,10 +5102,24 @@ CREATE POLICY "Tenants can update their pending maintenance requests" ON public.
 
 
 --
+-- Name: payment_plans Tenants can view and update their payment plans; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Tenants can view and update their payment plans" ON public.payment_plans FOR SELECT USING ((tenant_user_id = auth.uid()));
+
+
+--
 -- Name: contracts Tenants can view their contracts; Type: POLICY; Schema: public; Owner: -
 --
 
 CREATE POLICY "Tenants can view their contracts" ON public.contracts FOR SELECT USING ((tenant_user_id = auth.uid()));
+
+
+--
+-- Name: deposit_refunds Tenants can view their deposit refunds; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Tenants can view their deposit refunds" ON public.deposit_refunds FOR SELECT USING ((tenant_user_id = auth.uid()));
 
 
 --
@@ -3252,6 +5148,24 @@ CREATE POLICY "Tenants can view their maintenance requests" ON public.maintenanc
 --
 
 CREATE POLICY "Tenants can view their orders" ON public.orders FOR SELECT USING ((tenant_user_id = auth.uid()));
+
+
+--
+-- Name: payment_plan_installments Tenants can view their own installments; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Tenants can view their own installments" ON public.payment_plan_installments FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM public.payment_plans pp
+  WHERE ((pp.id = payment_plan_installments.payment_plan_id) AND (pp.tenant_user_id = auth.uid())))));
+
+
+--
+-- Name: late_fee_records Tenants can view their own late fee records; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Tenants can view their own late fee records" ON public.late_fee_records FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM public.invoices i
+  WHERE ((i.id = late_fee_records.invoice_id) AND (i.tenant_user_id = auth.uid())))));
 
 
 --
@@ -3292,10 +5206,30 @@ CREATE POLICY "Users can insert messages in their conversations" ON public.chat_
 
 
 --
+-- Name: chatbot_analytics Users can insert own chatbot analytics; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can insert own chatbot analytics" ON public.chatbot_analytics FOR INSERT WITH CHECK ((auth.uid() = user_id));
+
+
+--
 -- Name: tenants Users can insert their own tenant profile; Type: POLICY; Schema: public; Owner: -
 --
 
 CREATE POLICY "Users can insert their own tenant profile" ON public.tenants FOR INSERT WITH CHECK ((user_id = auth.uid()));
+
+
+--
+-- Name: maintenance_timeline Users can insert timeline entries for their requests; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can insert timeline entries for their requests" ON public.maintenance_timeline FOR INSERT WITH CHECK (((actor_id = auth.uid()) AND (EXISTS ( SELECT 1
+   FROM public.maintenance_requests mr
+  WHERE ((mr.id = maintenance_timeline.maintenance_request_id) AND ((mr.tenant_user_id = auth.uid()) OR (EXISTS ( SELECT 1
+           FROM public.merchants m
+          WHERE ((m.id = mr.merchant_id) AND (m.user_id = auth.uid())))) OR (EXISTS ( SELECT 1
+           FROM public.vendors v
+          WHERE ((v.id = mr.assigned_vendor_id) AND (v.user_id = auth.uid()))))))))));
 
 
 --
@@ -3334,12 +5268,38 @@ CREATE POLICY "Users can update their own tenant profile" ON public.tenants FOR 
 
 
 --
+-- Name: vouchers Users can update their vouchers (use them); Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can update their vouchers (use them)" ON public.vouchers FOR UPDATE USING ((owner_id = auth.uid()));
+
+
+--
 -- Name: chat_messages Users can view messages in their conversations; Type: POLICY; Schema: public; Owner: -
 --
 
 CREATE POLICY "Users can view messages in their conversations" ON public.chat_messages FOR SELECT USING ((EXISTS ( SELECT 1
    FROM public.chat_conversations cc
   WHERE ((cc.id = chat_messages.conversation_id) AND (cc.user_id = auth.uid())))));
+
+
+--
+-- Name: chatbot_analytics Users can view own chatbot analytics; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view own chatbot analytics" ON public.chatbot_analytics FOR SELECT USING ((auth.uid() = user_id));
+
+
+--
+-- Name: move_out_inspections Users can view their inspections; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view their inspections" ON public.move_out_inspections FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM public.move_out_notices mon
+  WHERE ((mon.id = move_out_inspections.move_out_notice_id) AND ((mon.tenant_user_id = auth.uid()) OR (EXISTS ( SELECT 1
+           FROM (public.contracts c
+             JOIN public.merchants m ON ((m.id = c.merchant_id)))
+          WHERE ((c.id = mon.contract_id) AND (m.user_id = auth.uid())))))))));
 
 
 --
@@ -3403,6 +5363,38 @@ CREATE POLICY "Users can view their reports" ON public.forum_reports FOR SELECT 
 --
 
 CREATE POLICY "Users can view their rewards" ON public.referral_rewards FOR SELECT USING ((user_id = auth.uid()));
+
+
+--
+-- Name: vouchers Users can view their vouchers; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view their vouchers" ON public.vouchers FOR SELECT USING ((owner_id = auth.uid()));
+
+
+--
+-- Name: move_out_timeline Users can view timeline for their move-outs; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view timeline for their move-outs" ON public.move_out_timeline FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM public.move_out_notices mon
+  WHERE ((mon.id = move_out_timeline.move_out_notice_id) AND ((mon.tenant_user_id = auth.uid()) OR (EXISTS ( SELECT 1
+           FROM (public.contracts c
+             JOIN public.merchants m ON ((m.id = c.merchant_id)))
+          WHERE ((c.id = mon.contract_id) AND (m.user_id = auth.uid())))))))));
+
+
+--
+-- Name: maintenance_timeline Users can view timeline for their requests; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view timeline for their requests" ON public.maintenance_timeline FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM public.maintenance_requests mr
+  WHERE ((mr.id = maintenance_timeline.maintenance_request_id) AND ((mr.tenant_user_id = auth.uid()) OR (EXISTS ( SELECT 1
+           FROM public.merchants m
+          WHERE ((m.id = mr.merchant_id) AND (m.user_id = auth.uid())))) OR (EXISTS ( SELECT 1
+           FROM public.vendors v
+          WHERE ((v.id = mr.assigned_vendor_id) AND (v.user_id = auth.uid())))))))));
 
 
 --
@@ -3582,6 +5574,12 @@ ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bank_accounts ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: cancellation_feedback; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.cancellation_feedback ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: chat_conversations; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -3594,16 +5592,40 @@ ALTER TABLE public.chat_conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: chatbot_analytics; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.chatbot_analytics ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: chatbot_knowledge; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.chatbot_knowledge ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: collections_cases; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.collections_cases ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: contracts; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.contracts ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: deposit_disputes; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.deposit_disputes ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: deposit_refunds; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.deposit_refunds ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: disbursements; Type: ROW SECURITY; Schema: public; Owner: -
@@ -3616,6 +5638,12 @@ ALTER TABLE public.disbursements ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.disputes ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: early_termination_requests; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.early_termination_requests ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: escrow_accounts; Type: ROW SECURITY; Schema: public; Owner: -
@@ -3660,10 +5688,28 @@ ALTER TABLE public.forum_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.invoices ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: late_fee_records; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.late_fee_records ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: maintenance_requests; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.maintenance_requests ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: maintenance_reviews; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.maintenance_reviews ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: maintenance_timeline; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.maintenance_timeline ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: maintenance_updates; Type: ROW SECURITY; Schema: public; Owner: -
@@ -3678,6 +5724,12 @@ ALTER TABLE public.maintenance_updates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.merchant_subscriptions ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: merchant_verification_history; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.merchant_verification_history ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: merchant_verifications; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -3688,6 +5740,30 @@ ALTER TABLE public.merchant_verifications ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.merchants ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: move_out_inspections; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.move_out_inspections ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: move_out_notices; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.move_out_notices ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: move_out_tasks; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.move_out_tasks ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: move_out_timeline; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.move_out_timeline ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: notifications; Type: ROW SECURITY; Schema: public; Owner: -
@@ -3708,10 +5784,28 @@ ALTER TABLE public.order_reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: payment_plan_installments; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.payment_plan_installments ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: payment_plans; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.payment_plans ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: payments; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: pending_subscription_changes; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.pending_subscription_changes ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: platform_settings; Type: ROW SECURITY; Schema: public; Owner: -
@@ -3738,6 +5832,12 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.properties ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: referral_commissions; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.referral_commissions ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: referral_rewards; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -3748,6 +5848,12 @@ ALTER TABLE public.referral_rewards ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.referrals ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: subscription_invoices; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.subscription_invoices ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: subscription_tiers; Type: ROW SECURITY; Schema: public; Owner: -
@@ -3766,6 +5872,12 @@ ALTER TABLE public.tenant_invitations ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.tenants ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: unit_listings; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.unit_listings ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: units; Type: ROW SECURITY; Schema: public; Owner: -
@@ -3808,6 +5920,12 @@ ALTER TABLE public.vendor_verifications ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.vendors ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: vouchers; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.vouchers ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: xendit_transactions; Type: ROW SECURITY; Schema: public; Owner: -
