@@ -31,7 +31,7 @@ export function useSubscriptionLimits() {
         .from('merchant_subscriptions')
         .select('*, tier:subscription_tiers(*)')
         .eq('merchant_id', merchant.id)
-        .single();
+        .maybeSingle();
 
       // Get current counts
       const [propertiesRes, unitsRes, contractsRes] = await Promise.all([
