@@ -28,6 +28,9 @@ interface NotificationRequest {
     | "auto_pay_invoice"
     | "verification_approved"
     | "verification_rejected"
+    | "payment_plan_offered"
+    | "payment_plan_accepted"
+    | "payment_plan_defaulted"
     | "general";
   recipientEmail: string;
   recipientName: string;
@@ -672,6 +675,71 @@ const getEmailTemplate = (type: string, data: Record<string, any>, recipientName
               <a href="${data.dashboardLink || '#'}" style="display: inline-block; background: #0891b2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 15px;">Perbaiki & Ajukan Kembali</a>
               
               <p style="color: #9ca3af; font-size: 12px; margin-top: 30px;">Jika Anda memiliki pertanyaan, silakan hubungi tim support kami.</p>
+            </div>
+          </div>
+        `,
+      };
+
+    // Payment Plan Offered
+    case "payment_plan_offered":
+      return {
+        subject: `📋 Penawaran Cicilan - Invoice #${data.invoiceNumber}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #0891b2 0%, #065f73 100%); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">📋 Penawaran Cicilan</h1>
+            </div>
+            <div style="padding: 30px; background: #f9fafb;">
+              <p>Hi ${recipientName},</p>
+              <p>Merchant Anda menawarkan rencana cicilan untuk invoice yang tertunggak.</p>
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                <p><strong>Invoice #:</strong> ${data.invoiceNumber}</p>
+                <p><strong>Total Tagihan:</strong> ${formatCurrency(data.totalAmount)}</p>
+                <p><strong>Jumlah Cicilan:</strong> ${data.installmentCount}x @ ${formatCurrency(data.installmentAmount)}</p>
+                <p><strong>Frekuensi:</strong> ${data.frequency}</p>
+                ${data.lateFeeWaived ? `<p style="color: #10b981;">✓ Denda ${formatCurrency(data.waivedAmount)} dihapuskan!</p>` : ''}
+              </div>
+              <a href="${data.invoiceLink || '#'}" style="display: inline-block; background: #0891b2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">Lihat Penawaran</a>
+            </div>
+          </div>
+        `,
+      };
+
+    // Payment Plan Accepted
+    case "payment_plan_accepted":
+      return {
+        subject: `✅ Cicilan Diterima - Invoice #${data.invoiceNumber}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">✅ Cicilan Diterima</h1>
+            </div>
+            <div style="padding: 30px; background: #f9fafb;">
+              <p>Hi ${recipientName},</p>
+              <p>Penyewa telah menerima rencana cicilan untuk invoice ${data.invoiceNumber}.</p>
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                <p><strong>Total:</strong> ${formatCurrency(data.totalAmount)}</p>
+                <p><strong>Cicilan:</strong> ${data.installmentCount}x @ ${formatCurrency(data.installmentAmount)}</p>
+              </div>
+            </div>
+          </div>
+        `,
+      };
+
+    // Payment Plan Defaulted
+    case "payment_plan_defaulted":
+      return {
+        subject: `❌ Cicilan Gagal - Invoice #${data.invoiceNumber}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">❌ Rencana Cicilan Gagal</h1>
+            </div>
+            <div style="padding: 30px; background: #f9fafb;">
+              <p>Hi ${recipientName},</p>
+              <p>Rencana cicilan untuk invoice ${data.invoiceNumber} telah dibatalkan karena cicilan tidak dibayar tepat waktu.</p>
+              <p style="color: #dc2626;">Tagihan penuh kembali berlaku.</p>
+              <a href="${data.invoiceLink || '#'}" style="display: inline-block; background: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">Lihat Invoice</a>
             </div>
           </div>
         `,

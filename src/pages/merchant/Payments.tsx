@@ -11,9 +11,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Search, DollarSign, Clock, CheckCircle, XCircle, Calendar, Bell, Loader2 } from 'lucide-react';
+import { Search, DollarSign, Clock, CheckCircle, XCircle, Calendar, Bell, Loader2, CreditCard, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
+import { PaymentPlanDialog } from '@/components/merchant/PaymentPlanDialog';
 
 type Payment = {
   id: string;
@@ -29,6 +31,18 @@ type Payment = {
   tenant_user_id: string;
 };
 
+type OverdueInvoice = {
+  id: string;
+  invoice_number: string;
+  amount: number;
+  total_amount: number;
+  late_fee: number;
+  due_date: string;
+  tenant_user_id: string;
+  overdue_since: string | null;
+  grace_period_active: boolean;
+};
+
 export default function MerchantPayments() {
   const { merchant } = useAuth();
   const { toast } = useToast();
@@ -38,6 +52,7 @@ export default function MerchantPayments() {
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [paymentMethod, setPaymentMethod] = useState('');
   const [reference, setReference] = useState('');
+  const [paymentPlanInvoice, setPaymentPlanInvoice] = useState<OverdueInvoice | null>(null);
 
   const { data: payments = [], isLoading } = useQuery({
     queryKey: ['payments', merchant?.id],
@@ -50,6 +65,26 @@ export default function MerchantPayments() {
         .order('due_date', { ascending: false });
       if (error) throw error;
       return data as Payment[];
+    },
+    enabled: !!merchant?.id,
+  });
+
+  // Fetch overdue invoices for payment plan
+  const { data: overdueInvoices = [] } = useQuery({
+    queryKey: ['overdue-invoices', merchant?.id],
+    queryFn: async () => {
+      if (!merchant?.id) return [];
+      const today = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('id, invoice_number, amount, total_amount, late_fee, due_date, tenant_user_id, overdue_since, grace_period_active')
+        .eq('merchant_id', merchant.id)
+        .eq('status', 'pending')
+        .lt('due_date', today)
+        .is('payment_plan_id', null)
+        .order('due_date', { ascending: true });
+      if (error) throw error;
+      return data as OverdueInvoice[];
     },
     enabled: !!merchant?.id,
   });
@@ -109,6 +144,32 @@ export default function MerchantPayments() {
     onError: (error: Error) => {
       toast({ title: 'Failed to send reminder', description: error.message, variant: 'destructive' });
       setSendingReminderId(null);
+    },
+  });
+
+  // Bulk reminder mutation
+  const [sendingBulkReminder, setSendingBulkReminder] = useState(false);
+  const sendBulkReminderMutation = useMutation({
+    mutationFn: async () => {
+      setSendingBulkReminder(true);
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/check-overdue-escalation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: 'manual', merchantId: merchant?.id }),
+      });
+      if (!response.ok) throw new Error('Failed to send reminders');
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({ 
+        title: 'Reminders Sent', 
+        description: `Processed ${data.processed || 0} overdue invoices.` 
+      });
+      setSendingBulkReminder(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed to send reminders', description: error.message, variant: 'destructive' });
+      setSendingBulkReminder(false);
     },
   });
 
@@ -218,7 +279,7 @@ export default function MerchantPayments() {
           </Card>
         </div>
 
-        {/* Filters */}
+        {/* Filters and Bulk Actions */}
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -240,8 +301,36 @@ export default function MerchantPayments() {
               <SelectItem value="overdue">Overdue</SelectItem>
             </SelectContent>
           </Select>
+          {overdueInvoices.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => sendBulkReminderMutation.mutate()}
+              disabled={sendingBulkReminder}
+            >
+              {sendingBulkReminder ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Bell className="h-4 w-4 mr-2" />
+              )}
+              Send All Reminders ({overdueInvoices.length})
+            </Button>
+          )}
         </div>
 
+        <Tabs defaultValue="payments" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="payments">Payments</TabsTrigger>
+            <TabsTrigger value="overdue" className="relative">
+              Overdue Invoices
+              {overdueInvoices.length > 0 && (
+                <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                  {overdueInvoices.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="payments">
         {/* Payments Table */}
         <Card>
           <CardContent className="p-0">
@@ -322,6 +411,78 @@ export default function MerchantPayments() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="overdue">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                  Overdue Invoices - Payment Plan Options
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {overdueInvoices.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                    <p>No overdue invoices! All payments are on track.</p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Invoice #</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Late Fee</TableHead>
+                        <TableHead>Total</TableHead>
+                        <TableHead>Due Date</TableHead>
+                        <TableHead>Days Overdue</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {overdueInvoices.map((invoice) => {
+                        const daysOverdue = Math.floor(
+                          (new Date().getTime() - new Date(invoice.due_date).getTime()) / (1000 * 60 * 60 * 24)
+                        );
+                        return (
+                          <TableRow key={invoice.id}>
+                            <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
+                            <TableCell>{formatCurrency(Number(invoice.amount))}</TableCell>
+                            <TableCell>
+                              {invoice.late_fee > 0 ? (
+                                <Badge variant="destructive">+{formatCurrency(Number(invoice.late_fee))}</Badge>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="font-semibold">{formatCurrency(Number(invoice.total_amount))}</TableCell>
+                            <TableCell>{format(new Date(invoice.due_date), 'MMM d, yyyy')}</TableCell>
+                            <TableCell>
+                              <Badge variant={daysOverdue > 7 ? 'destructive' : 'secondary'}>
+                                {daysOverdue} days
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPaymentPlanInvoice(invoice)}
+                              >
+                                <CreditCard className="h-4 w-4 mr-1" />
+                                Setup Payment Plan
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Mark Paid Dialog */}
@@ -371,6 +532,20 @@ export default function MerchantPayments() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Payment Plan Dialog */}
+      <PaymentPlanDialog
+        open={!!paymentPlanInvoice}
+        onOpenChange={(open) => !open && setPaymentPlanInvoice(null)}
+        invoice={paymentPlanInvoice ? {
+          id: paymentPlanInvoice.id,
+          invoice_number: paymentPlanInvoice.invoice_number,
+          total_amount: paymentPlanInvoice.total_amount,
+          late_fee: paymentPlanInvoice.late_fee || 0,
+          tenant_user_id: paymentPlanInvoice.tenant_user_id,
+          merchant_id: merchant?.id || '',
+        } : null}
+      />
     </MerchantLayout>
   );
 }
