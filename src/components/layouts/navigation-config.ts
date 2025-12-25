@@ -23,6 +23,7 @@ import {
   Menu,
   LucideIcon,
   Command,
+  LogOut,
 } from "lucide-react";
 
 export type UserRole = "tenant" | "merchant" | "vendor" | "admin";
@@ -113,6 +114,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/merchant/invoices", icon: FileText, label: "Invoices" },
           { path: "/merchant/payments", icon: Wallet, label: "Payments" },
           { path: "/merchant/maintenance", icon: Wrench, label: "Maintenance" },
+          { path: "/merchant/move-outs", icon: LogOut, label: "Move-Outs" },
           { path: "/merchant/reports", icon: BarChart3, label: "Reports" },
         ],
       },

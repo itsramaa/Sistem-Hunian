@@ -26,7 +26,10 @@ interface MoveOutNoticeDialogProps {
     deposit_amount: number;
     notice_period_days?: number;
     early_termination_penalty_rate?: number;
+    isEarlyTermination?: boolean;
   };
+  isEarlyTermination?: boolean;
+  onSuccess?: () => void;
 }
 
 const MOVE_OUT_REASONS = [
@@ -37,7 +40,7 @@ const MOVE_OUT_REASONS = [
   { value: "other", label: "Other" },
 ];
 
-export function MoveOutNoticeDialog({ open, onOpenChange, contract }: MoveOutNoticeDialogProps) {
+export function MoveOutNoticeDialog({ open, onOpenChange, contract, isEarlyTermination: forceEarlyTermination, onSuccess }: MoveOutNoticeDialogProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [moveOutDate, setMoveOutDate] = useState<Date | undefined>();
@@ -147,6 +150,7 @@ export function MoveOutNoticeDialog({ open, onOpenChange, contract }: MoveOutNot
       toast.success("Move-out notice submitted successfully");
       queryClient.invalidateQueries({ queryKey: ["tenant-contracts"] });
       queryClient.invalidateQueries({ queryKey: ["move-out-notice"] });
+      onSuccess?.();
       onOpenChange(false);
     } catch (error: any) {
       console.error("Error submitting move-out notice:", error);

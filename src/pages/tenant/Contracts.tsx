@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { TenantLayout } from "@/components/layouts/TenantLayout";
@@ -6,15 +7,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { FileText, Calendar, Home, Download, DollarSign, PenLine, CheckCircle } from "lucide-react";
+import { FileText, Calendar, Home, Download, DollarSign, PenLine, CheckCircle, LogOut, AlertTriangle } from "lucide-react";
 import { ContractCardSkeleton } from "@/components/ui/skeletons";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
+import { MoveOutNoticeDialog } from "@/components/tenant/MoveOutNoticeDialog";
+import { MoveOutDashboard } from "@/components/tenant/MoveOutDashboard";
 
 const TenantContracts = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [moveOutDialogOpen, setMoveOutDialogOpen] = useState(false);
+  const [selectedContract, setSelectedContract] = useState<any>(null);
 
-  const { data: contracts, isLoading } = useQuery({
+  const { data: contracts, isLoading, refetch } = useQuery({
     queryKey: ['tenant-contracts', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -141,7 +146,7 @@ const TenantContracts = () => {
                 </div>
               )}
 
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 {!activeContract.tenant_signature_url && (
                   <Button onClick={() => navigate(`/tenant/sign-contract/${activeContract.id}`)}>
                     <PenLine className="h-4 w-4 mr-2" />
@@ -154,7 +159,6 @@ const TenantContracts = () => {
                     if (activeContract.contract_document_url) {
                       window.open(activeContract.contract_document_url, '_blank');
                     } else {
-                      // Generate PDF via edge function if no document URL
                       window.open(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-invoice-pdf?contract_id=${activeContract.id}`, '_blank');
                     }
                   }}
@@ -162,9 +166,40 @@ const TenantContracts = () => {
                   <Download className="h-4 w-4 mr-2" />
                   Download Contract
                 </Button>
+                
+                {!activeContract.move_out_notice_given && (
+                  <>
+                    <Button 
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedContract(activeContract);
+                        setMoveOutDialogOpen(true);
+                      }}
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Give Move-Out Notice
+                    </Button>
+                    {differenceInDays(new Date(activeContract.end_date), new Date()) > 30 && (
+                      <Button 
+                        variant="destructive"
+                        onClick={() => {
+                          setSelectedContract({ ...activeContract, isEarlyTermination: true });
+                          setMoveOutDialogOpen(true);
+                        }}
+                      >
+                        <AlertTriangle className="h-4 w-4 mr-2" />
+                        Request Early Termination
+                      </Button>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </Card>
+          
+          {activeContract.move_out_notice_given && (
+            <MoveOutDashboard contractId={activeContract.id} />
+          )}
         </section>
       )}
 
@@ -211,6 +246,19 @@ const TenantContracts = () => {
             <p className="text-muted-foreground">You don't have any rental contracts yet.</p>
           </CardContent>
         </Card>
+      )}
+      
+      {selectedContract && (
+        <MoveOutNoticeDialog 
+          open={moveOutDialogOpen}
+          onOpenChange={setMoveOutDialogOpen}
+          contract={selectedContract}
+          isEarlyTermination={selectedContract?.isEarlyTermination}
+          onSuccess={() => {
+            refetch();
+            setMoveOutDialogOpen(false);
+          }}
+        />
       )}
     </TenantLayout>
   );

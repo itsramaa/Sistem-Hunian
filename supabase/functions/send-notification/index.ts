@@ -31,6 +31,14 @@ interface NotificationRequest {
     | "payment_plan_offered"
     | "payment_plan_accepted"
     | "payment_plan_defaulted"
+    | "move_out_notice_received"
+    | "move_out_notice_confirmed"
+    | "inspection_scheduled"
+    | "inspection_completed"
+    | "deposit_refunded"
+    | "early_termination_approved"
+    | "early_termination_denied"
+    | "vacancy_alert"
     | "general";
   recipientEmail: string;
   recipientName: string;
@@ -740,6 +748,226 @@ const getEmailTemplate = (type: string, data: Record<string, any>, recipientName
               <p>Rencana cicilan untuk invoice ${data.invoiceNumber} telah dibatalkan karena cicilan tidak dibayar tepat waktu.</p>
               <p style="color: #dc2626;">Tagihan penuh kembali berlaku.</p>
               <a href="${data.invoiceLink || '#'}" style="display: inline-block; background: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">Lihat Invoice</a>
+            </div>
+          </div>
+        `,
+      };
+
+    // Move-Out Notice Received (for merchant)
+    case "move_out_notice_received":
+      return {
+        subject: `📦 Move-Out Notice Received - Unit ${data.unitNumber}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">📦 Move-Out Notice</h1>
+            </div>
+            <div style="padding: 30px; background: #f9fafb;">
+              <p>Hi ${recipientName},</p>
+              <p>A tenant has submitted a move-out notice.</p>
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                <p><strong>Tenant:</strong> ${data.tenantName}</p>
+                <p><strong>Property:</strong> ${data.propertyName} - Unit ${data.unitNumber}</p>
+                <p><strong>Move-out date:</strong> ${data.moveOutDate}</p>
+                <p><strong>Notice given:</strong> ${data.daysNotice} days in advance ${data.daysNotice >= 30 ? '✓' : '⚠️'}</p>
+                ${data.isEarlyTermination ? `<p style="color: #dc2626;"><strong>Early Termination:</strong> Yes - Penalty: ${formatCurrency(data.penaltyAmount)}</p>` : ''}
+                ${data.reason ? `<p><strong>Reason:</strong> ${data.reason}</p>` : ''}
+              </div>
+              <p><strong>Actions needed:</strong></p>
+              <ul>
+                <li>Schedule final inspection</li>
+                <li>Process security deposit</li>
+                <li>Prepare unit for re-listing</li>
+              </ul>
+              <a href="${data.dashboardLink || '/merchant/move-outs'}" style="display: inline-block; background: #0891b2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">View Move-Out Details</a>
+            </div>
+          </div>
+        `,
+      };
+
+    // Move-Out Notice Confirmed (for tenant)
+    case "move_out_notice_confirmed":
+      return {
+        subject: `✅ Move-Out Notice Confirmed - ${data.propertyName}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">✅ Notice Confirmed</h1>
+            </div>
+            <div style="padding: 30px; background: #f9fafb;">
+              <p>Hi ${recipientName},</p>
+              <p>Your move-out notice has been received and confirmed.</p>
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                <p><strong>Property:</strong> ${data.propertyName} - Unit ${data.unitNumber}</p>
+                <p><strong>Move-out date:</strong> ${data.moveOutDate}</p>
+                <p><strong>Inspection (tentative):</strong> ${data.inspectionDate}</p>
+                <p><strong>Deposit return:</strong> Within 30 days of move-out</p>
+              </div>
+              <p><strong>📋 Your Move-Out Checklist:</strong></p>
+              <ul>
+                <li>Schedule final inspection</li>
+                <li>Deep clean the unit</li>
+                <li>Repair any damages</li>
+                <li>Return all keys</li>
+                <li>Take final utility readings</li>
+              </ul>
+              <a href="/tenant/contracts" style="display: inline-block; background: #0891b2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">View Checklist</a>
+            </div>
+          </div>
+        `,
+      };
+
+    // Inspection Scheduled
+    case "inspection_scheduled":
+      return {
+        subject: `🔍 Move-Out Inspection Scheduled - ${data.propertyName}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #0891b2 0%, #065f73 100%); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">🔍 Inspection Scheduled</h1>
+            </div>
+            <div style="padding: 30px; background: #f9fafb;">
+              <p>Hi ${recipientName},</p>
+              <p>Your move-out inspection has been scheduled.</p>
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                <p><strong>Date:</strong> ${data.inspectionDate}</p>
+                <p><strong>Time:</strong> ${data.inspectionTime}</p>
+                <p><strong>Property:</strong> ${data.propertyName} - Unit ${data.unitNumber}</p>
+                <p><strong>Inspector:</strong> ${data.inspectorName}</p>
+              </div>
+              <p><strong>What to prepare:</strong></p>
+              <ul>
+                <li>Clean unit thoroughly</li>
+                <li>Repair any damages</li>
+                <li>Be present (recommended)</li>
+                <li>Have keys ready to return</li>
+              </ul>
+            </div>
+          </div>
+        `,
+      };
+
+    // Inspection Completed
+    case "inspection_completed":
+      return {
+        subject: `📋 Inspection Report - ${data.propertyName}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">📋 Inspection Complete</h1>
+            </div>
+            <div style="padding: 30px; background: #f9fafb;">
+              <p>Hi ${recipientName},</p>
+              <p>The move-out inspection has been completed.</p>
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                <p><strong>Property:</strong> ${data.propertyName} - Unit ${data.unitNumber}</p>
+                <p><strong>Overall condition:</strong> ${data.condition}</p>
+                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 15px 0;">
+                <p><strong>Original deposit:</strong> ${formatCurrency(data.originalDeposit)}</p>
+                <p><strong>Deductions:</strong> ${formatCurrency(data.deductions)}</p>
+                <p style="font-size: 18px; color: #10b981;"><strong>Refund amount:</strong> ${formatCurrency(data.refundAmount)}</p>
+              </div>
+              <p>Your deposit refund will be processed within 30 days.</p>
+              <a href="/tenant/contracts" style="display: inline-block; background: #0891b2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">View Full Report</a>
+            </div>
+          </div>
+        `,
+      };
+
+    // Deposit Refunded
+    case "deposit_refunded":
+      return {
+        subject: `💰 Security Deposit Refunded - ${formatCurrency(data.refundAmount)}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">💰 Deposit Refunded!</h1>
+            </div>
+            <div style="padding: 30px; background: #f9fafb;">
+              <p>Hi ${recipientName},</p>
+              <p>Your security deposit has been refunded!</p>
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                <p><strong>Amount:</strong> <span style="font-size: 24px; color: #10b981;">${formatCurrency(data.refundAmount)}</span></p>
+                <p><strong>Bank:</strong> ${data.bankName} xxx-${data.accountNumber}</p>
+                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 15px 0;">
+                <p><strong>Breakdown:</strong></p>
+                <p>Original deposit: ${formatCurrency(data.originalDeposit)}</p>
+                <p>Deductions: ${formatCurrency(data.deductions)}</p>
+                <p>Refunded: ${formatCurrency(data.refundAmount)}</p>
+              </div>
+              <p>Thank you for being a great tenant!</p>
+            </div>
+          </div>
+        `,
+      };
+
+    // Early Termination Approved
+    case "early_termination_approved":
+      return {
+        subject: `✅ Early Termination Approved - ${data.propertyName}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">✅ Early Termination Approved</h1>
+            </div>
+            <div style="padding: 30px; background: #f9fafb;">
+              <p>Hi ${recipientName},</p>
+              <p>Your early termination request has been approved.</p>
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                <p><strong>Property:</strong> ${data.propertyName} - Unit ${data.unitNumber}</p>
+                <p><strong>Move-out date:</strong> ${data.moveOutDate}</p>
+                <p><strong>Penalty amount:</strong> ${formatCurrency(data.penaltyAmount)}</p>
+                ${data.notes ? `<p><strong>Notes:</strong> ${data.notes}</p>` : ''}
+              </div>
+              <p>The penalty will be ${data.deductFromDeposit ? 'deducted from your deposit' : 'invoiced separately'}.</p>
+            </div>
+          </div>
+        `,
+      };
+
+    // Early Termination Denied
+    case "early_termination_denied":
+      return {
+        subject: `❌ Early Termination Denied - ${data.propertyName}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">❌ Request Denied</h1>
+            </div>
+            <div style="padding: 30px; background: #f9fafb;">
+              <p>Hi ${recipientName},</p>
+              <p>Unfortunately, your early termination request has been denied.</p>
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                <p><strong>Property:</strong> ${data.propertyName} - Unit ${data.unitNumber}</p>
+                <p><strong>Reason:</strong> ${data.reason}</p>
+              </div>
+              <p>Your current contract remains valid until ${data.contractEndDate}.</p>
+            </div>
+          </div>
+        `,
+      };
+
+    // Vacancy Alert
+    case "vacancy_alert":
+      return {
+        subject: `⚠️ Vacancy Alert: Unit ${data.unitNumber} - ${data.daysVacant} Days`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, ${data.daysVacant >= 60 ? '#dc2626, #b91c1c' : '#f59e0b, #d97706'}); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">⚠️ ${data.daysVacant >= 60 ? 'Critical' : ''} Vacancy Alert</h1>
+            </div>
+            <div style="padding: 30px; background: #f9fafb;">
+              <p>Hi ${recipientName},</p>
+              <p>Unit ${data.unitNumber} at ${data.propertyName} has been vacant for <strong>${data.daysVacant} days</strong>.</p>
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #e5e7eb;">
+                <p><strong>Monthly rent:</strong> ${formatCurrency(data.monthlyRent)}</p>
+                <p style="color: #dc2626;"><strong>Estimated lost revenue:</strong> ${formatCurrency(data.lostRevenue)}</p>
+              </div>
+              <p><strong>Suggested actions:</strong></p>
+              <ul>
+                ${data.suggestions?.map((s: string) => `<li>${s}</li>`).join('') || ''}
+              </ul>
+              <a href="/merchant/move-outs" style="display: inline-block; background: #0891b2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">View Vacancy Dashboard</a>
             </div>
           </div>
         `,
