@@ -3211,6 +3211,7 @@ export type Database = {
           floor: number | null
           id: string
           is_listed: boolean | null
+          photos: string[] | null
           property_id: string
           rent_amount: number
           size_sqm: number | null
@@ -3229,6 +3230,7 @@ export type Database = {
           floor?: number | null
           id?: string
           is_listed?: boolean | null
+          photos?: string[] | null
           property_id: string
           rent_amount: number
           size_sqm?: number | null
@@ -3247,6 +3249,7 @@ export type Database = {
           floor?: number | null
           id?: string
           is_listed?: boolean | null
+          photos?: string[] | null
           property_id?: string
           rent_amount?: number
           size_sqm?: number | null
