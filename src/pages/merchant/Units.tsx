@@ -43,6 +43,7 @@ import {
   DollarSign,
   Layers
 } from "lucide-react";
+import { UnitPhotoUpload } from "@/components/merchant/UnitPhotoUpload";
 
 interface Unit {
   id: string;
@@ -56,6 +57,7 @@ interface Unit {
   status: string | null;
   description: string | null;
   amenities: string[] | null;
+  photos?: string[];
   property?: {
     name: string;
     address: string;
@@ -141,6 +143,7 @@ export default function MerchantUnits() {
     deposit_amount: '',
     status: 'available',
     description: '',
+    photos: [] as string[],
   });
 
   // Fetch merchant
@@ -207,6 +210,7 @@ export default function MerchantUnits() {
         deposit_amount: formData.deposit_amount ? parseFloat(formData.deposit_amount) : null,
         status: formData.status,
         description: formData.description || null,
+        photos: formData.photos,
       };
 
       if (editingUnit) {
@@ -227,8 +231,9 @@ export default function MerchantUnits() {
       toast.success(editingUnit ? 'Unit updated' : 'Unit created');
       handleDialogClose();
     },
-    onError: () => {
-      toast.error('Failed to save unit');
+    onError: (error: any) => {
+      console.error('Unit save error:', error);
+      toast.error(error?.message || 'Failed to save unit');
     },
   });
 
@@ -263,6 +268,7 @@ export default function MerchantUnits() {
       deposit_amount: '',
       status: 'available',
       description: '',
+      photos: [],
     });
   };
 
@@ -278,6 +284,7 @@ export default function MerchantUnits() {
       deposit_amount: unit.deposit_amount?.toString() || '',
       status: unit.status || 'available',
       description: unit.description || '',
+      photos: unit.photos || [],
     });
     setIsDialogOpen(true);
   };
@@ -437,6 +444,15 @@ export default function MerchantUnits() {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Unit description..."
                   rows={3}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Photos</Label>
+                <UnitPhotoUpload
+                  photos={formData.photos}
+                  onPhotosChange={(photos) => setFormData({ ...formData, photos })}
+                  maxPhotos={10}
                 />
               </div>
 
