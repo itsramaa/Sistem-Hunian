@@ -7,11 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { FileText, Loader2, Download, CreditCard, AlertTriangle } from "lucide-react";
+import { FileText, Loader2, Download, CreditCard, AlertTriangle, Calendar } from "lucide-react";
 import { StatsCardSkeleton, InvoiceTableSkeleton } from "@/components/ui/skeletons";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { XenditPaymentModal } from "@/components/payment/XenditPaymentModal";
+import { PaymentPlanCard } from "@/components/tenant/PaymentPlanCard";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -28,6 +29,33 @@ type Invoice = {
   late_fee: number | null;
   original_amount: number | null;
   late_fee_applied_at: string | null;
+  payment_plan_id: string | null;
+  grace_period_active: boolean | null;
+  overdue_since: string | null;
+};
+
+type PaymentPlan = {
+  id: string;
+  invoice_id: string;
+  original_amount: number;
+  installment_count: number;
+  installment_amount: number;
+  frequency: string;
+  start_date: string;
+  late_fee_waived: boolean;
+  waived_amount: number;
+  status: string;
+  terms: string | null;
+  invoice?: {
+    invoice_number: string;
+  };
+  installments?: Array<{
+    id: string;
+    installment_number: number;
+    amount: number;
+    due_date: string;
+    status: string;
+  }>;
 };
 
 const TenantInvoices = () => {
@@ -46,6 +74,26 @@ const TenantInvoices = () => {
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data as Invoice[];
+    },
+    enabled: !!user?.id,
+  });
+
+  // Fetch payment plans
+  const { data: paymentPlans = [] } = useQuery({
+    queryKey: ['tenant-payment-plans', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('payment_plans')
+        .select(`
+          *,
+          invoice:invoices(invoice_number),
+          installments:payment_plan_installments(*)
+        `)
+        .eq('tenant_user_id', user?.id)
+        .in('status', ['pending_acceptance', 'accepted'])
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data as PaymentPlan[];
     },
     enabled: !!user?.id,
   });
@@ -163,6 +211,21 @@ const TenantInvoices = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Payment Plans Section */}
+      {paymentPlans.length > 0 && (
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold mb-4 text-foreground flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Payment Plans
+          </h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            {paymentPlans.map((plan) => (
+              <PaymentPlanCard key={plan.id} plan={plan} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Pending Invoices */}
       {pendingInvoices.length > 0 && (
