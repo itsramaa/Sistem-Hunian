@@ -391,12 +391,15 @@ export type Database = {
       }
       contracts: {
         Row: {
+          actual_end_date: string | null
           billing_day: number | null
           churn_reason: string | null
           contract_document_url: string | null
           created_at: string
           deposit_amount: number | null
+          early_termination_penalty_rate: number | null
           end_date: string
+          expected_move_out_date: string | null
           grace_period_days: number | null
           id: string
           late_fee_type: string | null
@@ -404,6 +407,9 @@ export type Database = {
           merchant_id: string
           merchant_signature_url: string | null
           merchant_signed_at: string | null
+          move_out_notice_date: string | null
+          move_out_notice_given: boolean | null
+          notice_period_days: number | null
           referral_bonus_amount: number | null
           referral_bonus_applied: boolean | null
           rent_amount: number
@@ -413,17 +419,21 @@ export type Database = {
           tenant_signature_url: string | null
           tenant_signed_at: string | null
           tenant_user_id: string
+          termination_penalty: number | null
           terms: string | null
           unit_id: string
           updated_at: string
         }
         Insert: {
+          actual_end_date?: string | null
           billing_day?: number | null
           churn_reason?: string | null
           contract_document_url?: string | null
           created_at?: string
           deposit_amount?: number | null
+          early_termination_penalty_rate?: number | null
           end_date: string
+          expected_move_out_date?: string | null
           grace_period_days?: number | null
           id?: string
           late_fee_type?: string | null
@@ -431,6 +441,9 @@ export type Database = {
           merchant_id: string
           merchant_signature_url?: string | null
           merchant_signed_at?: string | null
+          move_out_notice_date?: string | null
+          move_out_notice_given?: boolean | null
+          notice_period_days?: number | null
           referral_bonus_amount?: number | null
           referral_bonus_applied?: boolean | null
           rent_amount: number
@@ -440,17 +453,21 @@ export type Database = {
           tenant_signature_url?: string | null
           tenant_signed_at?: string | null
           tenant_user_id: string
+          termination_penalty?: number | null
           terms?: string | null
           unit_id: string
           updated_at?: string
         }
         Update: {
+          actual_end_date?: string | null
           billing_day?: number | null
           churn_reason?: string | null
           contract_document_url?: string | null
           created_at?: string
           deposit_amount?: number | null
+          early_termination_penalty_rate?: number | null
           end_date?: string
+          expected_move_out_date?: string | null
           grace_period_days?: number | null
           id?: string
           late_fee_type?: string | null
@@ -458,6 +475,9 @@ export type Database = {
           merchant_id?: string
           merchant_signature_url?: string | null
           merchant_signed_at?: string | null
+          move_out_notice_date?: string | null
+          move_out_notice_given?: boolean | null
+          notice_period_days?: number | null
           referral_bonus_amount?: number | null
           referral_bonus_applied?: boolean | null
           rent_amount?: number
@@ -467,6 +487,7 @@ export type Database = {
           tenant_signature_url?: string | null
           tenant_signed_at?: string | null
           tenant_user_id?: string
+          termination_penalty?: number | null
           terms?: string | null
           unit_id?: string
           updated_at?: string
@@ -484,6 +505,143 @@ export type Database = {
             columns: ["unit_id"]
             isOneToOne: false
             referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deposit_disputes: {
+        Row: {
+          admin_notes: string | null
+          created_at: string | null
+          deposit_refund_id: string
+          dispute_reason: string
+          disputed_amount: number
+          evidence_photos: string[] | null
+          id: string
+          merchant_response: string | null
+          resolution: string | null
+          resolved_amount: number | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string | null
+          tenant_user_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string | null
+          deposit_refund_id: string
+          dispute_reason: string
+          disputed_amount: number
+          evidence_photos?: string[] | null
+          id?: string
+          merchant_response?: string | null
+          resolution?: string | null
+          resolved_amount?: number | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string | null
+          tenant_user_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string | null
+          deposit_refund_id?: string
+          dispute_reason?: string
+          disputed_amount?: number
+          evidence_photos?: string[] | null
+          id?: string
+          merchant_response?: string | null
+          resolution?: string | null
+          resolved_amount?: number | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string | null
+          tenant_user_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deposit_disputes_deposit_refund_id_fkey"
+            columns: ["deposit_refund_id"]
+            isOneToOne: false
+            referencedRelation: "deposit_refunds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deposit_refunds: {
+        Row: {
+          account_holder_name: string | null
+          bank_account_number: string | null
+          bank_name: string | null
+          contract_id: string
+          created_at: string | null
+          deduction_details: Json | null
+          deductions: number | null
+          due_date: string | null
+          id: string
+          inspection_id: string | null
+          original_deposit: number
+          refund_amount: number
+          refunded_at: string | null
+          status: string | null
+          tenant_user_id: string
+          updated_at: string | null
+          xendit_disbursement_id: string | null
+        }
+        Insert: {
+          account_holder_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          contract_id: string
+          created_at?: string | null
+          deduction_details?: Json | null
+          deductions?: number | null
+          due_date?: string | null
+          id?: string
+          inspection_id?: string | null
+          original_deposit: number
+          refund_amount: number
+          refunded_at?: string | null
+          status?: string | null
+          tenant_user_id: string
+          updated_at?: string | null
+          xendit_disbursement_id?: string | null
+        }
+        Update: {
+          account_holder_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          contract_id?: string
+          created_at?: string | null
+          deduction_details?: Json | null
+          deductions?: number | null
+          due_date?: string | null
+          id?: string
+          inspection_id?: string | null
+          original_deposit?: number
+          refund_amount?: number
+          refunded_at?: string | null
+          status?: string | null
+          tenant_user_id?: string
+          updated_at?: string | null
+          xendit_disbursement_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deposit_refunds_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deposit_refunds_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "move_out_inspections"
             referencedColumns: ["id"]
           },
         ]
@@ -624,6 +782,65 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "disputes_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      early_termination_requests: {
+        Row: {
+          approved_at: string | null
+          contract_id: string
+          counter_offer_amount: number | null
+          created_at: string | null
+          denied_at: string | null
+          id: string
+          merchant_response: string | null
+          penalty_amount: number | null
+          reason: string | null
+          requested_date: string
+          status: string | null
+          supporting_docs: string[] | null
+          tenant_user_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          contract_id: string
+          counter_offer_amount?: number | null
+          created_at?: string | null
+          denied_at?: string | null
+          id?: string
+          merchant_response?: string | null
+          penalty_amount?: number | null
+          reason?: string | null
+          requested_date: string
+          status?: string | null
+          supporting_docs?: string[] | null
+          tenant_user_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          contract_id?: string
+          counter_offer_amount?: number | null
+          created_at?: string | null
+          denied_at?: string | null
+          id?: string
+          merchant_response?: string | null
+          penalty_amount?: number | null
+          reason?: string | null
+          requested_date?: string
+          status?: string | null
+          supporting_docs?: string[] | null
+          tenant_user_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "early_termination_requests_contract_id_fkey"
             columns: ["contract_id"]
             isOneToOne: false
             referencedRelation: "contracts"
@@ -1570,6 +1787,206 @@ export type Database = {
           verified_by?: string | null
         }
         Relationships: []
+      }
+      move_out_inspections: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          deduction_details: Json | null
+          deposit_refund_amount: number | null
+          id: string
+          inspection_report: Json | null
+          inspector_id: string | null
+          inspector_signature: string | null
+          move_out_notice_id: string
+          photos: string[] | null
+          scheduled_date: string | null
+          status: string | null
+          tenant_confirmed: boolean | null
+          tenant_signature: string | null
+          total_deductions: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          deduction_details?: Json | null
+          deposit_refund_amount?: number | null
+          id?: string
+          inspection_report?: Json | null
+          inspector_id?: string | null
+          inspector_signature?: string | null
+          move_out_notice_id: string
+          photos?: string[] | null
+          scheduled_date?: string | null
+          status?: string | null
+          tenant_confirmed?: boolean | null
+          tenant_signature?: string | null
+          total_deductions?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          deduction_details?: Json | null
+          deposit_refund_amount?: number | null
+          id?: string
+          inspection_report?: Json | null
+          inspector_id?: string | null
+          inspector_signature?: string | null
+          move_out_notice_id?: string
+          photos?: string[] | null
+          scheduled_date?: string | null
+          status?: string | null
+          tenant_confirmed?: boolean | null
+          tenant_signature?: string | null
+          total_deductions?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "move_out_inspections_move_out_notice_id_fkey"
+            columns: ["move_out_notice_id"]
+            isOneToOne: false
+            referencedRelation: "move_out_notices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      move_out_notices: {
+        Row: {
+          acknowledged_at: string | null
+          contract_id: string
+          created_at: string | null
+          id: string
+          intended_move_out_date: string
+          is_early_termination: boolean | null
+          notes: string | null
+          notice_date: string | null
+          reason: string | null
+          status: string | null
+          tenant_user_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          contract_id: string
+          created_at?: string | null
+          id?: string
+          intended_move_out_date: string
+          is_early_termination?: boolean | null
+          notes?: string | null
+          notice_date?: string | null
+          reason?: string | null
+          status?: string | null
+          tenant_user_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          contract_id?: string
+          created_at?: string | null
+          id?: string
+          intended_move_out_date?: string
+          is_early_termination?: boolean | null
+          notes?: string | null
+          notice_date?: string | null
+          reason?: string | null
+          status?: string | null
+          tenant_user_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "move_out_notices_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      move_out_tasks: {
+        Row: {
+          completed: boolean | null
+          completed_at: string | null
+          created_at: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          move_out_notice_id: string
+          order_index: number | null
+          task_name: string
+        }
+        Insert: {
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          move_out_notice_id: string
+          order_index?: number | null
+          task_name: string
+        }
+        Update: {
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          move_out_notice_id?: string
+          order_index?: number | null
+          task_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "move_out_tasks_move_out_notice_id_fkey"
+            columns: ["move_out_notice_id"]
+            isOneToOne: false
+            referencedRelation: "move_out_notices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      move_out_timeline: {
+        Row: {
+          completed: boolean | null
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          move_out_notice_id: string
+          notes: string | null
+          step: string
+        }
+        Insert: {
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          move_out_notice_id: string
+          notes?: string | null
+          step: string
+        }
+        Update: {
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          move_out_notice_id?: string
+          notes?: string | null
+          step?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "move_out_timeline_move_out_notice_id_fkey"
+            columns: ["move_out_notice_id"]
+            isOneToOne: false
+            referencedRelation: "move_out_notices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
@@ -2680,14 +3097,79 @@ export type Database = {
           },
         ]
       }
+      unit_listings: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          inquiries: number | null
+          listed_at: string | null
+          merchant_id: string
+          monthly_rent: number
+          photos: string[] | null
+          promoted: boolean | null
+          status: string | null
+          unit_id: string
+          updated_at: string | null
+          views: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          inquiries?: number | null
+          listed_at?: string | null
+          merchant_id: string
+          monthly_rent: number
+          photos?: string[] | null
+          promoted?: boolean | null
+          status?: string | null
+          unit_id: string
+          updated_at?: string | null
+          views?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          inquiries?: number | null
+          listed_at?: string | null
+          merchant_id?: string
+          monthly_rent?: number
+          photos?: string[] | null
+          promoted?: boolean | null
+          status?: string | null
+          unit_id?: string
+          updated_at?: string | null
+          views?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unit_listings_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unit_listings_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       units: {
         Row: {
           amenities: string[] | null
+          available_from: string | null
           created_at: string
           deposit_amount: number | null
           description: string | null
           floor: number | null
           id: string
+          is_listed: boolean | null
           property_id: string
           rent_amount: number
           size_sqm: number | null
@@ -2695,14 +3177,17 @@ export type Database = {
           unit_number: string
           unit_type: string | null
           updated_at: string
+          vacant_since: string | null
         }
         Insert: {
           amenities?: string[] | null
+          available_from?: string | null
           created_at?: string
           deposit_amount?: number | null
           description?: string | null
           floor?: number | null
           id?: string
+          is_listed?: boolean | null
           property_id: string
           rent_amount: number
           size_sqm?: number | null
@@ -2710,14 +3195,17 @@ export type Database = {
           unit_number: string
           unit_type?: string | null
           updated_at?: string
+          vacant_since?: string | null
         }
         Update: {
           amenities?: string[] | null
+          available_from?: string | null
           created_at?: string
           deposit_amount?: number | null
           description?: string | null
           floor?: number | null
           id?: string
+          is_listed?: boolean | null
           property_id?: string
           rent_amount?: number
           size_sqm?: number | null
@@ -2725,6 +3213,7 @@ export type Database = {
           unit_number?: string
           unit_type?: string | null
           updated_at?: string
+          vacant_since?: string | null
         }
         Relationships: [
           {
