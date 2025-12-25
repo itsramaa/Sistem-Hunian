@@ -1,0 +1,211 @@
+sequenceDiagram
+    participant T as Tenant
+    participant FE as Frontend
+    participant DB as Database
+    participant XD as Xendit API
+    participant ES as Escrow Service
+    participant M as Merchant
+
+    Note over T,M: Invoice Generation (Automated)
+
+    DB->>DB: Cron job: Daily at 00:00 WIB
+    Note right of DB: Check contracts with<br/>billing_date = today
+    
+    DB->>DB: Query active contracts
+    Note right of DB: WHERE status = 'active'<br/>AND billing_date = DAY(NOW())
+    
+    loop For each contract
+        DB->>DB: INSERT INTO invoices
+        Note right of DB: contract_id, tenant_id,<br/>merchant_id, type: 'rent',<br/>amount: monthly_rent,<br/>billing_date: today,<br/>due_date: today + payment_due_days,<br/>status: 'pending'
+        
+        DB->>DB: INSERT INTO notifications
+        Note right of DB: recipient_id: tenant_id,<br/>type: 'invoice_generated',<br/>invoice_id
+        
+        DB-->>T: Email: "Invoice for [Month]"
+        Note right of T: Email contains:<br/>- Invoice amount<br/>- Due date<br/>- Pay now button
+    end
+    
+    Note over T,M: Payment Reminder System
+    
+    DB->>DB: Cron job: Daily at 09:00 WIB
+    
+    DB->>DB: Query invoices for H-3 reminder
+    Note right of DB: WHERE status = 'pending'<br/>AND due_date = DATE_ADD(NOW(), 3)
+    
+    loop For each invoice (H-3)
+        DB-->>T: Email: "Reminder: Payment due in 3 days"
+        DB-->>T: Push notification: Payment reminder
+    end
+    
+    DB->>DB: Query invoices for H-1 reminder
+    Note right of DB: WHERE status = 'pending'<br/>AND due_date = DATE_ADD(NOW(), 1)
+    
+    loop For each invoice (H-1)
+        DB-->>T: Email: "Urgent: Payment due tomorrow"
+        DB-->>T: Push notification: Urgent reminder
+    end
+    
+    Note over T,M: Tenant Payment Process
+    
+    T->>FE: Navigate to /tenant/invoices
+    FE->>DB: Query invoices WHERE tenant_id
+    Note right of DB: Filter: status IN ('pending', 'overdue')<br/>ORDER BY due_date ASC
+    
+    DB-->>FE: Return invoice list
+    
+    FE->>T: Display invoices with status badges
+    Note right of T: Badge colors:<br/>- Green: Paid<br/>- Yellow: Pending (due soon)<br/>- Red: Overdue
+    
+    T->>FE: Select invoice to pay
+    FE->>DB: Query invoice details
+    DB-->>FE: Return invoice data + contract info
+    
+    FE->>T: Display invoice detail page
+    Note right of T: Shows:<br/>- Property & unit<br/>- Billing period<br/>- Amount<br/>- Due date<br/>- Late fee (if any)
+    
+    alt Invoice overdue
+        DB->>DB: Calculate late fee
+        Note right of DB: late_fee = monthly_rent * penalty_rate<br/>Example: 1,500,000 * 0.02 = 30,000
+        
+        FE->>T: Display total with late fee
+        Note right of T: Rent: Rp 1,500,000<br/>Late Fee: Rp 30,000<br/>Total: Rp 1,530,000
+    end
+    
+    T->>FE: Click "Pay Now"
+    FE->>T: Show payment method selection
+    Note right of T: Options:<br/>1. Virtual Account (BCA, BNI, Mandiri)<br/>2. QRIS<br/>3. E-Wallet (OVO, Dana, ShopeePay)<br/>4. Credit Card
+    
+    T->>FE: Select payment method (e.g., Virtual Account BCA)
+    
+    FE->>DB: UPDATE invoices SET
+    Note right of DB: payment_initiated_at: NOW()
+    
+    FE->>XD: POST /v2/invoices
+    Note right of XD: Body:<br/>{<br/>  external_id: invoice_id,<br/>  amount: total_amount,<br/>  payer_email: tenant_email,<br/>  description: "Rent [Month] - [Property]",<br/>  invoice_duration: 86400,<br/>  success_redirect_url,<br/>  failure_redirect_url<br/>}
+    
+    XD->>XD: Create payment invoice
+    XD-->>FE: Return payment_url + invoice_id
+    
+    FE->>DB: UPDATE invoices SET
+    Note right of DB: xendit_invoice_id: returned_id,<br/>xendit_status: 'pending'
+    
+    DB-->>FE: Invoice updated
+    
+    FE->>T: Redirect to Xendit checkout page
+    Note right of T: Xendit handles:<br/>- Payment UI<br/>- Security<br/>- Payment processing
+    
+    alt Payment via Virtual Account
+        XD->>T: Display VA number
+        Note right of T: BCA Virtual Account:<br/>80777XXXXXXXXX<br/>Amount: Rp 1,500,000<br/>Valid: 24 hours
+        
+        T->>T: Copy VA number
+        T->>T: Open mobile banking app
+        T->>T: Transfer to VA number
+        
+        T->>XD: Bank confirms payment
+        Note right of XD: Bank sends webhook<br/>to Xendit
+        
+    else Payment via QRIS
+        XD->>T: Display QR code
+        T->>T: Scan QR with e-wallet
+        T->>XD: Authorize payment
+        
+    else Payment via E-Wallet
+        XD->>T: Redirect to e-wallet app
+        T->>T: Login & authorize
+        T->>XD: Payment confirmed
+        
+    else Payment via Credit Card
+        XD->>T: Card input form
+        T->>XD: Enter card details
+        XD->>XD: Process card payment
+    end
+    
+    Note over XD,ES: Payment Success Webhook
+    
+    XD->>ES: POST /webhooks/xendit
+    Note right of XD: Event: invoice.paid<br/>Headers:<br/>- x-callback-token (verify)
+    
+    ES->>ES: Verify webhook signature
+    ES->>DB: Query invoice by xendit_invoice_id
+    DB-->>ES: Return invoice + contract data
+    
+    ES->>ES: Calculate platform fees
+    Note right of ES: Gross: Rp 1,500,000<br/>Platform Fee (1%): Rp 15,000<br/>Xendit Fee (2.5%): Rp 37,500<br/>Net to Escrow: Rp 1,447,500
+    
+    ES->>DB: BEGIN TRANSACTION
+    
+    DB->>DB: INSERT INTO escrow_transactions
+    Note right of DB: type: 'rent_payment',<br/>invoice_id, tenant_id, merchant_id,<br/>gross_amount: 1,500,000,<br/>platform_fee: 15,000,<br/>payment_gateway_fee: 37,500,<br/>net_amount: 1,447,500,<br/>status: 'completed',<br/>created_at: NOW()
+    
+    DB->>DB: UPDATE invoices SET
+    Note right of DB: status: 'paid',<br/>paid_at: NOW(),<br/>payment_method: 'va_bca',<br/>xendit_status: 'paid'
+    
+    DB->>DB: UPDATE merchants SET
+    Note right of DB: escrow_balance += 1,447,500
+    
+    DB->>DB: INSERT INTO payment_history
+    Note right of DB: invoice_id, amount,<br/>payment_method, status: 'success',<br/>transaction_id
+    
+    DB->>DB: INSERT INTO notifications (tenant)
+    Note right of DB: type: 'payment_success',<br/>invoice_id, amount
+    
+    DB->>DB: INSERT INTO notifications (merchant)
+    Note right of DB: type: 'payment_received',<br/>tenant_name, amount
+    
+    DB->>DB: COMMIT TRANSACTION
+    
+    ES-->>XD: Return 200 OK (webhook acknowledged)
+    
+    DB-->>T: Email: "Payment Receipt"
+    Note right of T: Receipt contains:<br/>- Invoice details<br/>- Payment method<br/>- Transaction ID<br/>- PDF receipt attachment
+    
+    DB-->>T: Push notification: "Payment successful"
+    
+    DB-->>M: Email: "Payment Received"
+    Note right of M: "Tenant [Name] paid Rp 1,447,500<br/>Escrow balance updated"
+    
+    DB-->>M: Push notification: Payment received
+    
+    XD->>T: Redirect to success_redirect_url
+    FE->>T: Display success page
+    Note right of T: "Payment Successful!<br/>Receipt sent to email"
+    
+    FE->>T: Show invoice marked as PAID
+    
+    Note over T,M: Auto-Pay Feature (Optional - Pro Tier+)
+    
+    T->>FE: Navigate to /tenant/settings
+    FE->>T: Display auto-pay section
+    
+    T->>FE: Toggle "Enable Auto-Pay"
+    FE->>T: Show payment method setup
+    
+    T->>FE: Add credit card for auto-pay
+    FE->>XD: Tokenize card (secure)
+    XD-->>FE: Return payment_token
+    
+    FE->>DB: UPDATE tenants SET
+    Note right of DB: auto_pay_enabled: true,<br/>auto_pay_method: 'credit_card',<br/>payment_token: encrypted_token
+    
+    DB-->>T: Confirmation: Auto-pay activated
+    
+    Note over T,M: Auto-Pay Execution
+    
+    DB->>DB: Cron: Check auto-pay invoices (billing_date)
+    
+    loop For tenants with auto_pay_enabled
+        DB->>XD: Create invoice + auto-charge
+        Note right of XD: Use stored payment_token<br/>to process payment automatically
+        
+        alt Auto-charge success
+            XD->>ES: Webhook: payment.paid
+            ES->>DB: Process as normal payment
+            DB-->>T: Email: "Auto-pay successful"
+            
+        else Auto-charge failed
+            XD-->>DB: Payment failed event
+            DB-->>T: Email: "Auto-pay failed - Please pay manually"
+            DB-->>T: Push: Payment action required
+        end
+    end
