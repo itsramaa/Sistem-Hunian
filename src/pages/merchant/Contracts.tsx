@@ -96,6 +96,7 @@ export default function MerchantContracts() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [signDialogOpen, setSignDialogOpen] = useState(false);
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
@@ -392,12 +393,14 @@ export default function MerchantContracts() {
   const filteredContracts = contracts?.filter(contract => {
     const tenant = profileMap.get(contract.tenant_user_id);
     const searchLower = searchTerm.toLowerCase();
-    return (
+    const matchesSearch = (
       tenant?.full_name?.toLowerCase().includes(searchLower) ||
       tenant?.email?.toLowerCase().includes(searchLower) ||
       contract.unit?.unit_number?.toLowerCase().includes(searchLower) ||
       contract.unit?.property?.name?.toLowerCase().includes(searchLower)
     );
+    const matchesStatus = statusFilter === 'all' || contract.status === statusFilter;
+    return matchesSearch && matchesStatus;
   }) || [];
 
   const activeContracts = filteredContracts.filter(c => c.status === 'active');
@@ -529,15 +532,30 @@ export default function MerchantContracts() {
           </Card>
         </div>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by tenant name, property, or unit..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+        {/* Search & Filter */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by tenant name, property, or unit..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="notice">Notice Period</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="terminated">Terminated</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Tabs */}

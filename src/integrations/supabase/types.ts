@@ -3058,6 +3058,53 @@ export type Database = {
           },
         ]
       }
+      tenant_merchant_history: {
+        Row: {
+          contract_ids: string[] | null
+          created_at: string | null
+          end_date: string | null
+          id: string
+          merchant_id: string
+          start_date: string
+          status: string
+          tenant_user_id: string
+          transfer_reason: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          contract_ids?: string[] | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          merchant_id: string
+          start_date: string
+          status?: string
+          tenant_user_id: string
+          transfer_reason?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          contract_ids?: string[] | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          merchant_id?: string
+          start_date?: string
+          status?: string
+          tenant_user_id?: string
+          transfer_reason?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_merchant_history_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenants: {
         Row: {
           auto_pay_day: number | null
