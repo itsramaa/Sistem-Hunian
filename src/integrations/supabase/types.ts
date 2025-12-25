@@ -361,6 +361,7 @@ export type Database = {
         Row: {
           amount: number
           bank_account_id: string | null
+          completed_at: string | null
           created_at: string
           escrow_account_id: string | null
           failure_reason: string | null
@@ -368,6 +369,10 @@ export type Database = {
           id: string
           net_amount: number
           processed_at: string | null
+          requires_manual_review: boolean | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           scheduled_for: string | null
           status: string
           type: string
@@ -379,6 +384,7 @@ export type Database = {
         Insert: {
           amount: number
           bank_account_id?: string | null
+          completed_at?: string | null
           created_at?: string
           escrow_account_id?: string | null
           failure_reason?: string | null
@@ -386,6 +392,10 @@ export type Database = {
           id?: string
           net_amount: number
           processed_at?: string | null
+          requires_manual_review?: boolean | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           scheduled_for?: string | null
           status?: string
           type?: string
@@ -397,6 +407,7 @@ export type Database = {
         Update: {
           amount?: number
           bank_account_id?: string | null
+          completed_at?: string | null
           created_at?: string
           escrow_account_id?: string | null
           failure_reason?: string | null
@@ -404,6 +415,10 @@ export type Database = {
           id?: string
           net_amount?: number
           processed_at?: string | null
+          requires_manual_review?: boolean | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           scheduled_for?: string | null
           status?: string
           type?: string
@@ -1279,7 +1294,9 @@ export type Database = {
           created_at: string
           disbursement_schedule: string | null
           id: string
+          last_disbursement_date: string | null
           merchant_code: string | null
+          min_disbursement_amount: number | null
           penalty_rate: number | null
           postal_code: string | null
           province: string | null
@@ -1289,6 +1306,7 @@ export type Database = {
           resubmission_count: number | null
           resubmission_instructions: string | null
           subscription_tier: string | null
+          total_disbursed: number | null
           updated_at: string
           user_id: string
           verification_status: string | null
@@ -1305,7 +1323,9 @@ export type Database = {
           created_at?: string
           disbursement_schedule?: string | null
           id?: string
+          last_disbursement_date?: string | null
           merchant_code?: string | null
+          min_disbursement_amount?: number | null
           penalty_rate?: number | null
           postal_code?: string | null
           province?: string | null
@@ -1315,6 +1335,7 @@ export type Database = {
           resubmission_count?: number | null
           resubmission_instructions?: string | null
           subscription_tier?: string | null
+          total_disbursed?: number | null
           updated_at?: string
           user_id: string
           verification_status?: string | null
@@ -1331,7 +1352,9 @@ export type Database = {
           created_at?: string
           disbursement_schedule?: string | null
           id?: string
+          last_disbursement_date?: string | null
           merchant_code?: string | null
+          min_disbursement_amount?: number | null
           penalty_rate?: number | null
           postal_code?: string | null
           province?: string | null
@@ -1341,6 +1364,7 @@ export type Database = {
           resubmission_count?: number | null
           resubmission_instructions?: string | null
           subscription_tier?: string | null
+          total_disbursed?: number | null
           updated_at?: string
           user_id?: string
           verification_status?: string | null
