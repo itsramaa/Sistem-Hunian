@@ -112,7 +112,7 @@ export default function VendorOrders() {
         .eq('id', orderId);
       if (error) throw error;
 
-      // If completed, create vendor earning
+      // If completed, create vendor earning and process referral
       if (status === 'completed') {
         const order = orders.find(o => o.id === orderId);
         if (order && vendor?.id) {
@@ -128,6 +128,15 @@ export default function VendorOrders() {
             net_amount: netAmount,
             status: 'pending',
           });
+
+          // Trigger referral processing for vendor orders
+          try {
+            await supabase.functions.invoke('process-vendor-order-referral', {
+              body: { order_id: orderId, vendor_id: vendor.id },
+            });
+          } catch (referralError) {
+            console.error('Referral processing error:', referralError);
+          }
         }
       }
     },
