@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2, Eye, EyeOff, Building2, Phone } from 'lucide-react';
+import { Loader2, Eye, EyeOff, Building2, Phone, Fingerprint } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
 import { getAuthErrorMessage } from '@/lib/auth-errors';
+import { triggerHaptic } from '@/lib/haptic';
 import { 
   phoneSchema, 
   strongPasswordSchema, 
@@ -61,9 +62,26 @@ export function AuthForm() {
   });
   const [merchantCodeError, setMerchantCodeError] = useState<string | null>(null);
   const [referrerInfo, setReferrerInfo] = useState<{ name: string; role: string } | null>(null);
+  const [supportsBiometric, setSupportsBiometric] = useState(false);
+  const [errorAnnouncement, setErrorAnnouncement] = useState('');
   const { toast } = useToast();
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
+
+  // Check biometric support
+  useEffect(() => {
+    const checkBiometric = async () => {
+      if (window.PublicKeyCredential) {
+        try {
+          const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+          setSupportsBiometric(available && rememberMe && !!localStorage.getItem('sihuni_last_email'));
+        } catch {
+          setSupportsBiometric(false);
+        }
+      }
+    };
+    checkBiometric();
+  }, [rememberMe]);
 
   // React to URL mode changes
   useEffect(() => {
@@ -134,16 +152,25 @@ export function AuthForm() {
 
   const passwordValue = signupForm.watch('password');
 
+  // Announce errors for screen readers
+  const announceError = (message: string) => {
+    setErrorAnnouncement(message);
+    setTimeout(() => setErrorAnnouncement(''), 1000);
+  };
+
   const handleLogin = async (data: LoginFormData) => {
     setIsLoading(true);
     const { error } = await signIn(data.email, data.password);
     setIsLoading(false);
 
     if (error) {
+      const errorMessage = getAuthErrorMessage(error);
+      announceError(errorMessage);
+      triggerHaptic('error');
       toast({
         variant: 'destructive',
         title: 'Login gagal',
-        description: getAuthErrorMessage(error),
+        description: errorMessage,
       });
       return;
     }
@@ -156,6 +183,7 @@ export function AuthForm() {
       localStorage.removeItem('sihuni_last_email');
     }
 
+    triggerHaptic('success');
     toast({
       title: 'Selamat datang kembali!',
       description: 'Anda berhasil masuk.',
@@ -288,14 +316,18 @@ export function AuthForm() {
     setIsLoading(false);
 
     if (error) {
+      const errorMessage = getAuthErrorMessage(error);
+      announceError(errorMessage);
+      triggerHaptic('error');
       toast({
         variant: 'destructive',
         title: 'Pendaftaran gagal',
-        description: getAuthErrorMessage(error),
+        description: errorMessage,
       });
       return;
     }
 
+    triggerHaptic('success');
     toast({
       title: 'Akun berhasil dibuat!',
       description: isTenantSignup 
@@ -309,8 +341,52 @@ export function AuthForm() {
     }
   };
 
+  const handleBiometricLogin = async () => {
+    const savedEmail = localStorage.getItem('sihuni_last_email');
+    if (!savedEmail) {
+      toast({
+        variant: 'destructive',
+        title: 'Biometrik tidak tersedia',
+        description: 'Silakan login dengan email dan password terlebih dahulu.',
+      });
+      return;
+    }
+
+    // For now, just pre-fill the email and focus on password
+    loginForm.setValue('email', savedEmail);
+    const passwordInput = document.getElementById('login-password');
+    if (passwordInput) {
+      passwordInput.focus();
+    }
+    
+    triggerHaptic('light');
+    toast({
+      title: 'Email terisi otomatis',
+      description: 'Silakan masukkan password Anda.',
+    });
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4 py-8">
+      {/* Skip links for accessibility */}
+      <nav className="sr-only focus-within:not-sr-only focus-within:absolute focus-within:top-4 focus-within:left-4 focus-within:z-50">
+        <a 
+          href="#login-form" 
+          className="bg-background px-4 py-2 rounded-md shadow-md focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          Langsung ke form login
+        </a>
+      </nav>
+
+      {/* Live region for error announcements */}
+      <div 
+        aria-live="polite" 
+        aria-atomic="true" 
+        className="sr-only"
+      >
+        {errorAnnouncement}
+      </div>
+
       <Card className="w-full max-w-md shadow-elevated animate-fade-in">
         <CardHeader className="text-center space-y-2">
           <div className="mx-auto w-12 h-12 rounded-xl gradient-primary flex items-center justify-center mb-2">
@@ -342,19 +418,42 @@ export function AuthForm() {
             </TabsList>
 
             <TabsContent value="login" className="space-y-4">
-              <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
+              <form 
+                id="login-form" 
+                onSubmit={loginForm.handleSubmit(handleLogin)} 
+                className="space-y-4"
+              >
+                {/* Biometric login option for returning users */}
+                {supportsBiometric && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleBiometricLogin}
+                  >
+                    <Fingerprint className="mr-2 h-4 w-4" />
+                    Login Cepat
+                  </Button>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="login-email">Email</Label>
                   <Input
                     id="login-email"
                     type="email"
+                    inputMode="email"
+                    enterKeyHint="next"
                     placeholder="anda@contoh.com"
                     autoComplete="email"
                     disabled={isLoading}
+                    aria-describedby={loginForm.formState.errors.email ? 'login-email-error' : undefined}
+                    aria-invalid={!!loginForm.formState.errors.email}
                     {...loginForm.register('email')}
                   />
                   {loginForm.formState.errors.email && (
-                    <p className="text-sm text-destructive">{loginForm.formState.errors.email.message}</p>
+                    <p id="login-email-error" className="text-sm text-destructive" role="alert">
+                      {loginForm.formState.errors.email.message}
+                    </p>
                   )}
                 </div>
                 <div className="space-y-2">
@@ -363,9 +462,13 @@ export function AuthForm() {
                     <Input
                       id="login-password"
                       type={showPassword ? 'text' : 'password'}
+                      inputMode="text"
+                      enterKeyHint="done"
                       placeholder="••••••••"
                       autoComplete="current-password"
                       disabled={isLoading}
+                      aria-describedby={loginForm.formState.errors.password ? 'login-password-error' : undefined}
+                      aria-invalid={!!loginForm.formState.errors.password}
                       {...loginForm.register('password')}
                     />
                     <Button
@@ -375,12 +478,15 @@ export function AuthForm() {
                       className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                       onClick={() => setShowPassword(!showPassword)}
                       tabIndex={-1}
+                      aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
                   </div>
                   {loginForm.formState.errors.password && (
-                    <p className="text-sm text-destructive">{loginForm.formState.errors.password.message}</p>
+                    <p id="login-password-error" className="text-sm text-destructive" role="alert">
+                      {loginForm.formState.errors.password.message}
+                    </p>
                   )}
                 </div>
                 
@@ -401,8 +507,14 @@ export function AuthForm() {
                 </div>
 
                 <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Masuk
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <span>Memproses...</span>
+                    </>
+                  ) : (
+                    'Masuk'
+                  )}
                 </Button>
                 <div className="text-center">
                   <button
@@ -417,18 +529,27 @@ export function AuthForm() {
             </TabsContent>
 
             <TabsContent value="signup" className="space-y-4">
-              <form onSubmit={signupForm.handleSubmit(handleSignup)} className="space-y-4">
+              <form 
+                id="signup-form"
+                onSubmit={signupForm.handleSubmit(handleSignup)} 
+                className="space-y-4"
+              >
                 <div className="space-y-2">
                   <Label htmlFor="signup-name">Nama Lengkap</Label>
                   <Input
                     id="signup-name"
                     placeholder="John Doe"
                     autoComplete="name"
+                    enterKeyHint="next"
                     disabled={isLoading}
+                    aria-describedby={signupForm.formState.errors.fullName ? 'signup-name-error' : undefined}
+                    aria-invalid={!!signupForm.formState.errors.fullName}
                     {...signupForm.register('fullName')}
                   />
                   {signupForm.formState.errors.fullName && (
-                    <p className="text-sm text-destructive">{signupForm.formState.errors.fullName.message}</p>
+                    <p id="signup-name-error" className="text-sm text-destructive" role="alert">
+                      {signupForm.formState.errors.fullName.message}
+                    </p>
                   )}
                 </div>
 
@@ -440,15 +561,20 @@ export function AuthForm() {
                   <Input
                     id="signup-phone"
                     type="tel"
+                    inputMode="tel"
+                    enterKeyHint="next"
                     placeholder="08123456789"
                     autoComplete="tel"
                     disabled={isLoading}
+                    aria-describedby="signup-phone-hint"
                     {...signupForm.register('phone')}
                   />
                   {signupForm.formState.errors.phone && (
-                    <p className="text-sm text-destructive">{signupForm.formState.errors.phone.message}</p>
+                    <p className="text-sm text-destructive" role="alert">
+                      {signupForm.formState.errors.phone.message}
+                    </p>
                   )}
-                  <p className="text-xs text-muted-foreground">
+                  <p id="signup-phone-hint" className="text-xs text-muted-foreground">
                     Opsional - untuk menerima notifikasi penting
                   </p>
                 </div>
@@ -462,7 +588,9 @@ export function AuthForm() {
                       placeholder="ABC123"
                       className="font-mono uppercase"
                       maxLength={6}
+                      enterKeyHint="next"
                       disabled={isLoading || !!initialMerchantCode}
+                      aria-describedby="merchant-code-hint"
                       {...signupForm.register('merchantCode')}
                       onChange={(e) => {
                         signupForm.setValue('merchantCode', e.target.value.toUpperCase());
@@ -470,9 +598,9 @@ export function AuthForm() {
                       }}
                     />
                     {merchantCodeError && (
-                      <p className="text-sm text-destructive">{merchantCodeError}</p>
+                      <p className="text-sm text-destructive" role="alert">{merchantCodeError}</p>
                     )}
-                    <p className="text-xs text-muted-foreground">
+                    <p id="merchant-code-hint" className="text-xs text-muted-foreground">
                       Kode unik dari pemilik properti Anda (6 karakter)
                     </p>
                   </div>
@@ -483,13 +611,19 @@ export function AuthForm() {
                   <Input
                     id="signup-email"
                     type="email"
+                    inputMode="email"
+                    enterKeyHint="next"
                     placeholder="anda@contoh.com"
                     autoComplete="email"
                     disabled={isLoading}
+                    aria-describedby={signupForm.formState.errors.email ? 'signup-email-error' : undefined}
+                    aria-invalid={!!signupForm.formState.errors.email}
                     {...signupForm.register('email')}
                   />
                   {signupForm.formState.errors.email && (
-                    <p className="text-sm text-destructive">{signupForm.formState.errors.email.message}</p>
+                    <p id="signup-email-error" className="text-sm text-destructive" role="alert">
+                      {signupForm.formState.errors.email.message}
+                    </p>
                   )}
                 </div>
 
@@ -499,9 +633,13 @@ export function AuthForm() {
                     <Input
                       id="signup-password"
                       type={showPassword ? 'text' : 'password'}
+                      inputMode="text"
+                      enterKeyHint="next"
                       placeholder="••••••••"
                       autoComplete="new-password"
                       disabled={isLoading}
+                      aria-describedby="password-requirements signup-password-error"
+                      aria-invalid={!!signupForm.formState.errors.password}
                       {...signupForm.register('password')}
                     />
                     <Button
@@ -511,14 +649,19 @@ export function AuthForm() {
                       className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                       onClick={() => setShowPassword(!showPassword)}
                       tabIndex={-1}
+                      aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
                   </div>
                   {signupForm.formState.errors.password && (
-                    <p className="text-sm text-destructive">{signupForm.formState.errors.password.message}</p>
+                    <p id="signup-password-error" className="text-sm text-destructive" role="alert">
+                      {signupForm.formState.errors.password.message}
+                    </p>
                   )}
-                  <PasswordStrengthMeter password={passwordValue || ''} />
+                  <div id="password-requirements">
+                    <PasswordStrengthMeter password={passwordValue || ''} />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -526,19 +669,31 @@ export function AuthForm() {
                   <Input
                     id="signup-confirm"
                     type="password"
+                    inputMode="text"
+                    enterKeyHint="done"
                     placeholder="••••••••"
                     autoComplete="new-password"
                     disabled={isLoading}
+                    aria-describedby={signupForm.formState.errors.confirmPassword ? 'signup-confirm-error' : undefined}
+                    aria-invalid={!!signupForm.formState.errors.confirmPassword}
                     {...signupForm.register('confirmPassword')}
                   />
                   {signupForm.formState.errors.confirmPassword && (
-                    <p className="text-sm text-destructive">{signupForm.formState.errors.confirmPassword.message}</p>
+                    <p id="signup-confirm-error" className="text-sm text-destructive" role="alert">
+                      {signupForm.formState.errors.confirmPassword.message}
+                    </p>
                   )}
                 </div>
 
                 <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isTenantSignup ? 'Daftar sebagai Tenant' : 'Daftar'}
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <span>Memproses...</span>
+                    </>
+                  ) : (
+                    isTenantSignup ? 'Daftar sebagai Tenant' : 'Daftar'
+                  )}
                 </Button>
               </form>
             </TabsContent>

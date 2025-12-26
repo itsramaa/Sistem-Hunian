@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { emailSchema } from '@/lib/validations/auth';
 import { getAuthErrorMessage } from '@/lib/auth-errors';
+import { triggerHaptic } from '@/lib/haptic';
 
 const resetSchema = z.object({
   email: emailSchema,
@@ -19,10 +20,13 @@ const resetSchema = z.object({
 
 type ResetFormData = z.infer<typeof resetSchema>;
 
+const RESEND_COOLDOWN = 60; // seconds
+
 export default function ResetPassword() {
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState('');
+  const [resendCountdown, setResendCountdown] = useState(0);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -31,30 +35,71 @@ export default function ResetPassword() {
     defaultValues: { email: '' },
   });
 
-  const handleReset = async (data: ResetFormData) => {
+  // Countdown timer for resend
+  useEffect(() => {
+    if (resendCountdown <= 0) return;
+
+    const timer = setInterval(() => {
+      setResendCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [resendCountdown]);
+
+  const sendResetEmail = useCallback(async (email: string) => {
     setIsLoading(true);
     
-    const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/update-password`,
     });
     
     setIsLoading(false);
 
     if (error) {
+      triggerHaptic('error');
       toast({
         variant: 'destructive',
         title: 'Gagal',
         description: getAuthErrorMessage(error),
       });
-      return;
+      return false;
     }
 
-    setSubmittedEmail(data.email);
-    setEmailSent(true);
-    toast({
-      title: 'Email terkirim',
-      description: 'Silakan cek email Anda untuk link reset password.',
-    });
+    triggerHaptic('success');
+    setResendCountdown(RESEND_COOLDOWN);
+    return true;
+  }, [toast]);
+
+  const handleReset = async (data: ResetFormData) => {
+    const success = await sendResetEmail(data.email);
+    
+    if (success) {
+      setSubmittedEmail(data.email);
+      setEmailSent(true);
+      toast({
+        title: 'Email terkirim',
+        description: 'Silakan cek email Anda untuk link reset password.',
+      });
+    }
+  };
+
+  const handleResend = async () => {
+    if (resendCountdown > 0 || !submittedEmail) return;
+    
+    const success = await sendResetEmail(submittedEmail);
+    
+    if (success) {
+      toast({
+        title: 'Email terkirim ulang',
+        description: 'Silakan cek email Anda untuk link reset password.',
+      });
+    }
   };
 
   const maskEmail = (email: string) => {
@@ -64,6 +109,8 @@ export default function ResetPassword() {
     }
     return `${local.slice(0, 3)}***@${domain}`;
   };
+
+  const canResend = resendCountdown === 0;
 
   if (emailSent) {
     return (
@@ -82,18 +129,25 @@ export default function ResetPassword() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground text-center">
-              Tidak menerima email? Cek folder spam atau coba lagi.
+              Tidak menerima email? Cek folder spam atau kirim ulang.
             </p>
             <div className="flex flex-col gap-2">
               <Button 
                 variant="outline" 
-                onClick={() => {
-                  setEmailSent(false);
-                  form.reset();
-                }}
+                onClick={handleResend}
+                disabled={!canResend || isLoading}
                 className="w-full"
               >
-                Coba lagi
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <span>Mengirim...</span>
+                  </>
+                ) : canResend ? (
+                  'Kirim Ulang Email'
+                ) : (
+                  `Kirim ulang dalam ${resendCountdown}s`
+                )}
               </Button>
               <Button 
                 variant="ghost" 
@@ -131,20 +185,32 @@ export default function ResetPassword() {
                 <Input
                   id="email"
                   type="email"
+                  inputMode="email"
+                  enterKeyHint="done"
                   placeholder="anda@contoh.com"
                   className="pl-10"
                   autoComplete="email"
                   disabled={isLoading}
+                  aria-describedby={form.formState.errors.email ? 'email-error' : undefined}
+                  aria-invalid={!!form.formState.errors.email}
                   {...form.register('email')}
                 />
               </div>
               {form.formState.errors.email && (
-                <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
+                <p id="email-error" className="text-sm text-destructive" role="alert">
+                  {form.formState.errors.email.message}
+                </p>
               )}
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Kirim Link Reset
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <span>Mengirim...</span>
+                </>
+              ) : (
+                'Kirim Link Reset'
+              )}
             </Button>
             <Button 
               type="button"
