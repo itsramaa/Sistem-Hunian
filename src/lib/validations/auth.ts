@@ -1,5 +1,21 @@
 import { z } from 'zod';
 
+// Common weak passwords that should be rejected
+const COMMON_PASSWORDS = [
+  'password', 'password1', 'password123', '123456', '12345678', '123456789',
+  'qwerty', 'qwerty123', 'abc123', 'admin', 'letmein', 'welcome', 'monkey',
+  'dragon', 'master', 'login', 'passw0rd', 'Password1', 'iloveyou', 'sunshine',
+  'princess', 'football', 'baseball', 'shadow', 'ashley', 'michael', 'superman',
+  'qazwsx', 'trustno1', '!@#$%^&*', 'password!', 'sihuni', 'sihuni123',
+];
+
+// Check if password is in common passwords list
+export function isCommonPassword(password: string): boolean {
+  return COMMON_PASSWORDS.some(common => 
+    password.toLowerCase() === common.toLowerCase()
+  );
+}
+
 // Indonesian phone number validation
 export const phoneSchema = z.string()
   .optional()
@@ -10,13 +26,16 @@ export const phoneSchema = z.string()
     message: 'Format nomor telepon tidak valid. Gunakan format Indonesia (contoh: 08123456789)',
   });
 
-// Strong password schema
+// Strong password schema with common password check
 export const strongPasswordSchema = z.string()
   .min(8, 'Password minimal 8 karakter')
   .regex(/[A-Z]/, 'Password harus mengandung minimal 1 huruf besar')
   .regex(/[a-z]/, 'Password harus mengandung minimal 1 huruf kecil')
   .regex(/[0-9]/, 'Password harus mengandung minimal 1 angka')
-  .regex(/[^A-Za-z0-9]/, 'Password harus mengandung minimal 1 karakter spesial (!@#$%^&*)');
+  .regex(/[^A-Za-z0-9]/, 'Password harus mengandung minimal 1 karakter spesial (!@#$%^&*)')
+  .refine((val) => !isCommonPassword(val), {
+    message: 'Password terlalu umum dan mudah ditebak. Gunakan kombinasi yang lebih unik.',
+  });
 
 // Simple password for login (keep backward compatible)
 export const loginPasswordSchema = z.string()

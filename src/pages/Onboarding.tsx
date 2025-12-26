@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Building2, Wrench, Loader2 } from 'lucide-react';
+import { Building2, Wrench, Loader2, ArrowLeft, Check } from 'lucide-react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,6 +14,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { businessNameSchema } from '@/lib/validations/auth';
 import { getAuthErrorMessage } from '@/lib/auth-errors';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 type SelectableRole = 'merchant' | 'vendor';
 
@@ -28,15 +38,70 @@ const roleOptions: { value: SelectableRole; label: string; icon: typeof Building
   { value: 'vendor', label: 'Vendor Jasa', icon: Wrench, description: 'Penyedia jasa/layanan' },
 ];
 
+// Step indicator component
+function StepIndicator({ currentStep }: { currentStep: 1 | 2 }) {
+  const steps = [
+    { number: 1, label: 'Pilih Role' },
+    { number: 2, label: 'Info Bisnis' },
+  ];
+
+  return (
+    <div className="flex items-center justify-center gap-4 mb-8" role="navigation" aria-label="Langkah onboarding">
+      {steps.map((step, index) => (
+        <div key={step.number} className="flex items-center">
+          <div className="flex items-center gap-2">
+            <div
+              className={cn(
+                'h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors',
+                currentStep > step.number
+                  ? 'bg-primary text-primary-foreground'
+                  : currentStep === step.number
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground'
+              )}
+              aria-current={currentStep === step.number ? 'step' : undefined}
+            >
+              {currentStep > step.number ? (
+                <Check className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                step.number
+              )}
+            </div>
+            <span
+              className={cn(
+                'text-sm font-medium',
+                currentStep >= step.number ? 'text-foreground' : 'text-muted-foreground'
+              )}
+            >
+              {step.label}
+            </span>
+          </div>
+          {index < steps.length - 1 && (
+            <div
+              className={cn(
+                'w-12 h-px mx-4',
+                currentStep > step.number ? 'bg-primary' : 'bg-muted-foreground/30'
+              )}
+              aria-hidden="true"
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Onboarding() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, role, isLoading, refreshProfile } = useAuth();
   const { toast } = useToast();
   
+  const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   const [selectedRole, setSelectedRole] = useState<SelectableRole>('merchant');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasCheckedRole, setHasCheckedRole] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   
   const referralCode = searchParams.get('ref') || sessionStorage.getItem('referral_code') || '';
 
@@ -92,7 +157,32 @@ export default function Onboarding() {
     }
   }, [hasCheckedRole, user, role, refreshProfile]);
 
-  const handleSubmit = async (data: OnboardingFormData) => {
+  const handleBack = () => {
+    if (currentStep === 2) {
+      setCurrentStep(1);
+    } else {
+      // Go back to auth or home
+      navigate('/auth', { replace: true });
+    }
+  };
+
+  const handleRoleSelect = (role: SelectableRole) => {
+    setSelectedRole(role);
+  };
+
+  const handleNextStep = () => {
+    setCurrentStep(2);
+  };
+
+  const handleFormSubmit = (data: OnboardingFormData) => {
+    // Show confirmation dialog before final submit
+    setShowConfirmDialog(true);
+  };
+
+  const handleConfirmedSubmit = async () => {
+    setShowConfirmDialog(false);
+    const data = form.getValues();
+    
     if (!user) {
       toast({
         variant: 'destructive',
@@ -196,86 +286,165 @@ export default function Onboarding() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4 py-8">
-      <Card className="w-full max-w-md shadow-elevated animate-fade-in">
-        <CardHeader className="text-center space-y-2">
-          <div className="mx-auto w-12 h-12 rounded-xl gradient-primary flex items-center justify-center mb-2">
-            <Building2 className="w-6 h-6 text-primary-foreground" />
-          </div>
-          <CardTitle className="text-2xl font-display">Lengkapi Profil Anda</CardTitle>
-          <CardDescription>
-            Pilih jenis akun dan lengkapi informasi bisnis Anda
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-            {/* Role Selection */}
-            <div className="space-y-3">
-              <Label>Saya adalah...</Label>
-              <div className="grid grid-cols-2 gap-3">
-                {roleOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setSelectedRole(option.value)}
-                    disabled={isSubmitting}
-                    className={cn(
-                      'flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all',
-                      selectedRole === option.value
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50',
-                      isSubmitting && 'opacity-50 cursor-not-allowed'
-                    )}
+      <div className="w-full max-w-md">
+        {/* Progress Indicator */}
+        <StepIndicator currentStep={currentStep} />
+
+        <Card className="shadow-elevated animate-fade-in">
+          <CardHeader className="text-center space-y-2">
+            {/* Back Button */}
+            <div className="flex items-start">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleBack}
+                className="absolute left-4 top-4"
+                aria-label="Kembali ke langkah sebelumnya"
+              >
+                <ArrowLeft className="h-4 w-4 mr-1" aria-hidden="true" />
+                Kembali
+              </Button>
+            </div>
+            
+            <div className="mx-auto w-12 h-12 rounded-xl gradient-primary flex items-center justify-center mb-2">
+              <Building2 className="w-6 h-6 text-primary-foreground" aria-hidden="true" />
+            </div>
+            <CardTitle className="text-2xl font-display">
+              {currentStep === 1 ? 'Pilih Jenis Akun' : 'Lengkapi Profil Anda'}
+            </CardTitle>
+            <CardDescription>
+              {currentStep === 1 
+                ? 'Pilih jenis akun yang sesuai dengan kebutuhan Anda'
+                : 'Lengkapi informasi bisnis Anda'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {currentStep === 1 ? (
+              /* Step 1: Role Selection */
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <Label id="role-selection-label">Saya adalah...</Label>
+                  <div 
+                    className="grid grid-cols-2 gap-3" 
+                    role="radiogroup" 
+                    aria-labelledby="role-selection-label"
                   >
-                    <option.icon className={cn(
-                      'h-8 w-8',
-                      selectedRole === option.value ? 'text-primary' : 'text-muted-foreground'
-                    )} />
-                    <span className={cn(
-                      'font-medium',
-                      selectedRole === option.value ? 'text-primary' : 'text-foreground'
-                    )}>
-                      {option.label}
-                    </span>
-                    <span className={cn(
-                      'text-xs text-center',
-                      selectedRole === option.value ? 'text-primary/80' : 'text-muted-foreground'
-                    )}>
-                      {option.description}
-                    </span>
-                  </button>
-                ))}
+                    {roleOptions.map((option, index) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={selectedRole === option.value}
+                        tabIndex={selectedRole === option.value ? 0 : -1}
+                        onClick={() => handleRoleSelect(option.value)}
+                        onKeyDown={(e) => {
+                          // Keyboard navigation for radio group
+                          if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            const nextIndex = (index + 1) % roleOptions.length;
+                            handleRoleSelect(roleOptions[nextIndex].value);
+                          } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            const prevIndex = (index - 1 + roleOptions.length) % roleOptions.length;
+                            handleRoleSelect(roleOptions[prevIndex].value);
+                          }
+                        }}
+                        className={cn(
+                          'flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2',
+                          selectedRole === option.value
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border hover:border-primary/50'
+                        )}
+                        aria-label={`${option.label}: ${option.description}`}
+                      >
+                        <option.icon 
+                          className={cn(
+                            'h-8 w-8',
+                            selectedRole === option.value ? 'text-primary' : 'text-muted-foreground'
+                          )} 
+                          aria-hidden="true"
+                        />
+                        <span className={cn(
+                          'font-medium',
+                          selectedRole === option.value ? 'text-primary' : 'text-foreground'
+                        )}>
+                          {option.label}
+                        </span>
+                        <span className={cn(
+                          'text-xs text-center',
+                          selectedRole === option.value ? 'text-primary/80' : 'text-muted-foreground'
+                        )}>
+                          {option.description}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <Button 
+                  type="button" 
+                  className="w-full" 
+                  onClick={handleNextStep}
+                >
+                  Lanjutkan
+                </Button>
               </div>
-            </div>
+            ) : (
+              /* Step 2: Business Information */
+              <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="business-name">
+                    {selectedRole === 'merchant' ? 'Nama Properti / Perusahaan' : 'Nama Bisnis'}
+                  </Label>
+                  <Input
+                    id="business-name"
+                    placeholder={selectedRole === 'merchant' ? 'Contoh: Kost Melati, PT Graha Indah' : 'Contoh: Jasa Cleaning Service'}
+                    maxLength={100}
+                    disabled={isSubmitting}
+                    autoComplete="organization"
+                    {...form.register('businessName')}
+                  />
+                  {form.formState.errors.businessName && (
+                    <p className="text-sm text-destructive">{form.formState.errors.businessName.message}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {selectedRole === 'merchant' 
+                      ? 'Nama ini akan tampil di profil properti Anda'
+                      : 'Nama ini akan tampil di profil bisnis Anda'}
+                  </p>
+                </div>
 
-            {/* Business Name */}
-            <div className="space-y-2">
-              <Label htmlFor="business-name">
-                {selectedRole === 'merchant' ? 'Nama Properti / Perusahaan' : 'Nama Bisnis'}
-              </Label>
-              <Input
-                id="business-name"
-                placeholder={selectedRole === 'merchant' ? 'Contoh: Kost Melati, PT Graha Indah' : 'Contoh: Jasa Cleaning Service'}
-                maxLength={100}
-                disabled={isSubmitting}
-                {...form.register('businessName')}
-              />
-              {form.formState.errors.businessName && (
-                <p className="text-sm text-destructive">{form.formState.errors.businessName.message}</p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                {selectedRole === 'merchant' 
-                  ? 'Nama ini akan tampil di profil properti Anda'
-                  : 'Nama ini akan tampil di profil bisnis Anda'}
-              </p>
-            </div>
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Mulai Sekarang
+                </Button>
+              </form>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
+      {/* Confirmation Dialog */}
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Konfirmasi Pendaftaran</AlertDialogTitle>
+            <AlertDialogDescription>
+              Anda akan mendaftar sebagai <strong>{selectedRole === 'merchant' ? 'Pemilik Properti' : 'Vendor Jasa'}</strong> dengan nama bisnis <strong>"{form.getValues('businessName')}"</strong>.
+              <br /><br />
+              Jenis akun tidak dapat diubah setelah pendaftaran. Apakah Anda yakin?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmedSubmit} disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Mulai Sekarang
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+              Ya, Daftarkan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

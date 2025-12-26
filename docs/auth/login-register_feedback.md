@@ -43,8 +43,8 @@ confirmPassword: z.string() // ✅ OK dengan refine
 |----|-------|----------|--------|
 | UX-LR-001 | No password strength indicator | Medium | ✅ Fixed |
 | UX-LR-002 | Bahasa campur (EN/ID) | Low | ✅ Fixed - Standardized to Indonesian |
-| UX-LR-003 | No "Remember me" persistence | Low | ⚠️ Pending |
-| UX-LR-004 | Tab tidak switch otomatis dari URL | Low | ⚠️ Pending |
+| UX-LR-003 | No "Remember me" persistence | Low | ✅ Fixed - Added remember me checkbox |
+| UX-LR-004 | Tab tidak switch otomatis dari URL | Low | ✅ Fixed - React to URL mode changes |
 | UX-LR-005 | Loading state tidak comprehensive | Medium | ✅ Fixed |
 | UX-LR-006 | Error message generic | Medium | ✅ Fixed - Added error mapping |
 
@@ -117,7 +117,7 @@ confirmPassword: z.string() // ✅ OK dengan refine
 |----|-------|--------|
 | COMP-LR-001 | emailRedirectTo hardcoded | ✅ Fixed - Using window.location.origin |
 | COMP-LR-002 | No mobile responsive check | ✅ Already responsive |
-| COMP-LR-003 | Browser autofill issues | ⚠️ Pending |
+| COMP-LR-003 | Browser autofill issues | ✅ Fixed - Proper autocomplete attributes |
 | COMP-LR-004 | No offline handling | ⚠️ Pending |
 
 ## Summary
@@ -125,8 +125,8 @@ confirmPassword: z.string() // ✅ OK dengan refine
 | Severity | Total | Fixed | Pending |
 |----------|-------|-------|---------|
 | 🔴 Critical | 6 | 3 | 3 |
-| 🟡 Warning | 12 | 6 | 6 |
-| 🔵 Info | 8 | 4 | 4 |
+| 🟡 Warning | 12 | 8 | 4 |
+| 🔵 Info | 8 | 6 | 2 |
 
 ## Implementation Progress
 
@@ -137,6 +137,9 @@ confirmPassword: z.string() // ✅ OK dengan refine
 4. Merchant code normalization
 5. Error message mapping
 6. Standardize language to Indonesian
+7. Add "Remember me" checkbox
+8. Tab switch based on URL parameter
+9. Proper autocomplete attributes
 
 ### ⚠️ Pending (Requires deeper changes)
 1. Rate limiting (server level)

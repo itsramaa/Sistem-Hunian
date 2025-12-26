@@ -20,8 +20,18 @@
 
 ### Current Implementation - UPDATED ✅
 ```typescript
-// ReferralInvite.tsx - Improved validation
-import { referralCodeSchema, selectableRoleSchema } from '@/lib/validations/auth';
+// ReferralInvite.tsx - Improved validation with TypeScript interfaces
+interface ReferralInfo {
+  referrerName: string;
+  referrerRole: string;
+  code: string;
+}
+
+interface BonusInfo {
+  title: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
 
 // Normalize and validate referral code
 const refCode = rawRefCode ? rawRefCode.toUpperCase().trim() : null;
@@ -30,22 +40,6 @@ const isValidCodeFormat = refCode ? /^[A-Z0-9]{8}$/.test(refCode) : false;
 // Validate role parameter
 const roleResult = selectableRoleSchema.safeParse(rawRole);
 const role = roleResult.success ? roleResult.data : null;
-
-// Query with all checks
-const { data: referral } = await supabase
-  .from('referrals')
-  .select('*')
-  .eq('referral_code', refCode)
-  .single();
-
-// ✅ Check if active
-if (!referral.is_active) throw 'INACTIVE';
-
-// ✅ Check expiry
-if (referral.expires_at && new Date(referral.expires_at) < new Date()) throw 'EXPIRED';
-
-// ✅ Check max uses
-if (referral.max_uses && referral.current_uses >= referral.max_uses) throw 'MAX_USES';
 ```
 
 ### Missing Validations
@@ -115,21 +109,9 @@ const REFERRAL_ERRORS = {
     message: 'Kode referral yang Anda masukkan tidak valid.',
     action: 'Periksa kembali kode atau daftar tanpa referral',
   },
-  EXPIRED: {
-    title: 'Kode Referral Kadaluarsa',
-    message: 'Kode referral ini sudah tidak berlaku.',
-    action: 'Minta kode baru dari teman Anda',
-  },
-  MAX_USES: {
-    title: 'Kode Referral Sudah Penuh',
-    message: 'Kode referral ini sudah mencapai batas penggunaan.',
-    action: 'Daftar tanpa referral atau minta kode lain',
-  },
-  INACTIVE: {
-    title: 'Kode Referral Tidak Aktif',
-    message: 'Kode referral ini sudah dinonaktifkan.',
-    action: 'Hubungi pemilik kode atau daftar tanpa referral',
-  },
+  EXPIRED: { ... },
+  MAX_USES: { ... },
+  INACTIVE: { ... },
 };
 ```
 
@@ -148,15 +130,15 @@ const REFERRAL_ERRORS = {
 | MAINT-REF-001 | getBonusInfo logic complex | ⚠️ Pending |
 | MAINT-REF-002 | Hardcoded benefits | ⚠️ Pending |
 | MAINT-REF-003 | Role checking scattered | ✅ Fixed - Using shared schema |
-| MAINT-REF-004 | No types for referral data | ⚠️ Pending |
+| MAINT-REF-004 | No types for referral data | ✅ Fixed - Added TypeScript interfaces |
 
 ## 9. Compatibility & Environment
 
 | ID | Issue | Status |
 |----|-------|--------|
-| COMP-REF-001 | Link preview (OG tags) | ⚠️ Pending |
+| COMP-REF-001 | Link preview (OG tags) | ✅ Fixed - Added OG meta tags in index.html |
 | COMP-REF-002 | Mobile deep link | ⚠️ Pending |
-| COMP-REF-003 | Social sharing preview | ⚠️ Pending |
+| COMP-REF-003 | Social sharing preview | ✅ Fixed - OG and Twitter meta tags |
 | COMP-REF-004 | WhatsApp/SMS link format | ✅ Works correctly |
 | COMP-REF-005 | URL shortener compatibility | ✅ Works correctly |
 
@@ -165,8 +147,8 @@ const REFERRAL_ERRORS = {
 | Severity | Total | Fixed | Pending |
 |----------|-------|-------|---------|
 | 🔴 Critical | 5 | 4 | 1 |
-| 🟡 Warning | 8 | 4 | 4 |
-| 🔵 Info | 6 | 4 | 2 |
+| 🟡 Warning | 8 | 5 | 3 |
+| 🔵 Info | 6 | 6 | 0 |
 
 ## Implementation Progress
 
@@ -181,10 +163,11 @@ const REFERRAL_ERRORS = {
 8. Manual code entry for missing codes
 9. Standardize language to Indonesian
 10. Display referrer info with role
+11. Add TypeScript interfaces for referral data
+12. Add OG meta tags for link preview
 
 ### ⚠️ Pending (Requires deeper changes)
 1. Rate limiting (server level)
 2. Self-referral prevention (need auth check)
 3. Referral tracking on signup (need webhook)
-4. OG tags for link preview
-5. Extract benefits to config
+4. Extract benefits to config

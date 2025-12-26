@@ -11,6 +11,19 @@ import { Loader2, Gift, Building2, User, Wrench, CheckCircle, ArrowRight, AlertC
 import { REFERRAL_ERROR_MESSAGES } from '@/lib/auth-errors';
 import { referralCodeSchema, selectableRoleSchema } from '@/lib/validations/auth';
 
+// TypeScript interfaces for referral data
+interface ReferralInfo {
+  referrerName: string;
+  referrerRole: string;
+  code: string;
+}
+
+interface BonusInfo {
+  title: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
 type ReferralErrorType = 'NOT_FOUND' | 'EXPIRED' | 'MAX_USES' | 'INACTIVE';
 
 export default function ReferralInvite() {
@@ -91,7 +104,7 @@ export default function ReferralInvite() {
     retry: false,
   });
 
-  const getBonusInfo = () => {
+  const getBonusInfo = (): BonusInfo => {
     const targetRole = role || referralInfo?.referrerRole;
     switch (targetRole) {
       case 'merchant':

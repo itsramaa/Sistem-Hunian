@@ -53,7 +53,7 @@ if (data.unit?.status !== 'available') {
 | UX-INV-002 | No progress indicator | Medium | ✅ Fixed - Added step indicator |
 | UX-INV-003 | Expired token message | Medium | ✅ Fixed - Clear message with action |
 | UX-INV-004 | Already registered confusion | High | ✅ Fixed - Clear path for existing users |
-| UX-INV-005 | No resend option | Medium | ⚠️ Pending |
+| UX-INV-005 | No resend option | Medium | ✅ Fixed - Added "Hubungi Pemilik Properti" button |
 | UX-INV-006 | Property info minimal | Low | ✅ Fixed - Shows rent amount |
 
 ## 4. Performance
@@ -97,16 +97,11 @@ if (data.unit?.status !== 'available') {
 
 ### Current State - IMPROVED ✅
 ```typescript
-// Invite.tsx - Specific error handling
-const errorMessage = (error as Error)?.message || 'INVALID';
+// Invite.tsx - Specific error handling with contact option
+const showContactOption = errorMessage === 'INVITATION_EXPIRED' || 
+                           errorMessage === 'UNIT_NOT_AVAILABLE';
 
-if (errorMessage === 'INVITATION_EXPIRED') {
-  errorInfo = INVITATION_ERROR_MESSAGES.EXPIRED;
-} else if (errorMessage === 'INVITATION_USED') {
-  errorInfo = INVITATION_ERROR_MESSAGES.USED;
-} else if (errorMessage === 'UNIT_NOT_AVAILABLE') {
-  errorInfo = INVITATION_ERROR_MESSAGES.UNIT_NOT_AVAILABLE;
-}
+// Added "Hubungi Pemilik Properti" button for expired/invalid invitations
 ```
 
 ### Issues
@@ -142,8 +137,8 @@ if (errorMessage === 'INVITATION_EXPIRED') {
 | Severity | Total | Fixed | Pending |
 |----------|-------|-------|---------|
 | 🔴 Critical | 8 | 6 | 2 |
-| 🟡 Warning | 10 | 6 | 4 |
-| 🔵 Info | 6 | 4 | 2 |
+| 🟡 Warning | 10 | 7 | 3 |
+| 🔵 Info | 6 | 5 | 1 |
 
 ## Implementation Progress
 
@@ -157,6 +152,7 @@ if (errorMessage === 'INVITATION_EXPIRED') {
 7. Add password strength validation
 8. Standardize language to Indonesian
 9. Token format validation
+10. Add "Hubungi Pemilik Properti" option for resending invitations
 
 ### ⚠️ Pending (Requires deeper changes)
 1. Database transaction (need edge function)

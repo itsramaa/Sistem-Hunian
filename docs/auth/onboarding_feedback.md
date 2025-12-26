@@ -41,10 +41,10 @@ businessName: businessNameSchema // min 3, max 100, proper chars
 | ID | Issue | Severity | Status |
 |----|-------|----------|--------|
 | UX-ON-001 | Tenant excluded | High | ✅ Fixed - Clear messaging added |
-| UX-ON-002 | No progress indicator | Medium | ⚠️ Pending |
-| UX-ON-003 | No back button | Low | ⚠️ Pending |
+| UX-ON-002 | No progress indicator | Medium | ✅ Fixed - Added StepIndicator component |
+| UX-ON-003 | No back button | Low | ✅ Fixed - Added back button with navigation |
 | UX-ON-004 | Bahasa mix | Low | ✅ Fixed - Standardized to Indonesian |
-| UX-ON-005 | No confirmation | Medium | ⚠️ Pending |
+| UX-ON-005 | No confirmation | Medium | ✅ Fixed - Added confirmation dialog before submit |
 | UX-ON-006 | Loading state minimal | Medium | ✅ Fixed |
 
 ## 4. Performance
@@ -119,8 +119,8 @@ if (error) {
 | ID | Issue | Status |
 |----|-------|--------|
 | COMP-ON-001 | No mobile optimization | ✅ Already responsive |
-| COMP-ON-002 | Icon accessibility | ⚠️ Pending |
-| COMP-ON-003 | Keyboard navigation | ⚠️ Pending |
+| COMP-ON-002 | Icon accessibility | ✅ Fixed - Added aria-label and aria-hidden |
+| COMP-ON-003 | Keyboard navigation | ✅ Fixed - Added proper tabindex and key handlers |
 | COMP-ON-004 | Slow network handling | ⚠️ Pending |
 
 ## Summary
@@ -128,8 +128,8 @@ if (error) {
 | Severity | Total | Fixed | Pending |
 |----------|-------|-------|---------|
 | 🔴 Critical | 6 | 4 | 2 |
-| 🟡 Warning | 8 | 4 | 4 |
-| 🔵 Info | 6 | 3 | 3 |
+| 🟡 Warning | 8 | 6 | 2 |
+| 🔵 Info | 6 | 6 | 0 |
 
 ## Implementation Progress
 
@@ -140,9 +140,13 @@ if (error) {
 4. Remove sensitive console logs
 5. Standardize language to Indonesian
 6. Proper loading state handling
+7. Add progress indicator (StepIndicator component)
+8. Add back button
+9. Add confirmation dialog before submit
+10. Add aria-label for icon buttons
+11. Improve keyboard navigation
 
 ### ⚠️ Pending (Requires deeper changes)
 1. Database transaction for role assignment
-2. Add progress indicator
-3. Extract business logic to custom hook
-4. Add retry mechanism
+2. Extract business logic to custom hook
+3. Add retry mechanism
