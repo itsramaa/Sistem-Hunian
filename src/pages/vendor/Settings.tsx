@@ -6,11 +6,12 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/hooks/useAuth';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   User, 
   Lock, 
@@ -19,10 +20,15 @@ import {
   Save,
   Trash2,
   Shield,
-  Calendar
+  Calendar,
+  Eye,
+  EyeOff,
+  AlertTriangle
 } from 'lucide-react';
 import { VerificationUpload } from '@/components/vendor/VerificationUpload';
 import { DisbursementSettings } from '@/components/vendor/DisbursementSettings';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { validatePhoneNumber, validatePassword } from '@/lib/vendorValidations';
 
 interface VendorBankAccount {
   id: string;
@@ -34,14 +40,41 @@ interface VendorBankAccount {
   is_primary: boolean;
 }
 
+// Mask bank account number - show only last 4 digits
+const maskAccountNumber = (accountNumber: string): string => {
+  if (!accountNumber || accountNumber.length <= 4) return accountNumber;
+  const masked = '*'.repeat(accountNumber.length - 4);
+  return masked + accountNumber.slice(-4);
+};
+
+// Calculate password strength
+const getPasswordStrength = (password: string): { score: number; label: string; color: string } => {
+  let score = 0;
+  
+  if (password.length >= 6) score += 20;
+  if (password.length >= 8) score += 20;
+  if (/[a-z]/.test(password)) score += 15;
+  if (/[A-Z]/.test(password)) score += 15;
+  if (/[0-9]/.test(password)) score += 15;
+  if (/[^a-zA-Z0-9]/.test(password)) score += 15;
+  
+  if (score < 40) return { score, label: 'Weak', color: 'bg-destructive' };
+  if (score < 70) return { score, label: 'Medium', color: 'bg-warning' };
+  return { score, label: 'Strong', color: 'bg-success' };
+};
+
 export default function VendorSettings() {
-  const { profile, refreshProfile, vendor } = useAuth();
+  const { profile, refreshProfile, vendor, user } = useAuth();
   const queryClient = useQueryClient();
+  const [showAccountNumber, setShowAccountNumber] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState({ score: 0, label: '', color: '' });
 
   const [profileData, setProfileData] = useState({
     full_name: '',
     phone: '',
   });
+
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   const [notifications, setNotifications] = useState({
     email_new_jobs: true,
@@ -129,17 +162,33 @@ export default function VendorSettings() {
     }
   }, [bankAccounts]);
 
+  // Validate phone on change
+  const handlePhoneChange = (value: string) => {
+    setProfileData(prev => ({ ...prev, phone: value }));
+    const validation = validatePhoneNumber(value);
+    setPhoneError(validation.isValid ? null : validation.error || null);
+  };
+
   const updateProfileMutation = useMutation({
     mutationFn: async () => {
-      if (!profile) throw new Error('Profile not found');
+      if (!user?.id) throw new Error('User not found');
 
+      // Validate phone before submission
+      if (profileData.phone) {
+        const phoneValidation = validatePhoneNumber(profileData.phone);
+        if (!phoneValidation.isValid) {
+          throw new Error(phoneValidation.error);
+        }
+      }
+
+      // Use user_id instead of profile.id for the update
       const { error } = await supabase
         .from('profiles')
         .update({
           full_name: profileData.full_name,
           phone: profileData.phone,
         })
-        .eq('id', profile.id);
+        .eq('user_id', user.id);
 
       if (error) throw error;
     },
@@ -153,7 +202,18 @@ export default function VendorSettings() {
   });
 
   const updatePasswordMutation = useMutation({
-    mutationFn: async (newPassword: string) => {
+    mutationFn: async ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) => {
+      // First verify current password by trying to sign in
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user?.email || '',
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        throw new Error('Current password is incorrect');
+      }
+
+      // Update to new password
       const { error } = await supabase.auth.updateUser({
         password: newPassword,
       });
@@ -163,7 +223,7 @@ export default function VendorSettings() {
       toast.success('Password updated successfully');
     },
     onError: (error) => {
-      toast.error('Failed to update password: ' + error.message);
+      toast.error(error.message);
     },
   });
 
@@ -266,21 +326,34 @@ export default function VendorSettings() {
   const handlePasswordChange = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const currentPassword = formData.get('current_password') as string;
     const newPassword = formData.get('new_password') as string;
     const confirmPassword = formData.get('confirm_password') as string;
+
+    if (!currentPassword) {
+      toast.error('Please enter your current password');
+      return;
+    }
 
     if (newPassword !== confirmPassword) {
       toast.error('Passwords do not match');
       return;
     }
 
-    if (newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters');
+    // Validate password strength
+    const validation = validatePassword(newPassword);
+    if (!validation.isValid) {
+      toast.error(validation.error || 'Invalid password');
       return;
     }
 
-    updatePasswordMutation.mutate(newPassword);
+    updatePasswordMutation.mutate({ currentPassword, newPassword });
     e.currentTarget.reset();
+    setPasswordStrength({ score: 0, label: '', color: '' });
+  };
+
+  const handleNewPasswordChange = (value: string) => {
+    setPasswordStrength(getPasswordStrength(value));
   };
 
   const handleSaveBankDetails = () => {
@@ -290,6 +363,12 @@ export default function VendorSettings() {
     }
     saveBankDetailsMutation.mutate();
   };
+
+  // Get masked account number for display
+  const displayAccountNumber = useMemo(() => {
+    if (showAccountNumber) return bankDetails.account_number;
+    return maskAccountNumber(bankDetails.account_number);
+  }, [bankDetails.account_number, showAccountNumber]);
 
   return (
     <VendorLayout>
@@ -360,15 +439,20 @@ export default function VendorSettings() {
                     <Input
                       id="phone"
                       value={profileData.phone}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
+                      onChange={(e) => handlePhoneChange(e.target.value)}
                       placeholder="+62 xxx xxxx xxxx"
+                      className={phoneError ? 'border-destructive' : ''}
                     />
+                    {phoneError && (
+                      <p className="text-xs text-destructive">{phoneError}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">Format: +62xxxxxxxxxx or 08xxxxxxxxxx</p>
                   </div>
                 </div>
                 <div className="flex justify-end">
                   <Button 
                     onClick={() => updateProfileMutation.mutate()}
-                    disabled={updateProfileMutation.isPending}
+                    disabled={updateProfileMutation.isPending || !!phoneError}
                   >
                     <Save className="h-4 w-4 mr-2" />
                     {updateProfileMutation.isPending ? 'Saving...' : 'Save Changes'}
@@ -387,6 +471,16 @@ export default function VendorSettings() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handlePasswordChange} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="current_password">Current Password</Label>
+                    <Input
+                      id="current_password"
+                      name="current_password"
+                      type="password"
+                      placeholder="••••••••"
+                      required
+                    />
+                  </div>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="new_password">New Password</Label>
@@ -396,7 +490,19 @@ export default function VendorSettings() {
                         type="password"
                         placeholder="••••••••"
                         required
+                        onChange={(e) => handleNewPasswordChange(e.target.value)}
                       />
+                      {passwordStrength.label && (
+                        <div className="space-y-1">
+                          <Progress value={passwordStrength.score} className="h-2" />
+                          <p className={`text-xs ${
+                            passwordStrength.label === 'Weak' ? 'text-destructive' :
+                            passwordStrength.label === 'Medium' ? 'text-warning' : 'text-success'
+                          }`}>
+                            Password strength: {passwordStrength.label}
+                          </p>
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="confirm_password">Confirm New Password</Label>
@@ -409,6 +515,12 @@ export default function VendorSettings() {
                       />
                     </div>
                   </div>
+                  <Alert>
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      Password must be at least 8 characters with uppercase, lowercase, and a number.
+                    </AlertDescription>
+                  </Alert>
                   <div className="flex justify-end">
                     <Button type="submit" disabled={updatePasswordMutation.isPending}>
                       {updatePasswordMutation.isPending ? 'Updating...' : 'Update Password'}
@@ -491,7 +603,7 @@ export default function VendorSettings() {
                   <div className="space-y-0.5">
                     <Label>Job Updates</Label>
                     <p className="text-sm text-muted-foreground">
-                      Receive push notifications for job updates
+                      Receive push notifications for job status changes
                     </p>
                   </div>
                   <Switch
@@ -508,9 +620,7 @@ export default function VendorSettings() {
             <Card>
               <CardHeader>
                 <CardTitle>Bank Account Details</CardTitle>
-                <CardDescription>
-                  Your bank account for receiving payouts
-                </CardDescription>
+                <CardDescription>Your bank account for receiving payments</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
@@ -524,22 +634,41 @@ export default function VendorSettings() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="account_name">Account Holder Name *</Label>
+                    <Label htmlFor="account_name">Account Name *</Label>
                     <Input
                       id="account_name"
                       value={bankDetails.account_name}
                       onChange={(e) => setBankDetails(prev => ({ ...prev, account_name: e.target.value }))}
-                      placeholder="Name as it appears on the account"
+                      placeholder="Name on bank account"
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="account_number">Account Number *</Label>
-                    <Input
-                      id="account_number"
-                      value={bankDetails.account_number}
-                      onChange={(e) => setBankDetails(prev => ({ ...prev, account_number: e.target.value }))}
-                      placeholder="Your bank account number"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="account_number"
+                        value={showAccountNumber ? bankDetails.account_number : displayAccountNumber}
+                        onChange={(e) => setBankDetails(prev => ({ ...prev, account_number: e.target.value }))}
+                        placeholder="Your bank account number"
+                        className="pr-10"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-0 top-0 h-full"
+                        onClick={() => setShowAccountNumber(!showAccountNumber)}
+                      >
+                        {showAccountNumber ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Account number is masked for security
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="branch_code">Branch Code (Optional)</Label>
@@ -547,15 +676,15 @@ export default function VendorSettings() {
                       id="branch_code"
                       value={bankDetails.branch_code}
                       onChange={(e) => setBankDetails(prev => ({ ...prev, branch_code: e.target.value }))}
-                      placeholder="Branch code if applicable"
+                      placeholder="Bank branch code"
                     />
                   </div>
                 </div>
-                <div className="flex justify-between items-center pt-2">
+                <div className="flex justify-between">
                   {bankAccounts.length > 0 && (
                     <Button 
-                      variant="destructive" 
-                      size="sm"
+                      variant="outline" 
+                      className="text-destructive hover:text-destructive"
                       onClick={() => {
                         const primaryAccount = bankAccounts.find(a => a.is_primary);
                         if (primaryAccount) {
@@ -565,7 +694,7 @@ export default function VendorSettings() {
                       disabled={deleteBankAccountMutation.isPending}
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
-                      Delete Account
+                      {deleteBankAccountMutation.isPending ? 'Deleting...' : 'Delete Account'}
                     </Button>
                   )}
                   <Button 
@@ -583,28 +712,12 @@ export default function VendorSettings() {
 
           {/* Disbursement Tab */}
           <TabsContent value="disbursement" className="mt-6 space-y-6">
-            {vendor ? (
-              <DisbursementSettings vendorId={vendor.id} />
-            ) : (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <p className="text-muted-foreground">Loading vendor information...</p>
-                </CardContent>
-              </Card>
-            )}
+            {vendor && <DisbursementSettings vendorId={vendor.id} />}
           </TabsContent>
 
           {/* Verification Tab */}
           <TabsContent value="verification" className="mt-6 space-y-6">
-            {vendor ? (
-              <VerificationUpload vendorId={vendor.id} />
-            ) : (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <p className="text-muted-foreground">Loading vendor information...</p>
-                </CardContent>
-              </Card>
-            )}
+            {vendor && <VerificationUpload vendorId={vendor.id} />}
           </TabsContent>
         </Tabs>
       </div>

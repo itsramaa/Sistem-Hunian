@@ -2,13 +2,15 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   TrendingUp, 
   ShoppingCart, 
   Star, 
   Package,
-  BarChart3
+  BarChart3,
+  AlertTriangle
 } from "lucide-react";
 import { 
   LineChart, 
@@ -21,18 +23,37 @@ import {
   BarChart,
   Bar
 } from "recharts";
-import { startOfMonth, startOfWeek, subDays, format, eachDayOfInterval, isAfter } from "date-fns";
+import { startOfMonth, subDays, format, eachDayOfInterval, isAfter, subMonths } from "date-fns";
+import { formatCurrency } from "@/lib/currency";
 
 interface SalesAnalyticsProps {
   vendorId: string;
+  dateRange?: '7d' | '30d' | '90d' | 'all';
 }
 
-export const SalesAnalytics = ({ vendorId }: SalesAnalyticsProps) => {
+export const SalesAnalytics = ({ vendorId, dateRange = '30d' }: SalesAnalyticsProps) => {
+  // Calculate date filter
+  const getDateFilter = () => {
+    const now = new Date();
+    switch (dateRange) {
+      case '7d':
+        return subDays(now, 7);
+      case '30d':
+        return subDays(now, 30);
+      case '90d':
+        return subDays(now, 90);
+      default:
+        return null;
+    }
+  };
+
+  const dateFilter = getDateFilter();
+
   // Fetch orders for the vendor
-  const { data: orders = [] } = useQuery({
-    queryKey: ["vendor-analytics-orders", vendorId],
+  const { data: orders = [], isLoading: ordersLoading, error: ordersError } = useQuery({
+    queryKey: ["vendor-analytics-orders", vendorId, dateRange],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("orders")
         .select(`
           id,
@@ -47,6 +68,11 @@ export const SalesAnalytics = ({ vendorId }: SalesAnalyticsProps) => {
         .eq("vendor_id", vendorId)
         .order("created_at", { ascending: false });
 
+      if (dateFilter) {
+        query = query.gte("created_at", dateFilter.toISOString());
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -54,20 +80,28 @@ export const SalesAnalytics = ({ vendorId }: SalesAnalyticsProps) => {
   });
 
   // Fetch reviews for rating trend
-  const { data: reviews = [] } = useQuery({
-    queryKey: ["vendor-analytics-reviews", vendorId],
+  const { data: reviews = [], isLoading: reviewsLoading, error: reviewsError } = useQuery({
+    queryKey: ["vendor-analytics-reviews", vendorId, dateRange],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("order_reviews")
         .select("rating, created_at")
         .eq("vendor_id", vendorId)
         .order("created_at", { ascending: false });
 
+      if (dateFilter) {
+        query = query.gte("created_at", dateFilter.toISOString());
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
     enabled: !!vendorId,
   });
+
+  const isLoading = ordersLoading || reviewsLoading;
+  const hasError = ordersError || reviewsError;
 
   // Calculate stats
   const completedOrders = orders.filter(o => o.status === "completed");
@@ -85,18 +119,28 @@ export const SalesAnalytics = ({ vendorId }: SalesAnalyticsProps) => {
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
     : "N/A";
 
-  // Generate daily revenue data for last 7 days
-  const last7Days = eachDayOfInterval({
-    start: subDays(new Date(), 6),
+  // Generate daily revenue data based on date range
+  const getDaysToShow = () => {
+    switch (dateRange) {
+      case '7d': return 7;
+      case '30d': return 30;
+      case '90d': return 90;
+      default: return 30;
+    }
+  };
+
+  const daysToShow = getDaysToShow();
+  const dateInterval = eachDayOfInterval({
+    start: subDays(new Date(), daysToShow - 1),
     end: new Date()
   });
 
-  const dailyRevenueData = last7Days.map(day => {
+  const dailyRevenueData = dateInterval.map(day => {
     const dayOrders = completedOrders.filter(o => 
       format(new Date(o.created_at), "yyyy-MM-dd") === format(day, "yyyy-MM-dd")
     );
     return {
-      date: format(day, "EEE"),
+      date: format(day, daysToShow <= 7 ? "EEE" : "MMM d"),
       revenue: dayOrders.reduce((sum, o) => sum + o.total_price, 0) / 1000, // in thousands
       orders: dayOrders.length,
     };
@@ -114,13 +158,20 @@ export const SalesAnalytics = ({ vendorId }: SalesAnalyticsProps) => {
     .slice(0, 5)
     .map(([name, revenue]) => ({ name, revenue: revenue / 1000 }));
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
+  if (hasError) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              Failed to load analytics data. Please try again.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -134,34 +185,44 @@ export const SalesAnalytics = ({ vendorId }: SalesAnalyticsProps) => {
       <CardContent className="space-y-6">
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-4 rounded-lg bg-primary/10">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="h-4 w-4 text-primary" />
-              <span className="text-xs text-muted-foreground">Total Revenue</span>
-            </div>
-            <p className="text-lg font-bold">{formatCurrency(totalRevenue)}</p>
-          </div>
-          <div className="p-4 rounded-lg bg-success/10">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="h-4 w-4 text-success" />
-              <span className="text-xs text-muted-foreground">This Month</span>
-            </div>
-            <p className="text-lg font-bold">{formatCurrency(thisMonthRevenue)}</p>
-          </div>
-          <div className="p-4 rounded-lg bg-warning/10">
-            <div className="flex items-center gap-2 mb-2">
-              <ShoppingCart className="h-4 w-4 text-warning" />
-              <span className="text-xs text-muted-foreground">Completion Rate</span>
-            </div>
-            <p className="text-lg font-bold">{orderCompletionRate}%</p>
-          </div>
-          <div className="p-4 rounded-lg bg-muted">
-            <div className="flex items-center gap-2 mb-2">
-              <Star className="h-4 w-4 text-yellow-500" />
-              <span className="text-xs text-muted-foreground">Avg Rating</span>
-            </div>
-            <p className="text-lg font-bold">{averageRating} ⭐</p>
-          </div>
+          {isLoading ? (
+            <>
+              {[...Array(4)].map((_, i) => (
+                <Skeleton key={i} className="h-24 rounded-lg" />
+              ))}
+            </>
+          ) : (
+            <>
+              <div className="p-4 rounded-lg bg-primary/10">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                  <span className="text-xs text-muted-foreground">Total Revenue</span>
+                </div>
+                <p className="text-lg font-bold">{formatCurrency(totalRevenue)}</p>
+              </div>
+              <div className="p-4 rounded-lg bg-success/10">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="h-4 w-4 text-success" />
+                  <span className="text-xs text-muted-foreground">This Month</span>
+                </div>
+                <p className="text-lg font-bold">{formatCurrency(thisMonthRevenue)}</p>
+              </div>
+              <div className="p-4 rounded-lg bg-warning/10">
+                <div className="flex items-center gap-2 mb-2">
+                  <ShoppingCart className="h-4 w-4 text-warning" />
+                  <span className="text-xs text-muted-foreground">Completion Rate</span>
+                </div>
+                <p className="text-lg font-bold">{orderCompletionRate}%</p>
+              </div>
+              <div className="p-4 rounded-lg bg-muted">
+                <div className="flex items-center gap-2 mb-2">
+                  <Star className="h-4 w-4 text-yellow-500" />
+                  <span className="text-xs text-muted-foreground">Avg Rating</span>
+                </div>
+                <p className="text-lg font-bold">{averageRating} ⭐</p>
+              </div>
+            </>
+          )}
         </div>
 
         <Tabs defaultValue="revenue" className="w-full">
@@ -172,7 +233,9 @@ export const SalesAnalytics = ({ vendorId }: SalesAnalyticsProps) => {
 
           <TabsContent value="revenue" className="pt-4">
             <div className="h-[200px]">
-              {dailyRevenueData.some(d => d.revenue > 0) ? (
+              {isLoading ? (
+                <Skeleton className="h-full w-full" />
+              ) : dailyRevenueData.some(d => d.revenue > 0) ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={dailyRevenueData}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -203,7 +266,9 @@ export const SalesAnalytics = ({ vendorId }: SalesAnalyticsProps) => {
           </TabsContent>
 
           <TabsContent value="products" className="pt-4">
-            {topProducts.length > 0 ? (
+            {isLoading ? (
+              <Skeleton className="h-[200px] w-full" />
+            ) : topProducts.length > 0 ? (
               <div className="h-[200px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={topProducts} layout="vertical">

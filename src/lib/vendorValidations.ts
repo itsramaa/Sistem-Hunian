@@ -1,10 +1,53 @@
 import { z } from 'zod';
 
-/**
- * Vendor-specific validation schemas
- */
+// Phone number validation
+export const validatePhoneNumber = (phone: string): { isValid: boolean; error?: string } => {
+  if (!phone) return { isValid: true };
+  
+  // Indonesian phone format: +62xxx or 08xxx
+  const phoneRegex = /^(\+62|62|0)8[1-9][0-9]{7,10}$/;
+  const cleanPhone = phone.replace(/[\s-]/g, '');
+  
+  if (!phoneRegex.test(cleanPhone)) {
+    return { isValid: false, error: 'Invalid phone format. Use +62xxxxxxxxxx or 08xxxxxxxxxx' };
+  }
+  return { isValid: true };
+};
 
-// Product validation schema
+// Password validation
+export const validatePassword = (password: string): { isValid: boolean; error?: string } => {
+  if (password.length < 8) {
+    return { isValid: false, error: 'Password must be at least 8 characters' };
+  }
+  if (!/[a-z]/.test(password)) {
+    return { isValid: false, error: 'Password must contain a lowercase letter' };
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { isValid: false, error: 'Password must contain an uppercase letter' };
+  }
+  if (!/[0-9]/.test(password)) {
+    return { isValid: false, error: 'Password must contain a number' };
+  }
+  return { isValid: true };
+};
+
+// Product form data type
+export interface ProductFormData {
+  name: string;
+  description: string;
+  category: string;
+  price: string;
+  unit: string;
+  is_available: boolean;
+  min_order: string;
+  estimated_duration: string;
+  photos: string[];
+  stock: string;
+  promo_price: string;
+  promo_start: string;
+  promo_end: string;
+}
+
 export const productSchema = z.object({
   name: z.string().min(1, 'Product name is required').max(100, 'Name too long'),
   description: z.string().max(1000, 'Description too long').optional().nullable(),
