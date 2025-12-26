@@ -13,7 +13,9 @@ import {
   List,
   DoorOpen,
   Image as ImageIcon,
-  X
+  X,
+  AlertTriangle,
+  RefreshCw
 } from 'lucide-react';
 import { UnitsManager } from '@/components/merchant/UnitsManager';
 import { UnitPhotoUpload } from '@/components/merchant/UnitPhotoUpload';
@@ -28,6 +30,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -89,12 +92,14 @@ const statusColors: Record<string, string> = {
 export default function MerchantProperties() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
   const [unitsProperty, setUnitsProperty] = useState<Property | null>(null);
   const [imagesProperty, setImagesProperty] = useState<Property | null>(null);
   const [propertyImages, setPropertyImages] = useState<string[]>([]);
@@ -129,6 +134,7 @@ export default function MerchantProperties() {
     if (!merchant) return;
     
     setLoading(true);
+    setError(null);
     try {
       const { data, error } = await supabase
         .from('properties')
@@ -138,12 +144,14 @@ export default function MerchantProperties() {
 
       if (error) throw error;
       setProperties((data as Property[]) || []);
-    } catch (error) {
-      console.error('Error fetching properties:', error);
+    } catch (err: any) {
+      console.error('Error fetching properties:', err);
+      const errorMessage = err?.message || 'Failed to load properties. Please try again.';
+      setError(errorMessage);
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to load properties',
+        title: 'Error Loading Properties',
+        description: errorMessage,
       });
     } finally {
       setLoading(false);
@@ -257,24 +265,82 @@ export default function MerchantProperties() {
   };
 
   const handleDelete = async (property: Property) => {
-    if (!confirm(`Are you sure you want to delete "${property.name}"?`)) return;
-
+    // Check for active units first
+    setDeleteLoading(property.id);
     try {
+      // Check for units with active contracts
+      const { data: activeUnits, error: unitsError } = await supabase
+        .from('units')
+        .select('id, unit_number')
+        .eq('property_id', property.id)
+        .eq('status', 'occupied');
+
+      if (unitsError) throw unitsError;
+
+      if (activeUnits && activeUnits.length > 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Cannot Delete Property',
+          description: `Property "${property.name}" has ${activeUnits.length} occupied unit(s). Please end all contracts before deleting.`,
+        });
+        setDeleteLoading(null);
+        return;
+      }
+
+      // Check for active contracts
+      const { data: activeContracts, error: contractsError } = await supabase
+        .from('contracts')
+        .select('id, units!inner(property_id)')
+        .eq('units.property_id', property.id)
+        .in('status', ['active', 'pending']);
+
+      if (contractsError) throw contractsError;
+
+      if (activeContracts && activeContracts.length > 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Cannot Delete Property',
+          description: `Property "${property.name}" has ${activeContracts.length} active or pending contract(s). Please end all contracts before deleting.`,
+        });
+        setDeleteLoading(null);
+        return;
+      }
+
+      // Confirm deletion
+      if (!confirm(`Are you sure you want to delete "${property.name}"? This action cannot be undone.`)) {
+        setDeleteLoading(null);
+        return;
+      }
+
+      // Delete associated units first
+      const { error: deleteUnitsError } = await supabase
+        .from('units')
+        .delete()
+        .eq('property_id', property.id);
+
+      if (deleteUnitsError) throw deleteUnitsError;
+
+      // Then delete the property
       const { error } = await supabase
         .from('properties')
         .delete()
         .eq('id', property.id);
 
       if (error) throw error;
-      toast({ title: 'Property Deleted', description: 'Property has been deleted successfully' });
+      toast({ title: 'Property Deleted', description: 'Property and its units have been deleted successfully' });
       fetchProperties();
     } catch (error: any) {
       console.error('Error deleting property:', error);
+      const errorMessage = error?.code === '23503' 
+        ? 'Cannot delete property with existing dependencies. Please remove all related data first.'
+        : error.message || 'Failed to delete property';
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to delete property',
+        title: 'Error Deleting Property',
+        description: errorMessage,
       });
+    } finally {
+      setDeleteLoading(null);
     }
   };
 
@@ -508,6 +574,21 @@ export default function MerchantProperties() {
           </div>
         </div>
 
+        {/* Error State */}
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription className="flex items-center justify-between">
+              <span>{error}</span>
+              <Button variant="outline" size="sm" onClick={fetchProperties}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Properties */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
@@ -568,9 +649,14 @@ export default function MerchantProperties() {
                         <DropdownMenuItem 
                           onClick={() => handleDelete(property)}
                           className="text-destructive"
+                          disabled={deleteLoading === property.id}
                         >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
+                          {deleteLoading === property.id ? (
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4 mr-2" />
+                          )}
+                          {deleteLoading === property.id ? 'Checking...' : 'Delete'}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -680,9 +766,14 @@ export default function MerchantProperties() {
                             <DropdownMenuItem 
                               onClick={() => handleDelete(property)}
                               className="text-destructive"
+                              disabled={deleteLoading === property.id}
                             >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
+                              {deleteLoading === property.id ? (
+                                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4 mr-2" />
+                              )}
+                              {deleteLoading === property.id ? 'Checking...' : 'Delete'}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
