@@ -76,9 +76,24 @@ const contractSchema = z.object({
   start_date: z.string().min(1, 'Start date is required'),
   end_date: z.string().min(1, 'End date is required'),
   rent_amount: z.coerce.number().positive('Rent must be positive'),
-  deposit_amount: z.coerce.number().min(0),
+  deposit_amount: z.coerce.number().min(0, 'Deposit cannot be negative'),
   billing_day: z.coerce.number().min(1).max(28).optional(),
-  terms: z.string().optional(),
+  terms: z.string().max(10000, 'Terms cannot exceed 10,000 characters').optional(),
+}).refine((data) => {
+  const start = new Date(data.start_date);
+  const end = new Date(data.end_date);
+  return end > start;
+}, {
+  message: 'End date must be after start date',
+  path: ['end_date'],
+}).refine((data) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = new Date(data.start_date);
+  return start >= today;
+}, {
+  message: 'Start date cannot be in the past',
+  path: ['start_date'],
 });
 
 type ContractFormData = z.infer<typeof contractSchema>;
@@ -204,6 +219,35 @@ export default function MerchantContracts() {
     if (!merchant) return;
     setCreateLoading(true);
     try {
+      // Check for existing active contract on unit
+      const { data: existingUnitContract, error: unitCheckError } = await supabase
+        .from('contracts')
+        .select('id')
+        .eq('unit_id', data.unit_id)
+        .in('status', ['active', 'draft', 'pending_signature'])
+        .limit(1);
+
+      if (unitCheckError) throw unitCheckError;
+      if (existingUnitContract && existingUnitContract.length > 0) {
+        toast.error('This unit already has an active or pending contract');
+        return;
+      }
+
+      // Check for existing active contract for tenant with this merchant
+      const { data: existingTenantContract, error: tenantCheckError } = await supabase
+        .from('contracts')
+        .select('id')
+        .eq('tenant_user_id', data.tenant_user_id)
+        .eq('merchant_id', merchant.id)
+        .in('status', ['active', 'draft', 'pending_signature'])
+        .limit(1);
+
+      if (tenantCheckError) throw tenantCheckError;
+      if (existingTenantContract && existingTenantContract.length > 0) {
+        toast.error('This tenant already has an active or pending contract with you');
+        return;
+      }
+
       const { error } = await supabase
         .from('contracts')
         .insert({
@@ -349,6 +393,11 @@ export default function MerchantContracts() {
   };
 
   const handleEditTerms = (contract: Contract) => {
+    // Lock terms after tenant signature
+    if (contract.tenant_signature_url) {
+      toast.error('Terms cannot be edited after tenant has signed');
+      return;
+    }
     setSelectedContract(contract);
     setEditingTerms(contract.terms || '');
     setEditTermsDialogOpen(true);
@@ -356,6 +405,10 @@ export default function MerchantContracts() {
 
   const handleSaveTerms = () => {
     if (!selectedContract) return;
+    if (editingTerms.length > 10000) {
+      toast.error('Terms cannot exceed 10,000 characters');
+      return;
+    }
     updateTermsMutation.mutate({
       contractId: selectedContract.id,
       terms: editingTerms,

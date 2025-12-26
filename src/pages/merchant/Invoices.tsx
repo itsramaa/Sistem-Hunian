@@ -96,6 +96,43 @@ export default function MerchantInvoices() {
       const amountNum = parseFloat(amount);
       const taxNum = parseFloat(taxAmount) || 0;
       
+      // Validate amount
+      if (amountNum <= 0) {
+        throw new Error('Amount must be greater than zero');
+      }
+      
+      // Validate tax
+      if (taxNum < 0) {
+        throw new Error('Tax amount cannot be negative');
+      }
+
+      // Validate due date is not in the past
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const dueDateObj = new Date(dueDate);
+      if (dueDateObj < today) {
+        throw new Error('Due date cannot be in the past');
+      }
+
+      // Check for duplicate invoice (same contract, same month)
+      const dueDateMonth = format(dueDateObj, 'yyyy-MM');
+      const { data: existingInvoices, error: checkError } = await supabase
+        .from('invoices')
+        .select('id, due_date')
+        .eq('contract_id', selectedContract)
+        .neq('status', 'cancelled');
+      
+      if (checkError) throw checkError;
+      
+      const hasDuplicate = existingInvoices?.some(inv => {
+        const invMonth = format(new Date(inv.due_date), 'yyyy-MM');
+        return invMonth === dueDateMonth;
+      });
+      
+      if (hasDuplicate) {
+        throw new Error('An invoice already exists for this contract in the selected month');
+      }
+      
       const { error } = await supabase
         .from('invoices')
         .insert({
@@ -106,7 +143,7 @@ export default function MerchantInvoices() {
           amount: amountNum,
           tax_amount: taxNum,
           total_amount: amountNum + taxNum,
-          description,
+          description: description.slice(0, 1000), // Limit description length
           due_date: dueDate,
           status: 'draft',
         });
@@ -118,8 +155,8 @@ export default function MerchantInvoices() {
       setIsCreateOpen(false);
       resetForm();
     },
-    onError: () => {
-      toast({ title: 'Failed to create invoice', variant: 'destructive' });
+    onError: (error: Error) => {
+      toast({ title: 'Failed to create invoice', description: error.message, variant: 'destructive' });
     },
   });
 
@@ -175,8 +212,27 @@ export default function MerchantInvoices() {
     },
   });
 
+  // Valid status transitions
+  const VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
+    draft: ['sent', 'cancelled'],
+    sent: ['paid', 'overdue', 'cancelled'],
+    overdue: ['paid', 'cancelled'],
+    paid: [],
+    cancelled: [],
+  };
+
   const markPaidMutation = useMutation({
     mutationFn: async (invoiceId: string) => {
+      // Get current invoice status
+      const invoice = invoices.find(i => i.id === invoiceId);
+      if (!invoice) throw new Error('Invoice not found');
+      
+      // Validate status transition
+      const allowedTransitions = VALID_STATUS_TRANSITIONS[invoice.status] || [];
+      if (!allowedTransitions.includes('paid')) {
+        throw new Error(`Cannot mark invoice as paid. Current status: ${invoice.status}`);
+      }
+
       const { error } = await supabase
         .from('invoices')
         .update({ 
@@ -191,8 +247,8 @@ export default function MerchantInvoices() {
       toast({ title: 'Invoice marked as paid' });
       setViewInvoice(null);
     },
-    onError: () => {
-      toast({ title: 'Failed to update invoice', variant: 'destructive' });
+    onError: (error: Error) => {
+      toast({ title: 'Failed to update invoice', description: error.message, variant: 'destructive' });
     },
   });
 

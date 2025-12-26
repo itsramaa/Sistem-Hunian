@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { MerchantLayout } from '@/components/layouts/MerchantLayout';
@@ -11,26 +12,35 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { Wallet, ArrowUpRight, ArrowDownLeft, Clock, Calendar, Loader2, Info, Send, AlertCircle, ShieldAlert, TrendingUp } from 'lucide-react';
+import { Wallet, ArrowUpRight, ArrowDownLeft, Clock, Calendar, Loader2, Info, Send, AlertCircle, ShieldAlert, TrendingUp, CreditCard, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
+import { formatCurrency } from '@/lib/currency';
+import { getEscrowStatusColors, getTransactionTypeColors } from '@/lib/statusColors';
 
 const DISBURSEMENT_OPTIONS = [
-  { value: 'daily', label: 'Daily', fee: '0.25%', description: 'Receive funds daily with 0.25% fee' },
-  { value: 'weekly', label: 'Weekly', fee: 'Free', description: 'Receive funds every Monday, no fee' },
-  { value: 'monthly', label: 'Monthly', fee: 'Free', description: 'Receive funds on the 1st, no fee' },
-  { value: 'on_demand', label: 'On Demand', fee: '0.5%', description: 'Request anytime with 0.5% fee' },
+  { value: 'daily', label: 'Daily', fee: '0.25%', feeRate: 0.0025, description: 'Receive funds daily with 0.25% fee' },
+  { value: 'weekly', label: 'Weekly', fee: 'Free', feeRate: 0, description: 'Receive funds every Monday, no fee' },
+  { value: 'monthly', label: 'Monthly', fee: 'Free', feeRate: 0, description: 'Receive funds on the 1st, no fee' },
+  { value: 'on_demand', label: 'On Demand', fee: '0.5%', feeRate: 0.005, description: 'Request anytime with 0.5% fee' },
 ];
 
-const ON_DEMAND_FEE_RATE = 0.005; // 0.5%
+const calculateDisbursementFee = (amount: number, scheduleType: string = 'on_demand') => {
+  const option = DISBURSEMENT_OPTIONS.find(o => o.value === scheduleType) || DISBURSEMENT_OPTIONS[3];
+  return amount * option.feeRate;
+};
+
+const TRANSACTIONS_PER_PAGE = 20;
 
 export default function MerchantEscrow() {
   const { merchant, user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [disbursementDialogOpen, setDisbursementDialogOpen] = useState(false);
+  const [transactionPage, setTransactionPage] = useState(0);
 
-  // Fetch escrow account
-  const { data: escrowAccount, isLoading: loadingAccount } = useQuery({
+  // Fetch escrow account - using maybeSingle() instead of single()
+  const { data: escrowAccount, isLoading: loadingAccount, error: escrowError } = useQuery({
     queryKey: ['escrow-account', merchant?.id],
     queryFn: async () => {
       if (!merchant?.id) return null;
@@ -38,29 +48,44 @@ export default function MerchantEscrow() {
         .from('escrow_accounts')
         .select('*')
         .eq('merchant_id', merchant.id)
-        .single();
-      if (error && error.code !== 'PGRST116') throw error;
+        .maybeSingle();
+      if (error) throw error;
       return data;
     },
     enabled: !!merchant?.id,
   });
 
-  // Fetch transactions
-  const { data: transactions = [], isLoading: loadingTransactions } = useQuery({
-    queryKey: ['escrow-transactions', escrowAccount?.id],
+  // Fetch transactions with pagination
+  const { data: transactionsData, isLoading: loadingTransactions } = useQuery({
+    queryKey: ['escrow-transactions', escrowAccount?.id, transactionPage],
     queryFn: async () => {
-      if (!escrowAccount?.id) return [];
+      if (!escrowAccount?.id) return { transactions: [], total: 0 };
+      
+      // Get total count
+      const { count, error: countError } = await supabase
+        .from('escrow_transactions')
+        .select('*', { count: 'exact', head: true })
+        .eq('escrow_account_id', escrowAccount.id);
+      
+      if (countError) throw countError;
+
+      // Get paginated data
       const { data, error } = await supabase
         .from('escrow_transactions')
         .select('*')
         .eq('escrow_account_id', escrowAccount.id)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .range(transactionPage * TRANSACTIONS_PER_PAGE, (transactionPage + 1) * TRANSACTIONS_PER_PAGE - 1);
+      
       if (error) throw error;
-      return data;
+      return { transactions: data || [], total: count || 0 };
     },
     enabled: !!escrowAccount?.id,
   });
+
+  const transactions = transactionsData?.transactions || [];
+  const totalTransactions = transactionsData?.total || 0;
+  const totalPages = Math.ceil(totalTransactions / TRANSACTIONS_PER_PAGE);
 
   // Fetch merchant for disbursement schedule and stats
   const { data: merchantData } = useQuery({
@@ -119,22 +144,32 @@ export default function MerchantEscrow() {
   // Request on-demand disbursement - calls Xendit edge function
   const requestDisbursement = useMutation({
     mutationFn: async () => {
-      if (!escrowAccount?.id || !bankAccount?.id || !merchant?.id) {
-        throw new Error('Missing account info');
+      if (!escrowAccount?.id || !merchant?.id) {
+        throw new Error('Missing escrow account information');
+      }
+      
+      if (!bankAccount?.id) {
+        throw new Error('Please add a primary bank account before requesting disbursement');
+      }
+
+      // Verify bank account details are complete
+      if (!bankAccount.account_number || !bankAccount.bank_name || !bankAccount.account_name) {
+        throw new Error('Bank account details are incomplete. Please update your bank account information.');
       }
       
       const balance = escrowAccount.balance || 0;
       const minAmount = merchantData?.min_disbursement_amount || 100000;
 
       if (balance < minAmount) {
-        throw new Error(`Minimum disbursement amount is Rp ${minAmount.toLocaleString()}`);
+        throw new Error(`Minimum disbursement amount is ${formatCurrency(minAmount)}. Current balance: ${formatCurrency(balance)}`);
       }
+
+      // Calculate fee using centralized function
+      const feeAmount = calculateDisbursementFee(balance, 'on_demand');
+      const netAmount = balance - feeAmount;
 
       // If not verified, create disbursement with manual review flag
       if (!isVerified) {
-        const feeAmount = balance * ON_DEMAND_FEE_RATE;
-        const netAmount = balance - feeAmount;
-
         const { error } = await supabase
           .from('disbursements')
           .insert({
@@ -206,26 +241,15 @@ export default function MerchantEscrow() {
     },
   });
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(value);
-  };
-
   const balance = escrowAccount?.balance || 0;
-  const feeAmount = balance * ON_DEMAND_FEE_RATE;
+  const feeAmount = calculateDisbursementFee(balance, 'on_demand');
   const netAmount = balance - feeAmount;
+  const minDisbursementAmount = merchantData?.min_disbursement_amount || 100000;
 
   const getStatusBadge = (status: string) => {
-    const styles: Record<string, string> = {
-      completed: 'bg-green-500/10 text-green-600 border-green-200',
-      pending: 'bg-yellow-500/10 text-yellow-600 border-yellow-200',
-      processing: 'bg-blue-500/10 text-blue-600 border-blue-200',
-    };
+    const colors = getEscrowStatusColors(status);
     return (
-      <Badge variant="outline" className={styles[status] || 'bg-muted'}>
+      <Badge variant="outline" className={colors}>
         {status}
       </Badge>
     );
@@ -376,11 +400,31 @@ export default function MerchantEscrow() {
                 Request Now
               </Button>
             </div>
-            {!bankAccount && (
-              <p className="text-sm text-warning mt-2 flex items-center gap-1">
+            {balance > 0 && balance < minDisbursementAmount && (
+              <Alert className="mt-3">
                 <AlertCircle className="h-4 w-4" />
-                Please add a primary bank account in Settings before requesting disbursement.
-              </p>
+                <AlertDescription>
+                  Minimum disbursement amount is {formatCurrency(minDisbursementAmount)}. Current balance: {formatCurrency(balance)}
+                </AlertDescription>
+              </Alert>
+            )}
+            {!bankAccount && (
+              <Alert variant="destructive" className="mt-3">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Bank Account Required</AlertTitle>
+                <AlertDescription className="flex items-center justify-between">
+                  <span>Please add a primary bank account before requesting disbursement.</span>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => navigate('/merchant/settings?tab=bank')}
+                    className="ml-2"
+                  >
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Add Bank Account
+                  </Button>
+                </AlertDescription>
+              </Alert>
             )}
           </CardContent>
         </Card>
@@ -491,6 +535,38 @@ export default function MerchantEscrow() {
                     ))}
                   </TableBody>
                 </Table>
+                
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between border-t px-4 py-3">
+                    <p className="text-sm text-muted-foreground">
+                      Showing {transactionPage * TRANSACTIONS_PER_PAGE + 1} - {Math.min((transactionPage + 1) * TRANSACTIONS_PER_PAGE, totalTransactions)} of {totalTransactions}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setTransactionPage(p => Math.max(0, p - 1))}
+                        disabled={transactionPage === 0}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Previous
+                      </Button>
+                      <span className="text-sm">
+                        Page {transactionPage + 1} of {totalPages}
+                      </span>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setTransactionPage(p => Math.min(totalPages - 1, p + 1))}
+                        disabled={transactionPage >= totalPages - 1}
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
