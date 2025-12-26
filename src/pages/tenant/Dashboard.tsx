@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { TenantLayout } from '@/components/layouts/TenantLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Wrench, 
   DollarSign, 
@@ -12,14 +14,19 @@ import {
   Store,
   Gift,
   ChevronRight,
-  ClipboardList
+  ClipboardList,
+  RefreshCw,
+  AlertTriangle,
+  Home,
+  AlertCircle
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { format } from 'date-fns';
+import { Link, Navigate } from 'react-router-dom';
+import { format, isPast, parseISO } from 'date-fns';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // Banner slides data
 const bannerSlides = [
@@ -53,7 +60,10 @@ const quickActions = [
 ];
 
 export default function TenantDashboard() {
-  const { user, profile } = useAuth();
+  const { user, profile, role, isLoading: authLoading } = useAuth();
+
+  // Tenant role verification
+  const isTenant = role === 'tenant';
   useAnalytics();
   
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -80,56 +90,88 @@ export default function TenantDashboard() {
     [emblaApi]
   );
 
-  const { data: contracts = [] } = useQuery({
-    queryKey: ['tenant-contracts', user?.id],
+  // Query active contract for current unit info
+  const { data: activeContract, isLoading: contractLoading, error: contractError } = useQuery({
+    queryKey: ['tenant-active-contract', user?.id],
     queryFn: async () => {
-      if (!user?.id) return [];
+      if (!user?.id) return null;
       const { data, error } = await supabase
         .from('contracts')
-        .select('*')
-        .eq('tenant_user_id', user.id);
+        .select(`
+          id,
+          status,
+          unit:units (
+            unit_number,
+            property:properties (
+              name,
+              address
+            )
+          )
+        `)
+        .eq('tenant_user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && isTenant,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  const { data: payments = [] } = useQuery({
-    queryKey: ['tenant-payments', user?.id],
+  // Fetch invoices instead of payments for accurate status
+  const { data: invoices = [], isLoading: invoicesLoading, error: invoicesError, refetch: refetchInvoices } = useQuery({
+    queryKey: ['tenant-invoices-dashboard', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
       const { data, error } = await supabase
-        .from('payments')
-        .select('*')
+        .from('invoices')
+        .select('id, invoice_number, amount, total_amount, status, due_date, late_fee')
         .eq('tenant_user_id', user.id)
-        .order('due_date', { ascending: false })
+        .in('status', ['pending', 'sent', 'overdue'])
+        .order('due_date', { ascending: true })
         .limit(5);
       if (error) throw error;
       return data;
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && isTenant,
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
-  const { data: maintenanceRequests = [] } = useQuery({
-    queryKey: ['tenant-maintenance', user?.id],
+  const { data: maintenanceRequests = [], isLoading: maintenanceLoading, error: maintenanceError, refetch: refetchMaintenance } = useQuery({
+    queryKey: ['tenant-maintenance-dashboard', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
       const { data, error } = await supabase
         .from('maintenance_requests')
-        .select('*')
+        .select('id, title, category, status, priority, created_at')
         .eq('tenant_user_id', user.id)
+        .in('status', ['pending', 'in_progress', 'assigned'])
         .order('created_at', { ascending: false })
         .limit(5);
       if (error) throw error;
       return data;
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && isTenant,
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
-  const pendingPayments = payments.filter(p => p.status === 'pending');
-  const activeMaintenanceRequests = maintenanceRequests.filter(
-    r => r.status === 'pending' || r.status === 'in_progress'
-  );
+  // Memoized calculations
+  const pendingInvoices = useMemo(() => invoices.filter(i => ['pending', 'sent'].includes(i.status)), [invoices]);
+  const overdueInvoices = useMemo(() => invoices.filter(i => i.status === 'overdue' || (isPast(parseISO(i.due_date)) && i.status !== 'paid')), [invoices]);
+  const activeMaintenanceRequests = useMemo(() => maintenanceRequests.filter(r => ['pending', 'in_progress', 'assigned'].includes(r.status)), [maintenanceRequests]);
+
+  const handleRefresh = useCallback(() => {
+    refetchInvoices();
+    refetchMaintenance();
+  }, [refetchInvoices, refetchMaintenance]);
+
+  const isLoading = contractLoading || invoicesLoading || maintenanceLoading;
+  const hasError = contractError || invoicesError || maintenanceError;
+
+  // Role verification - redirect if not tenant
+  if (!authLoading && user && !isTenant) {
+    return <Navigate to="/unauthorized" replace />;
+  }
 
   return (
     <TenantLayout 
@@ -137,6 +179,40 @@ export default function TenantDashboard() {
       showBack={false}
     >
       <div className="space-y-6">
+        {/* Error Alert */}
+        {hasError && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="flex items-center justify-between">
+              <span>Gagal memuat data. Silakan coba lagi.</span>
+              <Button variant="outline" size="sm" onClick={handleRefresh}>
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Refresh
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Current Unit Info */}
+        {activeContract?.unit && (
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Home className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-sm">
+                    {activeContract.unit.property?.name} - Unit {activeContract.unit.unit_number}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{activeContract.unit.property?.address}</p>
+                </div>
+                <Badge variant="outline" className="bg-success/10 text-success border-success/20">Active</Badge>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Banner Carousel */}
         <div className="overflow-hidden rounded-xl" ref={emblaRef}>
           <div className="flex">
@@ -186,79 +262,149 @@ export default function TenantDashboard() {
           ))}
         </div>
 
+        {/* Refresh Button */}
+        <div className="flex justify-end">
+          <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={isLoading}>
+            <RefreshCw className={cn("h-4 w-4 mr-1", isLoading && "animate-spin")} />
+            Refresh
+          </Button>
+        </div>
+
         {/* Summary Cards */}
         <div className="grid grid-cols-2 gap-4">
           <Link to="/tenant/maintenance">
             <Card className="hover:shadow-md transition-shadow border-l-4 border-l-primary h-full">
               <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-2xl font-bold">{activeMaintenanceRequests.length}</p>
-                    <p className="text-xs text-muted-foreground">Laporan Aktif</p>
+                {maintenanceLoading ? (
+                  <Skeleton className="h-16 w-full" />
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold">{activeMaintenanceRequests.length}</p>
+                      <p className="text-xs text-muted-foreground">Laporan Aktif</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Wrench className="h-5 w-5 text-primary" />
+                    </div>
                   </div>
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Wrench className="h-5 w-5 text-primary" />
-                  </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           </Link>
-          <Link to="/tenant/payments">
-            <Card className="hover:shadow-md transition-shadow border-l-4 border-l-destructive h-full">
+          <Link to="/tenant/invoices">
+            <Card className={cn(
+              "hover:shadow-md transition-shadow border-l-4 h-full",
+              overdueInvoices.length > 0 ? "border-l-destructive" : "border-l-warning"
+            )}>
               <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-2xl font-bold">{pendingPayments.length}</p>
-                    <p className="text-xs text-muted-foreground">Tagihan Pending</p>
+                {invoicesLoading ? (
+                  <Skeleton className="h-16 w-full" />
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold">{pendingInvoices.length + overdueInvoices.length}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {overdueInvoices.length > 0 ? (
+                          <span className="text-destructive font-medium flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            {overdueInvoices.length} Overdue
+                          </span>
+                        ) : 'Tagihan Pending'}
+                      </p>
+                    </div>
+                    <div className={cn(
+                      "w-10 h-10 rounded-lg flex items-center justify-center",
+                      overdueInvoices.length > 0 ? "bg-destructive/10" : "bg-warning/10"
+                    )}>
+                      <DollarSign className={cn(
+                        "h-5 w-5",
+                        overdueInvoices.length > 0 ? "text-destructive" : "text-warning"
+                      )} />
+                    </div>
                   </div>
-                  <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center">
-                    <DollarSign className="h-5 w-5 text-destructive" />
-                  </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           </Link>
         </div>
 
-        {/* Recent Payments */}
+        {/* Overdue Alert */}
+        {overdueInvoices.length > 0 && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              Anda memiliki <strong>{overdueInvoices.length}</strong> tagihan yang sudah jatuh tempo. 
+              <Link to="/tenant/invoices" className="underline ml-1 font-medium">
+                Bayar sekarang
+              </Link>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Recent Invoices */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between py-3 px-4">
-            <CardTitle className="text-sm font-semibold">Pembayaran Terbaru</CardTitle>
-            <Link to="/tenant/payments" className="text-xs text-primary flex items-center gap-1 font-medium">
+            <CardTitle className="text-sm font-semibold">Tagihan Terbaru</CardTitle>
+            <Link to="/tenant/invoices" className="text-xs text-primary flex items-center gap-1 font-medium">
               Lihat Semua <ChevronRight className="h-3 w-3" />
             </Link>
           </CardHeader>
           <CardContent className="px-4 pb-4 pt-0">
-            {payments.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8 text-sm">Belum ada pembayaran</p>
+            {invoicesLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full" />)}
+              </div>
+            ) : invoices.length === 0 ? (
+              <div className="text-center py-8">
+                <FileText className="h-10 w-10 mx-auto mb-2 text-muted-foreground/50" />
+                <p className="text-muted-foreground text-sm">Belum ada tagihan</p>
+                <p className="text-xs text-muted-foreground mt-1">Tagihan akan muncul di sini</p>
+              </div>
             ) : (
               <div className="space-y-2">
-                {payments.slice(0, 3).map((payment) => (
-                  <div key={payment.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-background flex items-center justify-center">
-                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                {invoices.slice(0, 3).map((invoice) => {
+                  const isOverdue = invoice.status === 'overdue' || isPast(parseISO(invoice.due_date));
+                  return (
+                    <Link 
+                      key={invoice.id}
+                      to="/tenant/invoices"
+                      className={cn(
+                        "flex items-center justify-between p-3 rounded-lg hover:bg-muted transition-colors block",
+                        isOverdue ? "bg-destructive/5 border border-destructive/20" : "bg-muted/50"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-9 h-9 rounded-lg flex items-center justify-center",
+                          isOverdue ? "bg-destructive/10" : "bg-background"
+                        )}>
+                          {isOverdue ? (
+                            <AlertTriangle className="h-4 w-4 text-destructive" />
+                          ) : (
+                            <DollarSign className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">{invoice.invoice_number}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Due: {format(parseISO(invoice.due_date), 'dd MMM yyyy')}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-sm capitalize">{payment.payment_type}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {format(new Date(payment.due_date), 'dd MMM yyyy')}
+                      <div className="text-right">
+                        <p className="font-semibold text-sm">
+                          Rp {Number(invoice.total_amount).toLocaleString('id-ID')}
                         </p>
+                        <Badge 
+                          variant={isOverdue ? 'destructive' : 'secondary'}
+                          className="text-[10px] px-1.5 py-0"
+                        >
+                          {isOverdue ? 'Overdue' : invoice.status === 'sent' ? 'Terkirim' : 'Pending'}
+                        </Badge>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-sm">
-                        Rp {Number(payment.amount).toLocaleString('id-ID')}
-                      </p>
-                      <Badge 
-                        variant={payment.status === 'paid' ? 'default' : 'secondary'}
-                        className="text-[10px] px-1.5 py-0"
-                      >
-                        {payment.status === 'paid' ? 'Lunas' : 'Pending'}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -273,8 +419,18 @@ export default function TenantDashboard() {
             </Link>
           </CardHeader>
           <CardContent className="px-4 pb-4 pt-0">
-            {maintenanceRequests.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8 text-sm">Belum ada laporan</p>
+            {maintenanceLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full" />)}
+              </div>
+            ) : maintenanceRequests.length === 0 ? (
+              <div className="text-center py-8">
+                <Wrench className="h-10 w-10 mx-auto mb-2 text-muted-foreground/50" />
+                <p className="text-muted-foreground text-sm">Belum ada laporan</p>
+                <Link to="/tenant/maintenance" className="text-xs text-primary hover:underline mt-1 block">
+                  Buat laporan baru
+                </Link>
+              </div>
             ) : (
               <div className="space-y-2">
                 {maintenanceRequests.slice(0, 3).map((request) => (
@@ -288,7 +444,7 @@ export default function TenantDashboard() {
                         <Wrench className="h-4 w-4 text-muted-foreground" />
                       </div>
                       <div>
-                        <p className="font-medium text-sm">{request.title}</p>
+                        <p className="font-medium text-sm line-clamp-1">{request.title}</p>
                         <p className="text-xs text-muted-foreground capitalize">
                           {request.category}
                         </p>
@@ -299,7 +455,8 @@ export default function TenantDashboard() {
                       request.status === 'in_progress' ? 'secondary' : 'outline'
                     } className="text-[10px] px-1.5 py-0 shrink-0">
                       {request.status === 'completed' ? 'Selesai' : 
-                       request.status === 'in_progress' ? 'Dikerjakan' : 'Pending'}
+                       request.status === 'in_progress' ? 'Dikerjakan' : 
+                       request.status === 'assigned' ? 'Ditugaskan' : 'Pending'}
                     </Badge>
                   </Link>
                 ))}

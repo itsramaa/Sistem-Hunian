@@ -1,25 +1,70 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { TenantLayout } from "@/components/layouts/TenantLayout";
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { FileText, Calendar, Home, Download, DollarSign, PenLine, CheckCircle, LogOut, AlertTriangle } from "lucide-react";
+import { FileText, Calendar, Home, Download, DollarSign, PenLine, CheckCircle, LogOut, AlertTriangle, Loader2, AlertCircle } from "lucide-react";
 import { ContractCardSkeleton } from "@/components/ui/skeletons";
 import { format, differenceInDays } from "date-fns";
 import { MoveOutNoticeDialog } from "@/components/tenant/MoveOutNoticeDialog";
 import { MoveOutDashboard } from "@/components/tenant/MoveOutDashboard";
+import { toast } from "sonner";
+
+// Contract type definition
+interface ContractUnit {
+  unit_number: string;
+  property: {
+    name: string;
+    address: string;
+    city: string;
+  } | null;
+}
+
+interface Contract {
+  id: string;
+  tenant_user_id: string;
+  merchant_id: string;
+  unit_id: string;
+  start_date: string;
+  end_date: string;
+  rent_amount: number;
+  deposit_amount: number | null;
+  status: string | null;
+  terms: string | null;
+  signature_status: string | null;
+  tenant_signature_url: string | null;
+  tenant_signed_at: string | null;
+  merchant_signature_url: string | null;
+  merchant_signed_at: string | null;
+  contract_document_url: string | null;
+  move_out_notice_given: boolean | null;
+  notice_period_days: number | null;
+  early_termination_penalty_rate: number | null;
+  created_at: string;
+  updated_at: string;
+  unit: ContractUnit | null;
+}
+
+interface SelectedContract extends Contract {
+  isEarlyTermination?: boolean;
+}
 
 const TenantContracts = () => {
-  const { user } = useAuth();
+  const { user, role, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [moveOutDialogOpen, setMoveOutDialogOpen] = useState(false);
-  const [selectedContract, setSelectedContract] = useState<any>(null);
+  const [selectedContract, setSelectedContract] = useState<SelectedContract | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  const { data: contracts, isLoading, refetch } = useQuery({
+  // Tenant role verification
+  const isTenant = role === 'tenant';
+
+  const { data: contracts, isLoading, error, refetch } = useQuery({
     queryKey: ['tenant-contracts', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -38,12 +83,23 @@ const TenantContracts = () => {
         .eq('tenant_user_id', user?.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      return data as Contract[];
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && isTenant,
   });
 
-  const getSignatureStatusBadge = (contract: typeof activeContract) => {
+  const activeContract = useMemo(() => contracts?.find(c => c.status === 'active'), [contracts]);
+  const pastContracts = useMemo(() => contracts?.filter(c => c.status !== 'active') || [], [contracts]);
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  const getSignatureStatusBadge = (contract: Contract | null) => {
     if (!contract) return null;
     if (contract.signature_status === 'fully_signed') {
       return <Badge className="bg-success text-success-foreground gap-1"><CheckCircle className="h-3 w-3" /> Fully Signed</Badge>;
@@ -67,6 +123,53 @@ const TenantContracts = () => {
     }
   };
 
+  const handleDownloadContract = async (contract: Contract) => {
+    if (!contract.contract_document_url) {
+      toast.error('Dokumen kontrak belum tersedia', {
+        description: 'Silakan hubungi pengelola properti untuk mendapatkan dokumen kontrak.'
+      });
+      return;
+    }
+
+    try {
+      setDownloadingId(contract.id);
+      
+      // Open the contract document URL directly
+      window.open(contract.contract_document_url, '_blank');
+      toast.success('Membuka dokumen kontrak...');
+    } catch (error) {
+      console.error('Error downloading contract:', error);
+      toast.error('Gagal mengunduh kontrak', {
+        description: 'Terjadi kesalahan saat mengunduh dokumen. Silakan coba lagi.'
+      });
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleMoveOutNotice = (contract: Contract, isEarlyTermination: boolean = false) => {
+    setSelectedContract({ ...contract, isEarlyTermination });
+    setMoveOutDialogOpen(true);
+  };
+
+  const canRequestEarlyTermination = (contract: Contract): boolean => {
+    const noticePeriodDays = contract.notice_period_days || 30;
+    const daysUntilEnd = differenceInDays(new Date(contract.end_date), new Date());
+    // Can request early termination if more than notice period remaining
+    return daysUntilEnd > noticePeriodDays;
+  };
+
+  const getEarlyTerminationPenaltyPreview = (contract: Contract): string => {
+    const penaltyRate = contract.early_termination_penalty_rate || 2;
+    const penaltyAmount = penaltyRate * contract.rent_amount;
+    return formatCurrency(penaltyAmount);
+  };
+
+  // Role verification - redirect if not tenant
+  if (!authLoading && user && !isTenant) {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
   if (isLoading) {
     return (
       <TenantLayout title="My Contracts">
@@ -75,8 +178,21 @@ const TenantContracts = () => {
     );
   }
 
-  const activeContract = contracts?.find(c => c.status === 'active');
-  const pastContracts = contracts?.filter(c => c.status !== 'active') || [];
+  if (error) {
+    return (
+      <TenantLayout title="My Contracts">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>Gagal memuat data kontrak. Silakan coba lagi.</span>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              Coba Lagi
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </TenantLayout>
+    );
+  }
 
   return (
     <TenantLayout 
@@ -86,6 +202,24 @@ const TenantContracts = () => {
       {activeContract && (
         <section className="mb-8">
           <h2 className="text-lg font-semibold mb-4 text-foreground">Current Contract</h2>
+          
+          {/* Pending Signature Reminder */}
+          {!activeContract.tenant_signature_url && (
+            <Alert className="mb-4 border-warning bg-warning/10">
+              <PenLine className="h-4 w-4 text-warning" />
+              <AlertDescription className="text-warning">
+                <strong>Signature Required:</strong> Silakan tanda tangani kontrak untuk mengaktifkan perjanjian sewa Anda.
+                <Button 
+                  variant="link" 
+                  className="p-0 ml-2 h-auto text-warning underline"
+                  onClick={() => navigate(`/tenant/sign-contract/${activeContract.id}`)}
+                >
+                  Tanda Tangani Sekarang
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Card className="border-primary/20">
             <div className="p-6">
               <div className="flex items-start justify-between mb-6">
@@ -128,21 +262,21 @@ const TenantContracts = () => {
                     <DollarSign className="h-4 w-4" />
                     <span className="text-sm">Monthly Rent</span>
                   </div>
-                  <p className="font-semibold">R {Number(activeContract.rent_amount).toLocaleString()}</p>
+                  <p className="font-semibold">{formatCurrency(activeContract.rent_amount)}</p>
                 </div>
                 <div className="p-4 rounded-lg bg-muted/50">
                   <div className="flex items-center gap-2 text-muted-foreground mb-1">
                     <DollarSign className="h-4 w-4" />
                     <span className="text-sm">Deposit</span>
                   </div>
-                  <p className="font-semibold">R {Number(activeContract.deposit_amount || 0).toLocaleString()}</p>
+                  <p className="font-semibold">{formatCurrency(activeContract.deposit_amount || 0)}</p>
                 </div>
               </div>
 
               {activeContract.terms && (
                 <div className="p-4 rounded-lg border mb-6">
                   <h4 className="font-medium mb-2">Terms & Conditions</h4>
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">{activeContract.terms}</p>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-4">{activeContract.terms}</p>
                 </div>
               )}
 
@@ -155,15 +289,14 @@ const TenantContracts = () => {
                 )}
                 <Button 
                   variant="outline"
-                  onClick={() => {
-                    if (activeContract.contract_document_url) {
-                      window.open(activeContract.contract_document_url, '_blank');
-                    } else {
-                      window.open(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-invoice-pdf?contract_id=${activeContract.id}`, '_blank');
-                    }
-                  }}
+                  onClick={() => handleDownloadContract(activeContract)}
+                  disabled={downloadingId === activeContract.id || !activeContract.contract_document_url}
                 >
-                  <Download className="h-4 w-4 mr-2" />
+                  {downloadingId === activeContract.id ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-2" />
+                  )}
                   Download Contract
                 </Button>
                 
@@ -171,25 +304,24 @@ const TenantContracts = () => {
                   <>
                     <Button 
                       variant="outline"
-                      onClick={() => {
-                        setSelectedContract(activeContract);
-                        setMoveOutDialogOpen(true);
-                      }}
+                      onClick={() => handleMoveOutNotice(activeContract)}
                     >
                       <LogOut className="h-4 w-4 mr-2" />
                       Give Move-Out Notice
                     </Button>
-                    {differenceInDays(new Date(activeContract.end_date), new Date()) > 30 && (
-                      <Button 
-                        variant="destructive"
-                        onClick={() => {
-                          setSelectedContract({ ...activeContract, isEarlyTermination: true });
-                          setMoveOutDialogOpen(true);
-                        }}
-                      >
-                        <AlertTriangle className="h-4 w-4 mr-2" />
-                        Request Early Termination
-                      </Button>
+                    {canRequestEarlyTermination(activeContract) && (
+                      <div className="flex flex-col gap-1">
+                        <Button 
+                          variant="destructive"
+                          onClick={() => handleMoveOutNotice(activeContract, true)}
+                        >
+                          <AlertTriangle className="h-4 w-4 mr-2" />
+                          Request Early Termination
+                        </Button>
+                        <p className="text-xs text-muted-foreground">
+                          Penalty: {getEarlyTerminationPenaltyPreview(activeContract)}
+                        </p>
+                      </div>
                     )}
                   </>
                 )}
@@ -226,9 +358,23 @@ const TenantContracts = () => {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-sm text-muted-foreground">
-                        R {Number(contract.rent_amount).toLocaleString()}/mo
+                        {formatCurrency(contract.rent_amount)}/mo
                       </span>
                       {getStatusBadge(contract.status || 'expired')}
+                      {contract.contract_document_url && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleDownloadContract(contract)}
+                          disabled={downloadingId === contract.id}
+                        >
+                          {downloadingId === contract.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -253,10 +399,11 @@ const TenantContracts = () => {
           open={moveOutDialogOpen}
           onOpenChange={setMoveOutDialogOpen}
           contract={selectedContract}
-          isEarlyTermination={selectedContract?.isEarlyTermination}
+          isEarlyTermination={selectedContract.isEarlyTermination}
           onSuccess={() => {
             refetch();
             setMoveOutDialogOpen(false);
+            setSelectedContract(null);
           }}
         />
       )}
