@@ -12,18 +12,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { PasswordStrengthMeter } from './PasswordStrengthMeter';
+import { getAuthErrorMessage } from '@/lib/auth-errors';
+import { 
+  phoneSchema, 
+  strongPasswordSchema, 
+  loginPasswordSchema,
+  fullNameSchema,
+  emailSchema 
+} from '@/lib/validations/auth';
 
 const loginSchema = z.object({
-  email: z.string().email('Masukkan email yang valid'),
-  password: z.string().min(6, 'Password minimal 6 karakter'),
+  email: emailSchema,
+  password: loginPasswordSchema,
 });
 
 const signupSchema = z.object({
-  email: z.string().email('Masukkan email yang valid'),
-  password: z.string().min(6, 'Password minimal 6 karakter'),
+  email: emailSchema,
+  password: strongPasswordSchema,
   confirmPassword: z.string(),
-  fullName: z.string().min(2, 'Nama minimal 2 karakter'),
-  phone: z.string().optional(),
+  fullName: fullNameSchema,
+  phone: phoneSchema,
   merchantCode: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Password tidak cocok",
@@ -67,7 +76,7 @@ export function AuthForm() {
         const { data: referral } = await supabase
           .from('referrals')
           .select('referrer_user_id, referrer_role')
-          .eq('referral_code', initialReferralCode)
+          .eq('referral_code', initialReferralCode.toUpperCase())
           .is('referee_user_id', null)
           .single();
 
@@ -83,8 +92,8 @@ export function AuthForm() {
             role: referral.referrer_role,
           });
         }
-      } catch (err) {
-        console.log('Referral code not found or already used');
+      } catch {
+        // Referral code not found or already used - silently handle
       }
     };
 
@@ -104,9 +113,11 @@ export function AuthForm() {
       confirmPassword: '', 
       fullName: '',
       phone: '',
-      merchantCode: initialMerchantCode,
+      merchantCode: initialMerchantCode.toUpperCase(),
     },
   });
+
+  const passwordValue = signupForm.watch('password');
 
   const handleLogin = async (data: LoginFormData) => {
     setIsLoading(true);
@@ -117,9 +128,7 @@ export function AuthForm() {
       toast({
         variant: 'destructive',
         title: 'Login gagal',
-        description: error.message === 'Invalid login credentials' 
-          ? 'Email atau password salah. Silakan coba lagi.'
-          : error.message,
+        description: getAuthErrorMessage(error),
       });
       return;
     }
@@ -133,10 +142,19 @@ export function AuthForm() {
   const validateMerchantCode = async (code: string): Promise<string | null> => {
     if (!code) return null;
     
+    // Normalize to uppercase
+    const normalizedCode = code.toUpperCase().trim();
+    
+    // Validate format (6 chars alphanumeric)
+    if (!/^[A-Z0-9]{6}$/.test(normalizedCode)) {
+      setMerchantCodeError('Kode merchant harus 6 karakter alfanumerik');
+      return null;
+    }
+    
     const { data, error } = await supabase
       .from('merchants')
       .select('id')
-      .eq('merchant_code', code.toUpperCase())
+      .eq('merchant_code', normalizedCode)
       .single();
     
     if (error || !data) {
@@ -160,7 +178,9 @@ export function AuthForm() {
       
       linkedMerchantId = await validateMerchantCode(data.merchantCode);
       if (!linkedMerchantId) {
-        setMerchantCodeError('Kode merchant tidak valid. Silakan cek dengan pemilik properti Anda.');
+        if (!merchantCodeError) {
+          setMerchantCodeError('Kode merchant tidak valid. Silakan cek dengan pemilik properti Anda.');
+        }
         setIsLoading(false);
         return;
       }
@@ -174,13 +194,12 @@ export function AuthForm() {
       full_name: data.fullName,
       phone: data.phone || undefined,
       role: userRole,
-      merchant_code: isTenantSignup ? data.merchantCode : undefined,
+      merchant_code: isTenantSignup ? data.merchantCode?.toUpperCase() : undefined,
     });
 
     // If tenant signup (with merchantCode), call auth-webhook to complete setup
     if (!error && signUpData?.user && isTenantSignup) {
       try {
-        console.log('Calling auth-webhook for tenant setup...');
         const { error: webhookError } = await supabase.functions.invoke('auth-webhook', {
           body: {
             user_id: signUpData.user.id,
@@ -188,18 +207,17 @@ export function AuthForm() {
             full_name: data.fullName,
             phone: data.phone || null,
             role: 'tenant',
-            merchant_code: data.merchantCode,
-            referral_code: initialReferralCode || undefined,
+            merchant_code: data.merchantCode?.toUpperCase(),
+            referral_code: initialReferralCode?.toUpperCase() || undefined,
           },
         });
         if (webhookError) {
-          console.error('Auth webhook failed:', webhookError);
+          // Log error for debugging but don't expose to user
         } else {
-          console.log('Auth webhook completed successfully');
           sessionStorage.removeItem('referral_code');
         }
-      } catch (webhookErr) {
-        console.error('Auth webhook invocation error:', webhookErr);
+      } catch {
+        // Auth webhook invocation error - silently handle
       }
       
       // Send notification to merchant
@@ -236,11 +254,10 @@ export function AuthForm() {
                   },
                 },
               });
-              console.log('Tenant registration notification sent to merchant');
             }
           }
-        } catch (notifError) {
-          console.error('Failed to send tenant registration notification:', notifError);
+        } catch {
+          // Failed to send tenant registration notification - silently handle
         }
       }
     }
@@ -248,14 +265,10 @@ export function AuthForm() {
     setIsLoading(false);
 
     if (error) {
-      let errorMessage = error.message;
-      if (error.message.includes('already registered')) {
-        errorMessage = 'Email sudah terdaftar. Silakan login.';
-      }
       toast({
         variant: 'destructive',
         title: 'Pendaftaran gagal',
-        description: errorMessage,
+        description: getAuthErrorMessage(error),
       });
       return;
     }
@@ -313,6 +326,8 @@ export function AuthForm() {
                     id="login-email"
                     type="email"
                     placeholder="anda@contoh.com"
+                    autoComplete="email"
+                    disabled={isLoading}
                     {...loginForm.register('email')}
                   />
                   {loginForm.formState.errors.email && (
@@ -326,6 +341,8 @@ export function AuthForm() {
                       id="login-password"
                       type={showPassword ? 'text' : 'password'}
                       placeholder="••••••••"
+                      autoComplete="current-password"
+                      disabled={isLoading}
                       {...loginForm.register('password')}
                     />
                     <Button
@@ -334,6 +351,7 @@ export function AuthForm() {
                       size="sm"
                       className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                       onClick={() => setShowPassword(!showPassword)}
+                      tabIndex={-1}
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
@@ -365,6 +383,8 @@ export function AuthForm() {
                   <Input
                     id="signup-name"
                     placeholder="John Doe"
+                    autoComplete="name"
+                    disabled={isLoading}
                     {...signupForm.register('fullName')}
                   />
                   {signupForm.formState.errors.fullName && (
@@ -380,9 +400,14 @@ export function AuthForm() {
                   <Input
                     id="signup-phone"
                     type="tel"
-                    placeholder="+62 812 3456 7890"
+                    placeholder="08123456789"
+                    autoComplete="tel"
+                    disabled={isLoading}
                     {...signupForm.register('phone')}
                   />
+                  {signupForm.formState.errors.phone && (
+                    <p className="text-sm text-destructive">{signupForm.formState.errors.phone.message}</p>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     Opsional - untuk menerima notifikasi penting
                   </p>
@@ -396,18 +421,19 @@ export function AuthForm() {
                       id="signup-merchant-code"
                       placeholder="ABC123"
                       className="font-mono uppercase"
+                      maxLength={6}
+                      disabled={isLoading || !!initialMerchantCode}
                       {...signupForm.register('merchantCode')}
                       onChange={(e) => {
                         signupForm.setValue('merchantCode', e.target.value.toUpperCase());
                         setMerchantCodeError(null);
                       }}
-                      disabled={!!initialMerchantCode}
                     />
                     {merchantCodeError && (
                       <p className="text-sm text-destructive">{merchantCodeError}</p>
                     )}
                     <p className="text-xs text-muted-foreground">
-                      Kode unik dari pemilik properti Anda
+                      Kode unik dari pemilik properti Anda (6 karakter)
                     </p>
                   </div>
                 )}
@@ -418,6 +444,8 @@ export function AuthForm() {
                     id="signup-email"
                     type="email"
                     placeholder="anda@contoh.com"
+                    autoComplete="email"
+                    disabled={isLoading}
                     {...signupForm.register('email')}
                   />
                   {signupForm.formState.errors.email && (
@@ -432,6 +460,8 @@ export function AuthForm() {
                       id="signup-password"
                       type={showPassword ? 'text' : 'password'}
                       placeholder="••••••••"
+                      autoComplete="new-password"
+                      disabled={isLoading}
                       {...signupForm.register('password')}
                     />
                     <Button
@@ -440,6 +470,7 @@ export function AuthForm() {
                       size="sm"
                       className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                       onClick={() => setShowPassword(!showPassword)}
+                      tabIndex={-1}
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
@@ -447,6 +478,7 @@ export function AuthForm() {
                   {signupForm.formState.errors.password && (
                     <p className="text-sm text-destructive">{signupForm.formState.errors.password.message}</p>
                   )}
+                  <PasswordStrengthMeter password={passwordValue || ''} />
                 </div>
 
                 <div className="space-y-2">
@@ -455,6 +487,8 @@ export function AuthForm() {
                     id="signup-confirm"
                     type="password"
                     placeholder="••••••••"
+                    autoComplete="new-password"
+                    disabled={isLoading}
                     {...signupForm.register('confirmPassword')}
                   />
                   {signupForm.formState.errors.confirmPassword && (
@@ -466,12 +500,6 @@ export function AuthForm() {
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {isTenantSignup ? 'Daftar sebagai Tenant' : 'Daftar'}
                 </Button>
-
-                {!isTenantSignup && (
-                  <p className="text-xs text-center text-muted-foreground">
-                    Setelah mendaftar, Anda akan memilih jenis akun (Merchant atau Vendor)
-                  </p>
-                )}
               </form>
             </TabsContent>
           </Tabs>
