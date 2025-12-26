@@ -11,7 +11,10 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Edit2, Trash2, Crown, Star, Building2, Loader2, Check, GripVertical } from "lucide-react";
+import { Plus, Edit2, Trash2, Crown, Star, Building2, Loader2, Check, AlertTriangle } from "lucide-react";
+import { useAdminGuard } from "@/hooks/useAdminGuard";
+import { createAuditLog } from "@/lib/auditLog";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 
 interface SubscriptionTier {
   id: string;
@@ -44,10 +47,14 @@ const defaultFormData = {
 };
 
 export default function AdminSubscriptionTiers() {
+  const { isLoading: guardLoading, isAdmin } = useAdminGuard();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTier, setEditingTier] = useState<SubscriptionTier | null>(null);
   const [formData, setFormData] = useState(defaultFormData);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [tierToDelete, setTierToDelete] = useState<SubscriptionTier | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const { data: tiers, isLoading } = useQuery({
     queryKey: ["subscription-tiers"],
@@ -56,13 +63,33 @@ export default function AdminSubscriptionTiers() {
         .from("subscription_tiers")
         .select("*")
         .order("sort_order", { ascending: true });
-      if (error) throw error;
+      if (error) throw new Error(`Failed to load tiers: ${error.message}`);
       return data as SubscriptionTier[];
     },
+    enabled: isAdmin,
   });
+
+  // Check for active subscribers on a tier
+  const checkActiveSubscribers = async (tierId: string): Promise<number> => {
+    const { count, error } = await supabase
+      .from("merchant_subscriptions")
+      .select("id", { count: 'exact' })
+      .eq("tier_id", tierId)
+      .in("status", ["active", "trialing"]);
+    if (error) throw error;
+    return count || 0;
+  };
 
   const saveMutation = useMutation({
     mutationFn: async (data: typeof formData & { id?: string }) => {
+      // Check for duplicate names
+      const existingTier = tiers?.find(
+        t => t.name.toLowerCase() === data.name.toLowerCase().replace(/\s+/g, "_") && t.id !== data.id
+      );
+      if (existingTier) {
+        throw new Error("A tier with this name already exists");
+      }
+
       const featuresArray = data.features
         .split("\n")
         .map((f) => f.trim())
@@ -83,17 +110,47 @@ export default function AdminSubscriptionTiers() {
       };
 
       if (data.id) {
+        const oldTier = tiers?.find(t => t.id === data.id);
         const { error } = await supabase
           .from("subscription_tiers")
           .update(tierData)
           .eq("id", data.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("subscription_tiers").insert({
-          ...tierData,
-          sort_order: (tiers?.length || 0) + 1,
+        if (error) {
+          if (error.code === '23505') {
+            throw new Error("A tier with this name already exists");
+          }
+          throw new Error(`Failed to update tier: ${error.message}`);
+        }
+        await createAuditLog({
+          action: "update",
+          entityType: "subscription_tier",
+          entityId: data.id,
+          oldData: oldTier,
+          newData: tierData,
         });
-        if (error) throw error;
+      } else {
+        // Calculate next sort order
+        const maxSortOrder = Math.max(...(tiers?.map(t => t.sort_order) || [0]), 0);
+        const { data: newTier, error } = await supabase
+          .from("subscription_tiers")
+          .insert({
+            ...tierData,
+            sort_order: maxSortOrder + 1,
+          })
+          .select()
+          .single();
+        if (error) {
+          if (error.code === '23505') {
+            throw new Error("A tier with this name already exists");
+          }
+          throw new Error(`Failed to create tier: ${error.message}`);
+        }
+        await createAuditLog({
+          action: "create",
+          entityType: "subscription_tier",
+          entityId: newTier.id,
+          newData: tierData,
+        });
       }
     },
     onSuccess: () => {
@@ -101,24 +158,57 @@ export default function AdminSubscriptionTiers() {
       toast.success(editingTier ? "Tier updated" : "Tier created");
       handleCloseDialog();
     },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to save tier");
+    onError: (error: Error) => {
+      toast.error(error.message);
+      setValidationError(error.message);
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("subscription_tiers").delete().eq("id", id);
-      if (error) throw error;
+    mutationFn: async (tier: SubscriptionTier) => {
+      // Check for active subscribers
+      const activeCount = await checkActiveSubscribers(tier.id);
+      if (activeCount > 0) {
+        throw new Error(`Cannot delete tier with ${activeCount} active subscriber(s). Please migrate them to another tier first.`);
+      }
+
+      const { error } = await supabase
+        .from("subscription_tiers")
+        .delete()
+        .eq("id", tier.id);
+      if (error) throw new Error(`Failed to delete tier: ${error.message}`);
+
+      await createAuditLog({
+        action: "delete",
+        entityType: "subscription_tier",
+        entityId: tier.id,
+        oldData: tier,
+      });
+
+      // Reorder remaining tiers
+      const remainingTiers = tiers?.filter(t => t.id !== tier.id) || [];
+      for (let i = 0; i < remainingTiers.length; i++) {
+        if (remainingTiers[i].sort_order !== i + 1) {
+          await supabase
+            .from("subscription_tiers")
+            .update({ sort_order: i + 1 })
+            .eq("id", remainingTiers[i].id);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["subscription-tiers"] });
       toast.success("Tier deleted");
+      setDeleteConfirmOpen(false);
+      setTierToDelete(null);
     },
-    onError: () => toast.error("Failed to delete tier"),
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
   });
 
   const handleOpenDialog = (tier?: SubscriptionTier) => {
+    setValidationError(null);
     if (tier) {
       setEditingTier(tier);
       setFormData({
@@ -145,10 +235,17 @@ export default function AdminSubscriptionTiers() {
     setIsDialogOpen(false);
     setEditingTier(null);
     setFormData(defaultFormData);
+    setValidationError(null);
+  };
+
+  const handleDeleteClick = (tier: SubscriptionTier) => {
+    setTierToDelete(tier);
+    setDeleteConfirmOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setValidationError(null);
     saveMutation.mutate({ ...formData, id: editingTier?.id });
   };
 
@@ -171,6 +268,16 @@ export default function AdminSubscriptionTiers() {
       minimumFractionDigits: 0,
     }).format(price);
   };
+
+  if (guardLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -224,7 +331,7 @@ export default function AdminSubscriptionTiers() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => deleteMutation.mutate(tier.id)}
+                        onClick={() => handleDeleteClick(tier)}
                         disabled={deleteMutation.isPending}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -296,6 +403,13 @@ export default function AdminSubscriptionTiers() {
               <DialogTitle>{editingTier ? "Edit Tier" : "Create Tier"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {validationError && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+                  <AlertTriangle className="h-4 w-4" />
+                  {validationError}
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Internal Name</Label>
@@ -417,6 +531,18 @@ export default function AdminSubscriptionTiers() {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <ConfirmDialog
+          open={deleteConfirmOpen}
+          onOpenChange={setDeleteConfirmOpen}
+          title="Delete Subscription Tier"
+          description={`Are you sure you want to delete "${tierToDelete?.display_name}"? This action cannot be undone.`}
+          confirmLabel="Delete"
+          variant="destructive"
+          isLoading={deleteMutation.isPending}
+          onConfirm={() => tierToDelete && deleteMutation.mutate(tierToDelete)}
+        />
       </div>
     </AdminLayout>
   );

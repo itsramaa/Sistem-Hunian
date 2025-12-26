@@ -7,8 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Percent, DollarSign, Wallet, CreditCard, Save, Loader2, Settings } from "lucide-react";
+import { Percent, DollarSign, Wallet, CreditCard, Save, Loader2, Settings, AlertTriangle } from "lucide-react";
+import { useAdminGuard } from "@/hooks/useAdminGuard";
+import { logConfigChange } from "@/lib/auditLog";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 
 type PlatformSetting = {
   id: string;
@@ -16,39 +20,115 @@ type PlatformSetting = {
   setting_value: Record<string, any>;
 };
 
-const PlatformConfig = () => {
-  const queryClient = useQueryClient();
+type FeeFormData = {
+  transactionFeePercent: number;
+  escrowFeePercent: number;
+  disbursementFeeFlat: number;
+  marketplaceCommission: number;
+  subscriptionRenewalGraceDays: number;
+};
 
-  const { data: settings, isLoading } = useQuery({
+const defaultFees: FeeFormData = {
+  transactionFeePercent: 2.5,
+  escrowFeePercent: 1.0,
+  disbursementFeeFlat: 5000,
+  marketplaceCommission: 5.0,
+  subscriptionRenewalGraceDays: 3,
+};
+
+const PlatformConfig = () => {
+  const { isLoading: guardLoading, isAdmin } = useAdminGuard();
+  const queryClient = useQueryClient();
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
+  const { data: settings, isLoading, error } = useQuery({
     queryKey: ['platform-settings'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('platform_settings')
         .select('*');
-      if (error) throw error;
+      if (error) throw new Error(`Failed to load settings: ${error.message}`);
       return data as PlatformSetting[];
     },
+    enabled: isAdmin,
   });
 
-  const defaultFees = {
-    transactionFeePercent: 2.5,
-    escrowFeePercent: 1.0,
-    disbursementFeeFlat: 5000,
-    marketplaceCommission: 5.0,
-    subscriptionRenewalGraceDays: 3,
-  };
-
   const feeSettings = settings?.find(s => s.setting_key === 'fees')?.setting_value || defaultFees;
-  const [feeForm, setFeeForm] = useState(feeSettings);
+  const [feeForm, setFeeForm] = useState<FeeFormData>(defaultFees);
+  const [originalFeeForm, setOriginalFeeForm] = useState<FeeFormData>(defaultFees);
 
   useEffect(() => {
     const fees = settings?.find(s => s.setting_key === 'fees')?.setting_value;
-    if (fees) setFeeForm(fees);
+    if (fees) {
+      const formData: FeeFormData = {
+        transactionFeePercent: fees.transactionFeePercent ?? defaultFees.transactionFeePercent,
+        escrowFeePercent: fees.escrowFeePercent ?? defaultFees.escrowFeePercent,
+        disbursementFeeFlat: fees.disbursementFeeFlat ?? defaultFees.disbursementFeeFlat,
+        marketplaceCommission: fees.marketplaceCommission ?? defaultFees.marketplaceCommission,
+        subscriptionRenewalGraceDays: fees.subscriptionRenewalGraceDays ?? defaultFees.subscriptionRenewalGraceDays,
+      };
+      setFeeForm(formData);
+      setOriginalFeeForm(formData);
+    }
   }, [settings]);
+
+  // Track unsaved changes
+  useEffect(() => {
+    const hasChanges = JSON.stringify(feeForm) !== JSON.stringify(originalFeeForm);
+    setHasUnsavedChanges(hasChanges);
+  }, [feeForm, originalFeeForm]);
+
+  // Warn on navigation with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (isNaN(feeForm.transactionFeePercent) || feeForm.transactionFeePercent < 0) {
+      errors.transactionFeePercent = 'Must be a valid number >= 0';
+    } else if (feeForm.transactionFeePercent > 100) {
+      errors.transactionFeePercent = 'Cannot exceed 100%';
+    }
+
+    if (isNaN(feeForm.escrowFeePercent) || feeForm.escrowFeePercent < 0) {
+      errors.escrowFeePercent = 'Must be a valid number >= 0';
+    } else if (feeForm.escrowFeePercent > 100) {
+      errors.escrowFeePercent = 'Cannot exceed 100%';
+    }
+
+    if (isNaN(feeForm.marketplaceCommission) || feeForm.marketplaceCommission < 0) {
+      errors.marketplaceCommission = 'Must be a valid number >= 0';
+    } else if (feeForm.marketplaceCommission > 100) {
+      errors.marketplaceCommission = 'Cannot exceed 100%';
+    }
+
+    if (isNaN(feeForm.disbursementFeeFlat) || feeForm.disbursementFeeFlat < 0) {
+      errors.disbursementFeeFlat = 'Must be a valid number >= 0';
+    }
+
+    if (isNaN(feeForm.subscriptionRenewalGraceDays) || feeForm.subscriptionRenewalGraceDays < 0) {
+      errors.subscriptionRenewalGraceDays = 'Must be a valid number >= 0';
+    } else if (feeForm.subscriptionRenewalGraceDays > 30) {
+      errors.subscriptionRenewalGraceDays = 'Cannot exceed 30 days';
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const saveMutation = useMutation({
     mutationFn: async ({ key, value }: { key: string; value: Record<string, any> }) => {
-      // Check if setting exists
       const existing = settings?.find(s => s.setting_key === key);
       
       if (existing) {
@@ -56,25 +136,53 @@ const PlatformConfig = () => {
           .from('platform_settings')
           .update({ setting_value: value })
           .eq('setting_key', key);
-        if (error) throw error;
+        if (error) throw new Error(`Failed to update settings: ${error.message}`);
       } else {
         const { error } = await supabase
           .from('platform_settings')
           .insert({ setting_key: key, setting_value: value, description: 'Platform fee configuration' });
-        if (error) throw error;
+        if (error) throw new Error(`Failed to create settings: ${error.message}`);
       }
+
+      // Log the config change
+      await logConfigChange(key, originalFeeForm, value);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['platform-settings'] });
+      setOriginalFeeForm(feeForm);
+      setHasUnsavedChanges(false);
       toast.success('Configuration saved successfully');
     },
-    onError: () => {
-      toast.error('Failed to save configuration');
+    onError: (error: Error) => {
+      toast.error(error.message);
     },
   });
 
+  const handleInputChange = (field: keyof FeeFormData, value: string) => {
+    const numValue = parseFloat(value);
+    setFeeForm(prev => ({
+      ...prev,
+      [field]: isNaN(numValue) ? 0 : numValue,
+    }));
+    // Clear validation error on change
+    if (validationErrors[field]) {
+      setValidationErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
+  };
+
   const handleSaveFees = () => {
+    if (validateForm()) {
+      setShowConfirmDialog(true);
+    }
+  };
+
+  const confirmSave = () => {
     saveMutation.mutate({ key: 'fees', value: feeForm });
+    setShowConfirmDialog(false);
   };
 
   const formatCurrency = (amount: number) => {
@@ -85,7 +193,7 @@ const PlatformConfig = () => {
     }).format(amount);
   };
 
-  if (isLoading) {
+  if (guardLoading || isLoading) {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
@@ -98,10 +206,26 @@ const PlatformConfig = () => {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Platform Configuration</h1>
-          <p className="text-muted-foreground">Configure platform fees and pricing structure</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Platform Configuration</h1>
+            <p className="text-muted-foreground">Configure platform fees and pricing structure</p>
+          </div>
+          {hasUnsavedChanges && (
+            <Badge variant="secondary" className="bg-warning/10 text-warning">
+              <AlertTriangle className="h-3 w-3 mr-1" />
+              Unsaved changes
+            </Badge>
+          )}
         </div>
+
+        {error && (
+          <Card className="border-destructive bg-destructive/10">
+            <CardContent className="py-4">
+              <p className="text-sm text-destructive">{(error as Error).message}</p>
+            </CardContent>
+          </Card>
+        )}
 
         <Tabs defaultValue="fees" className="space-y-6">
           <TabsList className="grid w-full max-w-md grid-cols-2">
@@ -135,12 +259,15 @@ const PlatformConfig = () => {
                         step="0.1"
                         min="0"
                         max="100"
-                        value={feeForm.transactionFeePercent || 0}
-                        onChange={(e) => setFeeForm({ ...feeForm, transactionFeePercent: parseFloat(e.target.value) })}
-                        className="pr-8"
+                        value={feeForm.transactionFeePercent}
+                        onChange={(e) => handleInputChange('transactionFeePercent', e.target.value)}
+                        className={`pr-8 ${validationErrors.transactionFeePercent ? 'border-destructive' : ''}`}
                       />
                       <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     </div>
+                    {validationErrors.transactionFeePercent && (
+                      <p className="text-xs text-destructive">{validationErrors.transactionFeePercent}</p>
+                    )}
                     <p className="text-xs text-muted-foreground">Applied to all rent payments</p>
                   </div>
 
@@ -152,12 +279,15 @@ const PlatformConfig = () => {
                         step="0.1"
                         min="0"
                         max="100"
-                        value={feeForm.marketplaceCommission || 0}
-                        onChange={(e) => setFeeForm({ ...feeForm, marketplaceCommission: parseFloat(e.target.value) })}
-                        className="pr-8"
+                        value={feeForm.marketplaceCommission}
+                        onChange={(e) => handleInputChange('marketplaceCommission', e.target.value)}
+                        className={`pr-8 ${validationErrors.marketplaceCommission ? 'border-destructive' : ''}`}
                       />
                       <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     </div>
+                    {validationErrors.marketplaceCommission && (
+                      <p className="text-xs text-destructive">{validationErrors.marketplaceCommission}</p>
+                    )}
                     <p className="text-xs text-muted-foreground">Applied to vendor marketplace orders</p>
                   </div>
                 </CardContent>
@@ -181,12 +311,15 @@ const PlatformConfig = () => {
                         step="0.1"
                         min="0"
                         max="100"
-                        value={feeForm.escrowFeePercent || 0}
-                        onChange={(e) => setFeeForm({ ...feeForm, escrowFeePercent: parseFloat(e.target.value) })}
-                        className="pr-8"
+                        value={feeForm.escrowFeePercent}
+                        onChange={(e) => handleInputChange('escrowFeePercent', e.target.value)}
+                        className={`pr-8 ${validationErrors.escrowFeePercent ? 'border-destructive' : ''}`}
                       />
                       <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     </div>
+                    {validationErrors.escrowFeePercent && (
+                      <p className="text-xs text-destructive">{validationErrors.escrowFeePercent}</p>
+                    )}
                     <p className="text-xs text-muted-foreground">Fee for holding funds in escrow</p>
                   </div>
 
@@ -196,12 +329,15 @@ const PlatformConfig = () => {
                       <Input
                         type="number"
                         min="0"
-                        value={feeForm.disbursementFeeFlat || 0}
-                        onChange={(e) => setFeeForm({ ...feeForm, disbursementFeeFlat: parseInt(e.target.value) })}
-                        className="pl-12"
+                        value={feeForm.disbursementFeeFlat}
+                        onChange={(e) => handleInputChange('disbursementFeeFlat', e.target.value)}
+                        className={`pl-12 ${validationErrors.disbursementFeeFlat ? 'border-destructive' : ''}`}
                       />
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">Rp</span>
                     </div>
+                    {validationErrors.disbursementFeeFlat && (
+                      <p className="text-xs text-destructive">{validationErrors.disbursementFeeFlat}</p>
+                    )}
                     <p className="text-xs text-muted-foreground">Flat fee per disbursement to merchant bank</p>
                   </div>
                 </CardContent>
@@ -224,9 +360,13 @@ const PlatformConfig = () => {
                         type="number"
                         min="0"
                         max="30"
-                        value={feeForm.subscriptionRenewalGraceDays || 3}
-                        onChange={(e) => setFeeForm({ ...feeForm, subscriptionRenewalGraceDays: parseInt(e.target.value) })}
+                        value={feeForm.subscriptionRenewalGraceDays}
+                        onChange={(e) => handleInputChange('subscriptionRenewalGraceDays', e.target.value)}
+                        className={validationErrors.subscriptionRenewalGraceDays ? 'border-destructive' : ''}
                       />
+                      {validationErrors.subscriptionRenewalGraceDays && (
+                        <p className="text-xs text-destructive">{validationErrors.subscriptionRenewalGraceDays}</p>
+                      )}
                       <p className="text-xs text-muted-foreground">Days after subscription expires before downgrade</p>
                     </div>
                   </div>
@@ -234,7 +374,7 @@ const PlatformConfig = () => {
               </Card>
             </div>
 
-            <Button onClick={handleSaveFees} disabled={saveMutation.isPending} size="lg">
+            <Button onClick={handleSaveFees} disabled={saveMutation.isPending || !hasUnsavedChanges} size="lg">
               {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
               Save Configuration
             </Button>
@@ -301,6 +441,16 @@ const PlatformConfig = () => {
             </Card>
           </TabsContent>
         </Tabs>
+
+        <ConfirmDialog
+          open={showConfirmDialog}
+          onOpenChange={setShowConfirmDialog}
+          title="Save Configuration"
+          description="Are you sure you want to save these changes? This will affect all future transactions."
+          confirmLabel="Save Changes"
+          onConfirm={confirmSave}
+          isLoading={saveMutation.isPending}
+        />
       </div>
     </AdminLayout>
   );

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,25 +11,27 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
-import { Search, Eye, Shield, AlertTriangle, User, Database, Settings, Download, Copy, Loader2, ChevronDown } from 'lucide-react';
+import { Search, Eye, Shield, AlertTriangle, User, Database, Settings, Download, Copy, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAdminGuard } from '@/hooks/useAdminGuard';
 import { logExport } from '@/lib/auditLog';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { DateRange } from 'react-day-picker';
 
-type AuditLog = {
+type AuditLogWithProfile = {
   id: string;
   user_id: string | null;
   action: string;
   entity_type: string;
   entity_id: string | null;
-  old_data: Record<string, unknown> | null;
-  new_data: Record<string, unknown> | null;
+  old_data: unknown;
+  new_data: unknown;
   ip_address: string | null;
   user_agent: string | null;
-  metadata: Record<string, unknown>;
+  metadata: unknown;
   created_at: string;
+  user_name?: string | null;
+  user_email?: string | null;
 };
 
 const actionColors: Record<string, string> = {
@@ -59,8 +61,25 @@ export default function AuditLogs() {
   const [actionFilter, setActionFilter] = useState<string>('all');
   const [entityFilter, setEntityFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
-  const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+  const [selectedLog, setSelectedLog] = useState<AuditLogWithProfile | null>(null);
   const [page, setPage] = useState(1);
+
+  // Fetch profiles for user name lookup
+  const { data: profilesMap } = useQuery({
+    queryKey: ['profiles-map'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email');
+      if (error) throw error;
+      const map = new Map<string, { full_name: string | null; email: string | null }>();
+      (data || []).forEach(p => {
+        map.set(p.user_id, { full_name: p.full_name, email: p.email });
+      });
+      return map;
+    },
+    enabled: isAdmin,
+  });
 
   const { data: logsData, isLoading, error, refetch } = useQuery({
     queryKey: ['audit-logs', actionFilter, entityFilter, dateRange, page],
@@ -86,12 +105,21 @@ export default function AuditLogs() {
 
       const { data, error, count } = await query;
       if (error) throw error;
-      return { logs: (data || []) as AuditLog[], total: count || 0 };
+      return { logs: data || [], total: count || 0 };
     },
     enabled: isAdmin,
   });
 
-  const logs = logsData?.logs || [];
+  // Enrich logs with profile data
+  const logs: AuditLogWithProfile[] = (logsData?.logs || []).map(log => {
+    const profile = log.user_id ? profilesMap?.get(log.user_id) : null;
+    return {
+      ...log,
+      user_name: profile?.full_name || null,
+      user_email: profile?.email || null,
+    };
+  });
+
   const totalCount = logsData?.total || 0;
   const hasMore = page * PAGE_SIZE < totalCount;
 
@@ -103,8 +131,8 @@ export default function AuditLogs() {
       log.entity_type.toLowerCase().includes(search) ||
       log.entity_id?.toLowerCase().includes(search) ||
       log.user_id?.toLowerCase().includes(search) ||
-      log.profiles?.full_name?.toLowerCase().includes(search) ||
-      log.profiles?.email?.toLowerCase().includes(search)
+      log.user_name?.toLowerCase().includes(search) ||
+      log.user_email?.toLowerCase().includes(search)
     );
   });
 
@@ -140,7 +168,7 @@ export default function AuditLogs() {
         escapeCSV(log.entity_type),
         escapeCSV(log.entity_id),
         escapeCSV(log.user_id),
-        escapeCSV(log.profiles?.full_name || log.profiles?.email || ''),
+        escapeCSV(log.user_name || log.user_email || ''),
         escapeCSV(log.ip_address),
       ]),
     ]
@@ -160,6 +188,13 @@ export default function AuditLogs() {
       date_range: dateRange,
     });
     toast.success(`Exported ${filteredLogs.length} audit logs`);
+  };
+
+  const getUserDisplay = (log: AuditLogWithProfile) => {
+    if (log.user_name) return log.user_name;
+    if (log.user_email) return log.user_email;
+    if (log.user_id) return `${log.user_id.slice(0, 8)}...`;
+    return '-';
   };
 
   if (guardLoading) {
@@ -242,7 +277,7 @@ export default function AuditLogs() {
               </div>
               <DateRangePicker
                 value={dateRange}
-                onChange={setDateRange}
+                onChange={(range) => { setDateRange(range); setPage(1); }}
                 placeholder="Filter by date"
               />
               <Select value={actionFilter} onValueChange={(v) => { setActionFilter(v); setPage(1); }}>
@@ -287,7 +322,7 @@ export default function AuditLogs() {
             {error ? (
               <div className="text-center py-8">
                 <AlertTriangle className="h-12 w-12 mx-auto text-destructive mb-4" />
-                <p className="text-destructive">Failed to load audit logs</p>
+                <p className="text-destructive">Failed to load audit logs: {(error as Error).message}</p>
                 <Button variant="outline" className="mt-4" onClick={() => refetch()}>
                   Retry
                 </Button>
@@ -338,7 +373,7 @@ export default function AuditLogs() {
                               <TooltipTrigger asChild>
                                 <div className="flex items-center gap-1">
                                   <span className="text-sm truncate max-w-[120px]">
-                                    {log.profiles?.full_name || log.profiles?.email || (log.user_id ? `${log.user_id.slice(0, 8)}...` : '-')}
+                                    {getUserDisplay(log)}
                                   </span>
                                   {log.user_id && (
                                     <Button
@@ -407,13 +442,23 @@ export default function AuditLogs() {
                                   </div>
                                   <div>
                                     <label className="text-sm font-medium text-muted-foreground">User</label>
-                                    <p className="mt-1 font-mono text-sm">
-                                      {log.profiles?.full_name || log.profiles?.email || log.user_id || '-'}
-                                    </p>
+                                    <div className="mt-1 flex items-center gap-1">
+                                      <span className="text-sm">{getUserDisplay(log)}</span>
+                                      {log.user_id && (
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6"
+                                          onClick={() => copyToClipboard(log.user_id!)}
+                                        >
+                                          <Copy className="h-3 w-3" />
+                                        </Button>
+                                      )}
+                                    </div>
                                   </div>
                                   <div>
                                     <label className="text-sm font-medium text-muted-foreground">IP Address</label>
-                                    <p className="mt-1">{log.ip_address || '-'}</p>
+                                    <p className="mt-1 font-mono text-sm">{log.ip_address || '-'}</p>
                                   </div>
                                   <div>
                                     <label className="text-sm font-medium text-muted-foreground">User Agent</label>
@@ -422,7 +467,7 @@ export default function AuditLogs() {
                                 </div>
                                 {log.old_data && (
                                   <div>
-                                    <label className="text-sm font-medium text-muted-foreground">Old Data</label>
+                                    <label className="text-sm font-medium text-muted-foreground">Previous Data</label>
                                     <pre className="mt-1 p-3 bg-muted rounded-lg text-xs overflow-auto max-h-32">
                                       {JSON.stringify(log.old_data, null, 2)}
                                     </pre>
@@ -433,6 +478,14 @@ export default function AuditLogs() {
                                     <label className="text-sm font-medium text-muted-foreground">New Data</label>
                                     <pre className="mt-1 p-3 bg-muted rounded-lg text-xs overflow-auto max-h-32">
                                       {JSON.stringify(log.new_data, null, 2)}
+                                    </pre>
+                                  </div>
+                                )}
+                                {log.metadata && Object.keys(log.metadata).length > 0 && (
+                                  <div>
+                                    <label className="text-sm font-medium text-muted-foreground">Metadata</label>
+                                    <pre className="mt-1 p-3 bg-muted rounded-lg text-xs overflow-auto max-h-32">
+                                      {JSON.stringify(log.metadata, null, 2)}
                                     </pre>
                                   </div>
                                 )}
@@ -448,22 +501,22 @@ export default function AuditLogs() {
                 {/* Pagination */}
                 <div className="flex items-center justify-between mt-4">
                   <p className="text-sm text-muted-foreground">
-                    Showing {(page - 1) * PAGE_SIZE + 1} - {Math.min(page * PAGE_SIZE, totalCount)} of {totalCount}
+                    Page {page} of {Math.ceil(totalCount / PAGE_SIZE)}
                   </p>
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
                       disabled={page === 1}
-                      onClick={() => setPage(p => p - 1)}
                     >
                       Previous
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      disabled={!hasMore}
                       onClick={() => setPage(p => p + 1)}
+                      disabled={!hasMore}
                     >
                       Next
                     </Button>
