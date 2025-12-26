@@ -67,6 +67,31 @@ $$;
 
 
 --
+-- Name: check_phone_unique_per_role(text, public.app_role, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.check_phone_unique_per_role(_phone text, _role public.app_role, _exclude_user_id uuid DEFAULT NULL::uuid) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  IF _phone IS NULL OR _phone = '' THEN
+    RETURN TRUE;
+  END IF;
+  
+  RETURN NOT EXISTS (
+    SELECT 1
+    FROM profiles p
+    JOIN user_roles ur ON p.user_id = ur.user_id
+    WHERE p.phone = _phone
+      AND ur.role = _role
+      AND (_exclude_user_id IS NULL OR p.user_id != _exclude_user_id)
+  );
+END;
+$$;
+
+
+--
 -- Name: create_merchant_escrow(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -580,6 +605,17 @@ CREATE TABLE public.chatbot_knowledge (
     is_active boolean DEFAULT true,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: cities; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.cities (
+    id text NOT NULL,
+    province_id text NOT NULL,
+    name text NOT NULL
 );
 
 
@@ -1423,6 +1459,16 @@ CREATE TABLE public.properties (
 
 
 --
+-- Name: provinces; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.provinces (
+    id text NOT NULL,
+    name text NOT NULL
+);
+
+
+--
 -- Name: referral_commissions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1559,6 +1605,25 @@ CREATE TABLE public.tenant_invitations (
 
 
 --
+-- Name: tenant_merchant_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tenant_merchant_history (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_user_id uuid NOT NULL,
+    merchant_id uuid NOT NULL,
+    start_date date NOT NULL,
+    end_date date,
+    status text DEFAULT 'active'::text NOT NULL,
+    contract_ids uuid[] DEFAULT '{}'::uuid[],
+    transfer_reason text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT tenant_merchant_history_status_check CHECK ((status = ANY (ARRAY['active'::text, 'completed'::text, 'transferred'::text])))
+);
+
+
+--
 -- Name: tenants; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1631,8 +1696,9 @@ CREATE TABLE public.units (
     vacant_since timestamp with time zone,
     available_from date,
     is_listed boolean DEFAULT false,
+    photos text[] DEFAULT '{}'::text[],
     CONSTRAINT units_status_check CHECK ((status = ANY (ARRAY['available'::text, 'occupied'::text, 'reserved'::text, 'maintenance'::text]))),
-    CONSTRAINT units_unit_type_check CHECK ((unit_type = ANY (ARRAY['single'::text, 'double'::text, 'studio'::text, 'suite'::text, 'standard'::text])))
+    CONSTRAINT units_unit_type_check CHECK ((unit_type = ANY (ARRAY['single'::text, 'double'::text, 'studio'::text, 'suite'::text, 'standard'::text, 'kamar_standard'::text, 'kamar_vip'::text, 'kamar_deluxe'::text, 'kamar_ac'::text, 'kamar_non_ac'::text, '1br'::text, '2br'::text, '3br'::text, 'penthouse'::text, 'full_house'::text, 'petak'::text, 'full_bangunan'::text, 'lantai_1'::text, 'lantai_2'::text, 'lantai_3'::text, 'full_building'::text, 'room'::text, 'apartment'::text, 'house'::text, 'office'::text, 'retail'::text])))
 );
 
 
@@ -1863,6 +1929,14 @@ ALTER TABLE ONLY public.chatbot_analytics
 
 ALTER TABLE ONLY public.chatbot_knowledge
     ADD CONSTRAINT chatbot_knowledge_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: cities cities_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cities
+    ADD CONSTRAINT cities_pkey PRIMARY KEY (id);
 
 
 --
@@ -2250,6 +2324,14 @@ ALTER TABLE ONLY public.properties
 
 
 --
+-- Name: provinces provinces_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.provinces
+    ADD CONSTRAINT provinces_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: referral_commissions referral_commissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2319,6 +2401,14 @@ ALTER TABLE ONLY public.tenant_invitations
 
 ALTER TABLE ONLY public.tenant_invitations
     ADD CONSTRAINT tenant_invitations_token_key UNIQUE (token);
+
+
+--
+-- Name: tenant_merchant_history tenant_merchant_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_merchant_history
+    ADD CONSTRAINT tenant_merchant_history_pkey PRIMARY KEY (id);
 
 
 --
@@ -2488,6 +2578,13 @@ CREATE INDEX idx_chatbot_analytics_created_at ON public.chatbot_analytics USING 
 --
 
 CREATE INDEX idx_chatbot_analytics_user_id ON public.chatbot_analytics USING btree (user_id);
+
+
+--
+-- Name: idx_cities_province_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cities_province_id ON public.cities USING btree (province_id);
 
 
 --
@@ -2733,6 +2830,20 @@ CREATE INDEX idx_subscription_invoices_merchant_id ON public.subscription_invoic
 --
 
 CREATE INDEX idx_subscription_invoices_status ON public.subscription_invoices USING btree (status);
+
+
+--
+-- Name: idx_tenant_merchant_history_merchant; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tenant_merchant_history_merchant ON public.tenant_merchant_history USING btree (merchant_id);
+
+
+--
+-- Name: idx_tenant_merchant_history_tenant; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tenant_merchant_history_tenant ON public.tenant_merchant_history USING btree (tenant_user_id);
 
 
 --
@@ -3079,6 +3190,13 @@ CREATE TRIGGER update_subscription_tiers_updated_at BEFORE UPDATE ON public.subs
 
 
 --
+-- Name: tenant_merchant_history update_tenant_merchant_history_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_tenant_merchant_history_updated_at BEFORE UPDATE ON public.tenant_merchant_history FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
 -- Name: tenants update_tenants_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -3181,6 +3299,14 @@ ALTER TABLE ONLY public.chat_messages
 
 ALTER TABLE ONLY public.chatbot_analytics
     ADD CONSTRAINT chatbot_analytics_conversation_id_fkey FOREIGN KEY (conversation_id) REFERENCES public.chat_conversations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: cities cities_province_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cities
+    ADD CONSTRAINT cities_province_id_fkey FOREIGN KEY (province_id) REFERENCES public.provinces(id) ON DELETE CASCADE;
 
 
 --
@@ -3776,6 +3902,14 @@ ALTER TABLE ONLY public.tenant_invitations
 
 
 --
+-- Name: tenant_merchant_history tenant_merchant_history_merchant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tenant_merchant_history
+    ADD CONSTRAINT tenant_merchant_history_merchant_id_fkey FOREIGN KEY (merchant_id) REFERENCES public.merchants(id);
+
+
+--
 -- Name: tenants tenants_linked_merchant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4121,6 +4255,13 @@ CREATE POLICY "Admins can manage all tasks" ON public.move_out_tasks USING (publ
 
 
 --
+-- Name: tenant_merchant_history Admins can manage all tenant history; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can manage all tenant history" ON public.tenant_merchant_history USING (public.has_role(auth.uid(), 'admin'::public.app_role));
+
+
+--
 -- Name: tenants Admins can manage all tenant profiles; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -4358,10 +4499,24 @@ CREATE POLICY "Anyone can view available products" ON public.products FOR SELECT
 
 
 --
+-- Name: cities Anyone can view cities; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Anyone can view cities" ON public.cities FOR SELECT USING (true);
+
+
+--
 -- Name: forum_likes Anyone can view likes; Type: POLICY; Schema: public; Owner: -
 --
 
 CREATE POLICY "Anyone can view likes" ON public.forum_likes FOR SELECT USING (true);
+
+
+--
+-- Name: provinces Anyone can view provinces; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Anyone can view provinces" ON public.provinces FOR SELECT USING (true);
 
 
 --
@@ -4497,6 +4652,15 @@ CREATE POLICY "Merchants can delete their units" ON public.units FOR DELETE TO a
 CREATE POLICY "Merchants can insert jobs" ON public.vendor_jobs FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
    FROM public.merchants m
   WHERE ((m.id = vendor_jobs.merchant_id) AND (m.user_id = auth.uid())))));
+
+
+--
+-- Name: tenant_merchant_history Merchants can insert tenant history; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Merchants can insert tenant history" ON public.tenant_merchant_history FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
+   FROM public.merchants m
+  WHERE ((m.id = tenant_merchant_history.merchant_id) AND (m.user_id = auth.uid())))));
 
 
 --
@@ -4699,6 +4863,15 @@ CREATE POLICY "Merchants can update their own properties" ON public.properties F
 
 
 --
+-- Name: tenant_merchant_history Merchants can update their tenant history; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Merchants can update their tenant history" ON public.tenant_merchant_history FOR UPDATE USING ((EXISTS ( SELECT 1
+   FROM public.merchants m
+  WHERE ((m.id = tenant_merchant_history.merchant_id) AND (m.user_id = auth.uid())))));
+
+
+--
 -- Name: units Merchants can update their units; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -4884,6 +5057,15 @@ CREATE POLICY "Merchants can view their subscription" ON public.merchant_subscri
 CREATE POLICY "Merchants can view their subscription invoices" ON public.subscription_invoices FOR SELECT USING ((EXISTS ( SELECT 1
    FROM public.merchants m
   WHERE ((m.id = subscription_invoices.merchant_id) AND (m.user_id = auth.uid())))));
+
+
+--
+-- Name: tenant_merchant_history Merchants can view their tenant history; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Merchants can view their tenant history" ON public.tenant_merchant_history FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM public.merchants m
+  WHERE ((m.id = tenant_merchant_history.merchant_id) AND (m.user_id = auth.uid())))));
 
 
 --
@@ -5148,6 +5330,13 @@ CREATE POLICY "Tenants can view their maintenance requests" ON public.maintenanc
 --
 
 CREATE POLICY "Tenants can view their orders" ON public.orders FOR SELECT USING ((tenant_user_id = auth.uid()));
+
+
+--
+-- Name: tenant_merchant_history Tenants can view their own history; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Tenants can view their own history" ON public.tenant_merchant_history FOR SELECT USING ((tenant_user_id = auth.uid()));
 
 
 --
@@ -5604,6 +5793,12 @@ ALTER TABLE public.chatbot_analytics ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chatbot_knowledge ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: cities; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.cities ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: collections_cases; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -5832,6 +6027,12 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.properties ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: provinces; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.provinces ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: referral_commissions; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -5866,6 +6067,12 @@ ALTER TABLE public.subscription_tiers ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.tenant_invitations ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: tenant_merchant_history; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.tenant_merchant_history ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: tenants; Type: ROW SECURITY; Schema: public; Owner: -
