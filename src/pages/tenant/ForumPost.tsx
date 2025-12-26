@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,9 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { ArrowLeft, Heart, MessageSquare, Loader2, Send, Trash2, Flag } from "lucide-react";
+import { ArrowLeft, Heart, MessageSquare, Loader2, Send, Trash2, Flag, AlertTriangle, RefreshCw } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface ForumPost {
@@ -18,6 +20,7 @@ interface ForumPost {
   title: string;
   content: string;
   tags: string[] | null;
+  photos: string[] | null;
   view_count: number;
   comment_count: number;
   like_count: number;
@@ -39,31 +42,48 @@ interface AuthorProfile {
   email: string;
 }
 
+// XSS protection - escape HTML entities
+const escapeHtml = (text: string): string => {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+};
+
+const MAX_COMMENT_LENGTH = 2000;
+
 export default function TenantForumPost() {
   const { postId } = useParams<{ postId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [newComment, setNewComment] = useState("");
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [deleteCommentDialogOpen, setDeleteCommentDialogOpen] = useState(false);
+  const [commentToDelete, setCommentToDelete] = useState<string | null>(null);
+  const viewCountUpdated = useRef(false);
+
+  // Tenant role verification
+  const isTenant = role === 'tenant';
 
   // Fetch post with author profile
-  const { data: postData, isLoading } = useQuery({
+  const { data: postData, isLoading, error, refetch } = useQuery({
     queryKey: ["forum-post", postId],
     queryFn: async () => {
       const { data: post, error } = await supabase
         .from("forum_posts")
         .select("*")
         .eq("id", postId)
-        .single();
+        .maybeSingle();
       if (error) throw error;
+      if (!post) return null;
 
       // Fetch author profile
       const { data: profile } = await supabase
         .from("profiles")
         .select("user_id, full_name, email")
         .eq("user_id", post.author_id)
-        .single();
+        .maybeSingle();
 
       return { post: post as ForumPost, authorProfile: profile as AuthorProfile | null };
     },
@@ -73,14 +93,17 @@ export default function TenantForumPost() {
   const post = postData?.post;
   const authorProfile = postData?.authorProfile;
 
-  // Increment view count on mount
+  // Increment view count on mount - only once
   useEffect(() => {
-    if (postId && post) {
+    if (postId && post && !viewCountUpdated.current) {
+      viewCountUpdated.current = true;
       supabase
         .from("forum_posts")
         .update({ view_count: (post.view_count || 0) + 1 })
         .eq("id", postId)
-        .then(() => {});
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ["forum-post", postId] });
+        });
     }
   }, [postId, post?.id]);
 
@@ -130,16 +153,23 @@ export default function TenantForumPost() {
     enabled: !!user?.id,
   });
 
-  // Add comment mutation
+  // Add comment mutation with validation
   const addCommentMutation = useMutation({
     mutationFn: async () => {
       if (!user?.id || !postId) throw new Error("Invalid");
+      
+      const trimmedComment = newComment.trim();
+      if (trimmedComment.length > MAX_COMMENT_LENGTH) {
+        throw new Error(`Komentar maksimal ${MAX_COMMENT_LENGTH} karakter`);
+      }
+      
       const { error } = await supabase.from("forum_comments").insert({
         post_id: postId,
         author_id: user.id,
-        content: newComment,
+        content: trimmedComment,
       });
       if (error) throw error;
+      
       // Update comment count
       await supabase
         .from("forum_posts")
@@ -150,13 +180,14 @@ export default function TenantForumPost() {
       queryClient.invalidateQueries({ queryKey: ["forum-comments", postId] });
       queryClient.invalidateQueries({ queryKey: ["forum-post", postId] });
       setNewComment("");
+      toast({ title: "Komentar berhasil ditambahkan" });
     },
     onError: (error) => {
-      toast({ title: "Failed to add comment", description: error.message, variant: "destructive" });
+      toast({ title: "Gagal menambah komentar", description: error.message, variant: "destructive" });
     },
   });
 
-  // Like post mutation
+  // Like post mutation with optimistic update
   const likePostMutation = useMutation({
     mutationFn: async () => {
       const isLiked = userLikes?.posts?.includes(postId!);
@@ -178,12 +209,15 @@ export default function TenantForumPost() {
       queryClient.invalidateQueries({ queryKey: ["forum-post", postId] });
       queryClient.invalidateQueries({ queryKey: ["user-likes", user?.id] });
     },
+    onError: () => {
+      toast({ title: "Gagal memproses like", variant: "destructive" });
+    },
   });
 
   // Delete comment mutation
   const deleteCommentMutation = useMutation({
     mutationFn: async (commentId: string) => {
-      await supabase.from("forum_comments").delete().eq("id", commentId);
+      await supabase.from("forum_comments").delete().eq("id", commentId).eq("author_id", user?.id);
       await supabase
         .from("forum_posts")
         .update({ comment_count: Math.max((post?.comment_count || 0) - 1, 0) })
@@ -192,7 +226,32 @@ export default function TenantForumPost() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["forum-comments", postId] });
       queryClient.invalidateQueries({ queryKey: ["forum-post", postId] });
-      toast({ title: "Comment deleted" });
+      toast({ title: "Komentar dihapus" });
+      setDeleteCommentDialogOpen(false);
+      setCommentToDelete(null);
+    },
+    onError: () => {
+      toast({ title: "Gagal menghapus komentar", variant: "destructive" });
+    },
+  });
+
+  // Report mutation
+  const reportMutation = useMutation({
+    mutationFn: async () => {
+      if (!post?.id || !user?.id) throw new Error("Invalid");
+      const { error } = await supabase.from("forum_reports").insert({
+        post_id: post.id,
+        reporter_id: user.id,
+        reason: "inappropriate",
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Post dilaporkan", description: "Kami akan meninjau laporan Anda" });
+      setReportDialogOpen(false);
+    },
+    onError: () => {
+      toast({ title: "Gagal melaporkan", variant: "destructive" });
     },
   });
 
@@ -208,6 +267,18 @@ export default function TenantForumPost() {
     return email?.[0]?.toUpperCase() || "U";
   };
 
+  // Not a tenant
+  if (!isTenant) {
+    return (
+      <TenantLayout title="Forum">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>Akses ditolak. Halaman ini hanya untuk tenant.</AlertDescription>
+        </Alert>
+      </TenantLayout>
+    );
+  }
+
   if (isLoading) {
     return (
       <TenantLayout title="Loading...">
@@ -218,14 +289,31 @@ export default function TenantForumPost() {
     );
   }
 
+  if (error) {
+    return (
+      <TenantLayout title="Error">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>Gagal memuat post.</span>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Coba Lagi
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </TenantLayout>
+    );
+  }
+
   if (!post) {
     return (
       <TenantLayout title="Post not found">
         <Card>
           <CardContent className="py-12 text-center">
-            <p>Post not found or has been deleted.</p>
+            <p>Post tidak ditemukan atau sudah dihapus.</p>
             <Button className="mt-4" onClick={() => navigate("/tenant/forum")}>
-              Back to Forum
+              Kembali ke Forum
             </Button>
           </CardContent>
         </Card>
@@ -239,10 +327,52 @@ export default function TenantForumPost() {
       actions={
         <Button variant="outline" onClick={() => navigate("/tenant/forum")}>
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
+          Kembali
         </Button>
       }
     >
+      {/* Report Dialog */}
+      <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Laporkan Post?</DialogTitle>
+            <DialogDescription>
+              Anda akan melaporkan post ini sebagai konten tidak pantas. Tim kami akan meninjau laporan ini.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReportDialogOpen(false)}>Batal</Button>
+            <Button onClick={() => reportMutation.mutate()} disabled={reportMutation.isPending}>
+              {reportMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Laporkan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Comment Dialog */}
+      <Dialog open={deleteCommentDialogOpen} onOpenChange={setDeleteCommentDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Hapus Komentar?</DialogTitle>
+            <DialogDescription>
+              Tindakan ini tidak dapat dibatalkan.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteCommentDialogOpen(false)}>Batal</Button>
+            <Button
+              variant="destructive"
+              onClick={() => commentToDelete && deleteCommentMutation.mutate(commentToDelete)}
+              disabled={deleteCommentMutation.isPending}
+            >
+              {deleteCommentMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Hapus
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Post */}
       <Card className="mb-6">
         <CardHeader>
@@ -253,7 +383,7 @@ export default function TenantForumPost() {
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
-              <CardTitle className="text-xl">{post.title}</CardTitle>
+              <CardTitle className="text-xl">{escapeHtml(post.title)}</CardTitle>
               <p className="text-sm text-muted-foreground">
                 {authorProfile?.full_name || authorProfile?.email || "Anonymous"} •{" "}
                 {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
@@ -262,13 +392,22 @@ export default function TenantForumPost() {
           </div>
         </CardHeader>
         <CardContent>
-          <p className="whitespace-pre-wrap">{post.content}</p>
+          <p className="whitespace-pre-wrap">{escapeHtml(post.content)}</p>
+
+          {/* Post Photos */}
+          {post.photos && post.photos.length > 0 && (
+            <div className="mt-4 grid gap-2 grid-cols-2 sm:grid-cols-3">
+              {post.photos.map((url, i) => (
+                <img key={i} src={url} alt="" className="rounded-lg object-cover aspect-square" />
+              ))}
+            </div>
+          )}
 
           {post.tags && post.tags.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-1">
               {post.tags.map((tag) => (
                 <Badge key={tag} variant="secondary">
-                  #{tag}
+                  #{escapeHtml(tag)}
                 </Badge>
               ))}
             </div>
@@ -290,28 +429,23 @@ export default function TenantForumPost() {
             </Button>
             <span className="flex items-center gap-1 text-sm text-muted-foreground">
               <MessageSquare className="h-4 w-4" />
-              {post.comment_count} Comments
+              {post.comment_count} Komentar
             </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={async () => {
-                await supabase.from("forum_reports").insert({
-                  post_id: post.id,
-                  reporter_id: user?.id,
-                  reason: "inappropriate",
-                });
-                toast({ title: "Post reported", description: "We'll review it shortly" });
-              }}
-            >
-              <Flag className="h-4 w-4" />
-            </Button>
+            {post.author_id !== user?.id && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setReportDialogOpen(true)}
+              >
+                <Flag className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
 
       {/* Comments */}
-      <h3 className="mb-4 text-lg font-semibold">Comments</h3>
+      <h3 className="mb-4 text-lg font-semibold">Komentar</h3>
 
       {/* Add Comment */}
       <Card className="mb-4">
@@ -324,12 +458,16 @@ export default function TenantForumPost() {
             </Avatar>
             <div className="flex-1">
               <Textarea
-                placeholder="Write a comment..."
+                placeholder="Tulis komentar..."
                 value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
+                onChange={(e) => setNewComment(e.target.value.slice(0, MAX_COMMENT_LENGTH))}
                 rows={2}
+                maxLength={MAX_COMMENT_LENGTH}
               />
-              <div className="mt-2 flex justify-end">
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">
+                  {newComment.length}/{MAX_COMMENT_LENGTH}
+                </span>
                 <Button
                   size="sm"
                   onClick={() => addCommentMutation.mutate()}
@@ -340,7 +478,7 @@ export default function TenantForumPost() {
                   ) : (
                     <Send className="mr-2 h-4 w-4" />
                   )}
-                  Post Comment
+                  Kirim
                 </Button>
               </div>
             </div>
@@ -350,7 +488,7 @@ export default function TenantForumPost() {
 
       {/* Comments List */}
       {commentsData?.length === 0 ? (
-        <p className="text-center text-muted-foreground">No comments yet. Be the first!</p>
+        <p className="text-center text-muted-foreground">Belum ada komentar. Jadilah yang pertama!</p>
       ) : (
         <div className="space-y-4">
           {commentsData?.map((comment) => (
@@ -376,14 +514,17 @@ export default function TenantForumPost() {
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6"
-                            onClick={() => deleteCommentMutation.mutate(comment.id)}
+                            onClick={() => {
+                              setCommentToDelete(comment.id);
+                              setDeleteCommentDialogOpen(true);
+                            }}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         )}
                       </div>
                     </div>
-                    <p className="mt-1 text-sm">{comment.content}</p>
+                    <p className="mt-1 text-sm">{escapeHtml(comment.content)}</p>
                   </div>
                 </div>
               </CardContent>
