@@ -24,8 +24,12 @@ import {
   User,
   Phone,
   MessageSquare,
-  Loader2
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
+import { formatCurrency } from '@/lib/currency';
+import { calculatePlatformFee, calculateNetAmount } from '@/lib/constants/platformFees';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 type Order = {
   id: string;
@@ -57,6 +61,20 @@ type TenantProfile = {
   phone: string | null;
 };
 
+// Mask PII helper
+const maskEmail = (email: string): string => {
+  const [local, domain] = email.split('@');
+  if (!domain) return email;
+  const maskedLocal = local.length > 2 ? local.substring(0, 2) + '***' : local;
+  return `${maskedLocal}@${domain}`;
+};
+
+const maskPhone = (phone: string | null): string => {
+  if (!phone) return '-';
+  if (phone.length <= 4) return phone;
+  return phone.slice(0, -4).replace(/./g, '*') + phone.slice(-4);
+};
+
 const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300', icon: <Clock className="h-4 w-4" /> },
   confirmed: { label: 'Confirmed', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300', icon: <CheckCircle className="h-4 w-4" /> },
@@ -74,6 +92,9 @@ export default function VendorOrders() {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [tenantProfile, setTenantProfile] = useState<TenantProfile | null>(null);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [pendingStatusChange, setPendingStatusChange] = useState<{ orderId: string; status: string } | null>(null);
+  const [cancelReasonError, setCancelReasonError] = useState('');
 
   // Fetch vendor orders
   const { data: orders = [], isLoading } = useQuery({
@@ -117,8 +138,8 @@ export default function VendorOrders() {
         const order = orders.find(o => o.id === orderId);
         if (order && vendor?.id) {
           const amount = order.total_price - (order.service_fee || 0);
-          const feeAmount = amount * 0.1; // 10% platform fee
-          const netAmount = amount - feeAmount;
+          const feeAmount = calculatePlatformFee(amount);
+          const netAmount = calculateNetAmount(amount);
 
           await supabase.from('vendor_earnings').insert({
             vendor_id: vendor.id,
@@ -168,12 +189,43 @@ export default function VendorOrders() {
     await fetchTenantProfile(order.tenant_user_id);
   };
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(price);
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['vendor-orders'] });
+  };
+
+  const handleStatusChangeRequest = (orderId: string, status: string) => {
+    setPendingStatusChange({ orderId, status });
+    setConfirmDialogOpen(true);
+  };
+
+  const confirmStatusChange = () => {
+    if (pendingStatusChange) {
+      updateStatusMutation.mutate({
+        orderId: pendingStatusChange.orderId,
+        status: pendingStatusChange.status,
+      });
+    }
+    setConfirmDialogOpen(false);
+    setPendingStatusChange(null);
+  };
+
+  const handleCancelSubmit = () => {
+    if (!cancelReason.trim()) {
+      setCancelReasonError('Alasan pembatalan wajib diisi');
+      return;
+    }
+    if (cancelReason.trim().length < 10) {
+      setCancelReasonError('Alasan pembatalan minimal 10 karakter');
+      return;
+    }
+    setCancelReasonError('');
+    if (selectedOrder) {
+      updateStatusMutation.mutate({
+        orderId: selectedOrder.id,
+        status: 'cancelled',
+        cancelReason: cancelReason,
+      });
+    }
   };
 
   const getNextStatus = (currentStatus: string): string | null => {
@@ -233,7 +285,7 @@ export default function VendorOrders() {
                   </div>
                 </TableCell>
                 <TableCell>{order.quantity}</TableCell>
-                <TableCell className="font-medium">{formatPrice(order.total_price)}</TableCell>
+                <TableCell className="font-medium">{formatCurrency(order.total_price)}</TableCell>
                 <TableCell>
                   <div className="text-sm">
                     <p>{format(new Date(order.created_at), 'dd MMM yyyy')}</p>
@@ -272,39 +324,44 @@ export default function VendorOrders() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Active</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{stats.active}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Today Revenue</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatPrice(stats.todayRevenue)}</div>
-            </CardContent>
-          </Card>
+        <div className="flex justify-between items-center">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-1">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Active</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600">{stats.active}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Today Revenue</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatCurrency(stats.todayRevenue)}</div>
+              </CardContent>
+            </Card>
+          </div>
+          <Button variant="outline" size="icon" onClick={handleRefresh} className="ml-4">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
         </div>
 
         {/* Orders Tabs */}
@@ -406,14 +463,14 @@ export default function VendorOrders() {
                 <div className="p-3 bg-muted rounded-lg">
                   <p className="font-medium">{selectedOrder.product?.name}</p>
                   <p className="text-sm text-muted-foreground">
-                    {selectedOrder.quantity} x {formatPrice(selectedOrder.unit_price)}
+                    {selectedOrder.quantity} x {formatCurrency(selectedOrder.unit_price)}
                   </p>
                   <p className="text-lg font-semibold mt-2">
-                    Total: {formatPrice(selectedOrder.total_price)}
+                    Total: {formatCurrency(selectedOrder.total_price)}
                   </p>
                 </div>
 
-                {/* Customer Info */}
+                {/* Customer Info - Masked PII */}
                 {tenantProfile && (
                   <div className="space-y-2">
                     <h4 className="font-medium flex items-center gap-2">
@@ -422,13 +479,11 @@ export default function VendorOrders() {
                     </h4>
                     <div className="text-sm space-y-1">
                       <p>{tenantProfile.full_name || 'No name'}</p>
-                      <p className="text-muted-foreground">{tenantProfile.email}</p>
-                      {tenantProfile.phone && (
-                        <p className="flex items-center gap-1 text-muted-foreground">
-                          <Phone className="h-3 w-3" />
-                          {tenantProfile.phone}
-                        </p>
-                      )}
+                      <p className="text-muted-foreground">{maskEmail(tenantProfile.email)}</p>
+                      <p className="flex items-center gap-1 text-muted-foreground">
+                        <Phone className="h-3 w-3" />
+                        {maskPhone(tenantProfile.phone)}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -491,10 +546,10 @@ export default function VendorOrders() {
                     </Button>
                     {getNextStatus(selectedOrder.status) && (
                       <Button
-                        onClick={() => updateStatusMutation.mutate({
-                          orderId: selectedOrder.id,
-                          status: getNextStatus(selectedOrder.status)!,
-                        })}
+                        onClick={() => handleStatusChangeRequest(
+                          selectedOrder.id,
+                          getNextStatus(selectedOrder.status)!
+                        )}
                         disabled={updateStatusMutation.isPending}
                       >
                         {updateStatusMutation.isPending ? (
@@ -511,7 +566,13 @@ export default function VendorOrders() {
         </Dialog>
 
         {/* Cancel Dialog */}
-        <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <Dialog open={cancelDialogOpen} onOpenChange={(open) => {
+          setCancelDialogOpen(open);
+          if (!open) {
+            setCancelReason('');
+            setCancelReasonError('');
+          }
+        }}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Cancel Order</DialogTitle>
@@ -520,28 +581,29 @@ export default function VendorOrders() {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              <Textarea
-                placeholder="Reason for cancellation (required)"
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-                rows={3}
-              />
+              <div className="space-y-2">
+                <Textarea
+                  placeholder="Reason for cancellation (required, min 10 characters)"
+                  value={cancelReason}
+                  onChange={(e) => {
+                    setCancelReason(e.target.value);
+                    setCancelReasonError('');
+                  }}
+                  rows={3}
+                  className={cancelReasonError ? 'border-destructive' : ''}
+                />
+                {cancelReasonError && (
+                  <p className="text-sm text-destructive">{cancelReasonError}</p>
+                )}
+              </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
                   Keep Order
                 </Button>
                 <Button
                   variant="destructive"
-                  onClick={() => {
-                    if (selectedOrder && cancelReason.trim()) {
-                      updateStatusMutation.mutate({
-                        orderId: selectedOrder.id,
-                        status: 'cancelled',
-                        cancelReason: cancelReason,
-                      });
-                    }
-                  }}
-                  disabled={!cancelReason.trim() || updateStatusMutation.isPending}
+                  onClick={handleCancelSubmit}
+                  disabled={updateStatusMutation.isPending}
                 >
                   {updateStatusMutation.isPending ? 'Cancelling...' : 'Cancel Order'}
                 </Button>
@@ -549,6 +611,24 @@ export default function VendorOrders() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Status Confirmation Dialog */}
+        <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Konfirmasi Perubahan Status</AlertDialogTitle>
+              <AlertDialogDescription>
+                Apakah Anda yakin ingin mengubah status order ke "{pendingStatusChange ? statusConfig[pendingStatusChange.status]?.label : ''}"?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Batal</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmStatusChange}>
+                Ya, Ubah Status
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </VendorLayout>
   );
