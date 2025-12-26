@@ -2,26 +2,29 @@ import { VendorLayout } from '@/components/layouts/VendorLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { 
   Briefcase, 
-  Wallet, 
   Star, 
   Clock,
   CheckCircle2,
   AlertCircle,
-  ArrowRight
+  ArrowRight,
+  RefreshCcw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { format } from 'date-fns';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { VendorEscrowWidget } from '@/components/vendor/VendorEscrowWidget';
 import { SalesAnalytics } from '@/components/vendor/SalesAnalytics';
 import { CustomerInsights } from '@/components/vendor/CustomerInsights';
 import { VendorChatbot } from '@/components/vendor/VendorChatbot';
+import { formatCurrency } from '@/lib/currency';
+import { getPriorityColor, getJobStatusColor } from '@/lib/statusColors';
+import { toast } from 'sonner';
 
 // Type for vendor job with joined maintenance request data
 type VendorJobWithDetails = Tables<'vendor_jobs'> & {
@@ -37,8 +40,8 @@ export default function VendorDashboard() {
   const navigate = useNavigate();
   useAnalytics(); // Track page views automatically
 
-  // Fetch vendor jobs stats
-  const { data: jobs = [] } = useQuery({
+  // Fetch ALL vendor jobs stats (removed limit)
+  const { data: jobs = [], isLoading: isLoadingJobs, error: jobsError, refetch: refetchJobs } = useQuery({
     queryKey: ['vendor-dashboard-jobs', vendor?.id],
     queryFn: async () => {
       if (!vendor) return [];
@@ -62,8 +65,7 @@ export default function VendorDashboard() {
           )
         `)
         .eq('vendor_id', vendor.id)
-        .order('created_at', { ascending: false })
-        .limit(5);
+        .order('created_at', { ascending: false });
       
       if (error) throw error;
       return data as VendorJobWithDetails[];
@@ -72,7 +74,7 @@ export default function VendorDashboard() {
   });
 
   // Fetch earnings stats
-  const { data: earningsStats } = useQuery({
+  const { data: earningsStats, isLoading: isLoadingEarnings, error: earningsError } = useQuery({
     queryKey: ['vendor-dashboard-earnings', vendor?.id],
     queryFn: async () => {
       if (!vendor) return { total: 0, thisMonth: 0 };
@@ -98,16 +100,17 @@ export default function VendorDashboard() {
     enabled: !!vendor,
   });
 
+  // Calculate stats from ALL jobs
   const pendingJobs = jobs.filter(j => j.status === 'pending').length;
   const activeJobs = jobs.filter(j => ['accepted', 'in_progress'].includes(j.status)).length;
   const completedJobs = jobs.filter(j => j.status === 'completed').length;
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount);
+  const isLoading = isLoadingJobs || isLoadingEarnings;
+  const hasError = jobsError || earningsError;
+
+  const handleRefresh = () => {
+    refetchJobs();
+    toast.success('Dashboard refreshed');
   };
 
   const stats = [
@@ -141,25 +144,22 @@ export default function VendorDashboard() {
     },
   ];
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return 'destructive';
-      case 'high': return 'destructive';
-      case 'medium': return 'default';
-      case 'low': return 'secondary';
-      default: return 'outline';
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'secondary';
-      case 'accepted': return 'default';
-      case 'in_progress': return 'default';
-      case 'completed': return 'outline';
-      default: return 'secondary';
-    }
-  };
+  // Loading skeleton for stats
+  const StatsSkeleton = () => (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {[1, 2, 3, 4].map(i => (
+        <Card key={i}>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-8 w-8 rounded-lg" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-8 w-16" />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
 
   return (
     <VendorLayout>
@@ -174,17 +174,43 @@ export default function VendorDashboard() {
               Manage your jobs and track your earnings
             </p>
           </div>
-          {vendor?.verification_status !== 'verified' && (
-            <Button 
-              variant="outline" 
-              className="border-warning text-warning hover:bg-warning/10"
-              onClick={() => navigate('/vendor/profile')}
-            >
-              <AlertCircle className="h-4 w-4 mr-2" />
-              Complete Verification
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleRefresh}>
+              <RefreshCcw className="h-4 w-4 mr-2" />
+              Refresh
             </Button>
-          )}
+            {vendor?.verification_status !== 'verified' && (
+              <Button 
+                variant="outline" 
+                className="border-warning text-warning hover:bg-warning/10"
+                onClick={() => navigate('/vendor/profile')}
+              >
+                <AlertCircle className="h-4 w-4 mr-2" />
+                Complete Verification
+              </Button>
+            )}
+          </div>
         </div>
+
+        {/* Error State */}
+        {hasError && (
+          <Card className="border-destructive bg-destructive/5">
+            <CardContent className="py-4">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="h-5 w-5 text-destructive" />
+                <div>
+                  <p className="font-medium text-destructive">Error loading dashboard data</p>
+                  <p className="text-sm text-muted-foreground">
+                    Please try refreshing the page or contact support if the issue persists.
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={handleRefresh} className="ml-auto">
+                  Retry
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Verification Warning */}
         {vendor?.verification_status === 'pending' && (
@@ -204,23 +230,27 @@ export default function VendorDashboard() {
         )}
 
         {/* Stats Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat) => (
-            <Card key={stat.title}>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {stat.title}
-                </CardTitle>
-                <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                  <stat.icon className={`h-4 w-4 ${stat.color}`} />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {isLoading ? (
+          <StatsSkeleton />
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {stats.map((stat) => (
+              <Card key={stat.title}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {stat.title}
+                  </CardTitle>
+                  <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                    <stat.icon className={`h-4 w-4 ${stat.color}`} />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stat.value}</div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
         {/* Quick Actions */}
         <div className="grid gap-4 md:grid-cols-2">
@@ -235,7 +265,13 @@ export default function VendorDashboard() {
               </Button>
             </CardHeader>
             <CardContent>
-              {jobs.length > 0 ? (
+              {isLoadingJobs ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map(i => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              ) : jobs.length > 0 ? (
                 <div className="space-y-3">
                   {jobs.slice(0, 3).map(job => (
                     <div key={job.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
@@ -246,10 +282,10 @@ export default function VendorDashboard() {
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant={getPriorityColor(job.maintenance_requests?.priority)} className="capitalize text-xs">
+                        <Badge variant={getPriorityColor(job.maintenance_requests?.priority || '')} className="capitalize text-xs">
                           {job.maintenance_requests?.priority}
                         </Badge>
-                        <Badge variant={getStatusColor(job.status)} className="capitalize text-xs">
+                        <Badge variant={getJobStatusColor(job.status)} className="capitalize text-xs">
                           {job.status.replace('_', ' ')}
                         </Badge>
                       </div>

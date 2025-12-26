@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
   TableBody,
@@ -17,13 +18,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { 
   Wallet, 
   TrendingUp, 
-  ArrowUpRight,
-  ArrowDownRight,
   Download,
-  Clock
+  Clock,
+  AlertCircle
 } from 'lucide-react';
 import { format, startOfMonth, startOfWeek, isAfter } from 'date-fns';
 import { useState } from 'react';
+import { toast } from 'sonner';
+import { formatCurrency } from '@/lib/currency';
+import { formatFeePercentage, VENDOR_PLATFORM_FEE_PERCENT } from '@/lib/constants/platformFees';
+import { getPaymentStatusColor } from '@/lib/statusColors';
 
 interface VendorEarning {
   id: string;
@@ -48,7 +52,7 @@ export default function VendorEarnings() {
   const [selectedPeriod, setSelectedPeriod] = useState('all');
 
   // Fetch vendor earnings from database
-  const { data: earnings = [], isLoading } = useQuery({
+  const { data: earnings = [], isLoading, error } = useQuery({
     queryKey: ['vendor-earnings', vendor?.id],
     queryFn: async () => {
       if (!vendor) return [];
@@ -91,19 +95,20 @@ export default function VendorEarnings() {
     enabled: !!vendor,
   });
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  // Calculate stats
+  // Calculate stats - Fixed balance calculation to include pending
   const totalEarnings = earnings.reduce((sum, e) => sum + e.net_amount, 0);
+  const paidAmount = earnings
+    .filter(e => e.status === 'paid')
+    .reduce((sum, e) => sum + e.net_amount, 0);
   const pendingPayouts = earnings
     .filter(e => e.status === 'pending')
     .reduce((sum, e) => sum + e.net_amount, 0);
+  const processingAmount = earnings
+    .filter(e => e.status === 'processing')
+    .reduce((sum, e) => sum + e.net_amount, 0);
+  
+  // Available balance = total - paid - processing (pending is available)
+  const availableBalance = totalEarnings - paidAmount - processingAmount;
   
   const thisMonthStart = startOfMonth(new Date());
   const thisMonthEarnings = earnings
@@ -124,10 +129,45 @@ export default function VendorEarnings() {
     return true;
   });
 
+  // Export statement as CSV
+  const handleExportStatement = () => {
+    if (filteredEarnings.length === 0) {
+      toast.error('No transactions to export');
+      return;
+    }
+
+    const headers = ['Date', 'Description', 'Gross Amount', 'Fee', 'Net Amount', 'Status'];
+    const rows = filteredEarnings.map(earning => [
+      format(new Date(earning.created_at), 'yyyy-MM-dd'),
+      earning.vendor_jobs?.maintenance_requests?.title || 'Job Completion',
+      earning.amount.toString(),
+      earning.fee_amount.toString(),
+      earning.net_amount.toString(),
+      earning.status,
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `earnings-statement-${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success('Statement exported successfully');
+  };
+
   const stats = [
     {
-      title: 'Total Earnings',
-      value: formatCurrency(totalEarnings),
+      title: 'Available Balance',
+      value: formatCurrency(availableBalance),
       icon: Wallet,
       color: 'text-primary',
       bgColor: 'bg-primary/10',
@@ -156,19 +196,38 @@ export default function VendorEarnings() {
   ];
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'paid':
-        return <Badge variant="outline" className="text-success border-success">Paid</Badge>;
-      case 'pending':
-        return <Badge variant="secondary">Pending</Badge>;
-      case 'processing':
-        return <Badge variant="default">Processing</Badge>;
-      case 'failed':
-        return <Badge variant="destructive">Failed</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
+    const variant = getPaymentStatusColor(status);
+    return (
+      <Badge variant={variant} className="capitalize">
+        {status}
+      </Badge>
+    );
   };
+
+  // Loading skeleton
+  const StatsSkeleton = () => (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {[1, 2, 3, 4].map(i => (
+        <Card key={i}>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-8 w-8 rounded-lg" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-8 w-28" />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+
+  const TableSkeleton = () => (
+    <div className="space-y-3">
+      {[1, 2, 3, 4, 5].map(i => (
+        <Skeleton key={i} className="h-12 w-full" />
+      ))}
+    </div>
+  );
 
   return (
     <VendorLayout>
@@ -178,30 +237,49 @@ export default function VendorEarnings() {
             <h1 className="text-2xl font-bold text-foreground">Earnings</h1>
             <p className="text-muted-foreground">Track your income and payouts</p>
           </div>
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleExportStatement} disabled={filteredEarnings.length === 0}>
             <Download className="h-4 w-4 mr-2" />
             Export Statement
           </Button>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat) => (
-            <Card key={stat.title}>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {stat.title}
-                </CardTitle>
-                <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                  <stat.icon className={`h-4 w-4 ${stat.color}`} />
+        {/* Error State */}
+        {error && (
+          <Card className="border-destructive bg-destructive/5">
+            <CardContent className="py-4">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="h-5 w-5 text-destructive" />
+                <div>
+                  <p className="font-medium text-destructive">Failed to load earnings</p>
+                  <p className="text-sm text-muted-foreground">Please try refreshing the page.</p>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Stats Grid */}
+        {isLoading ? (
+          <StatsSkeleton />
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {stats.map((stat) => (
+              <Card key={stat.title}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {stat.title}
+                  </CardTitle>
+                  <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                    <stat.icon className={`h-4 w-4 ${stat.color}`} />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stat.value}</div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
         {/* Transactions */}
         <Card>
@@ -222,9 +300,7 @@ export default function VendorEarnings() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="text-center py-12 text-muted-foreground">
-                Loading...
-              </div>
+              <TableSkeleton />
             ) : filteredEarnings.length > 0 ? (
               <Table>
                 <TableHeader>
@@ -232,7 +308,7 @@ export default function VendorEarnings() {
                     <TableHead>Date</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead>Gross</TableHead>
-                    <TableHead>Fee (5%)</TableHead>
+                    <TableHead>Fee ({formatFeePercentage()})</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Net Amount</TableHead>
                   </TableRow>
@@ -283,9 +359,9 @@ export default function VendorEarnings() {
                 </p>
               </div>
               <div className="p-4 rounded-lg bg-muted/50">
-                <h4 className="font-medium mb-2">Payment Method</h4>
+                <h4 className="font-medium mb-2">Platform Fee</h4>
                 <p className="text-sm text-muted-foreground">
-                  Payments are sent to your registered bank account. Update your bank details in Settings.
+                  A {formatFeePercentage()} platform fee is deducted from each completed job to cover payment processing and platform services.
                 </p>
               </div>
             </div>
