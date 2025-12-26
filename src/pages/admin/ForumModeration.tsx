@@ -783,9 +783,9 @@ export default function ForumModeration() {
           onOpenChange={setShowVisibilityConfirm}
           title={`${visibilityTarget?.currentlyVisible ? 'Hide' : 'Show'} ${visibilityTarget?.type}`}
           description={`Are you sure you want to ${visibilityTarget?.currentlyVisible ? 'hide' : 'show'} this ${visibilityTarget?.type}?`}
-          confirmText={visibilityTarget?.currentlyVisible ? 'Hide' : 'Show'}
+          confirmLabel={visibilityTarget?.currentlyVisible ? 'Hide' : 'Show'}
           onConfirm={handleVisibilityConfirm}
-          loading={togglePostVisibilityMutation.isPending || toggleCommentVisibilityMutation.isPending}
+          isLoading={togglePostVisibilityMutation.isPending || toggleCommentVisibilityMutation.isPending}
           variant={visibilityTarget?.currentlyVisible ? 'destructive' : 'default'}
         />
       </div>

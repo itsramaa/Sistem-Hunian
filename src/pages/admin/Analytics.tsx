@@ -22,12 +22,28 @@ const AdminAnalytics = () => {
   const [activeTab, setActiveTab] = useState("realtime");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   
-  const { data: stats, isLoading, error: statsError } = useQuery({
+  type MerchantData = { id: string; created_at: string; verification_status: string };
+  type PropertyData = { id: string; created_at: string; status: string; property_type: string };
+  type UnitData = { id: string; status: string; rent_amount: number };
+  type PaymentData = { id: string; amount: number; status: string; created_at: string; paid_at: string | null; due_date: string };
+  type MaintenanceData = { id: string; status: string; created_at: string };
+  type InvoiceData = { id: string; total_amount: number; status: string; created_at: string };
+  type ContractData = { id: string; status: string; created_at: string; start_date: string; end_date: string; churn_reason: string | null; tenant_user_id: string; unit_id: string };
+
+  type StatsData = {
+    merchants: MerchantData[];
+    properties: PropertyData[];
+    units: UnitData[];
+    payments: PaymentData[];
+    maintenanceRequests: MaintenanceData[];
+    invoices: InvoiceData[];
+    contracts: ContractData[];
+  };
+
+  const { data: stats, isLoading, error: statsError } = useQuery<StatsData>({
     queryKey: ['admin-analytics', dateRange?.from, dateRange?.to],
     queryFn: async () => {
-      const dateFilter = dateRange?.from ? { from: dateRange.from.toISOString(), to: dateRange.to?.toISOString() } : null;
-      
-      const queries = [
+      const [merchantsRes, propertiesRes, unitsRes, paymentsRes, maintenanceRes, invoicesRes, contractsRes] = await Promise.all([
         supabase.from('merchants').select('id, created_at, verification_status'),
         supabase.from('properties').select('id, created_at, status, property_type'),
         supabase.from('units').select('id, status, rent_amount'),
@@ -35,27 +51,24 @@ const AdminAnalytics = () => {
         supabase.from('maintenance_requests').select('id, status, created_at'),
         supabase.from('invoices').select('id, total_amount, status, created_at'),
         supabase.from('contracts').select('id, status, created_at, start_date, end_date, churn_reason, tenant_user_id, unit_id'),
-      ];
+      ]);
 
-      const [merchants, properties, units, payments, maintenanceRequests, invoices, contracts] = await Promise.all(queries);
-
-      // Check for errors
-      if (merchants.error) throw new Error(`Merchants: ${merchants.error.message}`);
-      if (properties.error) throw new Error(`Properties: ${properties.error.message}`);
-      if (units.error) throw new Error(`Units: ${units.error.message}`);
-      if (payments.error) throw new Error(`Payments: ${payments.error.message}`);
-      if (maintenanceRequests.error) throw new Error(`Maintenance: ${maintenanceRequests.error.message}`);
-      if (invoices.error) throw new Error(`Invoices: ${invoices.error.message}`);
-      if (contracts.error) throw new Error(`Contracts: ${contracts.error.message}`);
+      if (merchantsRes.error) throw new Error(`Merchants: ${merchantsRes.error.message}`);
+      if (propertiesRes.error) throw new Error(`Properties: ${propertiesRes.error.message}`);
+      if (unitsRes.error) throw new Error(`Units: ${unitsRes.error.message}`);
+      if (paymentsRes.error) throw new Error(`Payments: ${paymentsRes.error.message}`);
+      if (maintenanceRes.error) throw new Error(`Maintenance: ${maintenanceRes.error.message}`);
+      if (invoicesRes.error) throw new Error(`Invoices: ${invoicesRes.error.message}`);
+      if (contractsRes.error) throw new Error(`Contracts: ${contractsRes.error.message}`);
 
       return {
-        merchants: merchants.data || [],
-        properties: properties.data || [],
-        units: units.data || [],
-        payments: payments.data || [],
-        maintenanceRequests: maintenanceRequests.data || [],
-        invoices: invoices.data || [],
-        contracts: contracts.data || [],
+        merchants: (merchantsRes.data || []) as MerchantData[],
+        properties: (propertiesRes.data || []) as PropertyData[],
+        units: (unitsRes.data || []) as UnitData[],
+        payments: (paymentsRes.data || []) as PaymentData[],
+        maintenanceRequests: (maintenanceRes.data || []) as MaintenanceData[],
+        invoices: (invoicesRes.data || []) as InvoiceData[],
+        contracts: (contractsRes.data || []) as ContractData[],
       };
     },
     enabled: isAdmin,
