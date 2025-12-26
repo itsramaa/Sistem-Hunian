@@ -30,6 +30,7 @@ import {
 import { formatCurrency } from '@/lib/currency';
 import { calculatePlatformFee, calculateNetAmount } from '@/lib/constants/platformFees';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { OrderAutoRejectCountdown } from '@/components/vendor/OrderAutoRejectCountdown';
 
 type Order = {
   id: string;
@@ -297,10 +298,19 @@ export default function VendorOrders() {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge className={config.color}>
-                    <span className="mr-1">{config.icon}</span>
-                    {config.label}
-                  </Badge>
+                  <div className="space-y-1">
+                    <Badge className={config.color}>
+                      <span className="mr-1">{config.icon}</span>
+                      {config.label}
+                    </Badge>
+                    {order.status === 'pending' && (
+                      <OrderAutoRejectCountdown 
+                        createdAt={order.created_at} 
+                        autoRejectHours={24}
+                        className="mt-2"
+                      />
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="sm" onClick={() => handleViewDetails(order)}>
