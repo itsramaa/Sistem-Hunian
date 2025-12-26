@@ -96,4 +96,75 @@ export const statusColorClasses: Record<string, { text: string; bg: string }> = 
   completed: { text: 'text-success', bg: 'bg-success/10' },
   cancelled: { text: 'text-destructive', bg: 'bg-destructive/10' },
   rejected: { text: 'text-destructive', bg: 'bg-destructive/10' },
+  // Subscription statuses
+  trialing: { text: 'text-primary', bg: 'bg-primary/10' },
+  past_due: { text: 'text-warning', bg: 'bg-warning/10' },
+  suspended: { text: 'text-destructive', bg: 'bg-destructive/10' },
+  // Invoice statuses
+  draft: { text: 'text-muted-foreground', bg: 'bg-muted' },
+  paid: { text: 'text-success', bg: 'bg-success/10' },
+  overdue: { text: 'text-destructive', bg: 'bg-destructive/10' },
+  // Contract statuses
+  terminated: { text: 'text-destructive', bg: 'bg-destructive/10' },
+  expired: { text: 'text-muted-foreground', bg: 'bg-muted' },
+  // Verification statuses
+  verified: { text: 'text-success', bg: 'bg-success/10' },
+  unverified: { text: 'text-warning', bg: 'bg-warning/10' },
+  // Maintenance statuses
+  acknowledged: { text: 'text-primary', bg: 'bg-primary/10' },
+};
+
+// Get status color for any status
+export const getStatusColorClasses = (status: string): { text: string; bg: string } => {
+  return statusColorClasses[status] || { text: 'text-muted-foreground', bg: 'bg-muted' };
+};
+
+// Invoice status color
+export const getInvoiceStatusColor = (status: string): BadgeVariant => {
+  switch (status) {
+    case 'paid':
+      return 'outline';
+    case 'pending':
+    case 'draft':
+      return 'secondary';
+    case 'overdue':
+    case 'cancelled':
+      return 'destructive';
+    default:
+      return 'secondary';
+  }
+};
+
+// Contract status color
+export const getContractStatusColor = (status: string): BadgeVariant => {
+  switch (status) {
+    case 'active':
+      return 'outline';
+    case 'pending':
+      return 'secondary';
+    case 'terminated':
+    case 'cancelled':
+      return 'destructive';
+    case 'expired':
+      return 'default';
+    default:
+      return 'secondary';
+  }
+};
+
+// Maintenance status color
+export const getMaintenanceStatusColor = (status: string): BadgeVariant => {
+  switch (status) {
+    case 'pending':
+      return 'secondary';
+    case 'acknowledged':
+    case 'in_progress':
+      return 'default';
+    case 'completed':
+      return 'outline';
+    case 'cancelled':
+      return 'destructive';
+    default:
+      return 'secondary';
+  }
 };

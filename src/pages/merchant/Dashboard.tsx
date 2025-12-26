@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { 
   TrendingUp,
@@ -10,11 +10,14 @@ import {
   ArrowDownRight,
   Calendar,
   Bell,
-  Minus
+  Minus,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { MerchantLayout } from '@/components/layouts/MerchantLayout';
 import { SubscriptionWidget } from '@/components/merchant/SubscriptionWidget';
 import { TrialCountdownWidget } from '@/components/merchant/TrialCountdownWidget';
@@ -22,24 +25,29 @@ import { MerchantDashboardSkeleton } from '@/components/ui/skeletons';
 import { useAuth } from '@/hooks/useAuth';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
-
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-};
+import { formatCurrency } from '@/lib/currency';
+import { formatDisplayDate, getCurrentMonthDateRange, getPreviousMonthDateRange, getNextNDaysRange, getLastNDaysRange } from '@/lib/dateUtils';
+import type { DashboardStats, UpcomingPayment, RecentPayment } from '@/types/merchant';
 
 export default function MerchantDashboard() {
   const { merchant } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   useAnalytics();
 
+  // Get date ranges
+  const currentMonth = getCurrentMonthDateRange();
+  const lastMonth = getPreviousMonthDateRange();
+  const next7Days = getNextNDaysRange(7);
+  const last7Days = getLastNDaysRange(7);
+
+  // Refresh handler
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['merchant-dashboard', merchant?.id] });
+  };
+
   // Fetch real dashboard stats
-  const { data: dashboardData, isLoading } = useQuery({
+  const { data: dashboardData, isLoading, error, isRefetching } = useQuery({
     queryKey: ['merchant-dashboard', merchant?.id],
     queryFn: async () => {
       if (!merchant?.id) return null;
@@ -55,12 +63,12 @@ export default function MerchantDashboard() {
         `)
         .eq('merchant_id', merchant.id);
 
-      // Fetch escrow balance
+      // Fetch escrow balance - use maybeSingle() as account may not exist
       const { data: escrowAccount } = await supabase
         .from('escrow_accounts')
         .select('balance, pending_balance')
         .eq('merchant_id', merchant.id)
-        .single();
+        .maybeSingle();
 
       // Fetch active contracts count (active tenants)
       const { count: activeTenants } = await supabase
@@ -69,39 +77,30 @@ export default function MerchantDashboard() {
         .eq('merchant_id', merchant.id)
         .eq('status', 'active');
 
-      // Current month dates
-      const today = new Date();
-      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-      const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
-
-      // Fetch this month's payments
+      // Fetch this month's payments - use pre-calculated date ranges
       const { data: monthlyPayments } = await supabase
         .from('payments')
         .select('amount, status')
         .eq('merchant_id', merchant.id)
-        .gte('created_at', startOfMonth.toISOString());
+        .gte('created_at', currentMonth.start.toISOString());
 
       // Fetch last month's payments for comparison
       const { data: lastMonthPayments } = await supabase
         .from('payments')
         .select('amount, status')
         .eq('merchant_id', merchant.id)
-        .gte('created_at', startOfLastMonth.toISOString())
-        .lte('created_at', endOfLastMonth.toISOString());
+        .gte('created_at', lastMonth.start.toISOString())
+        .lte('created_at', lastMonth.end.toISOString());
 
       // Fetch last month's active tenants count
-      const { count: lastMonthTenants } = await supabase
+      const { count: lastMonthTenantCount } = await supabase
         .from('contracts')
         .select('id', { count: 'exact', head: true })
         .eq('merchant_id', merchant.id)
         .eq('status', 'active')
-        .lte('created_at', endOfLastMonth.toISOString());
+        .lte('created_at', lastMonth.end.toISOString());
 
       // Fetch upcoming payments (next 7 days)
-      const nextWeek = new Date();
-      nextWeek.setDate(today.getDate() + 7);
-
       const { data: upcomingPayments } = await supabase
         .from('payments')
         .select(`
@@ -118,8 +117,8 @@ export default function MerchantDashboard() {
         `)
         .eq('merchant_id', merchant.id)
         .eq('status', 'pending')
-        .gte('due_date', today.toISOString().split('T')[0])
-        .lte('due_date', nextWeek.toISOString().split('T')[0])
+        .gte('due_date', next7Days.start.toISOString().split('T')[0])
+        .lte('due_date', next7Days.end.toISOString().split('T')[0])
         .order('due_date', { ascending: true })
         .limit(5);
 
@@ -131,9 +130,6 @@ export default function MerchantDashboard() {
         .in('user_id', tenantIds);
 
       // Fetch recent payments (last 7 days, paid)
-      const lastWeek = new Date();
-      lastWeek.setDate(today.getDate() - 7);
-
       const { data: recentPayments } = await supabase
         .from('payments')
         .select(`
@@ -150,7 +146,7 @@ export default function MerchantDashboard() {
         `)
         .eq('merchant_id', merchant.id)
         .eq('status', 'paid')
-        .gte('paid_at', lastWeek.toISOString())
+        .gte('paid_at', last7Days.start.toISOString())
         .order('paid_at', { ascending: false })
         .limit(5);
 
@@ -178,8 +174,8 @@ export default function MerchantDashboard() {
         ? Math.round(((monthlyRevenue - lastMonthRevenue) / lastMonthRevenue) * 100) 
         : monthlyRevenue > 0 ? 100 : 0;
 
-      const tenantChange = (lastMonthTenants || 0) > 0
-        ? (activeTenants || 0) - (lastMonthTenants || 0)
+      const tenantChange = (lastMonthTenantCount || 0) > 0
+        ? (activeTenants || 0) - (lastMonthTenantCount || 0)
         : 0;
 
       // Map tenant names
@@ -209,7 +205,7 @@ export default function MerchantDashboard() {
         escrowBalance: escrowAccount?.balance || 0,
         pendingBalance: escrowAccount?.pending_balance || 0,
         activeTenants: activeTenants || 0,
-        lastMonthTenants: lastMonthTenants || 0,
+        lastMonthTenants: lastMonthTenantCount || 0,
         propertyCount: properties?.length || 0,
         properties: properties || [],
         upcomingPayments: upcomingWithNames,
@@ -257,6 +253,23 @@ export default function MerchantDashboard() {
     },
   ];
 
+  // Error state
+  if (error) {
+    return (
+      <MerchantLayout description="Welcome back! Here's an overview of your properties.">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Failed to load dashboard data. Please try again.
+            <Button variant="link" onClick={handleRefresh} className="p-0 h-auto ml-2">
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </MerchantLayout>
+    );
+  }
+
   if (isLoading) {
     return (
       <MerchantLayout description="Welcome back! Here's an overview of your properties.">
@@ -268,6 +281,14 @@ export default function MerchantDashboard() {
   return (
     <MerchantLayout description="Welcome back! Here's an overview of your properties.">
       <div className="space-y-6">
+        {/* Refresh Button */}
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefetching}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefetching ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
+
         {/* Trial Countdown Widget */}
         <TrialCountdownWidget />
 
@@ -395,7 +416,7 @@ export default function MerchantDashboard() {
                           <div className="flex items-center gap-1 mt-0.5">
                             <Calendar className="h-3 w-3 text-muted-foreground" />
                             <p className="text-xs text-muted-foreground">
-                              {format(new Date(payment.due_date), 'dd MMM yyyy')}
+                              {formatDisplayDate(payment.due_date, 'dd MMM yyyy')}
                             </p>
                           </div>
                         </div>
