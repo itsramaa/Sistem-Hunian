@@ -403,8 +403,8 @@ export default function MerchantReports() {
               </DropdownMenuContent>
             </DropdownMenu>
             <DateRangePicker
-              date={customDateRange}
-              onDateChange={(range) => setCustomDateRange(range || { from: undefined, to: undefined })}
+              value={customDateRange}
+              onChange={(range) => setCustomDateRange({ from: range?.from, to: range?.to })}
             />
             {customDateRange.from && (
               <Button variant="ghost" size="sm" onClick={handleClearDateRange}>
