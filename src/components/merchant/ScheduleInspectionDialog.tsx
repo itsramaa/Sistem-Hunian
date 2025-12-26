@@ -44,10 +44,24 @@ export function ScheduleInspectionDialog({
 
   const moveOutDate = new Date(notice.intended_move_out_date);
   const recommendedDate = addDays(moveOutDate, -7);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   const handleSchedule = async () => {
     if (!selectedDate || !selectedTime) {
       toast.error("Please select date and time");
+      return;
+    }
+
+    // Validate inspection date is before move-out date
+    if (selectedDate > moveOutDate) {
+      toast.error("Inspection must be scheduled before the move-out date");
+      return;
+    }
+
+    // Validate inspection date is not in the past
+    if (selectedDate < today) {
+      toast.error("Inspection date cannot be in the past");
       return;
     }
 

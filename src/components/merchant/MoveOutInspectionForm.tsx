@@ -58,16 +58,32 @@ export function MoveOutInspectionForm({
   const depositAmount = Number(notice.contract?.deposit_amount || 0);
   const totalDeductions = checklist.reduce((sum, item) => sum + item.deduction, 0);
   const refundAmount = Math.max(0, depositAmount - totalDeductions);
+  const deductionsExceedDeposit = totalDeductions > depositAmount;
 
   const updateChecklistItem = (id: string, updates: Partial<ChecklistItem>) => {
     setChecklist((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
+      prev.map((item) => {
+        if (item.id === id) {
+          const updated = { ...item, ...updates };
+          // Validate deduction is non-negative
+          if (updates.deduction !== undefined && updates.deduction < 0) {
+            updated.deduction = 0;
+          }
+          return updated;
+        }
+        return item;
+      })
     );
   };
 
   const handleSubmit = async () => {
     if (!inspectorSignature) {
       toast.error("Please provide your signature");
+      return;
+    }
+
+    if (deductionsExceedDeposit) {
+      toast.error("Total deductions cannot exceed the deposit amount");
       return;
     }
 
@@ -78,7 +94,7 @@ export function MoveOutInspectionForm({
         .from("move_out_inspections")
         .select("id")
         .eq("move_out_notice_id", notice.id)
-        .single();
+        .maybeSingle();
 
       const inspectionReport = {
         tenant_present: tenantPresent,
@@ -263,8 +279,16 @@ export function MoveOutInspectionForm({
               <Separator />
               <div className="flex justify-between font-semibold text-lg">
                 <span>Refund Amount</span>
-                <span className="text-success">Rp {refundAmount.toLocaleString("id-ID")}</span>
+                <span className={deductionsExceedDeposit ? "text-destructive" : "text-success"}>
+                  Rp {refundAmount.toLocaleString("id-ID")}
+                </span>
               </div>
+              {deductionsExceedDeposit && (
+                <div className="flex items-center gap-2 text-destructive text-sm">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span>Total deductions exceed deposit amount</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -316,7 +340,7 @@ export function MoveOutInspectionForm({
             </Button>
             <Button 
               onClick={handleSubmit} 
-              disabled={!inspectorSignature || isSubmitting}
+              disabled={!inspectorSignature || isSubmitting || deductionsExceedDeposit}
               className="flex-1"
             >
               {isSubmitting ? "Submitting..." : "Complete Inspection"}
