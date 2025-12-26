@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Building2, Wrench, Loader2 } from 'lucide-react';
+import { z } from 'zod';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,13 +12,20 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { AppRole } from '@/types/auth';
+import { businessNameSchema } from '@/lib/validations/auth';
+import { getAuthErrorMessage } from '@/lib/auth-errors';
 
 type SelectableRole = 'merchant' | 'vendor';
 
+const onboardingSchema = z.object({
+  businessName: businessNameSchema,
+});
+
+type OnboardingFormData = z.infer<typeof onboardingSchema>;
+
 const roleOptions: { value: SelectableRole; label: string; icon: typeof Building2; description: string }[] = [
-  { value: 'merchant', label: 'Merchant', icon: Building2, description: 'Kelola properti dan tenant' },
-  { value: 'vendor', label: 'Vendor', icon: Wrench, description: 'Penyedia jasa/layanan' },
+  { value: 'merchant', label: 'Pemilik Properti', icon: Building2, description: 'Kelola properti dan tenant' },
+  { value: 'vendor', label: 'Vendor Jasa', icon: Wrench, description: 'Penyedia jasa/layanan' },
 ];
 
 export default function Onboarding() {
@@ -25,12 +35,17 @@ export default function Onboarding() {
   const { toast } = useToast();
   
   const [selectedRole, setSelectedRole] = useState<SelectableRole>('merchant');
-  const [businessName, setBusinessName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasCheckedRole, setHasCheckedRole] = useState(false);
   
   const referralCode = searchParams.get('ref') || sessionStorage.getItem('referral_code') || '';
 
-  // Redirect if already has role
+  const form = useForm<OnboardingFormData>({
+    resolver: zodResolver(onboardingSchema),
+    defaultValues: { businessName: '' },
+  });
+
+  // Redirect if already has role (but only after initial load)
   useEffect(() => {
     if (!isLoading && user && role) {
       // User already has role, redirect to their dashboard
@@ -40,9 +55,11 @@ export default function Onboarding() {
         navigate('/merchant', { replace: true });
       } else if (role === 'vendor') {
         navigate('/vendor', { replace: true });
-      } else {
+      } else if (role === 'tenant') {
         navigate('/tenant', { replace: true });
       }
+    } else if (!isLoading) {
+      setHasCheckedRole(true);
     }
   }, [user, role, isLoading, navigate]);
 
@@ -53,9 +70,29 @@ export default function Onboarding() {
     }
   }, [user, isLoading, navigate]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Check if user already has a role in database (double-check to prevent duplicate)
+  useEffect(() => {
+    const checkExistingRole = async () => {
+      if (!user || role) return;
+      
+      const { data: existingRole } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (existingRole) {
+        // User already has role, refresh and redirect
+        await refreshProfile();
+      }
+    };
     
+    if (hasCheckedRole && user && !role) {
+      checkExistingRole();
+    }
+  }, [hasCheckedRole, user, role, refreshProfile]);
+
+  const handleSubmit = async (data: OnboardingFormData) => {
     if (!user) {
       toast({
         variant: 'destructive',
@@ -65,18 +102,26 @@ export default function Onboarding() {
       return;
     }
 
-    if (!businessName.trim()) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Nama bisnis wajib diisi',
-      });
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
+      // Double-check if user already has role to prevent duplicate
+      const { data: existingRole } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (existingRole) {
+        toast({
+          title: 'Akun sudah terdaftar',
+          description: 'Anda sudah memiliki akun. Mengarahkan ke dashboard...',
+        });
+        await refreshProfile();
+        navigate(selectedRole === 'merchant' ? '/merchant' : '/vendor', { replace: true });
+        return;
+      }
+
       // Get user profile
       const { data: profile } = await supabase
         .from('profiles')
@@ -92,8 +137,8 @@ export default function Onboarding() {
           full_name: profile?.full_name || '',
           phone: profile?.phone || null,
           role: selectedRole,
-          business_name: businessName,
-          referral_code: referralCode || undefined,
+          business_name: data.businessName,
+          referral_code: referralCode?.toUpperCase() || undefined,
         },
       });
 
@@ -109,28 +154,42 @@ export default function Onboarding() {
 
       toast({
         title: 'Selamat datang!',
-        description: `Akun ${selectedRole === 'merchant' ? 'Merchant' : 'Vendor'} Anda berhasil dibuat.`,
+        description: `Akun ${selectedRole === 'merchant' ? 'Pemilik Properti' : 'Vendor'} Anda berhasil dibuat.`,
       });
 
       // Navigate to appropriate dashboard
       navigate(selectedRole === 'merchant' ? '/merchant' : '/vendor', { replace: true });
 
     } catch (error: any) {
-      console.error('Onboarding error:', error);
       toast({
         variant: 'destructive',
         title: 'Gagal membuat akun',
-        description: error.message || 'Terjadi kesalahan. Silakan coba lagi.',
+        description: getAuthErrorMessage(error),
       });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (isLoading) {
+  if (isLoading || !hasCheckedRole) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+          <p className="text-sm text-muted-foreground">Memuat data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render form if user already has role (they will be redirected)
+  if (role) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+          <p className="text-sm text-muted-foreground">Mengarahkan ke dashboard...</p>
+        </div>
       </div>
     );
   }
@@ -148,7 +207,7 @@ export default function Onboarding() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
             {/* Role Selection */}
             <div className="space-y-3">
               <Label>Saya adalah...</Label>
@@ -158,11 +217,13 @@ export default function Onboarding() {
                     key={option.value}
                     type="button"
                     onClick={() => setSelectedRole(option.value)}
+                    disabled={isSubmitting}
                     className={cn(
                       'flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all',
                       selectedRole === option.value
                         ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
+                        : 'border-border hover:border-primary/50',
+                      isSubmitting && 'opacity-50 cursor-not-allowed'
                     )}
                   >
                     <option.icon className={cn(
@@ -194,10 +255,13 @@ export default function Onboarding() {
               <Input
                 id="business-name"
                 placeholder={selectedRole === 'merchant' ? 'Contoh: Kost Melati, PT Graha Indah' : 'Contoh: Jasa Cleaning Service'}
-                value={businessName}
-                onChange={(e) => setBusinessName(e.target.value)}
-                required
+                maxLength={100}
+                disabled={isSubmitting}
+                {...form.register('businessName')}
               />
+              {form.formState.errors.businessName && (
+                <p className="text-sm text-destructive">{form.formState.errors.businessName.message}</p>
+              )}
               <p className="text-xs text-muted-foreground">
                 {selectedRole === 'merchant' 
                   ? 'Nama ini akan tampil di profil properti Anda'
