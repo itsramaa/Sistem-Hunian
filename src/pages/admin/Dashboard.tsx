@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { 
   Users, 
   Building2, 
@@ -6,31 +7,101 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Clock,
-  CheckCircle,
-  AlertCircle,
-  Loader2
+  Loader2,
+  RefreshCw,
+  Calendar
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { useAnalytics } from '@/hooks/useAnalytics';
+import { useAdminGuard } from '@/hooks/useAdminGuard';
+import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 
 export default function AdminDashboard() {
+  const { isLoading: guardLoading, isAdmin } = useAdminGuard();
+  const queryClient = useQueryClient();
   useAnalytics();
+  
+  const [dateRange, setDateRange] = useState<'today' | '7d' | '30d' | 'all'>('7d');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const { data: statsData, isLoading } = useQuery({
-    queryKey: ['admin-dashboard-stats'],
+  // Real-time subscription for updates
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const channel = supabase
+      .channel('admin-dashboard-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'payments' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'merchants' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'vendor_verifications' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['admin-pending-verifications'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isAdmin, queryClient]);
+
+  const getDateFilter = () => {
+    const now = new Date();
+    switch (dateRange) {
+      case 'today':
+        return { from: startOfDay(now), to: endOfDay(now) };
+      case '7d':
+        return { from: startOfDay(subDays(now, 7)), to: endOfDay(now) };
+      case '30d':
+        return { from: startOfDay(subDays(now, 30)), to: endOfDay(now) };
+      default:
+        return null;
+    }
+  };
+
+  const { data: statsData, isLoading, error } = useQuery({
+    queryKey: ['admin-dashboard-stats', dateRange],
     queryFn: async () => {
+      const dateFilter = getDateFilter();
+      
+      let paymentsQuery = supabase.from('payments').select('amount').eq('status', 'paid');
+      if (dateFilter) {
+        paymentsQuery = paymentsQuery
+          .gte('created_at', dateFilter.from.toISOString())
+          .lte('created_at', dateFilter.to.toISOString());
+      }
+
       const [merchantsRes, paymentsRes, escrowRes, verificationsRes] = await Promise.all([
         supabase.from('merchants').select('id', { count: 'exact' }),
-        supabase.from('payments').select('amount').eq('status', 'paid'),
+        paymentsQuery,
         supabase.from('escrow_accounts').select('balance'),
         supabase.from('vendor_verifications').select('id', { count: 'exact' }).eq('status', 'pending'),
       ]);
       
+      if (merchantsRes.error) throw new Error(`Merchants query failed: ${merchantsRes.error.message}`);
+      if (paymentsRes.error) throw new Error(`Payments query failed: ${paymentsRes.error.message}`);
+      if (escrowRes.error) throw new Error(`Escrow query failed: ${escrowRes.error.message}`);
+      if (verificationsRes.error) throw new Error(`Verifications query failed: ${verificationsRes.error.message}`);
+
       const totalGMV = paymentsRes.data?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
       const totalEscrow = escrowRes.data?.reduce((sum, e) => sum + Number(e.balance), 0) || 0;
       
@@ -41,38 +112,63 @@ export default function AdminDashboard() {
         pendingVerifications: verificationsRes.count || 0,
       };
     },
+    enabled: isAdmin,
   });
 
   const { data: pendingVerifications = [] } = useQuery({
     queryKey: ['admin-pending-verifications'],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('vendor_verifications')
         .select('id, document_type, created_at, vendor_id, vendors(business_name)')
         .eq('status', 'pending')
         .order('created_at', { ascending: false })
         .limit(4);
+      if (error) throw new Error(`Failed to load verifications: ${error.message}`);
       return data || [];
     },
+    enabled: isAdmin,
   });
 
   const { data: recentActivity = [] } = useQuery({
     queryKey: ['admin-recent-activity'],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('analytics_events')
         .select('id, event_type, event_data, created_at')
         .order('created_at', { ascending: false })
         .limit(4);
+      if (error) throw new Error(`Failed to load activity: ${error.message}`);
       return data || [];
     },
+    enabled: isAdmin,
   });
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] }),
+      queryClient.invalidateQueries({ queryKey: ['admin-pending-verifications'] }),
+      queryClient.invalidateQueries({ queryKey: ['admin-recent-activity'] }),
+    ]);
+    setIsRefreshing(false);
+  };
 
   const formatCurrency = (amount: number) => {
     if (amount >= 1000000000) return `Rp ${(amount / 1000000000).toFixed(1)}B`;
     if (amount >= 1000000) return `Rp ${(amount / 1000000).toFixed(0)}M`;
     return `Rp ${amount.toLocaleString('id-ID')}`;
   };
+
+  if (guardLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   const stats = [
     {
@@ -89,7 +185,7 @@ export default function AdminDashboard() {
       change: '+8.2%',
       changeType: 'positive' as const,
       icon: TrendingUp,
-      description: 'Monthly transaction volume',
+      description: dateRange === 'today' ? 'Today' : dateRange === '7d' ? 'Last 7 days' : dateRange === '30d' ? 'Last 30 days' : 'All time',
     },
     {
       title: 'Escrow Balance',
@@ -112,10 +208,37 @@ export default function AdminDashboard() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-display font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back! Here's what's happening today.</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-display font-bold">Dashboard</h1>
+            <p className="text-muted-foreground">Welcome back! Here's what's happening today.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={dateRange} onValueChange={(v: typeof dateRange) => setDateRange(v)}>
+              <SelectTrigger className="w-[140px]">
+                <Calendar className="h-4 w-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="7d">Last 7 days</SelectItem>
+                <SelectItem value="30d">Last 30 days</SelectItem>
+                <SelectItem value="all">All time</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isRefreshing}>
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </div>
+
+        {error && (
+          <Card className="border-destructive bg-destructive/10">
+            <CardContent className="py-4">
+              <p className="text-sm text-destructive">{(error as Error).message}</p>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat) => (
@@ -209,7 +332,7 @@ export default function AdminDashboard() {
                         <p className="text-sm text-muted-foreground truncate">{item.event_data?.page || 'Platform event'}</p>
                       </div>
                       <p className="text-xs text-muted-foreground whitespace-nowrap">
-                        {new Date(item.created_at).toLocaleTimeString()}
+                        {format(new Date(item.created_at), 'HH:mm')}
                       </p>
                     </div>
                   ))
