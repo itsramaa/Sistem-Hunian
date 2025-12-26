@@ -364,25 +364,25 @@ flowchart TD
 4. [x] **CHAT-L02**: Add feedback mechanism
 
 ### Notifications
-5. [ ] **NOTIF-M01**: Implement category filtering
-6. [ ] **NOTIF-M02**: Add notification preferences
+5. [x] **NOTIF-M01**: Implement category filtering
+6. [x] **NOTIF-M02**: Add notification preferences
 7. [ ] **NOTIF-M03**: Implement Web Push notifications
-8. [ ] **NOTIF-L01**: Add full notification history page
+8. [x] **NOTIF-L01**: Add full notification history page
 
 ### Referrals
 9. [ ] **REF-M01**: Add real-time progress updates
 10. [x] **REF-L01**: Add native share options
-11. [ ] **REF-L02**: Implement gamification features
+11. [x] **REF-L02**: Implement gamification features
 
 ### Analytics
 12. [x] **ANLY-M01**: Add micro-interaction tracking
-13. [ ] **ANLY-L01**: Build conversion funnels visualization
+13. [x] **ANLY-L01**: Build conversion funnels visualization
 14. [ ] **ANLY-L02**: Implement A/B testing framework
 
 ### File Upload
-15. [ ] **UPLD-M01**: Fix progress accuracy
-16. [ ] **UPLD-M02**: Add resumable uploads
-17. [ ] **UPLD-L01**: Implement client-side image compression
+15. [x] **UPLD-M01**: Fix progress accuracy
+16. [x] **UPLD-M02**: Add resumable uploads
+17. [x] **UPLD-L01**: Implement client-side image compression
 
 ---
 
