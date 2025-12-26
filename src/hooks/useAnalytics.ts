@@ -1,51 +1,51 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { trackEvent, EventTypes, resetCachedUser, type EventType } from '@/lib/analytics';
 
 type EventData = Record<string, string | number | boolean | null>;
-
-const getSessionId = (): string => {
-  let sessionId = sessionStorage.getItem('analytics_session_id');
-  if (!sessionId) {
-    sessionId = crypto.randomUUID();
-    sessionStorage.setItem('analytics_session_id', sessionId);
-  }
-  return sessionId;
-};
 
 export function useAnalytics() {
   const { user } = useAuth();
   const location = useLocation();
+  const lastTrackedPath = useRef<string | null>(null);
 
-  const trackEvent = useCallback(async (
-    eventType: string, 
+  // Reset cached user when auth changes
+  useEffect(() => {
+    resetCachedUser();
+  }, [user?.id]);
+
+  const track = useCallback(async (
+    eventType: EventType | string, 
     eventData?: EventData,
     page?: string
   ) => {
-    try {
-      await supabase.from('analytics_events').insert({
-        event_type: eventType,
-        event_data: eventData || {},
-        page: page || location.pathname,
-        user_id: user?.id || null,
-        session_id: getSessionId(),
-      });
-    } catch (error) {
-      console.error('Analytics tracking error:', error);
-    }
-  }, [user?.id, location.pathname]);
+    await trackEvent({
+      eventType,
+      eventData: eventData || {},
+      page: page || location.pathname,
+    });
+  }, [location.pathname]);
 
-  // Track page views automatically
+  // Track page views automatically - with duplicate prevention
   useEffect(() => {
-    trackEvent('page_view', {
+    const currentPath = `${location.pathname}${location.search}`;
+    
+    // Prevent duplicate tracking for same path
+    if (lastTrackedPath.current === currentPath) {
+      return;
+    }
+    lastTrackedPath.current = currentPath;
+    
+    track(EventTypes.PAGE_VIEW, {
       path: location.pathname,
       search: location.search,
-      referrer: document.referrer,
+      referrer: document.referrer || null,
     });
-  }, [location.pathname, location.search, trackEvent]);
+  }, [location.pathname, location.search, track]);
 
-  return { trackEvent };
+  return { trackEvent: track };
 }
 
 // Specific tracking functions
@@ -53,7 +53,7 @@ export function usePaymentTracking() {
   const { trackEvent } = useAnalytics();
 
   const trackPaymentInitiated = (paymentId: string, amount: number, paymentType: string) => {
-    trackEvent('payment_initiated', {
+    trackEvent(EventTypes.PAYMENT_INITIATED, {
       payment_id: paymentId,
       amount,
       payment_type: paymentType,
@@ -61,7 +61,7 @@ export function usePaymentTracking() {
   };
 
   const trackPaymentCompleted = (paymentId: string, amount: number, paymentMethod: string) => {
-    trackEvent('payment_completed', {
+    trackEvent(EventTypes.PAYMENT_COMPLETED, {
       payment_id: paymentId,
       amount,
       payment_method: paymentMethod,
@@ -69,7 +69,7 @@ export function usePaymentTracking() {
   };
 
   const trackPaymentFailed = (paymentId: string, errorMessage: string) => {
-    trackEvent('payment_failed', {
+    trackEvent(EventTypes.PAYMENT_FAILED, {
       payment_id: paymentId,
       error: errorMessage,
     });
@@ -82,7 +82,7 @@ export function useOrderTracking() {
   const { trackEvent } = useAnalytics();
 
   const trackOrderPlaced = (orderId: string, productId: string, vendorId: string, amount: number) => {
-    trackEvent('order_placed', {
+    trackEvent(EventTypes.ORDER_PLACED, {
       order_id: orderId,
       product_id: productId,
       vendor_id: vendorId,
@@ -91,11 +91,11 @@ export function useOrderTracking() {
   };
 
   const trackOrderCompleted = (orderId: string) => {
-    trackEvent('order_completed', { order_id: orderId });
+    trackEvent(EventTypes.ORDER_COMPLETED, { order_id: orderId });
   };
 
   const trackOrderCancelled = (orderId: string, reason: string) => {
-    trackEvent('order_cancelled', {
+    trackEvent(EventTypes.ORDER_CANCELLED, {
       order_id: orderId,
       cancel_reason: reason,
     });
@@ -108,7 +108,7 @@ export function useMaintenanceTracking() {
   const { trackEvent } = useAnalytics();
 
   const trackMaintenanceSubmitted = (requestId: string, category: string, priority: string) => {
-    trackEvent('maintenance_submitted', {
+    trackEvent(EventTypes.MAINTENANCE_CREATED, {
       request_id: requestId,
       category,
       priority,
@@ -116,7 +116,7 @@ export function useMaintenanceTracking() {
   };
 
   const trackMaintenanceResolved = (requestId: string) => {
-    trackEvent('maintenance_resolved', { request_id: requestId });
+    trackEvent(EventTypes.MAINTENANCE_RESOLVED, { request_id: requestId });
   };
 
   return { trackMaintenanceSubmitted, trackMaintenanceResolved };
@@ -126,12 +126,26 @@ export function useChatbotTracking() {
   const { trackEvent } = useAnalytics();
 
   const trackChatbotOpened = () => {
-    trackEvent('chatbot_opened');
+    trackEvent(EventTypes.CHATBOT_OPENED);
   };
 
   const trackChatbotMessage = (messageType: 'user' | 'bot') => {
-    trackEvent('chatbot_message', { message_type: messageType });
+    trackEvent(EventTypes.CHATBOT_MESSAGE_SENT, { message_type: messageType });
   };
 
   return { trackChatbotOpened, trackChatbotMessage };
+}
+
+export function useReferralTracking() {
+  const { trackEvent } = useAnalytics();
+
+  const trackReferralLinkCopied = () => {
+    trackEvent(EventTypes.REFERRAL_LINK_COPIED);
+  };
+
+  const trackReferralLinkShared = (channel: string) => {
+    trackEvent(EventTypes.REFERRAL_LINK_SHARED, { channel });
+  };
+
+  return { trackReferralLinkCopied, trackReferralLinkShared };
 }

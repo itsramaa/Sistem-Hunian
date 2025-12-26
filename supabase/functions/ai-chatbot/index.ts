@@ -6,6 +6,39 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Error codes for client handling
+const ERROR_CODES = {
+  RATE_LIMIT: 'ERR_RATE_LIMIT',
+  AI_UNAVAILABLE: 'ERR_AI_UNAVAILABLE',
+  INVALID_INPUT: 'ERR_INVALID_INPUT',
+  AUTH_REQUIRED: 'ERR_AUTH_REQUIRED',
+  CONTEXT_FAILED: 'ERR_CONTEXT_FAILED',
+};
+
+// Input sanitization for prompt injection prevention
+const sanitizeInput = (input: string): string => {
+  const patterns = [
+    /ignore previous instructions/gi,
+    /system:/gi,
+    /\[INST\]/gi,
+    /<\|.*?\|>/g,
+    /```system/gi,
+    /\bprompt\s*:/gi,
+  ];
+  
+  let sanitized = input;
+  patterns.forEach(pattern => {
+    sanitized = sanitized.replace(pattern, '');
+  });
+  
+  return sanitized.trim().slice(0, 1000); // Max length
+};
+
+// Validate message role
+const isValidRole = (role: string): boolean => {
+  return role === 'user' || role === 'assistant';
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -14,9 +47,46 @@ serve(async (req) => {
   try {
     const { messages, userId, conversationId, context } = await req.json();
     
+    // Validate input
+    if (!messages || !Array.isArray(messages)) {
+      console.error("Invalid messages format");
+      return new Response(JSON.stringify({ 
+        error: { code: ERROR_CODES.INVALID_INPUT, message: "Format pesan tidak valid" }
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    
+    // Validate each message
+    for (const msg of messages) {
+      if (!msg.content || typeof msg.content !== 'string') {
+        return new Response(JSON.stringify({ 
+          error: { code: ERROR_CODES.INVALID_INPUT, message: "Konten pesan tidak valid" }
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (!isValidRole(msg.role)) {
+        return new Response(JSON.stringify({ 
+          error: { code: ERROR_CODES.INVALID_INPUT, message: "Role pesan tidak valid" }
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+    
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+      console.error("LOVABLE_API_KEY is not configured");
+      return new Response(JSON.stringify({ 
+        error: { code: ERROR_CODES.AI_UNAVAILABLE, message: "Layanan AI tidak tersedia" }
+      }), {
+        status: 503,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Create Supabase client
@@ -24,9 +94,14 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const latestMessage = messages[messages.length - 1]?.content || "";
-    const userRole = context?.role || "tenant";
-    const userName = context?.userName || "";
+    // Sanitize and validate latest message
+    const rawLatestMessage = messages[messages.length - 1]?.content || "";
+    const latestMessage = sanitizeInput(rawLatestMessage);
+    
+    // Validate user role against allowed values
+    const allowedRoles = ['tenant', 'merchant', 'vendor', 'admin'];
+    const userRole = allowedRoles.includes(context?.role) ? context.role : "tenant";
+    const userName = context?.userName?.slice(0, 100) || ""; // Limit name length
 
     console.log(`AI Chatbot: Processing for role=${userRole}, message: ${latestMessage.substring(0, 50)}...`);
 
