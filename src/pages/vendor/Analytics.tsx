@@ -3,6 +3,7 @@ import { VendorLayout } from '@/components/layouts/VendorLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { SalesAnalytics } from '@/components/vendor/SalesAnalytics';
 import { CustomerInsights } from '@/components/vendor/CustomerInsights';
+import { AnalyticsExport } from '@/components/vendor/AnalyticsExport';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -73,6 +74,8 @@ export default function VendorAnalytics() {
             >
               <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </Button>
+
+            <AnalyticsExport vendorId={vendor.id} />
           </div>
         </div>
 
