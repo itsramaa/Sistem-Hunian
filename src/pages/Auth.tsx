@@ -1,7 +1,15 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthForm } from '@/components/auth/AuthForm';
+import { AuthLoadingSkeleton } from '@/components/auth/AuthLoadingSkeleton';
 import { useAuth } from '@/hooks/useAuth';
+
+const roleDestinations: Record<string, { path: string; name: string }> = {
+  admin: { path: '/admin', name: 'Dashboard Admin' },
+  merchant: { path: '/merchant', name: 'Dashboard Merchant' },
+  vendor: { path: '/vendor', name: 'Dashboard Vendor' },
+  tenant: { path: '/tenant', name: 'Dashboard Tenant' },
+};
 
 export default function Auth() {
   const { user, role, isLoading } = useAuth();
@@ -9,21 +17,19 @@ export default function Auth() {
 
   useEffect(() => {
     if (!isLoading && user && role) {
-      // Redirect based on role
-      if (role === 'admin') {
-        navigate('/admin', { replace: true });
-      } else if (role === 'merchant') {
-        navigate('/merchant', { replace: true });
-      } else if (role === 'vendor') {
-        navigate('/vendor', { replace: true });
-      } else {
-        navigate('/tenant', { replace: true });
-      }
+      const destination = roleDestinations[role] || roleDestinations.tenant;
+      navigate(destination.path, { replace: true });
     }
   }, [user, role, isLoading, navigate]);
 
   if (isLoading) {
-    return null;
+    return <AuthLoadingSkeleton />;
+  }
+
+  // Show loading skeleton when user is authenticated but redirecting
+  if (user && role) {
+    const destination = roleDestinations[role] || roleDestinations.tenant;
+    return <AuthLoadingSkeleton destination={destination.name} />;
   }
 
   return <AuthForm />;
