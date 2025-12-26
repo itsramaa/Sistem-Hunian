@@ -4,6 +4,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,6 +36,10 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { CompletionDialog } from '@/components/maintenance/CompletionDialog';
 import { SLABadge } from '@/components/maintenance/SLABadge';
+import { formatCurrency } from '@/lib/currency';
+import { getPriorityColor, getJobStatusColor } from '@/lib/statusColors';
+import { isValidJobStatusTransition, declineReasonSchema } from '@/lib/vendorValidations';
+import { VENDOR_PLATFORM_FEE_PERCENT, calculatePlatformFee, calculateNetAmount } from '@/lib/constants/platformFees';
 
 // Use generated types from Supabase with relationships
 type VendorJobRow = Tables<'vendor_jobs'>;
@@ -44,6 +60,13 @@ export default function VendorJobs() {
   const queryClient = useQueryClient();
   const [completionDialogOpen, setCompletionDialogOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState<VendorJob | null>(null);
+  
+  // Confirmation dialogs state
+  const [acceptDialogOpen, setAcceptDialogOpen] = useState(false);
+  const [startDialogOpen, setStartDialogOpen] = useState(false);
+  const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
+  const [declineReason, setDeclineReason] = useState('');
+  const [declineError, setDeclineError] = useState('');
 
   // Fetch vendor jobs from vendor_jobs table
   const { data: jobs = [], isLoading } = useQuery({
@@ -65,6 +88,8 @@ export default function VendorJobs() {
             images,
             sla_deadline,
             created_at,
+            tenant_user_id,
+            merchant_id,
             units (
               unit_number,
               properties (
@@ -89,15 +114,35 @@ export default function VendorJobs() {
       jobId, 
       status,
       completionNotes,
-      completionPhotos
+      completionPhotos,
+      declineReason
     }: { 
       jobId: string; 
       status: string;
       completionNotes?: string;
       completionPhotos?: string[];
+      declineReason?: string;
     }) => {
       const job = jobs.find(j => j.id === jobId);
       if (!job) throw new Error('Job not found');
+
+      // Validate status transition
+      if (!isValidJobStatusTransition(job.status, status)) {
+        throw new Error(`Invalid status transition from ${job.status} to ${status}`);
+      }
+
+      // Validate vendor is verified for accept/start
+      if (['accepted', 'in_progress'].includes(status) && vendor?.verification_status !== 'verified') {
+        throw new Error('You must be verified to accept or start jobs');
+      }
+
+      // Validate decline reason
+      if (status === 'rejected') {
+        const result = declineReasonSchema.safeParse(declineReason);
+        if (!result.success) {
+          throw new Error(result.error.errors[0]?.message || 'Please provide a valid decline reason');
+        }
+      }
 
       const jobUpdateData: Record<string, unknown> = { status };
       const maintenanceUpdateData: Record<string, unknown> = {};
@@ -121,6 +166,7 @@ export default function VendorJobs() {
         maintenanceUpdateData.completion_photos = completionPhotos || null;
         newMaintenanceStatus = 'completed';
       } else if (status === 'rejected') {
+        jobUpdateData.decline_reason = declineReason;
         maintenanceUpdateData.assigned_vendor_id = null;
         maintenanceUpdateData.assigned_to = null;
         maintenanceUpdateData.status = 'pending';
@@ -151,7 +197,7 @@ export default function VendorJobs() {
           accepted: 'Vendor accepted the job',
           in_progress: 'Work has started',
           completed: 'Job completed',
-          rejected: 'Vendor declined the job',
+          rejected: `Vendor declined the job: ${declineReason || 'No reason provided'}`,
         };
 
         await supabase.from('maintenance_timeline').insert({
@@ -160,15 +206,15 @@ export default function VendorJobs() {
           message: statusMessages[status] || `Status changed to ${status}`,
           actor_id: user.id,
           actor_role: 'vendor',
-          metadata: completionNotes ? { notes: completionNotes } : {},
+          metadata: completionNotes ? { notes: completionNotes } : (declineReason ? { decline_reason: declineReason } : {}),
         });
       }
 
       // If job is completed, create an earning record and notify
       if (status === 'completed') {
         if (job.agreed_price) {
-          const feeAmount = job.agreed_price * 0.05; // 5% platform fee
-          const netAmount = job.agreed_price - feeAmount;
+          const feeAmount = calculatePlatformFee(job.agreed_price);
+          const netAmount = calculateNetAmount(job.agreed_price);
 
           const { error: earningError } = await supabase
             .from('vendor_earnings')
@@ -214,57 +260,77 @@ export default function VendorJobs() {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['vendor-jobs'] });
       queryClient.invalidateQueries({ queryKey: ['vendor-earnings'] });
-      toast.success('Job status updated successfully');
+      
+      const messages: Record<string, string> = {
+        accepted: 'Job accepted successfully',
+        in_progress: 'Job started',
+        completed: 'Job completed successfully',
+        rejected: 'Job declined',
+      };
+      
+      toast.success(messages[variables.status] || 'Job status updated');
       setCompletionDialogOpen(false);
+      setAcceptDialogOpen(false);
+      setStartDialogOpen(false);
+      setDeclineDialogOpen(false);
       setSelectedJob(null);
+      setDeclineReason('');
+      setDeclineError('');
     },
     onError: (error) => {
-      toast.error('Failed to update job: ' + error.message);
+      toast.error(error.message || 'Failed to update job');
     },
   });
 
   const activeJobs = jobs.filter(j => ['pending', 'accepted', 'in_progress'].includes(j.status));
   const completedJobs = jobs.filter(j => j.status === 'completed');
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return 'destructive';
-      case 'high': return 'destructive';
-      case 'medium': return 'default';
-      case 'low': return 'secondary';
-      default: return 'outline';
+  const handleAcceptClick = (job: VendorJob) => {
+    setSelectedJob(job);
+    setAcceptDialogOpen(true);
+  };
+
+  const handleStartClick = (job: VendorJob) => {
+    setSelectedJob(job);
+    setStartDialogOpen(true);
+  };
+
+  const handleDeclineClick = (job: VendorJob) => {
+    setSelectedJob(job);
+    setDeclineReason('');
+    setDeclineError('');
+    setDeclineDialogOpen(true);
+  };
+
+  const handleAcceptConfirm = () => {
+    if (selectedJob) {
+      updateJobMutation.mutate({ jobId: selectedJob.id, status: 'accepted' });
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'secondary';
-      case 'accepted': return 'default';
-      case 'in_progress': return 'default';
-      case 'completed': return 'outline';
-      case 'rejected': return 'destructive';
-      default: return 'secondary';
+  const handleStartConfirm = () => {
+    if (selectedJob) {
+      updateJobMutation.mutate({ jobId: selectedJob.id, status: 'in_progress' });
     }
   };
 
-  const formatCurrency = (amount: number | null) => {
-    if (!amount) return '-';
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  const handleAcceptJob = (jobId: string) => {
-    updateJobMutation.mutate({ jobId, status: 'accepted' });
-  };
-
-  const handleStartJob = (jobId: string) => {
-    updateJobMutation.mutate({ jobId, status: 'in_progress' });
+  const handleDeclineConfirm = () => {
+    const result = declineReasonSchema.safeParse(declineReason);
+    if (!result.success) {
+      setDeclineError(result.error.errors[0]?.message || 'Please provide a valid reason');
+      return;
+    }
+    
+    if (selectedJob) {
+      updateJobMutation.mutate({ 
+        jobId: selectedJob.id, 
+        status: 'rejected',
+        declineReason: declineReason,
+      });
+    }
   };
 
   const handleOpenCompletionDialog = (job: VendorJob) => {
@@ -298,7 +364,7 @@ export default function VendorJobs() {
             <Badge variant={getPriorityColor(job.maintenance_requests?.priority || '')} className="capitalize">
               {job.maintenance_requests?.priority}
             </Badge>
-            <Badge variant={getStatusColor(job.status)} className="capitalize">
+            <Badge variant={getJobStatusColor(job.status)} className="capitalize">
               {job.status.replace('_', ' ')}
             </Badge>
             <SLABadge 
@@ -364,7 +430,7 @@ export default function VendorJobs() {
                   variant="outline" 
                   size="sm" 
                   className="flex-1"
-                  onClick={() => updateJobMutation.mutate({ jobId: job.id, status: 'rejected' })}
+                  onClick={() => handleDeclineClick(job)}
                   disabled={updateJobMutation.isPending}
                 >
                   Decline
@@ -372,8 +438,8 @@ export default function VendorJobs() {
                 <Button 
                   size="sm" 
                   className="flex-1"
-                  onClick={() => handleAcceptJob(job.id)}
-                  disabled={updateJobMutation.isPending}
+                  onClick={() => handleAcceptClick(job)}
+                  disabled={updateJobMutation.isPending || vendor?.verification_status !== 'verified'}
                 >
                   <Check className="h-4 w-4 mr-1" />
                   Accept
@@ -384,7 +450,7 @@ export default function VendorJobs() {
               <Button 
                 size="sm" 
                 className="flex-1"
-                onClick={() => handleStartJob(job.id)}
+                onClick={() => handleStartClick(job)}
                 disabled={updateJobMutation.isPending}
               >
                 <Play className="h-4 w-4 mr-1" />
@@ -433,7 +499,7 @@ export default function VendorJobs() {
                 <div>
                   <p className="font-medium text-warning">Complete Verification</p>
                   <p className="text-sm text-muted-foreground">
-                    You need to be verified to receive job assignments from merchants.
+                    You need to be verified to accept job assignments from merchants.
                   </p>
                 </div>
               </div>
@@ -491,14 +557,96 @@ export default function VendorJobs() {
         </Tabs>
       </div>
 
+      {/* Accept Confirmation Dialog */}
+      <AlertDialog open={acceptDialogOpen} onOpenChange={setAcceptDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Accept Job</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to accept this job? You will be responsible for completing the work as described.
+              {selectedJob?.agreed_price && (
+                <span className="block mt-2 font-medium text-foreground">
+                  Agreed Price: {formatCurrency(selectedJob.agreed_price)}
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleAcceptConfirm} disabled={updateJobMutation.isPending}>
+              Accept Job
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Start Job Confirmation Dialog */}
+      <AlertDialog open={startDialogOpen} onOpenChange={setStartDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Start Job</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you ready to start working on this job? The tenant and merchant will be notified.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleStartConfirm} disabled={updateJobMutation.isPending}>
+              Start Working
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Decline Confirmation Dialog with Required Reason */}
+      <AlertDialog open={declineDialogOpen} onOpenChange={setDeclineDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Decline Job</AlertDialogTitle>
+            <AlertDialogDescription>
+              Please provide a reason for declining this job. This will be shared with the merchant.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Label htmlFor="decline-reason">Reason for declining *</Label>
+            <Textarea
+              id="decline-reason"
+              value={declineReason}
+              onChange={(e) => {
+                setDeclineReason(e.target.value);
+                setDeclineError('');
+              }}
+              placeholder="Please explain why you cannot accept this job (minimum 10 characters)..."
+              className="mt-2"
+              rows={3}
+            />
+            {declineError && (
+              <p className="text-sm text-destructive mt-1">{declineError}</p>
+            )}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeclineConfirm} 
+              disabled={updateJobMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Decline Job
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Completion Dialog */}
-      <CompletionDialog
-        open={completionDialogOpen}
-        onOpenChange={setCompletionDialogOpen}
-        onConfirm={handleCompleteJob}
-        isLoading={updateJobMutation.isPending}
-        jobTitle={selectedJob?.maintenance_requests?.title}
-      />
+      {selectedJob && (
+        <CompletionDialog
+          open={completionDialogOpen}
+          onOpenChange={setCompletionDialogOpen}
+          onConfirm={handleCompleteJob}
+          isLoading={updateJobMutation.isPending}
+          jobTitle={selectedJob.maintenance_requests?.title}
+        />
+      )}
     </VendorLayout>
   );
 }
