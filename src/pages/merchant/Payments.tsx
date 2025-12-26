@@ -89,14 +89,33 @@ export default function MerchantPayments() {
     enabled: !!merchant?.id,
   });
 
+  // Valid payment methods
+  const VALID_PAYMENT_METHODS = ['bank_transfer', 'cash', 'card', 'eft', 'other'];
+
   const markPaidMutation = useMutation({
     mutationFn: async ({ id, payment_method, reference }: { id: string; payment_method: string; reference: string }) => {
+      // Validate payment method
+      if (!VALID_PAYMENT_METHODS.includes(payment_method)) {
+        throw new Error('Please select a valid payment method');
+      }
+
+      // Validate reference (optional but sanitize if provided)
+      const sanitizedReference = reference.trim().slice(0, 100);
+
+      // Get current payment to validate status
+      const payment = payments.find(p => p.id === id);
+      if (!payment) throw new Error('Payment not found');
+      
+      if (payment.status === 'paid') {
+        throw new Error('This payment is already marked as paid');
+      }
+
       const { error } = await supabase
         .from('payments')
         .update({
           status: 'paid',
           payment_method,
-          reference,
+          reference: sanitizedReference || null,
           paid_at: new Date().toISOString(),
         })
         .eq('id', id);
@@ -104,11 +123,13 @@ export default function MerchantPayments() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
-      toast({ title: 'Payment marked as paid' });
+      toast({ title: 'Payment marked as paid', description: 'The payment has been recorded successfully' });
       setSelectedPayment(null);
+      setPaymentMethod('');
+      setReference('');
     },
-    onError: () => {
-      toast({ title: 'Failed to update payment', variant: 'destructive' });
+    onError: (error: Error) => {
+      toast({ title: 'Failed to update payment', description: error.message, variant: 'destructive' });
     },
   });
 
@@ -157,14 +178,20 @@ export default function MerchantPayments() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source: 'manual', merchantId: merchant?.id }),
       });
-      if (!response.ok) throw new Error('Failed to send reminders');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to send reminders');
+      }
       return response.json();
     },
     onSuccess: (data) => {
-      toast({ 
-        title: 'Reminders Sent', 
-        description: `Processed ${data.processed || 0} overdue invoices.` 
-      });
+      const processed = data.processed || 0;
+      const failed = data.failed || 0;
+      let description = `Processed ${processed} overdue invoice${processed !== 1 ? 's' : ''}`;
+      if (failed > 0) {
+        description += `. ${failed} failed to send.`;
+      }
+      toast({ title: 'Reminders Sent', description });
       setSendingBulkReminder(false);
     },
     onError: (error: Error) => {
@@ -218,13 +245,18 @@ export default function MerchantPayments() {
   };
 
   const handleMarkPaid = () => {
-    if (selectedPayment && paymentMethod) {
-      markPaidMutation.mutate({
-        id: selectedPayment.id,
-        payment_method: paymentMethod,
-        reference,
-      });
+    if (!selectedPayment) return;
+    
+    if (!paymentMethod) {
+      toast({ title: 'Payment method required', description: 'Please select a payment method', variant: 'destructive' });
+      return;
     }
+
+    markPaidMutation.mutate({
+      id: selectedPayment.id,
+      payment_method: paymentMethod,
+      reference: reference.trim(),
+    });
   };
 
   const formatCurrency = (amount: number) => {
