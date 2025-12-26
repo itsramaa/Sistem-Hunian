@@ -48,21 +48,8 @@ const AdminReferrals = () => {
   const [showPayoutDialog, setShowPayoutDialog] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Fetch configurable reward amount from platform config
-  const { data: platformConfig } = useQuery({
-    queryKey: ['platform-config-referral'],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('platform_config')
-        .select('value')
-        .eq('key', 'referral_reward_amount')
-        .single();
-      return data?.value ? Number(data.value) : DEFAULT_REWARD_AMOUNT;
-    },
-    enabled: isAdmin,
-  });
-
-  const rewardAmount = platformConfig || DEFAULT_REWARD_AMOUNT;
+  // Default reward amount - could be made configurable via a settings table in the future
+  const rewardAmount = DEFAULT_REWARD_AMOUNT;
 
   const { data: referralsData, isLoading: loadingReferrals, error: referralsError } = useQuery({
     queryKey: ['admin-referrals', currentPage, dateRange?.from, dateRange?.to],

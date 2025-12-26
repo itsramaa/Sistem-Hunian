@@ -884,9 +884,9 @@ export default function AdminEscrow() {
           onOpenChange={setShowConfirmDisbursement}
           title="Confirm Disbursement"
           description={`Are you sure you want to disburse ${formatCurrency(parseFloat(disbursementAmount) || 0)} to ${selectedAccount?.merchant?.business_name}?`}
-          confirmText="Confirm Disbursement"
+          confirmLabel="Confirm Disbursement"
           onConfirm={confirmDisbursement}
-          loading={actionLoading}
+          isLoading={actionLoading}
           variant="default"
         />
 
