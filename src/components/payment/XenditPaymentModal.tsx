@@ -1,10 +1,14 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, CreditCard, Wallet, QrCode, Building2, ExternalLink, AlertTriangle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Progress } from '@/components/ui/progress';
+import { Loader2, CreditCard, Wallet, QrCode, Building2, ExternalLink, AlertTriangle, Clock, Check, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { differenceInHours, differenceInMinutes, format } from 'date-fns';
 
 interface XenditPaymentModalProps {
   open: boolean;
@@ -21,7 +25,18 @@ interface XenditPaymentModalProps {
   userId: string;
   paymentType: 'rent' | 'invoice' | 'order';
   onSuccess?: () => void;
+  onRetry?: () => void;
 }
+
+// Remember last used payment method
+const PAYMENT_METHOD_KEY = 'sihuni_last_payment_method';
+
+const PAYMENT_METHODS = [
+  { id: 'bank_transfer', label: 'Bank Transfer', icon: Building2, description: 'BCA, Mandiri, BNI, BRI' },
+  { id: 'ewallet', label: 'E-Wallet', icon: Wallet, description: 'OVO, DANA, GoPay, ShopeePay' },
+  { id: 'qris', label: 'QRIS', icon: QrCode, description: 'Scan QR untuk bayar' },
+  { id: 'credit_card', label: 'Credit Card', icon: CreditCard, description: 'Visa, Mastercard' },
+];
 
 export function XenditPaymentModal({
   open,
@@ -38,11 +53,31 @@ export function XenditPaymentModal({
   userId,
   paymentType,
   onSuccess,
+  onRetry,
 }: XenditPaymentModalProps) {
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'creating' | 'pending' | 'failed'>('idle');
+  const [vaExpiryTime, setVaExpiryTime] = useState<Date | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<string>(() => {
+    try {
+      return localStorage.getItem(PAYMENT_METHOD_KEY) || '';
+    } catch {
+      return '';
+    }
+  });
+
+  // Save last used method
+  const saveLastMethod = (method: string) => {
+    try {
+      localStorage.setItem(PAYMENT_METHOD_KEY, method);
+    } catch {
+      // Ignore storage errors
+    }
+  };
 
   const createInvoiceMutation = useMutation({
     mutationFn: async () => {
+      setPaymentStatus('creating');
       const { data, error } = await supabase.functions.invoke('xendit-create-invoice', {
         body: {
           payment_id: paymentId,
@@ -54,6 +89,7 @@ export function XenditPaymentModal({
           payer_name: payerName,
           user_id: userId,
           payment_type: paymentType,
+          preferred_method: selectedMethod,
         },
       });
 
@@ -63,9 +99,21 @@ export function XenditPaymentModal({
     },
     onSuccess: (data) => {
       setPaymentUrl(data.payment_url);
+      setPaymentStatus('pending');
+      
+      // Set VA expiry (24 hours from now by default)
+      const expiry = new Date();
+      expiry.setHours(expiry.getHours() + 24);
+      setVaExpiryTime(expiry);
+      
+      if (selectedMethod) {
+        saveLastMethod(selectedMethod);
+      }
+      
       toast.success('Payment link created! Click to proceed.');
     },
     onError: (error: Error) => {
+      setPaymentStatus('failed');
       toast.error(`Failed to create payment: ${error.message}`);
     },
   });
@@ -78,6 +126,13 @@ export function XenditPaymentModal({
     }
   };
 
+  const handleRetry = () => {
+    setPaymentStatus('idle');
+    setPaymentUrl(null);
+    createInvoiceMutation.reset();
+    onRetry?.();
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -88,6 +143,21 @@ export function XenditPaymentModal({
 
   const hasLateFee = lateFee && lateFee > 0;
 
+  // Calculate VA expiry countdown
+  const getExpiryCountdown = () => {
+    if (!vaExpiryTime) return null;
+    
+    const now = new Date();
+    const hoursLeft = differenceInHours(vaExpiryTime, now);
+    const minutesLeft = differenceInMinutes(vaExpiryTime, now) % 60;
+    
+    if (hoursLeft < 0) return { text: 'Expired', urgent: true };
+    if (hoursLeft < 3) return { text: `${hoursLeft}h ${minutesLeft}m left`, urgent: true };
+    return { text: `${hoursLeft}h ${minutesLeft}m left`, urgent: false };
+  };
+
+  const expiryCountdown = getExpiryCountdown();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -97,28 +167,42 @@ export function XenditPaymentModal({
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Payment Methods */}
-          <div className="space-y-3">
-            <p className="text-sm font-medium">Available Payment Methods:</p>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/30">
-                <Building2 className="h-5 w-5 text-primary" />
-                <span className="text-sm">Bank Transfer</span>
-              </div>
-              <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/30">
-                <Wallet className="h-5 w-5 text-primary" />
-                <span className="text-sm">E-Wallet</span>
-              </div>
-              <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/30">
-                <QrCode className="h-5 w-5 text-primary" />
-                <span className="text-sm">QRIS</span>
-              </div>
-              <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/30">
-                <CreditCard className="h-5 w-5 text-primary" />
-                <span className="text-sm">Credit Card</span>
+          {/* Payment Method Selection */}
+          {paymentStatus === 'idle' && (
+            <div className="space-y-3">
+              <p className="text-sm font-medium">Select Payment Method:</p>
+              <div className="grid grid-cols-2 gap-2">
+                {PAYMENT_METHODS.map((method) => {
+                  const isSelected = selectedMethod === method.id;
+                  const wasLastUsed = localStorage.getItem(PAYMENT_METHOD_KEY) === method.id;
+                  
+                  return (
+                    <button
+                      key={method.id}
+                      onClick={() => setSelectedMethod(method.id)}
+                      className={`flex flex-col items-start gap-1 p-3 rounded-lg border transition-colors text-left ${
+                        isSelected 
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-border bg-muted/30 hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 w-full">
+                        <method.icon className={`h-5 w-5 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
+                        <span className="text-sm font-medium">{method.label}</span>
+                        {wasLastUsed && !isSelected && (
+                          <Badge variant="secondary" className="text-xs ml-auto">Last used</Badge>
+                        )}
+                        {isSelected && (
+                          <Check className="h-4 w-4 text-primary ml-auto" />
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground">{method.description}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          </div>
+          )}
 
           {/* Payment Summary */}
           <div className="border rounded-lg p-4 space-y-2 bg-muted/30">
@@ -152,8 +236,27 @@ export function XenditPaymentModal({
             </div>
           </div>
 
+          {/* VA Expiry Countdown */}
+          {paymentStatus === 'pending' && expiryCountdown && (
+            <div className={`flex items-center gap-2 p-3 rounded-lg ${
+              expiryCountdown.urgent 
+                ? 'bg-destructive/10 border border-destructive/20' 
+                : 'bg-yellow-500/10 border border-yellow-500/20'
+            }`}>
+              <Clock className={`h-5 w-5 ${expiryCountdown.urgent ? 'text-destructive' : 'text-yellow-600'}`} />
+              <div className="flex-1">
+                <p className={`text-sm font-medium ${expiryCountdown.urgent ? 'text-destructive' : 'text-yellow-700'}`}>
+                  Payment expires in {expiryCountdown.text}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Complete before {vaExpiryTime && format(vaExpiryTime, 'MMM d, HH:mm')}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Late Fee Warning */}
-          {hasLateFee && (
+          {hasLateFee && paymentStatus === 'idle' && (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
               <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
               <div className="text-sm">
@@ -165,23 +268,41 @@ export function XenditPaymentModal({
             </div>
           )}
 
+          {/* Failed State with Retry */}
+          {paymentStatus === 'failed' && (
+            <div className="space-y-4">
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  Payment creation failed. Please try again.
+                </AlertDescription>
+              </Alert>
+              <Button variant="outline" className="w-full" onClick={handleRetry}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Try Again
+              </Button>
+            </div>
+          )}
+
           {/* Action Buttons */}
-          {!paymentUrl ? (
+          {paymentStatus === 'idle' && (
             <Button
               className="w-full"
               onClick={() => createInvoiceMutation.mutate()}
-              disabled={createInvoiceMutation.isPending}
+              disabled={!selectedMethod}
             >
-              {createInvoiceMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating Payment...
-                </>
-              ) : (
-                'Generate Payment Link'
-              )}
+              Generate Payment Link
             </Button>
-          ) : (
+          )}
+
+          {paymentStatus === 'creating' && (
+            <Button className="w-full" disabled>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Creating Payment...
+            </Button>
+          )}
+
+          {paymentStatus === 'pending' && paymentUrl && (
             <Button className="w-full" onClick={handleProceedToPayment}>
               <ExternalLink className="h-4 w-4 mr-2" />
               Proceed to Payment
