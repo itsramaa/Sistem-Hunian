@@ -25,25 +25,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchUserData = useCallback(async (userId: string) => {
     setIsProfileLoading(true);
     try {
-      // Fetch profile
-      const { data: profileData } = await supabase
+      // Fetch profile - use maybeSingle to handle race conditions during signup
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
       
-      if (profileData) {
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+      } else if (profileData) {
         setProfile(profileData as UserProfile);
       }
 
-      // Fetch role
-      const { data: roleData } = await supabase
+      // Fetch role - use maybeSingle to handle race conditions during signup
+      const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
       
-      if (roleData) {
+      if (roleError) {
+        console.error('Error fetching role:', roleError);
+      } else if (roleData) {
         setRole(roleData.role as AppRole);
         
         // If merchant, fetch merchant data
@@ -52,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .from('merchants')
             .select('*')
             .eq('user_id', userId)
-            .single();
+            .maybeSingle();
           
           if (merchantData) {
             setMerchant(merchantData as MerchantProfile);
@@ -65,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .from('vendors')
             .select('*')
             .eq('user_id', userId)
-            .single();
+            .maybeSingle();
           
           if (vendorData) {
             setVendor(vendorData as VendorProfile);
