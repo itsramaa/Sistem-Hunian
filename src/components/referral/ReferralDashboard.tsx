@@ -68,20 +68,38 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
   const [copied, setCopied] = useState(false);
 
   // Get or create referral code
-  const { data: referralData, isLoading, error } = useQuery({
+  const { data: referralData, isLoading, error, refetch } = useQuery({
     queryKey: ['my-referral', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
 
       // Check if user has a referral code
-      const { data: existing } = await supabase
+      const { data: existing, error: fetchError } = await supabase
         .from('referrals')
         .select('*')
         .eq('referrer_user_id', user.id)
         .is('referee_user_id', null)
-        .single();
+        .maybeSingle();
 
+      if (fetchError) throw fetchError;
       if (existing) return existing as Referral;
+
+      // Check uniqueness of generated code
+      let code = generateSecureCode();
+      let attempts = 0;
+      const maxAttempts = 5;
+      
+      while (attempts < maxAttempts) {
+        const { data: existingCode } = await supabase
+          .from('referrals')
+          .select('id')
+          .eq('referral_code', code)
+          .maybeSingle();
+        
+        if (!existingCode) break;
+        code = generateSecureCode();
+        attempts++;
+      }
 
       // Create new referral entry with secure code
       const { data: newReferral, error } = await supabase
@@ -90,7 +108,7 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
           referrer_user_id: user.id,
           referrer_role: userRole,
           status: 'pending',
-          referral_code: generateSecureCode(),
+          referral_code: code,
         })
         .select()
         .single();
@@ -106,16 +124,18 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
   });
 
   // Get referral stats with optimized query
-  const { data: stats } = useQuery<ReferralStats>({
+  const { data: stats, isLoading: statsLoading } = useQuery<ReferralStats>({
     queryKey: ['referral-stats', user?.id],
     queryFn: async () => {
       if (!user?.id) return { total: 0, completed: 0, pending: 0 };
 
-      const { data: referrals } = await supabase
+      const { data: referrals, error } = await supabase
         .from('referrals')
         .select('status')
         .eq('referrer_user_id', user.id)
         .not('referee_user_id', 'is', null);
+
+      if (error) throw error;
 
       const total = referrals?.length || 0;
       const completed = referrals?.filter(r => r.status === 'completed').length || 0;
@@ -126,18 +146,50 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
     enabled: !!user?.id,
   });
 
-  // Get rewards
-  const { data: rewards = [] } = useQuery<ReferralReward[]>({
+  // Get referral history
+  const { data: referralHistory = [], isLoading: historyLoading } = useQuery({
+    queryKey: ['referral-history', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+
+      const { data, error } = await supabase
+        .from('referrals')
+        .select(`
+          id,
+          referee_user_id,
+          referee_role,
+          status,
+          created_at,
+          completed_at,
+          profiles!referrals_referee_user_id_fkey (
+            full_name,
+            email
+          )
+        `)
+        .eq('referrer_user_id', user.id)
+        .not('referee_user_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  // Get rewards with loading state
+  const { data: rewards = [], isLoading: rewardsLoading } = useQuery<ReferralReward[]>({
     queryKey: ['my-rewards', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('referral_rewards')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
+      if (error) throw error;
       return (data || []) as ReferralReward[];
     },
     enabled: !!user?.id,
@@ -245,17 +297,32 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
     .reduce((sum, r) => sum + Number(r.amount), 0);
 
   if (isLoading) {
-    return <div className="text-center py-8">Memuat...</div>;
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="py-8">
+            <div className="flex items-center justify-center gap-2">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+              <span className="text-muted-foreground">Memuat data referral...</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   if (error) {
     return (
-      <div className="text-center py-8 text-destructive">
-        <p>{(error as Error).message}</p>
-        <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
-          Coba Lagi
-        </Button>
-      </div>
+      <Card>
+        <CardContent className="py-8">
+          <div className="text-center text-destructive">
+            <p>{(error as Error).message}</p>
+            <Button variant="outline" className="mt-4" onClick={() => refetch()}>
+              Coba Lagi
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -357,13 +424,57 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
         </Card>
       </div>
 
+      {/* Referral History */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Riwayat Referral</CardTitle>
+          <CardDescription>Daftar orang yang mendaftar menggunakan kode Anda</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {historyLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+            </div>
+          ) : referralHistory.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Belum ada yang mendaftar menggunakan kode Anda.</p>
+              <p className="text-sm mt-1">Bagikan link referral untuk mulai mengundang!</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {referralHistory.map((ref: any) => (
+                <div key={ref.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <p className="font-medium">
+                      {(ref.profiles as any)?.full_name || 'Pengguna Baru'}
+                    </p>
+                    <p className="text-sm text-muted-foreground capitalize">
+                      {ref.referee_role || 'User'} • {format(new Date(ref.created_at), 'd MMM yyyy', { locale: id })}
+                    </p>
+                  </div>
+                  <Badge variant={ref.status === 'completed' ? 'default' : 'secondary'}>
+                    {ref.status === 'completed' ? 'Selesai' : 
+                     ref.status === 'pending' ? 'Menunggu' : ref.status}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Rewards History */}
       <Card>
         <CardHeader>
           <CardTitle>Riwayat Rewards</CardTitle>
         </CardHeader>
         <CardContent>
-          {rewards.length === 0 ? (
+          {rewardsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+            </div>
+          ) : rewards.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Gift className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>Belum ada reward. Mulai bagikan link referral Anda!</p>
