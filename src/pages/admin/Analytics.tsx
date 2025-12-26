@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/layouts/AdminLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,26 +7,46 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from "recharts";
-import { TrendingUp, Users, Building2, DollarSign, Loader2, Wrench, Home, Download, FileText, Activity, UserCheck, CreditCard, TrendingDown, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { TrendingUp, Users, Building2, DollarSign, Loader2, Wrench, Home, Download, FileText, Activity, UserCheck, CreditCard, TrendingDown, ArrowUpRight, ArrowDownRight, AlertCircle } from "lucide-react";
 import { exportToCSV, exportToPDF } from "@/lib/exportUtils";
 import { RealTimeAnalytics } from "@/components/admin/RealTimeAnalytics";
-import { format, subMonths, startOfMonth, endOfMonth, differenceInMonths } from "date-fns";
+import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
+import { useAdminGuard } from "@/hooks/useAdminGuard";
+import { logExport } from "@/lib/auditLog";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { DateRange } from "react-day-picker";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const AdminAnalytics = () => {
+  const { isAdmin, isLoading: guardLoading } = useAdminGuard();
   const [activeTab, setActiveTab] = useState("realtime");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   
-  const { data: stats, isLoading } = useQuery({
-    queryKey: ['admin-analytics'],
+  const { data: stats, isLoading, error: statsError } = useQuery({
+    queryKey: ['admin-analytics', dateRange?.from, dateRange?.to],
     queryFn: async () => {
-      const [merchants, properties, units, payments, maintenanceRequests, invoices, contracts] = await Promise.all([
+      const dateFilter = dateRange?.from ? { from: dateRange.from.toISOString(), to: dateRange.to?.toISOString() } : null;
+      
+      const queries = [
         supabase.from('merchants').select('id, created_at, verification_status'),
         supabase.from('properties').select('id, created_at, status, property_type'),
         supabase.from('units').select('id, status, rent_amount'),
         supabase.from('payments').select('id, amount, status, created_at, paid_at, due_date'),
         supabase.from('maintenance_requests').select('id, status, created_at'),
         supabase.from('invoices').select('id, total_amount, status, created_at'),
-        supabase.from('contracts').select('id, status, created_at, start_date, end_date, churn_reason, tenant_user_id, unit_id, units(properties(property_type))'),
-      ]);
+        supabase.from('contracts').select('id, status, created_at, start_date, end_date, churn_reason, tenant_user_id, unit_id'),
+      ];
+
+      const [merchants, properties, units, payments, maintenanceRequests, invoices, contracts] = await Promise.all(queries);
+
+      // Check for errors
+      if (merchants.error) throw new Error(`Merchants: ${merchants.error.message}`);
+      if (properties.error) throw new Error(`Properties: ${properties.error.message}`);
+      if (units.error) throw new Error(`Units: ${units.error.message}`);
+      if (payments.error) throw new Error(`Payments: ${payments.error.message}`);
+      if (maintenanceRequests.error) throw new Error(`Maintenance: ${maintenanceRequests.error.message}`);
+      if (invoices.error) throw new Error(`Invoices: ${invoices.error.message}`);
+      if (contracts.error) throw new Error(`Contracts: ${contracts.error.message}`);
 
       return {
         merchants: merchants.data || [],
@@ -38,6 +58,42 @@ const AdminAnalytics = () => {
         contracts: contracts.data || [],
       };
     },
+    enabled: isAdmin,
+  });
+
+  // Real monthly revenue data from payments
+  const { data: monthlyRevenueData = [] } = useQuery({
+    queryKey: ['monthly-revenue'],
+    queryFn: async () => {
+      const months = [];
+      for (let i = 5; i >= 0; i--) {
+        const date = subMonths(new Date(), i);
+        const monthStart = startOfMonth(date);
+        const monthEnd = endOfMonth(date);
+        
+        const { data: monthPayments } = await supabase
+          .from('payments')
+          .select('amount')
+          .in('status', ['completed', 'paid'])
+          .gte('created_at', monthStart.toISOString())
+          .lte('created_at', monthEnd.toISOString());
+
+        const { count: propertyCount } = await supabase
+          .from('properties')
+          .select('id', { count: 'exact', head: true })
+          .lte('created_at', monthEnd.toISOString());
+
+        const revenue = (monthPayments || []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+        
+        months.push({
+          month: format(date, 'MMM'),
+          revenue,
+          properties: propertyCount || 0,
+        });
+      }
+      return months;
+    },
+    enabled: isAdmin,
   });
 
   // Tenant analytics calculations
@@ -49,7 +105,7 @@ const AdminAnalytics = () => {
       const [contractsRes, paymentsRes] = await Promise.all([
         supabase
           .from('contracts')
-          .select('id, created_at, status, churn_reason, unit_id, units(properties(property_type))')
+          .select('id, created_at, status, churn_reason, unit_id')
           .gte('created_at', sixMonthsAgo.toISOString()),
         supabase
           .from('payments')
@@ -57,11 +113,15 @@ const AdminAnalytics = () => {
           .gte('created_at', sixMonthsAgo.toISOString()),
       ]);
 
+      if (contractsRes.error) throw contractsRes.error;
+      if (paymentsRes.error) throw paymentsRes.error;
+
       return {
         contracts: contractsRes.data || [],
         payments: paymentsRes.data || [],
       };
     },
+    enabled: isAdmin,
   });
 
   // Subscription analytics (MRR/Churn)
@@ -75,19 +135,38 @@ const AdminAnalytics = () => {
         supabase.from('subscription_tiers').select('*'),
       ]);
 
+      if (subscriptionsRes.error) throw subscriptionsRes.error;
+      if (tiersRes.error) throw tiersRes.error;
+
       return {
         subscriptions: subscriptionsRes.data || [],
         tiers: tiersRes.data || [],
       };
     },
+    enabled: isAdmin,
   });
 
-  if (isLoading) {
+  if (guardLoading || isLoading) {
     return (
       <AdminLayout>
-        <div className="flex items-center justify-center h-64">
+        <div className="flex flex-col items-center justify-center h-64 gap-2">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading analytics data...</p>
         </div>
+      </AdminLayout>
+    );
+  }
+
+  if (statsError) {
+    return (
+      <AdminLayout>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error Loading Analytics</AlertTitle>
+          <AlertDescription>
+            {statsError instanceof Error ? statsError.message : 'Failed to load analytics data. Please try again.'}
+          </AlertDescription>
+        </Alert>
       </AdminLayout>
     );
   }
@@ -134,22 +213,6 @@ const AdminAnalytics = () => {
 
   const monthlyTenantData = getMonthlyData();
 
-  // Tenants by property type
-  const tenantsByPropertyType = () => {
-    const typeCount: Record<string, number> = {};
-    stats?.contracts?.forEach((contract: any) => {
-      const type = contract.units?.properties?.property_type || 'Unknown';
-      typeCount[type] = (typeCount[type] || 0) + 1;
-    });
-    return Object.entries(typeCount).map(([name, value]) => ({
-      name,
-      value,
-      fill: name === 'apartment' ? 'hsl(var(--primary))' : 
-            name === 'kost' ? 'hsl(var(--success))' : 
-            name === 'house' ? 'hsl(var(--warning))' : 'hsl(var(--muted))',
-    }));
-  };
-
   // Payment behavior analytics
   const paymentBehavior = () => {
     const payments = tenantAnalytics?.payments || [];
@@ -173,22 +236,12 @@ const AdminAnalytics = () => {
   // Churn analytics
   const churnReasons = () => {
     const reasons: Record<string, number> = {};
-    stats?.contracts?.filter(c => c.churn_reason).forEach((c: any) => {
+    stats?.contracts?.filter(c => c.churn_reason).forEach((c: { churn_reason?: string }) => {
       const reason = c.churn_reason || 'Unknown';
       reasons[reason] = (reasons[reason] || 0) + 1;
     });
     return Object.entries(reasons).map(([name, count]) => ({ name, count }));
   };
-
-  // Monthly revenue data
-  const monthlyData = [
-    { month: 'Jul', revenue: 125000000, properties: 12 },
-    { month: 'Aug', revenue: 142000000, properties: 14 },
-    { month: 'Sep', revenue: 158000000, properties: 15 },
-    { month: 'Oct', revenue: 165000000, properties: 18 },
-    { month: 'Nov', revenue: 178000000, properties: 20 },
-    { month: 'Dec', revenue: 195000000, properties: 22 },
-  ];
 
   // Merchant status distribution
   const merchantStatus = [
@@ -225,7 +278,7 @@ const AdminAnalytics = () => {
     return `Rp ${amount.toLocaleString('id-ID')}`;
   };
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     const data = [
       { metric: 'Total Revenue', value: formatCurrency(totalRevenue) },
       { metric: 'Total Merchants', value: stats?.merchants?.length || 0 },
@@ -235,9 +288,10 @@ const AdminAnalytics = () => {
       { metric: 'Occupancy Rate', value: `${occupancyRate}%` },
     ];
     exportToCSV(data, 'platform-analytics');
+    await logExport('analytics', 'csv', data.length, { dateRange });
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const data = [
       { metric: 'Total Revenue', value: formatCurrency(totalRevenue) },
       { metric: 'Total Merchants', value: stats?.merchants?.length || 0 },
@@ -245,6 +299,7 @@ const AdminAnalytics = () => {
       { metric: 'Occupancy Rate', value: `${occupancyRate}%` },
     ];
     exportToPDF(data, 'Platform Analytics Report', 'platform-analytics');
+    await logExport('analytics', 'pdf', data.length, { dateRange });
   };
 
   return (
@@ -255,7 +310,11 @@ const AdminAnalytics = () => {
             <h1 className="text-3xl font-bold text-foreground">Platform Analytics</h1>
             <p className="text-muted-foreground">Overview of platform performance and metrics</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <DateRangePicker
+              value={dateRange}
+              onChange={setDateRange}
+            />
             <Button variant="outline" onClick={handleExportCSV}>
               <Download className="h-4 w-4 mr-2" />
               Export CSV
@@ -356,10 +415,11 @@ const AdminAnalytics = () => {
                     <TrendingUp className="h-5 w-5 text-primary" />
                     Revenue Trend
                   </CardTitle>
+                  <CardDescription>Monthly revenue from database</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ChartContainer config={chartConfig} className="h-[300px]">
-                    <AreaChart data={monthlyData}>
+                    <AreaChart data={monthlyRevenueData}>
                       <XAxis dataKey="month" />
                       <YAxis tickFormatter={(v) => `${v/1000000}M`} />
                       <ChartTooltip content={<ChartTooltipContent />} />
@@ -429,12 +489,12 @@ const AdminAnalytics = () => {
               <Card>
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-lg bg-warning/10">
-                      <Users className="h-6 w-6 text-warning" />
+                    <div className="p-3 rounded-lg bg-destructive/10">
+                      <TrendingDown className="h-6 w-6 text-destructive" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Churned</p>
-                      <p className="text-2xl font-bold">{stats?.contracts?.filter(c => c.churn_reason).length || 0}</p>
+                      <p className="text-sm text-muted-foreground">Churned This Month</p>
+                      <p className="text-2xl font-bold">{monthlyTenantData[5]?.churnedTenants || 0}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -442,24 +502,23 @@ const AdminAnalytics = () => {
               <Card>
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-lg bg-info/10">
-                      <Home className="h-6 w-6 text-info" />
+                    <div className="p-3 rounded-lg bg-warning/10">
+                      <Wrench className="h-6 w-6 text-warning" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Occupancy</p>
-                      <p className="text-2xl font-bold">{occupancyRate}%</p>
+                      <p className="text-sm text-muted-foreground">Pending Maintenance</p>
+                      <p className="text-2xl font-bold">{maintenanceData[0]?.count || 0}</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Tenant Growth Chart */}
+            {/* Tenant Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Tenant Growth</CardTitle>
-                  <CardDescription>New vs churned tenants over time</CardDescription>
+                  <CardTitle>Tenant Growth vs Churn</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ChartContainer config={chartConfig} className="h-[300px]">
@@ -467,8 +526,8 @@ const AdminAnalytics = () => {
                       <XAxis dataKey="month" />
                       <YAxis />
                       <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="newTenants" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} name="New" />
-                      <Bar dataKey="churnedTenants" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} name="Churned" />
+                      <Bar dataKey="newTenants" fill="hsl(var(--success))" name="New Tenants" />
+                      <Bar dataKey="churnedTenants" fill="hsl(var(--destructive))" name="Churned" />
                     </BarChart>
                   </ChartContainer>
                 </CardContent>
@@ -476,38 +535,7 @@ const AdminAnalytics = () => {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Tenants by Property Type</CardTitle>
-                  <CardDescription>Distribution across property types</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ChartContainer config={chartConfig} className="h-[250px]">
-                    <PieChart>
-                      <Pie data={tenantsByPropertyType()} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80}>
-                        {tenantsByPropertyType().map((entry, index) => (
-                          <Cell key={index} fill={entry.fill} />
-                        ))}
-                      </Pie>
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                    </PieChart>
-                  </ChartContainer>
-                  <div className="flex flex-wrap justify-center gap-4 mt-2">
-                    {tenantsByPropertyType().map((item, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.fill }} />
-                        <span className="text-sm text-muted-foreground capitalize">{item.name}: {item.value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Payment Behavior */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
                   <CardTitle>Payment Behavior</CardTitle>
-                  <CardDescription>On-time vs late payment analysis</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ChartContainer config={chartConfig} className="h-[250px]">
@@ -530,284 +558,97 @@ const AdminAnalytics = () => {
                   </div>
                 </CardContent>
               </Card>
+            </div>
+          </TabsContent>
 
+          <TabsContent value="subscriptions" className="mt-6 space-y-6">
+            {/* Subscription Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-lg bg-primary/10">
+                      <CreditCard className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Active Subscriptions</p>
+                      <p className="text-2xl font-bold">
+                        {subscriptionAnalytics?.subscriptions?.filter(s => s.status === 'active').length || 0}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-lg bg-success/10">
+                      <DollarSign className="h-6 w-6 text-success" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Est. MRR</p>
+                      <p className="text-2xl font-bold">
+                        {formatCurrency(
+                          subscriptionAnalytics?.subscriptions
+                            ?.filter(s => s.status === 'active')
+                            .reduce((sum, s) => sum + (s.subscription_tiers?.price_monthly || 0), 0) || 0
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-lg bg-warning/10">
+                      <Activity className="h-6 w-6 text-warning" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Trialing</p>
+                      <p className="text-2xl font-bold">
+                        {subscriptionAnalytics?.subscriptions?.filter(s => s.status === 'trialing').length || 0}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-lg bg-destructive/10">
+                      <TrendingDown className="h-6 w-6 text-destructive" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Canceled</p>
+                      <p className="text-2xl font-bold">
+                        {subscriptionAnalytics?.subscriptions?.filter(s => s.status === 'canceled').length || 0}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Churn Reasons */}
+            {churnReasons().length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle>Churn Reasons</CardTitle>
                   <CardDescription>Why tenants are leaving</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {churnReasons().length === 0 ? (
-                    <div className="h-[250px] flex items-center justify-center text-muted-foreground">
-                      No churn data available
-                    </div>
-                  ) : (
-                    <ChartContainer config={chartConfig} className="h-[250px]">
-                      <BarChart data={churnReasons()} layout="vertical">
-                        <XAxis type="number" />
-                        <YAxis dataKey="name" type="category" width={100} />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <Bar dataKey="count" fill="hsl(var(--warning))" radius={[0, 4, 4, 0]} />
-                      </BarChart>
-                    </ChartContainer>
-                  )}
+                  <ChartContainer config={chartConfig} className="h-[300px]">
+                    <BarChart data={churnReasons()} layout="vertical">
+                      <XAxis type="number" />
+                      <YAxis dataKey="name" type="category" width={150} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="count" fill="hsl(var(--destructive))" />
+                    </BarChart>
+                  </ChartContainer>
                 </CardContent>
               </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="subscriptions" className="mt-6 space-y-6">
-            {/* MRR/Churn Analytics */}
-            {(() => {
-              const subscriptions = subscriptionAnalytics?.subscriptions || [];
-              const tiers = subscriptionAnalytics?.tiers || [];
-              
-              // Calculate MRR
-              const activeSubscriptions = subscriptions.filter(
-                (s: any) => s.status === 'active' || s.status === 'trialing'
-              );
-              const mrr = activeSubscriptions.reduce((sum: number, s: any) => {
-                return sum + Number(s.subscription_tiers?.price_monthly || 0);
-              }, 0);
-
-              // Calculate ARR
-              const arr = mrr * 12;
-
-              // Calculate Churn
-              const canceledThisMonth = subscriptions.filter((s: any) => {
-                if (!s.canceled_at) return false;
-                const cancelDate = new Date(s.canceled_at);
-                const now = new Date();
-                return cancelDate.getMonth() === now.getMonth() && cancelDate.getFullYear() === now.getFullYear();
-              }).length;
-
-              const churnRate = activeSubscriptions.length > 0
-                ? ((canceledThisMonth / (activeSubscriptions.length + canceledThisMonth)) * 100).toFixed(1)
-                : '0';
-
-              // Subscription status distribution
-              const statusData = [
-                { name: 'Active', value: subscriptions.filter((s: any) => s.status === 'active').length, fill: 'hsl(var(--success))' },
-                { name: 'Trialing', value: subscriptions.filter((s: any) => s.status === 'trialing').length, fill: 'hsl(var(--info))' },
-                { name: 'Past Due', value: subscriptions.filter((s: any) => s.status === 'past_due').length, fill: 'hsl(var(--warning))' },
-                { name: 'Canceled', value: subscriptions.filter((s: any) => s.status === 'canceled').length, fill: 'hsl(var(--destructive))' },
-              ];
-
-              // Tier distribution
-              const tierData = tiers.map((tier: any) => ({
-                name: tier.display_name,
-                count: subscriptions.filter((s: any) => s.tier_id === tier.id && (s.status === 'active' || s.status === 'trialing')).length,
-                revenue: subscriptions
-                  .filter((s: any) => s.tier_id === tier.id && (s.status === 'active' || s.status === 'trialing'))
-                  .length * Number(tier.price_monthly),
-              }));
-
-              // Monthly MRR trend (last 6 months simulation based on created_at)
-              const mrrTrend = [];
-              for (let i = 5; i >= 0; i--) {
-                const date = subMonths(new Date(), i);
-                const monthStart = startOfMonth(date);
-                const monthEnd = endOfMonth(date);
-                
-                const activeAtMonth = subscriptions.filter((s: any) => {
-                  const created = new Date(s.created_at);
-                  const canceled = s.canceled_at ? new Date(s.canceled_at) : null;
-                  return created <= monthEnd && (!canceled || canceled > monthStart);
-                });
-
-                const monthMrr = activeAtMonth.reduce((sum: number, s: any) => {
-                  return sum + Number(s.subscription_tiers?.price_monthly || 0);
-                }, 0);
-
-                mrrTrend.push({
-                  month: format(date, 'MMM'),
-                  mrr: monthMrr,
-                  subscribers: activeAtMonth.length,
-                });
-              }
-
-              // Trial conversion rate
-              const trialSubs = subscriptions.filter((s: any) => s.trial_ends_at);
-              const convertedTrials = trialSubs.filter((s: any) => s.status === 'active' && s.payment_status === 'paid').length;
-              const conversionRate = trialSubs.length > 0 ? ((convertedTrials / trialSubs.length) * 100).toFixed(1) : '0';
-
-              return (
-                <>
-                  {/* Key Metrics */}
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <Card>
-                      <CardContent className="p-6">
-                        <div className="flex items-center gap-4">
-                          <div className="p-3 rounded-lg bg-success/10">
-                            <DollarSign className="h-6 w-6 text-success" />
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">MRR</p>
-                            <p className="text-2xl font-bold">{formatCurrency(mrr)}</p>
-                            <p className="text-xs text-muted-foreground">Monthly Recurring Revenue</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="p-6">
-                        <div className="flex items-center gap-4">
-                          <div className="p-3 rounded-lg bg-primary/10">
-                            <TrendingUp className="h-6 w-6 text-primary" />
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">ARR</p>
-                            <p className="text-2xl font-bold">{formatCurrency(arr)}</p>
-                            <p className="text-xs text-muted-foreground">Annual Recurring Revenue</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="p-6">
-                        <div className="flex items-center gap-4">
-                          <div className="p-3 rounded-lg bg-destructive/10">
-                            <TrendingDown className="h-6 w-6 text-destructive" />
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Churn Rate</p>
-                            <p className="text-2xl font-bold">{churnRate}%</p>
-                            <p className="text-xs text-muted-foreground">{canceledThisMonth} canceled this month</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="p-6">
-                        <div className="flex items-center gap-4">
-                          <div className="p-3 rounded-lg bg-info/10">
-                            <ArrowUpRight className="h-6 w-6 text-info" />
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Trial Conversion</p>
-                            <p className="text-2xl font-bold">{conversionRate}%</p>
-                            <p className="text-xs text-muted-foreground">{convertedTrials} of {trialSubs.length} trials</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Charts */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>MRR Trend</CardTitle>
-                        <CardDescription>Monthly recurring revenue over time</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <ChartContainer config={chartConfig} className="h-[300px]">
-                          <AreaChart data={mrrTrend}>
-                            <XAxis dataKey="month" />
-                            <YAxis tickFormatter={(v) => `${v/1000000}M`} />
-                            <ChartTooltip content={<ChartTooltipContent />} />
-                            <Area type="monotone" dataKey="mrr" stroke="hsl(var(--success))" fill="hsl(var(--success) / 0.2)" strokeWidth={2} />
-                          </AreaChart>
-                        </ChartContainer>
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Subscription Status</CardTitle>
-                        <CardDescription>Distribution by status</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <ChartContainer config={chartConfig} className="h-[250px]">
-                          <PieChart>
-                            <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80}>
-                              {statusData.map((entry, index) => (
-                                <Cell key={index} fill={entry.fill} />
-                              ))}
-                            </Pie>
-                            <ChartTooltip content={<ChartTooltipContent />} />
-                          </PieChart>
-                        </ChartContainer>
-                        <div className="flex flex-wrap justify-center gap-4 mt-2">
-                          {statusData.map((item, i) => (
-                            <div key={i} className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.fill }} />
-                              <span className="text-sm text-muted-foreground">{item.name}: {item.value}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Tier Distribution */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Revenue by Tier</CardTitle>
-                        <CardDescription>MRR contribution by subscription tier</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <ChartContainer config={chartConfig} className="h-[300px]">
-                          <BarChart data={tierData}>
-                            <XAxis dataKey="name" />
-                            <YAxis tickFormatter={(v) => `${v/1000}K`} />
-                            <ChartTooltip content={<ChartTooltipContent />} />
-                            <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                          </BarChart>
-                        </ChartContainer>
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Subscribers by Tier</CardTitle>
-                        <CardDescription>Active subscribers per tier</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-4">
-                          {tierData.map((tier: any, i: number) => (
-                            <div key={i} className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-                              <div>
-                                <p className="font-medium">{tier.name}</p>
-                                <p className="text-sm text-muted-foreground">{formatCurrency(tier.revenue)}/month</p>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-2xl font-bold">{tier.count}</p>
-                                <p className="text-xs text-muted-foreground">subscribers</p>
-                              </div>
-                            </div>
-                          ))}
-                          {tierData.length === 0 && (
-                            <div className="text-center py-8 text-muted-foreground">
-                              No subscription tiers found
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Subscriber Growth */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Subscriber Growth</CardTitle>
-                      <CardDescription>Active subscribers over time</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <ChartContainer config={chartConfig} className="h-[300px]">
-                        <LineChart data={mrrTrend}>
-                          <XAxis dataKey="month" />
-                          <YAxis />
-                          <ChartTooltip content={<ChartTooltipContent />} />
-                          <Line type="monotone" dataKey="subscribers" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: 'hsl(var(--primary))' }} />
-                        </LineChart>
-                      </ChartContainer>
-                    </CardContent>
-                  </Card>
-                </>
-              );
-            })()}
+            )}
           </TabsContent>
         </Tabs>
       </div>

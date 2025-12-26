@@ -9,9 +9,15 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Users, Gift, TrendingUp, CheckCircle, XCircle, Search, Loader2, DollarSign, Clock } from "lucide-react";
+import { Users, Gift, TrendingUp, CheckCircle, XCircle, Search, Loader2, DollarSign, Clock, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
+import { useAdminGuard } from "@/hooks/useAdminGuard";
+import { createAuditLog, logPayout } from "@/lib/auditLog";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { DateRange } from "react-day-picker";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 type Referral = {
   id: string;
@@ -27,49 +33,69 @@ type Referral = {
   completed_at: string | null;
 };
 
-type ReferralReward = {
-  id: string;
-  user_id: string;
-  referral_id: string | null;
-  amount: number;
-  type: string;
-  status: string;
-  credited_at: string | null;
-  used_at: string | null;
-  expires_at: string | null;
-  created_at: string;
-};
+// Default reward amount - can be made configurable via platform_config
+const DEFAULT_REWARD_AMOUNT = 50000;
+
+const ITEMS_PER_PAGE = 20;
 
 const AdminReferrals = () => {
+  const { isAdmin, isLoading: guardLoading } = useAdminGuard();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [selectedReferral, setSelectedReferral] = useState<Referral | null>(null);
   const [showPayoutDialog, setShowPayoutDialog] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const { data: referrals = [], isLoading: loadingReferrals } = useQuery({
-    queryKey: ['admin-referrals'],
+  // Fetch configurable reward amount from platform config
+  const { data: platformConfig } = useQuery({
+    queryKey: ['platform-config-referral'],
     queryFn: async () => {
+      const { data } = await supabase
+        .from('platform_config')
+        .select('value')
+        .eq('key', 'referral_reward_amount')
+        .single();
+      return data?.value ? Number(data.value) : DEFAULT_REWARD_AMOUNT;
+    },
+    enabled: isAdmin,
+  });
+
+  const rewardAmount = platformConfig || DEFAULT_REWARD_AMOUNT;
+
+  const { data: referralsData, isLoading: loadingReferrals, error: referralsError } = useQuery({
+    queryKey: ['admin-referrals', currentPage, dateRange?.from, dateRange?.to],
+    queryFn: async () => {
+      let query = supabase
+        .from('referrals')
+        .select('*', { count: 'exact' });
+
+      if (dateRange?.from) {
+        query = query.gte('created_at', dateRange.from.toISOString());
+      }
+      if (dateRange?.to) {
+        query = query.lte('created_at', dateRange.to.toISOString());
+      }
+
+      const { count } = await query;
+      
+      const offset = (currentPage - 1) * ITEMS_PER_PAGE;
       const { data, error } = await supabase
         .from('referrals')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(offset, offset + ITEMS_PER_PAGE - 1);
+      
       if (error) throw error;
-      return data as Referral[];
+      return { referrals: data as Referral[], total: count || 0 };
     },
+    enabled: isAdmin,
   });
 
-  const { data: rewards = [], isLoading: loadingRewards } = useQuery({
-    queryKey: ['admin-referral-rewards'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('referral_rewards')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data as ReferralReward[];
-    },
-  });
+  const referrals = referralsData?.referrals || [];
+  const totalReferrals = referralsData?.total || 0;
+  const totalPages = Math.ceil(totalReferrals / ITEMS_PER_PAGE);
 
   const { data: profiles = [] } = useQuery({
     queryKey: ['admin-profiles-for-referrals'],
@@ -80,18 +106,40 @@ const AdminReferrals = () => {
       if (error) throw error;
       return data;
     },
+    enabled: isAdmin,
   });
 
   const getProfileName = (userId: string | null) => {
     if (!userId) return 'N/A';
     const profile = profiles.find(p => p.user_id === userId);
-    return profile?.full_name || profile?.email || 'Unknown';
+    if (profile?.full_name) return profile.full_name;
+    if (profile?.email) return profile.email;
+    return `User ${userId.slice(0, 8)}...`;
   };
 
   const payoutMutation = useMutation({
     mutationFn: async (referralId: string) => {
       const referral = referrals.find(r => r.id === referralId);
       if (!referral) throw new Error('Referral not found');
+
+      // Check if already paid (idempotency)
+      if (referral.reward_paid) {
+        throw new Error('This referral has already been paid');
+      }
+
+      // Check for existing reward (double payout prevention)
+      const { data: existingReward } = await supabase
+        .from('referral_rewards')
+        .select('id')
+        .eq('referral_id', referralId)
+        .eq('status', 'credited')
+        .single();
+
+      if (existingReward) {
+        throw new Error('A reward has already been credited for this referral');
+      }
+
+      const actualRewardAmount = referral.reward_amount || rewardAmount;
 
       // Update referral as paid
       const { error: referralError } = await supabase
@@ -106,12 +154,15 @@ const AdminReferrals = () => {
         .insert({
           user_id: referral.referrer_user_id,
           referral_id: referralId,
-          amount: referral.reward_amount || 50000,
+          amount: actualRewardAmount,
           type: 'subscription_credit',
           status: 'credited',
           credited_at: new Date().toISOString(),
         });
       if (rewardError) throw rewardError;
+
+      // Log audit
+      await logPayout('referral', referralId, actualRewardAmount, referral.referrer_user_id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-referrals'] });
@@ -120,8 +171,8 @@ const AdminReferrals = () => {
       setShowPayoutDialog(false);
       setSelectedReferral(null);
     },
-    onError: () => {
-      toast.error('Failed to process payout');
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to process payout');
     },
   });
 
@@ -133,10 +184,10 @@ const AdminReferrals = () => {
   });
 
   const stats = {
-    total: referrals.length,
+    total: totalReferrals,
     completed: referrals.filter(r => r.status === 'completed').length,
     pending: referrals.filter(r => r.status === 'pending').length,
-    totalPaid: referrals.filter(r => r.reward_paid).reduce((sum, r) => sum + (r.reward_amount || 0), 0),
+    totalPaid: referrals.filter(r => r.reward_paid).reduce((sum, r) => sum + (r.reward_amount || rewardAmount), 0),
     pendingPayout: referrals.filter(r => r.status === 'completed' && !r.reward_paid).length,
   };
 
@@ -161,12 +212,26 @@ const AdminReferrals = () => {
     return <Badge variant="outline">{status}</Badge>;
   };
 
-  if (loadingReferrals) {
+  if (guardLoading || loadingReferrals) {
     return (
       <AdminLayout>
-        <div className="flex items-center justify-center h-64">
+        <div className="flex flex-col items-center justify-center h-64 gap-2">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-muted-foreground">Loading referrals...</p>
         </div>
+      </AdminLayout>
+    );
+  }
+
+  if (referralsError) {
+    return (
+      <AdminLayout>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Failed to load referrals: {referralsError instanceof Error ? referralsError.message : 'Unknown error'}
+          </AlertDescription>
+        </Alert>
       </AdminLayout>
     );
   }
@@ -259,6 +324,13 @@ const AdminReferrals = () => {
               className="pl-10"
             />
           </div>
+          <DateRangePicker
+            value={dateRange}
+            onChange={(range) => {
+              setDateRange(range);
+              setCurrentPage(1);
+            }}
+          />
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Filter by status" />
@@ -275,7 +347,7 @@ const AdminReferrals = () => {
         <Card>
           <CardHeader>
             <CardTitle>All Referrals</CardTitle>
-            <CardDescription>View and manage referral submissions</CardDescription>
+            <CardDescription>View and manage referral submissions ({totalReferrals} total)</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -308,7 +380,7 @@ const AdminReferrals = () => {
                         <Badge variant="outline" className="capitalize">{referral.referrer_role}</Badge>
                       </TableCell>
                       <TableCell>{getStatusBadge(referral.status, referral.reward_paid)}</TableCell>
-                      <TableCell>{formatCurrency(referral.reward_amount || 50000)}</TableCell>
+                      <TableCell>{formatCurrency(referral.reward_amount || rewardAmount)}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">
                         {format(new Date(referral.created_at), 'MMM d, yyyy')}
                       </TableCell>
@@ -336,6 +408,33 @@ const AdminReferrals = () => {
                 )}
               </TableBody>
             </Table>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4">
+                <p className="text-sm text-muted-foreground">
+                  Page {currentPage} of {totalPages}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -355,7 +454,7 @@ const AdminReferrals = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Reward Amount</span>
-                <span className="font-medium">{formatCurrency(selectedReferral?.reward_amount || 50000)}</span>
+                <span className="font-medium">{formatCurrency(selectedReferral?.reward_amount || rewardAmount)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Type</span>

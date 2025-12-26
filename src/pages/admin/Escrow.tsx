@@ -13,7 +13,10 @@ import {
   Send,
   ShieldAlert,
   AlertTriangle,
-  Loader2
+  Loader2,
+  Eye,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,9 +28,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
+import { useAdminGuard } from '@/hooks/useAdminGuard';
+import { createAuditLog } from '@/lib/auditLog';
+import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
 
 interface EscrowAccount {
   id: string;
@@ -39,6 +46,7 @@ interface EscrowAccount {
   merchant?: {
     business_name: string;
     user_id: string;
+    min_disbursement_amount?: number;
   };
 }
 
@@ -102,7 +110,10 @@ const typeColors: Record<string, string> = {
   fee: 'bg-muted text-muted-foreground border-muted',
 };
 
+const ITEMS_PER_PAGE = 20;
+
 export default function AdminEscrow() {
+  const { isAdmin, isLoading: guardLoading } = useAdminGuard();
   const [accounts, setAccounts] = useState<EscrowAccount[]>([]);
   const [transactions, setTransactions] = useState<EscrowTransaction[]>([]);
   const [pendingReviews, setPendingReviews] = useState<PendingDisbursement[]>([]);
@@ -112,16 +123,24 @@ export default function AdminEscrow() {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [showDisbursementDialog, setShowDisbursementDialog] = useState(false);
   const [showReviewDialog, setShowReviewDialog] = useState(false);
+  const [showTransactionDetailDialog, setShowTransactionDetailDialog] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<EscrowAccount | null>(null);
   const [selectedReview, setSelectedReview] = useState<PendingDisbursement | null>(null);
+  const [selectedTransaction, setSelectedTransaction] = useState<EscrowTransaction | null>(null);
   const [disbursementAmount, setDisbursementAmount] = useState('');
+  const [disbursementDescription, setDisbursementDescription] = useState('Admin disbursement');
   const [reviewNotes, setReviewNotes] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalTransactions, setTotalTransactions] = useState(0);
+  const [showConfirmDisbursement, setShowConfirmDisbursement] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (isAdmin) {
+      fetchData();
+    }
+  }, [isAdmin, currentPage]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -129,40 +148,48 @@ export default function AdminEscrow() {
       // Fetch escrow accounts with merchant info
       const { data: accountsData, error: accountsError } = await supabase
         .from('escrow_accounts')
-        .select('*, merchants:merchant_id(business_name, user_id)')
+        .select('*, merchants:merchant_id(business_name, user_id, min_disbursement_amount)')
         .order('created_at', { ascending: false });
 
       if (accountsError) throw accountsError;
 
       // Transform accounts data
-      const transformedAccounts = (accountsData || []).map((acc: any) => ({
+      const transformedAccounts = (accountsData || []).map((acc: Record<string, unknown>) => ({
         ...acc,
         merchant: acc.merchants ? {
-          business_name: acc.merchants.business_name,
-          user_id: acc.merchants.user_id
+          business_name: (acc.merchants as Record<string, unknown>).business_name as string,
+          user_id: (acc.merchants as Record<string, unknown>).user_id as string,
+          min_disbursement_amount: (acc.merchants as Record<string, unknown>).min_disbursement_amount as number | undefined,
         } : undefined
       }));
-      setAccounts(transformedAccounts);
+      setAccounts(transformedAccounts as EscrowAccount[]);
 
-      // Fetch transactions
+      // Get total count for pagination
+      const { count } = await supabase
+        .from('escrow_transactions')
+        .select('id', { count: 'exact', head: true });
+      setTotalTransactions(count || 0);
+
+      // Fetch transactions with pagination
+      const offset = (currentPage - 1) * ITEMS_PER_PAGE;
       const { data: txData, error: txError } = await supabase
         .from('escrow_transactions')
         .select('*, escrow_accounts:escrow_account_id(merchants:merchant_id(business_name))')
         .order('created_at', { ascending: false })
-        .limit(100);
+        .range(offset, offset + ITEMS_PER_PAGE - 1);
 
       if (txError) throw txError;
 
       // Transform transactions data
-      const transformedTransactions = (txData || []).map((tx: any) => ({
+      const transformedTransactions = (txData || []).map((tx: Record<string, unknown>) => ({
         ...tx,
         escrow_account: tx.escrow_accounts ? {
-          merchant: tx.escrow_accounts.merchants ? {
-            business_name: tx.escrow_accounts.merchants.business_name
+          merchant: (tx.escrow_accounts as Record<string, unknown>).merchants ? {
+            business_name: ((tx.escrow_accounts as Record<string, unknown>).merchants as Record<string, unknown>).business_name as string
           } : undefined
         } : undefined
       }));
-      setTransactions(transformedTransactions);
+      setTransactions(transformedTransactions as EscrowTransaction[]);
 
       // Fetch pending review disbursements
       const { data: pendingData, error: pendingError } = await supabase
@@ -180,19 +207,19 @@ export default function AdminEscrow() {
 
       if (pendingError) throw pendingError;
 
-      const transformedPending = (pendingData || []).map((d: any) => ({
+      const transformedPending = (pendingData || []).map((d: Record<string, unknown>) => ({
         ...d,
-        merchant: d.escrow_accounts?.merchants || undefined,
+        merchant: (d.escrow_accounts as Record<string, unknown>)?.merchants || undefined,
         bank_account: d.bank_accounts || undefined,
       }));
-      setPendingReviews(transformedPending);
+      setPendingReviews(transformedPending as PendingDisbursement[]);
 
     } catch (error) {
       console.error('Error fetching escrow data:', error);
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to load escrow data',
+        title: 'Error Loading Escrow Data',
+        description: error instanceof Error ? error.message : 'Failed to load escrow data. Please try again.',
       });
     } finally {
       setLoading(false);
@@ -207,7 +234,7 @@ export default function AdminEscrow() {
       toast({
         variant: 'destructive',
         title: 'Invalid Amount',
-        description: 'Please enter a valid amount',
+        description: 'Please enter a valid positive amount',
       });
       return;
     }
@@ -216,13 +243,32 @@ export default function AdminEscrow() {
       toast({
         variant: 'destructive',
         title: 'Insufficient Balance',
-        description: 'Disbursement amount exceeds available balance',
+        description: `Disbursement amount exceeds available balance of ${formatCurrency(selectedAccount.balance)}`,
       });
       return;
     }
 
+    const minAmount = selectedAccount.merchant?.min_disbursement_amount || 0;
+    if (minAmount > 0 && amount < minAmount) {
+      toast({
+        variant: 'destructive',
+        title: 'Below Minimum',
+        description: `Disbursement must be at least ${formatCurrency(minAmount)}`,
+      });
+      return;
+    }
+
+    setShowConfirmDisbursement(true);
+  };
+
+  const confirmDisbursement = async () => {
+    if (!selectedAccount || !disbursementAmount) return;
+    
+    const amount = parseFloat(disbursementAmount);
     setActionLoading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
       // Create disbursement transaction
       const { error: txError } = await supabase
         .from('escrow_transactions')
@@ -231,7 +277,7 @@ export default function AdminEscrow() {
           amount: amount,
           type: 'disbursement',
           status: 'completed',
-          description: 'Admin disbursement',
+          description: disbursementDescription || 'Admin disbursement',
           processed_at: new Date().toISOString(),
         });
 
@@ -247,21 +293,33 @@ export default function AdminEscrow() {
 
       if (updateError) throw updateError;
 
+      // Log audit
+      await createAuditLog({
+        action: 'disbursement',
+        entityType: 'escrow',
+        entityId: selectedAccount.id,
+        oldData: { balance: selectedAccount.balance },
+        newData: { balance: selectedAccount.balance - amount, disbursed: amount },
+        userId: user?.id,
+      });
+
       toast({
         title: 'Disbursement Processed',
-        description: `${formatCurrency(amount)} has been disbursed`,
+        description: `${formatCurrency(amount)} has been disbursed to ${selectedAccount.merchant?.business_name}`,
       });
       
       setShowDisbursementDialog(false);
+      setShowConfirmDisbursement(false);
       setSelectedAccount(null);
       setDisbursementAmount('');
+      setDisbursementDescription('Admin disbursement');
       fetchData();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error processing disbursement:', error);
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to process disbursement',
+        title: 'Disbursement Failed',
+        description: error instanceof Error ? error.message : 'Failed to process disbursement. Please try again.',
       });
     } finally {
       setActionLoading(false);
@@ -273,6 +331,8 @@ export default function AdminEscrow() {
     
     setActionLoading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
       // Call xendit-disbursement edge function
       const { data, error } = await supabase.functions.invoke('xendit-disbursement', {
         body: {
@@ -293,9 +353,19 @@ export default function AdminEscrow() {
         .update({
           status: 'approved',
           reviewed_at: new Date().toISOString(),
+          reviewed_by: user?.id,
           review_notes: reviewNotes || 'Approved by admin',
         })
         .eq('id', selectedReview.id);
+
+      // Log audit
+      await createAuditLog({
+        action: 'approve',
+        entityType: 'disbursement',
+        entityId: selectedReview.id,
+        newData: { status: 'approved', amount: selectedReview.net_amount },
+        userId: user?.id,
+      });
 
       // Notify merchant
       if (selectedReview.merchant?.user_id) {
@@ -310,19 +380,19 @@ export default function AdminEscrow() {
 
       toast({
         title: 'Disbursement Approved',
-        description: `Disbursement of ${formatCurrency(selectedReview.net_amount)} is being processed`,
+        description: `Disbursement of ${formatCurrency(selectedReview.net_amount)} to ${selectedReview.merchant?.business_name} is being processed`,
       });
       
       setShowReviewDialog(false);
       setSelectedReview(null);
       setReviewNotes('');
       fetchData();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error approving disbursement:', error);
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to approve disbursement',
+        title: 'Approval Failed',
+        description: error instanceof Error ? error.message : 'Failed to approve disbursement. Please try again.',
       });
     } finally {
       setActionLoading(false);
@@ -330,7 +400,9 @@ export default function AdminEscrow() {
   };
 
   const handleRejectReview = async () => {
-    if (!selectedReview || !reviewNotes.trim()) {
+    if (!selectedReview) return;
+    
+    if (!reviewNotes.trim()) {
       toast({
         variant: 'destructive',
         title: 'Notes Required',
@@ -341,15 +413,27 @@ export default function AdminEscrow() {
     
     setActionLoading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
       // Update disbursement to rejected
       await supabase
         .from('disbursements')
         .update({
           status: 'rejected',
           reviewed_at: new Date().toISOString(),
+          reviewed_by: user?.id,
           review_notes: reviewNotes,
         })
         .eq('id', selectedReview.id);
+
+      // Log audit
+      await createAuditLog({
+        action: 'reject',
+        entityType: 'disbursement',
+        entityId: selectedReview.id,
+        newData: { status: 'rejected', reason: reviewNotes },
+        userId: user?.id,
+      });
 
       // Notify merchant
       if (selectedReview.merchant?.user_id) {
@@ -364,19 +448,19 @@ export default function AdminEscrow() {
 
       toast({
         title: 'Disbursement Rejected',
-        description: 'The merchant has been notified',
+        description: `${selectedReview.merchant?.business_name} has been notified`,
       });
       
       setShowReviewDialog(false);
       setSelectedReview(null);
       setReviewNotes('');
       fetchData();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error rejecting disbursement:', error);
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to reject disbursement',
+        title: 'Rejection Failed',
+        description: error instanceof Error ? error.message : 'Failed to reject disbursement. Please try again.',
       });
     } finally {
       setActionLoading(false);
@@ -385,6 +469,7 @@ export default function AdminEscrow() {
 
   const openDisbursementDialog = (account: EscrowAccount) => {
     setSelectedAccount(account);
+    setDisbursementDescription('Admin disbursement');
     setShowDisbursementDialog(true);
   };
 
@@ -392,6 +477,11 @@ export default function AdminEscrow() {
     setSelectedReview(disbursement);
     setReviewNotes('');
     setShowReviewDialog(true);
+  };
+
+  const openTransactionDetail = (tx: EscrowTransaction) => {
+    setSelectedTransaction(tx);
+    setShowTransactionDetailDialog(true);
   };
 
   const formatCurrency = (amount: number) => {
@@ -418,6 +508,18 @@ export default function AdminEscrow() {
     tx.status === 'completed' && 
     new Date(tx.created_at).toDateString() === new Date().toDateString()
   ).length;
+
+  const totalPages = Math.ceil(totalTransactions / ITEMS_PER_PAGE);
+
+  if (guardLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -498,293 +600,228 @@ export default function AdminEscrow() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue={pendingReviews.length > 0 ? 'pending_review' : 'accounts'} className="space-y-4">
+        <Tabs defaultValue="accounts" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="accounts">
-              Accounts ({accounts.length})
-            </TabsTrigger>
-            <TabsTrigger value="transactions">
-              Transactions ({transactions.length})
-            </TabsTrigger>
-            <TabsTrigger value="pending_review" className="relative">
-              Pending Review
+            <TabsTrigger value="accounts">Escrow Accounts</TabsTrigger>
+            <TabsTrigger value="transactions">Transactions</TabsTrigger>
+            <TabsTrigger value="reviews" className="relative">
+              Pending Reviews
               {pendingReviews.length > 0 && (
-                <Badge className="ml-2 bg-orange-500 text-white">{pendingReviews.length}</Badge>
+                <Badge variant="destructive" className="ml-2">{pendingReviews.length}</Badge>
               )}
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="accounts" className="space-y-4">
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            ) : accounts.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Wallet className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No escrow accounts</h3>
-                  <p className="text-muted-foreground text-center">
-                    Escrow accounts will be created automatically when merchants register
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {accounts.map((account) => (
-                  <Card key={account.id}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+          <TabsContent value="accounts">
+            <Card>
+              <CardHeader>
+                <CardTitle>Merchant Escrow Accounts</CardTitle>
+                <CardDescription>Manage escrow balances for all merchants</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : accounts.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No escrow accounts found
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {accounts.map(account => (
+                      <div key={account.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center gap-4">
+                          <div className="p-2 rounded-lg bg-primary/10">
                             <Building2 className="h-5 w-5 text-primary" />
                           </div>
                           <div>
-                            <CardTitle className="text-base">
-                              {account.merchant?.business_name || 'Unknown Merchant'}
-                            </CardTitle>
-                            <CardDescription>
-                              Created {format(new Date(account.created_at), 'MMM d, yyyy')}
-                            </CardDescription>
+                            <p className="font-medium">{account.merchant?.business_name || 'Unknown Merchant'}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Balance: {formatCurrency(account.balance)} • Pending: {formatCurrency(account.pending_balance)}
+                            </p>
+                            {account.merchant?.min_disbursement_amount && account.merchant.min_disbursement_amount > 0 && (
+                              <p className="text-xs text-muted-foreground">
+                                Min disbursement: {formatCurrency(account.merchant.min_disbursement_amount)}
+                              </p>
+                            )}
                           </div>
                         </div>
+                        <Button
+                          variant="outline"
+                          onClick={() => openDisbursementDialog(account)}
+                          disabled={account.balance <= 0}
+                        >
+                          <Send className="h-4 w-4 mr-2" />
+                          Disburse
+                        </Button>
                       </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Available Balance</span>
-                        <span className="text-lg font-bold text-success">
-                          {formatCurrency(account.balance)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Pending</span>
-                        <span className="text-sm font-medium text-warning">
-                          {formatCurrency(account.pending_balance)}
-                        </span>
-                      </div>
-                      <Button 
-                        className="w-full mt-2" 
-                        variant="outline"
-                        disabled={account.balance <= 0}
-                        onClick={() => openDisbursementDialog(account)}
-                      >
-                        <Send className="h-4 w-4 mr-2" />
-                        Disburse Funds
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
-          <TabsContent value="transactions" className="space-y-4">
-            {/* Filters */}
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search transactions..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-full md:w-[180px]">
-                  <SelectValue placeholder="Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="deposit">Deposit</SelectItem>
-                  <SelectItem value="rent_payment">Rent Payment</SelectItem>
-                  <SelectItem value="disbursement">Disbursement</SelectItem>
-                  <SelectItem value="refund">Refund</SelectItem>
-                  <SelectItem value="fee">Fee</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full md:w-[180px]">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <TabsContent value="transactions">
+            <Card>
+              <CardHeader>
+                <CardTitle>Transaction History</CardTitle>
+                <CardDescription>View all escrow transactions</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Filters */}
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search transactions..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[150px]">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="failed">Failed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={typeFilter} onValueChange={setTypeFilter}>
+                    <SelectTrigger className="w-[150px]">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="deposit">Deposit</SelectItem>
+                      <SelectItem value="rent_payment">Rent Payment</SelectItem>
+                      <SelectItem value="disbursement">Disbursement</SelectItem>
+                      <SelectItem value="refund">Refund</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            ) : filteredTransactions.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <DollarSign className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No transactions found</h3>
-                  <p className="text-muted-foreground text-center">
-                    {transactions.length === 0 
-                      ? "No transactions have been recorded yet"
-                      : "No transactions match your filters"}
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardContent className="p-0">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Merchant</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Type</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Amount</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredTransactions.map((tx) => (
-                        <tr key={tx.id} className="border-b border-border/50 hover:bg-muted/50">
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              <Building2 className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-sm">
-                                {tx.escrow_account?.merchant?.business_name || 'Unknown'}
-                              </span>
+                {/* Transactions List */}
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : filteredTransactions.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No transactions found
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      {filteredTransactions.map(tx => (
+                        <div key={tx.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer" onClick={() => openTransactionDetail(tx)}>
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${tx.type === 'disbursement' ? 'bg-destructive/10' : 'bg-success/10'}`}>
+                              {tx.type === 'disbursement' ? (
+                                <ArrowUpRight className={`h-4 w-4 text-destructive`} />
+                              ) : (
+                                <ArrowDownRight className={`h-4 w-4 text-success`} />
+                              )}
                             </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <Badge variant="outline" className={typeColors[tx.type]}>
-                              <span className="flex items-center gap-1">
-                                {tx.type === 'deposit' || tx.type === 'rent_payment' ? (
-                                  <ArrowDownRight className="h-3 w-3" />
-                                ) : (
-                                  <ArrowUpRight className="h-3 w-3" />
-                                )}
-                                {tx.type.replace('_', ' ')}
-                              </span>
-                            </Badge>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className={`font-medium ${
-                              tx.type === 'deposit' || tx.type === 'rent_payment' 
-                                ? 'text-success' 
-                                : 'text-destructive'
-                            }`}>
-                              {tx.type === 'deposit' || tx.type === 'rent_payment' ? '+' : '-'}
-                              {formatCurrency(tx.amount)}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <Badge variant="outline" className={statusColors[tx.status || 'pending']}>
-                              <span className="flex items-center gap-1">
-                                {tx.status === 'completed' && <CheckCircle className="h-3 w-3" />}
-                                {tx.status === 'pending' && <Clock className="h-3 w-3" />}
-                                {tx.status === 'failed' && <XCircle className="h-3 w-3" />}
-                                {tx.status}
-                              </span>
-                            </Badge>
-                          </td>
-                          <td className="py-3 px-4 text-sm text-muted-foreground">
-                            {format(new Date(tx.created_at), 'MMM d, yyyy HH:mm')}
-                          </td>
-                        </tr>
+                            <div>
+                              <p className="font-medium">{tx.escrow_account?.merchant?.business_name || 'Unknown'}</p>
+                              <p className="text-sm text-muted-foreground">{tx.description || tx.type}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="text-right">
+                              <p className={`font-medium ${tx.type === 'disbursement' ? 'text-destructive' : 'text-success'}`}>
+                                {tx.type === 'disbursement' ? '-' : '+'}{formatCurrency(tx.amount)}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {format(new Date(tx.created_at), 'dd MMM yyyy HH:mm')}
+                              </p>
+                            </div>
+                            <Badge className={statusColors[tx.status]}>{tx.status}</Badge>
+                            <Button variant="ghost" size="sm">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
-                </CardContent>
-              </Card>
-            )}
+                    </div>
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between mt-4">
+                        <p className="text-sm text-muted-foreground">
+                          Page {currentPage} of {totalPages} ({totalTransactions} total)
+                        </p>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
-          {/* Pending Review Tab */}
-          <TabsContent value="pending_review" className="space-y-4">
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : pendingReviews.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <CheckCircle className="h-12 w-12 text-success mb-4" />
-                  <h3 className="text-lg font-medium mb-2">All caught up!</h3>
-                  <p className="text-muted-foreground text-center">
-                    No disbursement requests pending review
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                {pendingReviews.map((review) => (
-                  <Card key={review.id} className="border-orange-500/30">
-                    <CardContent className="p-6">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div className="flex items-start gap-4">
-                          <div className="w-12 h-12 rounded-lg bg-orange-500/10 flex items-center justify-center">
-                            <AlertTriangle className="h-6 w-6 text-orange-600" />
+          <TabsContent value="reviews">
+            <Card>
+              <CardHeader>
+                <CardTitle>Pending Manual Reviews</CardTitle>
+                <CardDescription>Disbursements requiring admin approval</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {pendingReviews.length === 0 ? (
+                  <div className="text-center py-8">
+                    <CheckCircle className="h-12 w-12 mx-auto text-success mb-4" />
+                    <p className="text-muted-foreground">No pending reviews</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {pendingReviews.map(review => (
+                      <div key={review.id} className="flex items-center justify-between p-4 border border-orange-500/30 rounded-lg bg-orange-500/5">
+                        <div className="flex items-center gap-4">
+                          <div className="p-2 rounded-lg bg-orange-500/20">
+                            <ShieldAlert className="h-5 w-5 text-orange-600" />
                           </div>
                           <div>
-                            <h3 className="font-semibold text-lg">
-                              {review.merchant?.business_name || 'Unknown Merchant'}
-                            </h3>
+                            <p className="font-medium">{review.merchant?.business_name || 'Unknown'}</p>
                             <p className="text-sm text-muted-foreground">
-                              Requested {format(new Date(review.created_at), 'MMM d, yyyy HH:mm')}
+                              Amount: {formatCurrency(review.net_amount)}
                             </p>
-                            <div className="flex items-center gap-2 mt-2">
-                              <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-300">
-                                {review.merchant?.verification_status === 'verified' ? 'Verified' : 'Unverified'}
-                              </Badge>
-                              <Badge variant="outline">
-                                {review.type.replace('_', ' ')}
-                              </Badge>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col md:items-end gap-2">
-                          <div className="text-right">
-                            <p className="text-sm text-muted-foreground">Amount</p>
-                            <p className="text-2xl font-bold">{formatCurrency(review.amount)}</p>
-                            <p className="text-sm text-muted-foreground">
-                              Fee: {formatCurrency(review.fee_amount)} → Net: {formatCurrency(review.net_amount)}
+                            <p className="text-xs text-muted-foreground">
+                              Bank: {review.bank_account?.bank_name} - {review.bank_account?.account_number}
                             </p>
                           </div>
-                          {review.bank_account && (
-                            <div className="text-right text-sm text-muted-foreground">
-                              <p>{review.bank_account.bank_name} - ****{review.bank_account.account_number.slice(-4)}</p>
-                              <p>{review.bank_account.account_name}</p>
-                            </div>
-                          )}
                         </div>
-
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
-                            className="border-destructive text-destructive hover:bg-destructive/10"
-                            onClick={() => openReviewDialog(review)}
-                          >
-                            <XCircle className="h-4 w-4 mr-2" />
-                            Reject
-                          </Button>
-                          <Button 
-                            className="bg-success hover:bg-success/90"
-                            onClick={() => openReviewDialog(review)}
-                          >
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Review & Approve
-                          </Button>
-                        </div>
+                        <Button onClick={() => openReviewDialog(review)}>
+                          Review
+                        </Button>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
 
@@ -794,18 +831,24 @@ export default function AdminEscrow() {
             <DialogHeader>
               <DialogTitle>Process Disbursement</DialogTitle>
               <DialogDescription>
-                Disburse funds to {selectedAccount?.merchant?.business_name}
+                Disburse funds from {selectedAccount?.merchant?.business_name}'s escrow
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 mt-4">
-              <div className="p-4 rounded-lg bg-muted">
-                <p className="text-sm text-muted-foreground">Available Balance</p>
-                <p className="text-2xl font-bold text-success">
-                  {formatCurrency(selectedAccount?.balance || 0)}
-                </p>
-              </div>
+            <div className="space-y-4">
               <div>
-                <Label htmlFor="amount">Disbursement Amount (IDR)</Label>
+                <Label>Available Balance</Label>
+                <p className="text-2xl font-bold">{formatCurrency(selectedAccount?.balance || 0)}</p>
+              </div>
+              {selectedAccount?.merchant?.min_disbursement_amount && selectedAccount.merchant.min_disbursement_amount > 0 && (
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    Minimum disbursement amount: {formatCurrency(selectedAccount.merchant.min_disbursement_amount)}
+                  </AlertDescription>
+                </Alert>
+              )}
+              <div>
+                <Label htmlFor="amount">Disbursement Amount</Label>
                 <Input
                   id="amount"
                   type="number"
@@ -814,84 +857,135 @@ export default function AdminEscrow() {
                   onChange={(e) => setDisbursementAmount(e.target.value)}
                 />
               </div>
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Enter disbursement description..."
+                  value={disbursementDescription}
+                  onChange={(e) => setDisbursementDescription(e.target.value)}
+                />
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowDisbursementDialog(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleDisbursement} disabled={actionLoading}>
-                {actionLoading ? 'Processing...' : 'Confirm Disbursement'}
+              <Button onClick={handleDisbursement} disabled={!disbursementAmount}>
+                Process Disbursement
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
+        {/* Confirm Disbursement Dialog */}
+        <ConfirmDialog
+          open={showConfirmDisbursement}
+          onOpenChange={setShowConfirmDisbursement}
+          title="Confirm Disbursement"
+          description={`Are you sure you want to disburse ${formatCurrency(parseFloat(disbursementAmount) || 0)} to ${selectedAccount?.merchant?.business_name}?`}
+          confirmText="Confirm Disbursement"
+          onConfirm={confirmDisbursement}
+          loading={actionLoading}
+          variant="default"
+        />
+
         {/* Review Dialog */}
         <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
-          <DialogContent className="max-w-lg">
+          <DialogContent>
             <DialogHeader>
-              <DialogTitle>Review Disbursement Request</DialogTitle>
+              <DialogTitle>Review Disbursement</DialogTitle>
               <DialogDescription>
                 Review and approve or reject this disbursement request
               </DialogDescription>
             </DialogHeader>
-            {selectedReview && (
-              <div className="space-y-4 mt-4">
-                <div className="p-4 rounded-lg bg-muted">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium">{selectedReview.merchant?.business_name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Status: {selectedReview.merchant?.verification_status || 'Unknown'}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold">{formatCurrency(selectedReview.net_amount)}</p>
-                      <p className="text-sm text-muted-foreground">Net amount</p>
-                    </div>
-                  </div>
-                </div>
-
-                {selectedReview.bank_account && (
-                  <div className="p-4 rounded-lg border">
-                    <p className="text-sm font-medium mb-2">Bank Details</p>
-                    <p className="text-sm">{selectedReview.bank_account.bank_name}</p>
-                    <p className="text-sm">{selectedReview.bank_account.account_number}</p>
-                    <p className="text-sm text-muted-foreground">{selectedReview.bank_account.account_name}</p>
-                  </div>
-                )}
-
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="notes">Review Notes</Label>
-                  <Textarea
-                    id="notes"
-                    placeholder="Add notes (required for rejection)"
-                    value={reviewNotes}
-                    onChange={(e) => setReviewNotes(e.target.value)}
-                    rows={3}
-                  />
+                  <Label className="text-muted-foreground">Merchant</Label>
+                  <p className="font-medium">{selectedReview?.merchant?.business_name}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Amount</Label>
+                  <p className="font-medium">{formatCurrency(selectedReview?.net_amount || 0)}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Bank</Label>
+                  <p className="font-medium">{selectedReview?.bank_account?.bank_name}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Account</Label>
+                  <p className="font-medium">{selectedReview?.bank_account?.account_number}</p>
                 </div>
               </div>
-            )}
-            <DialogFooter className="gap-2">
+              <div>
+                <Label htmlFor="notes">Review Notes</Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Enter notes (required for rejection)..."
+                  value={reviewNotes}
+                  onChange={(e) => setReviewNotes(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
               <Button variant="outline" onClick={() => setShowReviewDialog(false)}>
                 Cancel
               </Button>
-              <Button 
-                variant="destructive" 
-                onClick={handleRejectReview} 
-                disabled={actionLoading}
-              >
-                {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <XCircle className="h-4 w-4 mr-2" />}
+              <Button variant="destructive" onClick={handleRejectReview} disabled={actionLoading}>
                 Reject
               </Button>
-              <Button 
-                className="bg-success hover:bg-success/90"
-                onClick={handleApproveReview} 
-                disabled={actionLoading}
-              >
-                {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
-                Approve & Process
+              <Button onClick={handleApproveReview} disabled={actionLoading}>
+                {actionLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Approve
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Transaction Detail Dialog */}
+        <Dialog open={showTransactionDetailDialog} onOpenChange={setShowTransactionDetailDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Transaction Details</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Merchant</Label>
+                  <p className="font-medium">{selectedTransaction?.escrow_account?.merchant?.business_name || 'Unknown'}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Type</Label>
+                  <Badge className={typeColors[selectedTransaction?.type || '']}>{selectedTransaction?.type}</Badge>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Amount</Label>
+                  <p className="font-medium">{formatCurrency(selectedTransaction?.amount || 0)}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Status</Label>
+                  <Badge className={statusColors[selectedTransaction?.status || '']}>{selectedTransaction?.status}</Badge>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Reference</Label>
+                  <p className="font-medium font-mono text-sm">{selectedTransaction?.reference || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Date</Label>
+                  <p className="font-medium">{selectedTransaction ? format(new Date(selectedTransaction.created_at), 'dd MMM yyyy HH:mm:ss') : '-'}</p>
+                </div>
+              </div>
+              {selectedTransaction?.description && (
+                <div>
+                  <Label className="text-muted-foreground">Description</Label>
+                  <p className="font-medium">{selectedTransaction.description}</p>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowTransactionDetailDialog(false)}>
+                Close
               </Button>
             </DialogFooter>
           </DialogContent>
