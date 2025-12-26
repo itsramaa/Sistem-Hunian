@@ -168,3 +168,28 @@ export const getMaintenanceStatusColor = (status: string): BadgeVariant => {
       return 'secondary';
   }
 };
+
+// Escrow/Transaction status colors
+export const getEscrowStatusColors = (status: string): string => {
+  switch (status) {
+    case 'completed':
+      return 'bg-success/10 text-success border-success/20';
+    case 'pending':
+      return 'bg-warning/10 text-warning border-warning/20';
+    case 'processing':
+      return 'bg-primary/10 text-primary border-primary/20';
+    case 'failed':
+      return 'bg-destructive/10 text-destructive border-destructive/20';
+    default:
+      return 'bg-muted';
+  }
+};
+
+// Transaction type colors
+export const getTransactionTypeColors = (type: string): { isDeposit: boolean; className: string } => {
+  const isDeposit = type === 'deposit' || type === 'payment_received';
+  return {
+    isDeposit,
+    className: isDeposit ? 'text-success' : 'text-destructive',
+  };
+};
