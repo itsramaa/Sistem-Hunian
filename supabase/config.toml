@@ -1,1 +1,19 @@
 project_id = "hvnoeslopetwrzwcaxut"
+
+[functions.auth-webhook]
+verify_jwt = false
+
+[functions.ai-chatbot]
+verify_jwt = false
+
+[functions.merchant-ai-assistant]
+verify_jwt = false
+
+[functions.vendor-ai-assistant]
+verify_jwt = false
+
+[functions.xendit-webhook]
+verify_jwt = false
+
+[functions.xendit-disbursement-webhook]
+verify_jwt = false
