@@ -7,33 +7,33 @@
 
 ### 1. Bugs & Errors
 
-| Issue | Severity | Description |
-|-------|----------|-------------|
-| Cancel Doesn't Update Vendor Inventory | High | Cancelling order doesn't revert product stock/availability |
-| Review Fetches vendor_id Again | Medium | vendor_id already in order data but queried again |
-| No Refund Processing | High | Cancel sets status but doesn't trigger refund |
-| Order Number May Be Null | Low | `order_number` displayed without null check |
+| Issue | Severity | Description | Status |
+|-------|----------|-------------|--------|
+| Cancel Doesn't Update Vendor Inventory | High | Cancelling order doesn't revert product stock/availability | ⚠️ Backend |
+| Review Fetches vendor_id Again | Medium | vendor_id already in order data but queried again | ✅ Fixed |
+| No Refund Processing | High | Cancel sets status but doesn't trigger refund | ⚠️ Backend |
+| Order Number May Be Null | Low | `order_number` displayed without null check | ✅ Fixed |
 
 ### 2. Validations
 
-| Issue | Severity | Description |
-|-------|----------|-------------|
-| Review Rating Not Validated | Medium | Rating 1-5 enforced only by UI |
-| No Review Text Length Limit | Low | Review text has no max length |
-| Cancel Reason Not Required | Medium | Order cancelled without requiring reason |
+| Issue | Severity | Description | Status |
+|-------|----------|-------------|--------|
+| Review Rating Not Validated | Medium | Rating 1-5 enforced only by UI | ✅ Fixed |
+| No Review Text Length Limit | Low | Review text has no max length | ✅ Fixed |
+| Cancel Reason Not Required | Medium | Order cancelled without requiring reason | ✅ Fixed |
 
 ### 3. UX & Flow Pengguna
 
-| Issue | Severity | Description |
-|-------|----------|-------------|
-| No Order Detail View | High | Cannot see full order details (line items, costs breakdown) |
-| No Status Filter | Medium | Documentation mentions status filter but not implemented |
-| No Reorder Capability | Medium | Documentation mentions reorder but not implemented |
-| No Tracking Timeline | Medium | Cannot see order progress timeline |
-| No Cancel Confirmation | High | Cancel happens immediately without confirmation |
-| Limited Order Info | Medium | Missing payment method, delivery info |
-| No Contact Vendor | Medium | Cannot contact vendor about order |
-| Review Modal Rating UX | Low | Star selection could be more intuitive |
+| Issue | Severity | Description | Status |
+|-------|----------|-------------|--------|
+| No Order Detail View | High | Cannot see full order details (line items, costs breakdown) | ✅ Fixed |
+| No Status Filter | Medium | Documentation mentions status filter but not implemented | ✅ Fixed |
+| No Reorder Capability | Medium | Documentation mentions reorder but not implemented | ⚠️ Backlog |
+| No Tracking Timeline | Medium | Cannot see order progress timeline | ⚠️ Backlog |
+| No Cancel Confirmation | High | Cancel happens immediately without confirmation | ✅ Fixed |
+| Limited Order Info | Medium | Missing payment method, delivery info | ✅ Partial |
+| No Contact Vendor | Medium | Cannot contact vendor about order | ⚠️ Backlog |
+| Review Modal Rating UX | Low | Star selection could be more intuitive | ✅ Fixed |
 
 ### 4. Performance
 
