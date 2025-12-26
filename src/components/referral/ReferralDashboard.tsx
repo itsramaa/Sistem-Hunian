@@ -7,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Share2, Copy, Users, Gift, Wallet, Check, Mail, ExternalLink, Info } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Share2, Copy, Users, Gift, Wallet, Check, Mail, ExternalLink, Info, ChevronDown, RefreshCw, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, subDays, subMonths, isAfter } from 'date-fns';
 import { id } from 'date-fns/locale';
 
 // TypeScript interfaces for referral data
@@ -62,10 +63,36 @@ const generateSecureCode = (): string => {
   return code;
 };
 
+// Date range options
+const DATE_RANGES = [
+  { value: 'all', label: 'Semua Waktu' },
+  { value: '7d', label: '7 Hari Terakhir' },
+  { value: '30d', label: '30 Hari Terakhir' },
+  { value: '3m', label: '3 Bulan Terakhir' },
+  { value: '6m', label: '6 Bulan Terakhir' },
+];
+
+const ITEMS_PER_PAGE = 5;
+
 export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
   const { user } = useAuth();
   const { trackReferralLinkCopied, trackReferralLinkShared } = useReferralTracking();
   const [copied, setCopied] = useState(false);
+  const [dateRange, setDateRange] = useState('all');
+  const [historyPage, setHistoryPage] = useState(1);
+  const [rewardsPage, setRewardsPage] = useState(1);
+
+  // Get date filter
+  const getDateFilter = (range: string): Date | null => {
+    const now = new Date();
+    switch (range) {
+      case '7d': return subDays(now, 7);
+      case '30d': return subDays(now, 30);
+      case '3m': return subMonths(now, 3);
+      case '6m': return subMonths(now, 6);
+      default: return null;
+    }
+  };
 
   // Get or create referral code
   const { data: referralData, isLoading, error, refetch } = useQuery({
@@ -124,7 +151,7 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
   });
 
   // Get referral stats with optimized query
-  const { data: stats, isLoading: statsLoading } = useQuery<ReferralStats>({
+  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery<ReferralStats>({
     queryKey: ['referral-stats', user?.id],
     queryFn: async () => {
       if (!user?.id) return { total: 0, completed: 0, pending: 0 };
@@ -146,13 +173,13 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
     enabled: !!user?.id,
   });
 
-  // Get referral history
-  const { data: referralHistory = [], isLoading: historyLoading } = useQuery({
-    queryKey: ['referral-history', user?.id],
+  // Get referral history with pagination and date filter
+  const { data: referralHistoryData, isLoading: historyLoading, refetch: refetchHistory } = useQuery({
+    queryKey: ['referral-history', user?.id, dateRange],
     queryFn: async () => {
-      if (!user?.id) return [];
+      if (!user?.id) return { items: [], total: 0 };
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('referrals')
         .select(`
           id,
@@ -165,35 +192,57 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
             full_name,
             email
           )
-        `)
+        `, { count: 'exact' })
         .eq('referrer_user_id', user.id)
         .not('referee_user_id', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .order('created_at', { ascending: false });
+
+      const dateFilter = getDateFilter(dateRange);
+      if (dateFilter) {
+        query = query.gte('created_at', dateFilter.toISOString());
+      }
+
+      const { data, error, count } = await query;
 
       if (error) throw error;
-      return data || [];
+      return { items: data || [], total: count || 0 };
     },
     enabled: !!user?.id,
   });
 
-  // Get rewards with loading state
-  const { data: rewards = [], isLoading: rewardsLoading } = useQuery<ReferralReward[]>({
-    queryKey: ['my-rewards', user?.id],
+  // Get rewards with pagination and date filter
+  const { data: rewardsData, isLoading: rewardsLoading, refetch: refetchRewards } = useQuery({
+    queryKey: ['my-rewards', user?.id, dateRange],
     queryFn: async () => {
-      if (!user?.id) return [];
+      if (!user?.id) return { items: [], total: 0 };
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('referral_rewards')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
+      const dateFilter = getDateFilter(dateRange);
+      if (dateFilter) {
+        query = query.gte('created_at', dateFilter.toISOString());
+      }
+
+      const { data, error, count } = await query;
+
       if (error) throw error;
-      return (data || []) as ReferralReward[];
+      return { items: (data || []) as ReferralReward[], total: count || 0 };
     },
     enabled: !!user?.id,
   });
+
+  // Paginated data
+  const referralHistory = referralHistoryData?.items || [];
+  const paginatedHistory = referralHistory.slice(0, historyPage * ITEMS_PER_PAGE);
+  const hasMoreHistory = referralHistory.length > historyPage * ITEMS_PER_PAGE;
+
+  const rewards = rewardsData?.items || [];
+  const paginatedRewards = rewards.slice(0, rewardsPage * ITEMS_PER_PAGE);
+  const hasMoreRewards = rewards.length > rewardsPage * ITEMS_PER_PAGE;
 
   // Normalize referral code to uppercase for consistent display
   const referralCode = referralData?.referral_code?.toUpperCase() || '';
@@ -249,6 +298,14 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
     } else {
       handleCopyLink();
     }
+  };
+
+  const handleRefreshAll = () => {
+    refetch();
+    refetchStats();
+    refetchHistory();
+    refetchRewards();
+    toast.success('Data referral diperbarui');
   };
 
   const getRewardInfo = (): RewardInfo => {
@@ -315,9 +372,10 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
     return (
       <Card>
         <CardContent className="py-8">
-          <div className="text-center text-destructive">
-            <p>{(error as Error).message}</p>
-            <Button variant="outline" className="mt-4" onClick={() => refetch()}>
+          <div className="text-center">
+            <p className="text-destructive mb-4">{(error as Error).message}</p>
+            <Button variant="outline" onClick={() => refetch()}>
+              <RefreshCw className="h-4 w-4 mr-2" />
               Coba Lagi
             </Button>
           </div>
@@ -337,13 +395,13 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {rewardInfo.steps.map((step, i) => (
-              <div key={i} className="text-center p-3 bg-muted/50 rounded-lg">
-                <div className="h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center mx-auto mb-2 text-sm font-bold">
+              <div key={i} className="text-center p-4 bg-muted/50 rounded-lg">
+                <div className="h-10 w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center mx-auto mb-3 text-base font-bold">
                   {i + 1}
                 </div>
-                <p className="text-xs text-muted-foreground">{step}</p>
+                <p className="text-sm text-muted-foreground">{step}</p>
               </div>
             ))}
           </div>
@@ -397,45 +455,77 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
         </CardContent>
       </Card>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* Stats Cards - Responsive */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
-          <CardContent className="p-4 text-center">
-            <Users className="h-6 w-6 mx-auto mb-2 text-primary" />
-            <p className="text-2xl font-bold">{stats?.total || 0}</p>
-            <p className="text-xs text-muted-foreground">Total Referral</p>
+          <CardContent className="p-4 sm:p-6 flex sm:flex-col items-center sm:text-center gap-4 sm:gap-2">
+            <Users className="h-8 w-8 sm:h-6 sm:w-6 text-primary" />
+            <div className="flex-1 sm:flex-none">
+              <p className="text-2xl sm:text-3xl font-bold">{stats?.total || 0}</p>
+              <p className="text-sm text-muted-foreground">Total Referral</p>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 text-center">
-            <Gift className="h-6 w-6 mx-auto mb-2 text-green-500" />
-            <p className="text-2xl font-bold">{stats?.completed || 0}</p>
-            <p className="text-xs text-muted-foreground">Selesai</p>
+          <CardContent className="p-4 sm:p-6 flex sm:flex-col items-center sm:text-center gap-4 sm:gap-2">
+            <Gift className="h-8 w-8 sm:h-6 sm:w-6 text-green-500" />
+            <div className="flex-1 sm:flex-none">
+              <p className="text-2xl sm:text-3xl font-bold">{stats?.completed || 0}</p>
+              <p className="text-sm text-muted-foreground">Selesai</p>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 text-center">
-            <Wallet className="h-6 w-6 mx-auto mb-2 text-yellow-500" />
-            <p className="text-2xl font-bold">
-              {new Intl.NumberFormat('id-ID', { notation: 'compact' }).format(totalRewards)}
-            </p>
-            <p className="text-xs text-muted-foreground">Diperoleh</p>
+          <CardContent className="p-4 sm:p-6 flex sm:flex-col items-center sm:text-center gap-4 sm:gap-2">
+            <Wallet className="h-8 w-8 sm:h-6 sm:w-6 text-yellow-500" />
+            <div className="flex-1 sm:flex-none">
+              <p className="text-2xl sm:text-3xl font-bold">
+                {new Intl.NumberFormat('id-ID', { notation: 'compact' }).format(totalRewards)}
+              </p>
+              <p className="text-sm text-muted-foreground">Diperoleh</p>
+            </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Date Range Filter */}
+      <div className="flex flex-col sm:flex-row justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <Select value={dateRange} onValueChange={setDateRange}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Pilih rentang waktu" />
+            </SelectTrigger>
+            <SelectContent>
+              {DATE_RANGES.map((range) => (
+                <SelectItem key={range.value} value={range.value}>
+                  {range.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button variant="ghost" size="sm" onClick={handleRefreshAll}>
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh
+        </Button>
       </div>
 
       {/* Referral History */}
       <Card>
         <CardHeader>
           <CardTitle>Riwayat Referral</CardTitle>
-          <CardDescription>Daftar orang yang mendaftar menggunakan kode Anda</CardDescription>
+          <CardDescription>
+            Daftar orang yang mendaftar menggunakan kode Anda
+            {referralHistoryData?.total ? ` (${referralHistoryData.total} total)` : ''}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {historyLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
             </div>
-          ) : referralHistory.length === 0 ? (
+          ) : paginatedHistory.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>Belum ada yang mendaftar menggunakan kode Anda.</p>
@@ -443,7 +533,7 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
             </div>
           ) : (
             <div className="space-y-3">
-              {referralHistory.map((ref: any) => (
+              {paginatedHistory.map((ref: any) => (
                 <div key={ref.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div>
                     <p className="font-medium">
@@ -459,6 +549,17 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
                   </Badge>
                 </div>
               ))}
+              
+              {hasMoreHistory && (
+                <Button 
+                  variant="ghost" 
+                  className="w-full" 
+                  onClick={() => setHistoryPage(p => p + 1)}
+                >
+                  <ChevronDown className="h-4 w-4 mr-2" />
+                  Tampilkan Lebih Banyak
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
@@ -468,20 +569,24 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
       <Card>
         <CardHeader>
           <CardTitle>Riwayat Rewards</CardTitle>
+          <CardDescription>
+            Semua reward yang Anda peroleh
+            {rewardsData?.total ? ` (${rewardsData.total} total)` : ''}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {rewardsLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
             </div>
-          ) : rewards.length === 0 ? (
+          ) : paginatedRewards.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Gift className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>Belum ada reward. Mulai bagikan link referral Anda!</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {rewards.map((reward) => (
+              {paginatedRewards.map((reward) => (
                 <div key={reward.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div>
                     <p className="font-medium capitalize">{reward.type.replace(/_/g, ' ')}</p>
@@ -504,6 +609,17 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
                   </div>
                 </div>
               ))}
+              
+              {hasMoreRewards && (
+                <Button 
+                  variant="ghost" 
+                  className="w-full" 
+                  onClick={() => setRewardsPage(p => p + 1)}
+                >
+                  <ChevronDown className="h-4 w-4 mr-2" />
+                  Tampilkan Lebih Banyak
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
