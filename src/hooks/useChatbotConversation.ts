@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -21,17 +21,29 @@ interface ChatbotConversationOptions {
   autoLoad?: boolean;
 }
 
+// Validate message role
+const isValidRole = (role: string): role is 'user' | 'assistant' => {
+  return role === 'user' || role === 'assistant';
+};
+
 export function useChatbotConversation(options: ChatbotConversationOptions = {}) {
   const { maxMessages = 20, autoLoad = true } = options;
   const { user } = useAuth();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Track saved message IDs to prevent duplicates
+  const savedMessageIds = useRef<Set<string>>(new Set());
+  const loadingConversation = useRef(false);
 
-  // Load or create conversation on mount
+  // Load or create conversation on mount - with race condition prevention
   useEffect(() => {
-    if (autoLoad && user?.id) {
-      loadActiveConversation();
+    if (autoLoad && user?.id && !loadingConversation.current) {
+      loadingConversation.current = true;
+      loadActiveConversation().finally(() => {
+        loadingConversation.current = false;
+      });
     }
   }, [user?.id, autoLoad]);
 
@@ -64,7 +76,7 @@ export function useChatbotConversation(options: ChatbotConversationOptions = {})
     try {
       const { data, error } = await supabase
         .from('chat_messages')
-        .select('role, content')
+        .select('id, role, content')
         .eq('conversation_id', convId)
         .order('created_at', { ascending: true })
         .limit(maxMessages);
@@ -72,10 +84,16 @@ export function useChatbotConversation(options: ChatbotConversationOptions = {})
       if (error) throw error;
 
       if (data) {
-        setMessages(data.map(m => ({
-          role: m.role as 'user' | 'assistant',
-          content: m.content,
-        })));
+        // Track loaded message IDs
+        data.forEach(m => savedMessageIds.current.add(m.id));
+        
+        setMessages(data
+          .filter(m => isValidRole(m.role))
+          .map(m => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+          }))
+        );
       }
     } catch (error) {
       console.error('Failed to load messages:', error);
@@ -90,7 +108,7 @@ export function useChatbotConversation(options: ChatbotConversationOptions = {})
         .from('chat_conversations')
         .insert({
           user_id: user.id,
-          title: title || 'New Conversation',
+          title: title || 'Percakapan Baru',
           is_active: true,
           context: { role: user?.user_metadata?.role },
         })
@@ -110,6 +128,27 @@ export function useChatbotConversation(options: ChatbotConversationOptions = {})
   const saveMessage = useCallback(async (message: Message) => {
     if (!user?.id) return;
 
+    // Validate message
+    if (!message.content || message.content.length > 5000) {
+      console.warn('Invalid message: content too long or empty');
+      return;
+    }
+    
+    if (!isValidRole(message.role)) {
+      console.warn('Invalid message role:', message.role);
+      return;
+    }
+
+    // Create unique key for deduplication
+    const messageKey = `${message.role}_${message.content.slice(0, 100)}_${Date.now()}`;
+    
+    // Check for duplicate save (within 2 second window)
+    const recentKey = Array.from(savedMessageIds.current).find(id => id.startsWith(messageKey.slice(0, 50)));
+    if (recentKey) {
+      console.log('Skipping duplicate message save');
+      return;
+    }
+
     let convId = conversationId;
     
     // Create conversation if needed
@@ -119,13 +158,22 @@ export function useChatbotConversation(options: ChatbotConversationOptions = {})
     }
 
     try {
-      await supabase
+      const { data, error } = await supabase
         .from('chat_messages')
         .insert({
           conversation_id: convId,
           role: message.role,
           content: message.content,
-        });
+        })
+        .select('id')
+        .single();
+
+      if (error) throw error;
+      
+      // Track saved message
+      if (data) {
+        savedMessageIds.current.add(data.id);
+      }
 
       // Update conversation timestamp
       await supabase
@@ -140,8 +188,8 @@ export function useChatbotConversation(options: ChatbotConversationOptions = {})
 
   const addMessage = useCallback((message: Message) => {
     setMessages(prev => [...prev, message]);
-    saveMessage(message);
-  }, [saveMessage]);
+    // Note: saveMessage is now called separately to prevent double saves
+  }, []);
 
   const updateLastAssistantMessage = useCallback((content: string) => {
     setMessages(prev => {
@@ -166,6 +214,7 @@ export function useChatbotConversation(options: ChatbotConversationOptions = {})
     }
     setMessages([]);
     setConversationId(null);
+    savedMessageIds.current.clear();
   }, [conversationId]);
 
   const trackAnalytics = useCallback(async (data: {

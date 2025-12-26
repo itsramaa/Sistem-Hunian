@@ -1,15 +1,36 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, Send, Bot, Loader2, Home, CreditCard, Wrench, ShoppingBag, HelpCircle } from "lucide-react";
+import { X, Send, Bot, Loader2, Home, CreditCard, Wrench, ShoppingBag, HelpCircle, RefreshCw, Trash2, WifiOff, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useChatbotTracking } from "@/hooks/useAnalytics";
 import { useChatbotConversation } from "@/hooks/useChatbotConversation";
 import { ChatMessageRenderer } from "./ChatMessageRenderer";
+import { toast } from "sonner";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chatbot`;
+const MAX_MESSAGE_LENGTH = 1000;
+const MAX_RETRIES = 3;
+
+// Input sanitization for prompt injection prevention
+const sanitizeInput = (input: string): string => {
+  const patterns = [
+    /ignore previous instructions/gi,
+    /system:/gi,
+    /\[INST\]/gi,
+    /<\|.*?\|>/g,
+    /```system/gi,
+  ];
+  
+  let sanitized = input;
+  patterns.forEach(pattern => {
+    sanitized = sanitized.replace(pattern, '');
+  });
+  
+  return sanitized.trim().slice(0, MAX_MESSAGE_LENGTH);
+};
 
 // Role-specific quick actions in Indonesian
 const ROLE_QUICK_ACTIONS = {
@@ -40,6 +61,12 @@ const ROLE_QUICK_ACTIONS = {
   ],
 };
 
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+  failed?: boolean;
+}
+
 interface ChatbotDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -48,37 +75,75 @@ interface ChatbotDialogProps {
 export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const conversationLoadedRef = useRef(false);
   const { user } = useAuth();
   const { trackChatbotMessage } = useChatbotTracking();
   const {
-    messages,
+    messages: savedMessages,
     setMessages,
-    addMessage,
     saveMessage,
     trackAnalytics,
+    clearConversation,
   } = useChatbotConversation({ autoLoad: isOpen });
 
   const userRole = (user?.user_metadata?.role as keyof typeof ROLE_QUICK_ACTIONS) || 'default';
   const quickActions = ROLE_QUICK_ACTIONS[userRole] || ROLE_QUICK_ACTIONS.default;
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || '';
 
+  // Monitor online status
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Load saved messages only once to prevent race condition
+  useEffect(() => {
+    if (savedMessages.length > 0 && !conversationLoadedRef.current) {
+      setLocalMessages(savedMessages.map(m => ({ ...m, failed: false })));
+      conversationLoadedRef.current = true;
+    }
+  }, [savedMessages]);
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [localMessages]);
 
-  const streamChat = async (userMessage: string) => {
+  const streamChat = useCallback(async (userMessage: string, retryCount = 0) => {
+    if (!isOnline) {
+      toast.error("Tidak ada koneksi internet. Coba lagi nanti.");
+      return;
+    }
+
+    const sanitizedMessage = sanitizeInput(userMessage);
+    if (!sanitizedMessage) return;
+
     setIsStreaming(true);
     const startTime = Date.now();
     trackChatbotMessage('user');
     
-    const userMsg = { role: "user" as const, content: userMessage };
-    const newMessages = [...messages, userMsg];
-    setMessages(newMessages);
-    addMessage(userMsg);
+    const userMsg: Message = { role: "user", content: sanitizedMessage };
+    const newMessages = [...localMessages.filter(m => !m.failed), userMsg];
+    setLocalMessages(newMessages);
     setInput("");
+
+    // Save user message (prevent duplicate save)
+    saveMessage(userMsg);
+
+    abortControllerRef.current = new AbortController();
 
     try {
       const resp = await fetch(CHAT_URL, {
@@ -95,11 +160,19 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
             userName,
           },
         }),
+        signal: abortControllerRef.current.signal,
       });
 
       if (!resp.ok || !resp.body) {
         const errorData = await resp.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to connect to assistant");
+        
+        if (resp.status === 429) {
+          throw new Error("ERR_RATE_LIMIT");
+        }
+        if (resp.status === 402) {
+          throw new Error("ERR_PAYMENT_REQUIRED");
+        }
+        throw new Error(errorData.error || "ERR_CONNECTION");
       }
 
       const reader = resp.body.getReader();
@@ -109,7 +182,7 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
       let streamDone = false;
 
       // Add empty assistant message
-      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+      setLocalMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
       while (!streamDone) {
         const { done, value } = await reader.read();
@@ -136,7 +209,7 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
             const content = parsed.choices?.[0]?.delta?.content;
             if (content) {
               assistantContent += content;
-              setMessages((prev) => {
+              setLocalMessages((prev) => {
                 const updated = [...prev];
                 updated[updated.length - 1] = { role: "assistant", content: assistantContent };
                 return updated;
@@ -149,7 +222,7 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
         }
       }
 
-      // Save assistant message
+      // Save assistant message (only save once, not via addMessage)
       if (assistantContent) {
         saveMessage({ role: "assistant", content: assistantContent });
       }
@@ -157,22 +230,49 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
       // Track analytics
       const responseTime = Date.now() - startTime;
       trackAnalytics({
-        queryType: detectQueryType(userMessage),
+        queryType: detectQueryType(sanitizedMessage),
         responseTimeMs: responseTime,
       });
 
+      trackChatbotMessage('bot');
     } catch (error) {
+      if ((error as Error).name === 'AbortError') {
+        return;
+      }
+
       console.error("Chat error:", error);
-      const errorMsg = {
-        role: "assistant" as const,
-        content: "Maaf, terjadi kesalahan. Silakan coba lagi nanti.",
-      };
-      setMessages((prev) => [...prev, errorMsg]);
+      
+      const errorMessage = (error as Error).message;
+      let userFriendlyMessage = "Maaf, terjadi kesalahan. ";
+      
+      if (errorMessage === "ERR_RATE_LIMIT") {
+        userFriendlyMessage = "Terlalu banyak permintaan. Tunggu sebentar dan coba lagi.";
+      } else if (errorMessage === "ERR_PAYMENT_REQUIRED") {
+        userFriendlyMessage = "Layanan sementara tidak tersedia. Coba lagi nanti.";
+      } else if (retryCount < MAX_RETRIES - 1) {
+        const delay = Math.pow(2, retryCount) * 1000;
+        toast.info(`Mencoba ulang dalam ${delay / 1000} detik...`);
+        setTimeout(() => {
+          streamChat(sanitizedMessage, retryCount + 1);
+        }, delay);
+        return;
+      } else {
+        userFriendlyMessage += "Silakan coba lagi.";
+      }
+      
+      setLocalMessages((prev) => [
+        ...prev.filter(m => m.role === 'user'),
+        {
+          role: "assistant",
+          content: userFriendlyMessage,
+          failed: true,
+        },
+      ]);
     } finally {
       setIsStreaming(false);
-      trackChatbotMessage('bot');
+      abortControllerRef.current = null;
     }
-  };
+  }, [localMessages, user, userRole, userName, isOnline, trackChatbotMessage, saveMessage, trackAnalytics]);
 
   const detectQueryType = (message: string): string => {
     const lowerMsg = message.toLowerCase();
@@ -198,13 +298,31 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
   };
 
   const handleQuickAction = (query: string) => {
-    if (isStreaming) return;
+    if (isStreaming || !isOnline) return;
     streamChat(query);
+  };
+
+  const handleRetry = () => {
+    const lastUserMessage = [...localMessages].reverse().find(m => m.role === 'user');
+    if (lastUserMessage) {
+      setLocalMessages(localMessages.filter(m => !m.failed));
+      streamChat(lastUserMessage.content);
+    }
+  };
+
+  const handleNewChat = async () => {
+    await clearConversation();
+    setLocalMessages([]);
+    conversationLoadedRef.current = false;
+    toast.success("Percakapan baru dimulai");
   };
 
   const handleFeedback = async (satisfied: boolean) => {
     await trackAnalytics({ userSatisfied: satisfied });
+    toast.success(satisfied ? "Terima kasih atas feedbacknya!" : "Kami akan berusaha lebih baik");
   };
+
+  const hasFailed = localMessages.some(m => m.failed);
 
   if (!isOpen) return null;
 
@@ -221,6 +339,7 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
           size="icon"
           className="md:hidden h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
           onClick={onClose}
+          aria-label="Tutup"
         >
           <X className="h-4 w-4" />
         </Button>
@@ -229,21 +348,44 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-sm">Sihuni Assistant</h3>
-          <p className="text-xs opacity-80">Siap membantu Anda</p>
+          <div className="flex items-center gap-1 text-xs opacity-80">
+            {!isOnline && <WifiOff className="h-3 w-3" />}
+            <span>{isOnline ? "Siap membantu Anda" : "Offline"}</span>
+          </div>
         </div>
+        {localMessages.length > 0 && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
+            onClick={handleNewChat}
+            aria-label="Percakapan baru"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="icon"
           className="hidden md:flex h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
           onClick={onClose}
+          aria-label="Tutup"
         >
           <X className="h-4 w-4" />
         </Button>
       </div>
 
+      {/* Offline indicator */}
+      {!isOnline && (
+        <div className="bg-destructive/10 text-destructive text-xs p-2 text-center flex items-center justify-center gap-1">
+          <WifiOff className="h-3 w-3" />
+          <span>Tidak ada koneksi internet</span>
+        </div>
+      )}
+
       {/* Messages */}
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-        {messages.length === 0 ? (
+        {localMessages.length === 0 ? (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-muted-foreground">
               Hai{userName ? ` ${userName}` : ''}! 👋 Saya asisten Sihuni. Ada yang bisa saya bantu hari ini?
@@ -256,6 +398,7 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
                   size="sm"
                   className="justify-start text-xs h-auto py-2"
                   onClick={() => handleQuickAction(action.query)}
+                  disabled={!isOnline}
                 >
                   <action.icon className="h-4 w-4 mr-2 flex-shrink-0" />
                   {action.label}
@@ -265,21 +408,38 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            {messages.map((message, index) => (
+            {localMessages.map((message, index) => (
               <ChatMessageRenderer
                 key={index}
                 content={message.content}
                 role={message.role}
-                isLoading={isStreaming && index === messages.length - 1 && message.role === "assistant"}
+                isLoading={isStreaming && index === localMessages.length - 1 && message.role === "assistant"}
                 showFeedback={
                   message.role === "assistant" && 
-                  index === messages.length - 1 && 
+                  index === localMessages.length - 1 && 
                   !isStreaming && 
-                  message.content.length > 0
+                  message.content.length > 0 &&
+                  !message.failed
                 }
                 onFeedback={handleFeedback}
+                failed={message.failed}
               />
             ))}
+            
+            {/* Retry button for failed messages */}
+            {hasFailed && !isStreaming && (
+              <div className="flex justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRetry}
+                  className="gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Coba Lagi
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </ScrollArea>
@@ -288,12 +448,19 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
       <form onSubmit={handleSubmit} className="flex gap-2 border-t p-3 bg-background shrink-0 safe-area-bottom">
         <Input
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => setInput(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
           placeholder="Ketik pesan..."
-          disabled={isStreaming}
+          disabled={isStreaming || !isOnline}
           className="flex-1 rounded-full h-10"
+          maxLength={MAX_MESSAGE_LENGTH}
         />
-        <Button type="submit" size="icon" disabled={isStreaming || !input.trim()} className="rounded-full h-10 w-10 shrink-0">
+        <Button 
+          type="submit" 
+          size="icon" 
+          disabled={isStreaming || !input.trim() || !isOnline} 
+          className="rounded-full h-10 w-10 shrink-0"
+          aria-label="Kirim"
+        >
           {isStreaming ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
