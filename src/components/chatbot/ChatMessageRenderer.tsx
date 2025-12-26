@@ -10,6 +10,7 @@ interface ChatMessageRendererProps {
   isLoading?: boolean;
   onFeedback?: (satisfied: boolean) => void;
   showFeedback?: boolean;
+  failed?: boolean;
 }
 
 // Parse action buttons from AI response: [Button Text](path) or [Button Text]
@@ -54,6 +55,7 @@ export function ChatMessageRenderer({
   isLoading,
   onFeedback,
   showFeedback = false,
+  failed = false,
 }: ChatMessageRendererProps) {
   const navigate = useNavigate();
   const [feedbackGiven, setFeedbackGiven] = useState<boolean | null>(null);
