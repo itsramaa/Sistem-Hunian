@@ -7,25 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Star, MapPin, Store } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Search, Star, MapPin, Store, RefreshCw, AlertTriangle, TrendingUp } from "lucide-react";
 import { GridSkeleton } from "@/components/ui/skeletons";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { useAuth } from "@/hooks/useAuth";
-
-const SERVICE_CATEGORIES = [
-  "All",
-  "Plumbing",
-  "Electrical",
-  "Cleaning",
-  "Painting",
-  "AC Service",
-  "Carpentry",
-  "Gardening",
-  "Pest Control",
-  "Moving",
-  "Other",
-];
 
 interface Vendor {
   id: string;
@@ -38,18 +25,49 @@ interface Vendor {
   province: string | null;
 }
 
+// Pagination limit
+const PAGE_SIZE = 12;
+
 export default function TenantMarketplace() {
-  useAnalytics(); // Track page views automatically
-  const { user } = useAuth();
+  useAnalytics();
+  const { user, role } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedLocation, setSelectedLocation] = useState("All");
+  const [sortBy, setSortBy] = useState<"rating" | "jobs" | "name">("rating");
+  const [page, setPage] = useState(1);
+
+  // Role verification
+  if (role && role !== "tenant") {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  // Fetch service categories from database
+  const { data: serviceCategories } = useQuery({
+    queryKey: ["vendor-service-categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vendors")
+        .select("service_categories")
+        .eq("verification_status", "verified");
+      
+      if (error) throw error;
+      
+      // Extract unique categories
+      const categories = new Set<string>();
+      data?.forEach((v) => {
+        v.service_categories?.forEach((cat: string) => categories.add(cat));
+      });
+      
+      return ["All", ...Array.from(categories).sort()];
+    },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
 
   // Fetch tenant's property location
   const { data: tenantLocation } = useQuery({
     queryKey: ["tenant-location", user?.id],
     queryFn: async () => {
-      // Get tenant's active contract to find their property location
       const { data: contract } = await supabase
         .from("contracts")
         .select(`
@@ -65,9 +83,10 @@ export default function TenantMarketplace() {
         .maybeSingle();
       
       if (contract?.units?.properties) {
+        const props = contract.units.properties as { city?: string; province?: string };
         return {
-          city: (contract.units.properties as any).city,
-          province: (contract.units.properties as any).province,
+          city: props.city || null,
+          province: props.province || null,
         };
       }
       return null;
@@ -75,15 +94,15 @@ export default function TenantMarketplace() {
     enabled: !!user?.id,
   });
 
-  // Fetch verified vendors
-  const { data: vendors, isLoading } = useQuery({
+  // Fetch verified vendors with pagination support
+  const { data: vendors, isLoading, error, refetch } = useQuery({
     queryKey: ["marketplace-vendors"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vendors")
         .select("id, business_name, description, service_categories, rating, total_jobs, city, province")
         .eq("verification_status", "verified")
-        .order("rating", { ascending: false });
+        .order("rating", { ascending: false, nullsFirst: false });
       if (error) throw error;
       return data as Vendor[];
     },
@@ -99,39 +118,88 @@ export default function TenantMarketplace() {
     return Array.from(locations).sort();
   }, [vendors]);
 
-  // Filter vendors
+  // Sanitize search input
+  const sanitizedSearch = useMemo(() => {
+    return searchQuery.trim().slice(0, 100).toLowerCase();
+  }, [searchQuery]);
+
+  // Filter and sort vendors
   const filteredVendors = useMemo(() => {
     let result = vendors?.filter((vendor) => {
       const matchesSearch =
-        vendor.business_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        vendor.description?.toLowerCase().includes(searchQuery.toLowerCase());
+        !sanitizedSearch ||
+        vendor.business_name.toLowerCase().includes(sanitizedSearch) ||
+        vendor.description?.toLowerCase().includes(sanitizedSearch) ||
+        vendor.service_categories?.some(cat => cat.toLowerCase().includes(sanitizedSearch));
+      
       const matchesCategory =
         selectedCategory === "All" ||
         vendor.service_categories?.includes(selectedCategory);
-      const matchesLocation =
-        selectedLocation === "All" ||
-        selectedLocation === "My Area" ||
-        vendor.city === selectedLocation;
       
-      // If "My Area" is selected, filter by tenant's city
+      let matchesLocation = true;
       if (selectedLocation === "My Area" && tenantLocation?.city) {
-        return matchesSearch && matchesCategory && vendor.city === tenantLocation.city;
+        matchesLocation = vendor.city === tenantLocation.city;
+      } else if (selectedLocation !== "All") {
+        matchesLocation = vendor.city === selectedLocation;
       }
       
       return matchesSearch && matchesCategory && matchesLocation;
-    });
+    }) || [];
 
-    // Sort: vendors in tenant's city first
-    if (tenantLocation?.city && result) {
-      result = [...result].sort((a, b) => {
+    // Sort vendors
+    result = [...result].sort((a, b) => {
+      // First, prioritize vendors in tenant's city
+      if (tenantLocation?.city) {
         const aInCity = a.city === tenantLocation.city ? 0 : 1;
         const bInCity = b.city === tenantLocation.city ? 0 : 1;
-        return aInCity - bInCity;
-      });
-    }
+        if (aInCity !== bInCity) return aInCity - bInCity;
+      }
+
+      // Then apply selected sort
+      switch (sortBy) {
+        case "rating":
+          return (b.rating || 0) - (a.rating || 0);
+        case "jobs":
+          return (b.total_jobs || 0) - (a.total_jobs || 0);
+        case "name":
+          return a.business_name.localeCompare(b.business_name);
+        default:
+          return 0;
+      }
+    });
 
     return result;
-  }, [vendors, searchQuery, selectedCategory, selectedLocation, tenantLocation]);
+  }, [vendors, sanitizedSearch, selectedCategory, selectedLocation, tenantLocation, sortBy]);
+
+  // Paginated vendors
+  const paginatedVendors = useMemo(() => {
+    return filteredVendors.slice(0, page * PAGE_SIZE);
+  }, [filteredVendors, page]);
+
+  const hasMore = paginatedVendors.length < filteredVendors.length;
+
+  const categories = serviceCategories || ["All"];
+
+  // Error state
+  if (error) {
+    return (
+      <TenantLayout
+        title="Vendor Marketplace"
+        description="Browse and order services from verified vendors"
+      >
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>Gagal memuat data vendor. Silakan coba lagi.</span>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Coba Lagi
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </TenantLayout>
+    );
+  }
 
   return (
     <TenantLayout
@@ -143,25 +211,41 @@ export default function TenantMarketplace() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search vendors..."
+            placeholder="Search vendors or services..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(1); // Reset pagination on search
+            }}
             className="pl-9"
+            maxLength={100}
           />
         </div>
-        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+        <Select 
+          value={selectedCategory} 
+          onValueChange={(val) => {
+            setSelectedCategory(val);
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="w-full md:w-[180px]">
             <SelectValue placeholder="Category" />
           </SelectTrigger>
           <SelectContent>
-            {SERVICE_CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <SelectItem key={cat} value={cat}>
                 {cat}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+        <Select 
+          value={selectedLocation} 
+          onValueChange={(val) => {
+            setSelectedLocation(val);
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="w-full md:w-[180px]">
             <MapPin className="mr-2 h-4 w-4" />
             <SelectValue placeholder="Location" />
@@ -180,12 +264,33 @@ export default function TenantMarketplace() {
             ))}
           </SelectContent>
         </Select>
+        <Select 
+          value={sortBy} 
+          onValueChange={(val: "rating" | "jobs" | "name") => setSortBy(val)}
+        >
+          <SelectTrigger className="w-full md:w-[160px]">
+            <TrendingUp className="mr-2 h-4 w-4" />
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="rating">Highest Rating</SelectItem>
+            <SelectItem value="jobs">Most Jobs</SelectItem>
+            <SelectItem value="name">Name A-Z</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
+
+      {/* Results count */}
+      {!isLoading && filteredVendors.length > 0 && (
+        <p className="text-sm text-muted-foreground mb-4">
+          Showing {paginatedVendors.length} of {filteredVendors.length} vendors
+        </p>
+      )}
 
       {/* Vendors Grid */}
       {isLoading ? (
         <GridSkeleton count={6} />
-      ) : filteredVendors?.length === 0 ? (
+      ) : filteredVendors.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Store className="h-12 w-12 text-muted-foreground" />
@@ -193,60 +298,87 @@ export default function TenantMarketplace() {
             <p className="mt-2 text-sm text-muted-foreground">
               Try adjusting your search or filters
             </p>
+            <Button 
+              variant="outline" 
+              className="mt-4"
+              onClick={() => {
+                setSearchQuery("");
+                setSelectedCategory("All");
+                setSelectedLocation("All");
+              }}
+            >
+              Clear Filters
+            </Button>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredVendors?.map((vendor) => (
-            <Card key={vendor.id} className="transition-shadow hover:shadow-lg">
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-base">{vendor.business_name}</CardTitle>
-                    {vendor.city && (
-                      <div className="mt-1 flex items-center text-xs text-muted-foreground">
-                        <MapPin className="mr-1 h-3 w-3" />
-                        {vendor.city}
-                        {vendor.province && `, ${vendor.province}`}
-                      </div>
+        <>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {paginatedVendors.map((vendor) => (
+              <Card key={vendor.id} className="transition-shadow hover:shadow-lg">
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="text-base">{vendor.business_name}</CardTitle>
+                      {vendor.city && (
+                        <div className="mt-1 flex items-center text-xs text-muted-foreground">
+                          <MapPin className="mr-1 h-3 w-3" />
+                          {vendor.city}
+                          {vendor.province && `, ${vendor.province}`}
+                          {tenantLocation?.city === vendor.city && (
+                            <Badge variant="outline" className="ml-2 text-xs">
+                              Near you
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      <span className="text-sm font-medium">
+                        {vendor.rating ? vendor.rating.toFixed(1) : "—"}
+                      </span>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground line-clamp-2">
+                    {vendor.description || "Professional service provider"}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-1">
+                    {vendor.service_categories?.slice(0, 3).map((cat) => (
+                      <Badge key={cat} variant="secondary" className="text-xs">
+                        {cat}
+                      </Badge>
+                    ))}
+                    {(vendor.service_categories?.length || 0) > 3 && (
+                      <Badge variant="outline" className="text-xs">
+                        +{(vendor.service_categories?.length || 0) - 3}
+                      </Badge>
                     )}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    <span className="text-sm font-medium">
-                      {vendor.rating?.toFixed(1) || "New"}
+                  <div className="mt-4 flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      {vendor.total_jobs || 0} jobs completed
                     </span>
+                    <Button asChild size="sm">
+                      <Link to={`/tenant/marketplace/${vendor.id}`}>View Services</Link>
+                    </Button>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {vendor.description || "Professional service provider"}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-1">
-                  {vendor.service_categories?.slice(0, 3).map((cat) => (
-                    <Badge key={cat} variant="secondary" className="text-xs">
-                      {cat}
-                    </Badge>
-                  ))}
-                  {(vendor.service_categories?.length || 0) > 3 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{(vendor.service_categories?.length || 0) - 3}
-                    </Badge>
-                  )}
-                </div>
-                <div className="mt-4 flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">
-                    {vendor.total_jobs || 0} jobs completed
-                  </span>
-                  <Button asChild size="sm">
-                    <Link to={`/tenant/marketplace/${vendor.id}`}>View Services</Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Load More */}
+          {hasMore && (
+            <div className="mt-6 flex justify-center">
+              <Button variant="outline" onClick={() => setPage(p => p + 1)}>
+                Load More Vendors
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </TenantLayout>
   );

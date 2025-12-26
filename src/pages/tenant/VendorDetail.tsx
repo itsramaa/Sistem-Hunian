@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Navigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { TenantLayout } from "@/components/layouts/TenantLayout";
@@ -12,9 +12,10 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { Star, MapPin, Phone, Mail, CalendarIcon, ArrowLeft, Loader2, ShoppingCart, CreditCard, Tag, Check, X } from "lucide-react";
+import { Star, MapPin, Phone, Mail, CalendarIcon, ArrowLeft, Loader2, ShoppingCart, CreditCard, Tag, Check, X, RefreshCw, AlertTriangle, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { XenditPaymentModal } from "@/components/payment/XenditPaymentModal";
@@ -43,10 +44,21 @@ interface Vendor {
   contact_phone: string | null;
 }
 
+interface VendorReview {
+  id: string;
+  rating: number;
+  review_text: string | null;
+  created_at: string;
+}
+
+// Max lengths for validation
+const MAX_ADDRESS_LENGTH = 200;
+const MAX_NOTES_LENGTH = 500;
+
 export default function TenantVendorDetail() {
   const { vendorId } = useParams<{ vendorId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -66,14 +78,20 @@ export default function TenantVendorDetail() {
   const [createdOrder, setCreatedOrder] = useState<{ id: string; total: number } | null>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 
+  // Role verification
+  if (role && role !== "tenant") {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
   // Fetch vendor details
-  const { data: vendor, isLoading: vendorLoading } = useQuery({
+  const { data: vendor, isLoading: vendorLoading, error: vendorError, refetch: refetchVendor } = useQuery({
     queryKey: ["vendor-detail", vendorId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vendors")
         .select("*")
         .eq("id", vendorId)
+        .eq("verification_status", "verified")
         .single();
       if (error) throw error;
       return data as Vendor;
@@ -82,7 +100,7 @@ export default function TenantVendorDetail() {
   });
 
   // Fetch vendor products
-  const { data: products, isLoading: productsLoading } = useQuery({
+  const { data: products, isLoading: productsLoading, error: productsError, refetch: refetchProducts } = useQuery({
     queryKey: ["vendor-products-public", vendorId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -97,10 +115,37 @@ export default function TenantVendorDetail() {
     enabled: !!vendorId,
   });
 
+  // Fetch vendor reviews (from maintenance_reviews)
+  const { data: reviews } = useQuery({
+    queryKey: ["vendor-reviews", vendorId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("maintenance_reviews")
+        .select("id, rating, review_text, created_at")
+        .eq("vendor_id", vendorId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data as VendorReview[];
+    },
+    enabled: !!vendorId,
+  });
+
   // Create order mutation with escrow integration and voucher support
   const createOrderMutation = useMutation({
     mutationFn: async () => {
       if (!selectedProduct || !user?.id) throw new Error("Invalid order");
+
+      // Validate inputs
+      if (orderData.quantity < 1 || orderData.quantity > 100) {
+        throw new Error("Quantity must be between 1 and 100");
+      }
+      if (orderData.address.length > MAX_ADDRESS_LENGTH) {
+        throw new Error(`Address must be less than ${MAX_ADDRESS_LENGTH} characters`);
+      }
+      if (orderData.notes.length > MAX_NOTES_LENGTH) {
+        throw new Error(`Notes must be less than ${MAX_NOTES_LENGTH} characters`);
+      }
 
       const totalPrice = selectedProduct.price * orderData.quantity;
       const serviceFee = totalPrice * 0.05; // 5% service fee
@@ -118,9 +163,9 @@ export default function TenantVendorDetail() {
         total_price: finalTotal,
         service_fee: serviceFee,
         scheduled_date: orderData.scheduledDate ? format(orderData.scheduledDate, "yyyy-MM-dd") : null,
-        scheduled_time: orderData.scheduledTime || null,
-        address: orderData.address || null,
-        notes: orderData.notes ? `${orderData.notes}${voucherDiscount ? ` | Voucher: ${orderData.voucherCode} (-${discountAmount})` : ''}` : null,
+        scheduled_time: orderData.scheduledTime.slice(0, 20) || null,
+        address: orderData.address.slice(0, MAX_ADDRESS_LENGTH) || null,
+        notes: orderData.notes ? `${orderData.notes.slice(0, MAX_NOTES_LENGTH)}${voucherDiscount ? ` | Voucher: ${orderData.voucherCode} (-${discountAmount})` : ''}` : null,
         status: "pending",
       }]).select().single();
       
@@ -133,10 +178,6 @@ export default function TenantVendorDetail() {
           .update({ used_at: new Date().toISOString(), status: "used" })
           .eq("id", voucherDiscount.id);
       }
-
-      // Get vendor's merchant (if any) to link escrow account
-      // For vendor orders, we create an escrow transaction that will be processed on payment
-      // The escrow holds funds until order is completed
       
       return { id: orderData2.id, total: finalTotal, orderId: orderData2.id };
     },
@@ -242,6 +283,7 @@ export default function TenantVendorDetail() {
   };
 
   const isLoading = vendorLoading || productsLoading;
+  const hasError = vendorError || productsError;
 
   if (isLoading) {
     return (
@@ -249,6 +291,23 @@ export default function TenantVendorDetail() {
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
+      </TenantLayout>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <TenantLayout title="Error">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>Gagal memuat data vendor. Silakan coba lagi.</span>
+            <Button variant="outline" size="sm" onClick={() => { refetchVendor(); refetchProducts(); }}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Coba Lagi
+            </Button>
+          </AlertDescription>
+        </Alert>
       </TenantLayout>
     );
   }
@@ -306,7 +365,7 @@ export default function TenantVendorDetail() {
             <div className="space-y-2 text-sm">
               <div className="flex items-center gap-1">
                 <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                <span className="font-medium">{vendor.rating?.toFixed(1) || "New"}</span>
+                <span className="font-medium">{vendor.rating ? vendor.rating.toFixed(1) : "—"}</span>
                 <span className="text-muted-foreground">
                   ({vendor.total_jobs || 0} jobs)
                 </span>
@@ -327,6 +386,43 @@ export default function TenantVendorDetail() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Vendor Reviews Section */}
+      {reviews && reviews.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <MessageSquare className="h-4 w-4" />
+              Recent Reviews
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {reviews.map((review) => (
+                <div key={review.id} className="border-b pb-3 last:border-0">
+                  <div className="flex items-center gap-2">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star 
+                        key={i} 
+                        className={cn(
+                          "h-3 w-3",
+                          i < review.rating ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"
+                        )} 
+                      />
+                    ))}
+                    <span className="text-xs text-muted-foreground">
+                      {format(new Date(review.created_at), "dd MMM yyyy")}
+                    </span>
+                  </div>
+                  {review.review_text && (
+                    <p className="mt-1 text-sm text-muted-foreground">{review.review_text}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Products Grid */}
       <h3 className="mb-4 text-lg font-semibold">Available Services</h3>
@@ -391,9 +487,10 @@ export default function TenantVendorDetail() {
                 <Input
                   type="number"
                   min={1}
+                  max={100}
                   value={orderData.quantity}
                   onChange={(e) =>
-                    setOrderData({ ...orderData, quantity: parseInt(e.target.value) || 1 })
+                    setOrderData({ ...orderData, quantity: Math.min(100, Math.max(1, parseInt(e.target.value) || 1)) })
                   }
                 />
               </div>
@@ -432,7 +529,8 @@ export default function TenantVendorDetail() {
                 <Input
                   placeholder="e.g., 10:00 AM"
                   value={orderData.scheduledTime}
-                  onChange={(e) => setOrderData({ ...orderData, scheduledTime: e.target.value })}
+                  onChange={(e) => setOrderData({ ...orderData, scheduledTime: e.target.value.slice(0, 20) })}
+                  maxLength={20}
                 />
               </div>
 
@@ -441,8 +539,10 @@ export default function TenantVendorDetail() {
                 <Input
                   placeholder="Where should the service be done?"
                   value={orderData.address}
-                  onChange={(e) => setOrderData({ ...orderData, address: e.target.value })}
+                  onChange={(e) => setOrderData({ ...orderData, address: e.target.value.slice(0, MAX_ADDRESS_LENGTH) })}
+                  maxLength={MAX_ADDRESS_LENGTH}
                 />
+                <p className="text-xs text-muted-foreground">{orderData.address.length}/{MAX_ADDRESS_LENGTH}</p>
               </div>
 
               <div className="space-y-2">
@@ -450,9 +550,11 @@ export default function TenantVendorDetail() {
                 <Textarea
                   placeholder="Any special instructions..."
                   value={orderData.notes}
-                  onChange={(e) => setOrderData({ ...orderData, notes: e.target.value })}
+                  onChange={(e) => setOrderData({ ...orderData, notes: e.target.value.slice(0, MAX_NOTES_LENGTH) })}
                   rows={2}
+                  maxLength={MAX_NOTES_LENGTH}
                 />
+                <p className="text-xs text-muted-foreground">{orderData.notes.length}/{MAX_NOTES_LENGTH}</p>
               </div>
 
               {/* Voucher Code Input */}
@@ -466,10 +568,11 @@ export default function TenantVendorDetail() {
                     placeholder="Enter voucher code"
                     value={orderData.voucherCode}
                     onChange={(e) => {
-                      setOrderData({ ...orderData, voucherCode: e.target.value.toUpperCase() });
+                      setOrderData({ ...orderData, voucherCode: e.target.value.toUpperCase().slice(0, 20) });
                       setVoucherDiscount(null);
                       setVoucherError(null);
                     }}
+                    maxLength={20}
                   />
                   <Button
                     type="button"
