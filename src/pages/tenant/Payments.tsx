@@ -15,6 +15,7 @@ import { DollarSign, Clock, CheckCircle, FileText, Calendar, CreditCard, AlertTr
 import { StatsCardSkeleton, PaymentCardSkeleton } from "@/components/ui/skeletons";
 import { format, isPast, parseISO } from 'date-fns';
 import { XenditPaymentModal } from '@/components/payment/XenditPaymentModal';
+import { PaymentHistoryExport } from '@/components/payment/PaymentHistoryExport';
 import { usePaymentTracking } from '@/hooks/useAnalytics';
 
 type Payment = {
@@ -411,6 +412,20 @@ export default function TenantPayments() {
 
         {/* Payment History Tab */}
         <TabsContent value="history" className="space-y-4">
+          {/* Export Button */}
+          <div className="flex justify-end">
+            <PaymentHistoryExport
+              payments={payments.map(p => ({
+                id: p.id,
+                date: p.paid_at || p.due_date,
+                description: `${p.payment_type} Payment`,
+                amount: Number(p.amount),
+                status: p.status,
+                method: p.payment_method || undefined,
+                reference: p.reference || undefined,
+              }))}
+            />
+          </div>
           {paymentsLoading ? (
             <div className="space-y-4">
               {Array.from({ length: 3 }).map((_, i) => <PaymentCardSkeleton key={i} />)}
