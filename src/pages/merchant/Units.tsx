@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { DashboardLayout } from "@/components/layouts/DashboardLayout";
+import { MerchantLayout } from "@/components/layouts/MerchantLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { 
   Plus, 
@@ -41,9 +52,13 @@ import {
   Trash2,
   Filter,
   DollarSign,
-  Layers
+  Layers,
+  AlertTriangle,
+  Loader2
 } from "lucide-react";
 import { UnitPhotoUpload } from "@/components/merchant/UnitPhotoUpload";
+import { SubscriptionLimitWarning } from "@/components/merchant/SubscriptionLimitWarning";
+import { useSubscriptionLimits } from "@/hooks/useSubscriptionLimits";
 
 interface Unit {
   id: string;
@@ -125,14 +140,18 @@ const statusColors: Record<string, string> = {
   reserved: 'bg-info/10 text-info border-info/20',
 };
 
+const MAX_REASONABLE_SIZE = 10000; // 10,000 sqm
+
 export default function MerchantUnits() {
-  const { user } = useAuth();
+  const { merchant } = useAuth();
   const queryClient = useQueryClient();
+  const { data: subscriptionLimits } = useSubscriptionLimits();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     property_id: '',
     unit_number: '',
@@ -145,22 +164,7 @@ export default function MerchantUnits() {
     description: '',
     photos: [] as string[],
   });
-
-  // Fetch merchant
-  const { data: merchant } = useQuery({
-    queryKey: ['merchant', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null;
-      const { data, error } = await supabase
-        .from('merchants')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id,
-  });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Fetch properties
   const { data: properties = [] } = useQuery({
@@ -197,19 +201,75 @@ export default function MerchantUnits() {
     enabled: !!merchant?.id && properties.length > 0,
   });
 
+  // Validate form
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (!formData.property_id) {
+      errors.property_id = 'Please select a property';
+    }
+    if (!formData.unit_number.trim()) {
+      errors.unit_number = 'Unit number is required';
+    }
+    
+    const rentAmount = parseFloat(formData.rent_amount);
+    if (!formData.rent_amount || isNaN(rentAmount)) {
+      errors.rent_amount = 'Valid rent amount is required';
+    } else if (rentAmount < 0) {
+      errors.rent_amount = 'Rent amount cannot be negative';
+    }
+
+    const floor = formData.floor ? parseInt(formData.floor) : null;
+    if (floor !== null && floor < 0) {
+      errors.floor = 'Floor cannot be negative';
+    }
+
+    const size = formData.size_sqm ? parseFloat(formData.size_sqm) : null;
+    if (size !== null && (size < 0 || size > MAX_REASONABLE_SIZE)) {
+      errors.size_sqm = `Size must be between 0 and ${MAX_REASONABLE_SIZE} sqm`;
+    }
+
+    const deposit = formData.deposit_amount ? parseFloat(formData.deposit_amount) : null;
+    if (deposit !== null && deposit < 0) {
+      errors.deposit_amount = 'Deposit cannot be negative';
+    }
+
+    // Check for duplicate unit number within same property
+    const existingUnit = units.find(u => 
+      u.property_id === formData.property_id && 
+      u.unit_number.toLowerCase() === formData.unit_number.toLowerCase().trim() &&
+      u.id !== editingUnit?.id
+    );
+    if (existingUnit) {
+      errors.unit_number = 'A unit with this number already exists in this property';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   // Create/Update unit mutation
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (!validateForm()) {
+        throw new Error('Please fix the form errors');
+      }
+
+      // Check subscription limits for new units
+      if (!editingUnit && subscriptionLimits && !subscriptionLimits.canAddUnit) {
+        throw new Error(`Unit limit reached (${subscriptionLimits.currentUnits}/${subscriptionLimits.maxUnits}). Please upgrade your subscription.`);
+      }
+
       const unitData = {
         property_id: formData.property_id,
-        unit_number: formData.unit_number,
+        unit_number: formData.unit_number.trim(),
         unit_type: formData.unit_type,
         floor: formData.floor ? parseInt(formData.floor) : null,
         size_sqm: formData.size_sqm ? parseFloat(formData.size_sqm) : null,
         rent_amount: parseFloat(formData.rent_amount),
         deposit_amount: formData.deposit_amount ? parseFloat(formData.deposit_amount) : null,
         status: formData.status,
-        description: formData.description || null,
+        description: formData.description?.trim() || null,
         photos: formData.photos,
       };
 
@@ -228,18 +288,45 @@ export default function MerchantUnits() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['merchant-all-units'] });
-      toast.success(editingUnit ? 'Unit updated' : 'Unit created');
+      queryClient.invalidateQueries({ queryKey: ['subscription-limits'] });
+      toast.success(editingUnit ? 'Unit updated successfully' : 'Unit created successfully');
       handleDialogClose();
     },
-    onError: (error: any) => {
-      console.error('Unit save error:', error);
-      toast.error(error?.message || 'Failed to save unit');
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to save unit');
     },
   });
 
   // Delete unit mutation
   const deleteMutation = useMutation({
     mutationFn: async (unitId: string) => {
+      // Check for active contracts
+      const { data: activeContracts, error: contractError } = await supabase
+        .from('contracts')
+        .select('id')
+        .eq('unit_id', unitId)
+        .in('status', ['active', 'pending']);
+
+      if (contractError) throw contractError;
+
+      if (activeContracts && activeContracts.length > 0) {
+        throw new Error('Cannot delete unit with active or pending contracts');
+      }
+
+      // Check for pending invitations
+      const { data: pendingInvitations, error: inviteError } = await supabase
+        .from('tenant_invitations')
+        .select('id')
+        .eq('unit_id', unitId)
+        .eq('status', 'pending');
+
+      if (inviteError) throw inviteError;
+
+      if (pendingInvitations && pendingInvitations.length > 0) {
+        throw new Error('Cannot delete unit with pending tenant invitations');
+      }
+
+      // Delete the unit
       const { error } = await supabase
         .from('units')
         .delete()
@@ -248,16 +335,20 @@ export default function MerchantUnits() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['merchant-all-units'] });
-      toast.success('Unit deleted');
+      queryClient.invalidateQueries({ queryKey: ['subscription-limits'] });
+      toast.success('Unit deleted successfully');
+      setDeleteLoading(null);
     },
-    onError: () => {
-      toast.error('Failed to delete unit');
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to delete unit');
+      setDeleteLoading(null);
     },
   });
 
   const handleDialogClose = () => {
     setIsDialogOpen(false);
     setEditingUnit(null);
+    setFormErrors({});
     setFormData({
       property_id: '',
       unit_number: '',
@@ -274,6 +365,7 @@ export default function MerchantUnits() {
 
   const handleEdit = (unit: Unit) => {
     setEditingUnit(unit);
+    setFormErrors({});
     setFormData({
       property_id: unit.property_id,
       unit_number: unit.unit_number,
@@ -289,6 +381,11 @@ export default function MerchantUnits() {
     setIsDialogOpen(true);
   };
 
+  const handleDelete = (unitId: string) => {
+    setDeleteLoading(unitId);
+    deleteMutation.mutate(unitId);
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -297,29 +394,32 @@ export default function MerchantUnits() {
     }).format(amount);
   };
 
-  // Filter units
-  const filteredUnits = units.filter(unit => {
+  // Memoize filtered units
+  const filteredUnits = useMemo(() => units.filter(unit => {
     const matchesSearch = unit.unit_number.toLowerCase().includes(search.toLowerCase()) ||
       unit.property?.name.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'all' || unit.status === statusFilter;
     const matchesProperty = propertyFilter === 'all' || unit.property_id === propertyFilter;
     return matchesSearch && matchesStatus && matchesProperty;
-  });
+  }), [units, search, statusFilter, propertyFilter]);
 
-  // Statistics
-  const totalUnits = units.length;
-  const occupiedUnits = units.filter(u => u.status === 'occupied').length;
-  const availableUnits = units.filter(u => u.status === 'available').length;
-  const totalMonthlyRent = units.filter(u => u.status === 'occupied').reduce((sum, u) => sum + u.rent_amount, 0);
+  // Memoize statistics
+  const stats = useMemo(() => ({
+    totalUnits: units.length,
+    occupiedUnits: units.filter(u => u.status === 'occupied').length,
+    availableUnits: units.filter(u => u.status === 'available').length,
+    totalMonthlyRent: units.filter(u => u.status === 'occupied').reduce((sum, u) => sum + u.rent_amount, 0),
+  }), [units]);
+
+  const canAddUnit = !subscriptionLimits || subscriptionLimits.canAddUnit;
 
   return (
-    <DashboardLayout 
-      role="merchant" 
+    <MerchantLayout 
       description="View and manage all your rental units"
       actions={
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button disabled={properties.length === 0}>
+            <Button disabled={properties.length === 0 || !canAddUnit}>
               <Plus className="h-4 w-4 mr-2" />
               Add Unit
             </Button>
@@ -335,7 +435,7 @@ export default function MerchantUnits() {
                   value={formData.property_id} 
                   onValueChange={(value) => setFormData({ ...formData, property_id: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className={formErrors.property_id ? 'border-destructive' : ''}>
                     <SelectValue placeholder="Select property" />
                   </SelectTrigger>
                   <SelectContent>
@@ -346,6 +446,9 @@ export default function MerchantUnits() {
                     ))}
                   </SelectContent>
                 </Select>
+                {formErrors.property_id && (
+                  <p className="text-sm text-destructive">{formErrors.property_id}</p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -355,7 +458,11 @@ export default function MerchantUnits() {
                     value={formData.unit_number}
                     onChange={(e) => setFormData({ ...formData, unit_number: e.target.value })}
                     placeholder="e.g., A101"
+                    className={formErrors.unit_number ? 'border-destructive' : ''}
                   />
+                  {formErrors.unit_number && (
+                    <p className="text-sm text-destructive">{formErrors.unit_number}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Unit Type</Label>
@@ -382,19 +489,30 @@ export default function MerchantUnits() {
                   <Label>Floor</Label>
                   <Input
                     type="number"
+                    min="0"
                     value={formData.floor}
                     onChange={(e) => setFormData({ ...formData, floor: e.target.value })}
                     placeholder="Floor number"
+                    className={formErrors.floor ? 'border-destructive' : ''}
                   />
+                  {formErrors.floor && (
+                    <p className="text-sm text-destructive">{formErrors.floor}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Size (sqm)</Label>
                   <Input
                     type="number"
+                    min="0"
+                    max={MAX_REASONABLE_SIZE}
                     value={formData.size_sqm}
                     onChange={(e) => setFormData({ ...formData, size_sqm: e.target.value })}
                     placeholder="Size in sqm"
+                    className={formErrors.size_sqm ? 'border-destructive' : ''}
                   />
+                  {formErrors.size_sqm && (
+                    <p className="text-sm text-destructive">{formErrors.size_sqm}</p>
+                  )}
                 </div>
               </div>
 
@@ -403,19 +521,29 @@ export default function MerchantUnits() {
                   <Label>Monthly Rent *</Label>
                   <Input
                     type="number"
+                    min="0"
                     value={formData.rent_amount}
                     onChange={(e) => setFormData({ ...formData, rent_amount: e.target.value })}
                     placeholder="Rent amount"
+                    className={formErrors.rent_amount ? 'border-destructive' : ''}
                   />
+                  {formErrors.rent_amount && (
+                    <p className="text-sm text-destructive">{formErrors.rent_amount}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Deposit Amount</Label>
                   <Input
                     type="number"
+                    min="0"
                     value={formData.deposit_amount}
                     onChange={(e) => setFormData({ ...formData, deposit_amount: e.target.value })}
                     placeholder="Deposit amount"
+                    className={formErrors.deposit_amount ? 'border-destructive' : ''}
                   />
+                  {formErrors.deposit_amount && (
+                    <p className="text-sm text-destructive">{formErrors.deposit_amount}</p>
+                  )}
                 </div>
               </div>
 
@@ -435,6 +563,12 @@ export default function MerchantUnits() {
                     <SelectItem value="reserved">Reserved</SelectItem>
                   </SelectContent>
                 </Select>
+                {formData.status === 'occupied' && !editingUnit && (
+                  <p className="text-xs text-warning flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    Setting as occupied manually. Consider creating a contract instead.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -462,9 +596,10 @@ export default function MerchantUnits() {
                 </Button>
                 <Button 
                   onClick={() => saveMutation.mutate()}
-                  disabled={!formData.property_id || !formData.unit_number || !formData.rent_amount || saveMutation.isPending}
+                  disabled={saveMutation.isPending}
                 >
-                  {saveMutation.isPending ? 'Saving...' : editingUnit ? 'Update' : 'Create'}
+                  {saveMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {editingUnit ? 'Update' : 'Create'}
                 </Button>
               </div>
             </div>
@@ -472,6 +607,11 @@ export default function MerchantUnits() {
         </Dialog>
       }
     >
+      {/* Subscription Warning */}
+      {subscriptionLimits?.isNearUnitLimit && (
+        <SubscriptionLimitWarning type="unit" />
+      )}
+
       {/* Statistics Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <Card>
@@ -482,7 +622,7 @@ export default function MerchantUnits() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Units</p>
-                <p className="text-2xl font-bold">{totalUnits}</p>
+                <p className="text-2xl font-bold">{stats.totalUnits}</p>
               </div>
             </div>
           </CardContent>
@@ -495,7 +635,7 @@ export default function MerchantUnits() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Available</p>
-                <p className="text-2xl font-bold">{availableUnits}</p>
+                <p className="text-2xl font-bold">{stats.availableUnits}</p>
               </div>
             </div>
           </CardContent>
@@ -508,7 +648,7 @@ export default function MerchantUnits() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Occupied</p>
-                <p className="text-2xl font-bold">{occupiedUnits}</p>
+                <p className="text-2xl font-bold">{stats.occupiedUnits}</p>
               </div>
             </div>
           </CardContent>
@@ -521,7 +661,7 @@ export default function MerchantUnits() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Monthly Revenue</p>
-                <p className="text-lg font-bold">{formatCurrency(totalMonthlyRent)}</p>
+                <p className="text-lg font-bold">{formatCurrency(stats.totalMonthlyRent)}</p>
               </div>
             </div>
           </CardContent>
@@ -627,17 +767,43 @@ export default function MerchantUnits() {
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => {
-                              if (confirm('Are you sure you want to delete this unit?')) {
-                                deleteMutation.mutate(unit.id);
-                              }
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                disabled={deleteLoading === unit.id}
+                              >
+                                {deleteLoading === unit.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                )}
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Unit</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete unit "{unit.unit_number}"? This action cannot be undone.
+                                  {unit.status === 'occupied' && (
+                                    <span className="block mt-2 text-destructive font-medium">
+                                      Warning: This unit appears to be occupied.
+                                    </span>
+                                  )}
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDelete(unit.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -648,6 +814,6 @@ export default function MerchantUnits() {
           )}
         </CardContent>
       </Card>
-    </DashboardLayout>
+    </MerchantLayout>
   );
 }

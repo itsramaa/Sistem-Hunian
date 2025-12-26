@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Send, Search, Users, Mail, Clock, CheckCircle, XCircle, Home, Copy } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Send, Search, Users, Mail, Clock, CheckCircle, XCircle, Home, Copy, AlertTriangle, RefreshCw } from 'lucide-react';
 import { MerchantLayout } from '@/components/layouts/MerchantLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,8 +14,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { StatsCardSkeleton, TableRowSkeleton } from '@/components/ui/skeletons';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface TenantInvitation {
   id: string;
@@ -41,10 +42,16 @@ interface Property {
   units: { id: string; unit_number: string; status: string }[];
 }
 
+// Indonesian phone validation
+const phoneRegex = /^(\+62|62|0)8[1-9][0-9]{6,10}$/;
+
 const invitationSchema = z.object({
   unit_id: z.string().min(1, 'Please select a unit'),
-  email: z.string().email('Invalid email address'),
-  phone: z.string().optional(),
+  email: z.string().email('Invalid email address').max(255, 'Email too long'),
+  phone: z.string().optional().refine((val) => {
+    if (!val || val.trim() === '') return true;
+    return phoneRegex.test(val.replace(/\s|-/g, ''));
+  }, 'Invalid Indonesian phone number (e.g., +628123456789)'),
 });
 
 type InvitationFormData = z.infer<typeof invitationSchema>;
@@ -57,16 +64,12 @@ const statusColors: Record<string, string> = {
 };
 
 export default function MerchantTenants() {
-  const [invitations, setInvitations] = useState<TenantInvitation[]>([]);
-  const [activeContractsCount, setActiveContractsCount] = useState(0);
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showInviteDialog, setShowInviteDialog] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false);
   const { toast } = useToast();
   const { merchant } = useAuth();
+  const queryClient = useQueryClient();
 
   const inviteForm = useForm<InvitationFormData>({
     resolver: zodResolver(invitationSchema),
@@ -77,115 +80,142 @@ export default function MerchantTenants() {
     },
   });
 
-  useEffect(() => {
-    if (merchant) {
-      fetchData();
-    }
-  }, [merchant]);
-
-  const fetchData = async () => {
-    if (!merchant) return;
-    setLoading(true);
-    try {
-      // Fetch properties with units
-      const { data: propsData } = await supabase
+  // Fetch properties with units using React Query
+  const { data: properties = [], isLoading: propertiesLoading, error: propertiesError } = useQuery({
+    queryKey: ['merchant-properties-with-units', merchant?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
         .from('properties')
         .select('id, name, units(id, unit_number, status)')
-        .eq('merchant_id', merchant.id);
+        .eq('merchant_id', merchant?.id);
+      if (error) throw error;
+      return (data as Property[]) || [];
+    },
+    enabled: !!merchant?.id,
+  });
 
-      setProperties((propsData as Property[]) || []);
-
-      // Fetch invitations
-      const { data: invData } = await supabase
+  // Fetch invitations using React Query
+  const { data: invitations = [], isLoading: invitationsLoading, error: invitationsError, refetch: refetchInvitations } = useQuery({
+    queryKey: ['tenant-invitations', merchant?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
         .from('tenant_invitations')
         .select('*, units:unit_id(unit_number, properties:property_id(name))')
-        .eq('merchant_id', merchant.id)
+        .eq('merchant_id', merchant?.id)
         .order('created_at', { ascending: false });
 
+      if (error) throw error;
+
       // Transform invitations data
-      const transformedInvitations = (invData || []).map((inv: any) => ({
+      return (data || []).map((inv: any) => ({
         ...inv,
         unit: inv.units ? {
           unit_number: inv.units.unit_number,
           property: inv.units.properties ? { name: inv.units.properties.name } : undefined
         } : undefined
-      }));
-      setInvitations(transformedInvitations);
+      })) as TenantInvitation[];
+    },
+    enabled: !!merchant?.id,
+  });
 
-      // Fetch active contracts count
-      const { count } = await supabase
+  // Fetch active contracts count
+  const { data: activeContractsCount = 0 } = useQuery({
+    queryKey: ['active-contracts-count', merchant?.id],
+    queryFn: async () => {
+      const { count, error } = await supabase
         .from('contracts')
         .select('id', { count: 'exact', head: true })
-        .eq('merchant_id', merchant.id)
+        .eq('merchant_id', merchant?.id)
         .eq('status', 'active');
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!merchant?.id,
+  });
 
-      setActiveContractsCount(count || 0);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to load data',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Send invitation mutation
+  const sendInvitationMutation = useMutation({
+    mutationFn: async (data: InvitationFormData) => {
+      if (!merchant) throw new Error('Merchant not found');
 
-  const handleSendInvitation = async (data: InvitationFormData) => {
-    if (!merchant) return;
-    setActionLoading(true);
-    try {
+      // Check for existing pending invitation to same email
+      const { data: existingEmail } = await supabase
+        .from('tenant_invitations')
+        .select('id')
+        .eq('merchant_id', merchant.id)
+        .eq('email', data.email.toLowerCase().trim())
+        .eq('status', 'pending')
+        .maybeSingle();
+
+      if (existingEmail) {
+        throw new Error('A pending invitation already exists for this email address');
+      }
+
+      // Check for existing pending invitation for this unit
+      const { data: existingUnit } = await supabase
+        .from('tenant_invitations')
+        .select('id')
+        .eq('unit_id', data.unit_id)
+        .eq('status', 'pending')
+        .maybeSingle();
+
+      if (existingUnit) {
+        throw new Error('A pending invitation already exists for this unit');
+      }
+
       const { error } = await supabase
         .from('tenant_invitations')
         .insert({
           merchant_id: merchant.id,
           unit_id: data.unit_id,
-          email: data.email,
-          phone: data.phone || null,
+          email: data.email.toLowerCase().trim(),
+          phone: data.phone?.replace(/\s|-/g, '') || null,
         });
 
       if (error) throw error;
-      
+    },
+    onSuccess: () => {
       toast({ 
         title: 'Invitation Sent', 
-        description: `Invitation sent to ${data.email}` 
+        description: `Invitation sent to ${inviteForm.getValues('email')}` 
       });
       setShowInviteDialog(false);
       inviteForm.reset();
-      fetchData();
-    } catch (error: any) {
-      console.error('Error sending invitation:', error);
+      queryClient.invalidateQueries({ queryKey: ['tenant-invitations'] });
+    },
+    onError: (error: Error) => {
       toast({
         variant: 'destructive',
         title: 'Error',
         description: error.message || 'Failed to send invitation',
       });
-    } finally {
-      setActionLoading(false);
-    }
-  };
+    },
+  });
 
-  const cancelInvitation = async (id: string) => {
-    try {
+  // Cancel invitation mutation
+  const cancelInvitationMutation = useMutation({
+    mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('tenant_invitations')
         .update({ status: 'cancelled' })
         .eq('id', id);
-
       if (error) throw error;
+    },
+    onSuccess: () => {
       toast({ title: 'Invitation Cancelled' });
-      fetchData();
-    } catch (error: any) {
+      queryClient.invalidateQueries({ queryKey: ['tenant-invitations'] });
+    },
+    onError: (error: Error) => {
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to cancel invitation',
+        title: 'Failed to cancel',
+        description: error.message || 'Could not cancel the invitation. Please try again.',
       });
-    }
-  };
+    },
+  });
 
   const resendInvitation = async (invitation: TenantInvitation) => {
+    // TODO: Implement actual email resend via edge function
     toast({ 
       title: 'Invitation Resent', 
       description: `Invitation resent to ${invitation.email}` 
@@ -193,7 +223,9 @@ export default function MerchantTenants() {
   };
 
   const copyInvitationLink = (invitation: TenantInvitation) => {
-    const inviteUrl = `${window.location.origin}/invite/${invitation.token}`;
+    // Use environment-based URL
+    const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    const inviteUrl = `${baseUrl}/invite/${invitation.token}`;
     navigator.clipboard.writeText(inviteUrl);
     toast({ 
       title: 'Copied!', 
@@ -201,19 +233,56 @@ export default function MerchantTenants() {
     });
   };
 
-  const availableUnits = properties.flatMap(p => 
-    (p.units || [])
-      .filter(u => u.status === 'available')
-      .map(u => ({ ...u, propertyName: p.name }))
+  // Memoize available units calculation
+  const availableUnits = useMemo(() => 
+    properties.flatMap(p => 
+      (p.units || [])
+        .filter(u => u.status === 'available')
+        .map(u => ({ ...u, propertyName: p.name }))
+    ), [properties]
   );
 
-  const filteredInvitations = invitations.filter(inv => {
-    const matchesSearch = inv.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inv.unit?.property?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inv.unit?.unit_number?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || inv.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  // Memoize filtered invitations
+  const filteredInvitations = useMemo(() => 
+    invitations.filter(inv => {
+      const matchesSearch = inv.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        inv.unit?.property?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        inv.unit?.unit_number?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || inv.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    }), [invitations, searchQuery, statusFilter]
+  );
+
+  const loading = propertiesLoading || invitationsLoading;
+  const hasError = propertiesError || invitationsError;
+
+  // Calculate time remaining for pending invitations
+  const getExpiryStatus = (expiresAt: string) => {
+    const daysRemaining = differenceInDays(new Date(expiresAt), new Date());
+    if (daysRemaining <= 0) return { text: 'Expired', urgent: true };
+    if (daysRemaining <= 2) return { text: `${daysRemaining}d left`, urgent: true };
+    return { text: format(new Date(expiresAt), 'MMM d, yyyy'), urgent: false };
+  };
+
+  if (hasError) {
+    return (
+      <MerchantLayout title="Tenants" description="Manage tenant invitations">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
+            <h3 className="text-lg font-medium mb-2">Failed to load data</h3>
+            <p className="text-sm text-muted-foreground text-center mb-4">
+              There was an error loading tenant data. Please try again.
+            </p>
+            <Button onClick={() => refetchInvitations()}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </MerchantLayout>
+    );
+  }
 
   return (
     <MerchantLayout
@@ -222,7 +291,7 @@ export default function MerchantTenants() {
       actions={
         <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
           <DialogTrigger asChild>
-            <Button>
+            <Button disabled={availableUnits.length === 0}>
               <Send className="h-4 w-4 mr-2" />
               Send Invitation
             </Button>
@@ -234,7 +303,7 @@ export default function MerchantTenants() {
                 Send an invitation link to a prospective tenant
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={inviteForm.handleSubmit(handleSendInvitation)} className="space-y-4 mt-4">
+            <form onSubmit={inviteForm.handleSubmit((data) => sendInvitationMutation.mutate(data))} className="space-y-4 mt-4">
               <div>
                 <Label htmlFor="unit_id">Select Unit</Label>
                 <Select 
@@ -272,16 +341,22 @@ export default function MerchantTenants() {
                 <Label htmlFor="phone">Phone (Optional)</Label>
                 <Input
                   id="phone"
-                  placeholder="+62..."
+                  placeholder="+62812345678"
                   {...inviteForm.register('phone')}
                 />
+                {inviteForm.formState.errors.phone && (
+                  <p className="text-sm text-destructive mt-1">{inviteForm.formState.errors.phone.message}</p>
+                )}
+                <p className="text-xs text-muted-foreground mt-1">
+                  Indonesian format: +62, 62, or 08 prefix
+                </p>
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setShowInviteDialog(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={actionLoading}>
-                  {actionLoading ? 'Sending...' : 'Send Invitation'}
+                <Button type="submit" disabled={sendInvitationMutation.isPending}>
+                  {sendInvitationMutation.isPending ? 'Sending...' : 'Send Invitation'}
                 </Button>
               </DialogFooter>
             </form>
@@ -398,7 +473,7 @@ export default function MerchantTenants() {
               <p className="text-sm text-muted-foreground text-center mb-4">
                 Send your first invitation to a prospective tenant
               </p>
-              <Button onClick={() => setShowInviteDialog(true)}>
+              <Button onClick={() => setShowInviteDialog(true)} disabled={availableUnits.length === 0}>
                 <Send className="h-4 w-4 mr-2" />
                 Send Invitation
               </Button>
@@ -418,60 +493,66 @@ export default function MerchantTenants() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredInvitations.map((inv) => (
-                    <tr key={inv.id} className="border-b border-border/50 hover:bg-muted/50">
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          <Mail className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm">{inv.email}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-sm">
-                        {inv.unit?.property?.name} - Unit {inv.unit?.unit_number}
-                      </td>
-                      <td className="py-3 px-4">
-                        <Badge variant="outline" className={statusColors[inv.status || 'pending']}>
-                          {inv.status}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4 text-sm text-muted-foreground">
-                        {format(new Date(inv.expires_at), 'MMM d, yyyy')}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex justify-end gap-2">
-                          {inv.status === 'pending' && (
-                            <>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                title="Copy invitation link"
-                                onClick={() => copyInvitationLink(inv)}
-                              >
-                                <Copy className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                title="Resend invitation"
-                                onClick={() => resendInvitation(inv)}
-                              >
-                                <Send className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                className="text-destructive"
-                                title="Cancel invitation"
-                                onClick={() => cancelInvitation(inv.id)}
-                              >
-                                <XCircle className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredInvitations.map((inv) => {
+                    const expiryStatus = getExpiryStatus(inv.expires_at);
+                    return (
+                      <tr key={inv.id} className="border-b border-border/50 hover:bg-muted/50">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm">{inv.email}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-sm">
+                          {inv.unit?.property?.name} - Unit {inv.unit?.unit_number}
+                        </td>
+                        <td className="py-3 px-4">
+                          <Badge variant="outline" className={statusColors[inv.status || 'pending']}>
+                            {inv.status}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`text-sm ${expiryStatus.urgent ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                            {expiryStatus.text}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            {inv.status === 'pending' && (
+                              <>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  title="Copy invitation link"
+                                  onClick={() => copyInvitationLink(inv)}
+                                >
+                                  <Copy className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  title="Resend invitation"
+                                  onClick={() => resendInvitation(inv)}
+                                >
+                                  <Send className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  title="Cancel invitation"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => cancelInvitationMutation.mutate(inv.id)}
+                                  disabled={cancelInvitationMutation.isPending}
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </CardContent>
