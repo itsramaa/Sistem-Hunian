@@ -16,7 +16,10 @@ import {
   History,
   Home,
   BarChart3,
-  Activity
+  Activity,
+  Loader2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,6 +45,8 @@ import { RejectionReasonForm } from '@/components/admin/RejectionReasonForm';
 import { BulkApprovalDialog } from '@/components/admin/BulkApprovalDialog';
 import { MerchantAnalyticsTab } from '@/components/admin/MerchantAnalyticsTab';
 import { MerchantActivityTab } from '@/components/admin/MerchantActivityTab';
+import { useAdminGuard } from '@/hooks/useAdminGuard';
+import { logExport } from '@/lib/auditLog';
 
 interface Merchant {
   id: string;
