@@ -5,37 +5,71 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Gift, Building2, User, Wrench, CheckCircle, ArrowRight } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Loader2, Gift, Building2, User, Wrench, CheckCircle, ArrowRight, AlertCircle, XCircle } from 'lucide-react';
+import { REFERRAL_ERROR_MESSAGES } from '@/lib/auth-errors';
+import { referralCodeSchema, selectableRoleSchema } from '@/lib/validations/auth';
+
+type ReferralErrorType = 'NOT_FOUND' | 'EXPIRED' | 'MAX_USES' | 'INACTIVE';
 
 export default function ReferralInvite() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const refCode = searchParams.get('ref');
-  const role = searchParams.get('role') as 'merchant' | 'tenant' | 'vendor' | null;
+  const rawRefCode = searchParams.get('ref');
+  const rawRole = searchParams.get('role');
+  const [manualCode, setManualCode] = useState('');
+  const [errorType, setErrorType] = useState<ReferralErrorType | null>(null);
+
+  // Normalize and validate referral code
+  const refCode = rawRefCode ? rawRefCode.toUpperCase().trim() : null;
+  const isValidCodeFormat = refCode ? /^[A-Z0-9]{8}$/.test(refCode) : false;
+
+  // Validate role parameter
+  const roleResult = selectableRoleSchema.safeParse(rawRole);
+  const role = roleResult.success ? roleResult.data : null;
 
   // Store referral code in sessionStorage for use during signup
   useEffect(() => {
-    if (refCode) {
+    if (refCode && isValidCodeFormat) {
       sessionStorage.setItem('referral_code', refCode);
     }
-  }, [refCode]);
+  }, [refCode, isValidCodeFormat]);
 
   // Validate referral code and get referrer info
-  const { data: referralInfo, isLoading, error } = useQuery({
+  const { data: referralInfo, isLoading, error, refetch } = useQuery({
     queryKey: ['validate-referral', refCode],
     queryFn: async () => {
-      if (!refCode) return null;
+      if (!refCode || !isValidCodeFormat) return null;
 
-      // Find the referral code
+      // Find the referral code with expiry and usage checks
       const { data: referral, error: refError } = await supabase
         .from('referrals')
-        .select('referrer_user_id, referrer_role, referral_code')
+        .select('referrer_user_id, referrer_role, referral_code, is_active, expires_at, max_uses, current_uses')
         .eq('referral_code', refCode)
-        .is('referee_user_id', null) // Only codes without assigned referee
         .single();
 
       if (refError || !referral) {
-        throw new Error('Invalid or expired referral code');
+        setErrorType('NOT_FOUND');
+        throw new Error('Referral code not found');
+      }
+
+      // Check if code is active
+      if (!referral.is_active) {
+        setErrorType('INACTIVE');
+        throw new Error('Referral code is inactive');
+      }
+
+      // Check if code is expired
+      if (referral.expires_at && new Date(referral.expires_at) < new Date()) {
+        setErrorType('EXPIRED');
+        throw new Error('Referral code has expired');
+      }
+
+      // Check if code has reached max uses
+      if (referral.max_uses && referral.current_uses >= referral.max_uses) {
+        setErrorType('MAX_USES');
+        throw new Error('Referral code has reached maximum uses');
       }
 
       // Get referrer's profile
@@ -63,13 +97,15 @@ export default function ReferralInvite() {
         businessName = vendor?.business_name;
       }
 
+      setErrorType(null);
       return {
-        referrerName: profile?.full_name || businessName || 'A SiHuni user',
+        referrerName: profile?.full_name || businessName || 'Pengguna SiHuni',
         referrerRole: referral.referrer_role,
         code: refCode,
       };
     },
-    enabled: !!refCode,
+    enabled: !!refCode && isValidCodeFormat,
+    retry: false,
   });
 
   const getBonusInfo = () => {
@@ -77,26 +113,26 @@ export default function ReferralInvite() {
     switch (targetRole) {
       case 'merchant':
         return {
-          title: 'Extended Trial + Discount',
-          description: '14 days free trial (7 extra days!) + 10% off your first month',
+          title: 'Trial Diperpanjang + Diskon',
+          description: '14 hari gratis trial (7 hari ekstra!) + diskon 10% bulan pertama',
           icon: Building2,
         };
       case 'tenant':
         return {
-          title: 'Welcome Bonus',
-          description: 'You and your referrer will both receive rewards!',
+          title: 'Bonus Selamat Datang',
+          description: 'Anda dan referrer akan mendapat reward!',
           icon: User,
         };
       case 'vendor':
         return {
-          title: 'Quick Start Bonus',
-          description: 'Get featured listing boost when you complete your first orders',
+          title: 'Bonus Quick Start',
+          description: 'Dapatkan boost listing saat menyelesaikan pesanan pertama',
           icon: Wrench,
         };
       default:
         return {
-          title: 'Special Welcome Bonus',
-          description: 'Sign up now to receive exclusive rewards',
+          title: 'Bonus Spesial',
+          description: 'Daftar sekarang untuk mendapat reward eksklusif',
           icon: Gift,
         };
     }
@@ -107,17 +143,72 @@ export default function ReferralInvite() {
     navigate(`/auth?mode=signup&role=${targetRole}&ref=${refCode}`);
   };
 
+  const handleManualCodeSubmit = () => {
+    const normalizedCode = manualCode.toUpperCase().trim();
+    const codeResult = referralCodeSchema.safeParse(normalizedCode);
+    
+    if (codeResult.success) {
+      navigate(`/referral?ref=${normalizedCode}${rawRole ? `&role=${rawRole}` : ''}`);
+    }
+  };
+
+  const handleTryAgain = () => {
+    setErrorType(null);
+    refetch();
+  };
+
+  // No referral code provided
   if (!refCode) {
     return (
       <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-8 text-center">
             <Gift className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-            <h2 className="text-xl font-semibold mb-2">No Referral Code</h2>
+            <h2 className="text-xl font-semibold mb-2">Tidak Ada Kode Referral</h2>
             <p className="text-muted-foreground mb-6">
-              This link doesn't contain a valid referral code.
+              Link ini tidak mengandung kode referral yang valid.
             </p>
-            <Button onClick={() => navigate('/auth')}>Sign Up Without Referral</Button>
+            
+            <div className="space-y-4 text-left mb-6">
+              <Label>Punya kode referral?</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Masukkan kode 8 karakter"
+                  value={manualCode}
+                  onChange={(e) => setManualCode(e.target.value.toUpperCase())}
+                  maxLength={8}
+                  className="uppercase"
+                />
+                <Button 
+                  onClick={handleManualCodeSubmit}
+                  disabled={manualCode.length !== 8}
+                >
+                  Cek
+                </Button>
+              </div>
+            </div>
+
+            <Button variant="outline" onClick={() => navigate('/auth')} className="w-full">
+              Daftar Tanpa Referral
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Invalid code format
+  if (!isValidCodeFormat) {
+    const errorInfo = REFERRAL_ERROR_MESSAGES.NOT_FOUND;
+    return (
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-8 text-center">
+            <XCircle className="h-16 w-16 mx-auto mb-4 text-destructive" />
+            <h2 className="text-xl font-semibold mb-2">{errorInfo.title}</h2>
+            <p className="text-muted-foreground mb-2">{errorInfo.message}</p>
+            <p className="text-sm text-muted-foreground mb-6">{errorInfo.action}</p>
+            <Button onClick={() => navigate('/auth')}>Daftar Tanpa Referral</Button>
           </CardContent>
         </Card>
       </div>
@@ -127,22 +218,37 @@ export default function ReferralInvite() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-muted/30 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Memvalidasi kode referral...</p>
+        </div>
       </div>
     );
   }
 
+  // Error handling with specific messages
   if (error || !referralInfo) {
+    const errorInfo = errorType ? REFERRAL_ERROR_MESSAGES[errorType] : REFERRAL_ERROR_MESSAGES.NOT_FOUND;
+    const IconComponent = errorType === 'EXPIRED' ? AlertCircle : XCircle;
+    const iconColor = errorType === 'EXPIRED' ? 'text-warning' : 'text-destructive';
+
     return (
       <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-8 text-center">
-            <Gift className="h-16 w-16 mx-auto mb-4 text-destructive/50" />
-            <h2 className="text-xl font-semibold mb-2">Invalid Referral Code</h2>
-            <p className="text-muted-foreground mb-6">
-              This referral code is invalid or has already been used.
-            </p>
-            <Button onClick={() => navigate('/auth')}>Sign Up Without Referral</Button>
+            <IconComponent className={`h-16 w-16 mx-auto mb-4 ${iconColor}`} />
+            <h2 className="text-xl font-semibold mb-2">{errorInfo.title}</h2>
+            <p className="text-muted-foreground mb-2">{errorInfo.message}</p>
+            <p className="text-sm text-muted-foreground mb-6">{errorInfo.action}</p>
+            
+            <div className="space-y-2">
+              <Button variant="outline" onClick={handleTryAgain} className="w-full">
+                Coba Lagi
+              </Button>
+              <Button onClick={() => navigate('/auth')} className="w-full">
+                Daftar Tanpa Referral
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -159,20 +265,22 @@ export default function ReferralInvite() {
           <div className="mx-auto p-4 rounded-full bg-primary/10 w-fit mb-4">
             <Gift className="h-8 w-8 text-primary" />
           </div>
-          <CardTitle className="text-2xl">You've Been Invited!</CardTitle>
+          <CardTitle className="text-2xl">Anda Diundang!</CardTitle>
           <CardDescription>
-            {referralInfo.referrerName} invited you to join SiHuni
+            {referralInfo.referrerName} mengundang Anda bergabung di SiHuni
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Referrer Info */}
           <div className="p-4 rounded-lg border bg-muted/30 text-center">
             <Badge variant="secondary" className="mb-2">
-              Invited by
+              Diundang oleh
             </Badge>
             <p className="font-semibold text-lg">{referralInfo.referrerName}</p>
             <p className="text-sm text-muted-foreground capitalize">
-              {referralInfo.referrerRole}
+              {referralInfo.referrerRole === 'merchant' ? 'Pemilik Properti' :
+               referralInfo.referrerRole === 'vendor' ? 'Vendor Jasa' : 
+               referralInfo.referrerRole}
             </p>
           </div>
 
@@ -191,13 +299,13 @@ export default function ReferralInvite() {
 
           {/* Benefits List */}
           <div className="space-y-2">
-            <p className="text-sm font-medium">What you'll get:</p>
+            <p className="text-sm font-medium">Yang Anda dapatkan:</p>
             <div className="space-y-2">
               {[
-                'Full access to SiHuni platform',
-                'Extended trial period',
-                'Priority support',
-                'Exclusive referral rewards',
+                'Akses penuh ke platform SiHuni',
+                'Periode trial diperpanjang',
+                'Dukungan prioritas',
+                'Reward referral eksklusif',
               ].map((benefit, index) => (
                 <div key={index} className="flex items-center gap-2 text-sm">
                   <CheckCircle className="h-4 w-4 text-primary" />
@@ -208,12 +316,12 @@ export default function ReferralInvite() {
           </div>
 
           <Button className="w-full" size="lg" onClick={handleContinue}>
-            Get Started
+            Mulai Sekarang
             <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
 
           <p className="text-xs text-center text-muted-foreground">
-            By signing up, you agree to our Terms of Service and Privacy Policy
+            Dengan mendaftar, Anda menyetujui Ketentuan Layanan dan Kebijakan Privasi kami
           </p>
         </CardContent>
       </Card>

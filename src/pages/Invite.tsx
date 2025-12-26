@@ -8,8 +8,11 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Home, Loader2, CheckCircle, XCircle, Building2, MapPin, ArrowRight } from "lucide-react";
+import { Home, Loader2, CheckCircle, XCircle, Building2, MapPin, ArrowRight, AlertCircle, Mail } from "lucide-react";
 import { TenantProfileForm } from "@/components/tenant/TenantProfileForm";
+import { PasswordStrengthMeter } from "@/components/auth/PasswordStrengthMeter";
+import { INVITATION_ERROR_MESSAGES } from "@/lib/auth-errors";
+import { strongPasswordSchema, emailSchema, fullNameSchema } from "@/lib/validations/auth";
 
 const Invite = () => {
   const { token } = useParams<{ token: string }>();
@@ -23,10 +26,17 @@ const Invite = () => {
     password: '',
     fullName: '',
   });
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
+  // Validate token format first
+  const isValidTokenFormat = token && /^[a-zA-Z0-9-]{20,50}$/.test(token);
 
   const { data: invitation, isLoading, error } = useQuery({
     queryKey: ['invitation', token],
     queryFn: async () => {
+      if (!token) throw new Error('No token provided');
+
+      // Include expiry check and unit availability in query
       const { data, error } = await supabase
         .from('tenant_invitations')
         .select(`
@@ -36,6 +46,7 @@ const Invite = () => {
             unit_number,
             rent_amount,
             deposit_amount,
+            status,
             property:properties (
               name,
               address,
@@ -44,11 +55,37 @@ const Invite = () => {
           )
         `)
         .eq('token', token)
+        .gt('expires_at', new Date().toISOString()) // Expiry check in query
         .single();
-      if (error) throw error;
+
+      if (error) {
+        // Check if it's an expired token
+        const { data: expiredInvite } = await supabase
+          .from('tenant_invitations')
+          .select('status, expires_at')
+          .eq('token', token)
+          .single();
+
+        if (expiredInvite) {
+          if (expiredInvite.status === 'accepted') {
+            throw new Error('INVITATION_USED');
+          }
+          if (new Date(expiredInvite.expires_at) < new Date()) {
+            throw new Error('INVITATION_EXPIRED');
+          }
+        }
+        throw new Error('INVITATION_INVALID');
+      }
+
+      // Check unit availability
+      if (data.unit?.status !== 'available' && data.status === 'pending') {
+        throw new Error('UNIT_NOT_AVAILABLE');
+      }
+
       return data;
     },
-    enabled: !!token,
+    enabled: !!token && isValidTokenFormat,
+    retry: false,
   });
 
   useEffect(() => {
@@ -65,9 +102,39 @@ const Invite = () => {
     }
   }, [user, step]);
 
+  // Form validation
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    // Validate full name
+    const nameResult = fullNameSchema.safeParse(formData.fullName);
+    if (!nameResult.success) {
+      errors.fullName = nameResult.error.errors[0]?.message || 'Nama tidak valid';
+    }
+
+    // Validate email
+    const emailResult = emailSchema.safeParse(formData.email);
+    if (!emailResult.success) {
+      errors.email = emailResult.error.errors[0]?.message || 'Email tidak valid';
+    }
+
+    // Validate password with strong policy
+    const passwordResult = strongPasswordSchema.safeParse(formData.password);
+    if (!passwordResult.success) {
+      errors.password = passwordResult.error.errors[0]?.message || 'Password tidak memenuhi syarat';
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const createAccount = useMutation({
     mutationFn: async () => {
       if (!invitation) throw new Error('Invitation not found');
+
+      if (!validateForm()) {
+        throw new Error('Mohon perbaiki error pada form');
+      }
 
       const { data: authData, error: signUpError } = await signUp(
         formData.email,
@@ -78,7 +145,7 @@ const Invite = () => {
         }
       );
       if (signUpError) throw signUpError;
-      if (!authData?.user?.id) throw new Error('Failed to create account');
+      if (!authData?.user?.id) throw new Error('Gagal membuat akun');
 
       setCreatedUserId(authData.user.id);
       return authData.user.id;
@@ -95,25 +162,41 @@ const Invite = () => {
     if (!invitation || !createdUserId) return;
 
     try {
-      // Update invitation status
+      // Default contract duration is 1 year (12 months)
+      const contractDurationMonths = 12;
+      const startDate = new Date();
+      const endDate = new Date();
+      endDate.setMonth(endDate.getMonth() + contractDurationMonths);
+
+      // Ensure rent_amount is set from unit
+      const rentAmount = invitation.unit?.rent_amount;
+      if (!rentAmount || rentAmount <= 0) {
+        throw new Error('Harga sewa unit tidak valid. Hubungi pemilik properti.');
+      }
+
+      // Update invitation status first
       const { error: updateError } = await supabase
         .from('tenant_invitations')
-        .update({ status: 'accepted' })
-        .eq('id', invitation.id);
+        .update({ 
+          status: 'accepted',
+          accepted_at: new Date().toISOString(),
+          accepted_by_user_id: createdUserId,
+        })
+        .eq('id', invitation.id)
+        .eq('status', 'pending'); // Ensure still pending (prevent double use)
+
       if (updateError) throw updateError;
 
       // Update unit status to occupied
       const { error: unitError } = await supabase
         .from('units')
         .update({ status: 'occupied' })
-        .eq('id', invitation.unit_id);
+        .eq('id', invitation.unit_id)
+        .eq('status', 'available'); // Only update if still available
+
       if (unitError) throw unitError;
 
-      // Create contract for the tenant
-      const startDate = new Date();
-      const endDate = new Date();
-      endDate.setFullYear(endDate.getFullYear() + 1);
-
+      // Create contract for the tenant with rent_amount from unit
       const { error: contractError } = await supabase
         .from('contracts')
         .insert({
@@ -122,38 +205,91 @@ const Invite = () => {
           tenant_user_id: createdUserId,
           start_date: startDate.toISOString().split('T')[0],
           end_date: endDate.toISOString().split('T')[0],
-          rent_amount: invitation.unit?.rent_amount || 0,
+          rent_amount: rentAmount,
           deposit_amount: invitation.unit?.deposit_amount || 0,
           status: 'active',
+          signature_status: 'pending',
         });
+
       if (contractError) throw contractError;
 
-      toast.success('Welcome to your new home!');
+      toast.success('Selamat datang di rumah baru Anda!');
       navigate('/tenant');
     } catch (error: any) {
-      toast.error(error.message);
+      // Attempt rollback on error
+      if (invitation.id) {
+        await supabase
+          .from('tenant_invitations')
+          .update({ status: 'pending', accepted_at: null, accepted_by_user_id: null })
+          .eq('id', invitation.id);
+      }
+      toast.error(error.message || 'Gagal menyelesaikan undangan');
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (error || !invitation) {
+  // Invalid token format
+  if (!isValidTokenFormat && token) {
+    const errorInfo = INVITATION_ERROR_MESSAGES.INVALID;
     return (
       <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-8 text-center">
             <XCircle className="h-16 w-16 mx-auto mb-4 text-destructive" />
-            <h2 className="text-xl font-semibold mb-2">Invalid Invitation</h2>
-            <p className="text-muted-foreground mb-6">
-              This invitation link is invalid or has expired.
-            </p>
-            <Button onClick={() => navigate('/')}>Go Home</Button>
+            <h2 className="text-xl font-semibold mb-2">{errorInfo.title}</h2>
+            <p className="text-muted-foreground mb-2">{errorInfo.message}</p>
+            <p className="text-sm text-muted-foreground mb-6">{errorInfo.action}</p>
+            <Button onClick={() => navigate('/')}>Kembali ke Beranda</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Memvalidasi undangan...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle specific error types
+  if (error || !invitation) {
+    const errorMessage = (error as Error)?.message || 'INVALID';
+    let errorInfo = INVITATION_ERROR_MESSAGES.INVALID;
+
+    if (errorMessage === 'INVITATION_EXPIRED' || errorMessage.includes('expired')) {
+      errorInfo = INVITATION_ERROR_MESSAGES.EXPIRED;
+    } else if (errorMessage === 'INVITATION_USED' || errorMessage.includes('accepted')) {
+      errorInfo = INVITATION_ERROR_MESSAGES.USED;
+    } else if (errorMessage === 'UNIT_NOT_AVAILABLE') {
+      errorInfo = INVITATION_ERROR_MESSAGES.UNIT_NOT_AVAILABLE;
+    }
+
+    const IconComponent = errorMessage === 'INVITATION_USED' ? CheckCircle : 
+                          errorMessage === 'INVITATION_EXPIRED' ? AlertCircle : XCircle;
+    const iconColor = errorMessage === 'INVITATION_USED' ? 'text-success' : 
+                      errorMessage === 'INVITATION_EXPIRED' ? 'text-warning' : 'text-destructive';
+
+    return (
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-8 text-center">
+            <IconComponent className={`h-16 w-16 mx-auto mb-4 ${iconColor}`} />
+            <h2 className="text-xl font-semibold mb-2">{errorInfo.title}</h2>
+            <p className="text-muted-foreground mb-2">{errorInfo.message}</p>
+            <p className="text-sm text-muted-foreground mb-6">{errorInfo.action}</p>
+            <div className="flex flex-col gap-2">
+              {errorMessage === 'INVITATION_USED' && (
+                <Button onClick={() => navigate('/auth')}>Masuk ke Akun</Button>
+              )}
+              <Button variant={errorMessage === 'INVITATION_USED' ? 'outline' : 'default'} onClick={() => navigate('/')}>
+                Kembali ke Beranda
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -166,28 +302,11 @@ const Invite = () => {
         <Card className="max-w-md w-full">
           <CardContent className="pt-8 text-center">
             <CheckCircle className="h-16 w-16 mx-auto mb-4 text-success" />
-            <h2 className="text-xl font-semibold mb-2">Invitation Already Accepted</h2>
+            <h2 className="text-xl font-semibold mb-2">Undangan Sudah Diterima</h2>
             <p className="text-muted-foreground mb-6">
-              This invitation has already been accepted.
+              Undangan ini sudah digunakan sebelumnya.
             </p>
-            <Button onClick={() => navigate('/auth')}>Sign In</Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (invitation.status === 'expired' || new Date(invitation.expires_at) < new Date()) {
-    return (
-      <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="pt-8 text-center">
-            <XCircle className="h-16 w-16 mx-auto mb-4 text-warning" />
-            <h2 className="text-xl font-semibold mb-2">Invitation Expired</h2>
-            <p className="text-muted-foreground mb-6">
-              This invitation has expired. Please contact your landlord for a new invitation.
-            </p>
-            <Button onClick={() => navigate('/')}>Go Home</Button>
+            <Button onClick={() => navigate('/auth')}>Masuk ke Akun</Button>
           </CardContent>
         </Card>
       </div>
@@ -205,21 +324,21 @@ const Invite = () => {
               <div className="h-8 w-8 rounded-full bg-success flex items-center justify-center text-success-foreground">
                 <CheckCircle className="h-5 w-5" />
               </div>
-              <span className="text-sm font-medium">Account</span>
+              <span className="text-sm font-medium">Akun</span>
             </div>
             <div className="h-px w-8 bg-primary" />
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-bold">
                 2
               </div>
-              <span className="text-sm font-medium">Profile</span>
+              <span className="text-sm font-medium">Profil</span>
             </div>
             <div className="h-px w-8 bg-muted-foreground/30" />
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-sm font-bold">
                 3
               </div>
-              <span className="text-sm text-muted-foreground">Complete</span>
+              <span className="text-sm text-muted-foreground">Selesai</span>
             </div>
           </div>
 
@@ -233,6 +352,9 @@ const Invite = () => {
                 <div>
                   <p className="font-semibold">{invitation.unit?.property?.name}</p>
                   <p className="text-sm text-muted-foreground">Unit {invitation.unit?.unit_number}</p>
+                  <p className="text-sm font-medium text-primary mt-1">
+                    Rp {Number(invitation.unit?.rent_amount || 0).toLocaleString('id-ID')}/bulan
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -241,9 +363,9 @@ const Invite = () => {
           {/* Profile form */}
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle>Complete Your Profile</CardTitle>
+              <CardTitle>Lengkapi Profil Anda</CardTitle>
               <CardDescription>
-                Please provide your information for verification purposes
+                Mohon lengkapi informasi untuk keperluan verifikasi
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -257,7 +379,7 @@ const Invite = () => {
           {/* Skip option */}
           <div className="text-center">
             <Button variant="ghost" onClick={completeInvitation}>
-              Skip for now
+              Lewati untuk sekarang
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           </div>
@@ -274,8 +396,8 @@ const Invite = () => {
           <div className="mx-auto p-4 rounded-full bg-primary/10 w-fit mb-4">
             <Home className="h-8 w-8 text-primary" />
           </div>
-          <CardTitle className="text-2xl">You're Invited!</CardTitle>
-          <CardDescription>You've been invited to become a tenant</CardDescription>
+          <CardTitle className="text-2xl">Anda Diundang!</CardTitle>
+          <CardDescription>Anda telah diundang menjadi penghuni</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Property Details */}
@@ -292,7 +414,7 @@ const Invite = () => {
                   {invitation.unit?.property?.address}, {invitation.unit?.property?.city}
                 </div>
                 <p className="mt-2 font-medium text-primary">
-                  Rp {Number(invitation.unit?.rent_amount || 0).toLocaleString()}/month
+                  Rp {Number(invitation.unit?.rent_amount || 0).toLocaleString('id-ID')}/bulan
                 </p>
               </div>
             </div>
@@ -307,55 +429,78 @@ const Invite = () => {
                   onClick={() => setIsNewUser(true)}
                   className="flex-1"
                 >
-                  Create Account
+                  Buat Akun
                 </Button>
                 <Button
                   variant={!isNewUser ? "default" : "outline"}
                   onClick={() => setIsNewUser(false)}
                   className="flex-1"
                 >
-                  I Have Account
+                  Sudah Punya Akun
                 </Button>
               </div>
 
               {isNewUser && (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Full Name</Label>
+                    <Label>Nama Lengkap</Label>
                     <Input
                       value={formData.fullName}
-                      onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                      placeholder="Your full name"
+                      onChange={(e) => {
+                        setFormData({ ...formData, fullName: e.target.value });
+                        setValidationErrors(prev => ({ ...prev, fullName: '' }));
+                      }}
+                      placeholder="Nama lengkap Anda"
+                      className={validationErrors.fullName ? 'border-destructive' : ''}
                     />
+                    {validationErrors.fullName && (
+                      <p className="text-sm text-destructive">{validationErrors.fullName}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>Email</Label>
                     <Input
                       type="email"
                       value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      placeholder="Your email"
+                      onChange={(e) => {
+                        setFormData({ ...formData, email: e.target.value });
+                        setValidationErrors(prev => ({ ...prev, email: '' }));
+                      }}
+                      placeholder="Email Anda"
+                      className={validationErrors.email ? 'border-destructive' : ''}
                     />
+                    {validationErrors.email && (
+                      <p className="text-sm text-destructive">{validationErrors.email}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>Password</Label>
                     <Input
                       type="password"
                       value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      placeholder="Create a password"
+                      onChange={(e) => {
+                        setFormData({ ...formData, password: e.target.value });
+                        setValidationErrors(prev => ({ ...prev, password: '' }));
+                      }}
+                      placeholder="Buat password yang kuat"
+                      className={validationErrors.password ? 'border-destructive' : ''}
                     />
+                    <PasswordStrengthMeter password={formData.password} />
+                    {validationErrors.password && (
+                      <p className="text-sm text-destructive">{validationErrors.password}</p>
+                    )}
                   </div>
                 </div>
               )}
 
               {!isNewUser && (
                 <div className="text-center p-4 rounded-lg bg-muted/50">
+                  <Mail className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                   <p className="text-muted-foreground">
-                    If you already have an account, please sign in first, then come back to this link.
+                    Jika Anda sudah memiliki akun, silakan masuk terlebih dahulu, lalu kembali ke link ini.
                   </p>
                   <Button variant="link" onClick={() => navigate('/auth')}>
-                    Go to Sign In
+                    Ke Halaman Masuk
                   </Button>
                 </div>
               )}
@@ -366,7 +511,7 @@ const Invite = () => {
             <div className="p-4 rounded-lg bg-success/10 border border-success/20">
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-5 w-5 text-success" />
-                <p className="text-success font-medium">You're signed in as {user.email}</p>
+                <p className="text-success font-medium">Anda masuk sebagai {user.email}</p>
               </div>
             </div>
           )}
@@ -388,7 +533,7 @@ const Invite = () => {
             ) : (
               <ArrowRight className="h-4 w-4 mr-2" />
             )}
-            {user ? "Continue to Profile" : "Create Account & Continue"}
+            {user ? "Lanjut ke Profil" : "Buat Akun & Lanjutkan"}
           </Button>
         </CardContent>
       </Card>
