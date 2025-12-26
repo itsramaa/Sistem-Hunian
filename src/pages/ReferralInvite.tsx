@@ -42,34 +42,17 @@ export default function ReferralInvite() {
     queryFn: async () => {
       if (!refCode || !isValidCodeFormat) return null;
 
-      // Find the referral code with expiry and usage checks
+      // Find the referral code - check if it exists and hasn't been used
       const { data: referral, error: refError } = await supabase
         .from('referrals')
-        .select('referrer_user_id, referrer_role, referral_code, is_active, expires_at, max_uses, current_uses')
+        .select('referrer_user_id, referrer_role, referral_code, referee_user_id')
         .eq('referral_code', refCode)
-        .single();
+        .is('referee_user_id', null) // Only codes without assigned referee
+        .maybeSingle();
 
       if (refError || !referral) {
         setErrorType('NOT_FOUND');
         throw new Error('Referral code not found');
-      }
-
-      // Check if code is active
-      if (!referral.is_active) {
-        setErrorType('INACTIVE');
-        throw new Error('Referral code is inactive');
-      }
-
-      // Check if code is expired
-      if (referral.expires_at && new Date(referral.expires_at) < new Date()) {
-        setErrorType('EXPIRED');
-        throw new Error('Referral code has expired');
-      }
-
-      // Check if code has reached max uses
-      if (referral.max_uses && referral.current_uses >= referral.max_uses) {
-        setErrorType('MAX_USES');
-        throw new Error('Referral code has reached maximum uses');
       }
 
       // Get referrer's profile
@@ -77,7 +60,7 @@ export default function ReferralInvite() {
         .from('profiles')
         .select('full_name')
         .eq('user_id', referral.referrer_user_id)
-        .single();
+        .maybeSingle();
 
       // Get referrer's business name if merchant/vendor
       let businessName = null;
@@ -86,14 +69,14 @@ export default function ReferralInvite() {
           .from('merchants')
           .select('business_name')
           .eq('user_id', referral.referrer_user_id)
-          .single();
+          .maybeSingle();
         businessName = merchant?.business_name;
       } else if (referral.referrer_role === 'vendor') {
         const { data: vendor } = await supabase
           .from('vendors')
           .select('business_name')
           .eq('user_id', referral.referrer_user_id)
-          .single();
+          .maybeSingle();
         businessName = vendor?.business_name;
       }
 
