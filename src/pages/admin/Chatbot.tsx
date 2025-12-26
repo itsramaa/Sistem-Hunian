@@ -13,7 +13,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Bot, Plus, Pencil, Trash2, Search, Loader2, MessageSquare, Tag, HelpCircle } from "lucide-react";
+import { Bot, Plus, Pencil, Trash2, Search, Loader2, MessageSquare, Tag, HelpCircle, AlertTriangle } from "lucide-react";
+import { useAdminGuard } from "@/hooks/useAdminGuard";
+import { createAuditLog } from "@/lib/auditLog";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 
 interface KnowledgeEntry {
   id: string;
@@ -35,12 +38,19 @@ const CATEGORIES = [
   "vendor",
 ];
 
+const MAX_ANSWER_LENGTH = 2000;
+const MIN_QUESTION_LENGTH = 10;
+const PAGE_SIZE = 20;
+
 const AdminChatbot = () => {
+  const { isLoading: guardLoading, isAdmin } = useAdminGuard();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<KnowledgeEntry | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
   const [formData, setFormData] = useState({
     question: "",
     answer: "",
@@ -48,68 +58,139 @@ const AdminChatbot = () => {
     keywords: "",
     is_active: true,
   });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  const { data: knowledge, isLoading } = useQuery({
-    queryKey: ["chatbot-knowledge"],
+  const { data: knowledgeData, isLoading, error, refetch } = useQuery({
+    queryKey: ["chatbot-knowledge", page],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from("chatbot_knowledge")
-        .select("*")
-        .order("created_at", { ascending: false });
+        .select("*", { count: 'exact' })
+        .order("created_at", { ascending: false })
+        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
       if (error) throw error;
-      return data as KnowledgeEntry[];
+      return { entries: data as KnowledgeEntry[], total: count || 0 };
     },
+    enabled: isAdmin,
   });
+
+  const knowledge = knowledgeData?.entries || [];
+  const totalCount = knowledgeData?.total || 0;
+  const hasMore = page * PAGE_SIZE < totalCount;
+
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+    
+    if (formData.question.trim().length < MIN_QUESTION_LENGTH) {
+      errors.question = `Question must be at least ${MIN_QUESTION_LENGTH} characters`;
+    }
+    
+    if (formData.answer.trim().length === 0) {
+      errors.answer = "Answer is required";
+    } else if (formData.answer.length > MAX_ANSWER_LENGTH) {
+      errors.answer = `Answer must be less than ${MAX_ANSWER_LENGTH} characters`;
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const checkDuplicate = async (question: string, excludeId?: string) => {
+    const { data } = await supabase
+      .from("chatbot_knowledge")
+      .select("id")
+      .ilike("question", question.trim())
+      .limit(1);
+    
+    if (data && data.length > 0) {
+      if (excludeId && data[0].id === excludeId) {
+        return false;
+      }
+      return true;
+    }
+    return false;
+  };
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      const { error } = await supabase.from("chatbot_knowledge").insert({
-        question: data.question,
-        answer: data.answer,
+      const isDuplicate = await checkDuplicate(data.question);
+      if (isDuplicate) {
+        throw new Error("A similar question already exists");
+      }
+
+      const { data: insertedData, error } = await supabase.from("chatbot_knowledge").insert({
+        question: data.question.trim(),
+        answer: data.answer.trim(),
         category: data.category,
         keywords: data.keywords.split(",").map((k) => k.trim()).filter(Boolean),
         is_active: data.is_active,
-      });
+      }).select().single();
       if (error) throw error;
+
+      await createAuditLog({
+        action: "create",
+        entityType: "chatbot_knowledge",
+        entityId: insertedData.id,
+        newData: { question: data.question, category: data.category },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chatbot-knowledge"] });
       toast.success("Knowledge entry created");
       resetForm();
     },
-    onError: () => toast.error("Failed to create entry"),
+    onError: (err: Error) => toast.error(err.message || "Failed to create entry"),
   });
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
+      const isDuplicate = await checkDuplicate(data.question, id);
+      if (isDuplicate) {
+        throw new Error("A similar question already exists");
+      }
+
       const { error } = await supabase
         .from("chatbot_knowledge")
         .update({
-          question: data.question,
-          answer: data.answer,
+          question: data.question.trim(),
+          answer: data.answer.trim(),
           category: data.category,
           keywords: data.keywords.split(",").map((k) => k.trim()).filter(Boolean),
           is_active: data.is_active,
         })
         .eq("id", id);
       if (error) throw error;
+
+      await createAuditLog({
+        action: "update",
+        entityType: "chatbot_knowledge",
+        entityId: id,
+        newData: { question: data.question, category: data.category },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chatbot-knowledge"] });
       toast.success("Knowledge entry updated");
       resetForm();
     },
-    onError: () => toast.error("Failed to update entry"),
+    onError: (err: Error) => toast.error(err.message || "Failed to update entry"),
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("chatbot_knowledge").delete().eq("id", id);
       if (error) throw error;
+
+      await createAuditLog({
+        action: "delete",
+        entityType: "chatbot_knowledge",
+        entityId: id,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chatbot-knowledge"] });
       toast.success("Knowledge entry deleted");
+      setDeleteConfirmId(null);
     },
     onError: () => toast.error("Failed to delete entry"),
   });
@@ -137,6 +218,7 @@ const AdminChatbot = () => {
       keywords: "",
       is_active: true,
     });
+    setFormErrors({});
     setEditingEntry(null);
     setIsDialogOpen(false);
   };
@@ -150,14 +232,13 @@ const AdminChatbot = () => {
       keywords: entry.keywords?.join(", ") || "",
       is_active: entry.is_active,
     });
+    setFormErrors({});
     setIsDialogOpen(true);
   };
 
   const handleSubmit = () => {
-    if (!formData.question.trim() || !formData.answer.trim()) {
-      toast.error("Question and answer are required");
-      return;
-    }
+    if (!validateForm()) return;
+
     if (editingEntry) {
       updateMutation.mutate({ id: editingEntry.id, data: formData });
     } else {
@@ -165,7 +246,7 @@ const AdminChatbot = () => {
     }
   };
 
-  const filteredKnowledge = knowledge?.filter((entry) => {
+  const filteredKnowledge = knowledge.filter((entry) => {
     const matchesSearch =
       entry.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
       entry.answer.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -174,10 +255,20 @@ const AdminChatbot = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const categoryCounts = knowledge?.reduce((acc, entry) => {
+  const categoryCounts = knowledge.reduce((acc, entry) => {
     acc[entry.category] = (acc[entry.category] || 0) + 1;
     return acc;
-  }, {} as Record<string, number>) || {};
+  }, {} as Record<string, number>);
+
+  if (guardLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -206,21 +297,33 @@ const AdminChatbot = () => {
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Question</Label>
+                  <Label>Question <span className="text-destructive">*</span></Label>
                   <Input
                     placeholder="e.g., How do I pay my rent?"
                     value={formData.question}
                     onChange={(e) => setFormData({ ...formData, question: e.target.value })}
                   />
+                  {formErrors.question && (
+                    <p className="text-xs text-destructive">{formErrors.question}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <Label>Answer</Label>
+                  <Label>Answer <span className="text-destructive">*</span></Label>
                   <Textarea
                     placeholder="Provide a detailed answer..."
                     rows={4}
                     value={formData.answer}
                     onChange={(e) => setFormData({ ...formData, answer: e.target.value })}
+                    maxLength={MAX_ANSWER_LENGTH}
                   />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    {formErrors.answer ? (
+                      <span className="text-destructive">{formErrors.answer}</span>
+                    ) : (
+                      <span>Max {MAX_ANSWER_LENGTH} characters</span>
+                    )}
+                    <span>{formData.answer.length}/{MAX_ANSWER_LENGTH}</span>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -276,7 +379,7 @@ const AdminChatbot = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Entries</p>
-                  <p className="text-xl font-bold">{knowledge?.length || 0}</p>
+                  <p className="text-xl font-bold">{totalCount}</p>
                 </div>
               </div>
             </CardContent>
@@ -289,7 +392,7 @@ const AdminChatbot = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Active</p>
-                  <p className="text-xl font-bold">{knowledge?.filter((k) => k.is_active).length || 0}</p>
+                  <p className="text-xl font-bold">{knowledge.filter((k) => k.is_active).length}</p>
                 </div>
               </div>
             </CardContent>
@@ -315,7 +418,7 @@ const AdminChatbot = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Inactive</p>
-                  <p className="text-xl font-bold">{knowledge?.filter((k) => !k.is_active).length || 0}</p>
+                  <p className="text-xl font-bold">{knowledge.filter((k) => !k.is_active).length}</p>
                 </div>
               </div>
             </CardContent>
@@ -359,83 +462,128 @@ const AdminChatbot = () => {
             <CardDescription>Manage FAQ entries for the AI chatbot</CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
+            {error ? (
+              <div className="text-center py-8">
+                <AlertTriangle className="h-12 w-12 mx-auto text-destructive mb-4" />
+                <p className="text-destructive mb-4">Failed to load knowledge entries</p>
+                <Button variant="outline" onClick={() => refetch()}>Retry</Button>
+              </div>
+            ) : isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Question</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Keywords</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredKnowledge?.map((entry) => (
-                    <TableRow key={entry.id}>
-                      <TableCell>
-                        <div className="max-w-md">
-                          <p className="font-medium truncate">{entry.question}</p>
-                          <p className="text-sm text-muted-foreground line-clamp-1">{entry.answer}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{entry.category}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1 max-w-48">
-                          {entry.keywords?.slice(0, 3).map((kw, i) => (
-                            <Badge key={i} variant="secondary" className="text-xs">
-                              {kw}
-                            </Badge>
-                          ))}
-                          {(entry.keywords?.length || 0) > 3 && (
-                            <Badge variant="secondary" className="text-xs">+{entry.keywords!.length - 3}</Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Switch
-                          checked={entry.is_active}
-                          onCheckedChange={(checked) =>
-                            toggleActiveMutation.mutate({ id: entry.id, is_active: checked })
-                          }
-                        />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => handleEdit(entry)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-destructive"
-                            onClick={() => deleteMutation.mutate(entry.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {filteredKnowledge?.length === 0 && (
+              <>
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                        No knowledge entries found
-                      </TableCell>
+                      <TableHead>Question</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Keywords</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredKnowledge.map((entry) => (
+                      <TableRow key={entry.id}>
+                        <TableCell>
+                          <div className="max-w-md">
+                            <p className="font-medium truncate">{entry.question}</p>
+                            <p className="text-sm text-muted-foreground line-clamp-1">{entry.answer}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{entry.category}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1 max-w-48">
+                            {entry.keywords?.slice(0, 3).map((kw, i) => (
+                              <Badge key={i} variant="secondary" className="text-xs">
+                                {kw}
+                              </Badge>
+                            ))}
+                            {(entry.keywords?.length || 0) > 3 && (
+                              <Badge variant="secondary" className="text-xs">+{entry.keywords!.length - 3}</Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Switch
+                            checked={entry.is_active}
+                            onCheckedChange={(checked) =>
+                              toggleActiveMutation.mutate({ id: entry.id, is_active: checked })
+                            }
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" onClick={() => handleEdit(entry)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive"
+                              onClick={() => setDeleteConfirmId(entry.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredKnowledge.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                          No knowledge entries found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+
+                {/* Pagination */}
+                <div className="flex items-center justify-between mt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {(page - 1) * PAGE_SIZE + 1} - {Math.min(page * PAGE_SIZE, totalCount)} of {totalCount}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={page === 1}
+                      onClick={() => setPage(p => p - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!hasMore}
+                      onClick={() => setPage(p => p + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!deleteConfirmId}
+        onOpenChange={(open) => !open && setDeleteConfirmId(null)}
+        title="Delete Knowledge Entry"
+        description="Are you sure you want to delete this knowledge entry? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => deleteConfirmId && deleteMutation.mutate(deleteConfirmId)}
+      />
     </AdminLayout>
   );
 };

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -7,10 +7,16 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
-import { Search, Eye, Shield, AlertTriangle, User, Database, Settings, Download } from 'lucide-react';
+import { Search, Eye, Shield, AlertTriangle, User, Database, Settings, Download, Copy, Loader2, ChevronDown } from 'lucide-react';
+import { toast } from 'sonner';
+import { useAdminGuard } from '@/hooks/useAdminGuard';
+import { logExport } from '@/lib/auditLog';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { DateRange } from 'react-day-picker';
 
 type AuditLog = {
   id: string;
@@ -34,6 +40,7 @@ const actionColors: Record<string, string> = {
   logout: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
   approve: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300',
   reject: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
+  export: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-300',
 };
 
 const entityIcons: Record<string, React.ReactNode> = {
@@ -44,20 +51,25 @@ const entityIcons: Record<string, React.ReactNode> = {
   default: <Database className="h-4 w-4" />,
 };
 
+const PAGE_SIZE = 50;
+
 export default function AuditLogs() {
+  const { isLoading: guardLoading, isAdmin } = useAdminGuard();
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState<string>('all');
   const [entityFilter, setEntityFilter] = useState<string>('all');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+  const [page, setPage] = useState(1);
 
-  const { data: logs = [], isLoading } = useQuery({
-    queryKey: ['audit-logs', actionFilter, entityFilter],
+  const { data: logsData, isLoading, error, refetch } = useQuery({
+    queryKey: ['audit-logs', actionFilter, entityFilter, dateRange, page],
     queryFn: async () => {
       let query = supabase
         .from('audit_logs')
-        .select('*')
+        .select('*', { count: 'exact' })
         .order('created_at', { ascending: false })
-        .limit(500);
+        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
 
       if (actionFilter !== 'all') {
         query = query.eq('action', actionFilter);
@@ -65,12 +77,23 @@ export default function AuditLogs() {
       if (entityFilter !== 'all') {
         query = query.eq('entity_type', entityFilter);
       }
+      if (dateRange?.from) {
+        query = query.gte('created_at', dateRange.from.toISOString());
+      }
+      if (dateRange?.to) {
+        query = query.lte('created_at', dateRange.to.toISOString());
+      }
 
-      const { data, error } = await query;
+      const { data, error, count } = await query;
       if (error) throw error;
-      return (data || []) as AuditLog[];
+      return { logs: (data || []) as AuditLog[], total: count || 0 };
     },
+    enabled: isAdmin,
   });
+
+  const logs = logsData?.logs || [];
+  const totalCount = logsData?.total || 0;
+  const hasMore = page * PAGE_SIZE < totalCount;
 
   const filteredLogs = logs.filter((log) => {
     if (!searchQuery) return true;
@@ -79,7 +102,9 @@ export default function AuditLogs() {
       log.action.toLowerCase().includes(search) ||
       log.entity_type.toLowerCase().includes(search) ||
       log.entity_id?.toLowerCase().includes(search) ||
-      log.user_id?.toLowerCase().includes(search)
+      log.user_id?.toLowerCase().includes(search) ||
+      log.profiles?.full_name?.toLowerCase().includes(search) ||
+      log.profiles?.email?.toLowerCase().includes(search)
     );
   });
 
@@ -87,22 +112,36 @@ export default function AuditLogs() {
   const uniqueEntities = [...new Set(logs.map((l) => l.entity_type))];
 
   const stats = {
-    total: logs.length,
+    total: totalCount,
     today: logs.filter((l) => new Date(l.created_at).toDateString() === new Date().toDateString()).length,
     security: logs.filter((l) => ['login', 'logout', 'password_change', '2fa_enabled'].includes(l.action)).length,
     critical: logs.filter((l) => ['delete', 'reject'].includes(l.action)).length,
   };
 
-  const exportLogs = () => {
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Copied to clipboard');
+  };
+
+  const escapeCSV = (value: string | null | undefined) => {
+    if (!value) return '';
+    const escaped = value.replace(/"/g, '""');
+    return escaped.includes(',') || escaped.includes('"') || escaped.includes('\n')
+      ? `"${escaped}"`
+      : escaped;
+  };
+
+  const exportLogs = async () => {
     const csv = [
-      ['Timestamp', 'Action', 'Entity Type', 'Entity ID', 'User ID', 'IP Address'],
+      ['Timestamp', 'Action', 'Entity Type', 'Entity ID', 'User ID', 'User Name', 'IP Address'],
       ...filteredLogs.map((log) => [
-        log.created_at,
-        log.action,
-        log.entity_type,
-        log.entity_id || '',
-        log.user_id || '',
-        log.ip_address || '',
+        escapeCSV(log.created_at),
+        escapeCSV(log.action),
+        escapeCSV(log.entity_type),
+        escapeCSV(log.entity_id),
+        escapeCSV(log.user_id),
+        escapeCSV(log.profiles?.full_name || log.profiles?.email || ''),
+        escapeCSV(log.ip_address),
       ]),
     ]
       .map((row) => row.join(','))
@@ -114,7 +153,24 @@ export default function AuditLogs() {
     a.href = url;
     a.download = `audit-logs-${format(new Date(), 'yyyy-MM-dd')}.csv`;
     a.click();
+
+    await logExport('audit_log', 'csv', filteredLogs.length, {
+      action_filter: actionFilter,
+      entity_filter: entityFilter,
+      date_range: dateRange,
+    });
+    toast.success(`Exported ${filteredLogs.length} audit logs`);
   };
+
+  if (guardLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -184,7 +240,12 @@ export default function AuditLogs() {
                   />
                 </div>
               </div>
-              <Select value={actionFilter} onValueChange={setActionFilter}>
+              <DateRangePicker
+                value={dateRange}
+                onChange={setDateRange}
+                placeholder="Filter by date"
+              />
+              <Select value={actionFilter} onValueChange={(v) => { setActionFilter(v); setPage(1); }}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Filter by action" />
                 </SelectTrigger>
@@ -197,7 +258,7 @@ export default function AuditLogs() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={entityFilter} onValueChange={setEntityFilter}>
+              <Select value={entityFilter} onValueChange={(v) => { setEntityFilter(v); setPage(1); }}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Filter by entity" />
                 </SelectTrigger>
@@ -218,120 +279,197 @@ export default function AuditLogs() {
         <Card>
           <CardHeader>
             <CardTitle>Activity Log</CardTitle>
-            <CardDescription>Showing {filteredLogs.length} of {logs.length} logs</CardDescription>
+            <CardDescription>
+              Showing {filteredLogs.length} of {totalCount} logs (Page {page})
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <div className="text-center py-8 text-muted-foreground">Loading audit logs...</div>
+            {error ? (
+              <div className="text-center py-8">
+                <AlertTriangle className="h-12 w-12 mx-auto text-destructive mb-4" />
+                <p className="text-destructive">Failed to load audit logs</p>
+                <Button variant="outline" className="mt-4" onClick={() => refetch()}>
+                  Retry
+                </Button>
+              </div>
+            ) : isLoading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                Loading audit logs...
+              </div>
             ) : filteredLogs.length === 0 ? (
               <div className="text-center py-8">
                 <AlertTriangle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground">No audit logs found</p>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Timestamp</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Entity</TableHead>
-                    <TableHead>User ID</TableHead>
-                    <TableHead>IP Address</TableHead>
-                    <TableHead className="text-right">Details</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredLogs.map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell className="font-mono text-sm">
-                        {format(new Date(log.created_at), 'yyyy-MM-dd HH:mm:ss')}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={actionColors[log.action] || 'bg-gray-100 text-gray-800'}>
-                          {log.action}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {entityIcons[log.entity_type] || entityIcons.default}
-                          <span>{log.entity_type}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
-                        {log.user_id ? `${log.user_id.slice(0, 8)}...` : '-'}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {log.ip_address || '-'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button variant="ghost" size="sm" onClick={() => setSelectedLog(log)}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-2xl">
-                            <DialogHeader>
-                              <DialogTitle>Audit Log Details</DialogTitle>
-                              <DialogDescription>
-                                {format(new Date(log.created_at), 'PPpp')}
-                              </DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-4">
-                              <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                  <label className="text-sm font-medium text-muted-foreground">Action</label>
-                                  <p className="mt-1">
-                                    <Badge className={actionColors[log.action] || 'bg-gray-100'}>
-                                      {log.action}
-                                    </Badge>
-                                  </p>
-                                </div>
-                                <div>
-                                  <label className="text-sm font-medium text-muted-foreground">Entity Type</label>
-                                  <p className="mt-1">{log.entity_type}</p>
-                                </div>
-                                <div>
-                                  <label className="text-sm font-medium text-muted-foreground">Entity ID</label>
-                                  <p className="mt-1 font-mono text-sm">{log.entity_id || '-'}</p>
-                                </div>
-                                <div>
-                                  <label className="text-sm font-medium text-muted-foreground">User ID</label>
-                                  <p className="mt-1 font-mono text-sm">{log.user_id || '-'}</p>
-                                </div>
-                                <div>
-                                  <label className="text-sm font-medium text-muted-foreground">IP Address</label>
-                                  <p className="mt-1">{log.ip_address || '-'}</p>
-                                </div>
-                                <div>
-                                  <label className="text-sm font-medium text-muted-foreground">User Agent</label>
-                                  <p className="mt-1 text-xs truncate">{log.user_agent || '-'}</p>
-                                </div>
-                              </div>
-                              {log.old_data && (
-                                <div>
-                                  <label className="text-sm font-medium text-muted-foreground">Old Data</label>
-                                  <pre className="mt-1 p-3 bg-muted rounded-lg text-xs overflow-auto max-h-32">
-                                    {JSON.stringify(log.old_data, null, 2)}
-                                  </pre>
-                                </div>
-                              )}
-                              {log.new_data && (
-                                <div>
-                                  <label className="text-sm font-medium text-muted-foreground">New Data</label>
-                                  <pre className="mt-1 p-3 bg-muted rounded-lg text-xs overflow-auto max-h-32">
-                                    {JSON.stringify(log.new_data, null, 2)}
-                                  </pre>
-                                </div>
-                              )}
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      </TableCell>
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Timestamp</TableHead>
+                      <TableHead>Action</TableHead>
+                      <TableHead>Entity</TableHead>
+                      <TableHead>User</TableHead>
+                      <TableHead>IP Address</TableHead>
+                      <TableHead className="text-right">Details</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredLogs.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="font-mono text-sm">
+                          {format(new Date(log.created_at), 'yyyy-MM-dd HH:mm:ss')}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={actionColors[log.action] || 'bg-gray-100 text-gray-800'}>
+                            {log.action}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {entityIcons[log.entity_type] || entityIcons.default}
+                            <span>{log.entity_type}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-sm truncate max-w-[120px]">
+                                    {log.profiles?.full_name || log.profiles?.email || (log.user_id ? `${log.user_id.slice(0, 8)}...` : '-')}
+                                  </span>
+                                  {log.user_id && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6"
+                                      onClick={() => copyToClipboard(log.user_id!)}
+                                    >
+                                      <Copy className="h-3 w-3" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="font-mono text-xs">{log.user_id || 'No user'}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {log.ip_address || '-'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="ghost" size="sm" onClick={() => setSelectedLog(log)}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl">
+                              <DialogHeader>
+                                <DialogTitle>Audit Log Details</DialogTitle>
+                                <DialogDescription>
+                                  {format(new Date(log.created_at), 'PPpp')}
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <label className="text-sm font-medium text-muted-foreground">Action</label>
+                                    <p className="mt-1">
+                                      <Badge className={actionColors[log.action] || 'bg-gray-100'}>
+                                        {log.action}
+                                      </Badge>
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <label className="text-sm font-medium text-muted-foreground">Entity Type</label>
+                                    <p className="mt-1">{log.entity_type}</p>
+                                  </div>
+                                  <div>
+                                    <label className="text-sm font-medium text-muted-foreground">Entity ID</label>
+                                    <div className="mt-1 flex items-center gap-1">
+                                      <span className="font-mono text-sm">{log.entity_id || '-'}</span>
+                                      {log.entity_id && (
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6"
+                                          onClick={() => copyToClipboard(log.entity_id!)}
+                                        >
+                                          <Copy className="h-3 w-3" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="text-sm font-medium text-muted-foreground">User</label>
+                                    <p className="mt-1 font-mono text-sm">
+                                      {log.profiles?.full_name || log.profiles?.email || log.user_id || '-'}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <label className="text-sm font-medium text-muted-foreground">IP Address</label>
+                                    <p className="mt-1">{log.ip_address || '-'}</p>
+                                  </div>
+                                  <div>
+                                    <label className="text-sm font-medium text-muted-foreground">User Agent</label>
+                                    <p className="mt-1 text-xs truncate">{log.user_agent || '-'}</p>
+                                  </div>
+                                </div>
+                                {log.old_data && (
+                                  <div>
+                                    <label className="text-sm font-medium text-muted-foreground">Old Data</label>
+                                    <pre className="mt-1 p-3 bg-muted rounded-lg text-xs overflow-auto max-h-32">
+                                      {JSON.stringify(log.old_data, null, 2)}
+                                    </pre>
+                                  </div>
+                                )}
+                                {log.new_data && (
+                                  <div>
+                                    <label className="text-sm font-medium text-muted-foreground">New Data</label>
+                                    <pre className="mt-1 p-3 bg-muted rounded-lg text-xs overflow-auto max-h-32">
+                                      {JSON.stringify(log.new_data, null, 2)}
+                                    </pre>
+                                  </div>
+                                )}
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+
+                {/* Pagination */}
+                <div className="flex items-center justify-between mt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {(page - 1) * PAGE_SIZE + 1} - {Math.min(page * PAGE_SIZE, totalCount)} of {totalCount}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={page === 1}
+                      onClick={() => setPage(p => p - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!hasMore}
+                      onClick={() => setPage(p => p + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
