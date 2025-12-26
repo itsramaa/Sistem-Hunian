@@ -6,29 +6,58 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { AlertTriangle, Search, CheckCircle, Clock, Eye, Loader2, MessageSquare } from "lucide-react";
+import { useAdminGuard } from "@/hooks/useAdminGuard";
+import { logStatusChange } from "@/lib/auditLog";
+import { AlertTriangle, Search, CheckCircle, Clock, Eye, Loader2, MessageSquare, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
+
+interface Dispute {
+  id: string;
+  title: string;
+  description: string;
+  status: string | null;
+  priority: string | null;
+  resolution: string | null;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  created_at: string;
+  tenant_user_id: string;
+  merchant_id: string;
+  contract_id: string | null;
+  contract?: {
+    id: string;
+    unit?: {
+      unit_number: string;
+      property?: {
+        name: string;
+      };
+    };
+  } | null;
+}
 
 const AdminDisputes = () => {
   const { user } = useAuth();
+  const { isLoading: guardLoading, isAdmin } = useAdminGuard();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [selectedDispute, setSelectedDispute] = useState<any>(null);
+  const [selectedDispute, setSelectedDispute] = useState<Dispute | null>(null);
   const [showResolveDialog, setShowResolveDialog] = useState(false);
   const [resolution, setResolution] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
 
-  const { data: disputes, isLoading } = useQuery({
-    queryKey: ['admin-disputes'],
+  const { data: disputesData, isLoading, error, refetch } = useQuery({
+    queryKey: ['admin-disputes', page],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from('disputes')
         .select(`
           *,
@@ -41,15 +70,24 @@ const AdminDisputes = () => {
               )
             )
           )
-        `)
-        .order('created_at', { ascending: false });
+        `, { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
       if (error) throw error;
-      return data;
+      return { disputes: data as Dispute[], total: count || 0 };
     },
+    enabled: isAdmin,
   });
+
+  const disputes = disputesData?.disputes || [];
+  const totalCount = disputesData?.total || 0;
+  const hasMore = page * PAGE_SIZE < totalCount;
 
   const resolveDispute = useMutation({
     mutationFn: async ({ id, status, resolution }: { id: string; status: string; resolution: string }) => {
+      const dispute = disputes.find(d => d.id === id);
+      if (!dispute) throw new Error("Dispute not found");
+
       const { error } = await supabase
         .from('disputes')
         .update({
@@ -60,6 +98,8 @@ const AdminDisputes = () => {
         })
         .eq('id', id);
       if (error) throw error;
+
+      await logStatusChange('dispute', id, dispute.status || 'open', status, resolution);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-disputes'] });
@@ -68,10 +108,10 @@ const AdminDisputes = () => {
       setSelectedDispute(null);
       setResolution("");
     },
-    onError: () => toast.error('Failed to resolve dispute'),
+    onError: (err: Error) => toast.error(err.message || 'Failed to resolve dispute'),
   });
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string | null) => {
     switch (status) {
       case 'resolved':
         return <Badge className="bg-success text-success-foreground"><CheckCircle className="h-3 w-3 mr-1" /> Resolved</Badge>;
@@ -82,12 +122,14 @@ const AdminDisputes = () => {
       case 'closed':
         return <Badge variant="outline">Closed</Badge>;
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return <Badge variant="outline">{status || 'Unknown'}</Badge>;
     }
   };
 
-  const getPriorityBadge = (priority: string) => {
+  const getPriorityBadge = (priority: string | null) => {
     switch (priority) {
+      case 'urgent':
+        return <Badge variant="destructive" className="animate-pulse">Urgent</Badge>;
       case 'high':
         return <Badge variant="destructive">High</Badge>;
       case 'medium':
@@ -95,18 +137,29 @@ const AdminDisputes = () => {
       case 'low':
         return <Badge variant="outline">Low</Badge>;
       default:
-        return <Badge variant="outline">{priority}</Badge>;
+        return <Badge variant="outline">{priority || 'Medium'}</Badge>;
     }
   };
 
-  const filteredDisputes = disputes?.filter(dispute => {
+  const filteredDisputes = disputes.filter(dispute => {
     const matchesSearch = dispute.title.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'all' || dispute.status === statusFilter;
     return matchesSearch && matchesStatus;
-  }) || [];
+  });
 
-  const openCount = disputes?.filter(d => d.status === 'open').length || 0;
-  const inProgressCount = disputes?.filter(d => d.status === 'in_progress').length || 0;
+  const openCount = disputes.filter(d => d.status === 'open').length;
+  const inProgressCount = disputes.filter(d => d.status === 'in_progress').length;
+  const urgentCount = disputes.filter(d => d.priority === 'urgent' || d.priority === 'high').length;
+
+  if (guardLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -117,7 +170,7 @@ const AdminDisputes = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Card>
             <CardContent className="p-6 flex items-center gap-4">
               <div className="p-3 rounded-lg bg-destructive/10">
@@ -125,7 +178,7 @@ const AdminDisputes = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Disputes</p>
-                <p className="text-2xl font-bold">{disputes?.length || 0}</p>
+                <p className="text-2xl font-bold">{totalCount}</p>
               </div>
             </CardContent>
           </Card>
@@ -151,6 +204,17 @@ const AdminDisputes = () => {
               </div>
             </CardContent>
           </Card>
+          <Card className={urgentCount > 0 ? 'border-destructive/50 bg-destructive/5' : ''}>
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className={`p-3 rounded-lg ${urgentCount > 0 ? 'bg-destructive/20' : 'bg-muted'}`}>
+                <AlertCircle className={`h-6 w-6 ${urgentCount > 0 ? 'text-destructive' : 'text-muted-foreground'}`} />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Urgent/High</p>
+                <p className="text-2xl font-bold">{urgentCount}</p>
+              </div>
+            </CardContent>
+          </Card>
           <Card>
             <CardContent className="p-6 flex items-center gap-4">
               <div className="p-3 rounded-lg bg-success/10">
@@ -158,7 +222,7 @@ const AdminDisputes = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Resolved</p>
-                <p className="text-2xl font-bold">{disputes?.filter(d => d.status === 'resolved').length || 0}</p>
+                <p className="text-2xl font-bold">{disputes.filter(d => d.status === 'resolved').length}</p>
               </div>
             </CardContent>
           </Card>
@@ -195,54 +259,87 @@ const AdminDisputes = () => {
             </div>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
+            {error ? (
+              <div className="text-center py-12">
+                <AlertTriangle className="h-12 w-12 mx-auto text-destructive mb-4" />
+                <p className="text-destructive mb-4">Failed to load disputes</p>
+                <Button variant="outline" onClick={() => refetch()}>Retry</Button>
+              </div>
+            ) : isLoading ? (
               <div className="flex justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : filteredDisputes.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Property</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredDisputes.map((dispute) => (
-                    <TableRow key={dispute.id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{dispute.title}</p>
-                          <p className="text-xs text-muted-foreground line-clamp-1">{dispute.description}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {dispute.contract?.unit?.property?.name || '-'} - {dispute.contract?.unit?.unit_number || ''}
-                      </TableCell>
-                      <TableCell>{getPriorityBadge(dispute.priority || 'medium')}</TableCell>
-                      <TableCell>{getStatusBadge(dispute.status || 'open')}</TableCell>
-                      <TableCell>{format(new Date(dispute.created_at), 'MMM dd, yyyy')}</TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedDispute(dispute);
-                            setShowResolveDialog(true);
-                          }}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          Review
-                        </Button>
-                      </TableCell>
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Property</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredDisputes.map((dispute) => (
+                      <TableRow key={dispute.id}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{dispute.title}</p>
+                            <p className="text-xs text-muted-foreground line-clamp-1">{dispute.description}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {dispute.contract?.unit?.property?.name || '-'} - {dispute.contract?.unit?.unit_number || ''}
+                        </TableCell>
+                        <TableCell>{getPriorityBadge(dispute.priority)}</TableCell>
+                        <TableCell>{getStatusBadge(dispute.status)}</TableCell>
+                        <TableCell>{format(new Date(dispute.created_at), 'MMM dd, yyyy')}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedDispute(dispute);
+                              setShowResolveDialog(true);
+                            }}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Review
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+
+                {/* Pagination */}
+                <div className="flex items-center justify-between mt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {(page - 1) * PAGE_SIZE + 1} - {Math.min(page * PAGE_SIZE, totalCount)} of {totalCount}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={page === 1}
+                      onClick={() => setPage(p => p - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!hasMore}
+                      onClick={() => setPage(p => p + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              </>
             ) : (
               <div className="text-center py-12 text-muted-foreground">
                 <AlertTriangle className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -257,6 +354,9 @@ const AdminDisputes = () => {
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Review Dispute</DialogTitle>
+              <DialogDescription>
+                Review dispute details and provide a resolution
+              </DialogDescription>
             </DialogHeader>
             {selectedDispute && (
               <div className="space-y-4">
@@ -281,13 +381,16 @@ const AdminDisputes = () => {
                 
                 {selectedDispute.status !== 'resolved' && (
                   <div className="space-y-2">
-                    <Label>Resolution</Label>
+                    <Label>Resolution <span className="text-destructive">*</span></Label>
                     <Textarea
                       value={resolution}
                       onChange={(e) => setResolution(e.target.value)}
-                      placeholder="Describe how this dispute was resolved..."
+                      placeholder="Describe how this dispute was resolved... (minimum 10 characters)"
                       rows={4}
                     />
+                    {resolution.length > 0 && resolution.length < 10 && (
+                      <p className="text-xs text-destructive">Resolution must be at least 10 characters</p>
+                    )}
                   </div>
                 )}
 
@@ -315,8 +418,8 @@ const AdminDisputes = () => {
                     </Button>
                   )}
                   <Button
-                    onClick={() => resolveDispute.mutate({ id: selectedDispute.id, status: 'resolved', resolution })}
-                    disabled={resolveDispute.isPending || !resolution}
+                    onClick={() => resolveDispute.mutate({ id: selectedDispute!.id, status: 'resolved', resolution })}
+                    disabled={resolveDispute.isPending || resolution.length < 10}
                   >
                     {resolveDispute.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
                     Resolve
