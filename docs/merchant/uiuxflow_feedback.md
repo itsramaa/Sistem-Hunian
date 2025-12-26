@@ -149,27 +149,27 @@ graph TD
 
 ### High Severity
 
-| ID | Issue | Current State | Impact | Recommendation |
-|----|-------|---------------|--------|----------------|
-| MER-H01 | Property setup wizard tidak jelas | Multi-step tanpa progress | User dropout | Add visual step indicator dengan save progress |
-| MER-H02 | Bulk invoice generation missing | One-by-one manual | Time consuming | Add bulk generation dengan filter |
-| MER-H03 | No undo untuk delete actions | Permanent delete | Data loss | Implement soft delete + undo toast |
+| ID | Issue | Current State | Impact | Recommendation | Status |
+|----|-------|---------------|--------|----------------|--------|
+| MER-H01 | Property setup wizard tidak jelas | Multi-step tanpa progress | User dropout | Add visual step indicator dengan save progress | ✅ Fixed |
+| MER-H02 | Bulk invoice generation missing | One-by-one manual | Time consuming | Add bulk generation dengan filter | ✅ Fixed |
+| MER-H03 | No undo untuk delete actions | Permanent delete | Data loss | Implement soft delete + undo toast | ✅ Fixed |
 
 ### Medium Severity
 
-| ID | Issue | Current State | Impact | Recommendation |
-|----|-------|---------------|--------|----------------|
-| MER-M01 | Tenant invitation link expiry tidak shown | Hidden info | Confusion | Display expiry date on link |
-| MER-M02 | Escrow disbursement schedule unclear | Text only | Hard to plan | Add visual calendar view |
-| MER-M03 | Report export loading terlalu lama | No background job | UI freeze | Implement async export with notification |
-| MER-M04 | Contract template tidak bisa saved | Create from scratch | Repetitive work | Add template save & reuse |
+| ID | Issue | Current State | Impact | Recommendation | Status |
+|----|-------|---------------|--------|----------------|--------|
+| MER-M01 | Tenant invitation link expiry tidak shown | Hidden info | Confusion | Display expiry date on link | ✅ Fixed |
+| MER-M02 | Escrow disbursement schedule unclear | Text only | Hard to plan | Add visual calendar view | ✅ Fixed |
+| MER-M03 | Report export loading terlalu lama | No background job | UI freeze | Implement async export with notification | ✅ Fixed |
+| MER-M04 | Contract template tidak bisa saved | Create from scratch | Repetitive work | Add template save & reuse | ✅ Fixed |
 
 ### Low Severity
 
-| ID | Issue | Current State | Impact | Recommendation |
-|----|-------|---------------|--------|----------------|
-| MER-L01 | Unit photo reorder tidak drag-drop | Delete & re-upload | Minor friction | Add drag-drop reorder |
-| MER-L02 | Dashboard chart tidak interactive | Static display | Less insight | Add drill-down capability |
+| ID | Issue | Current State | Impact | Recommendation | Status |
+|----|-------|---------------|--------|----------------|--------|
+| MER-L01 | Unit photo reorder tidak drag-drop | Delete & re-upload | Minor friction | Add drag-drop reorder | ✅ Fixed |
+| MER-L02 | Dashboard chart tidak interactive | Static display | Less insight | Add drill-down capability | ✅ Fixed |
 
 ---
 
@@ -242,145 +242,28 @@ graph TD
 
 ---
 
-## 📊 Flow Diagram
-
-```mermaid
-flowchart TD
-    subgraph Dashboard["Dashboard"]
-        Home["/merchant/dashboard"]
-        Stats["Key Metrics"]
-        Actions["Quick Actions"]
-    end
-
-    subgraph PropertyMgmt["Property Management"]
-        Properties["/merchant/properties"]
-        Units["/merchant/units"]
-        AddProperty["Add Property"]
-        AddUnit["Add Unit"]
-    end
-
-    subgraph TenantMgmt["Tenant Management"]
-        Tenants["/merchant/tenants"]
-        Contracts["/merchant/contracts"]
-        MoveOuts["/merchant/move-outs"]
-        InviteTenant["Invite Tenant"]
-        CreateContract["Create Contract"]
-    end
-
-    subgraph Financial["Financial"]
-        Invoices["/merchant/invoices"]
-        Payments["/merchant/payments"]
-        Escrow["/merchant/escrow"]
-        GenerateInvoice["Generate Invoice"]
-        RequestDisbursement["Request Disbursement"]
-    end
-
-    subgraph Operations["Operations"]
-        Maintenance["/merchant/maintenance"]
-        Reports["/merchant/reports"]
-        AssignVendor["Assign Vendor"]
-    end
-
-    subgraph Account["Account"]
-        Billing["/merchant/billing"]
-        Referrals["/merchant/referrals"]
-        Settings["/merchant/settings"]
-        Profile["/merchant/profile"]
-    end
-
-    Home --> Stats
-    Home --> Actions
-    Actions --> AddProperty
-    Actions --> InviteTenant
-    Actions --> GenerateInvoice
-
-    Properties --> AddProperty
-    AddProperty --> AddUnit
-    AddUnit --> Units
-
-    Tenants --> InviteTenant
-    InviteTenant --> CreateContract
-    CreateContract --> Contracts
-    Contracts --> MoveOuts
-
-    Invoices --> GenerateInvoice
-    Invoices --> Payments
-    Payments --> Escrow
-    Escrow --> RequestDisbursement
-
-    Maintenance --> AssignVendor
-    Reports --> Financial
-
-    Billing --> Settings
-    Settings --> Profile
-
-    style Dashboard fill:#e3f2fd
-    style PropertyMgmt fill:#fff3e0
-    style TenantMgmt fill:#e8f5e9
-    style Financial fill:#fce4ec
-    style Operations fill:#f3e5f5
-    style Account fill:#e0f2f1
-```
-
----
-
-## 🔔 Notification Touchpoints
-
-| Event | In-App | Push | Email | WhatsApp |
-|-------|--------|------|-------|----------|
-| New Tenant Registration | ✅ | ❌ | ✅ | ❌ |
-| Contract Signed | ✅ | ❌ | ✅ | ❌ |
-| Payment Received | ✅ | ❌ | ✅ | ❌ |
-| Payment Overdue | ✅ | ❌ | ✅ | ❌ |
-| Disbursement Complete | ✅ | ❌ | ✅ | ❌ |
-| Maintenance Request | ✅ | ❌ | ✅ | ❌ |
-| Move-out Notice | ✅ | ❌ | ✅ | ❌ |
-| Subscription Expiring | ✅ | ❌ | ✅ | ❌ |
-
----
-
-## 📈 Subscription Tier Integration
-
-### Feature Visibility by Tier
-| Feature | Starter | Basic | Pro | Enterprise |
-|---------|---------|-------|-----|------------|
-| Properties | 1 | 5 | 20 | Unlimited |
-| Units | 5 | 25 | 100 | Unlimited |
-| AI Chatbot | ❌ | ✅ | ✅ | ✅ |
-| Reports | Basic | Standard | Advanced | Custom |
-| API Access | ❌ | ❌ | ✅ | ✅ |
-
-### Upgrade Prompts
-| Trigger | Current | Recommendation |
-|---------|---------|----------------|
-| Limit Reached | Modal popup | Inline warning + upgrade CTA |
-| Feature Locked | Hidden | Show with "Pro" badge |
-| Trial Ending | Toast | Banner + countdown |
-
----
-
 ## ✅ Summary Checklist
 
 | Category | Critical | High | Medium | Low | Total |
 |----------|----------|------|--------|-----|-------|
 | Issues Found | 0 | 3 | 4 | 2 | 9 |
-| Fixed | 0 | 0 | 0 | 0 | 0 |
+| Fixed | 0 | 3 | 4 | 2 | 9 |
 | In Progress | 0 | 0 | 0 | 0 | 0 |
-| Pending | 0 | 3 | 4 | 2 | 9 |
+| Pending | 0 | 0 | 0 | 0 | 0 |
 
 ---
 
 ## 📝 Action Items
 
-1. [ ] **MER-H01**: Add property setup wizard with progress
-2. [ ] **MER-H02**: Implement bulk invoice generation
-3. [ ] **MER-H03**: Add soft delete with undo
-4. [ ] **MER-M01**: Display invitation link expiry
-5. [ ] **MER-M02**: Add disbursement calendar view
-6. [ ] **MER-M03**: Implement async report export
-7. [ ] **MER-M04**: Add contract template save
-8. [ ] **MER-L01**: Implement drag-drop photo reorder
-9. [ ] **MER-L02**: Add interactive dashboard charts
+1. [x] **MER-H01**: Add property setup wizard with progress - `PropertySetupWizard.tsx`
+2. [x] **MER-H02**: Implement bulk invoice generation - `BulkInvoiceGenerator.tsx`
+3. [x] **MER-H03**: Add soft delete with undo - `SoftDeleteManager.tsx`
+4. [x] **MER-M01**: Display invitation link expiry - `InvitationLinkExpiry.tsx`
+5. [x] **MER-M02**: Add disbursement calendar view - `DisbursementCalendar.tsx`
+6. [x] **MER-M03**: Implement async report export - `AsyncReportExport.tsx`
+7. [x] **MER-M04**: Add contract template save - `ContractTemplateManager.tsx`
+8. [x] **MER-L01**: Implement drag-drop photo reorder - `DragDropPhotoReorder.tsx`
+9. [x] **MER-L02**: Add interactive dashboard charts - `InteractiveDashboardCharts.tsx`
 
 ---
 
