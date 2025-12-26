@@ -4,23 +4,42 @@ import { TenantLayout } from "@/components/layouts/TenantLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Bell, Loader2, Palette, Moon, Sun } from "lucide-react";
+import { Bell, Loader2, Palette, Moon, Sun, RefreshCw, AlertTriangle, Shield } from "lucide-react";
+import { Navigate } from "react-router-dom";
 
 interface NotificationPreferences {
   payment_reminders: boolean;
   maintenance_updates: boolean;
   new_invoices: boolean;
   contract_updates: boolean;
+  forum_replies: boolean;
+  order_updates: boolean;
 }
 
+const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
+  payment_reminders: true,
+  maintenance_updates: true,
+  new_invoices: true,
+  contract_updates: true,
+  forum_replies: true,
+  order_updates: true,
+};
+
 const TenantSettings = () => {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: tenant, isLoading: tenantLoading } = useQuery({
+  // Role verification
+  if (role && role !== "tenant") {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  const { data: tenant, isLoading: tenantLoading, error, refetch } = useQuery({
     queryKey: ['tenant', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -34,13 +53,7 @@ const TenantSettings = () => {
     enabled: !!user?.id,
   });
 
-  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>({
-    payment_reminders: true,
-    maintenance_updates: true,
-    new_invoices: true,
-    contract_updates: true,
-  });
-
+  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFS);
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
 
   // Initialize settings when data loads
@@ -48,7 +61,10 @@ const TenantSettings = () => {
     if (tenant) {
       const prefs = tenant.notification_preferences as unknown as NotificationPreferences | null;
       if (prefs) {
-        setNotificationPrefs(prefs);
+        setNotificationPrefs({
+          ...DEFAULT_NOTIFICATION_PREFS,
+          ...prefs,
+        });
       }
     }
   }, [tenant]);
@@ -114,6 +130,32 @@ const TenantSettings = () => {
       </TenantLayout>
     );
   }
+
+  if (error) {
+    return (
+      <TenantLayout title="Pengaturan">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>Gagal memuat pengaturan. Silakan coba lagi.</span>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Coba Lagi
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </TenantLayout>
+    );
+  }
+
+  const notificationItems = [
+    { key: 'payment_reminders', label: 'Pengingat Pembayaran', description: 'Pengingat sebelum jatuh tempo sewa' },
+    { key: 'maintenance_updates', label: 'Update Maintenance', description: 'Pembaruan tentang laporan perbaikan Anda' },
+    { key: 'new_invoices', label: 'Tagihan Baru', description: 'Notifikasi ketika ada tagihan baru' },
+    { key: 'contract_updates', label: 'Update Kontrak', description: 'Pembaruan penting tentang kontrak sewa' },
+    { key: 'forum_replies', label: 'Balasan Forum', description: 'Notifikasi ketika ada balasan di forum' },
+    { key: 'order_updates', label: 'Update Pesanan', description: 'Pembaruan status pesanan vendor' },
+  ];
 
   return (
     <TenantLayout 
@@ -186,6 +228,25 @@ const TenantSettings = () => {
               </p>
             </CardContent>
           </Card>
+
+          {/* Privacy Notice */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Privasi & Keamanan
+              </CardTitle>
+              <CardDescription>Informasi tentang data Anda</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-4 rounded-lg border bg-muted/50">
+                <p className="text-sm text-muted-foreground">
+                  Data pribadi Anda seperti KTP dan informasi identitas disimpan dengan aman dan hanya digunakan untuk verifikasi. 
+                  Anda dapat mengelola data profil di halaman <a href="/tenant/profile" className="text-primary underline">Profil</a>.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Notifications Tab */}
@@ -199,12 +260,7 @@ const TenantSettings = () => {
               <CardDescription>Pilih notifikasi yang ingin Anda terima</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {[
-                { key: 'payment_reminders', label: 'Pengingat Pembayaran', description: 'Pengingat sebelum jatuh tempo sewa' },
-                { key: 'maintenance_updates', label: 'Update Maintenance', description: 'Pembaruan tentang laporan perbaikan Anda' },
-                { key: 'new_invoices', label: 'Tagihan Baru', description: 'Notifikasi ketika ada tagihan baru' },
-                { key: 'contract_updates', label: 'Update Kontrak', description: 'Pembaruan penting tentang kontrak sewa' },
-              ].map((item) => (
+              {notificationItems.map((item) => (
                 <div key={item.key} className="flex items-center justify-between p-4 rounded-lg border">
                   <div>
                     <p className="font-medium">{item.label}</p>

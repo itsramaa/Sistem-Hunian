@@ -7,19 +7,43 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { User, Loader2, Save, CreditCard, Upload, Phone, Shield, Wallet, Calendar, Banknote } from "lucide-react";
+import { User, Loader2, Save, CreditCard, Upload, Phone, Shield, Wallet, Calendar, Banknote, RefreshCw, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import { ProfileFormSkeleton } from "@/components/ui/skeletons";
 import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
+import { Navigate } from "react-router-dom";
+import { z } from "zod";
+
+// Validation schemas
+const profileSchema = z.object({
+  full_name: z.string().min(2, "Nama minimal 2 karakter").max(100, "Nama maksimal 100 karakter"),
+  phone: z.string().regex(/^(\+62|62|0)[0-9]{9,12}$/, "Format nomor telepon tidak valid").or(z.literal("")),
+});
+
+const ktpSchema = z.string().regex(/^[0-9]{16}$/, "NIK harus 16 digit angka").or(z.literal(""));
+
+const passwordSchema = z.object({
+  newPassword: z.string().min(8, "Password minimal 8 karakter"),
+  confirmPassword: z.string(),
+}).refine(data => data.newPassword === data.confirmPassword, {
+  message: "Password tidak cocok",
+  path: ["confirmPassword"],
+});
 
 const TenantProfile = () => {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: profile, isLoading: profileLoading } = useQuery({
+  // Role verification
+  if (role && role !== "tenant") {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  const { data: profile, isLoading: profileLoading, error: profileError, refetch: refetchProfile } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -33,7 +57,7 @@ const TenantProfile = () => {
     enabled: !!user?.id,
   });
 
-  const { data: tenant, isLoading: tenantLoading } = useQuery({
+  const { data: tenant, isLoading: tenantLoading, error: tenantError, refetch: refetchTenant } = useQuery({
     queryKey: ['tenant', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -48,6 +72,7 @@ const TenantProfile = () => {
   });
 
   const isLoading = profileLoading || tenantLoading;
+  const hasError = profileError || tenantError;
 
   const [profileForm, setProfileForm] = useState({
     full_name: '',
@@ -67,16 +92,20 @@ const TenantProfile = () => {
 
   const [ktpFile, setKtpFile] = useState<File | null>(null);
   const [ktpPreview, setKtpPreview] = useState<string | null>(null);
+  const [showKtp, setShowKtp] = useState(false);
 
   const [passwordForm, setPasswordForm] = useState({
     newPassword: '',
     confirmPassword: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
 
   const [autoPaySettings, setAutoPaySettings] = useState({
     enabled: false,
     day: 1,
   });
+
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (profile) {
@@ -111,9 +140,21 @@ const TenantProfile = () => {
 
   const updateProfile = useMutation({
     mutationFn: async (data: typeof profileForm) => {
+      // Validate
+      const result = profileSchema.safeParse(data);
+      if (!result.success) {
+        const errors: Record<string, string> = {};
+        result.error.errors.forEach(err => {
+          errors[err.path[0]] = err.message;
+        });
+        setValidationErrors(errors);
+        throw new Error(Object.values(errors)[0]);
+      }
+      setValidationErrors({});
+
       const { error } = await supabase
         .from('profiles')
-        .update(data)
+        .update({ full_name: data.full_name.trim(), phone: data.phone.trim() })
         .eq('user_id', user?.id);
       if (error) throw error;
     },
@@ -121,14 +162,28 @@ const TenantProfile = () => {
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       toast.success('Profil berhasil disimpan');
     },
-    onError: () => toast.error('Gagal menyimpan profil'),
+    onError: (err: Error) => toast.error(err.message || 'Gagal menyimpan profil'),
   });
 
   const updateTenantProfile = useMutation({
     mutationFn: async () => {
+      // Validate KTP
+      if (tenantForm.ktp_number) {
+        const result = ktpSchema.safeParse(tenantForm.ktp_number);
+        if (!result.success) {
+          throw new Error("NIK harus 16 digit angka");
+        }
+      }
+
       let ktpPhotoUrl = tenant?.ktp_photo_url || null;
 
       if (ktpFile) {
+        // Validate file type
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+        if (!allowedTypes.includes(ktpFile.type)) {
+          throw new Error("Format file harus JPG atau PNG");
+        }
+
         const fileExt = ktpFile.name.split('.').pop();
         const fileName = `${user?.id}-ktp-${Date.now()}.${fileExt}`;
         const filePath = `ktp/${fileName}`;
@@ -147,14 +202,14 @@ const TenantProfile = () => {
       }
 
       const tenantData = {
-        ktp_number: tenantForm.ktp_number || null,
+        ktp_number: tenantForm.ktp_number.trim() || null,
         ktp_photo_url: ktpPhotoUrl,
         date_of_birth: tenantForm.date_of_birth || null,
         gender: tenantForm.gender || null,
-        occupation: tenantForm.occupation || null,
+        occupation: tenantForm.occupation.trim().slice(0, 100) || null,
         income_range: tenantForm.income_range || null,
-        emergency_contact_name: tenantForm.emergency_contact_name || null,
-        emergency_contact_phone: tenantForm.emergency_contact_phone || null,
+        emergency_contact_name: tenantForm.emergency_contact_name.trim().slice(0, 100) || null,
+        emergency_contact_phone: tenantForm.emergency_contact_phone.trim().slice(0, 20) || null,
         emergency_contact_relation: tenantForm.emergency_contact_relation || null,
       };
 
@@ -181,9 +236,12 @@ const TenantProfile = () => {
 
   const changePassword = useMutation({
     mutationFn: async () => {
-      if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-        throw new Error('Password tidak cocok');
+      // Validate
+      const result = passwordSchema.safeParse(passwordForm);
+      if (!result.success) {
+        throw new Error(result.error.errors[0].message);
       }
+
       const { error } = await supabase.auth.updateUser({
         password: passwordForm.newPassword,
       });
@@ -220,8 +278,15 @@ const TenantProfile = () => {
   const handleKtpFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Validate size
       if (file.size > 5 * 1024 * 1024) {
         toast.error('Ukuran file maksimal 5MB');
+        return;
+      }
+      // Validate type
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+      if (!allowedTypes.includes(file.type)) {
+        toast.error('Format file harus JPG atau PNG');
         return;
       }
       setKtpFile(file);
@@ -233,10 +298,32 @@ const TenantProfile = () => {
     }
   };
 
+  // Mask KTP number for display
+  const maskedKtpNumber = tenantForm.ktp_number 
+    ? (showKtp ? tenantForm.ktp_number : tenantForm.ktp_number.slice(0, 4) + '********' + tenantForm.ktp_number.slice(-4))
+    : '';
+
   if (isLoading) {
     return (
       <TenantLayout title="Profil">
         <ProfileFormSkeleton />
+      </TenantLayout>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <TenantLayout title="Profil">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>Gagal memuat profil. Silakan coba lagi.</span>
+            <Button variant="outline" size="sm" onClick={() => { refetchProfile(); refetchTenant(); }}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Coba Lagi
+            </Button>
+          </AlertDescription>
+        </Alert>
       </TenantLayout>
     );
   }
@@ -281,15 +368,23 @@ const TenantProfile = () => {
                     value={profileForm.full_name}
                     onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })}
                     placeholder="Nama lengkap Anda"
+                    maxLength={100}
                   />
+                  {validationErrors.full_name && (
+                    <p className="text-xs text-destructive">{validationErrors.full_name}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Nomor Telepon</Label>
                   <Input
                     value={profileForm.phone}
                     onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                    placeholder="Nomor telepon Anda"
+                    placeholder="08xxxxxxxxxx"
+                    maxLength={15}
                   />
+                  {validationErrors.phone && (
+                    <p className="text-xs text-destructive">{validationErrors.phone}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Email</Label>
@@ -314,18 +409,33 @@ const TenantProfile = () => {
                 <CreditCard className="h-5 w-5" />
                 Data Identitas
               </CardTitle>
-              <CardDescription>KTP dan informasi verifikasi</CardDescription>
+              <CardDescription>KTP dan informasi verifikasi (data ini dienkripsi)</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Nomor KTP (NIK)</Label>
-                  <Input
-                    value={tenantForm.ktp_number}
-                    onChange={(e) => setTenantForm({ ...tenantForm, ktp_number: e.target.value })}
-                    placeholder="16 digit NIK"
-                    maxLength={16}
-                  />
+                  <div className="relative">
+                    <Input
+                      value={showKtp ? tenantForm.ktp_number : maskedKtpNumber}
+                      onChange={(e) => setTenantForm({ ...tenantForm, ktp_number: e.target.value.replace(/\D/g, '').slice(0, 16) })}
+                      placeholder="16 digit NIK"
+                      maxLength={16}
+                      disabled={!showKtp && !!tenantForm.ktp_number}
+                    />
+                    {tenantForm.ktp_number && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-2 top-1/2 -translate-y-1/2"
+                        onClick={() => setShowKtp(!showKtp)}
+                      >
+                        {showKtp ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Data ini hanya digunakan untuk verifikasi</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Tanggal Lahir</Label>
@@ -333,6 +443,7 @@ const TenantProfile = () => {
                     type="date"
                     value={tenantForm.date_of_birth}
                     onChange={(e) => setTenantForm({ ...tenantForm, date_of_birth: e.target.value })}
+                    max={new Date().toISOString().split('T')[0]}
                   />
                 </div>
               </div>
@@ -359,6 +470,7 @@ const TenantProfile = () => {
                     value={tenantForm.occupation}
                     onChange={(e) => setTenantForm({ ...tenantForm, occupation: e.target.value })}
                     placeholder="contoh: Karyawan Swasta"
+                    maxLength={100}
                   />
                 </div>
               </div>
@@ -388,12 +500,33 @@ const TenantProfile = () => {
                 <div className="border-2 border-dashed rounded-lg p-4">
                   {ktpPreview ? (
                     <div className="space-y-3">
-                      <img
-                        src={ktpPreview}
-                        alt="KTP Preview"
-                        className="max-h-40 mx-auto rounded-lg object-contain"
-                      />
-                      <div className="flex justify-center">
+                      <div className="relative">
+                        <img
+                          src={ktpPreview}
+                          alt="KTP Preview"
+                          className={`max-h-40 mx-auto rounded-lg object-contain ${!showKtp ? 'blur-lg' : ''}`}
+                        />
+                        {!showKtp && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Button variant="secondary" size="sm" onClick={() => setShowKtp(true)}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              Tampilkan
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex justify-center gap-2">
+                        {showKtp && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowKtp(false)}
+                          >
+                            <EyeOff className="h-4 w-4 mr-2" />
+                            Sembunyikan
+                          </Button>
+                        )}
                         <Button
                           type="button"
                           variant="outline"
@@ -411,17 +544,25 @@ const TenantProfile = () => {
                     <label className="cursor-pointer block text-center">
                       <input
                         type="file"
-                        accept="image/*"
+                        accept="image/jpeg,image/png,image/jpg"
                         onChange={handleKtpFileChange}
                         className="hidden"
                       />
                       <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
                       <p className="text-sm mt-2">Klik untuk upload foto KTP</p>
-                      <p className="text-xs text-muted-foreground">PNG, JPG maksimal 5MB</p>
+                      <p className="text-xs text-muted-foreground">JPG, PNG maksimal 5MB</p>
                     </label>
                   )}
                 </div>
               </div>
+
+              <Button 
+                onClick={() => updateTenantProfile.mutate()}
+                disabled={updateTenantProfile.isPending}
+              >
+                {updateTenantProfile.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                Simpan Data Identitas
+              </Button>
             </CardContent>
           </Card>
 
@@ -442,6 +583,7 @@ const TenantProfile = () => {
                     value={tenantForm.emergency_contact_name}
                     onChange={(e) => setTenantForm({ ...tenantForm, emergency_contact_name: e.target.value })}
                     placeholder="Nama kontak darurat"
+                    maxLength={100}
                   />
                 </div>
                 <div className="space-y-2">
@@ -450,6 +592,7 @@ const TenantProfile = () => {
                     value={tenantForm.emergency_contact_phone}
                     onChange={(e) => setTenantForm({ ...tenantForm, emergency_contact_phone: e.target.value })}
                     placeholder="Nomor telepon"
+                    maxLength={20}
                   />
                 </div>
                 <div className="space-y-2">
@@ -471,14 +614,6 @@ const TenantProfile = () => {
                   </Select>
                 </div>
               </div>
-
-              <Button 
-                onClick={() => updateTenantProfile.mutate()}
-                disabled={updateTenantProfile.isPending}
-              >
-                {updateTenantProfile.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                Simpan Data Identitas
-              </Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -497,17 +632,28 @@ const TenantProfile = () => {
               <div className="space-y-4 max-w-md">
                 <div className="space-y-2">
                   <Label>Password Baru</Label>
-                  <Input
-                    type="password"
-                    value={passwordForm.newPassword}
-                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                    placeholder="Masukkan password baru"
-                  />
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      value={passwordForm.newPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                      placeholder="Minimal 8 karakter"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-2 top-1/2 -translate-y-1/2"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Konfirmasi Password</Label>
                   <Input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     value={passwordForm.confirmPassword}
                     onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
                     placeholder="Konfirmasi password baru"
@@ -516,7 +662,7 @@ const TenantProfile = () => {
               </div>
               <Button 
                 onClick={() => changePassword.mutate()}
-                disabled={changePassword.isPending || !passwordForm.newPassword}
+                disabled={changePassword.isPending || !passwordForm.newPassword || passwordForm.newPassword.length < 8}
               >
                 {changePassword.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Shield className="h-4 w-4 mr-2" />}
                 Ubah Password
