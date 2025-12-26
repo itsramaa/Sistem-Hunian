@@ -1,21 +1,43 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, ShoppingCart, Clock, MapPin, TrendingUp, Repeat } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Users, ShoppingCart, Clock, MapPin, TrendingUp, Repeat, AlertTriangle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { subDays } from "date-fns";
+import { formatCurrency } from "@/lib/currency";
 
 interface CustomerInsightsProps {
   vendorId: string;
+  dateRange?: '7d' | '30d' | '90d' | 'all';
 }
 
 const COLORS = ["hsl(var(--primary))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
-export function CustomerInsights({ vendorId }: CustomerInsightsProps) {
+export function CustomerInsights({ vendorId, dateRange = '30d' }: CustomerInsightsProps) {
+  // Calculate date filter
+  const getDateFilter = () => {
+    const now = new Date();
+    switch (dateRange) {
+      case '7d':
+        return subDays(now, 7);
+      case '30d':
+        return subDays(now, 30);
+      case '90d':
+        return subDays(now, 90);
+      default:
+        return null;
+    }
+  };
+
+  const dateFilter = getDateFilter();
+
   // Fetch orders data for analytics
-  const { data: ordersData } = useQuery({
-    queryKey: ["vendor-customer-insights", vendorId],
+  const { data: ordersData, isLoading, error } = useQuery({
+    queryKey: ["vendor-customer-insights", vendorId, dateRange],
     queryFn: async () => {
-      const { data: orders, error } = await supabase
+      let query = supabase
         .from("orders")
         .select(`
           id,
@@ -33,9 +55,15 @@ export function CustomerInsights({ vendorId }: CustomerInsightsProps) {
         `)
         .eq("vendor_id", vendorId)
         .eq("status", "completed");
+
+      if (dateFilter) {
+        query = query.gte("created_at", dateFilter.toISOString());
+      }
+
+      const { data, error } = await query;
       
       if (error) throw error;
-      return orders || [];
+      return data || [];
     },
     enabled: !!vendorId,
   });
@@ -113,14 +141,6 @@ export function CustomerInsights({ vendorId }: CustomerInsightsProps) {
     };
   })();
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
-
   const stats = [
     {
       title: "Total Customers",
@@ -153,6 +173,23 @@ export function CustomerInsights({ vendorId }: CustomerInsightsProps) {
     },
   ];
 
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-xl font-semibold">Customer Insights</h2>
+          <p className="text-sm text-muted-foreground">Understand your customer behavior and patterns</p>
+        </div>
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Failed to load customer insights. Please try again.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -162,24 +199,39 @@ export function CustomerInsights({ vendorId }: CustomerInsightsProps) {
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <Card key={stat.title}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {stat.title}
-              </CardTitle>
-              <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                <stat.icon className={`h-4 w-4 ${stat.color}`} />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              {stat.subtitle && (
-                <p className="text-xs text-muted-foreground mt-1">{stat.subtitle}</p>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+        {isLoading ? (
+          <>
+            {[...Array(4)].map((_, i) => (
+              <Card key={i}>
+                <CardHeader className="pb-2">
+                  <Skeleton className="h-4 w-24" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-8 w-20" />
+                </CardContent>
+              </Card>
+            ))}
+          </>
+        ) : (
+          stats.map((stat) => (
+            <Card key={stat.title}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  {stat.title}
+                </CardTitle>
+                <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                  <stat.icon className={`h-4 w-4 ${stat.color}`} />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stat.value}</div>
+                {stat.subtitle && (
+                  <p className="text-xs text-muted-foreground mt-1">{stat.subtitle}</p>
+                )}
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
       {/* Charts Grid */}
@@ -194,7 +246,9 @@ export function CustomerInsights({ vendorId }: CustomerInsightsProps) {
             <CardDescription>When your customers order</CardDescription>
           </CardHeader>
           <CardContent>
-            {insights.peakDays.some(d => d.orders > 0) ? (
+            {isLoading ? (
+              <Skeleton className="h-[200px] w-full" />
+            ) : insights.peakDays.some(d => d.orders > 0) ? (
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={insights.peakDays}>
                   <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
@@ -231,7 +285,9 @@ export function CustomerInsights({ vendorId }: CustomerInsightsProps) {
             <CardDescription>Where your orders come from</CardDescription>
           </CardHeader>
           <CardContent>
-            {insights.locationData.length > 0 ? (
+            {isLoading ? (
+              <Skeleton className="h-[200px] w-full" />
+            ) : insights.locationData.length > 0 ? (
               <div className="flex items-center gap-4">
                 <ResponsiveContainer width="50%" height={200}>
                   <PieChart>
