@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Home, Loader2, CheckCircle, XCircle, Building2, MapPin, ArrowRight, AlertCircle, Mail } from "lucide-react";
+import { Home, Loader2, CheckCircle, XCircle, Building2, MapPin, ArrowRight, AlertCircle, Mail, Phone } from "lucide-react";
 import { TenantProfileForm } from "@/components/tenant/TenantProfileForm";
 import { PasswordStrengthMeter } from "@/components/auth/PasswordStrengthMeter";
 import { INVITATION_ERROR_MESSAGES } from "@/lib/auth-errors";
@@ -274,6 +274,12 @@ const Invite = () => {
     const iconColor = errorMessage === 'INVITATION_USED' ? 'text-success' : 
                       errorMessage === 'INVITATION_EXPIRED' ? 'text-warning' : 'text-destructive';
 
+    // Show "Contact Property Owner" option for expired/invalid invitations
+    const showContactOption = errorMessage === 'INVITATION_EXPIRED' || 
+                               errorMessage === 'UNIT_NOT_AVAILABLE' ||
+                               errorMessage === 'INVALID' ||
+                               errorMessage === 'INVITATION_INVALID';
+
     return (
       <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
@@ -285,6 +291,19 @@ const Invite = () => {
             <div className="flex flex-col gap-2">
               {errorMessage === 'INVITATION_USED' && (
                 <Button onClick={() => navigate('/auth')}>Masuk ke Akun</Button>
+              )}
+              {showContactOption && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    // Open email client to contact property owner
+                    window.location.href = 'mailto:?subject=Permintaan%20Undangan%20Baru%20-%20SiHuni&body=Halo,%0A%0ASaya%20ingin%20meminta%20undangan%20baru%20untuk%20mendaftar%20di%20SiHuni.%0A%0AKode%20undangan%20sebelumnya:%20' + encodeURIComponent(token || '') + '%0A%0ATerima%20kasih.';
+                  }}
+                  className="gap-2"
+                >
+                  <Phone className="h-4 w-4" />
+                  Hubungi Pemilik Properti
+                </Button>
               )}
               <Button variant={errorMessage === 'INVITATION_USED' ? 'outline' : 'default'} onClick={() => navigate('/')}>
                 Kembali ke Beranda

@@ -1,7 +1,9 @@
+import { useEffect, useRef } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { AppRole } from '@/types/auth';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -19,9 +21,21 @@ function getRedirectPath(role: AppRole): string {
   return rolePathMap[role] || '/';
 }
 
+// Helper function to get role display name
+function getRoleDisplayName(role: AppRole): string {
+  const roleNameMap: Record<AppRole, string> = {
+    admin: 'Admin',
+    merchant: 'Pemilik Properti',
+    vendor: 'Vendor',
+    tenant: 'Tenant',
+  };
+  return roleNameMap[role] || role;
+}
+
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { user, role, isLoading } = useAuth();
   const location = useLocation();
+  const hasShownToast = useRef(false);
 
   if (isLoading) {
     return (
@@ -45,15 +59,25 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   if (allowedRoles && allowedRoles.length > 0) {
     // Admin can access ALL routes (super access)
     if (role === 'admin') {
+      hasShownToast.current = false;
       return <>{children}</>;
     }
     
     // For non-admin roles, check if their role is in allowedRoles
     if (!allowedRoles.includes(role)) {
+      // Show toast notification only once per redirect
+      if (!hasShownToast.current) {
+        hasShownToast.current = true;
+        toast.error('Akses Ditolak', {
+          description: `Halaman ini hanya dapat diakses oleh ${allowedRoles.map(r => getRoleDisplayName(r as AppRole)).join(', ')}. Anda dialihkan ke dashboard ${getRoleDisplayName(role)}.`,
+        });
+      }
       // Redirect to their own dashboard
       return <Navigate to={getRedirectPath(role)} replace />;
     }
   }
 
+  // Reset toast flag when accessing allowed page
+  hasShownToast.current = false;
   return <>{children}</>;
 }

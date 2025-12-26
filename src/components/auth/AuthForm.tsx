@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, Eye, EyeOff, Building2, Phone } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -54,11 +55,22 @@ export function AuthForm() {
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>(isTenantSignup ? 'signup' : (initialMode || 'login'));
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => {
+    // Load remember me preference from localStorage
+    return localStorage.getItem('sihuni_remember_me') === 'true';
+  });
   const [merchantCodeError, setMerchantCodeError] = useState<string | null>(null);
   const [referrerInfo, setReferrerInfo] = useState<{ name: string; role: string } | null>(null);
   const { toast } = useToast();
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
+
+  // React to URL mode changes
+  useEffect(() => {
+    if (initialMode && !isTenantSignup) {
+      setActiveTab(initialMode);
+    }
+  }, [initialMode, isTenantSignup]);
 
   // Store referral code in session storage
   useEffect(() => {
@@ -102,7 +114,10 @@ export function AuthForm() {
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', password: '' },
+    defaultValues: { 
+      email: localStorage.getItem('sihuni_last_email') || '', 
+      password: '' 
+    },
   });
 
   const signupForm = useForm<SignupFormData>({
@@ -131,6 +146,14 @@ export function AuthForm() {
         description: getAuthErrorMessage(error),
       });
       return;
+    }
+
+    // Save remember me preference
+    localStorage.setItem('sihuni_remember_me', rememberMe.toString());
+    if (rememberMe) {
+      localStorage.setItem('sihuni_last_email', data.email);
+    } else {
+      localStorage.removeItem('sihuni_last_email');
     }
 
     toast({
@@ -360,6 +383,23 @@ export function AuthForm() {
                     <p className="text-sm text-destructive">{loginForm.formState.errors.password.message}</p>
                   )}
                 </div>
+                
+                {/* Remember Me Checkbox */}
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="remember-me"
+                    checked={rememberMe}
+                    onCheckedChange={(checked) => setRememberMe(checked === true)}
+                    aria-label="Ingat saya"
+                  />
+                  <Label 
+                    htmlFor="remember-me" 
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    Ingat saya
+                  </Label>
+                </div>
+
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Masuk
