@@ -51,6 +51,20 @@ export function TenantProfileForm({ userId, onComplete }: TenantProfileFormProps
     setIsSubmitting(true);
 
     try {
+      // First, call the bootstrap function to ensure profiles/user_roles/tenants exist
+      // This runs with service role so it bypasses RLS
+      const { data: bootstrapData, error: bootstrapError } = await supabase.functions.invoke(
+        'ensure-user-bootstrap',
+        { body: { role: 'tenant' } }
+      );
+
+      if (bootstrapError) {
+        console.error('Bootstrap error:', bootstrapError);
+        throw new Error('Failed to initialize user profile. Please try again.');
+      }
+
+      console.log('Bootstrap result:', bootstrapData);
+
       let ktpPhotoUrl = null;
 
       // Upload KTP photo if provided
@@ -63,7 +77,10 @@ export function TenantProfileForm({ userId, onComplete }: TenantProfileFormProps
           .from('verification-documents')
           .upload(filePath, ktpFile);
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          throw new Error('Failed to upload KTP photo. Please try again.');
+        }
 
         const { data: { publicUrl } } = supabase.storage
           .from('verification-documents')
@@ -72,45 +89,8 @@ export function TenantProfileForm({ userId, onComplete }: TenantProfileFormProps
         ktpPhotoUrl = publicUrl;
       }
 
-      // Get current user email for profile
-      const { data: { user } } = await supabase.auth.getUser();
-
-      // Ensure profile exists (fallback in case trigger didn't fire)
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (!existingProfile && user) {
-        await supabase.from('profiles').insert({
-          user_id: userId,
-          email: user.email || '',
-          full_name: user.user_metadata?.full_name || '',
-        });
-      }
-
-      // Ensure user_roles exists (fallback in case trigger didn't fire)
-      const { data: existingRole } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (!existingRole) {
-        await supabase.from('user_roles').insert({
-          user_id: userId,
-          role: 'tenant',
-        });
-      }
-
-      // Check if tenant record exists
-      const { data: existingTenant } = await supabase
-        .from('tenants')
-        .select('id')
-        .eq('user_id', userId)
-        .maybeSingle();
-
+      // Now update the tenant record with additional data
+      // RLS will allow this because the tenant record was created by bootstrap
       const tenantData = {
         ktp_number: formData.ktp_number || null,
         ktp_photo_url: ktpPhotoUrl,
@@ -125,29 +105,20 @@ export function TenantProfileForm({ userId, onComplete }: TenantProfileFormProps
         verification_status: 'pending' as const,
       };
 
-      if (existingTenant) {
-        // Update existing tenant
-        const { error } = await supabase
-          .from('tenants')
-          .update(tenantData)
-          .eq('user_id', userId);
+      const { error: updateError } = await supabase
+        .from('tenants')
+        .update(tenantData)
+        .eq('user_id', userId);
 
-        if (error) throw error;
-      } else {
-        // Create new tenant record
-        const { error } = await supabase
-          .from('tenants')
-          .insert({
-            user_id: userId,
-            ...tenantData,
-          });
-
-        if (error) throw error;
+      if (updateError) {
+        console.error('Tenant update error:', updateError);
+        throw new Error('Failed to save profile. Please try again.');
       }
 
       toast.success("Profile completed successfully!");
       onComplete();
     } catch (error: any) {
+      console.error('Profile completion error:', error);
       toast.error(error.message || "Failed to save profile");
     } finally {
       setIsSubmitting(false);
