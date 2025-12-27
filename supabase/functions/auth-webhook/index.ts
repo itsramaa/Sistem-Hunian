@@ -7,6 +7,8 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log('[auth-webhook] Request received:', req.method);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -16,52 +18,100 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
+    if (!supabaseServiceKey) {
+      console.error('[auth-webhook] SUPABASE_SERVICE_ROLE_KEY not found');
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { user_id, email, full_name, phone, role, business_name, merchant_code, referral_code } = await req.json();
+    const body = await req.json();
+    console.log('[auth-webhook] Request body:', JSON.stringify(body, null, 2));
+    
+    const { user_id, email, full_name, phone, role, business_name, merchant_code, referral_code } = body;
 
     if (!user_id || !email) {
-      console.error('Missing required fields: user_id or email');
+      console.error('[auth-webhook] Missing required fields: user_id or email');
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`Processing user creation for: ${email}, role: ${role || 'tenant'}`);
+    console.log(`[auth-webhook] Processing user creation for: ${email}, role: ${role || 'tenant'}, user_id: ${user_id}`);
 
     // Check if profile already exists
-    const { data: existingProfile } = await supabase
+    console.log('[auth-webhook] Checking if profile already exists...');
+    const { data: existingProfile, error: checkError } = await supabase
       .from('profiles')
       .select('id')
       .eq('user_id', user_id)
-      .single();
+      .maybeSingle();
+
+    if (checkError) {
+      console.error('[auth-webhook] Error checking existing profile:', checkError);
+    }
 
     if (existingProfile) {
-      console.log('Profile already exists, skipping creation');
+      console.log('[auth-webhook] Profile already exists, checking user_roles...');
+      
+      // Check if user_roles exists
+      const { data: existingRole } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user_id)
+        .maybeSingle();
+      
+      if (existingRole) {
+        console.log('[auth-webhook] User role already exists:', existingRole.role);
+        return new Response(
+          JSON.stringify({ message: 'Profile and role already exist', profile_id: existingProfile.id, role: existingRole.role }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Profile exists but role doesn't - create role
+      console.log('[auth-webhook] Profile exists but role missing, creating role...');
+      const userRole = role || 'tenant';
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .insert({ user_id, role: userRole });
+      
+      if (roleError) {
+        console.error('[auth-webhook] Error creating user role:', roleError);
+        throw roleError;
+      }
+      
+      console.log('[auth-webhook] User role created:', userRole);
       return new Response(
-        JSON.stringify({ message: 'Profile already exists', profile_id: existingProfile.id }),
+        JSON.stringify({ message: 'Role created for existing profile', profile_id: existingProfile.id, role: userRole }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const userRole = role || 'tenant';
+    console.log('[auth-webhook] Creating new profile and role for user:', user_id);
 
     // 1. Insert profile with phone
-    const { error: profileError } = await supabase
+    const { data: newProfile, error: profileError } = await supabase
       .from('profiles')
       .insert({
         user_id,
         email,
         full_name: full_name || '',
         phone: phone || null,
-      });
+      })
+      .select('id')
+      .single();
 
     if (profileError) {
-      console.error('Error creating profile:', profileError);
+      console.error('[auth-webhook] Error creating profile:', profileError);
       throw profileError;
     }
-    console.log('Profile created successfully');
+    console.log('[auth-webhook] Profile created successfully:', newProfile?.id);
 
     // 2. Insert user role
     const { error: roleError } = await supabase
@@ -72,10 +122,10 @@ serve(async (req) => {
       });
 
     if (roleError) {
-      console.error('Error creating user role:', roleError);
+      console.error('[auth-webhook] Error creating user role:', roleError);
       throw roleError;
     }
-    console.log('User role created:', userRole);
+    console.log('[auth-webhook] User role created:', userRole);
 
     // 3. Handle role-specific inserts
     let referrerInfo: { userId: string; role: string } | null = null;
@@ -242,6 +292,7 @@ serve(async (req) => {
       console.log('Tenant created');
     }
 
+    console.log('[auth-webhook] User setup completed successfully for:', email, 'role:', userRole);
     return new Response(
       JSON.stringify({ success: true, message: 'User setup completed', role: userRole }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -249,9 +300,11 @@ serve(async (req) => {
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    console.error('Auth webhook error:', error);
+    const errorStack = error instanceof Error ? error.stack : '';
+    console.error('[auth-webhook] Error:', errorMessage);
+    console.error('[auth-webhook] Stack:', errorStack);
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: errorMessage, details: errorStack }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
