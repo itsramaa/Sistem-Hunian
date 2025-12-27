@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.accept-tenant-invitation]
 verify_jwt = false
+
+[functions.ensure-user-bootstrap]
+verify_jwt = false
