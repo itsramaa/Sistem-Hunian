@@ -1,0 +1,220 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { token, user_id, contract_duration_months = 12 } = await req.json();
+
+    console.log('[accept-tenant-invitation] Request received:', { token: token?.substring(0, 8) + '...', user_id, contract_duration_months });
+
+    // Validate required fields
+    if (!token || typeof token !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'INVALID_TOKEN', message: 'Token is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!user_id || typeof user_id !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'INVALID_USER', message: 'User ID is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Create Supabase client with service role key
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    // Fetch invitation
+    const { data: invitation, error: invError } = await supabase
+      .from('tenant_invitations')
+      .select(`
+        *,
+        unit:units(
+          id,
+          unit_number,
+          rent_amount,
+          deposit_amount,
+          status,
+          property:properties(
+            id,
+            name,
+            address,
+            merchant_id
+          )
+        )
+      `)
+      .eq('invitation_token', token)
+      .maybeSingle();
+
+    if (invError) {
+      console.error('[accept-tenant-invitation] DB error:', invError);
+      return new Response(
+        JSON.stringify({ error: 'DB_ERROR', message: 'Database error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!invitation) {
+      console.log('[accept-tenant-invitation] Invitation not found for token');
+      return new Response(
+        JSON.stringify({ error: 'INVITATION_NOT_FOUND', message: 'Invitation not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check if already accepted
+    if (invitation.status === 'accepted') {
+      console.log('[accept-tenant-invitation] Invitation already accepted');
+      return new Response(
+        JSON.stringify({ error: 'INVITATION_ALREADY_ACCEPTED', message: 'Invitation has already been accepted' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check if expired
+    if (invitation.expires_at && new Date(invitation.expires_at) < new Date()) {
+      console.log('[accept-tenant-invitation] Invitation expired');
+      return new Response(
+        JSON.stringify({ error: 'INVITATION_EXPIRED', message: 'Invitation has expired' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check if cancelled
+    if (invitation.status === 'cancelled') {
+      console.log('[accept-tenant-invitation] Invitation cancelled');
+      return new Response(
+        JSON.stringify({ error: 'INVITATION_CANCELLED', message: 'Invitation has been cancelled' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check unit availability
+    if (invitation.unit?.status !== 'available') {
+      console.log('[accept-tenant-invitation] Unit not available:', invitation.unit?.status);
+      return new Response(
+        JSON.stringify({ error: 'UNIT_NOT_AVAILABLE', message: 'Unit is no longer available' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const merchantId = invitation.unit?.property?.merchant_id;
+    if (!merchantId) {
+      console.error('[accept-tenant-invitation] No merchant_id found');
+      return new Response(
+        JSON.stringify({ error: 'INVALID_INVITATION', message: 'Invalid invitation data' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Calculate contract dates
+    const startDate = new Date();
+    const endDate = new Date();
+    endDate.setMonth(endDate.getMonth() + contract_duration_months);
+
+    console.log('[accept-tenant-invitation] Processing acceptance for user:', user_id);
+
+    // Start transaction-like operations
+    // 1. Update invitation status
+    const { error: updateInvError } = await supabase
+      .from('tenant_invitations')
+      .update({
+        status: 'accepted',
+        accepted_at: new Date().toISOString(),
+        accepted_by_user_id: user_id
+      })
+      .eq('id', invitation.id);
+
+    if (updateInvError) {
+      console.error('[accept-tenant-invitation] Failed to update invitation:', updateInvError);
+      return new Response(
+        JSON.stringify({ error: 'UPDATE_FAILED', message: 'Failed to update invitation' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 2. Update unit status to occupied
+    const { error: updateUnitError } = await supabase
+      .from('units')
+      .update({ status: 'occupied' })
+      .eq('id', invitation.unit_id);
+
+    if (updateUnitError) {
+      console.error('[accept-tenant-invitation] Failed to update unit:', updateUnitError);
+      // Continue anyway, can be fixed manually
+    }
+
+    // 3. Update tenant record to link to merchant
+    const { error: updateTenantError } = await supabase
+      .from('tenants')
+      .update({
+        linked_merchant_id: merchantId,
+        current_unit_id: invitation.unit_id,
+        verification_status: 'verified'
+      })
+      .eq('user_id', user_id);
+
+    if (updateTenantError) {
+      console.error('[accept-tenant-invitation] Failed to update tenant:', updateTenantError);
+      // Continue anyway
+    }
+
+    // 4. Create contract
+    const { data: contract, error: contractError } = await supabase
+      .from('contracts')
+      .insert({
+        tenant_user_id: user_id,
+        unit_id: invitation.unit_id,
+        merchant_id: merchantId,
+        rent_amount: invitation.unit?.rent_amount || 0,
+        deposit_amount: invitation.unit?.deposit_amount || 0,
+        start_date: startDate.toISOString().split('T')[0],
+        end_date: endDate.toISOString().split('T')[0],
+        status: 'active',
+        signature_status: 'pending',
+        billing_day: startDate.getDate()
+      })
+      .select()
+      .single();
+
+    if (contractError) {
+      console.error('[accept-tenant-invitation] Failed to create contract:', contractError);
+      return new Response(
+        JSON.stringify({ error: 'CONTRACT_FAILED', message: 'Failed to create contract' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('[accept-tenant-invitation] Successfully accepted invitation, contract created:', contract.id);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        contract_id: contract.id,
+        unit_id: invitation.unit_id,
+        message: 'Invitation accepted successfully'
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error) {
+    console.error('[accept-tenant-invitation] Unexpected error:', error);
+    return new Response(
+      JSON.stringify({ error: 'SERVER_ERROR', message: 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});

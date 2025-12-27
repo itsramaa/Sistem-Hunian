@@ -134,67 +134,36 @@ const Invite = () => {
     if (!invitation || !createdUserId) return;
 
     try {
-      // Default contract duration is 1 year (12 months)
-      const contractDurationMonths = 12;
-      const startDate = new Date();
-      const endDate = new Date();
-      endDate.setMonth(endDate.getMonth() + contractDurationMonths);
+      // Use edge function to bypass RLS and handle all updates atomically
+      const { data: response, error: fnError } = await supabase.functions.invoke('accept-tenant-invitation', {
+        body: {
+          token,
+          user_id: createdUserId,
+          contract_duration_months: 12
+        }
+      });
 
-      // Ensure rent_amount is set from unit
-      const rentAmount = invitation.unit?.rent_amount;
-      if (!rentAmount || rentAmount <= 0) {
-        throw new Error('Harga sewa unit tidak valid. Hubungi pemilik properti.');
+      if (fnError) {
+        console.error('Edge function error:', fnError);
+        throw new Error('Gagal memproses undangan. Silakan coba lagi.');
       }
 
-      // Update invitation status first
-      const { error: updateError } = await supabase
-        .from('tenant_invitations')
-        .update({ 
-          status: 'accepted',
-          accepted_at: new Date().toISOString(),
-          accepted_by_user_id: createdUserId,
-        })
-        .eq('id', invitation.id)
-        .eq('status', 'pending'); // Ensure still pending (prevent double use)
-
-      if (updateError) throw updateError;
-
-      // Update unit status to occupied
-      const { error: unitError } = await supabase
-        .from('units')
-        .update({ status: 'occupied' })
-        .eq('id', invitation.unit_id)
-        .eq('status', 'available'); // Only update if still available
-
-      if (unitError) throw unitError;
-
-      // Create contract for the tenant with rent_amount from unit
-      const { error: contractError } = await supabase
-        .from('contracts')
-        .insert({
-          merchant_id: invitation.merchant_id,
-          unit_id: invitation.unit_id,
-          tenant_user_id: createdUserId,
-          start_date: startDate.toISOString().split('T')[0],
-          end_date: endDate.toISOString().split('T')[0],
-          rent_amount: rentAmount,
-          deposit_amount: invitation.unit?.deposit_amount || 0,
-          status: 'active',
-          signature_status: 'pending',
-        });
-
-      if (contractError) throw contractError;
+      if (response?.error) {
+        // Map error codes to user-friendly messages
+        const errorMessages: Record<string, string> = {
+          'INVITATION_NOT_FOUND': 'Undangan tidak ditemukan',
+          'INVITATION_ALREADY_ACCEPTED': 'Undangan sudah diterima sebelumnya',
+          'INVITATION_EXPIRED': 'Undangan sudah kedaluwarsa',
+          'INVITATION_CANCELLED': 'Undangan sudah dibatalkan',
+          'UNIT_NOT_AVAILABLE': 'Unit tidak tersedia',
+          'CONTRACT_FAILED': 'Gagal membuat kontrak',
+        };
+        throw new Error(errorMessages[response.error] || response.message || 'Gagal memproses undangan');
+      }
 
       toast.success('Selamat datang di rumah baru Anda!');
       navigate('/tenant');
     } catch (error: any) {
-      // Attempt rollback on error
-      if (invitation.id) {
-        await supabase
-          .from('tenant_invitations')
-          .update({ status: 'pending', accepted_at: null, accepted_by_user_id: null })
-          .eq('id', invitation.id);
-      }
       toast.error(error.message || 'Gagal menyelesaikan undangan');
     }
   };
