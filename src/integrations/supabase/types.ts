@@ -3116,6 +3116,7 @@ export type Database = {
           auto_pay_day: number | null
           auto_pay_enabled: boolean | null
           created_at: string
+          current_unit_id: string | null
           date_of_birth: string | null
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
@@ -3139,6 +3140,7 @@ export type Database = {
           auto_pay_day?: number | null
           auto_pay_enabled?: boolean | null
           created_at?: string
+          current_unit_id?: string | null
           date_of_birth?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
@@ -3162,6 +3164,7 @@ export type Database = {
           auto_pay_day?: number | null
           auto_pay_enabled?: boolean | null
           created_at?: string
+          current_unit_id?: string | null
           date_of_birth?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
@@ -3182,6 +3185,13 @@ export type Database = {
           verified_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "tenants_current_unit_id_fkey"
+            columns: ["current_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tenants_linked_merchant_id_fkey"
             columns: ["linked_merchant_id"]
