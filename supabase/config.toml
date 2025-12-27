@@ -1,1 +1,4 @@
 project_id = "gsqcatatypwfrxvohlzb"
+
+[functions.get-tenant-invitation]
+verify_jwt = false
