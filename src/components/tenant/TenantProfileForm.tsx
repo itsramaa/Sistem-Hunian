@@ -72,6 +72,38 @@ export function TenantProfileForm({ userId, onComplete }: TenantProfileFormProps
         ktpPhotoUrl = publicUrl;
       }
 
+      // Get current user email for profile
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // Ensure profile exists (fallback in case trigger didn't fire)
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (!existingProfile && user) {
+        await supabase.from('profiles').insert({
+          user_id: userId,
+          email: user.email || '',
+          full_name: user.user_metadata?.full_name || '',
+        });
+      }
+
+      // Ensure user_roles exists (fallback in case trigger didn't fire)
+      const { data: existingRole } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (!existingRole) {
+        await supabase.from('user_roles').insert({
+          user_id: userId,
+          role: 'tenant',
+        });
+      }
+
       // Check if tenant record exists
       const { data: existingTenant } = await supabase
         .from('tenants')
@@ -79,23 +111,25 @@ export function TenantProfileForm({ userId, onComplete }: TenantProfileFormProps
         .eq('user_id', userId)
         .maybeSingle();
 
+      const tenantData = {
+        ktp_number: formData.ktp_number || null,
+        ktp_photo_url: ktpPhotoUrl,
+        date_of_birth: formData.date_of_birth || null,
+        gender: formData.gender || null,
+        occupation: formData.occupation || null,
+        income_range: formData.income_range || null,
+        emergency_contact_name: formData.emergency_contact_name || null,
+        emergency_contact_phone: formData.emergency_contact_phone || null,
+        emergency_contact_relation: formData.emergency_contact_relation || null,
+        notes: formData.notes || null,
+        verification_status: 'pending' as const,
+      };
+
       if (existingTenant) {
         // Update existing tenant
         const { error } = await supabase
           .from('tenants')
-          .update({
-            ktp_number: formData.ktp_number || null,
-            ktp_photo_url: ktpPhotoUrl,
-            date_of_birth: formData.date_of_birth || null,
-            gender: formData.gender || null,
-            occupation: formData.occupation || null,
-            income_range: formData.income_range || null,
-            emergency_contact_name: formData.emergency_contact_name || null,
-            emergency_contact_phone: formData.emergency_contact_phone || null,
-            emergency_contact_relation: formData.emergency_contact_relation || null,
-            notes: formData.notes || null,
-            verification_status: 'pending',
-          })
+          .update(tenantData)
           .eq('user_id', userId);
 
         if (error) throw error;
@@ -105,17 +139,7 @@ export function TenantProfileForm({ userId, onComplete }: TenantProfileFormProps
           .from('tenants')
           .insert({
             user_id: userId,
-            ktp_number: formData.ktp_number || null,
-            ktp_photo_url: ktpPhotoUrl,
-            date_of_birth: formData.date_of_birth || null,
-            gender: formData.gender || null,
-            occupation: formData.occupation || null,
-            income_range: formData.income_range || null,
-            emergency_contact_name: formData.emergency_contact_name || null,
-            emergency_contact_phone: formData.emergency_contact_phone || null,
-            emergency_contact_relation: formData.emergency_contact_relation || null,
-            notes: formData.notes || null,
-            verification_status: 'pending',
+            ...tenantData,
           });
 
         if (error) throw error;

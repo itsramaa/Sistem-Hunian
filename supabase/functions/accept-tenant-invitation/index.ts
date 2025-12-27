@@ -127,6 +127,68 @@ serve(async (req) => {
 
     console.log('[accept-tenant-invitation] Processing acceptance for user:', user_id);
 
+    // === FALLBACK: Ensure profile and user_roles exist ===
+    // This handles cases where the on_auth_user_created trigger didn't fire
+    
+    // Check if profile exists
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('user_id')
+      .eq('user_id', user_id)
+      .maybeSingle();
+
+    if (!existingProfile) {
+      console.log('[accept-tenant-invitation] Creating missing profile for user:', user_id);
+      // Get user email from auth
+      const { data: authData } = await supabase.auth.admin.getUserById(user_id);
+      if (authData?.user) {
+        const { error: profileError } = await supabase.from('profiles').insert({
+          user_id,
+          email: authData.user.email || '',
+          full_name: authData.user.user_metadata?.full_name || '',
+        });
+        if (profileError) {
+          console.error('[accept-tenant-invitation] Failed to create profile:', profileError);
+        }
+      }
+    }
+
+    // Check if user_roles exists
+    const { data: existingRole } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user_id)
+      .maybeSingle();
+
+    if (!existingRole) {
+      console.log('[accept-tenant-invitation] Creating missing user_role for user:', user_id);
+      const { error: roleError } = await supabase.from('user_roles').insert({
+        user_id,
+        role: 'tenant',
+      });
+      if (roleError) {
+        console.error('[accept-tenant-invitation] Failed to create user_role:', roleError);
+      }
+    }
+
+    // Check if tenant record exists
+    const { data: existingTenant } = await supabase
+      .from('tenants')
+      .select('id')
+      .eq('user_id', user_id)
+      .maybeSingle();
+
+    if (!existingTenant) {
+      console.log('[accept-tenant-invitation] Creating missing tenant record for user:', user_id);
+      const { error: tenantError } = await supabase.from('tenants').insert({
+        user_id,
+        verification_status: 'pending',
+      });
+      if (tenantError) {
+        console.error('[accept-tenant-invitation] Failed to create tenant:', tenantError);
+      }
+    }
+
     // Start transaction-like operations
     // 1. Update invitation status
     const { error: updateInvError } = await supabase
