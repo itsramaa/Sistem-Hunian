@@ -29,7 +29,7 @@ const Invite = () => {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   // Validate token format first
-  const isValidTokenFormat = token && /^[a-zA-Z0-9-]{20,50}$/.test(token);
+  const isValidTokenFormat = token && /^[a-zA-Z0-9-]{20,100}$/.test(token);
 
   const { data: invitation, isLoading, error } = useQuery({
     queryKey: ['invitation', token],
