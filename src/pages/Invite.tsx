@@ -119,6 +119,26 @@ const Invite = () => {
       if (signUpError) throw signUpError;
       if (!authData?.user?.id) throw new Error('Gagal membuat akun');
 
+      // Call auth-webhook to create profiles, user_roles, and tenants right after signup
+      console.log('[Invite] Calling auth-webhook for user:', authData.user.id);
+      const { error: webhookError } = await supabase.functions.invoke('auth-webhook', {
+        body: {
+          user_id: authData.user.id,
+          email: formData.email,
+          full_name: formData.fullName,
+          phone: null,
+          role: 'tenant',
+          merchant_code: null,
+        },
+      });
+
+      if (webhookError) {
+        console.error('[Invite] Auth-webhook error:', webhookError);
+        // Don't throw - let flow continue, user can still be created
+      } else {
+        console.log('[Invite] Auth-webhook success - profiles, user_roles, tenants created');
+      }
+
       setCreatedUserId(authData.user.id);
       return authData.user.id;
     },

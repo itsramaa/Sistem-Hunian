@@ -56,7 +56,7 @@ serve(async (req) => {
           )
         )
       `)
-      .eq('invitation_token', token)
+      .eq('token', token)
       .maybeSingle();
 
     if (invError) {
