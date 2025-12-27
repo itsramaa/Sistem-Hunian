@@ -121,22 +121,47 @@ const Invite = () => {
 
       // Call auth-webhook to create profiles, user_roles, and tenants right after signup
       console.log('[Invite] Calling auth-webhook for user:', authData.user.id);
-      const { error: webhookError } = await supabase.functions.invoke('auth-webhook', {
-        body: {
-          user_id: authData.user.id,
-          email: formData.email,
-          full_name: formData.fullName,
-          phone: null,
-          role: 'tenant',
-          merchant_code: null,
-        },
-      });
+      
+      let webhookSuccess = false;
+      let retryCount = 0;
+      const maxRetries = 2;
+      
+      while (!webhookSuccess && retryCount <= maxRetries) {
+        try {
+          const { data: webhookData, error: webhookError } = await supabase.functions.invoke('auth-webhook', {
+            body: {
+              user_id: authData.user.id,
+              email: formData.email,
+              full_name: formData.fullName,
+              phone: null,
+              role: 'tenant',
+              merchant_code: null,
+            },
+          });
 
-      if (webhookError) {
-        console.error('[Invite] Auth-webhook error:', webhookError);
-        // Don't throw - let flow continue, user can still be created
-      } else {
-        console.log('[Invite] Auth-webhook success - profiles, user_roles, tenants created');
+          if (webhookError) {
+            console.error(`[Invite] Auth-webhook error (attempt ${retryCount + 1}):`, webhookError);
+            retryCount++;
+            if (retryCount <= maxRetries) {
+              await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before retry
+            }
+          } else {
+            console.log('[Invite] Auth-webhook success:', webhookData);
+            webhookSuccess = true;
+          }
+        } catch (err) {
+          console.error(`[Invite] Auth-webhook exception (attempt ${retryCount + 1}):`, err);
+          retryCount++;
+          if (retryCount <= maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
+      }
+      
+      if (!webhookSuccess) {
+        console.warn('[Invite] Auth-webhook failed after retries, but continuing with flow');
+        // Show toast warning but don't block the flow
+        toast.warning("Ada masalah saat setup akun. Silakan hubungi admin jika ada masalah.");
       }
 
       setCreatedUserId(authData.user.id);
