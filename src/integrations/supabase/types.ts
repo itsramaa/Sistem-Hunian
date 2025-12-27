@@ -3009,6 +3009,8 @@ export type Database = {
       }
       tenant_invitations: {
         Row: {
+          accepted_at: string | null
+          accepted_by_user_id: string | null
           created_at: string
           email: string
           expires_at: string
@@ -3020,6 +3022,8 @@ export type Database = {
           unit_id: string
         }
         Insert: {
+          accepted_at?: string | null
+          accepted_by_user_id?: string | null
           created_at?: string
           email: string
           expires_at?: string
@@ -3031,6 +3035,8 @@ export type Database = {
           unit_id: string
         }
         Update: {
+          accepted_at?: string | null
+          accepted_by_user_id?: string | null
           created_at?: string
           email?: string
           expires_at?: string
