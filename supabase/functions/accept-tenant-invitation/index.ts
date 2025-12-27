@@ -208,18 +208,7 @@ serve(async (req) => {
       );
     }
 
-    // 2. Update unit status to occupied
-    const { error: updateUnitError } = await supabase
-      .from('units')
-      .update({ status: 'occupied' })
-      .eq('id', invitation.unit_id);
-
-    if (updateUnitError) {
-      console.error('[accept-tenant-invitation] Failed to update unit:', updateUnitError);
-      // Continue anyway, can be fixed manually
-    }
-
-    // 3. Update tenant record to link to merchant
+    // 2. Update tenant record to link to merchant (unit stays available until contract is signed)
     const { error: updateTenantError } = await supabase
       .from('tenants')
       .update({
@@ -234,40 +223,18 @@ serve(async (req) => {
       // Continue anyway
     }
 
-    // 4. Create contract
-    const { data: contract, error: contractError } = await supabase
-      .from('contracts')
-      .insert({
-        tenant_user_id: user_id,
-        unit_id: invitation.unit_id,
-        merchant_id: merchantId,
-        rent_amount: invitation.unit?.rent_amount || 0,
-        deposit_amount: invitation.unit?.deposit_amount || 0,
-        start_date: startDate.toISOString().split('T')[0],
-        end_date: endDate.toISOString().split('T')[0],
-        status: 'active',
-        signature_status: 'pending',
-        billing_day: startDate.getDate()
-      })
-      .select()
-      .single();
+    // NOTE: Contract is NOT created automatically
+    // Merchant must create contract manually via Contracts page
+    // Unit status will be updated to 'occupied' via database trigger when contract is fully signed
 
-    if (contractError) {
-      console.error('[accept-tenant-invitation] Failed to create contract:', contractError);
-      return new Response(
-        JSON.stringify({ error: 'CONTRACT_FAILED', message: 'Failed to create contract' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('[accept-tenant-invitation] Successfully accepted invitation, contract created:', contract.id);
+    console.log('[accept-tenant-invitation] Successfully accepted invitation for user:', user_id);
 
     return new Response(
       JSON.stringify({
         success: true,
-        contract_id: contract.id,
         unit_id: invitation.unit_id,
-        message: 'Invitation accepted successfully'
+        merchant_id: merchantId,
+        message: 'Invitation accepted successfully. Merchant will create your contract.'
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
