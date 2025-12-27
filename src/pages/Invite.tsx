@@ -36,53 +36,25 @@ const Invite = () => {
     queryFn: async () => {
       if (!token) throw new Error('No token provided');
 
-      // Include expiry check and unit availability in query
-      const { data, error } = await supabase
-        .from('tenant_invitations')
-        .select(`
-          *,
-          unit:units (
-            id,
-            unit_number,
-            rent_amount,
-            deposit_amount,
-            status,
-            property:properties (
-              name,
-              address,
-              city
-            )
-          )
-        `)
-        .eq('token', token)
-        .gt('expires_at', new Date().toISOString()) // Expiry check in query
-        .single();
+      // Use edge function to bypass RLS for unauthenticated users
+      const { data: response, error: fnError } = await supabase.functions.invoke('get-tenant-invitation', {
+        body: { token }
+      });
 
-      if (error) {
-        // Check if it's an expired token
-        const { data: expiredInvite } = await supabase
-          .from('tenant_invitations')
-          .select('status, expires_at')
-          .eq('token', token)
-          .single();
-
-        if (expiredInvite) {
-          if (expiredInvite.status === 'accepted') {
-            throw new Error('INVITATION_USED');
-          }
-          if (new Date(expiredInvite.expires_at) < new Date()) {
-            throw new Error('INVITATION_EXPIRED');
-          }
-        }
+      if (fnError) {
+        console.error('Edge function error:', fnError);
         throw new Error('INVITATION_INVALID');
       }
 
-      // Check unit availability
-      if (data.unit?.status !== 'available' && data.status === 'pending') {
-        throw new Error('UNIT_NOT_AVAILABLE');
+      if (response?.error) {
+        throw new Error(response.error);
       }
 
-      return data;
+      if (!response?.data) {
+        throw new Error('INVITATION_INVALID');
+      }
+
+      return response.data;
     },
     enabled: !!token && isValidTokenFormat,
     retry: false,
