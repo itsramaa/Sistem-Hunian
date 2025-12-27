@@ -30,8 +30,19 @@ import {
   Edit,
   AlertTriangle,
   Clock,
-  Plus
+  Plus,
+  Trash2
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -120,6 +131,8 @@ export default function MerchantContracts() {
   const [editingTerms, setEditingTerms] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [contractToDelete, setContractToDelete] = useState<Contract | null>(null);
 
   const contractForm = useForm<ContractFormData>({
     resolver: zodResolver(contractSchema),
@@ -369,6 +382,35 @@ export default function MerchantContracts() {
     },
   });
 
+  const deleteContractMutation = useMutation({
+    mutationFn: async (contractId: string) => {
+      const { error } = await supabase
+        .from('contracts')
+        .delete()
+        .eq('id', contractId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['merchant-contracts'] });
+      setDeleteDialogOpen(false);
+      setContractToDelete(null);
+      toast.success('Contract deleted successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to delete contract: ${error.message}`);
+    },
+  });
+
+  // Contract can be deleted only if neither party has signed
+  const canDeleteContract = (contract: Contract) => {
+    return !contract.tenant_signature_url && !contract.merchant_signature_url;
+  };
+
+  const handleDeleteContract = (contract: Contract) => {
+    setContractToDelete(contract);
+    setDeleteDialogOpen(true);
+  };
+
   const handleMarkNotice = (contract: Contract) => {
     markNoticeMutation.mutate({
       contractId: contract.id,
@@ -457,12 +499,18 @@ export default function MerchantContracts() {
   }) || [];
 
   const activeContracts = filteredContracts.filter(c => c.status === 'active');
+  const draftContracts = filteredContracts.filter(c => 
+    c.status === 'draft' || 
+    (!c.tenant_signature_url && !c.merchant_signature_url && c.status !== 'terminated' && c.status !== 'expired')
+  );
   const pendingSignature = filteredContracts.filter(c => 
     c.status === 'active' && 
     c.tenant_signature_url && 
     !c.merchant_signature_url
   );
-  const pastContracts = filteredContracts.filter(c => c.status !== 'active');
+  const pastContracts = filteredContracts.filter(c => 
+    c.status === 'terminated' || c.status === 'expired' || c.status === 'completed'
+  );
 
   return (
     <MerchantLayout
@@ -614,12 +662,52 @@ export default function MerchantContracts() {
         {/* Tabs */}
         <Tabs defaultValue="active">
           <TabsList>
+            <TabsTrigger value="draft">Draft ({draftContracts.length})</TabsTrigger>
             <TabsTrigger value="active">Active ({activeContracts.length})</TabsTrigger>
             <TabsTrigger value="pending">
               Awaiting Signature ({pendingSignature.length})
             </TabsTrigger>
             <TabsTrigger value="past">Past ({pastContracts.length})</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="draft" className="mt-4">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : draftContracts.length === 0 ? (
+              <Card className="text-center py-12">
+                <CardContent>
+                  <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-medium mb-2">No Draft Contracts</h3>
+                  <p className="text-muted-foreground">Draft contracts that haven't been signed will appear here.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {draftContracts.map((contract) => (
+                  <ContractCard
+                    key={contract.id}
+                    contract={contract}
+                    tenantProfile={profileMap.get(contract.tenant_user_id)}
+                    getStatusBadge={getStatusBadge}
+                    getSignatureStatusBadge={getSignatureStatusBadge}
+                    onSign={() => {
+                      setSelectedContract(contract);
+                      setSignDialogOpen(true);
+                    }}
+                    onView={() => {
+                      setSelectedContract(contract);
+                      setViewDialogOpen(true);
+                    }}
+                    canDelete={canDeleteContract(contract)}
+                    onDelete={() => handleDeleteContract(contract)}
+                    isDeleting={deleteContractMutation.isPending && contractToDelete?.id === contract.id}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
 
           <TabsContent value="active" className="mt-4">
             {isLoading ? (
@@ -966,6 +1054,30 @@ export default function MerchantContracts() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Contract AlertDialog */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Contract?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete the contract for{' '}
+                <strong>{contractToDelete?.unit?.property?.name} - Unit {contractToDelete?.unit?.unit_number}</strong>.
+                This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => contractToDelete && deleteContractMutation.mutate(contractToDelete.id)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={deleteContractMutation.isPending}
+              >
+                {deleteContractMutation.isPending ? 'Deleting...' : 'Delete Contract'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </MerchantLayout>
   );
@@ -979,9 +1091,12 @@ function ContractCard({
   onSign,
   onView,
   onMarkNotice,
+  onDelete,
+  canDelete = false,
   highlight = false,
   isPast = false,
   isMarkingNotice = false,
+  isDeleting = false,
 }: { 
   contract: Contract;
   tenantProfile?: { full_name: string | null; email: string } | null;
@@ -990,9 +1105,12 @@ function ContractCard({
   onSign: () => void;
   onView: () => void;
   onMarkNotice?: () => void;
+  onDelete?: () => void;
+  canDelete?: boolean;
   highlight?: boolean;
   isPast?: boolean;
   isMarkingNotice?: boolean;
+  isDeleting?: boolean;
 }) {
   const canMarkNotice = contract.status === 'active' && !isPast;
   
@@ -1050,6 +1168,21 @@ function ContractCard({
                       <AlertTriangle className="h-4 w-4 mr-1" />
                       Mark Notice
                     </>
+                  )}
+                </Button>
+              )}
+              {canDelete && onDelete && (
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={onDelete}
+                  disabled={isDeleting}
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  {isDeleting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
                   )}
                 </Button>
               )}
