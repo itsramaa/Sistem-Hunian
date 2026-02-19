@@ -1,7 +1,7 @@
-import { MerchantLayout } from '@/components/layouts/MerchantLayout';
-import { ReferralDashboard } from '@/components/referral/ReferralDashboard';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
+import { ReferralDashboard } from '@/features/referrals/components/ReferralDashboard';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Badge } from '@/shared/components/ui/badge';
 import { Gift, TrendingUp, Percent, Users } from 'lucide-react';
 
 export default function MerchantReferrals() {

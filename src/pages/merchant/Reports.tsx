@@ -1,14 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { MerchantLayout } from '@/components/layouts/MerchantLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { supabase } from '@/lib/integrations/supabase/client';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { Button } from '@/shared/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { Alert, AlertDescription } from '@/shared/components/ui/alert';
+import { DateRangePicker } from '@/shared/components/ui/date-range-picker';
 import { useMemo, useState } from 'react';
 import {
   AreaChart,
@@ -27,13 +27,13 @@ import {
 } from 'recharts';
 import { TrendingUp, TrendingDown, Building2, Users, DollarSign, Wrench, Download, FileText, Table2, UserMinus, BarChart3, AlertTriangle, Loader2, RefreshCw } from 'lucide-react';
 import { format, subMonths, startOfMonth, endOfMonth, differenceInMonths } from 'date-fns';
-import { exportToCSV, exportToPDF, generateReportHTML } from '@/lib/exportUtils';
-import { useToast } from '@/hooks/use-toast';
-import { TenantChurnAnalytics } from '@/components/merchant/TenantChurnAnalytics';
-import { OnTimePaymentRate } from '@/components/merchant/OnTimePaymentRate';
-import { RevenueForecast } from '@/components/merchant/RevenueForecast';
-import { ContractNoticePeriod } from '@/components/merchant/ContractNoticePeriod';
-import { logExport } from '@/lib/auditLog';
+import { exportToCSV, exportToPDF, generateReportHTML } from '@/shared/utils/exportUtils';
+import { useToast } from '@/shared/hooks/use-toast';
+import { TenantChurnAnalytics } from '@/features/analytics/components/TenantChurnAnalytics';
+import { OnTimePaymentRate } from '@/features/analytics/components/OnTimePaymentRate';
+import { RevenueForecast } from '@/features/analytics/components/RevenueForecast';
+import { ContractNoticePeriod } from '@/features/contracts/components/ContractNoticePeriod';
+import { logExport } from '@/shared/utils/auditLog';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--muted))', '#10b981', '#f59e0b'];
 

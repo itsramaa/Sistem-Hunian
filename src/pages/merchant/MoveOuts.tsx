@@ -1,31 +1,39 @@
-import { useState } from "react";
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { EarlyTerminationReviewDialog } from "@/features/contracts/components/EarlyTerminationReviewDialog";
+import { VacancyDashboard } from "@/features/dashboard/components/VacancyDashboard";
+import { MoveOutInspectionForm } from "@/features/properties/components/MoveOutInspectionForm";
+import { ScheduleInspectionDialog } from "@/features/properties/components/ScheduleInspectionDialog";
+import { supabase } from "@/lib/integrations/supabase/client";
+import { MerchantLayout } from "@/shared/components/layouts/MerchantLayout";
+import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { MerchantLayout } from "@/components/layouts/MerchantLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { format, differenceInDays } from "date-fns";
-import { 
-  Home, Calendar, ClipboardCheck, AlertTriangle, Clock, 
-  Users, Wallet, CheckCircle2, ArrowRight, Eye
+import { differenceInDays, format } from "date-fns";
+import {
+  AlertTriangle,
+  ArrowRight,
+  Calendar,
+  CheckCircle2,
+  ClipboardCheck,
+  Clock,
+  Eye,
+  Home,
+  Wallet
 } from "lucide-react";
-import { ScheduleInspectionDialog } from "@/components/merchant/ScheduleInspectionDialog";
-import { MoveOutInspectionForm } from "@/components/merchant/MoveOutInspectionForm";
-import { VacancyDashboard } from "@/components/merchant/VacancyDashboard";
-import { EarlyTerminationReviewDialog } from "@/components/merchant/EarlyTerminationReviewDialog";
+import { useState } from "react";
+
+import { EarlyTerminationRequest, MoveOutInspection, MoveOutNotice, TenantProfile } from "@/features/contracts/types";
 
 const MerchantMoveOuts = () => {
   const { merchant } = useAuth();
   const queryClient = useQueryClient();
-  const [selectedNotice, setSelectedNotice] = useState<any>(null);
+  const [selectedNotice, setSelectedNotice] = useState<MoveOutNotice | null>(null);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [inspectionFormOpen, setInspectionFormOpen] = useState(false);
   const [earlyTermDialogOpen, setEarlyTermDialogOpen] = useState(false);
-  const [selectedEarlyTerm, setSelectedEarlyTerm] = useState<any>(null);
+  const [selectedEarlyTerm, setSelectedEarlyTerm] = useState<EarlyTerminationRequest | null>(null);
 
   // Fetch move-out notices for merchant's contracts
   const { data: moveOutNotices, isLoading } = useQuery({
@@ -50,7 +58,7 @@ const MerchantMoveOuts = () => {
         .eq("contract.merchant_id", merchant?.id)
         .order("intended_move_out_date", { ascending: true });
       if (error) throw error;
-      return data;
+      return data as unknown as MoveOutNotice[];
     },
     enabled: !!merchant?.id,
   });
@@ -67,7 +75,7 @@ const MerchantMoveOuts = () => {
         .select("*")
         .in("move_out_notice_id", noticeIds);
       if (error) throw error;
-      return data;
+      return data as unknown as MoveOutInspection[];
     },
     enabled: !!moveOutNotices?.length,
   });
@@ -93,7 +101,7 @@ const MerchantMoveOuts = () => {
         .eq("contract.merchant_id", merchant?.id)
         .eq("status", "pending_approval");
       if (error) throw error;
-      return data;
+      return data as unknown as EarlyTerminationRequest[];
     },
     enabled: !!merchant?.id,
   });
@@ -112,9 +120,9 @@ const MerchantMoveOuts = () => {
       if (error) throw error;
       
       return data?.reduce((acc, p) => {
-        acc[p.user_id] = p;
+        acc[p.user_id] = p as TenantProfile;
         return acc;
-      }, {} as Record<string, any>) || {};
+      }, {} as Record<string, TenantProfile>) || {};
     },
     enabled: !!moveOutNotices?.length,
   });
@@ -131,7 +139,7 @@ const MerchantMoveOuts = () => {
     (n) => n.status === "completed"
   ) || [];
 
-  const getStatusBadge = (notice: any) => {
+  const getStatusBadge = (notice: MoveOutNotice) => {
     const inspection = getInspectionForNotice(notice.id);
     const daysUntil = differenceInDays(new Date(notice.intended_move_out_date), new Date());
 

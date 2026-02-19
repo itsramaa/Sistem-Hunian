@@ -1,46 +1,23 @@
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { SLABadge } from '@/features/maintenance/components/SLABadge';
+import { useMerchantMaintenanceRequests, useUpdateMaintenanceRequest, useVerifiedVendors } from '@/features/maintenance/hooks/useMaintenance';
+import { MaintenanceRequest } from '@/features/maintenance/types';
+import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
+import { Alert, AlertDescription } from '@/shared/components/ui/alert';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
+import { Textarea } from '@/shared/components/ui/textarea';
+import { useToast } from '@/shared/hooks/use-toast';
+import { format } from 'date-fns';
+import { AlertCircle, AlertTriangle, CheckCircle, Clock, Search, Wrench, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { MerchantLayout } from '@/components/layouts/MerchantLayout';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useToast } from '@/hooks/use-toast';
-import { Search, Wrench, Clock, CheckCircle, AlertTriangle, XCircle, AlertCircle } from 'lucide-react';
-import { format } from 'date-fns';
-import { SLABadge } from '@/components/maintenance/SLABadge';
-import { getPriorityColor, getMaintenanceStatusColor } from '@/lib/statusColors';
-
-type MaintenanceRequest = {
-  id: string;
-  title: string;
-  description: string | null;
-  category: string;
-  priority: string;
-  status: string;
-  assigned_to: string | null;
-  assigned_vendor_id: string | null;
-  created_at: string;
-  resolved_at: string | null;
-  unit_id: string;
-  tenant_user_id: string;
-  sla_deadline: string | null;
-};
-
-type Vendor = {
-  id: string;
-  business_name: string;
-  service_categories: string[] | null;
-};
 
 // Valid status transitions
 const VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
@@ -53,7 +30,6 @@ const VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
 export default function MerchantMaintenance() {
   const { merchant } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedRequest, setSelectedRequest] = useState<MaintenanceRequest | null>(null);
@@ -63,33 +39,14 @@ export default function MerchantMaintenance() {
   const [completionNotes, setCompletionNotes] = useState('');
   const [showCompletionWarning, setShowCompletionWarning] = useState(false);
 
-  const { data: requests = [], isLoading } = useQuery({
-    queryKey: ['maintenance-requests', merchant?.id],
-    queryFn: async () => {
-      if (!merchant?.id) return [];
-      const { data, error } = await supabase
-        .from('maintenance_requests')
-        .select('*, assigned_vendor_id')
-        .eq('merchant_id', merchant.id)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data as MaintenanceRequest[];
-    },
-    enabled: !!merchant?.id,
-  });
+  // Fetch maintenance requests
+  const { data: requests = [], isLoading } = useMerchantMaintenanceRequests(merchant?.id);
 
   // Fetch verified vendors
-  const { data: vendors = [] } = useQuery({
-    queryKey: ['verified-vendors'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('vendors')
-        .select('id, business_name, service_categories')
-        .eq('verification_status', 'verified');
-      if (error) throw error;
-      return data as Vendor[];
-    },
-  });
+  const { data: vendors = [] } = useVerifiedVendors();
+
+  // Update mutation
+  const updateMutation = useUpdateMaintenanceRequest();
 
   // Filter vendors by selected request's category
   const filteredVendors = selectedRequest 
@@ -99,100 +56,6 @@ export default function MerchantMaintenance() {
         v.service_categories.includes(selectedRequest.category)
       )
     : vendors;
-
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, status, vendor_id, agreed_price, completion_notes }: { 
-      id: string; 
-      status: string; 
-      vendor_id?: string; 
-      agreed_price?: number;
-      completion_notes?: string;
-    }) => {
-      // Get current request status
-      const currentRequest = requests.find(r => r.id === id);
-      if (!currentRequest) throw new Error('Request not found');
-
-      // Validate status transition
-      const allowedTransitions = VALID_STATUS_TRANSITIONS[currentRequest.status] || [];
-      if (!allowedTransitions.includes(status) && status !== currentRequest.status) {
-        throw new Error(`Cannot transition from ${currentRequest.status} to ${status}`);
-      }
-
-      // Validate vendor category if assigning
-      if (vendor_id) {
-        const vendor = vendors.find(v => v.id === vendor_id);
-        if (vendor?.service_categories && vendor.service_categories.length > 0) {
-          if (!vendor.service_categories.includes(currentRequest.category)) {
-            throw new Error(`Vendor does not service ${currentRequest.category} category`);
-          }
-        }
-      }
-
-      // Validate agreed price
-      if (agreed_price !== undefined && agreed_price < 0) {
-        throw new Error('Agreed price cannot be negative');
-      }
-
-      // Check for existing vendor job to prevent duplicates
-      if (vendor_id) {
-        const { data: existingJob } = await supabase
-          .from('vendor_jobs')
-          .select('id')
-          .eq('maintenance_request_id', id)
-          .eq('vendor_id', vendor_id)
-          .maybeSingle();
-        
-        if (existingJob) {
-          throw new Error('Vendor is already assigned to this request');
-        }
-      }
-
-      const updateData: Record<string, unknown> = { status };
-      
-      if (status === 'completed') {
-        updateData.resolved_at = new Date().toISOString();
-        updateData.completion_notes = completion_notes || null;
-      }
-
-      if (vendor_id) {
-        updateData.assigned_vendor_id = vendor_id;
-        const vendor = vendors.find(v => v.id === vendor_id);
-        updateData.assigned_to = vendor?.business_name || null;
-      }
-
-      const { error } = await supabase
-        .from('maintenance_requests')
-        .update(updateData)
-        .eq('id', id);
-      if (error) throw error;
-
-      // Create vendor_job if assigning to a vendor
-      if (vendor_id && merchant) {
-        const { error: jobError } = await supabase
-          .from('vendor_jobs')
-          .insert({
-            vendor_id: vendor_id,
-            maintenance_request_id: id,
-            merchant_id: merchant.id,
-            agreed_price: agreed_price || null,
-            status: 'pending',
-          });
-        if (jobError) throw jobError;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['maintenance-requests'] });
-      toast({ title: 'Request updated successfully' });
-      setSelectedRequest(null);
-      setSelectedVendorId('');
-      setAgreedPrice('');
-      setCompletionNotes('');
-      setShowCompletionWarning(false);
-    },
-    onError: (error: Error) => {
-      toast({ title: 'Failed to update request', description: error.message, variant: 'destructive' });
-    },
-  });
 
   const filteredRequests = requests.filter(request => {
     const matchesSearch = request.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -259,12 +122,36 @@ export default function MerchantMaintenance() {
       return;
     }
 
+    // Validate vendor category if assigning
+    if (selectedVendorId) {
+      const vendor = vendors.find(v => v.id === selectedVendorId);
+      if (vendor?.service_categories && vendor.service_categories.length > 0) {
+        if (!vendor.service_categories.includes(selectedRequest.category)) {
+          toast({ title: 'Invalid vendor', description: `Vendor does not service ${selectedRequest.category} category`, variant: 'destructive' });
+          return;
+        }
+      }
+    }
+
     updateMutation.mutate({
       id: selectedRequest.id,
       status: updateStatus,
-      vendor_id: selectedVendorId || undefined,
+      assigned_vendor_id: selectedVendorId || undefined,
       agreed_price: agreedPrice ? parseFloat(agreedPrice) : undefined,
-      completion_notes: completionNotes || undefined,
+      notes: completionNotes || undefined,
+      merchant_id: merchant?.id,
+    }, {
+      onSuccess: () => {
+        toast({ title: 'Request updated successfully' });
+        setSelectedRequest(null);
+        setSelectedVendorId('');
+        setAgreedPrice('');
+        setCompletionNotes('');
+        setShowCompletionWarning(false);
+      },
+      onError: (error: Error) => {
+        toast({ title: 'Failed to update request', description: error.message, variant: 'destructive' });
+      }
     });
   };
 
@@ -309,6 +196,8 @@ export default function MerchantMaintenance() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Unit</TableHead>
+                    <TableHead>Tenant</TableHead>
                     <TableHead>Title</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Priority</TableHead>
@@ -320,13 +209,33 @@ export default function MerchantMaintenance() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredRequests.map((request) => (
+                  {filteredRequests.map((request) => {
+                    const relevantContract = getRelevantContract(request.unit?.contracts, request.tenant_user_id);
+                    
+                    const isNotice = relevantContract?.status === 'notice';
+                    const isTerminated = relevantContract?.status === 'terminated' || relevantContract?.status === 'expired';
+                    
+                    return (
                     <TableRow key={request.id}>
+                      <TableCell className="font-medium">
+                        {request.unit?.unit_number}
+                        {isNotice && (
+                          <span title="Tenant in notice period" className="ml-2 text-yellow-600 inline-flex items-center">
+                            <AlertTriangle className="h-3 w-3" />
+                          </span>
+                        )}
+                        {isTerminated && (
+                          <span title="Contract terminated/expired" className="ml-2 text-destructive inline-flex items-center">
+                            <XCircle className="h-3 w-3" />
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>{request.tenant?.full_name}</TableCell>
                       <TableCell className="font-medium">{request.title}</TableCell>
                       <TableCell className="capitalize">{request.category}</TableCell>
                       <TableCell><Badge variant={getPriorityColor(request.priority) as "default" | "secondary" | "destructive" | "outline"}>{request.priority}</Badge></TableCell>
                       <TableCell><Badge variant={getStatusColor(request.status) as "default" | "secondary" | "destructive" | "outline"} className="gap-1">{getStatusIcon(request.status)}{request.status.replace('_', ' ')}</Badge></TableCell>
-                      <TableCell><SLABadge slaDeadline={(request as any).sla_deadline} status={request.status} /></TableCell>
+                      <TableCell><SLABadge slaDeadline={request.sla_deadline} status={request.status} /></TableCell>
                       <TableCell>{request.assigned_to || '-'}</TableCell>
                       <TableCell>{format(new Date(request.created_at), 'MMM d, yyyy')}</TableCell>
                       <TableCell className="flex gap-2">
@@ -336,7 +245,7 @@ export default function MerchantMaintenance() {
                         <Button variant="outline" size="sm" onClick={() => { setSelectedRequest(request); setUpdateStatus(request.status); setSelectedVendorId(''); setAgreedPrice(''); }}>Update</Button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )})}
                 </TableBody>
               </Table>
             )}

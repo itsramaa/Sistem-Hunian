@@ -1,113 +1,62 @@
-import { useState, useEffect } from 'react';
-import { 
-  Search, 
-  Building2, 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
+import { MerchantAnalyticsTab } from '@/features/analytics/components/MerchantAnalyticsTab';
+import { MerchantActivityTab } from '@/features/audit-logs/components/MerchantActivityTab';
+import { DocumentLightbox } from '@/features/contracts/components/DocumentLightbox';
+import { MerchantPropertiesTab } from '@/features/properties/components/MerchantPropertiesTab';
+import { STATUS_COLORS, STATUS_ICONS } from '@/features/users/constants/merchant';
+import { useMerchantActions } from '@/features/users/hooks/useMerchantActions';
+import { useMerchants } from '@/features/users/hooks/useMerchants';
+import { Merchant } from '@/features/users/types/admin-merchant';
+import { BulkApprovalDialog } from '@/features/verification/components/BulkApprovalDialog';
+import { MerchantVerificationHistory } from '@/features/verification/components/MerchantVerificationHistory';
+import { RejectionReasonForm } from '@/features/verification/components/RejectionReasonForm';
+import { useMerchantVerifications } from '@/features/verification/hooks/useMerchantVerifications';
+import { AdminLayout } from '@/shared/components/layouts/AdminLayout';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { Calendar as CalendarComponent } from '@/shared/components/ui/calendar';
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Checkbox } from '@/shared/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { Textarea } from '@/shared/components/ui/textarea';
+import { exportToCSV, exportToPDF } from '@/shared/utils/exportUtils';
+import { format } from 'date-fns';
+import {
+  Activity,
+  AlertCircle,
   AlertTriangle,
+  BarChart3,
+  Building2,
+  Calendar,
+  CheckCircle,
+  Clock,
+  CreditCard,
+  Download,
   Eye,
   FileText,
-  Download,
-  Calendar,
-  Users,
-  CreditCard,
-  Image,
   History,
   Home,
-  BarChart3,
-  Activity,
-  Loader2,
-  ChevronLeft,
-  ChevronRight
+  Image,
+  Search,
+  Users,
+  XCircle
 } from 'lucide-react';
-import { AdminLayout } from '@/components/layouts/AdminLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { exportToCSV, exportToPDF } from '@/lib/exportUtils';
-import { format } from 'date-fns';
-import { MerchantVerificationHistory } from '@/components/admin/MerchantVerificationHistory';
-import { MerchantPropertiesTab } from '@/components/admin/MerchantPropertiesTab';
-import { DocumentLightbox } from '@/components/admin/DocumentLightbox';
-import { RejectionReasonForm } from '@/components/admin/RejectionReasonForm';
-import { BulkApprovalDialog } from '@/components/admin/BulkApprovalDialog';
-import { MerchantAnalyticsTab } from '@/components/admin/MerchantAnalyticsTab';
-import { MerchantActivityTab } from '@/components/admin/MerchantActivityTab';
-import { useAdminGuard } from '@/hooks/useAdminGuard';
-import { logExport } from '@/lib/auditLog';
-
-interface Merchant {
-  id: string;
-  user_id: string;
-  business_name: string;
-  business_type: string;
-  address: string | null;
-  city: string | null;
-  province: string | null;
-  verification_status: string;
-  subscription_tier: string;
-  created_at: string;
-  verified_at: string | null;
-  verified_by: string | null;
-  rejected_at: string | null;
-  profiles?: {
-    email: string;
-    full_name: string | null;
-    phone: string | null;
-  };
-}
-
-interface Verification {
-  id: string;
-  merchant_id: string;
-  document_type: string;
-  document_url: string;
-  status: string;
-  rejection_reason: string | null;
-  created_at: string;
-}
-
-const statusColors: Record<string, string> = {
-  pending: 'bg-warning/10 text-warning border-warning/30',
-  verified: 'bg-success/10 text-success border-success/30',
-  rejected: 'bg-destructive/10 text-destructive border-destructive/30',
-  suspended: 'bg-muted text-muted-foreground border-muted',
-};
-
-const statusIcons: Record<string, typeof Clock> = {
-  pending: Clock,
-  verified: CheckCircle,
-  rejected: XCircle,
-  suspended: AlertTriangle,
-};
+import { useState } from 'react';
 
 export default function AdminMerchants() {
-  const [merchants, setMerchants] = useState<Merchant[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [tierFilter, setTierFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
   const [selectedMerchant, setSelectedMerchant] = useState<Merchant | null>(null);
-  const [verifications, setVerifications] = useState<Verification[]>([]);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showRejectionDialog, setShowRejectionDialog] = useState(false);
   const [showApprovalNotesDialog, setShowApprovalNotesDialog] = useState(false);
   const [approvalNotes, setApprovalNotes] = useState('');
-  const [actionLoading, setActionLoading] = useState(false);
-  const [activePaidCount, setActivePaidCount] = useState(0);
   
   // Bulk selection state
   const [selectedMerchantIds, setSelectedMerchantIds] = useState<string[]>([]);
@@ -116,334 +65,55 @@ export default function AdminMerchants() {
   // Lightbox state
   const [showLightbox, setShowLightbox] = useState(false);
   const [lightboxInitialIndex, setLightboxInitialIndex] = useState(0);
+
+  // Hooks
+  const { merchants, loading, error, activePaidCount, refetch } = useMerchants({
+    status: statusFilter,
+    tier: tierFilter,
+    dateRange
+  });
   
-  const { toast } = useToast();
+  const { verifyMerchant, suspendMerchant, bulkApprove, loading: actionLoading } = useMerchantActions(() => {
+    refetch();
+    setShowDetailDialog(false);
+    setShowRejectionDialog(false);
+    setShowApprovalNotesDialog(false);
+    setShowBulkApprovalDialog(false);
+    setSelectedMerchantIds([]);
+    setApprovalNotes('');
+  });
 
-  useEffect(() => {
-    fetchMerchants();
-    fetchActivePaidCount();
-  }, [statusFilter, tierFilter, dateRange]);
+  const { verifications, loading: verificationsLoading, error: verificationsError } = useMerchantVerifications(selectedMerchant?.id || null);
 
-  const fetchMerchants = async () => {
-    setLoading(true);
-    try {
-      let query = supabase
-        .from('merchants')
-        .select(`
-          *,
-          profiles!merchants_user_id_fkey (
-            email,
-            full_name,
-            phone
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (statusFilter !== 'all') {
-        query = query.eq('verification_status', statusFilter);
-      }
-      if (tierFilter !== 'all') {
-        query = query.eq('subscription_tier', tierFilter);
-      }
-      if (dateRange.from) {
-        query = query.gte('created_at', dateRange.from.toISOString());
-      }
-      if (dateRange.to) {
-        query = query.lte('created_at', dateRange.to.toISOString());
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setMerchants((data as unknown as Merchant[]) || []);
-    } catch (error) {
-      console.error('Error fetching merchants:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to load merchants',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchActivePaidCount = async () => {
-    try {
-      const { count, error } = await supabase
-        .from('merchant_subscriptions')
-        .select('*, subscription_tiers!inner(name)', { count: 'exact', head: true })
-        .eq('status', 'active')
-        .neq('subscription_tiers.name', 'free');
-
-      if (error) throw error;
-      setActivePaidCount(count || 0);
-    } catch (error) {
-      console.error('Error fetching active paid count:', error);
-    }
-  };
-
-  const fetchVerifications = async (merchantId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('merchant_verifications')
-        .select('*')
-        .eq('merchant_id', merchantId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setVerifications((data as Verification[]) || []);
-    } catch (error) {
-      console.error('Error fetching verifications:', error);
-    }
-  };
-
-  const handleViewMerchant = async (merchant: Merchant) => {
+  const handleViewMerchant = (merchant: Merchant) => {
     setSelectedMerchant(merchant);
-    await fetchVerifications(merchant.id);
     setShowDetailDialog(true);
   };
 
-  const handleVerifyMerchant = async (status: 'verified' | 'rejected', rejectionData?: {
-    reason: string;
-    reasonLabel: string;
-    details: string;
-    resubmissionInstructions: string;
-  }) => {
+  const handleVerify = async (status: 'verified' | 'rejected', rejectionData?: any) => {
     if (!selectedMerchant) return;
-
-    setActionLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const adminId = user?.id;
-
-      const updateData: Record<string, unknown> = {
-        verification_status: status,
-      };
-
-      if (status === 'verified') {
-        updateData.verified_at = new Date().toISOString();
-        updateData.verified_by = adminId;
-      } else if (status === 'rejected' && rejectionData) {
-        updateData.rejected_at = new Date().toISOString();
-        updateData.rejected_by = adminId;
-        updateData.rejection_details = rejectionData.details;
-        updateData.resubmission_instructions = rejectionData.resubmissionInstructions;
-      }
-
-      const { error } = await supabase
-        .from('merchants')
-        .update(updateData)
-        .eq('id', selectedMerchant.id);
-
-      if (error) throw error;
-
-      // Insert verification history
-      await supabase.from('merchant_verification_history').insert({
-        merchant_id: selectedMerchant.id,
-        action: status === 'verified' ? 'approved' : 'rejected',
-        performed_by: adminId,
-        approval_notes: status === 'verified' ? approvalNotes : null,
-        rejection_reason: rejectionData?.reasonLabel,
-        rejection_details: rejectionData?.details,
-        resubmission_instructions: rejectionData?.resubmissionInstructions,
-        old_status: selectedMerchant.verification_status,
-        new_status: status,
-      });
-
-      // Insert audit log
-      await supabase.from('audit_logs').insert({
-        user_id: adminId,
-        action: status === 'verified' ? 'verification_approved' : 'verification_rejected',
-        entity_type: 'merchant',
-        entity_id: selectedMerchant.id,
-        old_data: { verification_status: selectedMerchant.verification_status },
-        new_data: { verification_status: status, ...rejectionData },
-        user_agent: navigator.userAgent,
-      });
-
-      // Create notification for merchant
-      await supabase.from('notifications').insert({
-        user_id: selectedMerchant.user_id,
-        type: status === 'verified' ? 'verification_approved' : 'verification_rejected',
-        title: status === 'verified' ? 'Akun Terverifikasi!' : 'Verifikasi Ditolak',
-        message: status === 'verified' 
-          ? 'Selamat! Akun bisnis Anda telah terverifikasi. Semua fitur telah dibuka.'
-          : `Pengajuan verifikasi Anda ditolak: ${rejectionData?.reasonLabel}. Silakan perbaiki dan ajukan kembali.`,
-        link: '/merchant',
-      });
-
-      // Send email notification
-      try {
-        await supabase.functions.invoke('send-notification', {
-          body: {
-            type: status === 'verified' ? 'verification_approved' : 'verification_rejected',
-            recipientEmail: selectedMerchant.profiles?.email,
-            recipientName: selectedMerchant.profiles?.full_name || 'Merchant',
-            data: {
-              businessName: selectedMerchant.business_name,
-              dashboardLink: `${window.location.origin}/merchant`,
-              approvalNotes: status === 'verified' ? approvalNotes : null,
-              rejectionReason: rejectionData?.reasonLabel,
-              rejectionDetails: rejectionData?.details,
-              resubmissionInstructions: rejectionData?.resubmissionInstructions,
-            }
-          }
-        });
-        console.log('Verification email sent successfully');
-      } catch (emailError) {
-        console.error('Failed to send verification email:', emailError);
-        // Don't throw - email is not critical
-      }
-
-      toast({
-        title: status === 'verified' ? 'Merchant Diverifikasi' : 'Merchant Ditolak',
-        description: `${selectedMerchant.business_name} telah ${status === 'verified' ? 'diverifikasi' : 'ditolak'}`,
-      });
-
-      setShowRejectionDialog(false);
-      setShowApprovalNotesDialog(false);
-      setShowDetailDialog(false);
-      setApprovalNotes('');
-      fetchMerchants();
-    } catch (error) {
-      console.error('Error updating merchant:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Gagal mengupdate status merchant',
-      });
-    } finally {
-      setActionLoading(false);
-    }
+    await verifyMerchant(selectedMerchant, status, rejectionData, approvalNotes);
   };
 
-  const handleSuspendMerchant = async () => {
+  const handleSuspend = async () => {
     if (!selectedMerchant) return;
-    
-    setActionLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const adminId = user?.id;
-      
-      const newStatus = selectedMerchant.verification_status === 'suspended' ? 'verified' : 'suspended';
-      const { error } = await supabase
-        .from('merchants')
-        .update({ verification_status: newStatus })
-        .eq('id', selectedMerchant.id);
-
-      if (error) throw error;
-
-      // Insert verification history
-      await supabase.from('merchant_verification_history').insert({
-        merchant_id: selectedMerchant.id,
-        action: newStatus === 'suspended' ? 'suspended' : 'reactivated',
-        performed_by: adminId,
-        old_status: selectedMerchant.verification_status,
-        new_status: newStatus,
-      });
-
-      // Insert audit log
-      await supabase.from('audit_logs').insert({
-        user_id: adminId,
-        action: newStatus === 'suspended' ? 'merchant_suspended' : 'merchant_reactivated',
-        entity_type: 'merchant',
-        entity_id: selectedMerchant.id,
-        old_data: { verification_status: selectedMerchant.verification_status },
-        new_data: { verification_status: newStatus },
-        user_agent: navigator.userAgent,
-      });
-
-      toast({
-        title: newStatus === 'suspended' ? 'Merchant Ditangguhkan' : 'Merchant Diaktifkan Kembali',
-        description: `${selectedMerchant.business_name} telah ${newStatus === 'suspended' ? 'ditangguhkan' : 'diaktifkan kembali'}`,
-      });
-
-      setShowDetailDialog(false);
-      fetchMerchants();
-    } catch (error) {
-      console.error('Error updating merchant:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Gagal mengupdate status merchant',
-      });
-    } finally {
-      setActionLoading(false);
-    }
+    await suspendMerchant(selectedMerchant);
   };
 
-  const handleBulkApproval = async (notes: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    const adminId = user?.id;
-
-    for (const merchantId of selectedMerchantIds) {
-      const merchant = merchants.find(m => m.id === merchantId);
-      if (!merchant || merchant.verification_status !== 'pending') continue;
-
-      await supabase
-        .from('merchants')
-        .update({
-          verification_status: 'verified',
-          verified_at: new Date().toISOString(),
-          verified_by: adminId,
-        })
-        .eq('id', merchantId);
-
-      await supabase.from('merchant_verification_history').insert({
-        merchant_id: merchantId,
-        action: 'approved',
-        performed_by: adminId,
-        approval_notes: notes,
-        old_status: 'pending',
-        new_status: 'verified',
-      });
-
-      await supabase.from('audit_logs').insert({
-        user_id: adminId,
-        action: 'verification_approved',
-        entity_type: 'merchant',
-        entity_id: merchantId,
-        old_data: { verification_status: 'pending' },
-        new_data: { verification_status: 'verified', approval_notes: notes },
-        user_agent: navigator.userAgent,
-      });
-
-      await supabase.from('notifications').insert({
-        user_id: merchant.user_id,
-        type: 'verification_approved',
-        title: 'Akun Terverifikasi!',
-        message: 'Selamat! Akun bisnis Anda telah terverifikasi. Semua fitur telah dibuka.',
-        link: '/merchant',
-      });
-
-      // Send email notification for bulk approval
-      try {
-        await supabase.functions.invoke('send-notification', {
-          body: {
-            type: 'verification_approved',
-            recipientEmail: merchant.profiles?.email,
-            recipientName: merchant.profiles?.full_name || 'Merchant',
-            data: {
-              businessName: merchant.business_name,
-              dashboardLink: `${window.location.origin}/merchant`,
-              approvalNotes: notes || null,
-            }
-          }
-        });
-      } catch (emailError) {
-        console.error('Failed to send bulk approval email:', emailError);
-      }
-    }
-
-    toast({
-      title: 'Bulk Approval Selesai',
-      description: `${selectedMerchantIds.length} merchant telah diverifikasi`,
-    });
-
-    setSelectedMerchantIds([]);
-    fetchMerchants();
+  const handleBulkApprove = async (notes: string) => {
+    await bulkApprove(merchants, selectedMerchantIds, notes);
   };
+
+  const filteredMerchants = merchants.filter(merchant => {
+    const searchLower = searchQuery.toLowerCase();
+    return (
+      merchant.business_name.toLowerCase().includes(searchLower) ||
+      merchant.profiles?.email?.toLowerCase().includes(searchLower) ||
+      merchant.city?.toLowerCase().includes(searchLower)
+    );
+  });
+
+  const pendingMerchantsCount = filteredMerchants.filter(m => m.verification_status === 'pending').length;
 
   const toggleMerchantSelection = (merchantId: string) => {
     setSelectedMerchantIds(prev => 
@@ -460,20 +130,6 @@ export default function AdminMerchants() {
     } else {
       setSelectedMerchantIds(pendingMerchants.map(m => m.id));
     }
-  };
-
-  const filteredMerchants = merchants.filter(merchant => {
-    const searchLower = searchQuery.toLowerCase();
-    return (
-      merchant.business_name.toLowerCase().includes(searchLower) ||
-      merchant.profiles?.email?.toLowerCase().includes(searchLower) ||
-      merchant.city?.toLowerCase().includes(searchLower)
-    );
-  });
-
-  const StatusIcon = ({ status }: { status: string }) => {
-    const Icon = statusIcons[status] || Clock;
-    return <Icon className="h-4 w-4" />;
   };
 
   const handleExportMerchants = () => {
@@ -507,7 +163,10 @@ export default function AdminMerchants() {
     setShowLightbox(true);
   };
 
-  const pendingMerchantsCount = filteredMerchants.filter(m => m.verification_status === 'pending').length;
+  const StatusIcon = ({ status }: { status: string }) => {
+    const Icon = STATUS_ICONS[status] || Clock;
+    return <Icon className="h-4 w-4" />;
+  };
 
   return (
     <AdminLayout>
@@ -724,6 +383,12 @@ export default function AdminMerchants() {
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
+            ) : error ? (
+              <div className="text-center py-8 text-destructive">
+                <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>Gagal memuat data merchant</p>
+                <p className="text-xs text-muted-foreground mt-1">{(error as Error).message}</p>
+              </div>
             ) : filteredMerchants.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 No merchants found
@@ -780,7 +445,7 @@ export default function AdminMerchants() {
                           <p className="text-xs text-muted-foreground">{merchant.province || '-'}</p>
                         </td>
                         <td className="py-3 px-4">
-                          <Badge variant="outline" className={statusColors[merchant.verification_status]}>
+                          <Badge variant="outline" className={STATUS_COLORS[merchant.verification_status]}>
                             <StatusIcon status={merchant.verification_status} />
                             <span className="ml-1 capitalize">{merchant.verification_status}</span>
                           </Badge>
@@ -812,7 +477,7 @@ export default function AdminMerchants() {
           </CardContent>
         </Card>
 
-        {/* Merchant Detail Dialog - Enhanced with 6 tabs */}
+        {/* Merchant Detail Dialog */}
         <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
@@ -879,7 +544,7 @@ export default function AdminMerchants() {
                     </div>
                     <div>
                       <Label className="text-muted-foreground">Status</Label>
-                      <Badge variant="outline" className={statusColors[selectedMerchant.verification_status]}>
+                      <Badge variant="outline" className={STATUS_COLORS[selectedMerchant.verification_status]}>
                         <StatusIcon status={selectedMerchant.verification_status} />
                         <span className="ml-1 capitalize">{selectedMerchant.verification_status}</span>
                       </Badge>
@@ -894,7 +559,25 @@ export default function AdminMerchants() {
                 </TabsContent>
 
                 <TabsContent value="documents" className="mt-4">
-                  {verifications.length === 0 ? (
+                  {verificationsLoading ? (
+                    <div className="space-y-3">
+                      {[1, 2].map((i) => (
+                        <div key={i} className="p-3 rounded-lg bg-muted/50 flex gap-3">
+                          <div className="h-12 w-12 rounded bg-muted animate-pulse" />
+                          <div className="space-y-2 flex-1">
+                            <div className="h-4 w-1/3 bg-muted animate-pulse rounded" />
+                            <div className="h-3 w-1/4 bg-muted animate-pulse rounded" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : verificationsError ? (
+                    <div className="text-center py-8 text-destructive">
+                      <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>Gagal memuat dokumen</p>
+                      <p className="text-xs text-muted-foreground mt-1">{(verificationsError as Error).message}</p>
+                    </div>
+                  ) : verifications.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
                       No documents uploaded yet
                     </div>
@@ -922,10 +605,9 @@ export default function AdminMerchants() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Badge variant="outline" className={statusColors[doc.status]}>
+                            <Badge variant="outline" className={STATUS_COLORS[doc.status]}>
                               {doc.status}
                             </Badge>
-                            <Eye className="h-4 w-4 text-muted-foreground" />
                           </div>
                         </div>
                       ))}
@@ -951,33 +633,60 @@ export default function AdminMerchants() {
               </Tabs>
             )}
 
-            <DialogFooter className="mt-6 gap-2">
-              {selectedMerchant?.verification_status === 'pending' && (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowRejectionDialog(true)}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    Reject
-                  </Button>
-                  <Button onClick={() => setShowApprovalNotesDialog(true)} disabled={actionLoading}>
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Approve
-                  </Button>
-                </>
-              )}
-              {selectedMerchant?.verification_status === 'verified' && (
-                <Button variant="destructive" onClick={handleSuspendMerchant} disabled={actionLoading}>
-                  Suspend Merchant
+            <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-between items-center border-t pt-4 mt-4">
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={handleSuspend}
+                disabled={actionLoading}
+              >
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                {selectedMerchant?.verification_status === 'suspended' ? 'Reactivate' : 'Suspend'}
+              </Button>
+              <div className="flex gap-2 w-full sm:w-auto">
+                {selectedMerchant?.verification_status !== 'verified' && (
+                  <>
+                    <Button 
+                      variant="destructive" 
+                      onClick={() => setShowRejectionDialog(true)}
+                      disabled={actionLoading}
+                      className="flex-1 sm:flex-none"
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Reject
+                    </Button>
+                    <Button 
+                      className="bg-success hover:bg-success/90 text-white flex-1 sm:flex-none"
+                      onClick={() => setShowApprovalNotesDialog(true)}
+                      disabled={actionLoading}
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Approve
+                    </Button>
+                  </>
+                )}
+                <Button variant="outline" onClick={() => setShowDetailDialog(false)}>
+                  Close
                 </Button>
-              )}
-              {selectedMerchant?.verification_status === 'suspended' && (
-                <Button onClick={handleSuspendMerchant} disabled={actionLoading}>
-                  Reactivate Merchant
-                </Button>
-              )}
+              </div>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Rejection Dialog */}
+        <Dialog open={showRejectionDialog} onOpenChange={setShowRejectionDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Reject Verification</DialogTitle>
+              <DialogDescription>
+                Please provide a reason for rejection. This will be sent to the merchant.
+              </DialogDescription>
+            </DialogHeader>
+            <RejectionReasonForm 
+              onSubmit={(data) => handleVerify('rejected', data)}
+              onCancel={() => setShowRejectionDialog(false)}
+              isLoading={actionLoading}
+            />
           </DialogContent>
         </Dialog>
 
@@ -985,64 +694,52 @@ export default function AdminMerchants() {
         <Dialog open={showApprovalNotesDialog} onOpenChange={setShowApprovalNotesDialog}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-success">
-                <CheckCircle className="h-5 w-5" />
-                Approve Merchant
-              </DialogTitle>
+              <DialogTitle>Approve Verification</DialogTitle>
               <DialogDescription>
-                Approve {selectedMerchant?.business_name} verification. Add optional notes.
+                Add optional notes for this approval.
               </DialogDescription>
             </DialogHeader>
-            <div className="py-4 space-y-4">
+            <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="approval-notes">Catatan Approval (Opsional)</Label>
-                <Textarea
-                  id="approval-notes"
-                  placeholder="Tambahkan catatan untuk approval ini..."
+                <Label>Internal Notes (Optional)</Label>
+                <Textarea 
+                  placeholder="Add notes about this approval..."
                   value={approvalNotes}
                   onChange={(e) => setApprovalNotes(e.target.value)}
-                  rows={3}
                 />
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowApprovalNotesDialog(false)}>
-                Cancel
-              </Button>
+              <Button variant="outline" onClick={() => setShowApprovalNotesDialog(false)}>Cancel</Button>
               <Button 
-                onClick={() => handleVerifyMerchant('verified')}
+                className="bg-success hover:bg-success/90 text-white"
+                onClick={() => handleVerify('verified')}
                 disabled={actionLoading}
               >
-                {actionLoading ? 'Memproses...' : 'Confirm Approval'}
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Confirm Approval
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
-        {/* Rejection Dialog with Enhanced Form */}
-        <RejectionReasonForm
-          open={showRejectionDialog}
-          onOpenChange={setShowRejectionDialog}
-          merchantName={selectedMerchant?.business_name || ''}
-          onConfirm={(data) => handleVerifyMerchant('rejected', data)}
-          loading={actionLoading}
-        />
-
-        {/* Document Lightbox */}
-        <DocumentLightbox
-          open={showLightbox}
-          onOpenChange={setShowLightbox}
-          documents={verifications}
-          initialIndex={lightboxInitialIndex}
-        />
-
         {/* Bulk Approval Dialog */}
         <BulkApprovalDialog
           open={showBulkApprovalDialog}
           onOpenChange={setShowBulkApprovalDialog}
-          selectedCount={selectedMerchantIds.length}
-          onConfirm={handleBulkApproval}
+          merchantCount={selectedMerchantIds.length}
+          onConfirm={handleBulkApprove}
+          isLoading={actionLoading}
         />
+
+        {/* Document Lightbox */}
+        {showLightbox && verifications.length > 0 && (
+          <DocumentLightbox
+            documents={verifications.map(v => ({ url: v.document_url, type: v.document_type }))}
+            initialIndex={lightboxInitialIndex}
+            onClose={() => setShowLightbox(false)}
+          />
+        )}
       </div>
     </AdminLayout>
   );

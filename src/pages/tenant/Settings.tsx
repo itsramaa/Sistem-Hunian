@@ -1,16 +1,16 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { TenantLayout } from "@/components/layouts/TenantLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
-import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { Bell, Loader2, Palette, Moon, Sun, RefreshCw, AlertTriangle, Shield } from "lucide-react";
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useTenantProfile, useUpdateTenantProfile } from "@/features/profile/hooks/useProfile";
+import { TenantLayout } from "@/shared/components/layouts/TenantLayout";
+import { Alert, AlertDescription } from "@/shared/components/ui/alert";
+import { Button } from "@/shared/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
+import { Switch } from "@/shared/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
+import { useTheme } from "@/shared/context/theme-context";
+import { AlertTriangle, Bell, Loader2, Moon, Palette, RefreshCw, Shield, Sun } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
+import { toast } from "sonner";
 
 interface NotificationPreferences {
   payment_reminders: boolean;
@@ -32,29 +32,12 @@ const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
 
 const TenantSettings = () => {
   const { user, role } = useAuth();
-  const queryClient = useQueryClient();
 
-  // Role verification
-  if (role && role !== "tenant") {
-    return <Navigate to="/unauthorized" replace />;
-  }
-
-  const { data: tenant, isLoading: tenantLoading, error, refetch } = useQuery({
-    queryKey: ['tenant', user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('tenants')
-        .select('*')
-        .eq('user_id', user?.id)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id,
-  });
+  const { data: tenant, isLoading: tenantLoading, error, refetch } = useTenantProfile(user?.id);
+  const updateTenantMutation = useUpdateTenantProfile();
 
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFS);
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
+  const { theme, setTheme } = useTheme();
 
   // Initialize settings when data loads
   useEffect(() => {
@@ -69,57 +52,27 @@ const TenantSettings = () => {
     }
   }, [tenant]);
 
-  // Theme handling
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | 'system' | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-      applyTheme(savedTheme);
-    }
-  }, []);
-
-  const applyTheme = (newTheme: 'light' | 'dark' | 'system') => {
-    const root = document.documentElement;
-    if (newTheme === 'dark') {
-      root.classList.add('dark');
-    } else if (newTheme === 'light') {
-      root.classList.remove('dark');
-    } else {
-      // System preference
-      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        root.classList.add('dark');
-      } else {
-        root.classList.remove('dark');
-      }
-    }
-    localStorage.setItem('theme', newTheme);
-  };
 
   const handleThemeChange = (newTheme: 'light' | 'dark' | 'system') => {
     setTheme(newTheme);
-    applyTheme(newTheme);
     toast.success('Tema berhasil diubah');
   };
 
-  const updateNotificationPrefs = useMutation({
-    mutationFn: async (prefs: NotificationPreferences) => {
-      if (!user?.id) throw new Error('User not found');
-      
-      const { error } = await supabase
-        .from('tenants')
-        .update({ 
-          notification_preferences: JSON.parse(JSON.stringify(prefs))
-        } as any)
-        .eq('user_id', user.id);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tenant'] });
-      toast.success('Preferensi notifikasi disimpan');
-    },
-    onError: () => toast.error('Gagal menyimpan preferensi'),
-  });
+  const handleUpdateNotificationPrefs = async (prefs: NotificationPreferences) => {
+    updateTenantMutation.mutate(
+      { userId: user!.id, payload: { notification_preferences: prefs } },
+      {
+        onSuccess: () => toast.success('Preferensi notifikasi disimpan'),
+        onError: () => toast.error('Gagal menyimpan preferensi'),
+      }
+    );
+  };
+
+  // Role verification
+  if (role && role !== "tenant") {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
 
   if (tenantLoading) {
     return (
@@ -271,7 +224,7 @@ const TenantSettings = () => {
                     onCheckedChange={(checked) => {
                       const newPrefs = { ...notificationPrefs, [item.key]: checked };
                       setNotificationPrefs(newPrefs);
-                      updateNotificationPrefs.mutate(newPrefs);
+                      handleUpdateNotificationPrefs(newPrefs);
                     }}
                   />
                 </div>

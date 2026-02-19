@@ -1,36 +1,8 @@
-import { useState, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { MerchantLayout } from "@/components/layouts/MerchantLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { UnitPhotoUpload } from "@/features/properties/components/UnitPhotoUpload";
+import { SubscriptionLimitWarning } from "@/features/subscriptions/components/SubscriptionLimitWarning";
+import { useSubscriptionLimits } from "@/features/subscriptions/hooks/useSubscriptionLimits";
+import { MerchantLayout } from "@/shared/components/layouts/MerchantLayout";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,50 +13,53 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { toast } from "sonner";
-import { 
-  Plus, 
-  Search, 
-  Building2, 
-  Home,
-  Edit,
-  Trash2,
-  Filter,
-  DollarSign,
-  Layers,
+} from "@/shared/components/ui/alert-dialog";
+import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/shared/components/ui/dialog";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/shared/components/ui/table";
+import { Textarea } from "@/shared/components/ui/textarea";
+import { useQueryClient } from "@tanstack/react-query";
+import {
   AlertTriangle,
-  Loader2
+  Building2,
+  DollarSign,
+  Edit,
+  Filter,
+  Home,
+  Layers,
+  Loader2,
+  Plus,
+  Search,
+  Trash2
 } from "lucide-react";
-import { UnitPhotoUpload } from "@/components/merchant/UnitPhotoUpload";
-import { SubscriptionLimitWarning } from "@/components/merchant/SubscriptionLimitWarning";
-import { useSubscriptionLimits } from "@/hooks/useSubscriptionLimits";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
 
-interface Unit {
-  id: string;
-  property_id: string;
-  unit_number: string;
-  unit_type: string | null;
-  floor: number | null;
-  size_sqm: number | null;
-  rent_amount: number;
-  deposit_amount: number | null;
-  status: string | null;
-  description: string | null;
-  amenities: string[] | null;
-  photos?: string[];
-  property?: {
-    name: string;
-    address: string;
-  };
-}
-
-interface Property {
-  id: string;
-  name: string;
-  address: string;
-  property_type: string;
-}
+import { CreateUnitPayload, Unit } from "@/features/properties/types";
 
 // Dynamic unit types based on property type
 const getUnitTypesForProperty = (propertyType: string | undefined): { value: string; label: string }[] => {
@@ -167,39 +142,19 @@ export default function MerchantUnits() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Fetch properties
-  const { data: properties = [] } = useQuery({
-    queryKey: ['merchant-properties', merchant?.id],
-    queryFn: async () => {
-      if (!merchant?.id) return [];
-      const { data, error } = await supabase
-        .from('properties')
-        .select('id, name, address, property_type')
-        .eq('merchant_id', merchant.id)
-        .order('name');
-      if (error) throw error;
-      return data as Property[];
-    },
-    enabled: !!merchant?.id,
-  });
+  const { properties, loading: propertiesLoading } = useMerchantProperties(merchant?.id || '');
 
   // Fetch all units
-  const { data: units = [], isLoading } = useQuery({
-    queryKey: ['merchant-all-units', merchant?.id],
-    queryFn: async () => {
-      if (!merchant?.id) return [];
-      const { data, error } = await supabase
-        .from('units')
-        .select(`
-          *,
-          property:properties(name, address)
-        `)
-        .in('property_id', properties.map(p => p.id))
-        .order('unit_number');
-      if (error) throw error;
-      return data as Unit[];
-    },
-    enabled: !!merchant?.id && properties.length > 0,
-  });
+  const { 
+    units, 
+    loading: unitsLoading, 
+    createUnit, 
+    updateUnit, 
+    deleteUnit,
+    isCreating,
+    isUpdating,
+    isDeleting
+  } = useMerchantUnits(merchant?.id || '');
 
   // Validate form
   const validateForm = (): boolean => {
@@ -248,19 +203,20 @@ export default function MerchantUnits() {
     return Object.keys(errors).length === 0;
   };
 
-  // Create/Update unit mutation
-  const saveMutation = useMutation({
-    mutationFn: async () => {
+  const handleSave = async () => {
+    try {
       if (!validateForm()) {
-        throw new Error('Please fix the form errors');
+        toast.error('Please fix the form errors');
+        return;
       }
 
       // Check subscription limits for new units
       if (!editingUnit && subscriptionLimits && !subscriptionLimits.canAddUnit) {
-        throw new Error(`Unit limit reached (${subscriptionLimits.currentUnits}/${subscriptionLimits.maxUnits}). Please upgrade your subscription.`);
+        toast.error(`Unit limit reached (${subscriptionLimits.currentUnits}/${subscriptionLimits.maxUnits}). Please upgrade your subscription.`);
+        return;
       }
 
-      const unitData = {
+      const unitData: CreateUnitPayload = {
         property_id: formData.property_id,
         unit_number: formData.unit_number.trim(),
         unit_type: formData.unit_type,
@@ -268,82 +224,23 @@ export default function MerchantUnits() {
         size_sqm: formData.size_sqm ? parseFloat(formData.size_sqm) : null,
         rent_amount: parseFloat(formData.rent_amount),
         deposit_amount: formData.deposit_amount ? parseFloat(formData.deposit_amount) : null,
-        status: formData.status,
+        status: formData.status as any,
         description: formData.description?.trim() || null,
         photos: formData.photos,
+        amenities: [], // Assuming amenities are handled elsewhere or default to empty
       };
 
       if (editingUnit) {
-        const { error } = await supabase
-          .from('units')
-          .update(unitData)
-          .eq('id', editingUnit.id);
-        if (error) throw error;
+        await updateUnit({ id: editingUnit.id, payload: unitData });
       } else {
-        const { error } = await supabase
-          .from('units')
-          .insert(unitData);
-        if (error) throw error;
+        await createUnit(unitData);
       }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['merchant-all-units'] });
-      queryClient.invalidateQueries({ queryKey: ['subscription-limits'] });
-      toast.success(editingUnit ? 'Unit updated successfully' : 'Unit created successfully');
+      
       handleDialogClose();
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to save unit');
-    },
-  });
-
-  // Delete unit mutation
-  const deleteMutation = useMutation({
-    mutationFn: async (unitId: string) => {
-      // Check for active contracts
-      const { data: activeContracts, error: contractError } = await supabase
-        .from('contracts')
-        .select('id')
-        .eq('unit_id', unitId)
-        .in('status', ['active', 'pending']);
-
-      if (contractError) throw contractError;
-
-      if (activeContracts && activeContracts.length > 0) {
-        throw new Error('Cannot delete unit with active or pending contracts');
-      }
-
-      // Check for pending invitations
-      const { data: pendingInvitations, error: inviteError } = await supabase
-        .from('tenant_invitations')
-        .select('id')
-        .eq('unit_id', unitId)
-        .eq('status', 'pending');
-
-      if (inviteError) throw inviteError;
-
-      if (pendingInvitations && pendingInvitations.length > 0) {
-        throw new Error('Cannot delete unit with pending tenant invitations');
-      }
-
-      // Delete the unit
-      const { error } = await supabase
-        .from('units')
-        .delete()
-        .eq('id', unitId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['merchant-all-units'] });
-      queryClient.invalidateQueries({ queryKey: ['subscription-limits'] });
-      toast.success('Unit deleted successfully');
-      setDeleteLoading(null);
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to delete unit');
-      setDeleteLoading(null);
-    },
-  });
+    } catch {
+      // Toast is handled in hook
+    }
+  };
 
   const handleDialogClose = () => {
     setIsDialogOpen(false);
@@ -381,9 +278,15 @@ export default function MerchantUnits() {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (unitId: string) => {
+  const handleDelete = async (unitId: string) => {
     setDeleteLoading(unitId);
-    deleteMutation.mutate(unitId);
+    try {
+      await deleteUnit(unitId);
+    } catch (error) {
+      // Toast is handled in hook
+    } finally {
+      setDeleteLoading(null);
+    }
   };
 
   const formatCurrency = (amount: number) => {

@@ -43,6 +43,7 @@ interface NotificationRequest {
   recipientEmail: string;
   recipientName: string;
   subject?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: Record<string, any>;
 }
 
@@ -50,6 +51,7 @@ const formatCurrency = (amount: number) => {
   return `Rp ${Number(amount).toLocaleString('id-ID')}`;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const getEmailTemplate = (type: string, data: Record<string, any>, recipientName: string) => {
   switch (type) {
     case "invoice":
@@ -1033,10 +1035,11 @@ const handler = async (req: Request): Promise<Response> => {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
-  } catch (error: any) {
-    console.error("Error in send-notification function:", error);
+  } catch (error) {
+    const err = error as Error;
+    console.error("Error in send-notification function:", err);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: err.message }),
       {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },

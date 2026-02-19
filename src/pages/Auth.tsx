@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AuthForm } from '@/components/auth/AuthForm';
-import { AuthLoadingSkeleton } from '@/components/auth/AuthLoadingSkeleton';
-import { useAuth } from '@/hooks/useAuth';
+import { AuthForm } from '@/features/auth/components/AuthForm';
+import { AuthLoadingSkeleton } from '@/features/auth/components/AuthLoadingSkeleton';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 
 const roleDestinations: Record<string, { path: string; name: string }> = {
   admin: { path: '/admin', name: 'Dashboard Admin' },

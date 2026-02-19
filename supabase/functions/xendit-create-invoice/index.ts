@@ -32,13 +32,53 @@ serve(async (req) => {
       payer_email, 
       payer_name,
       user_id,
-      payment_type // 'rent', 'invoice', 'order'
+      payment_type, // 'rent', 'invoice', 'order'
+      preferred_method
     } = await req.json();
 
-    console.log('Creating Xendit invoice:', { payment_id, invoice_id, order_id, amount, payment_type });
+    // Input validation
+    if (!amount || amount <= 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid amount' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+    if (!payer_email) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Payer email is required' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+    if (!user_id) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'User ID is required' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+
+    console.log('Creating Xendit invoice:', { payment_id, invoice_id, order_id, amount, payment_type, preferred_method });
 
     // Generate unique external_id
     const external_id = `${payment_type}_${payment_id || invoice_id || order_id}_${Date.now()}`;
+
+    // Map preferred_method to Xendit payment_methods
+    let payment_methods = ['BANK_TRANSFER', 'EWALLET', 'QR_CODE', 'CREDIT_CARD'];
+    if (preferred_method) {
+      switch (preferred_method) {
+        case 'bank_transfer':
+          payment_methods = ['BANK_TRANSFER'];
+          break;
+        case 'ewallet':
+          payment_methods = ['EWALLET'];
+          break;
+        case 'qris':
+          payment_methods = ['QR_CODE'];
+          break;
+        case 'credit_card':
+          payment_methods = ['CREDIT_CARD'];
+          break;
+      }
+    }
 
     // Create Xendit Invoice
     const xenditPayload = {
@@ -54,7 +94,7 @@ serve(async (req) => {
       },
       success_redirect_url: `${req.headers.get('origin')}/payment/success`,
       failure_redirect_url: `${req.headers.get('origin')}/payment/failed`,
-      payment_methods: ['BANK_TRANSFER', 'EWALLET', 'QR_CODE', 'CREDIT_CARD'],
+      payment_methods,
     };
 
     const xenditResponse = await fetch('https://api.xendit.co/v2/invoices', {

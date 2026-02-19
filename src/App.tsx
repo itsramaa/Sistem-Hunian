@@ -1,177 +1,207 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/hooks/useAuth";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import Onboarding from "./pages/Onboarding";
-import AdminSetup from "./pages/AdminSetup";
-import Invite from "./pages/Invite";
-import ReferralInvite from "./pages/ReferralInvite";
-import ResetPassword from "./pages/ResetPassword";
-import UpdatePassword from "./pages/UpdatePassword";
-import AdminDashboard from "./pages/admin/Dashboard";
-import AdminMerchants from "./pages/admin/Merchants";
-import AdminEscrow from "./pages/admin/Escrow";
-import AdminVendors from "./pages/admin/Vendors";
-import AdminSubscriptions from "./pages/admin/Subscriptions";
-import AdminSubscriptionTiers from "./pages/admin/SubscriptionTiers";
-import AdminDisputes from "./pages/admin/Disputes";
-import AdminAnalytics from "./pages/admin/Analytics";
-import AdminSettings from "./pages/admin/Settings";
-import AdminVendorVerifications from "./pages/admin/VendorVerifications";
-import AdminPlatformConfig from "./pages/admin/PlatformConfig";
-import AdminReferrals from "./pages/admin/Referrals";
-import AdminChatbot from "./pages/admin/Chatbot";
-import AdminOrders from "./pages/admin/Orders";
-import AdminAuditLogs from "./pages/admin/AuditLogs";
-import AdminForumModeration from "./pages/admin/ForumModeration";
-import Admin2FA from "./pages/admin/Admin2FA";
-import MerchantDashboard from "./pages/merchant/Dashboard";
-import MerchantProperties from "./pages/merchant/Properties";
-import MerchantTenants from "./pages/merchant/Tenants";
-import MerchantMaintenance from "./pages/merchant/Maintenance";
-import MerchantMaintenanceDetail from "./pages/merchant/MaintenanceDetail";
-import MerchantPayments from "./pages/merchant/Payments";
-import MerchantReports from "./pages/merchant/Reports";
-import MerchantInvoices from "./pages/merchant/Invoices";
-import MerchantSettings from "./pages/merchant/Settings";
-import MerchantProfile from "./pages/merchant/Profile";
-import MerchantUnits from "./pages/merchant/Units";
-import MerchantEscrow from "./pages/merchant/Escrow";
-import MerchantReferrals from "./pages/merchant/Referrals";
-import MerchantContracts from "./pages/merchant/Contracts";
-import MerchantBilling from "./pages/merchant/Billing";
-import MerchantMoveOuts from "./pages/merchant/MoveOuts";
-import TenantDashboard from "./pages/tenant/Dashboard";
-import TenantMaintenance from "./pages/tenant/Maintenance";
-import TenantMaintenanceDetail from "./pages/tenant/MaintenanceDetail";
-import TenantSignContract from "./pages/tenant/SignContract";
-import TenantPayments from "./pages/tenant/Payments";
-import TenantSettings from "./pages/tenant/Settings";
-import TenantProfile from "./pages/tenant/Profile";
-import TenantContracts from "./pages/tenant/Contracts";
-import TenantInvoices from "./pages/tenant/Invoices";
-import TenantMarketplace from "./pages/tenant/Marketplace";
-import TenantVendorDetail from "./pages/tenant/VendorDetail";
-import TenantOrders from "./pages/tenant/Orders";
-import TenantForum from "./pages/tenant/Forum";
-import TenantForumPost from "./pages/tenant/ForumPost";
-import TenantReferrals from "./pages/tenant/Referrals";
-import VendorDashboard from "./pages/vendor/Dashboard";
-import VendorJobs from "./pages/vendor/Jobs";
-import VendorEarnings from "./pages/vendor/Earnings";
-import VendorProfile from "./pages/vendor/Profile";
-import VendorSettings from "./pages/vendor/Settings";
-import VendorProducts from "./pages/vendor/Products";
-import VendorOrders from "./pages/vendor/Orders";
-import VendorReferrals from "./pages/vendor/Referrals";
-import VendorAnalytics from "./pages/vendor/Analytics";
-import NotFound from "./pages/NotFound";
-import Unauthorized from "./pages/Unauthorized";
-import PaymentSuccess from "./pages/payment/Success";
-import PaymentFailed from "./pages/payment/Failed";
+import { Loader2 } from "lucide-react";
+import { Suspense, lazy } from "react";
+import { HelmetProvider } from 'react-helmet-async';
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 
+import { ProtectedRoute } from "@/features/auth/components/ProtectedRoute";
+import { AuthProvider } from "@/features/auth/hooks/useAuth";
+import { Meta } from "@/shared/components/meta";
+import { ThemeProvider } from "@/shared/components/theme-provider";
+import { Toaster as Sonner } from "@/shared/components/ui/sonner";
+import { Toaster } from "@/shared/components/ui/toaster";
+import { TooltipProvider } from "@/shared/components/ui/tooltip";
+
+// Lazy Load Pages
+const AdminSetup = lazy(() => import("@/pages/AdminSetup"));
+const Auth = lazy(() => import("@/pages/Auth"));
+const Index = lazy(() => import("@/pages/Index"));
+const Invite = lazy(() => import("@/pages/Invite"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
+const Onboarding = lazy(() => import("@/pages/Onboarding"));
+const ReferralInvite = lazy(() => import("@/pages/ReferralInvite"));
+const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
+const Unauthorized = lazy(() => import("@/pages/Unauthorized"));
+const UpdatePassword = lazy(() => import("@/pages/UpdatePassword"));
+
+// Admin Pages
+const Admin2FA = lazy(() => import("@/pages/admin/Admin2FA"));
+const AdminAnalytics = lazy(() => import("@/pages/admin/Analytics"));
+const AdminAuditLogs = lazy(() => import("@/pages/admin/AuditLogs"));
+const AdminChatbot = lazy(() => import("@/pages/admin/Chatbot"));
+const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
+const AdminDisputes = lazy(() => import("@/pages/admin/Disputes"));
+const AdminEscrow = lazy(() => import("@/pages/admin/Escrow"));
+const AdminForumModeration = lazy(() => import("@/pages/admin/ForumModeration"));
+const AdminMerchants = lazy(() => import("@/pages/admin/Merchants"));
+const AdminOrders = lazy(() => import("@/pages/admin/Orders"));
+const AdminPlatformConfig = lazy(() => import("@/pages/admin/PlatformConfig"));
+const AdminReferrals = lazy(() => import("@/pages/admin/Referrals"));
+const AdminSettings = lazy(() => import("@/pages/admin/Settings"));
+const AdminSubscriptionTiers = lazy(() => import("@/pages/admin/SubscriptionTiers"));
+const AdminSubscriptions = lazy(() => import("@/pages/admin/Subscriptions"));
+const AdminVendorVerifications = lazy(() => import("@/pages/admin/VendorVerifications"));
+const AdminVendors = lazy(() => import("@/pages/admin/Vendors"));
+
+// Merchant Pages
+const MerchantBilling = lazy(() => import("@/pages/merchant/Billing"));
+const MerchantContracts = lazy(() => import("@/pages/merchant/Contracts"));
+const MerchantDashboard = lazy(() => import("@/pages/merchant/Dashboard"));
+const MerchantEscrow = lazy(() => import("@/pages/merchant/Escrow"));
+const MerchantInvoices = lazy(() => import("@/pages/merchant/Invoices"));
+const MerchantMaintenance = lazy(() => import("@/pages/merchant/Maintenance"));
+const MerchantMaintenanceDetail = lazy(() => import("@/pages/merchant/MaintenanceDetail"));
+const MerchantMoveOuts = lazy(() => import("@/pages/merchant/MoveOuts"));
+const MerchantPayments = lazy(() => import("@/pages/merchant/Payments"));
+const MerchantProfile = lazy(() => import("@/pages/merchant/Profile"));
+const MerchantProperties = lazy(() => import("@/pages/merchant/Properties"));
+const MerchantReferrals = lazy(() => import("@/pages/merchant/Referrals"));
+const MerchantReports = lazy(() => import("@/pages/merchant/Reports"));
+const MerchantSettings = lazy(() => import("@/pages/merchant/Settings"));
+const MerchantTenants = lazy(() => import("@/pages/merchant/Tenants"));
+const MerchantUnits = lazy(() => import("@/pages/merchant/Units"));
+
+// Tenant Pages
+const TenantContracts = lazy(() => import("@/pages/tenant/Contracts"));
+const TenantDashboard = lazy(() => import("@/pages/tenant/Dashboard"));
+const TenantForum = lazy(() => import("@/pages/tenant/Forum"));
+const TenantForumPost = lazy(() => import("@/pages/tenant/ForumPost"));
+const TenantInvoices = lazy(() => import("@/pages/tenant/Invoices"));
+const TenantMaintenance = lazy(() => import("@/pages/tenant/Maintenance"));
+const TenantMaintenanceDetail = lazy(() => import("@/pages/tenant/MaintenanceDetail"));
+const TenantMarketplace = lazy(() => import("@/pages/tenant/Marketplace"));
+const TenantOrders = lazy(() => import("@/pages/tenant/Orders"));
+const TenantPayments = lazy(() => import("@/pages/tenant/Payments"));
+const TenantProfile = lazy(() => import("@/pages/tenant/Profile"));
+const TenantReferrals = lazy(() => import("@/pages/tenant/Referrals"));
+const TenantSettings = lazy(() => import("@/pages/tenant/Settings"));
+const TenantSignContract = lazy(() => import("@/pages/tenant/SignContract"));
+const TenantVendorDetail = lazy(() => import("@/pages/tenant/VendorDetail"));
+
+// Vendor Pages
+const VendorAnalytics = lazy(() => import("@/pages/vendor/Analytics"));
+const VendorDashboard = lazy(() => import("@/pages/vendor/Dashboard"));
+const VendorEarnings = lazy(() => import("@/pages/vendor/Earnings"));
+const VendorJobs = lazy(() => import("@/pages/vendor/Jobs"));
+const VendorOrders = lazy(() => import("@/pages/vendor/Orders"));
+const VendorProducts = lazy(() => import("@/pages/vendor/Products"));
+const VendorProfile = lazy(() => import("@/pages/vendor/Profile"));
+const VendorReferrals = lazy(() => import("@/pages/vendor/Referrals"));
+const VendorSettings = lazy(() => import("@/pages/vendor/Settings"));
+
+// Payment Pages
+const PaymentFailed = lazy(() => import("@/pages/payment/Failed"));
+const PaymentSuccess = lazy(() => import("@/pages/payment/Success"));
 
 const queryClient = new QueryClient();
 
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background">
+    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  </div>
+);
+
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/onboarding" element={<Onboarding />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/update-password" element={<UpdatePassword />} />
-            <Route path="/admin-setup" element={<AdminSetup />} />
-            <Route path="/invite/:token" element={<Invite />} />
-            <Route path="/referral" element={<ReferralInvite />} />
-            
-            {/* Admin Routes */}
-            <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
-            <Route path="/admin/merchants" element={<ProtectedRoute allowedRoles={['admin']}><AdminMerchants /></ProtectedRoute>} />
-            <Route path="/admin/escrow" element={<ProtectedRoute allowedRoles={['admin']}><AdminEscrow /></ProtectedRoute>} />
-            <Route path="/admin/vendors" element={<ProtectedRoute allowedRoles={['admin']}><AdminVendors /></ProtectedRoute>} />
-            <Route path="/admin/subscriptions" element={<ProtectedRoute allowedRoles={['admin']}><AdminSubscriptions /></ProtectedRoute>} />
-            <Route path="/admin/subscription-tiers" element={<ProtectedRoute allowedRoles={['admin']}><AdminSubscriptionTiers /></ProtectedRoute>} />
-            <Route path="/admin/disputes" element={<ProtectedRoute allowedRoles={['admin']}><AdminDisputes /></ProtectedRoute>} />
-            <Route path="/admin/analytics" element={<ProtectedRoute allowedRoles={['admin']}><AdminAnalytics /></ProtectedRoute>} />
-            <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']}><AdminSettings /></ProtectedRoute>} />
-            <Route path="/admin/vendor-verifications" element={<ProtectedRoute allowedRoles={['admin']}><AdminVendorVerifications /></ProtectedRoute>} />
-            <Route path="/admin/platform-config" element={<ProtectedRoute allowedRoles={['admin']}><AdminPlatformConfig /></ProtectedRoute>} />
-            <Route path="/admin/referrals" element={<ProtectedRoute allowedRoles={['admin']}><AdminReferrals /></ProtectedRoute>} />
-            <Route path="/admin/chatbot" element={<ProtectedRoute allowedRoles={['admin']}><AdminChatbot /></ProtectedRoute>} />
-            <Route path="/admin/orders" element={<ProtectedRoute allowedRoles={['admin']}><AdminOrders /></ProtectedRoute>} />
-            <Route path="/admin/audit-logs" element={<ProtectedRoute allowedRoles={['admin']}><AdminAuditLogs /></ProtectedRoute>} />
-            <Route path="/admin/forum-moderation" element={<ProtectedRoute allowedRoles={['admin']}><AdminForumModeration /></ProtectedRoute>} />
-            <Route path="/admin/2fa" element={<ProtectedRoute allowedRoles={['admin']}><Admin2FA /></ProtectedRoute>} />
-            
-            {/* Merchant Routes */}
-            <Route path="/merchant" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantDashboard /></ProtectedRoute>} />
-            <Route path="/merchant/profile" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantProfile /></ProtectedRoute>} />
-            <Route path="/merchant/properties" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantProperties /></ProtectedRoute>} />
-            <Route path="/merchant/tenants" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantTenants /></ProtectedRoute>} />
-            <Route path="/merchant/maintenance" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantMaintenance /></ProtectedRoute>} />
-            <Route path="/merchant/maintenance/:id" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantMaintenanceDetail /></ProtectedRoute>} />
-            <Route path="/merchant/payments" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantPayments /></ProtectedRoute>} />
-            <Route path="/merchant/reports" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantReports /></ProtectedRoute>} />
-            <Route path="/merchant/invoices" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantInvoices /></ProtectedRoute>} />
-            <Route path="/merchant/settings" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantSettings /></ProtectedRoute>} />
-            <Route path="/merchant/units" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantUnits /></ProtectedRoute>} />
-            <Route path="/merchant/escrow" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantEscrow /></ProtectedRoute>} />
-            <Route path="/merchant/referrals" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantReferrals /></ProtectedRoute>} />
-            <Route path="/merchant/contracts" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantContracts /></ProtectedRoute>} />
-            <Route path="/merchant/billing" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantBilling /></ProtectedRoute>} />
-            <Route path="/merchant/move-outs" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantMoveOuts /></ProtectedRoute>} />
-            
-            {/* Tenant Routes */}
-            <Route path="/tenant" element={<ProtectedRoute allowedRoles={['tenant']}><TenantDashboard /></ProtectedRoute>} />
-            <Route path="/tenant/maintenance" element={<ProtectedRoute allowedRoles={['tenant']}><TenantMaintenance /></ProtectedRoute>} />
-            <Route path="/tenant/maintenance/:requestId" element={<ProtectedRoute allowedRoles={['tenant']}><TenantMaintenanceDetail /></ProtectedRoute>} />
-            <Route path="/tenant/sign-contract/:contractId" element={<ProtectedRoute allowedRoles={['tenant']}><TenantSignContract /></ProtectedRoute>} />
-            <Route path="/tenant/payments" element={<ProtectedRoute allowedRoles={['tenant']}><TenantPayments /></ProtectedRoute>} />
-            <Route path="/tenant/settings" element={<ProtectedRoute allowedRoles={['tenant']}><TenantSettings /></ProtectedRoute>} />
-            <Route path="/tenant/profile" element={<ProtectedRoute allowedRoles={['tenant']}><TenantProfile /></ProtectedRoute>} />
-            <Route path="/tenant/contracts" element={<ProtectedRoute allowedRoles={['tenant']}><TenantContracts /></ProtectedRoute>} />
-            <Route path="/tenant/invoices" element={<ProtectedRoute allowedRoles={['tenant']}><TenantInvoices /></ProtectedRoute>} />
-            <Route path="/tenant/marketplace" element={<ProtectedRoute allowedRoles={['tenant']}><TenantMarketplace /></ProtectedRoute>} />
-            <Route path="/tenant/marketplace/:vendorId" element={<ProtectedRoute allowedRoles={['tenant']}><TenantVendorDetail /></ProtectedRoute>} />
-            <Route path="/tenant/orders" element={<ProtectedRoute allowedRoles={['tenant']}><TenantOrders /></ProtectedRoute>} />
-            <Route path="/tenant/forum" element={<ProtectedRoute allowedRoles={['tenant']}><TenantForum /></ProtectedRoute>} />
-            <Route path="/tenant/forum/:postId" element={<ProtectedRoute allowedRoles={['tenant']}><TenantForumPost /></ProtectedRoute>} />
-            <Route path="/tenant/referrals" element={<ProtectedRoute allowedRoles={['tenant']}><TenantReferrals /></ProtectedRoute>} />
-            
-            {/* Vendor Routes */}
-            <Route path="/vendor" element={<ProtectedRoute allowedRoles={['vendor']}><VendorDashboard /></ProtectedRoute>} />
-            <Route path="/vendor/products" element={<ProtectedRoute allowedRoles={['vendor']}><VendorProducts /></ProtectedRoute>} />
-            <Route path="/vendor/orders" element={<ProtectedRoute allowedRoles={['vendor']}><VendorOrders /></ProtectedRoute>} />
-            <Route path="/vendor/jobs" element={<ProtectedRoute allowedRoles={['vendor']}><VendorJobs /></ProtectedRoute>} />
-            <Route path="/vendor/earnings" element={<ProtectedRoute allowedRoles={['vendor']}><VendorEarnings /></ProtectedRoute>} />
-            <Route path="/vendor/profile" element={<ProtectedRoute allowedRoles={['vendor']}><VendorProfile /></ProtectedRoute>} />
-            <Route path="/vendor/settings" element={<ProtectedRoute allowedRoles={['vendor']}><VendorSettings /></ProtectedRoute>} />
-            <Route path="/vendor/referrals" element={<ProtectedRoute allowedRoles={['vendor']}><VendorReferrals /></ProtectedRoute>} />
-            <Route path="/vendor/analytics" element={<ProtectedRoute allowedRoles={['vendor']}><VendorAnalytics /></ProtectedRoute>} />
-            
-            {/* Payment Redirect Pages (no auth required - redirect from Xendit) */}
-            <Route path="/payment/success" element={<PaymentSuccess />} />
-            <Route path="/payment/failed" element={<PaymentFailed />} />
-            
-            <Route path="/unauthorized" element={<Unauthorized />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
+  <HelmetProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider defaultTheme="system">
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <Meta />
+          <BrowserRouter>
+            <AuthProvider>
+              <InactivityMonitor />
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/onboarding" element={<Onboarding />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="/update-password" element={<UpdatePassword />} />
+                  <Route path="/admin-setup" element={<AdminSetup />} />
+                  <Route path="/invite/:token" element={<Invite />} />
+                  <Route path="/referral" element={<ReferralInvite />} />
+                  
+                  {/* Admin Routes */}
+                  <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
+                  <Route path="/admin/merchants" element={<ProtectedRoute allowedRoles={['admin']}><AdminMerchants /></ProtectedRoute>} />
+                  <Route path="/admin/escrow" element={<ProtectedRoute allowedRoles={['admin']}><AdminEscrow /></ProtectedRoute>} />
+                  <Route path="/admin/vendors" element={<ProtectedRoute allowedRoles={['admin']}><AdminVendors /></ProtectedRoute>} />
+                  <Route path="/admin/subscriptions" element={<ProtectedRoute allowedRoles={['admin']}><AdminSubscriptions /></ProtectedRoute>} />
+                  <Route path="/admin/subscription-tiers" element={<ProtectedRoute allowedRoles={['admin']}><AdminSubscriptionTiers /></ProtectedRoute>} />
+                  <Route path="/admin/disputes" element={<ProtectedRoute allowedRoles={['admin']}><AdminDisputes /></ProtectedRoute>} />
+                  <Route path="/admin/analytics" element={<ProtectedRoute allowedRoles={['admin']}><AdminAnalytics /></ProtectedRoute>} />
+                  <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']}><AdminSettings /></ProtectedRoute>} />
+                  <Route path="/admin/vendor-verifications" element={<ProtectedRoute allowedRoles={['admin']}><AdminVendorVerifications /></ProtectedRoute>} />
+                  <Route path="/admin/platform-config" element={<ProtectedRoute allowedRoles={['admin']}><AdminPlatformConfig /></ProtectedRoute>} />
+                  <Route path="/admin/referrals" element={<ProtectedRoute allowedRoles={['admin']}><AdminReferrals /></ProtectedRoute>} />
+                  <Route path="/admin/chatbot" element={<ProtectedRoute allowedRoles={['admin']}><AdminChatbot /></ProtectedRoute>} />
+                  <Route path="/admin/orders" element={<ProtectedRoute allowedRoles={['admin']}><AdminOrders /></ProtectedRoute>} />
+                  <Route path="/admin/audit-logs" element={<ProtectedRoute allowedRoles={['admin']}><AdminAuditLogs /></ProtectedRoute>} />
+                  <Route path="/admin/forum-moderation" element={<ProtectedRoute allowedRoles={['admin']}><AdminForumModeration /></ProtectedRoute>} />
+                  <Route path="/admin/2fa" element={<ProtectedRoute allowedRoles={['admin']}><Admin2FA /></ProtectedRoute>} />
+                  
+                  {/* Merchant Routes */}
+                  <Route path="/merchant" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantDashboard /></ProtectedRoute>} />
+                  <Route path="/merchant/profile" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantProfile /></ProtectedRoute>} />
+                  <Route path="/merchant/properties" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantProperties /></ProtectedRoute>} />
+                  <Route path="/merchant/tenants" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantTenants /></ProtectedRoute>} />
+                  <Route path="/merchant/maintenance" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantMaintenance /></ProtectedRoute>} />
+                  <Route path="/merchant/maintenance/:id" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantMaintenanceDetail /></ProtectedRoute>} />
+                  <Route path="/merchant/payments" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantPayments /></ProtectedRoute>} />
+                  <Route path="/merchant/reports" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantReports /></ProtectedRoute>} />
+                  <Route path="/merchant/invoices" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantInvoices /></ProtectedRoute>} />
+                  <Route path="/merchant/settings" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantSettings /></ProtectedRoute>} />
+                  <Route path="/merchant/units" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantUnits /></ProtectedRoute>} />
+                  <Route path="/merchant/escrow" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantEscrow /></ProtectedRoute>} />
+                  <Route path="/merchant/referrals" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantReferrals /></ProtectedRoute>} />
+                  <Route path="/merchant/contracts" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantContracts /></ProtectedRoute>} />
+                  <Route path="/merchant/billing" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantBilling /></ProtectedRoute>} />
+                  <Route path="/merchant/move-outs" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantMoveOuts /></ProtectedRoute>} />
+                  
+                  {/* Tenant Routes */}
+                  <Route path="/tenant" element={<ProtectedRoute allowedRoles={['tenant']}><TenantDashboard /></ProtectedRoute>} />
+                  <Route path="/tenant/maintenance" element={<ProtectedRoute allowedRoles={['tenant']}><TenantMaintenance /></ProtectedRoute>} />
+                  <Route path="/tenant/maintenance/:requestId" element={<ProtectedRoute allowedRoles={['tenant']}><TenantMaintenanceDetail /></ProtectedRoute>} />
+                  <Route path="/tenant/sign-contract/:contractId" element={<ProtectedRoute allowedRoles={['tenant']}><TenantSignContract /></ProtectedRoute>} />
+                  <Route path="/tenant/payments" element={<ProtectedRoute allowedRoles={['tenant']}><TenantPayments /></ProtectedRoute>} />
+                  <Route path="/tenant/settings" element={<ProtectedRoute allowedRoles={['tenant']}><TenantSettings /></ProtectedRoute>} />
+                  <Route path="/tenant/profile" element={<ProtectedRoute allowedRoles={['tenant']}><TenantProfile /></ProtectedRoute>} />
+                  <Route path="/tenant/contracts" element={<ProtectedRoute allowedRoles={['tenant']}><TenantContracts /></ProtectedRoute>} />
+                  <Route path="/tenant/invoices" element={<ProtectedRoute allowedRoles={['tenant']}><TenantInvoices /></ProtectedRoute>} />
+                  <Route path="/tenant/marketplace" element={<ProtectedRoute allowedRoles={['tenant']}><TenantMarketplace /></ProtectedRoute>} />
+                  <Route path="/tenant/marketplace/:vendorId" element={<ProtectedRoute allowedRoles={['tenant']}><TenantVendorDetail /></ProtectedRoute>} />
+                  <Route path="/tenant/orders" element={<ProtectedRoute allowedRoles={['tenant']}><TenantOrders /></ProtectedRoute>} />
+                  <Route path="/tenant/forum" element={<ProtectedRoute allowedRoles={['tenant']}><TenantForum /></ProtectedRoute>} />
+                  <Route path="/tenant/forum/:postId" element={<ProtectedRoute allowedRoles={['tenant']}><TenantForumPost /></ProtectedRoute>} />
+                  <Route path="/tenant/referrals" element={<ProtectedRoute allowedRoles={['tenant']}><TenantReferrals /></ProtectedRoute>} />
+                  
+                  {/* Vendor Routes */}
+                  <Route path="/vendor" element={<ProtectedRoute allowedRoles={['vendor']}><VendorDashboard /></ProtectedRoute>} />
+                  <Route path="/vendor/products" element={<ProtectedRoute allowedRoles={['vendor']}><VendorProducts /></ProtectedRoute>} />
+                  <Route path="/vendor/orders" element={<ProtectedRoute allowedRoles={['vendor']}><VendorOrders /></ProtectedRoute>} />
+                  <Route path="/vendor/jobs" element={<ProtectedRoute allowedRoles={['vendor']}><VendorJobs /></ProtectedRoute>} />
+                  <Route path="/vendor/earnings" element={<ProtectedRoute allowedRoles={['vendor']}><VendorEarnings /></ProtectedRoute>} />
+                  <Route path="/vendor/profile" element={<ProtectedRoute allowedRoles={['vendor']}><VendorProfile /></ProtectedRoute>} />
+                  <Route path="/vendor/settings" element={<ProtectedRoute allowedRoles={['vendor']}><VendorSettings /></ProtectedRoute>} />
+                  <Route path="/vendor/referrals" element={<ProtectedRoute allowedRoles={['vendor']}><VendorReferrals /></ProtectedRoute>} />
+                  <Route path="/vendor/analytics" element={<ProtectedRoute allowedRoles={['vendor']}><VendorAnalytics /></ProtectedRoute>} />
+                  
+                  {/* Payment Redirect Pages (no auth required - redirect from Xendit) */}
+                  <Route path="/payment/success" element={<PaymentSuccess />} />
+                  <Route path="/payment/failed" element={<PaymentFailed />} />
+                  
+                  <Route path="/unauthorized" element={<Unauthorized />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+            </Suspense>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
+</HelmetProvider>
 );
 
 export default App;

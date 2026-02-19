@@ -1,18 +1,18 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { TenantLayout } from "@/components/layouts/TenantLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { supabase } from "@/lib/integrations/supabase/client";
+import { TenantLayout } from "@/shared/components/layouts/TenantLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
+import { Input } from "@/shared/components/ui/input";
+import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
+import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { Search, Star, MapPin, Store, RefreshCw, AlertTriangle, TrendingUp } from "lucide-react";
-import { GridSkeleton } from "@/components/ui/skeletons";
+import { GridSkeleton } from "@/shared/components/ui/skeletons";
 import { Link, Navigate } from "react-router-dom";
-import { useAnalytics } from "@/hooks/useAnalytics";
-import { useAuth } from "@/hooks/useAuth";
+import { useAnalytics } from "@/features/analytics/hooks/useAnalytics";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 
 interface Vendor {
   id: string;
@@ -36,11 +36,6 @@ export default function TenantMarketplace() {
   const [selectedLocation, setSelectedLocation] = useState("All");
   const [sortBy, setSortBy] = useState<"rating" | "jobs" | "name">("rating");
   const [page, setPage] = useState(1);
-
-  // Role verification
-  if (role && role !== "tenant") {
-    return <Navigate to="/unauthorized" replace />;
-  }
 
   // Fetch service categories from database
   const { data: serviceCategories } = useQuery({
@@ -179,6 +174,11 @@ export default function TenantMarketplace() {
   const hasMore = paginatedVendors.length < filteredVendors.length;
 
   const categories = serviceCategories || ["All"];
+
+  // Role verification
+  if (role && role !== "tenant") {
+    return <Navigate to="/unauthorized" replace />;
+  }
 
   // Error state
   if (error) {

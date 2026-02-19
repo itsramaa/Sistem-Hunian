@@ -1,18 +1,18 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { PasswordStrengthMeter } from "@/features/auth/components/PasswordStrengthMeter";
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { INVITATION_ERROR_MESSAGES } from "@/features/auth/utils/auth-errors";
+import { TenantProfileForm } from "@/features/users/components/TenantProfileForm";
+import { supabase } from "@/lib/integrations/supabase/client";
+import { Button } from "@/shared/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
+import { emailSchema, fullNameSchema, strongPasswordSchema } from "@/shared/utils/validations/auth";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { AlertCircle, ArrowRight, Building2, CheckCircle, Home, Loader2, Mail, MapPin, Phone, XCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { Home, Loader2, CheckCircle, XCircle, Building2, MapPin, ArrowRight, AlertCircle, Mail, Phone } from "lucide-react";
-import { TenantProfileForm } from "@/components/tenant/TenantProfileForm";
-import { PasswordStrengthMeter } from "@/components/auth/PasswordStrengthMeter";
-import { INVITATION_ERROR_MESSAGES } from "@/lib/auth-errors";
-import { strongPasswordSchema, emailSchema, fullNameSchema } from "@/lib/validations/auth";
 
 const Invite = () => {
   const { token } = useParams<{ token: string }>();
@@ -120,7 +120,6 @@ const Invite = () => {
       if (!authData?.user?.id) throw new Error('Gagal membuat akun');
 
       // Call auth-webhook to create profiles, user_roles, and tenants right after signup
-      console.log('[Invite] Calling auth-webhook for user:', authData.user.id);
       
       let webhookSuccess = false;
       let retryCount = 0;
@@ -146,7 +145,6 @@ const Invite = () => {
               await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before retry
             }
           } else {
-            console.log('[Invite] Auth-webhook success:', webhookData);
             webhookSuccess = true;
           }
         } catch (err) {
@@ -208,8 +206,9 @@ const Invite = () => {
 
       toast.success('Selamat datang di rumah baru Anda!');
       navigate('/tenant');
-    } catch (error: any) {
-      toast.error(error.message || 'Gagal menyelesaikan undangan');
+    } catch (error) {
+      const err = error as Error;
+      toast.error(err.message || 'Gagal menyelesaikan undangan');
     }
   };
 

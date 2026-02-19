@@ -1,21 +1,22 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { MerchantLayout } from '@/components/layouts/MerchantLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/integrations/supabase/client';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Button } from '@/shared/components/ui/button';
+import { Badge } from '@/shared/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert';
+import { useToast } from '@/shared/hooks/use-toast';
 import { Wallet, ArrowUpRight, ArrowDownLeft, Clock, Calendar, Loader2, Info, Send, AlertCircle, ShieldAlert, TrendingUp, CreditCard, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
-import { formatCurrency } from '@/lib/currency';
-import { getEscrowStatusColors, getTransactionTypeColors } from '@/lib/statusColors';
+import { formatCurrency } from '@/shared/utils/currency';
+import { getEscrowStatusColors, getTransactionTypeColors } from '@/shared/utils/statusColors';
+import { MINIMUM_PAYOUT_AMOUNT } from '@/constants/platformFees';
 
 const DISBURSEMENT_OPTIONS = [
   { value: 'daily', label: 'Daily', fee: '0.25%', feeRate: 0.0025, description: 'Receive funds daily with 0.25% fee' },
@@ -158,7 +159,7 @@ export default function MerchantEscrow() {
       }
       
       const balance = escrowAccount.balance || 0;
-      const minAmount = merchantData?.min_disbursement_amount || 100000;
+      const minAmount = merchantData?.min_disbursement_amount || MINIMUM_PAYOUT_AMOUNT;
 
       if (balance < minAmount) {
         throw new Error(`Minimum disbursement amount is ${formatCurrency(minAmount)}. Current balance: ${formatCurrency(balance)}`);
@@ -244,7 +245,7 @@ export default function MerchantEscrow() {
   const balance = escrowAccount?.balance || 0;
   const feeAmount = calculateDisbursementFee(balance, 'on_demand');
   const netAmount = balance - feeAmount;
-  const minDisbursementAmount = merchantData?.min_disbursement_amount || 100000;
+  const minDisbursementAmount = merchantData?.min_disbursement_amount || MINIMUM_PAYOUT_AMOUNT;
 
   const getStatusBadge = (status: string) => {
     const colors = getEscrowStatusColors(status);

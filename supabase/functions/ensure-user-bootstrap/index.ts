@@ -170,10 +170,11 @@ serve(async (req) => {
       }
     );
 
-  } catch (error: any) {
-    console.error('Bootstrap error:', error);
+  } catch (error) {
+    const err = error as Error;
+    console.error('Bootstrap error:', err);
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: err.message || 'Internal server error' }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

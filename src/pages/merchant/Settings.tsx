@@ -1,20 +1,20 @@
+import { MerchantNotificationSettings as NotificationSettingsComponent } from "@/features/notifications/components/MerchantNotificationSettings";
+import { BankAccountManager } from "@/features/payments/components/BankAccountManager";
+import { DisbursementScheduleSettings } from "@/features/payments/components/DisbursementScheduleSettings";
+import { supabase } from "@/lib/integrations/supabase/client";
+import { MerchantLayout } from "@/shared/components/layouts/MerchantLayout";
+import { Button } from "@/shared/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/shared/components/ui/radio-group";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
+import { useTheme } from "@/shared/context/theme-context";
+import { AlertTriangle, Bell, CheckCircle, CreditCard, Loader2, Lock, Palette } from "lucide-react";
 import { useState } from "react";
-import { MerchantLayout } from "@/components/layouts/MerchantLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Palette, Bell, Lock, CreditCard, Loader2, AlertTriangle, CheckCircle } from "lucide-react";
-import { NotificationSettings as NotificationSettingsComponent } from "@/components/merchant/NotificationSettings";
-import { BankAccountManager } from "@/components/merchant/BankAccountManager";
-import { DisbursementScheduleSettings } from "@/components/merchant/DisbursementScheduleSettings";
-import { useTheme } from "next-themes";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { supabase } from "@/integrations/supabase/client";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { z } from "zod";
-import { useSearchParams } from "react-router-dom";
 
 const VALID_THEMES = ["light", "dark", "system"] as const;
 
@@ -98,8 +98,8 @@ const Settings = () => {
       setPasswordSuccess(true);
       setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
       toast.success("Password changed successfully");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to change password");
+    } catch (error) {
+      toast.error((error as Error).message || "Failed to change password");
     } finally {
       setIsChangingPassword(false);
     }

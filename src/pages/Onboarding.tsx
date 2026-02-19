@@ -4,16 +4,16 @@ import { Building2, Wrench, Loader2, ArrowLeft, Check } from 'lucide-react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { cn } from '@/lib/utils';
-import { businessNameSchema } from '@/lib/validations/auth';
-import { getAuthErrorMessage } from '@/lib/auth-errors';
+import { Button } from '@/shared/components/ui/button';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { useToast } from '@/shared/hooks/use-toast';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { supabase } from '@/lib/integrations/supabase/client';
+import { cn } from '@/shared/utils/utils';
+import { businessNameSchema } from '@/shared/utils/validations/auth';
+import { getAuthErrorMessage } from '@/features/auth/utils/auth-errors';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +23,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+} from '@/shared/components/ui/alert-dialog';
 
 type SelectableRole = 'merchant' | 'vendor';
 
@@ -250,7 +250,7 @@ export default function Onboarding() {
       // Navigate to appropriate dashboard
       navigate(selectedRole === 'merchant' ? '/merchant' : '/vendor', { replace: true });
 
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: 'destructive',
         title: 'Gagal membuat akun',

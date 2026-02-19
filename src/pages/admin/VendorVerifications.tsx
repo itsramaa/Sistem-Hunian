@@ -1,122 +1,50 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { AdminLayout } from '@/components/layouts/AdminLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
-  Search, 
-  FileText, 
-  Eye, 
-  Loader2,
-  Shield,
-  AlertTriangle
-} from 'lucide-react';
+import { useVendorVerifications } from '@/features/verification/hooks/useVendorVerifications';
+import { VendorVerification } from '@/features/verification/types';
+import { AdminLayout } from '@/shared/components/layouts/AdminLayout';
+import { Avatar, AvatarFallback } from '@/shared/components/ui/avatar';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { Card, CardContent } from '@/shared/components/ui/card';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { Input } from '@/shared/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { Textarea } from '@/shared/components/ui/textarea';
+import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
+import {
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  Eye,
+  Loader2,
+  Search,
+  Shield,
+  XCircle
+} from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
-
-interface Verification {
-  id: string;
-  vendor_id: string;
-  document_type: string;
-  document_url: string;
-  status: string;
-  rejection_reason: string | null;
-  created_at: string;
-  reviewed_at: string | null;
-  vendor?: {
-    id: string;
-    business_name: string;
-    contact_email: string;
-    user_id: string;
-  };
-}
 
 export default function AdminVendorVerifications() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedVerification, setSelectedVerification] = useState<Verification | null>(null);
+  const [selectedVerification, setSelectedVerification] = useState<VendorVerification | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectDialog, setShowRejectDialog] = useState(false);
 
-  const { data: verifications = [], isLoading } = useQuery({
-    queryKey: ['admin-vendor-verifications'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('vendor_verifications')
-        .select(`
-          *,
-          vendor:vendors (
-            id,
-            business_name,
-            contact_email,
-            user_id
-          )
-        `)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data as Verification[];
-    },
-  });
+  const { verifications, isLoading, updateVerification, isUpdating } = useVendorVerifications();
 
-  const updateVerificationMutation = useMutation({
-    mutationFn: async ({ id, status, rejectionReason }: { id: string; status: string; rejectionReason?: string }) => {
-      const updateData: Record<string, unknown> = {
-        status,
-        reviewed_at: new Date().toISOString(),
-      };
-      if (rejectionReason) {
-        updateData.rejection_reason = rejectionReason;
-      }
-
-      const { error } = await supabase
-        .from('vendor_verifications')
-        .update(updateData)
-        .eq('id', id);
-      if (error) throw error;
-
-      // If approved, update vendor verification status
-      if (status === 'verified') {
-        const verification = verifications.find(v => v.id === id);
-        if (verification) {
-          // Check if vendor has at least 2 verified documents
-          const vendorVerifications = verifications.filter(
-            v => v.vendor_id === verification.vendor_id && 
-            (v.status === 'verified' || (v.id === id && status === 'verified'))
-          );
-          
-          if (vendorVerifications.length >= 2) {
-            await supabase
-              .from('vendors')
-              .update({ verification_status: 'verified' })
-              .eq('id', verification.vendor_id);
-          }
+  const handleApprove = (verification: VendorVerification) => {
+    updateVerification(
+      { id: verification.id, status: 'verified' },
+      {
+        onSuccess: () => {
+          toast.success('Verification updated');
+        },
+        onError: (error) => {
+          toast.error(`Failed to update: ${error.message}`);
         }
       }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-vendor-verifications'] });
-      toast.success('Verification updated');
-      setShowRejectDialog(false);
-      setSelectedVerification(null);
-      setRejectionReason('');
-    },
-    onError: (error: Error) => {
-      toast.error(`Failed to update: ${error.message}`);
-    },
-  });
-
-  const handleApprove = (verification: Verification) => {
-    updateVerificationMutation.mutate({ id: verification.id, status: 'verified' });
+    );
   };
 
   const handleReject = () => {
@@ -124,14 +52,27 @@ export default function AdminVendorVerifications() {
       toast.error('Please provide a rejection reason');
       return;
     }
-    updateVerificationMutation.mutate({ 
-      id: selectedVerification.id, 
-      status: 'rejected',
-      rejectionReason: rejectionReason.trim()
-    });
+    updateVerification(
+      { 
+        id: selectedVerification.id, 
+        status: 'rejected',
+        rejectionReason: rejectionReason.trim()
+      },
+      {
+        onSuccess: () => {
+          toast.success('Verification updated');
+          setShowRejectDialog(false);
+          setSelectedVerification(null);
+          setRejectionReason('');
+        },
+        onError: (error) => {
+          toast.error(`Failed to update: ${error.message}`);
+        }
+      }
+    );
   };
 
-  const openRejectDialog = (verification: Verification) => {
+  const openRejectDialog = (verification: VendorVerification) => {
     setSelectedVerification(verification);
     setShowRejectDialog(true);
   };
@@ -169,7 +110,7 @@ export default function AdminVendorVerifications() {
     }
   };
 
-  const VerificationCard = ({ verification }: { verification: Verification }) => (
+  const VerificationCard = ({ verification }: { verification: VendorVerification }) => (
     <Card key={verification.id}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-4">
@@ -211,7 +152,7 @@ export default function AdminVendorVerifications() {
                   size="sm"
                   className="bg-success hover:bg-success/90"
                   onClick={() => handleApprove(verification)}
-                  disabled={updateVerificationMutation.isPending}
+                  disabled={isUpdating}
                 >
                   <CheckCircle className="h-4 w-4 mr-1" />
                   Approve
@@ -220,7 +161,7 @@ export default function AdminVendorVerifications() {
                   variant="destructive"
                   size="sm"
                   onClick={() => openRejectDialog(verification)}
-                  disabled={updateVerificationMutation.isPending}
+                  disabled={isUpdating}
                 >
                   <XCircle className="h-4 w-4 mr-1" />
                   Reject

@@ -1,52 +1,25 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { MerchantLayout } from '@/components/layouts/MerchantLayout';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useToast } from '@/hooks/use-toast';
-import { Search, Plus, FileText, Send, Eye, Download, DollarSign, Mail, Loader2, Bell } from 'lucide-react';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useMerchantContracts } from '@/features/contracts/hooks/useMerchantContracts';
+import { useMerchantInvoices } from '@/features/payments/hooks/useMerchantInvoices';
+import { Invoice } from '@/features/payments/types';
+import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/shared/components/ui/dialog';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
+import { Textarea } from '@/shared/components/ui/textarea';
+import { useToast } from '@/shared/hooks/use-toast';
 import { format } from 'date-fns';
-import { sendInvoiceNotification } from '@/lib/notifications';
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-
-type Invoice = {
-  id: string;
-  invoice_number: string;
-  amount: number;
-  tax_amount: number;
-  total_amount: number;
-  description: string | null;
-  status: string;
-  due_date: string;
-  issued_at: string | null;
-  paid_at: string | null;
-  created_at: string;
-  contract_id: string;
-  tenant_user_id: string;
-};
-
-type Contract = {
-  id: string;
-  rent_amount: number;
-  tenant_user_id: string;
-  unit_id: string;
-  units?: { unit_number: string; properties?: { name: string } };
-};
+import { Bell, DollarSign, Download, Eye, FileText, Loader2, Plus, Search, Send } from 'lucide-react';
+import { useState } from 'react';
 
 export default function MerchantInvoices() {
   const { merchant } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -57,38 +30,21 @@ export default function MerchantInvoices() {
   const [dueDate, setDueDate] = useState('');
   const [viewInvoice, setViewInvoice] = useState<Invoice | null>(null);
 
-  const { data: invoices = [], isLoading } = useQuery({
-    queryKey: ['invoices', merchant?.id],
-    queryFn: async () => {
-      if (!merchant?.id) return [];
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('*')
-        .eq('merchant_id', merchant.id)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data as Invoice[];
-    },
-    enabled: !!merchant?.id,
-  });
+  const { 
+    invoices, 
+    isLoading, 
+    createInvoiceMutation, 
+    sendInvoiceMutation, 
+    markAsPaidMutation, 
+    sendReminderMutation,
+    generatePdfMutation
+  } = useMerchantInvoices(merchant?.id);
 
-  const { data: contracts = [] } = useQuery({
-    queryKey: ['active-contracts', merchant?.id],
-    queryFn: async () => {
-      if (!merchant?.id) return [];
-      const { data, error } = await supabase
-        .from('contracts')
-        .select('*, units(unit_number, properties(name))')
-        .eq('merchant_id', merchant.id)
-        .eq('status', 'active');
-      if (error) throw error;
-      return data as Contract[];
-    },
-    enabled: !!merchant?.id,
-  });
+  const { contracts: allContracts = [] } = useMerchantContracts(merchant?.id);
+  const contracts = allContracts.filter(c => c.status === 'active');
 
-  const createMutation = useMutation({
-    mutationFn: async () => {
+  const handleCreateInvoice = async () => {
+    try {
       if (!merchant?.id) throw new Error('No merchant');
       const contract = contracts.find(c => c.id === selectedContract);
       if (!contract) throw new Error('Contract not found');
@@ -96,216 +52,69 @@ export default function MerchantInvoices() {
       const amountNum = parseFloat(amount);
       const taxNum = parseFloat(taxAmount) || 0;
       
-      // Validate amount
       if (amountNum <= 0) {
-        throw new Error('Amount must be greater than zero');
+        toast({ title: 'Amount must be greater than zero', variant: 'destructive' });
+        return;
       }
       
-      // Validate tax
       if (taxNum < 0) {
-        throw new Error('Tax amount cannot be negative');
+        toast({ title: 'Tax amount cannot be negative', variant: 'destructive' });
+        return;
       }
 
-      // Validate due date is not in the past
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const dueDateObj = new Date(dueDate);
-      if (dueDateObj < today) {
-        throw new Error('Due date cannot be in the past');
-      }
-
-      // Check for duplicate invoice (same contract, same month)
-      const dueDateMonth = format(dueDateObj, 'yyyy-MM');
-      const { data: existingInvoices, error: checkError } = await supabase
-        .from('invoices')
-        .select('id, due_date')
-        .eq('contract_id', selectedContract)
-        .neq('status', 'cancelled');
-      
-      if (checkError) throw checkError;
-      
-      const hasDuplicate = existingInvoices?.some(inv => {
-        const invMonth = format(new Date(inv.due_date), 'yyyy-MM');
-        return invMonth === dueDateMonth;
+      await createInvoiceMutation.mutateAsync({
+        contract_id: selectedContract,
+        merchant_id: merchant.id,
+        tenant_user_id: contract.tenant_user_id,
+        amount: amountNum,
+        tax_amount: taxNum,
+        description,
+        due_date: dueDate,
       });
-      
-      if (hasDuplicate) {
-        throw new Error('An invoice already exists for this contract in the selected month');
-      }
-      
-      const { error } = await supabase
-        .from('invoices')
-        .insert({
-          invoice_number: '', // Will be auto-generated
-          contract_id: selectedContract,
-          merchant_id: merchant.id,
-          tenant_user_id: contract.tenant_user_id,
-          amount: amountNum,
-          tax_amount: taxNum,
-          total_amount: amountNum + taxNum,
-          description: description.slice(0, 1000), // Limit description length
-          due_date: dueDate,
-          status: 'draft',
-        });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+
       toast({ title: 'Invoice created successfully' });
       setIsCreateOpen(false);
       resetForm();
-    },
-    onError: (error: Error) => {
-      toast({ title: 'Failed to create invoice', description: error.message, variant: 'destructive' });
-    },
-  });
-
-  const sendMutation = useMutation({
-    mutationFn: async (invoiceId: string) => {
-      // Get invoice details
-      const invoice = invoices.find(i => i.id === invoiceId);
-      if (!invoice) throw new Error('Invoice not found');
-
-      // Get tenant profile for email
-      const { data: tenantProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('email, full_name')
-        .eq('user_id', invoice.tenant_user_id)
-        .single();
-      
-      if (profileError) throw profileError;
-
-      // Update invoice status
-      const { error } = await supabase
-        .from('invoices')
-        .update({ 
-          status: 'sent',
-          issued_at: new Date().toISOString(),
-        })
-        .eq('id', invoiceId);
-      if (error) throw error;
-
-      // Send email notification
-      try {
-        await sendInvoiceNotification(
-          tenantProfile.email,
-          tenantProfile.full_name || 'Tenant',
-          {
-            invoiceNumber: invoice.invoice_number,
-            merchantName: merchant?.business_name || 'Landlord',
-            amount: Number(invoice.total_amount),
-            dueDate: format(new Date(invoice.due_date), 'MMM d, yyyy'),
-            description: invoice.description || undefined,
-          }
-        );
-      } catch (emailError) {
-        console.error('Failed to send email notification:', emailError);
-        // Don't throw - invoice is already sent, just log the error
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      toast({ title: 'Invoice sent successfully', description: 'Email notification sent to tenant' });
-    },
-    onError: () => {
-      toast({ title: 'Failed to send invoice', variant: 'destructive' });
-    },
-  });
-
-  // Valid status transitions
-  const VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
-    draft: ['sent', 'cancelled'],
-    sent: ['paid', 'overdue', 'cancelled'],
-    overdue: ['paid', 'cancelled'],
-    paid: [],
-    cancelled: [],
+    } catch (error) {
+      toast({ title: 'Failed to create invoice', description: (error as Error).message, variant: 'destructive' });
+    }
   };
 
-  const markPaidMutation = useMutation({
-    mutationFn: async (invoiceId: string) => {
-      // Get current invoice status
-      const invoice = invoices.find(i => i.id === invoiceId);
-      if (!invoice) throw new Error('Invoice not found');
-      
-      // Validate status transition
-      const allowedTransitions = VALID_STATUS_TRANSITIONS[invoice.status] || [];
-      if (!allowedTransitions.includes('paid')) {
-        throw new Error(`Cannot mark invoice as paid. Current status: ${invoice.status}`);
-      }
+  const handleSendInvoice = async (invoiceId: string) => {
+    try {
+      await sendInvoiceMutation.mutateAsync({ 
+        invoiceId, 
+        merchantName: merchant?.business_name || 'Landlord' 
+      });
+      toast({ title: 'Invoice sent successfully', description: 'Email notification sent to tenant' });
+    } catch (error) {
+      toast({ title: 'Failed to send invoice', variant: 'destructive' });
+    }
+  };
 
-      const { error } = await supabase
-        .from('invoices')
-        .update({ 
-          status: 'paid',
-          paid_at: new Date().toISOString(),
-        })
-        .eq('id', invoiceId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+  const handleMarkAsPaid = async (invoiceId: string, currentStatus: string) => {
+    try {
+      await markAsPaidMutation.mutateAsync({ invoiceId, currentStatus });
       toast({ title: 'Invoice marked as paid' });
       setViewInvoice(null);
-    },
-    onError: (error: Error) => {
-      toast({ title: 'Failed to update invoice', description: error.message, variant: 'destructive' });
-    },
-  });
+    } catch (error) {
+      toast({ title: 'Failed to update invoice', description: (error as Error).message, variant: 'destructive' });
+    }
+  };
 
-  const [sendingReminderId, setSendingReminderId] = useState<string | null>(null);
-  
-  const sendReminderMutation = useMutation({
-    mutationFn: async (invoiceId: string) => {
-      setSendingReminderId(invoiceId);
-      const invoice = invoices.find(i => i.id === invoiceId);
-      if (!invoice) throw new Error('Invoice not found');
-
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/send-payment-reminder`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          invoiceId,
-          tenantUserId: invoice.tenant_user_id,
-          type: 'manual'
-        }),
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to send reminder');
-      }
-      return response.json();
-    },
-    onSuccess: () => {
+  const handleSendReminder = async (invoiceId: string, tenantUserId: string) => {
+    try {
+      await sendReminderMutation.mutateAsync({ invoiceId, tenantUserId });
       toast({ title: 'Reminder sent', description: 'Payment reminder sent to tenant' });
-      setSendingReminderId(null);
-    },
-    onError: (error: Error) => {
-      toast({ title: 'Failed to send reminder', description: error.message, variant: 'destructive' });
-      setSendingReminderId(null);
-    },
-  });
-
-  const resetForm = () => {
-    setSelectedContract('');
-    setAmount('');
-    setTaxAmount('0');
-    setDescription('');
-    setDueDate('');
+    } catch (error) {
+      toast({ title: 'Failed to send reminder', description: (error as Error).message, variant: 'destructive' });
+    }
   };
 
   const downloadInvoicePdf = async (invoiceId: string) => {
     try {
       toast({ title: 'Generating PDF...', description: 'Please wait' });
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice-pdf`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invoiceId }),
-      });
-      
-      if (!response.ok) throw new Error('Failed to generate PDF');
-      
-      const result = await response.json();
+      const result = await generatePdfMutation.mutateAsync(invoiceId);
       
       // Open HTML in new window for printing
       const printWindow = window.open('', '_blank');
@@ -318,6 +127,14 @@ export default function MerchantInvoices() {
       console.error('Error generating PDF:', error);
       toast({ title: 'Failed to generate PDF', variant: 'destructive' });
     }
+  };
+
+  const resetForm = () => {
+    setSelectedContract('');
+    setAmount('');
+    setTaxAmount('0');
+    setDescription('');
+    setDueDate('');
   };
 
   const filteredInvoices = invoices.filter(invoice => {
@@ -450,10 +267,10 @@ export default function MerchantInvoices() {
                     Cancel
                   </Button>
                   <Button 
-                    onClick={() => createMutation.mutate()} 
-                    disabled={!selectedContract || !amount || !dueDate || createMutation.isPending}
+                    onClick={handleCreateInvoice} 
+                    disabled={!selectedContract || !amount || !dueDate || createInvoiceMutation.isPending}
                   >
-                    {createMutation.isPending ? 'Creating...' : 'Create Invoice'}
+                    {createInvoiceMutation.isPending ? 'Creating...' : 'Create Invoice'}
                   </Button>
                 </div>
               </div>

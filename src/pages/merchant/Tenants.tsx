@@ -1,73 +1,28 @@
-import { useState, useMemo } from 'react';
-import { Send, Search, Users, Mail, Clock, CheckCircle, XCircle, Home, Copy, AlertTriangle, RefreshCw, Eye, Trash2, Phone, Calendar, DollarSign, Building } from 'lucide-react';
-import { MerchantLayout } from '@/components/layouts/MerchantLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { z } from 'zod';
-import { useForm } from 'react-hook-form';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { supabase } from '@/lib/integrations/supabase/client';
+import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/shared/components/ui/alert-dialog';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { Card, CardContent } from '@/shared/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/shared/components/ui/dialog';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { Separator } from '@/shared/components/ui/separator';
+import { StatsCardSkeleton, TableRowSkeleton } from '@/shared/components/ui/skeletons';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { useToast } from '@/shared/hooks/use-toast';
+import { formatCurrency } from '@/shared/utils/currency';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format, differenceInDays } from 'date-fns';
-import { StatsCardSkeleton, TableRowSkeleton } from '@/components/ui/skeletons';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { formatCurrency } from '@/lib/currency';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { differenceInDays, format } from 'date-fns';
+import { AlertTriangle, Building, Calendar, CheckCircle, Clock, Copy, DollarSign, Eye, Home, Mail, Phone, RefreshCw, Search, Send, Trash2, Users, XCircle } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 
-interface TenantInvitation {
-  id: string;
-  merchant_id: string;
-  unit_id: string;
-  email: string;
-  phone: string | null;
-  status: string;
-  token: string;
-  expires_at: string;
-  created_at: string;
-  unit?: {
-    unit_number: string;
-    property?: {
-      name: string;
-    };
-  };
-}
-
-interface ActiveTenant {
-  id: string;
-  status: string;
-  start_date: string;
-  end_date: string;
-  rent_amount: number;
-  deposit_amount: number | null;
-  tenant_user_id: string;
-  unit: {
-    id: string;
-    unit_number: string;
-    property: {
-      id: string;
-      name: string;
-    };
-  } | null;
-  profile: {
-    full_name: string | null;
-    email: string | null;
-    phone: string | null;
-  } | null;
-}
-
-interface Property {
-  id: string;
-  name: string;
-  units: { id: string; unit_number: string; status: string }[];
-}
+import { ActiveTenant, TenantInvitation } from '@/features/users/types/tenant';
 
 // Indonesian phone validation
 const phoneRegex = /^(\+62|62|0)8[1-9][0-9]{6,10}$/;
@@ -94,6 +49,7 @@ const contractStatusColors: Record<string, string> = {
   active: 'bg-success/10 text-success border-success/30',
   draft: 'bg-muted text-muted-foreground border-muted',
   pending_signature: 'bg-warning/10 text-warning border-warning/30',
+  notice: 'bg-orange-500/10 text-orange-600 border-orange-500/30',
   expired: 'bg-muted text-muted-foreground border-muted',
   terminated: 'bg-destructive/10 text-destructive border-destructive/30',
 };
@@ -147,7 +103,7 @@ export default function MerchantTenants() {
       if (error) throw error;
 
       // Transform invitations data
-      return (data || []).map((inv: any) => ({
+      return (data || []).map((inv: { units: { unit_number: string; properties: { name: string } | null } | null } & Record<string, any>) => ({
         ...inv,
         unit: inv.units ? {
           unit_number: inv.units.unit_number,
@@ -175,7 +131,7 @@ export default function MerchantTenants() {
           unit:units(id, unit_number, property:properties(id, name))
         `)
         .eq('merchant_id', merchant?.id)
-        .in('status', ['active', 'pending_signature']);
+        .in('status', ['active', 'pending_signature', 'notice']);
 
       if (error) throw error;
 
@@ -188,7 +144,7 @@ export default function MerchantTenants() {
 
       const profileMap = new Map((profiles || []).map(p => [p.user_id, p]));
 
-      return (data || []).map((contract: any) => ({
+      return (data || []).map((contract: { tenant_user_id: string } & Record<string, any>) => ({
         ...contract,
         profile: profileMap.get(contract.tenant_user_id) || null
       })) as ActiveTenant[];

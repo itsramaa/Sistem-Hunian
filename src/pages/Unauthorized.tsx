@@ -1,9 +1,9 @@
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { Button } from "@/shared/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { ShieldX, ArrowLeft, Home, LogIn, RefreshCw, Mail } from "lucide-react";
-import { AppRole } from "@/types/auth";
+import { AppRole } from "@/features/auth/types/auth";
 
 const Unauthorized = () => {
   const navigate = useNavigate();

@@ -1,23 +1,23 @@
-import { useState, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { TenantLayout } from "@/components/layouts/TenantLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { Plus, MessageSquare, Heart, Eye, Loader2, Search, Pin, ImageIcon, X, AlertTriangle, RefreshCw, Trash2, Pencil } from "lucide-react";
-import { ForumPostSkeleton } from "@/components/ui/skeletons";
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { supabase } from "@/lib/integrations/supabase/client";
+import { TenantLayout } from "@/shared/components/layouts/TenantLayout";
+import { Alert, AlertDescription } from "@/shared/components/ui/alert";
+import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
+import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/shared/components/ui/dialog";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
+import { ForumPostSkeleton } from "@/shared/components/ui/skeletons";
+import { Textarea } from "@/shared/components/ui/textarea";
+import { useIsMobile } from "@/shared/hooks/use-mobile";
+import { useToast } from "@/shared/hooks/use-toast";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
+import { AlertTriangle, Eye, Heart, ImageIcon, Loader2, MessageSquare, Pencil, Pin, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 interface ForumPost {
@@ -32,6 +32,17 @@ interface ForumPost {
   like_count: number;
   created_at: string;
   author_id: string;
+}
+
+interface TenantContractProperty {
+  unit_id: string;
+  units: {
+    property_id: string;
+    properties: {
+      id: string;
+      name: string;
+    };
+  };
 }
 
 // XSS protection - escape HTML entities
@@ -84,13 +95,13 @@ export default function TenantForum() {
         .eq("status", "active")
         .maybeSingle();
       if (error) throw error;
-      return data;
+      return data as unknown as TenantContractProperty | null;
     },
     enabled: !!user?.id,
   });
 
-  const propertyId = (tenantContract?.units as any)?.property_id;
-  const propertyName = (tenantContract?.units as any)?.properties?.name;
+  const propertyId = tenantContract?.units?.property_id;
+  const propertyName = tenantContract?.units?.properties?.name;
 
   // Fetch forum posts with author profiles (filtered by property if available)
   const { data: posts, isLoading, error, refetch } = useQuery({
@@ -654,13 +665,13 @@ export default function TenantForum() {
                   </div>
                 </CardHeader>
                 <CardContent className="px-4 pb-4">
-                  <p className="text-sm text-muted-foreground line-clamp-2">{escapeHtml(post.content)}</p>
+                  <p className="text-sm text-muted-foreground line-clamp-2">{post.content}</p>
 
                   {/* Post Photos Preview */}
                   {post.photos && post.photos.length > 0 && (
                     <div className="mt-2 flex gap-1">
                       {post.photos.slice(0, 3).map((url, i) => (
-                        <img key={i} src={url} alt="" className="h-16 w-16 rounded object-cover" />
+                        <img key={i} src={url} alt={`${post.title} - ${i + 1}`} className="h-16 w-16 rounded object-cover" />
                       ))}
                       {post.photos.length > 3 && (
                         <div className="flex h-16 w-16 items-center justify-center rounded bg-muted text-sm text-muted-foreground">
@@ -674,7 +685,7 @@ export default function TenantForum() {
                     <div className="mt-2 flex flex-wrap gap-1">
                       {post.tags.slice(0, 3).map((tag) => (
                         <Badge key={tag} variant="secondary" className="text-[10px] px-1.5 py-0">
-                          #{escapeHtml(tag)}
+                          #{tag}
                         </Badge>
                       ))}
                     </div>

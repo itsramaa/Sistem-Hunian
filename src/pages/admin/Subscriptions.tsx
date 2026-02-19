@@ -1,177 +1,64 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { AdminLayout } from "@/components/layouts/AdminLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { CreditCard, Search, Crown, Star, Loader2, ArrowUpCircle, Receipt, XCircle, Clock, Zap } from "lucide-react";
+import { useSubscriptions, useSubscriptionStats } from "@/features/subscriptions/hooks/useSubscriptions";
+import { SubscriptionMerchant, SubscriptionInvoice, CancellationFeedback, PendingSubscriptionChange } from "@/features/subscriptions/types/subscriptions";
+import { AdminLayout } from "@/shared/components/layouts/AdminLayout";
+import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { format } from "date-fns";
+import { ArrowUpCircle, Clock, CreditCard, Crown, Loader2, Receipt, Search, Star, XCircle, Zap } from "lucide-react";
+import { useState } from "react";
 
 const AdminSubscriptions = () => {
-  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [selectedMerchant, setSelectedMerchant] = useState<any>(null);
+  const [selectedMerchant, setSelectedMerchant] = useState<SubscriptionMerchant | null>(null);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [newTier, setNewTier] = useState("");
 
-  // Fetch merchants with their subscriptions
-  const { data: merchants, isLoading } = useQuery({
-    queryKey: ['admin-subscriptions'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('merchants')
-        .select(`
-          *,
-          merchant_subscriptions (
-            id,
-            status,
-            tier_id,
-            current_period_end,
-            trial_ends_at,
-            subscription_tiers (
-              name,
-              display_name
-            )
-          )
-        `)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-  });
+  const {
+    merchants,
+    isLoadingMerchants,
+    activeTiers: tiers,
+    invoices,
+    isLoadingInvoices,
+    cancellations,
+    isLoadingCancellations,
+    pendingChanges,
+    isLoadingPending,
+    updateSubscription,
+    isUpdating,
+  } = useSubscriptions();
 
-  // Fetch subscription tiers
-  const { data: tiers } = useQuery({
-    queryKey: ['subscription-tiers'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('subscription_tiers')
-        .select('*')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true });
-      if (error) throw error;
-      return data;
-    },
-  });
+  const { data: stats, isLoading: statsLoading } = useSubscriptionStats();
 
-  // Fetch subscription invoices
-  const { data: invoices, isLoading: loadingInvoices } = useQuery({
-    queryKey: ['admin-subscription-invoices'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('subscription_invoices')
-        .select(`
-          *,
-          merchants (business_name),
-          subscription_tiers (name, display_name)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(100);
-      if (error) throw error;
-      return data;
-    },
-  });
+  const handleUpdateSubscription = () => {
+    if (!selectedMerchant || !newTier) return;
+    
+    const tier = tiers?.find(t => t.id === newTier);
+    if (!tier) return;
 
-  // Fetch cancellation feedback
-  const { data: cancellations, isLoading: loadingCancellations } = useQuery({
-    queryKey: ['admin-cancellation-feedback'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('cancellation_feedback')
-        .select(`
-          *,
-          merchants (business_name)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(100);
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Fetch pending subscription changes
-  const { data: pendingChanges, isLoading: loadingPending } = useQuery({
-    queryKey: ['admin-pending-changes'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('pending_subscription_changes')
-        .select(`
-          *,
-          merchants (business_name),
-          current_tier:subscription_tiers!pending_subscription_changes_current_tier_id_fkey (name, display_name),
-          pending_tier:subscription_tiers!pending_subscription_changes_pending_tier_id_fkey (name, display_name)
-        `)
-        .eq('status', 'pending')
-        .order('effective_date', { ascending: true });
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const updateSubscription = useMutation({
-    mutationFn: async ({ merchantId, tierId }: { merchantId: string; tierId: string }) => {
-      // First check if merchant has a subscription record
-      const { data: existingSub } = await supabase
-        .from('merchant_subscriptions')
-        .select('id')
-        .eq('merchant_id', merchantId)
-        .single();
-
-      if (existingSub) {
-        // Update existing subscription
-        const { error } = await supabase
-          .from('merchant_subscriptions')
-          .update({ 
-            tier_id: tierId,
-            updated_at: new Date().toISOString()
-          })
-          .eq('merchant_id', merchantId);
-        if (error) throw error;
-      } else {
-        // Create new subscription
-        const now = new Date();
-        const periodEnd = new Date(now);
-        periodEnd.setMonth(periodEnd.getMonth() + 1);
-        
-        const { error } = await supabase
-          .from('merchant_subscriptions')
-          .insert({
-            merchant_id: merchantId,
-            tier_id: tierId,
-            status: 'active',
-            current_period_start: now.toISOString(),
-            current_period_end: periodEnd.toISOString(),
-          });
-        if (error) throw error;
+    updateSubscription(
+      { 
+        merchantId: selectedMerchant.id, 
+        tierId: newTier,
+        tierName: tier.name 
+      },
+      {
+        onSuccess: () => {
+          setShowUpgradeDialog(false);
+          setSelectedMerchant(null);
+          setNewTier("");
+        }
       }
+    );
+  };
 
-      // Also update the legacy field for compatibility
-      const tier = tiers?.find(t => t.id === tierId);
-      if (tier) {
-        await supabase
-          .from('merchants')
-          .update({ subscription_tier: tier.name })
-          .eq('id', merchantId);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-subscriptions'] });
-      toast.success('Subscription updated');
-      setShowUpgradeDialog(false);
-      setSelectedMerchant(null);
-    },
-    onError: () => toast.error('Failed to update subscription'),
-  });
-
-  const getTierBadge = (tierName: string | null) => {
+  const getTierBadge = (tierName: string | null | undefined) => {
     switch (tierName) {
       case 'enterprise':
         return <Badge className="bg-accent text-accent-foreground"><Crown className="h-3 w-3 mr-1" /> Enterprise</Badge>;
@@ -199,7 +86,7 @@ const AdminSubscriptions = () => {
     }
   };
 
-  const getMerchantTierName = (merchant: any) => {
+  const getMerchantTierName = (merchant: SubscriptionMerchant) => {
     if (merchant.merchant_subscriptions?.[0]?.subscription_tiers?.name) {
       return merchant.merchant_subscriptions[0].subscription_tiers.name;
     }
@@ -209,11 +96,6 @@ const AdminSubscriptions = () => {
   const filteredMerchants = merchants?.filter(merchant =>
     merchant.business_name.toLowerCase().includes(search.toLowerCase())
   ) || [];
-
-  const enterpriseCount = merchants?.filter(m => getMerchantTierName(m) === 'enterprise').length || 0;
-  const proCount = merchants?.filter(m => getMerchantTierName(m) === 'pro').length || 0;
-  const basicCount = merchants?.filter(m => getMerchantTierName(m) === 'basic').length || 0;
-  const freeCount = merchants?.filter(m => !getMerchantTierName(m) || getMerchantTierName(m) === 'free').length || 0;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -239,31 +121,23 @@ const AdminSubscriptions = () => {
     <AdminLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Subscriptions</h1>
-          <p className="text-muted-foreground">Manage merchant subscription plans</p>
+          <h1 className="text-3xl font-bold tracking-tight">Subscription Management</h1>
+          <p className="text-muted-foreground">Manage merchant subscriptions and billing</p>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <Card>
-            <CardContent className="p-6 flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-primary/10">
-                <CreditCard className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total</p>
-                <p className="text-2xl font-bold">{merchants?.length || 0}</p>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-6 flex items-center gap-4">
               <div className="p-3 rounded-lg bg-accent/10">
-                <Crown className="h-6 w-6 text-accent" />
+                <Crown className="h-6 w-6 text-accent-foreground" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Enterprise</p>
-                <p className="text-2xl font-bold">{enterpriseCount}</p>
+                {statsLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <p className="text-2xl font-bold">{stats?.enterprise || 0}</p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -274,7 +148,11 @@ const AdminSubscriptions = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Pro</p>
-                <p className="text-2xl font-bold">{proCount}</p>
+                {statsLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <p className="text-2xl font-bold">{stats?.pro || 0}</p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -285,7 +163,11 @@ const AdminSubscriptions = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Basic</p>
-                <p className="text-2xl font-bold">{basicCount}</p>
+                {statsLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <p className="text-2xl font-bold">{stats?.basic || 0}</p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -296,7 +178,11 @@ const AdminSubscriptions = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Free</p>
-                <p className="text-2xl font-bold">{freeCount}</p>
+                {statsLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <p className="text-2xl font-bold">{stats?.free || 0}</p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -341,7 +227,7 @@ const AdminSubscriptions = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                {isLoading ? (
+                {isLoadingMerchants ? (
                   <div className="flex justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   </div>
@@ -416,7 +302,7 @@ const AdminSubscriptions = () => {
                 <CardTitle>Subscription Invoices</CardTitle>
               </CardHeader>
               <CardContent>
-                {loadingInvoices ? (
+                {isLoadingInvoices ? (
                   <div className="flex justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   </div>
@@ -433,7 +319,7 @@ const AdminSubscriptions = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {invoices.map((invoice: any) => (
+                      {invoices.map((invoice: SubscriptionInvoice) => (
                         <TableRow key={invoice.id}>
                           <TableCell className="font-medium">
                             {invoice.merchants?.business_name || 'Unknown'}
@@ -466,7 +352,7 @@ const AdminSubscriptions = () => {
                 <CardTitle>Cancellation Feedback</CardTitle>
               </CardHeader>
               <CardContent>
-                {loadingCancellations ? (
+                {isLoadingCancellations ? (
                   <div className="flex justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   </div>
@@ -482,7 +368,7 @@ const AdminSubscriptions = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {cancellations.map((item: any) => (
+                      {cancellations.map((item: CancellationFeedback) => (
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">
                             {item.merchants?.business_name || 'Unknown'}
@@ -526,7 +412,7 @@ const AdminSubscriptions = () => {
                 <CardTitle>Pending Subscription Changes</CardTitle>
               </CardHeader>
               <CardContent>
-                {loadingPending ? (
+                {isLoadingPending ? (
                   <div className="flex justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   </div>
@@ -543,7 +429,7 @@ const AdminSubscriptions = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {pendingChanges.map((change: any) => (
+                      {pendingChanges.map((change) => (
                         <TableRow key={change.id}>
                           <TableCell className="font-medium">
                             {change.merchants?.business_name || 'Unknown'}
@@ -621,13 +507,9 @@ const AdminSubscriptions = () => {
                           <li>• Up to {tier.max_properties} properties</li>
                           <li>• Up to {tier.max_units} units</li>
                           <li>• Up to {tier.max_tenants} tenants</li>
-                          {tier.features && typeof tier.features === 'object' && (
-                            <>
-                              {(tier.features as any).priority_support && <li>• Priority support</li>}
-                              {(tier.features as any).advanced_analytics && <li>• Advanced analytics</li>}
-                              {(tier.features as any).custom_branding && <li>• Custom branding</li>}
-                            </>
-                          )}
+                          {tier.features && Array.isArray(tier.features) && tier.features.map((feature, idx) => (
+                            <li key={idx}>• {feature}</li>
+                          ))}
                         </ul>
                       );
                     })()}
@@ -640,10 +522,10 @@ const AdminSubscriptions = () => {
                 Cancel
               </Button>
               <Button
-                onClick={() => updateSubscription.mutate({ merchantId: selectedMerchant.id, tierId: newTier })}
-                disabled={updateSubscription.isPending || !newTier}
+                onClick={handleUpdateSubscription}
+                disabled={isUpdating || !newTier}
               >
-                {updateSubscription.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                {isUpdating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                 Update Plan
               </Button>
             </DialogFooter>

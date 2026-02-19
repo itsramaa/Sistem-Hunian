@@ -1,66 +1,47 @@
-import { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  Search, 
-  Building2, 
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { CustomAmenities } from '@/features/properties/components/CustomAmenities';
+import { LocationPicker } from '@/features/properties/components/LocationPicker';
+import { ProvincesCitiesSelect } from '@/features/properties/components/ProvincesCitiesSelect';
+import { UnitPhotoUpload } from '@/features/properties/components/UnitPhotoUpload';
+import { UnitsManager } from '@/features/properties/components/UnitsManager';
+import { useMerchantProperties } from '@/features/properties/hooks/useMerchantProperties';
+import { CreatePropertyPayload, Property, UpdatePropertyPayload } from '@/features/properties/types';
+import { SubscriptionLimitWarning } from '@/features/subscriptions/components/SubscriptionLimitWarning';
+import { useSubscriptionLimits } from '@/features/subscriptions/hooks/useSubscriptionLimits';
+import { ImageGalleryUpload } from '@/shared/components/FileUpload';
+import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
+import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import { Progress } from '@/shared/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { Textarea } from '@/shared/components/ui/textarea';
+import { useToast } from '@/shared/hooks/use-toast';
+import { zodResolver } from '@hookform/resolvers/zod';
+import {
+  AlertTriangle,
+  Building2,
+  DoorOpen,
+  Edit,
+  Grid,
   Home,
+  Image as ImageIcon,
+  List,
   MapPin,
   MoreHorizontal,
-  Edit,
-  Trash2,
-  Eye,
-  Grid,
-  List,
-  DoorOpen,
-  Image as ImageIcon,
-  X,
-  AlertTriangle,
-  RefreshCw
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2
 } from 'lucide-react';
-import { UnitsManager } from '@/components/merchant/UnitsManager';
-import { UnitPhotoUpload } from '@/components/merchant/UnitPhotoUpload';
-import { MerchantLayout } from '@/components/layouts/MerchantLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Progress } from '@/components/ui/progress';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { ImageGalleryUpload } from '@/components/FileUpload';
-import { SubscriptionLimitWarning } from '@/components/merchant/SubscriptionLimitWarning';
-import { useSubscriptionLimits } from '@/hooks/useSubscriptionLimits';
-import { LocationPicker } from '@/components/merchant/LocationPicker';
-import { ProvincesCitiesSelect } from '@/components/merchant/ProvincesCitiesSelect';
-import { CustomAmenities } from '@/components/merchant/CustomAmenities';
-import { z } from 'zod';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-
-interface Property {
-  id: string;
-  merchant_id: string;
-  name: string;
-  property_type: string;
-  address: string;
-  city: string;
-  province: string;
-  postal_code: string | null;
-  description: string | null;
-  amenities: string[];
-  images: string[];
-  total_units: number;
-  occupied_units: number;
-  status: string;
-  created_at: string;
-}
+import { z } from 'zod';
 
 const propertySchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(100),
@@ -90,21 +71,31 @@ const statusColors: Record<string, string> = {
 };
 
 export default function MerchantProperties() {
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { merchant } = useAuth();
+  const { 
+    properties, 
+    loading, 
+    error, 
+    createProperty, 
+    updateProperty, 
+    deleteProperty,
+    checkCanDelete,
+    isCreating,
+    isUpdating,
+    isDeleting,
+    refetch
+  } = useMerchantProperties(merchant?.id || '');
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState<string | null>(null); // Keep specifically for which item is deleting
   const [unitsProperty, setUnitsProperty] = useState<Property | null>(null);
   const [imagesProperty, setImagesProperty] = useState<Property | null>(null);
   const [propertyImages, setPropertyImages] = useState<string[]>([]);
   const { toast } = useToast();
-  const { merchant } = useAuth();
   const { data: limits } = useSubscriptionLimits();
 
   const form = useForm<PropertyFormData>({
@@ -124,80 +115,37 @@ export default function MerchantProperties() {
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [formImages, setFormImages] = useState<string[]>([]);
 
-  useEffect(() => {
-    if (merchant) {
-      fetchProperties();
-    }
-  }, [merchant]);
-
-  const fetchProperties = async () => {
-    if (!merchant) return;
-    
-    setLoading(true);
-    setError(null);
-    try {
-      const { data, error } = await supabase
-        .from('properties')
-        .select('*')
-        .eq('merchant_id', merchant.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setProperties((data as Property[]) || []);
-    } catch (err: any) {
-      console.error('Error fetching properties:', err);
-      const errorMessage = err?.message || 'Failed to load properties. Please try again.';
-      setError(errorMessage);
-      toast({
-        variant: 'destructive',
-        title: 'Error Loading Properties',
-        description: errorMessage,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSubmit = async (data: PropertyFormData) => {
     if (!merchant) return;
     
-    setActionLoading(true);
     try {
       if (editingProperty) {
-        const { error } = await supabase
-          .from('properties')
-          .update({
-            name: data.name,
-            property_type: data.property_type,
-            address: data.address,
-            city: data.city,
-            province: data.province,
-            postal_code: data.postal_code || null,
-            description: data.description || null,
-            amenities: selectedAmenities,
-            images: formImages,
-          })
-          .eq('id', editingProperty.id);
-
-        if (error) throw error;
+        const payload: UpdatePropertyPayload = {
+          name: data.name,
+          property_type: data.property_type,
+          address: data.address,
+          city: data.city,
+          province: data.province,
+          postal_code: data.postal_code || null,
+          description: data.description || null,
+          amenities: selectedAmenities,
+          images: formImages,
+        };
+        await updateProperty({ id: editingProperty.id, payload });
         toast({ title: 'Property Updated', description: 'Property has been updated successfully' });
       } else {
-        const { error } = await supabase
-          .from('properties')
-          .insert({
-            merchant_id: merchant.id,
-            name: data.name,
-            property_type: data.property_type,
-            address: data.address,
-            city: data.city,
-            province: data.province,
-            postal_code: data.postal_code || null,
-            description: data.description || null,
-            images: formImages,
-            amenities: selectedAmenities,
-          });
-
-        if (error) throw error;
+        const payload: CreatePropertyPayload = {
+          name: data.name,
+          property_type: data.property_type,
+          address: data.address,
+          city: data.city,
+          province: data.province,
+          postal_code: data.postal_code || null,
+          description: data.description || null,
+          images: formImages,
+          amenities: selectedAmenities,
+        };
+        await createProperty(payload);
         toast({ title: 'Property Created', description: 'New property has been added successfully' });
       }
 
@@ -206,16 +154,13 @@ export default function MerchantProperties() {
       setSelectedAmenities([]);
       setFormImages([]);
       form.reset();
-      fetchProperties();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error saving property:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message || 'Failed to save property',
+        description: (error as Error).message || 'Failed to save property',
       });
-    } finally {
-      setActionLoading(false);
     }
   };
 
@@ -228,21 +173,19 @@ export default function MerchantProperties() {
     if (!imagesProperty) return;
     
     try {
-      const { error } = await supabase
-        .from('properties')
-        .update({ images: propertyImages })
-        .eq('id', imagesProperty.id);
-
-      if (error) throw error;
+      await updateProperty({ 
+        id: imagesProperty.id, 
+        payload: { images: propertyImages } 
+      });
       
       toast({ title: 'Images saved', description: 'Property images updated successfully' });
       setImagesProperty(null);
-      fetchProperties();
-    } catch (error: any) {
+    } catch (error) {
+      const err = error as Error;
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message || 'Failed to save images',
+        description: err.message || 'Failed to save images',
       });
     }
   };
@@ -251,7 +194,7 @@ export default function MerchantProperties() {
     setEditingProperty(property);
     form.reset({
       name: property.name,
-      property_type: property.property_type as any,
+      property_type: property.property_type,
       address: property.address,
       city: property.city,
       province: property.province,
@@ -265,79 +208,32 @@ export default function MerchantProperties() {
   };
 
   const handleDelete = async (property: Property) => {
-    // Check for active units first
     setDeleteLoading(property.id);
     try {
-      // Check for units with active contracts
-      const { data: activeUnits, error: unitsError } = await supabase
-        .from('units')
-        .select('id, unit_number')
-        .eq('property_id', property.id)
-        .eq('status', 'occupied');
-
-      if (unitsError) throw unitsError;
-
-      if (activeUnits && activeUnits.length > 0) {
+      // Check if can delete
+      const check = await checkCanDelete(property.id);
+      if (!check.canDelete) {
         toast({
           variant: 'destructive',
           title: 'Cannot Delete Property',
-          description: `Property "${property.name}" has ${activeUnits.length} occupied unit(s). Please end all contracts before deleting.`,
+          description: check.reason,
         });
-        setDeleteLoading(null);
-        return;
-      }
-
-      // Check for active contracts
-      const { data: activeContracts, error: contractsError } = await supabase
-        .from('contracts')
-        .select('id, units!inner(property_id)')
-        .eq('units.property_id', property.id)
-        .in('status', ['active', 'pending']);
-
-      if (contractsError) throw contractsError;
-
-      if (activeContracts && activeContracts.length > 0) {
-        toast({
-          variant: 'destructive',
-          title: 'Cannot Delete Property',
-          description: `Property "${property.name}" has ${activeContracts.length} active or pending contract(s). Please end all contracts before deleting.`,
-        });
-        setDeleteLoading(null);
         return;
       }
 
       // Confirm deletion
       if (!confirm(`Are you sure you want to delete "${property.name}"? This action cannot be undone.`)) {
-        setDeleteLoading(null);
         return;
       }
 
-      // Delete associated units first
-      const { error: deleteUnitsError } = await supabase
-        .from('units')
-        .delete()
-        .eq('property_id', property.id);
-
-      if (deleteUnitsError) throw deleteUnitsError;
-
-      // Then delete the property
-      const { error } = await supabase
-        .from('properties')
-        .delete()
-        .eq('id', property.id);
-
-      if (error) throw error;
-      toast({ title: 'Property Deleted', description: 'Property and its units have been deleted successfully' });
-      fetchProperties();
-    } catch (error: any) {
+      await deleteProperty(property.id);
+      toast({ title: 'Property Deleted', description: 'Property has been deleted successfully' });
+    } catch (error) {
       console.error('Error deleting property:', error);
-      const errorMessage = error?.code === '23503' 
-        ? 'Cannot delete property with existing dependencies. Please remove all related data first.'
-        : error.message || 'Failed to delete property';
       toast({
         variant: 'destructive',
         title: 'Error Deleting Property',
-        description: errorMessage,
+        description: (error as Error).message || 'Failed to delete property',
       });
     } finally {
       setDeleteLoading(null);
@@ -472,6 +368,7 @@ export default function MerchantProperties() {
                     />
                   </div>
                   <div className="col-span-2">
+                    <Label>Fasilitas</Label>
                     <CustomAmenities
                       selectedAmenities={selectedAmenities}
                       onAmenitiesChange={setSelectedAmenities}
@@ -482,8 +379,8 @@ export default function MerchantProperties() {
                   <Button type="button" variant="outline" onClick={handleDialogClose}>
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={actionLoading}>
-                    {actionLoading ? 'Saving...' : editingProperty ? 'Update Property' : 'Add Property'}
+                  <Button type="submit" disabled={isCreating || isUpdating}>
+                    {isCreating || isUpdating ? 'Saving...' : editingProperty ? 'Update Property' : 'Add Property'}
                   </Button>
                 </DialogFooter>
               </form>
@@ -580,8 +477,8 @@ export default function MerchantProperties() {
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Error</AlertTitle>
             <AlertDescription className="flex items-center justify-between">
-              <span>{error}</span>
-              <Button variant="outline" size="sm" onClick={fetchProperties}>
+              <span>{(error as Error).message}</span>
+              <Button variant="outline" size="sm" onClick={() => refetch()}>
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Retry
               </Button>
@@ -759,6 +656,14 @@ export default function MerchantProperties() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setUnitsProperty(property)}>
+                              <DoorOpen className="h-4 w-4 mr-2" />
+                              Manage Units
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleOpenImages(property)}>
+                              <ImageIcon className="h-4 w-4 mr-2" />
+                              Manage Photos
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleEdit(property)}>
                               <Edit className="h-4 w-4 mr-2" />
                               Edit
@@ -793,7 +698,7 @@ export default function MerchantProperties() {
             propertyName={unitsProperty.name}
             open={!!unitsProperty}
             onOpenChange={(open) => !open && setUnitsProperty(null)}
-            onUnitsChanged={fetchProperties}
+            onUnitsChanged={() => refetch()}
           />
         )}
 

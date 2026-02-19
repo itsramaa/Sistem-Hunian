@@ -1,66 +1,25 @@
-import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Navigate } from "react-router-dom";
-import { TenantLayout } from "@/components/layouts/TenantLayout";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { FileText, Loader2, Download, CreditCard, AlertTriangle, Calendar, AlertCircle, RefreshCw, Info } from "lucide-react";
-import { StatsCardSkeleton, InvoiceTableSkeleton } from "@/components/ui/skeletons";
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { PaymentPlanCard } from "@/features/payments/components/PaymentPlanCard";
+import { XenditPaymentModal } from "@/features/payments/components/XenditPaymentModal";
+import { useAllTenantInvoices, useDownloadInvoice } from "@/features/payments/hooks/useTenantInvoices";
+import { useTenantPaymentPlans } from "@/features/payments/hooks/useTenantPaymentPlans";
+import { Invoice } from "@/features/payments/types";
+import { TenantLayout } from "@/shared/components/layouts/TenantLayout";
+import { Alert, AlertDescription } from "@/shared/components/ui/alert";
+import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
+import { Card, CardContent } from "@/shared/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
+import { InvoiceTableSkeleton, StatsCardSkeleton } from "@/shared/components/ui/skeletons";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/components/ui/tooltip";
+import { useToast } from "@/shared/hooks/use-toast";
 import { format } from "date-fns";
-import { useToast } from "@/hooks/use-toast";
-import { XenditPaymentModal } from "@/components/payment/XenditPaymentModal";
-import { PaymentPlanCard } from "@/components/tenant/PaymentPlanCard";
+import { AlertCircle, AlertTriangle, Calendar, CreditCard, Download, FileText, Info, Loader2, RefreshCw } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Navigate } from "react-router-dom";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-
-type Invoice = {
-  id: string;
-  invoice_number: string;
-  amount: number;
-  total_amount: number;
-  description: string | null;
-  status: string;
-  due_date: string;
-  issued_at: string | null;
-  paid_at: string | null;
-  late_fee: number | null;
-  original_amount: number | null;
-  late_fee_applied_at: string | null;
-  payment_plan_id: string | null;
-  grace_period_active: boolean | null;
-  overdue_since: string | null;
-};
-
-type PaymentPlan = {
-  id: string;
-  invoice_id: string;
-  original_amount: number;
-  installment_count: number;
-  installment_amount: number;
-  frequency: string;
-  start_date: string;
-  late_fee_waived: boolean;
-  waived_amount: number;
-  status: string;
-  terms: string | null;
-  invoice?: {
-    invoice_number: string;
-  };
-  installments?: Array<{
-    id: string;
-    installment_number: number;
-    amount: number;
-    due_date: string;
-    status: string;
-  }>;
-};
 
 type StatusFilter = 'all' | 'pending' | 'sent' | 'overdue' | 'paid';
 
@@ -74,39 +33,11 @@ const TenantInvoices = () => {
   // Tenant role verification
   const isTenant = role === 'tenant';
 
-  const { data: invoices, isLoading, error, refetch } = useQuery({
-    queryKey: ['tenant-invoices', user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('*')
-        .eq('tenant_user_id', user?.id)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data as Invoice[];
-    },
-    enabled: !!user?.id && isTenant,
-  });
+  const { data: invoices, isLoading, error, refetch } = useAllTenantInvoices(user?.id);
+  const { mutate: downloadInvoice } = useDownloadInvoice();
 
   // Fetch payment plans
-  const { data: paymentPlans = [] } = useQuery({
-    queryKey: ['tenant-payment-plans', user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('payment_plans')
-        .select(`
-          *,
-          invoice:invoices(invoice_number),
-          installments:payment_plan_installments(*)
-        `)
-        .eq('tenant_user_id', user?.id)
-        .in('status', ['pending_acceptance', 'accepted'])
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data as PaymentPlan[];
-    },
-    enabled: !!user?.id && isTenant,
-  });
+  const { data: paymentPlans = [] } = useTenantPaymentPlans(user?.id, ['pending_acceptance', 'active', 'accepted']);
 
   // Filtered invoices based on status
   const filteredInvoices = useMemo(() => {
@@ -134,58 +65,37 @@ const TenantInvoices = () => {
   );
 
   const downloadInvoicePdf = async (invoiceId: string) => {
-    try {
-      setDownloadingId(invoiceId);
-      toast({ title: 'Generating PDF...', description: 'Please wait' });
-      
-      // Get auth token for secure request
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('Not authenticated');
-      }
+    setDownloadingId(invoiceId);
+    toast({ title: 'Generating PDF...', description: 'Please wait' });
 
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice-pdf`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ invoiceId }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to generate PDF');
-      }
-      
-      const result = await response.json();
-      
-      // If the result contains a download URL, use it
-      if (result.pdfUrl) {
-        const link = document.createElement('a');
-        link.href = result.pdfUrl;
-        link.download = `invoice-${invoiceId}.pdf`;
-        link.click();
-        toast({ title: 'PDF downloaded successfully' });
-      } else if (result.html) {
-        // Fallback to print window if only HTML is returned
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-          printWindow.document.write(result.html);
-          printWindow.document.close();
-          printWindow.onload = () => printWindow.print();
+    downloadInvoice(invoiceId, {
+      onSuccess: (result) => {
+        if (result.pdfUrl) {
+          const link = document.createElement('a');
+          link.href = result.pdfUrl;
+          link.download = `invoice-${invoiceId}.pdf`;
+          link.click();
+          toast({ title: 'PDF downloaded successfully' });
+        } else if (result.html) {
+          const printWindow = window.open('', '_blank');
+          if (printWindow) {
+            printWindow.document.write(result.html);
+            printWindow.document.close();
+            printWindow.onload = () => printWindow.print();
+          }
         }
+        setDownloadingId(null);
+      },
+      onError: (error: any) => {
+        console.error('Error generating PDF:', error);
+        toast({
+          title: 'Failed to generate PDF',
+          description: error.message || 'Silakan coba lagi',
+          variant: 'destructive'
+        });
+        setDownloadingId(null);
       }
-    } catch (error: any) {
-      console.error('Error generating PDF:', error);
-      toast({ 
-        title: 'Failed to generate PDF', 
-        description: error.message || 'Silakan coba lagi',
-        variant: 'destructive' 
-      });
-    } finally {
-      setDownloadingId(null);
-    }
+    });
   };
 
   const handlePayInvoice = (invoice: Invoice) => {

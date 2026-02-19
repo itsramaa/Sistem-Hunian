@@ -1,20 +1,20 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { MerchantLayout } from "@/components/layouts/MerchantLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MerchantLayout } from "@/shared/components/layouts/MerchantLayout";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
+import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
+import { Badge } from "@/shared/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { FileUpload } from "@/components/FileUpload";
-import { BankAccountManager } from "@/components/merchant/BankAccountManager";
+import { supabase } from "@/lib/integrations/supabase/client";
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { FileUpload } from "@/shared/components/FileUpload";
+import { BankAccountManager } from "@/features/payments/components/BankAccountManager";
 import { Building2, Shield, CreditCard, Loader2, Save, CheckCircle, Clock, XCircle, Trash2, Copy } from "lucide-react";
-import { ProfileFormSkeleton } from "@/components/ui/skeletons";
+import { ProfileFormSkeleton } from "@/shared/components/ui/skeletons";
 
 const MerchantProfile = () => {
   const { user } = useAuth();

@@ -1,21 +1,21 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { TenantLayout } from "@/components/layouts/TenantLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { User, Loader2, Save, CreditCard, Upload, Phone, Shield, Wallet, Calendar, Banknote, RefreshCw, AlertTriangle, Eye, EyeOff } from "lucide-react";
-import { ProfileFormSkeleton } from "@/components/ui/skeletons";
-import { Switch } from "@/components/ui/switch";
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useProfile, useTenantProfile, useUpdateProfile, useUpdateTenantProfile, useUploadKtp } from "@/features/profile/hooks/useProfile";
+import { supabase } from "@/lib/integrations/supabase/client";
+import { TenantLayout } from "@/shared/components/layouts/TenantLayout";
+import { Alert, AlertDescription } from "@/shared/components/ui/alert";
+import { Button } from "@/shared/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
+import { ProfileFormSkeleton } from "@/shared/components/ui/skeletons";
+import { Switch } from "@/shared/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
+import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Navigate } from "react-router-dom";
+import { AlertTriangle, Banknote, Calendar, CreditCard, Eye, EyeOff, Loader2, Phone, RefreshCw, Save, Shield, Upload, User, Wallet } from "lucide-react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { z } from "zod";
 
 // Validation schemas
@@ -38,38 +38,12 @@ const TenantProfile = () => {
   const { user, role } = useAuth();
   const queryClient = useQueryClient();
 
-  // Role verification
-  if (role && role !== "tenant") {
-    return <Navigate to="/unauthorized" replace />;
-  }
-
-  const { data: profile, isLoading: profileLoading, error: profileError, refetch: refetchProfile } = useQuery({
-    queryKey: ['profile', user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user?.id)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id,
-  });
-
-  const { data: tenant, isLoading: tenantLoading, error: tenantError, refetch: refetchTenant } = useQuery({
-    queryKey: ['tenant', user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('tenants')
-        .select('*')
-        .eq('user_id', user?.id)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id,
-  });
+  const { data: profile, isLoading: profileLoading, error: profileError } = useProfile(user?.id);
+  const { data: tenant, isLoading: tenantLoading, error: tenantError } = useTenantProfile(user?.id);
+  
+  const updateProfileMutation = useUpdateProfile();
+  const updateTenantMutation = useUpdateTenantProfile();
+  const uploadKtpMutation = useUploadKtp();
 
   const isLoading = profileLoading || tenantLoading;
   const hasError = profileError || tenantError;
@@ -138,35 +112,30 @@ const TenantProfile = () => {
     }
   }, [tenant]);
 
-  const updateProfile = useMutation({
-    mutationFn: async (data: typeof profileForm) => {
-      // Validate
-      const result = profileSchema.safeParse(data);
-      if (!result.success) {
-        const errors: Record<string, string> = {};
-        result.error.errors.forEach(err => {
-          errors[err.path[0]] = err.message;
-        });
-        setValidationErrors(errors);
-        throw new Error(Object.values(errors)[0]);
+  const handleUpdateProfile = async (data: typeof profileForm) => {
+    // Validate
+    const result = profileSchema.safeParse(data);
+    if (!result.success) {
+      const errors: Record<string, string> = {};
+      result.error.errors.forEach(err => {
+        errors[err.path[0]] = err.message;
+      });
+      setValidationErrors(errors);
+      throw new Error(Object.values(errors)[0]);
+    }
+    setValidationErrors({});
+
+    updateProfileMutation.mutate(
+      { userId: user!.id, payload: { full_name: data.full_name.trim(), phone: data.phone.trim() } },
+      {
+        onSuccess: () => toast.success('Profil berhasil disimpan'),
+        onError: (err: Error) => toast.error(err.message || 'Gagal menyimpan profil'),
       }
-      setValidationErrors({});
+    );
+  };
 
-      const { error } = await supabase
-        .from('profiles')
-        .update({ full_name: data.full_name.trim(), phone: data.phone.trim() })
-        .eq('user_id', user?.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profile'] });
-      toast.success('Profil berhasil disimpan');
-    },
-    onError: (err: Error) => toast.error(err.message || 'Gagal menyimpan profil'),
-  });
-
-  const updateTenantProfile = useMutation({
-    mutationFn: async () => {
+  const handleUpdateTenantProfile = async () => {
+    try {
       // Validate KTP
       if (tenantForm.ktp_number) {
         const result = ktpSchema.safeParse(tenantForm.ktp_number);
@@ -184,21 +153,7 @@ const TenantProfile = () => {
           throw new Error("Format file harus JPG atau PNG");
         }
 
-        const fileExt = ktpFile.name.split('.').pop();
-        const fileName = `${user?.id}-ktp-${Date.now()}.${fileExt}`;
-        const filePath = `ktp/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('verification-documents')
-          .upload(filePath, ktpFile);
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('verification-documents')
-          .getPublicUrl(filePath);
-
-        ktpPhotoUrl = publicUrl;
+        ktpPhotoUrl = await uploadKtpMutation.mutateAsync({ userId: user!.id, file: ktpFile });
       }
 
       const tenantData = {
@@ -213,29 +168,24 @@ const TenantProfile = () => {
         emergency_contact_relation: tenantForm.emergency_contact_relation || null,
       };
 
-      if (tenant) {
-        const { error } = await supabase
-          .from('tenants')
-          .update(tenantData)
-          .eq('user_id', user?.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('tenants')
-          .insert({ user_id: user?.id, ...tenantData });
-        if (error) throw error;
+      updateTenantMutation.mutate(
+        { userId: user!.id, payload: tenantData },
+        {
+          onSuccess: () => {
+            toast.success('Data identitas berhasil disimpan');
+            setKtpFile(null);
+          },
+          onError: (error) => toast.error((error as Error).message),
       }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tenant'] });
-      toast.success('Data identitas berhasil disimpan');
-      setKtpFile(null);
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
+    );
+  } catch (error) {
+    const err = error as Error;
+    toast.error(err.message);
+  }
+};
 
-  const changePassword = useMutation({
-    mutationFn: async () => {
+  const handleChangePassword = async () => {
+    try {
       // Validate
       const result = passwordSchema.safeParse(passwordForm);
       if (!result.success) {
@@ -246,34 +196,29 @@ const TenantProfile = () => {
         password: passwordForm.newPassword,
       });
       if (error) throw error;
-    },
-    onSuccess: () => {
+      
       toast.success('Password berhasil diubah');
       setPasswordForm({ newPassword: '', confirmPassword: '' });
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
+  };
 
-  const updateAutoPaySettings = useMutation({
-    mutationFn: async (settings: { enabled: boolean; day: number }) => {
-      if (!user?.id) throw new Error('User not found');
-      
-      const { error } = await supabase
-        .from('tenants')
-        .update({ 
+  const handleUpdateAutoPaySettings = async (settings: { enabled: boolean; day: number }) => {
+    updateTenantMutation.mutate(
+      { 
+        userId: user!.id, 
+        payload: { 
           auto_pay_enabled: settings.enabled, 
           auto_pay_day: settings.day 
-        } as any)
-        .eq('user_id', user.id);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tenant'] });
-      toast.success('Pengaturan auto-pay disimpan');
-    },
-    onError: () => toast.error('Gagal menyimpan pengaturan auto-pay'),
-  });
+        } 
+      },
+      {
+        onSuccess: () => toast.success('Pengaturan auto-pay disimpan'),
+        onError: () => toast.error('Gagal menyimpan pengaturan auto-pay'),
+      }
+    );
+  };
 
   const handleKtpFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -393,10 +338,10 @@ const TenantProfile = () => {
                 </div>
               </div>
               <Button 
-                onClick={() => updateProfile.mutate(profileForm)}
-                disabled={updateProfile.isPending}
+                onClick={() => handleUpdateProfile(profileForm)}
+                disabled={updateProfileMutation.isPending}
               >
-                {updateProfile.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                {updateProfileMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                 Simpan Perubahan
               </Button>
             </CardContent>
@@ -557,10 +502,10 @@ const TenantProfile = () => {
               </div>
 
               <Button 
-                onClick={() => updateTenantProfile.mutate()}
-                disabled={updateTenantProfile.isPending}
+                onClick={handleUpdateTenantProfile}
+                disabled={updateTenantMutation.isPending || uploadKtpMutation.isPending}
               >
-                {updateTenantProfile.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                {(updateTenantMutation.isPending || uploadKtpMutation.isPending) ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                 Simpan Data Identitas
               </Button>
             </CardContent>
@@ -661,7 +606,7 @@ const TenantProfile = () => {
                 </div>
               </div>
               <Button 
-                onClick={() => changePassword.mutate()}
+                onClick={handleChangePassword}
                 disabled={changePassword.isPending || !passwordForm.newPassword || passwordForm.newPassword.length < 8}
               >
                 {changePassword.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Shield className="h-4 w-4 mr-2" />}
@@ -695,7 +640,7 @@ const TenantProfile = () => {
                   onCheckedChange={(checked) => {
                     const newSettings = { ...autoPaySettings, enabled: checked };
                     setAutoPaySettings(newSettings);
-                    updateAutoPaySettings.mutate(newSettings);
+                    handleUpdateAutoPaySettings(newSettings);
                   }}
                 />
               </div>
@@ -711,7 +656,7 @@ const TenantProfile = () => {
                     onValueChange={(value) => {
                       const newSettings = { ...autoPaySettings, day: parseInt(value) };
                       setAutoPaySettings(newSettings);
-                      updateAutoPaySettings.mutate(newSettings);
+                      handleUpdateAutoPaySettings(newSettings);
                     }}
                   >
                     <SelectTrigger className="w-full max-w-xs">

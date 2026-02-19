@@ -1,10 +1,13 @@
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { ThemeProvider } from "next-themes";
-import App from "./App.tsx";
+import { ThemeProvider } from "@/shared/components/theme-provider";
+import App from "@/App.tsx";
 import "./index.css";
 
 createRoot(document.getElementById("root")!).render(
-  <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="sihuni-theme">
-    <App />
-  </ThemeProvider>
+  <StrictMode>
+    <ThemeProvider defaultTheme="system" storageKey="sihuni-theme">
+      <App />
+    </ThemeProvider>
+  </StrictMode>
 );

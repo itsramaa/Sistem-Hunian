@@ -1,29 +1,28 @@
-import { VendorLayout } from '@/components/layouts/VendorLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth } from '@/hooks/useAuth';
+import { CustomerInsights } from "@/features/analytics/components/CustomerInsights";
+import { SalesAnalytics } from '@/features/analytics/components/SalesAnalytics';
+import { useAnalytics } from '@/features/analytics/hooks/useAnalytics';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { VendorChatbot } from '@/features/chatbot/components/VendorChatbot';
+import { VendorEscrowWidget } from '@/features/escrow/components/VendorEscrowWidget';
+import { supabase } from '@/lib/integrations/supabase/client';
+import { Tables } from '@/lib/integrations/supabase/types';
+import { VendorLayout } from '@/shared/components/layouts/VendorLayout';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Skeleton } from '@/shared/components/ui/skeleton';
+import { getJobStatusColor, getPriorityColor } from '@/shared/utils/statusColors';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { Tables } from '@/integrations/supabase/types';
-import { 
-  Briefcase, 
-  Star, 
-  Clock,
-  CheckCircle2,
+import {
   AlertCircle,
   ArrowRight,
-  RefreshCcw
+  Briefcase,
+  CheckCircle2,
+  Clock,
+  RefreshCcw,
+  Star
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useAnalytics } from '@/hooks/useAnalytics';
-import { VendorEscrowWidget } from '@/components/vendor/VendorEscrowWidget';
-import { SalesAnalytics } from '@/components/vendor/SalesAnalytics';
-import { CustomerInsights } from '@/components/vendor/CustomerInsights';
-import { VendorChatbot } from '@/components/vendor/VendorChatbot';
-import { formatCurrency } from '@/lib/currency';
-import { getPriorityColor, getJobStatusColor } from '@/lib/statusColors';
 import { toast } from 'sonner';
 
 // Type for vendor job with joined maintenance request data

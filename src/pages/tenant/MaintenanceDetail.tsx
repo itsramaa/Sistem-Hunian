@@ -1,14 +1,14 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { TenantLayout } from '@/components/layouts/TenantLayout';
-import { UpdateTimeline } from '@/components/maintenance/UpdateTimeline';
-import { MaintenanceReviewForm } from '@/components/maintenance/MaintenanceReviewForm';
-import { SLABadge } from '@/components/maintenance/SLABadge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { supabase } from '@/lib/integrations/supabase/client';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { TenantLayout } from '@/shared/components/layouts/TenantLayout';
+import { UpdateTimeline } from '@/features/maintenance/components/UpdateTimeline';
+import { MaintenanceReviewForm } from '@/features/maintenance/components/MaintenanceReviewForm';
+import { SLABadge } from '@/features/maintenance/components/SLABadge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
 import { ArrowLeft, Wrench, Clock, CheckCircle, AlertTriangle, Calendar, MapPin, Loader2, Star } from 'lucide-react';
 import { format } from 'date-fns';
 

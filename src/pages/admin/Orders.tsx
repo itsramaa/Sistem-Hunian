@@ -1,53 +1,39 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { AdminLayout } from "@/components/layouts/AdminLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { supabase } from "@/integrations/supabase/client";
-import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
-import { BarChart, Bar, XAxis, YAxis, PieChart, Pie, Cell, AreaChart, Area, LineChart, Line } from "recharts";
-import { 
-  ShoppingCart, 
-  Package, 
-  TrendingUp, 
-  AlertTriangle, 
-  Search, 
-  Loader2,
-  DollarSign,
-  Star,
+import { useOrders } from "@/features/orders/hooks/useOrders";
+import { AdminLayout } from "@/shared/components/layouts/AdminLayout";
+import { Badge } from "@/shared/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/shared/components/ui/chart";
+import { Input } from "@/shared/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
+import { format } from "date-fns";
+import {
   Clock,
-  CheckCircle
+  DollarSign,
+  Loader2,
+  Package,
+  Search,
+  ShoppingCart,
+  Star,
+  TrendingUp,
 } from "lucide-react";
+import { Area, AreaChart, Bar, BarChart, Cell, Pie, PieChart, XAxis, YAxis } from "recharts";
 
 const AdminOrders = () => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-
-  const { data, isLoading } = useQuery({
-    queryKey: ["admin-orders"],
-    queryFn: async () => {
-      const [ordersRes, vendorsRes, reviewsRes] = await Promise.all([
-        supabase
-          .from("orders")
-          .select("*, products(name, vendor_id), vendors(business_name)")
-          .order("created_at", { ascending: false }),
-        supabase.from("vendors").select("id, business_name, rating, total_jobs, verification_status"),
-        supabase.from("order_reviews").select("*"),
-      ]);
-
-      return {
-        orders: ordersRes.data || [],
-        vendors: vendorsRes.data || [],
-        reviews: reviewsRes.data || [],
-      };
-    },
-  });
+  const {
+    filteredOrders,
+    stats,
+    monthlyStats,
+    topVendors,
+    orderStatusData,
+    reviews,
+    isLoading,
+    searchTerm,
+    setSearchTerm,
+    statusFilter,
+    setStatusFilter
+  } = useOrders();
 
   if (isLoading) {
     return (
@@ -59,103 +45,11 @@ const AdminOrders = () => {
     );
   }
 
-  const orders = data?.orders || [];
-  const vendors = data?.vendors || [];
-  const reviews = data?.reviews || [];
-
-  // Calculate stats
-  const totalOrders = orders.length;
-  const completedOrders = orders.filter((o) => o.status === "completed").length;
-  const pendingOrders = orders.filter((o) => o.status === "pending").length;
-  const canceledOrders = orders.filter((o) => o.status === "canceled").length;
-  const totalRevenue = orders
-    .filter((o) => o.status === "completed")
-    .reduce((sum, o) => sum + Number(o.total_price), 0);
-  const totalServiceFees = orders
-    .filter((o) => o.status === "completed")
-    .reduce((sum, o) => sum + Number(o.service_fee || 0), 0);
-
-  // Order status distribution
-  const orderStatusData = [
-    { name: "Pending", value: pendingOrders, fill: "hsl(var(--warning))" },
-    { name: "Confirmed", value: orders.filter((o) => o.status === "confirmed").length, fill: "hsl(var(--info))" },
-    { name: "In Progress", value: orders.filter((o) => o.status === "in_progress").length, fill: "hsl(var(--primary))" },
-    { name: "Completed", value: completedOrders, fill: "hsl(var(--success))" },
-    { name: "Canceled", value: canceledOrders, fill: "hsl(var(--destructive))" },
-  ];
-
-  // Monthly order trend
-  const getMonthlyOrderData = () => {
-    const months = [];
-    for (let i = 5; i >= 0; i--) {
-      const date = subMonths(new Date(), i);
-      const monthStart = startOfMonth(date);
-      const monthEnd = endOfMonth(date);
-
-      const monthOrders = orders.filter((o) => {
-        const createdAt = new Date(o.created_at);
-        return createdAt >= monthStart && createdAt <= monthEnd;
-      });
-
-      const monthRevenue = monthOrders
-        .filter((o) => o.status === "completed")
-        .reduce((sum, o) => sum + Number(o.total_price), 0);
-
-      months.push({
-        month: format(date, "MMM"),
-        orders: monthOrders.length,
-        revenue: monthRevenue,
-      });
-    }
-    return months;
-  };
-
-  const monthlyData = getMonthlyOrderData();
-
-  // Top vendors by orders
-  const vendorOrderCounts: Record<string, { name: string; orders: number; revenue: number; rating: number }> = {};
-  orders.forEach((order) => {
-    const vendorId = order.vendor_id;
-    const vendor = vendors.find((v) => v.id === vendorId);
-    if (!vendorOrderCounts[vendorId]) {
-      vendorOrderCounts[vendorId] = {
-        name: vendor?.business_name || "Unknown",
-        orders: 0,
-        revenue: 0,
-        rating: vendor?.rating || 0,
-      };
-    }
-    vendorOrderCounts[vendorId].orders++;
-    if (order.status === "completed") {
-      vendorOrderCounts[vendorId].revenue += Number(order.total_price);
-    }
-  });
-
-  const topVendors = Object.values(vendorOrderCounts)
-    .sort((a, b) => b.orders - a.orders)
-    .slice(0, 5);
-
-  // Filter orders
-  const filteredOrders = orders.filter((order) => {
-    const matchesSearch =
-      order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (order.vendors as any)?.business_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(amount);
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-      pending: "secondary",
-      confirmed: "outline",
-      in_progress: "default",
-      completed: "default",
-      canceled: "destructive",
-    };
     const colors: Record<string, string> = {
       pending: "bg-warning/10 text-warning border-warning/20",
       confirmed: "bg-info/10 text-info border-info/20",
@@ -204,7 +98,7 @@ const AdminOrders = () => {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Total Orders</p>
-                      <p className="text-xl font-bold">{totalOrders}</p>
+                      <p className="text-xl font-bold">{stats.totalOrders}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -217,7 +111,7 @@ const AdminOrders = () => {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Total GMV</p>
-                      <p className="text-xl font-bold">{formatCurrency(totalRevenue)}</p>
+                      <p className="text-xl font-bold">{formatCurrency(stats.totalRevenue)}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -230,7 +124,7 @@ const AdminOrders = () => {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Platform Fees</p>
-                      <p className="text-xl font-bold">{formatCurrency(totalServiceFees)}</p>
+                      <p className="text-xl font-bold">{formatCurrency(stats.totalServiceFees)}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -243,7 +137,7 @@ const AdminOrders = () => {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Pending</p>
-                      <p className="text-xl font-bold">{pendingOrders}</p>
+                      <p className="text-xl font-bold">{stats.pendingOrders}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -259,7 +153,7 @@ const AdminOrders = () => {
                 </CardHeader>
                 <CardContent>
                   <ChartContainer config={chartConfig} className="h-[300px]">
-                    <AreaChart data={monthlyData}>
+                    <AreaChart data={monthlyStats}>
                       <XAxis dataKey="month" />
                       <YAxis yAxisId="left" />
                       <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => `${v / 1000000}M`} />
@@ -367,8 +261,8 @@ const AdminOrders = () => {
                     {filteredOrders.slice(0, 50).map((order) => (
                       <TableRow key={order.id}>
                         <TableCell className="font-mono">{order.order_number}</TableCell>
-                        <TableCell>{(order.vendors as any)?.business_name || "-"}</TableCell>
-                        <TableCell>{(order.products as any)?.name || "-"}</TableCell>
+                        <TableCell>{order.vendors?.business_name || "-"}</TableCell>
+                        <TableCell>{order.products?.name || "-"}</TableCell>
                         <TableCell>{formatCurrency(Number(order.total_price))}</TableCell>
                         <TableCell>{formatCurrency(Number(order.service_fee || 0))}</TableCell>
                         <TableCell>{getStatusBadge(order.status)}</TableCell>

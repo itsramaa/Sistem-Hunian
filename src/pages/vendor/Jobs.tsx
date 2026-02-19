@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { VendorLayout } from '@/components/layouts/VendorLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
+import { VendorLayout } from '@/shared/components/layouts/VendorLayout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { Textarea } from '@/shared/components/ui/textarea';
+import { Label } from '@/shared/components/ui/label';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,11 +15,11 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { useAuth } from '@/hooks/useAuth';
+} from '@/shared/components/ui/alert-dialog';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import type { Tables } from '@/integrations/supabase/types';
+import { supabase } from '@/lib/integrations/supabase/client';
+import type { Tables } from '@/lib/integrations/supabase/types';
 import { 
   Briefcase, 
   Clock, 
@@ -34,12 +34,12 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { CompletionDialog } from '@/components/maintenance/CompletionDialog';
-import { SLABadge } from '@/components/maintenance/SLABadge';
-import { formatCurrency } from '@/lib/currency';
-import { getPriorityColor, getJobStatusColor } from '@/lib/statusColors';
-import { isValidJobStatusTransition, declineReasonSchema } from '@/lib/vendorValidations';
-import { VENDOR_PLATFORM_FEE_PERCENT, calculatePlatformFee, calculateNetAmount } from '@/lib/constants/platformFees';
+import { CompletionDialog } from '@/features/maintenance/components/CompletionDialog';
+import { SLABadge } from '@/features/maintenance/components/SLABadge';
+import { formatCurrency } from '@/shared/utils/currency';
+import { getPriorityColor, getJobStatusColor } from '@/shared/utils/statusColors';
+import { isValidJobStatusTransition, declineReasonSchema } from '@/features/users/utils/vendor-validations';
+import { VENDOR_PLATFORM_FEE_PERCENT, calculatePlatformFee, calculateNetAmount } from '@/constants/platformFees';
 
 // Use generated types from Supabase with relationships
 type VendorJobRow = Tables<'vendor_jobs'>;

@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { TenantLayout } from "@/components/layouts/TenantLayout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Skeleton } from "@/components/ui/skeleton";
+import { supabase } from "@/lib/integrations/supabase/client";
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { TenantLayout } from "@/shared/components/layouts/TenantLayout";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/components/ui/card";
+import { Button } from "@/shared/components/ui/button";
+import { Badge } from "@/shared/components/ui/badge";
+import { Input } from "@/shared/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
+import { ScrollArea } from "@/shared/components/ui/scroll-area";
+import { Skeleton } from "@/shared/components/ui/skeleton";
 import { 
   Bell, Check, CheckCheck, Search, Filter,
   CreditCard, FileText, Wrench, AlertTriangle, Info,

@@ -6,6 +6,27 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface TenantProfile {
+  email: string;
+  full_name: string;
+}
+
+interface Property {
+  id: string;
+  name: string;
+}
+
+interface Unit {
+  id: string;
+  unit_number: string;
+  property: Property;
+}
+
+interface Contract {
+  id: string;
+  unit: Unit;
+}
+
 serve(async (req) => {
   console.log("Auto-pay execute function called");
 
@@ -97,12 +118,12 @@ serve(async (req) => {
         // Process each pending invoice
         for (const invoice of pendingInvoices) {
           try {
-            const tenantProfile = tenant.profiles as any;
+            const tenantProfile = tenant.profiles as unknown as TenantProfile;
             const tenantEmail = tenantProfile?.email;
             const tenantName = tenantProfile?.full_name || 'Tenant';
-            const contract = invoice.contract as any;
-            const unit = contract?.unit as any;
-            const property = unit?.property as any;
+            const contract = invoice.contract as unknown as Contract;
+            const unit = contract?.unit;
+            const property = unit?.property;
 
             console.log(`Creating Xendit invoice for ${invoice.invoice_number}`);
 
@@ -157,16 +178,18 @@ serve(async (req) => {
             });
 
             results.invoicesCreated++;
-          } catch (invoiceProcessError: any) {
-            console.error(`Error processing invoice ${invoice.invoice_number}:`, invoiceProcessError);
-            results.errors.push(`Invoice ${invoice.invoice_number}: ${invoiceProcessError.message}`);
+          } catch (invoiceProcessError) {
+            const err = invoiceProcessError as Error;
+            console.error(`Error processing invoice ${invoice.invoice_number}:`, err);
+            results.errors.push(`Invoice ${invoice.invoice_number}: ${err.message}`);
           }
         }
 
         results.processed++;
-      } catch (tenantProcessError: any) {
-        console.error(`Error processing tenant ${tenant.user_id}:`, tenantProcessError);
-        results.errors.push(`Tenant ${tenant.user_id}: ${tenantProcessError.message}`);
+      } catch (tenantProcessError) {
+        const err = tenantProcessError as Error;
+        console.error(`Error processing tenant ${tenant.user_id}:`, err);
+        results.errors.push(`Tenant ${tenant.user_id}: ${err.message}`);
       }
     }
 
@@ -183,10 +206,11 @@ serve(async (req) => {
         headers: { "Content-Type": "application/json", ...corsHeaders },
       }
     );
-  } catch (error: any) {
-    console.error("Error in auto-pay-execute function:", error);
+  } catch (error) {
+    const err = error as Error;
+    console.error("Error in auto-pay-execute function:", err);
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: err.message }),
       {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },

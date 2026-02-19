@@ -1,11 +1,11 @@
-import { VendorLayout } from '@/components/layouts/VendorLayout';
-import { ReferralDashboard } from '@/components/referral/ReferralDashboard';
-import { useAuth } from '@/hooks/useAuth';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { VendorLayout } from '@/shared/components/layouts/VendorLayout';
+import { ReferralDashboard } from '@/features/referrals/components/ReferralDashboard';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert';
+import { Badge } from '@/shared/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { AlertTriangle, CheckCircle, Clock, Shield } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Skeleton } from '@/shared/components/ui/skeleton';
 
 export default function VendorReferrals() {
   const { vendor } = useAuth();

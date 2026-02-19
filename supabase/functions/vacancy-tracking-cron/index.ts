@@ -42,7 +42,14 @@ serve(async (req) => {
     console.log(`Found ${vacantUnits?.length || 0} vacant units`);
 
     const now = new Date();
-    const notifications: any[] = [];
+    interface Notification {
+      user_id: string;
+      title: string;
+      message: string;
+      type: string;
+      link: string;
+    }
+    const notifications: Notification[] = [];
 
     for (const unit of vacantUnits || []) {
       const vacantSince = unit.vacant_since ? new Date(unit.vacant_since) : null;

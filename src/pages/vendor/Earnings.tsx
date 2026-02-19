@@ -1,9 +1,9 @@
-import { VendorLayout } from '@/components/layouts/VendorLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Skeleton } from '@/components/ui/skeleton';
+import { VendorLayout } from '@/shared/components/layouts/VendorLayout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { Skeleton } from '@/shared/components/ui/skeleton';
 import {
   Table,
   TableBody,
@@ -11,10 +11,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { useAuth } from '@/hooks/useAuth';
+} from '@/shared/components/ui/table';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/integrations/supabase/client';
 import { 
   Wallet, 
   TrendingUp, 
@@ -25,9 +25,9 @@ import {
 import { format, startOfMonth, startOfWeek, isAfter } from 'date-fns';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { formatCurrency } from '@/lib/currency';
-import { formatFeePercentage, VENDOR_PLATFORM_FEE_PERCENT } from '@/lib/constants/platformFees';
-import { getPaymentStatusColor } from '@/lib/statusColors';
+import { formatCurrency } from '@/shared/utils/currency';
+import { formatFeePercentage, VENDOR_PLATFORM_FEE_PERCENT } from '@/constants/platformFees';
+import { getPaymentStatusColor } from '@/shared/utils/statusColors';
 
 interface VendorEarning {
   id: string;

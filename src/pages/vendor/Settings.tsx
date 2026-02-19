@@ -1,34 +1,34 @@
-import { VendorLayout } from '@/components/layouts/VendorLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
-import { Progress } from '@/components/ui/progress';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { DisbursementSettings } from '@/features/payments/components/DisbursementSettings';
+import { validatePassword, validatePhoneNumber } from '@/features/users/utils/vendor-validations';
+import { VerificationUpload } from '@/features/verification/components/VerificationUpload';
+import { supabase } from '@/lib/integrations/supabase/client';
+import { VendorLayout } from '@/shared/components/layouts/VendorLayout';
+import { Alert, AlertDescription } from '@/shared/components/ui/alert';
+import { Button } from '@/shared/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import { Progress } from '@/shared/components/ui/progress';
+import { Separator } from '@/shared/components/ui/separator';
+import { Switch } from '@/shared/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { useState, useEffect, useMemo } from 'react';
-import { 
-  User, 
-  Lock, 
-  Bell, 
-  CreditCard, 
-  Save,
-  Trash2,
-  Shield,
+import {
+  AlertTriangle,
+  Bell,
   Calendar,
+  CreditCard,
   Eye,
   EyeOff,
-  AlertTriangle
+  Lock,
+  Save,
+  Shield,
+  Trash2,
+  User
 } from 'lucide-react';
-import { VerificationUpload } from '@/components/vendor/VerificationUpload';
-import { DisbursementSettings } from '@/components/vendor/DisbursementSettings';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { validatePhoneNumber, validatePassword } from '@/lib/vendorValidations';
+import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
 interface VendorBankAccount {
   id: string;

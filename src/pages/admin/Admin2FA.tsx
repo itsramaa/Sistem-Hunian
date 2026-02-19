@@ -1,135 +1,35 @@
+import { useAdminSecurity } from '@/features/auth/hooks/useAdminSecurity';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { AdminLayout } from '@/shared/components/layouts/AdminLayout';
+import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import { AlertTriangle, Copy, Key, RefreshCw, Shield, ShieldAlert, ShieldCheck, Smartphone } from 'lucide-react';
 import { useState } from 'react';
-import { AdminLayout } from '@/components/layouts/AdminLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { Shield, ShieldCheck, ShieldAlert, Key, Smartphone, Copy, RefreshCw, AlertTriangle } from 'lucide-react';
 
 export default function Admin2FA() {
-  const { user, profile } = useAuth();
-  const queryClient = useQueryClient();
+  const { profile } = useAuth();
+  const { 
+    is2FAEnabled, 
+    isStatusLoading, 
+    enable2FA, 
+    disable2FA, 
+    isEnabling, 
+    isDisabling,
+    generateSecret,
+    generateRecoveryCodes
+  } = useAdminSecurity();
+  
   const [verificationCode, setVerificationCode] = useState('');
   const [showSetupDialog, setShowSetupDialog] = useState(false);
   const [setupStep, setSetupStep] = useState<'generate' | 'verify'>('generate');
   const [tempSecret, setTempSecret] = useState<string | null>(null);
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
-
-  // Check 2FA status
-  const { data: is2FAEnabled = false, isLoading } = useQuery({
-    queryKey: ['admin-2fa-status', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return false;
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('admin_2fa_enabled')
-        .eq('user_id', user.id)
-        .single();
-      if (error) throw error;
-      return data?.admin_2fa_enabled || false;
-    },
-    enabled: !!user?.id,
-  });
-
-  // Generate a mock TOTP secret (in production, use a proper TOTP library)
-  const generateSecret = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-    let secret = '';
-    for (let i = 0; i < 32; i++) {
-      secret += chars[Math.floor(Math.random() * chars.length)];
-    }
-    return secret;
-  };
-
-  // Generate recovery codes
-  const generateRecoveryCodes = () => {
-    const codes: string[] = [];
-    for (let i = 0; i < 8; i++) {
-      const code = Math.random().toString(36).substring(2, 6).toUpperCase() + '-' +
-                   Math.random().toString(36).substring(2, 6).toUpperCase();
-      codes.push(code);
-    }
-    return codes;
-  };
-
-  // Enable 2FA mutation
-  const enable2FAMutation = useMutation({
-    mutationFn: async () => {
-      if (!user?.id) throw new Error('Not authenticated');
-      
-      // In production, verify the TOTP code here
-      // For now, we'll simulate the verification
-      
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          admin_2fa_enabled: true,
-          admin_2fa_secret: tempSecret,
-        })
-        .eq('user_id', user.id);
-      
-      if (error) throw error;
-      
-      // Log the action
-      await supabase.from('audit_logs').insert({
-        user_id: user.id,
-        action: '2fa_enabled',
-        entity_type: 'user',
-        entity_id: user.id,
-        metadata: { method: 'totp' },
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-2fa-status'] });
-      toast.success('Two-factor authentication enabled successfully');
-      setShowSetupDialog(false);
-      setSetupStep('generate');
-      setTempSecret(null);
-    },
-    onError: () => {
-      toast.error('Failed to enable 2FA');
-    },
-  });
-
-  // Disable 2FA mutation
-  const disable2FAMutation = useMutation({
-    mutationFn: async () => {
-      if (!user?.id) throw new Error('Not authenticated');
-      
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          admin_2fa_enabled: false,
-          admin_2fa_secret: null,
-        })
-        .eq('user_id', user.id);
-      
-      if (error) throw error;
-      
-      // Log the action
-      await supabase.from('audit_logs').insert({
-        user_id: user.id,
-        action: '2fa_disabled',
-        entity_type: 'user',
-        entity_id: user.id,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-2fa-status'] });
-      toast.success('Two-factor authentication disabled');
-    },
-    onError: () => {
-      toast.error('Failed to disable 2FA');
-    },
-  });
 
   const handleStartSetup = () => {
     const secret = generateSecret();
@@ -143,7 +43,15 @@ export default function Admin2FA() {
   const handleVerifyAndEnable = () => {
     // In production, verify the code against the TOTP algorithm
     if (verificationCode.length === 6) {
-      enable2FAMutation.mutate();
+      if (!tempSecret) return;
+      enable2FA({ secret: tempSecret, token: verificationCode }, {
+        onSuccess: () => {
+          setShowSetupDialog(false);
+          setSetupStep('generate');
+          setTempSecret(null);
+          setVerificationCode('');
+        }
+      });
     } else {
       toast.error('Please enter a valid 6-digit code');
     }
@@ -154,9 +62,15 @@ export default function Admin2FA() {
     toast.success('Copied to clipboard');
   };
 
-  const otpAuthUrl = tempSecret
-    ? `otpauth://totp/SiHuni:${profile?.email}?secret=${tempSecret}&issuer=SiHuni`
-    : '';
+  if (isStatusLoading) {
+     return (
+       <AdminLayout>
+         <div className="flex items-center justify-center h-64">
+           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+         </div>
+       </AdminLayout>
+     );
+  }
 
   return (
     <AdminLayout>
@@ -239,10 +153,10 @@ export default function Admin2FA() {
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={() => disable2FAMutation.mutate()}
-                    disabled={disable2FAMutation.isPending}
+                    onClick={() => disable2FA()}
+                    disabled={isDisabling}
                   >
-                    Disable 2FA
+                    {isDisabling ? 'Disabling...' : 'Disable 2FA'}
                   </Button>
                 </div>
                 <Button variant="outline" className="w-full" onClick={handleStartSetup}>
@@ -385,9 +299,9 @@ export default function Admin2FA() {
                   </Button>
                   <Button
                     onClick={handleVerifyAndEnable}
-                    disabled={verificationCode.length !== 6 || enable2FAMutation.isPending}
+                    disabled={verificationCode.length !== 6 || isEnabling}
                   >
-                    {enable2FAMutation.isPending ? 'Enabling...' : 'Enable 2FA'}
+                    {isEnabling ? 'Enabling...' : 'Enable 2FA'}
                   </Button>
                 </DialogFooter>
               </div>

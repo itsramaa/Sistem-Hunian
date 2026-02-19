@@ -1,17 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { TenantLayout } from "@/components/layouts/TenantLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/lib/integrations/supabase/client";
+import { TenantLayout } from "@/shared/components/layouts/TenantLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
+import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
+import { Textarea } from "@/shared/components/ui/textarea";
+import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
+import { Alert, AlertDescription } from "@/shared/components/ui/alert";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/shared/components/ui/dialog";
+import { useToast } from "@/shared/hooks/use-toast";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { ArrowLeft, Heart, MessageSquare, Loader2, Send, Trash2, Flag, AlertTriangle, RefreshCw } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -398,7 +398,7 @@ export default function TenantForumPost() {
           {post.photos && post.photos.length > 0 && (
             <div className="mt-4 grid gap-2 grid-cols-2 sm:grid-cols-3">
               {post.photos.map((url, i) => (
-                <img key={i} src={url} alt="" className="rounded-lg object-cover aspect-square" />
+                <img key={i} src={url} alt={`${post.title} - ${i + 1}`} className="rounded-lg object-cover aspect-square" />
               ))}
             </div>
           )}

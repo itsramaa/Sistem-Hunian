@@ -1,15 +1,16 @@
-import { useState } from 'react';
-import { Shield, Loader2, CheckCircle, ArrowLeft } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { z } from 'zod';
-import { useForm } from 'react-hook-form';
+import { adminSecurityService } from '@/features/auth/services/adminSecurityService';
+import { supabase } from '@/lib/integrations/supabase/client';
+import { Button } from '@/shared/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import { useToast } from '@/shared/hooks/use-toast';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { ArrowLeft, CheckCircle, Loader2, Shield } from 'lucide-react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { Link } from 'react-router-dom';
+import { z } from 'zod';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -37,31 +38,11 @@ export default function AdminSetup() {
     },
   });
 
-  const validateSecretKey = async (secretKey: string): Promise<boolean> => {
-    try {
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/validate-admin-secret`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ secretKey }),
-      });
-      
-      if (!response.ok) {
-        return false;
-      }
-      
-      const result = await response.json();
-      return result.valid === true;
-    } catch (error) {
-      console.error('Error validating secret:', error);
-      return false;
-    }
-  };
-
   const handleSubmit = async (data: AdminFormData) => {
     setIsLoading(true);
     try {
       // Validate secret key via edge function
-      const isValidSecret = await validateSecretKey(data.secretKey);
+      const isValidSecret = await adminSecurityService.validateAdminSecret(data.secretKey);
       
       if (!isValidSecret) {
         toast({
@@ -107,12 +88,13 @@ export default function AdminSetup() {
         title: 'Admin Account Created!',
         description: 'You can now log in with your admin credentials.',
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating admin:', error);
+      const err = error as Error;
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message || 'Failed to create admin account',
+        description: err.message || 'Failed to create admin account',
       });
     } finally {
       setIsLoading(false);

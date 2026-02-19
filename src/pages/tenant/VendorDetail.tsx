@@ -1,24 +1,24 @@
-import { useState } from "react";
-import { useParams, useNavigate, Navigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { TenantLayout } from "@/components/layouts/TenantLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
-import { Star, MapPin, Phone, Mail, CalendarIcon, ArrowLeft, Loader2, ShoppingCart, CreditCard, Tag, Check, X, RefreshCw, AlertTriangle, MessageSquare } from "lucide-react";
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { XenditPaymentModal } from "@/features/payments/components/XenditPaymentModal";
+import { supabase } from "@/lib/integrations/supabase/client";
+import { TenantLayout } from "@/shared/components/layouts/TenantLayout";
+import { Alert, AlertDescription } from "@/shared/components/ui/alert";
+import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
+import { Calendar } from "@/shared/components/ui/calendar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
+import { Textarea } from "@/shared/components/ui/textarea";
+import { useToast } from "@/shared/hooks/use-toast";
+import { cn } from "@/shared/utils/utils";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
-import { XenditPaymentModal } from "@/components/payment/XenditPaymentModal";
+import { AlertTriangle, ArrowLeft, CalendarIcon, Check, CreditCard, Loader2, Mail, MapPin, MessageSquare, Phone, RefreshCw, ShoppingCart, Star, Tag, X } from "lucide-react";
+import { useState } from "react";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 
 interface Product {
   id: string;
@@ -77,11 +77,6 @@ export default function TenantVendorDetail() {
   const [voucherLoading, setVoucherLoading] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<{ id: string; total: number } | null>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-
-  // Role verification
-  if (role && role !== "tenant") {
-    return <Navigate to="/unauthorized" replace />;
-  }
 
   // Fetch vendor details
   const { data: vendor, isLoading: vendorLoading, error: vendorError, refetch: refetchVendor } = useQuery({
@@ -284,6 +279,11 @@ export default function TenantVendorDetail() {
 
   const isLoading = vendorLoading || productsLoading;
   const hasError = vendorError || productsError;
+
+  // Role verification
+  if (role && role !== "tenant") {
+    return <Navigate to="/unauthorized" replace />;
+  }
 
   if (isLoading) {
     return (

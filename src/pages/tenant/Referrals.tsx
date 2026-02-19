@@ -1,10 +1,10 @@
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { TenantLayout } from '@/components/layouts/TenantLayout';
-import { ReferralDashboard } from '@/components/referral/ReferralDashboard';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { TenantLayout } from '@/shared/components/layouts/TenantLayout';
+import { ReferralDashboard } from '@/features/referrals/components/ReferralDashboard';
 import { useEffect, useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Button } from '@/shared/components/ui/button';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
 export default function TenantReferrals() {

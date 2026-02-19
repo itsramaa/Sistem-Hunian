@@ -1,38 +1,10 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
-import { MerchantLayout } from '@/components/layouts/MerchantLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { SignaturePad } from '@/components/signature/SignaturePad';
-import { ContractDocumentUpload } from '@/components/merchant/ContractDocumentUpload';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { 
-  FileText, 
-  Calendar, 
-  Home, 
-  Loader2, 
-  Download, 
-  DollarSign, 
-  PenLine, 
-  CheckCircle, 
-  Search,
-  Users,
-  Eye,
-  Edit,
-  AlertTriangle,
-  Clock,
-  Plus,
-  Trash2
-} from 'lucide-react';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { ContractDocumentUpload } from '@/features/contracts/components/ContractDocumentUpload';
+import { Contract } from '@/features/contracts/types';
+import { usePropertiesWithUnits } from '@/features/properties/hooks/useMerchantProperties';
+import { SignaturePad } from '@/features/signature/components/SignaturePad';
+import { useMerchantTenants, useTenantProfiles } from '@/features/users/hooks/useMerchantTenants';
+import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,38 +14,39 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { format } from 'date-fns';
-import { toast } from 'sonner';
-import { z } from 'zod';
-import { useForm } from 'react-hook-form';
+} from '@/shared/components/ui/alert-dialog';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { Card, CardContent } from '@/shared/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/shared/components/ui/dialog';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { Textarea } from '@/shared/components/ui/textarea';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ContractCardSkeleton, StatsCardSkeleton } from '@/components/ui/skeletons';
-
-interface Contract {
-  id: string;
-  tenant_user_id: string;
-  start_date: string;
-  end_date: string;
-  rent_amount: number;
-  deposit_amount: number | null;
-  status: string | null;
-  signature_status: string | null;
-  tenant_signature_url: string | null;
-  merchant_signature_url: string | null;
-  tenant_signed_at: string | null;
-  merchant_signed_at: string | null;
-  terms: string | null;
-  contract_document_url: string | null;
-  unit: {
-    unit_number: string;
-    property: {
-      name: string;
-      address: string;
-      city: string;
-    } | null;
-  } | null;
-}
+import { useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
+import {
+  AlertTriangle,
+  Calendar,
+  CheckCircle,
+  Clock,
+  DollarSign,
+  Edit,
+  Eye,
+  FileText,
+  Home,
+  Loader2,
+  PenLine,
+  Plus,
+  Search,
+  Trash2,
+  Users
+} from 'lucide-react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { useNavigate } from 'react-router-dom';
 
 interface Property {
   id: string;
@@ -81,33 +54,7 @@ interface Property {
   units: { id: string; unit_number: string; status: string; rent_amount: number }[];
 }
 
-const contractSchema = z.object({
-  unit_id: z.string().min(1, 'Please select a unit'),
-  tenant_user_id: z.string().min(1, 'Please select a tenant'),
-  start_date: z.string().min(1, 'Start date is required'),
-  end_date: z.string().min(1, 'End date is required'),
-  rent_amount: z.coerce.number().positive('Rent must be positive'),
-  deposit_amount: z.coerce.number().min(0, 'Deposit cannot be negative'),
-  billing_day: z.coerce.number().min(1).max(28).optional(),
-  terms: z.string().max(10000, 'Terms cannot exceed 10,000 characters').optional(),
-}).refine((data) => {
-  const start = new Date(data.start_date);
-  const end = new Date(data.end_date);
-  return end > start;
-}, {
-  message: 'End date must be after start date',
-  path: ['end_date'],
-}).refine((data) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const start = new Date(data.start_date);
-  return start >= today;
-}, {
-  message: 'Start date cannot be in the past',
-  path: ['start_date'],
-});
-
-type ContractFormData = z.infer<typeof contractSchema>;
+import { ContractFormData, contractSchema } from '@/features/contracts/types/schema';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('id-ID', {
@@ -123,16 +70,37 @@ export default function MerchantContracts() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [signDialogOpen, setSignDialogOpen] = useState(false);
-  const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
-  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
-  const [viewDialogOpen, setViewDialogOpen] = useState(false);
-  const [editTermsDialogOpen, setEditTermsDialogOpen] = useState(false);
-  const [editingTerms, setEditingTerms] = useState('');
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [createLoading, setCreateLoading] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [contractToDelete, setContractToDelete] = useState<Contract | null>(null);
+  const {
+    contracts,
+    isLoading,
+    createDialogOpen: showCreateDialog,
+    setCreateDialogOpen: setShowCreateDialog,
+    signDialogOpen, setSignDialogOpen,
+    viewDialogOpen, setViewDialogOpen,
+    editTermsDialogOpen, setEditTermsDialogOpen,
+    deleteDialogOpen, setDeleteDialogOpen,
+    selectedContract, setSelectedContract,
+    contractToDelete, setContractToDelete,
+    signatureDataUrl, setSignatureDataUrl,
+    editingTerms, setEditingTerms,
+    
+    handleCreateContract: createContractAction,
+    handleDeleteContract,
+    confirmDelete: handleConfirmDelete,
+    handleMarkNotice,
+    handleSaveSignature,
+    handleSignContract,
+    openSignDialog,
+    openViewDialog,
+    openEditTermsDialog: handleEditTerms,
+    handleSaveTerms,
+    
+    createContractMutation,
+    deleteContractMutation,
+    signContractMutation,
+    updateTermsMutation,
+    updateStatusMutation
+  } = useContractActions();
 
   const contractForm = useForm<ContractFormData>({
     resolver: zodResolver(contractSchema),
@@ -147,45 +115,9 @@ export default function MerchantContracts() {
       terms: '',
     },
   });
-  const { data: contracts, isLoading } = useQuery({
-    queryKey: ['merchant-contracts', merchant?.id],
-    queryFn: async () => {
-      if (!merchant?.id) return [];
-      const { data, error } = await supabase
-        .from('contracts')
-        .select(`
-          *,
-          unit:units (
-            unit_number,
-            property:properties (
-              name,
-              address,
-              city
-            )
-          )
-        `)
-        .eq('merchant_id', merchant.id)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data as Contract[];
-    },
-    enabled: !!merchant?.id,
-  });
 
   // Fetch properties with units for create dialog
-  const { data: properties = [] } = useQuery({
-    queryKey: ['properties-with-units', merchant?.id],
-    queryFn: async () => {
-      if (!merchant?.id) return [];
-      const { data, error } = await supabase
-        .from('properties')
-        .select('id, name, units(id, unit_number, status, rent_amount)')
-        .eq('merchant_id', merchant.id);
-      if (error) throw error;
-      return data as Property[];
-    },
-    enabled: !!merchant?.id,
-  });
+  const { data: properties = [] } = usePropertiesWithUnits(merchant?.id || '');
 
   const availableUnits = properties.flatMap(p => 
     (p.units || [])
@@ -195,266 +127,16 @@ export default function MerchantContracts() {
 
   // Fetch tenant profiles
   const tenantIds = contracts?.map(c => c.tenant_user_id) || [];
-  const { data: tenantProfiles } = useQuery({
-    queryKey: ['tenant-profiles', tenantIds],
-    queryFn: async () => {
-      if (tenantIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('user_id, full_name, email')
-        .in('user_id', tenantIds);
-      if (error) throw error;
-      return data;
-    },
-    enabled: tenantIds.length > 0,
-  });
+  const { data: tenantProfiles } = useTenantProfiles(tenantIds);
 
   // Fetch merchant's tenants
-  const { data: merchantTenants = [] } = useQuery({
-    queryKey: ['merchant-tenants', merchant?.id],
-    queryFn: async () => {
-      if (!merchant?.id) return [];
-      const { data, error } = await supabase
-        .from('tenants')
-        .select('user_id, profiles(user_id, full_name, email)')
-        .eq('linked_merchant_id', merchant.id);
-      if (error) throw error;
-      return data?.map((t: any) => ({
-        user_id: t.user_id,
-        full_name: t.profiles?.full_name || 'Unknown',
-        email: t.profiles?.email || '',
-      })) || [];
-    },
-    enabled: !!merchant?.id,
-  });
-
-  const handleCreateContract = async (data: ContractFormData) => {
-    if (!merchant) return;
-    setCreateLoading(true);
-    try {
-      // Check for existing active contract on unit
-      const { data: existingUnitContract, error: unitCheckError } = await supabase
-        .from('contracts')
-        .select('id')
-        .eq('unit_id', data.unit_id)
-        .in('status', ['active', 'draft', 'pending_signature'])
-        .limit(1);
-
-      if (unitCheckError) throw unitCheckError;
-      if (existingUnitContract && existingUnitContract.length > 0) {
-        toast.error('This unit already has an active or pending contract');
-        return;
-      }
-
-      // Check for existing active contract for tenant with this merchant
-      const { data: existingTenantContract, error: tenantCheckError } = await supabase
-        .from('contracts')
-        .select('id')
-        .eq('tenant_user_id', data.tenant_user_id)
-        .eq('merchant_id', merchant.id)
-        .in('status', ['active', 'draft', 'pending_signature'])
-        .limit(1);
-
-      if (tenantCheckError) throw tenantCheckError;
-      if (existingTenantContract && existingTenantContract.length > 0) {
-        toast.error('This tenant already has an active or pending contract with you');
-        return;
-      }
-
-      const { error } = await supabase
-        .from('contracts')
-        .insert({
-          merchant_id: merchant.id,
-          unit_id: data.unit_id,
-          tenant_user_id: data.tenant_user_id,
-          start_date: data.start_date,
-          end_date: data.end_date,
-          rent_amount: data.rent_amount,
-          deposit_amount: data.deposit_amount,
-          billing_day: data.billing_day || null,
-          terms: data.terms || null,
-          status: 'draft',
-        });
-      if (error) throw error;
-      toast.success('Contract created successfully');
-      setShowCreateDialog(false);
-      contractForm.reset();
-      queryClient.invalidateQueries({ queryKey: ['merchant-contracts'] });
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to create contract');
-    } finally {
-      setCreateLoading(false);
-    }
-  };
+  const { data: merchantTenants = [] } = useMerchantTenants(merchant?.id);
 
   const profileMap = new Map(tenantProfiles?.map(p => [p.user_id, p]) || []);
-
-  const signContractMutation = useMutation({
-    mutationFn: async ({ contractId, signatureUrl }: { contractId: string; signatureUrl: string }) => {
-      // Upload signature
-      const base64Data = signatureUrl.replace(/^data:image\/png;base64,/, '');
-      const fileName = `signatures/${user?.id}/${contractId}_merchant_${Date.now()}.png`;
-      
-      const byteCharacters = atob(base64Data);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: 'image/png' });
-
-      const { error: uploadError } = await supabase.storage
-        .from('verification-documents')
-        .upload(fileName, blob, { contentType: 'image/png' });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('verification-documents')
-        .getPublicUrl(fileName);
-
-      // Get current contract to check tenant signature
-      const { data: contract } = await supabase
-        .from('contracts')
-        .select('tenant_signature_url')
-        .eq('id', contractId)
-        .single();
-
-      const newStatus = contract?.tenant_signature_url ? 'fully_signed' : 'merchant_signed';
-
-      // Update contract
-      const { error: updateError } = await supabase
-        .from('contracts')
-        .update({
-          merchant_signature_url: publicUrl,
-          merchant_signed_at: new Date().toISOString(),
-          signature_status: newStatus,
-        })
-        .eq('id', contractId);
-
-      if (updateError) throw updateError;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['merchant-contracts'] });
-      setSignDialogOpen(false);
-      setSelectedContract(null);
-      setSignatureDataUrl(null);
-      toast.success('Contract signed successfully!');
-    },
-    onError: (error: Error) => {
-      toast.error(`Failed to sign contract: ${error.message}`);
-    },
-  });
-
-  const updateTermsMutation = useMutation({
-    mutationFn: async ({ contractId, terms }: { contractId: string; terms: string }) => {
-      const { error } = await supabase
-        .from('contracts')
-        .update({ terms })
-        .eq('id', contractId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['merchant-contracts'] });
-      setEditTermsDialogOpen(false);
-      setSelectedContract(null);
-      toast.success('Contract terms updated successfully');
-    },
-    onError: (error: Error) => {
-      toast.error(`Failed to update terms: ${error.message}`);
-    },
-  });
-
-  const markNoticeMutation = useMutation({
-    mutationFn: async ({ contractId, status }: { contractId: string; status: string }) => {
-      const { error } = await supabase
-        .from('contracts')
-        .update({ status })
-        .eq('id', contractId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['merchant-contracts'] });
-      toast.success('Contract marked as notice period');
-    },
-    onError: (error: Error) => {
-      toast.error(`Failed to update status: ${error.message}`);
-    },
-  });
-
-  const deleteContractMutation = useMutation({
-    mutationFn: async (contractId: string) => {
-      const { error } = await supabase
-        .from('contracts')
-        .delete()
-        .eq('id', contractId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['merchant-contracts'] });
-      setDeleteDialogOpen(false);
-      setContractToDelete(null);
-      toast.success('Contract deleted successfully');
-    },
-    onError: (error: Error) => {
-      toast.error(`Failed to delete contract: ${error.message}`);
-    },
-  });
 
   // Contract can be deleted only if neither party has signed
   const canDeleteContract = (contract: Contract) => {
     return !contract.tenant_signature_url && !contract.merchant_signature_url;
-  };
-
-  const handleDeleteContract = (contract: Contract) => {
-    setContractToDelete(contract);
-    setDeleteDialogOpen(true);
-  };
-
-  const handleMarkNotice = (contract: Contract) => {
-    markNoticeMutation.mutate({
-      contractId: contract.id,
-      status: 'notice',
-    });
-  };
-
-  const handleSaveSignature = (dataUrl: string) => {
-    setSignatureDataUrl(dataUrl);
-    toast.success('Signature captured');
-  };
-
-  const handleSignContract = () => {
-    if (!signatureDataUrl || !selectedContract) {
-      toast.error('Please draw your signature first');
-      return;
-    }
-    signContractMutation.mutate({
-      contractId: selectedContract.id,
-      signatureUrl: signatureDataUrl,
-    });
-  };
-
-  const handleEditTerms = (contract: Contract) => {
-    // Lock terms after tenant signature
-    if (contract.tenant_signature_url) {
-      toast.error('Terms cannot be edited after tenant has signed');
-      return;
-    }
-    setSelectedContract(contract);
-    setEditingTerms(contract.terms || '');
-    setEditTermsDialogOpen(true);
-  };
-
-  const handleSaveTerms = () => {
-    if (!selectedContract) return;
-    if (editingTerms.length > 10000) {
-      toast.error('Terms cannot exceed 10,000 characters');
-      return;
-    }
-    updateTermsMutation.mutate({
-      contractId: selectedContract.id,
-      terms: editingTerms,
-    });
   };
 
   const getSignatureStatusBadge = (contract: Contract) => {
@@ -498,15 +180,14 @@ export default function MerchantContracts() {
     return matchesSearch && matchesStatus;
   }) || [];
 
-  const activeContracts = filteredContracts.filter(c => c.status === 'active');
+  const activeContracts = filteredContracts.filter(c => c.status === 'active' || c.status === 'notice');
   const draftContracts = filteredContracts.filter(c => 
     c.status === 'draft' || 
-    (!c.tenant_signature_url && !c.merchant_signature_url && c.status !== 'terminated' && c.status !== 'expired')
+    (!c.tenant_signature_url && !c.merchant_signature_url && c.status !== 'terminated' && c.status !== 'expired' && c.status !== 'notice' && c.status !== 'active')
   );
   const pendingSignature = filteredContracts.filter(c => 
-    c.status === 'active' && 
-    c.tenant_signature_url && 
-    !c.merchant_signature_url
+    (c.status === 'pending' || c.status === 'active') && 
+    (c.tenant_signature_url && !c.merchant_signature_url)
   );
   const pastContracts = filteredContracts.filter(c => 
     c.status === 'terminated' || c.status === 'expired' || c.status === 'completed'
@@ -529,7 +210,7 @@ export default function MerchantContracts() {
               <DialogTitle>Create Contract</DialogTitle>
               <DialogDescription>Create a new rental contract for a tenant</DialogDescription>
             </DialogHeader>
-            <form onSubmit={contractForm.handleSubmit(handleCreateContract)} className="space-y-4">
+            <form onSubmit={contractForm.handleSubmit((data) => createContractAction(data, contractForm.reset))} className="space-y-4">
               <div>
                 <Label>Select Unit</Label>
                 <Select value={contractForm.watch('unit_id')} onValueChange={(v) => contractForm.setValue('unit_id', v)}>
@@ -692,14 +373,8 @@ export default function MerchantContracts() {
                     tenantProfile={profileMap.get(contract.tenant_user_id)}
                     getStatusBadge={getStatusBadge}
                     getSignatureStatusBadge={getSignatureStatusBadge}
-                    onSign={() => {
-                      setSelectedContract(contract);
-                      setSignDialogOpen(true);
-                    }}
-                    onView={() => {
-                      setSelectedContract(contract);
-                      setViewDialogOpen(true);
-                    }}
+                    onSign={() => openSignDialog(contract)}
+                    onView={() => openViewDialog(contract)}
                     canDelete={canDeleteContract(contract)}
                     onDelete={() => handleDeleteContract(contract)}
                     isDeleting={deleteContractMutation.isPending && contractToDelete?.id === contract.id}
@@ -731,16 +406,10 @@ export default function MerchantContracts() {
                     tenantProfile={profileMap.get(contract.tenant_user_id)}
                     getStatusBadge={getStatusBadge}
                     getSignatureStatusBadge={getSignatureStatusBadge}
-                    onSign={() => {
-                      setSelectedContract(contract);
-                      setSignDialogOpen(true);
-                    }}
-                    onView={() => {
-                      setSelectedContract(contract);
-                      setViewDialogOpen(true);
-                    }}
+                    onSign={() => openSignDialog(contract)}
+                    onView={() => openViewDialog(contract)}
                     onMarkNotice={() => handleMarkNotice(contract)}
-                    isMarkingNotice={markNoticeMutation.isPending}
+                    isMarkingNotice={updateStatusMutation.isPending}
                   />
                 ))}
               </div>
@@ -799,10 +468,7 @@ export default function MerchantContracts() {
                     getStatusBadge={getStatusBadge}
                     getSignatureStatusBadge={getSignatureStatusBadge}
                     onSign={() => {}}
-                    onView={() => {
-                      setSelectedContract(contract);
-                      setViewDialogOpen(true);
-                    }}
+                    onView={() => openViewDialog(contract)}
                     isPast
                   />
                 ))}
@@ -1069,7 +735,7 @@ export default function MerchantContracts() {
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
-                onClick={() => contractToDelete && deleteContractMutation.mutate(contractToDelete.id)}
+                onClick={handleConfirmDelete}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 disabled={deleteContractMutation.isPending}
               >

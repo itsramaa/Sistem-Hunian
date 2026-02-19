@@ -1,24 +1,24 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { VendorLayout } from "@/components/layouts/VendorLayout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/lib/integrations/supabase/client";
+import { VendorLayout } from "@/shared/components/layouts/VendorLayout";
+import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
+import { Textarea } from "@/shared/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
+import { Badge } from "@/shared/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/shared/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/shared/components/ui/alert-dialog";
+import { Label } from "@/shared/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
+import { Switch } from "@/shared/components/ui/switch";
+import { useToast } from "@/shared/hooks/use-toast";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Plus, Edit2, Trash2, Package, Loader2, ImageIcon, AlertTriangle, Tag, RefreshCw } from "lucide-react";
-import { ProductPhotoUpload } from "@/components/vendor/ProductPhotoUpload";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { formatCurrency } from "@/lib/currency";
-import { productSchema, type ProductFormData } from "@/lib/vendorValidations";
+import { ProductPhotoUpload } from "@/features/products/components/ProductPhotoUpload";
+import { Alert, AlertDescription } from "@/shared/components/ui/alert";
+import { formatCurrency } from "@/shared/utils/currency";
+import { productSchema, type ProductFormData } from "@/features/users/utils/vendor-validations";
 
 const SERVICE_CATEGORIES = [
   "Plumbing",

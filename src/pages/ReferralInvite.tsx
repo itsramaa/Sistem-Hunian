@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { supabase } from '@/lib/integrations/supabase/client';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Button } from '@/shared/components/ui/button';
+import { Badge } from '@/shared/components/ui/badge';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
 import { Loader2, Gift, Building2, User, Wrench, CheckCircle, ArrowRight, AlertCircle, XCircle } from 'lucide-react';
-import { REFERRAL_ERROR_MESSAGES } from '@/lib/auth-errors';
-import { referralCodeSchema, selectableRoleSchema } from '@/lib/validations/auth';
+import { REFERRAL_ERROR_MESSAGES } from '@/features/auth/utils/auth-errors';
+import { referralCodeSchema, selectableRoleSchema } from '@/shared/utils/validations/auth';
 
 // TypeScript interfaces for referral data
 interface ReferralInfo {

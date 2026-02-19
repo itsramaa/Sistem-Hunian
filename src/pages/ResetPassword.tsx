@@ -4,15 +4,15 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, Building2, ArrowLeft, Mail, CheckCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { emailSchema } from '@/lib/validations/auth';
-import { getAuthErrorMessage } from '@/lib/auth-errors';
-import { triggerHaptic } from '@/lib/haptic';
+import { Button } from '@/shared/components/ui/button';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { useToast } from '@/shared/hooks/use-toast';
+import { supabase } from '@/lib/integrations/supabase/client';
+import { emailSchema } from '@/shared/utils/validations/auth';
+import { getAuthErrorMessage } from '@/features/auth/utils/auth-errors';
+import { triggerHaptic } from '@/shared/utils/haptic';
 
 const resetSchema = z.object({
   email: emailSchema,

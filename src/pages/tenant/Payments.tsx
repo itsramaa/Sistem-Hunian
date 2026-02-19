@@ -1,22 +1,22 @@
-import { useState, useMemo } from 'react';
+import { usePaymentTracking } from '@/features/analytics/hooks/useAnalytics';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { PaymentHistoryExport } from '@/features/payments/components/PaymentHistoryExport';
+import { XenditPaymentModal } from '@/features/payments/components/XenditPaymentModal';
+import { supabase } from '@/lib/integrations/supabase/client';
+import { TenantLayout } from '@/shared/components/layouts/TenantLayout';
+import { Alert, AlertDescription } from '@/shared/components/ui/alert';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { Card, CardContent } from '@/shared/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { PaymentCardSkeleton } from "@/shared/components/ui/skeletons";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { TenantLayout } from '@/components/layouts/TenantLayout';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { DollarSign, Clock, CheckCircle, FileText, Calendar, CreditCard, AlertTriangle, RefreshCw, Filter, Info } from 'lucide-react';
-import { StatsCardSkeleton, PaymentCardSkeleton } from "@/components/ui/skeletons";
 import { format, isPast, parseISO } from 'date-fns';
-import { XenditPaymentModal } from '@/components/payment/XenditPaymentModal';
-import { PaymentHistoryExport } from '@/components/payment/PaymentHistoryExport';
-import { usePaymentTracking } from '@/hooks/useAnalytics';
+import { AlertTriangle, Calendar, CheckCircle, Clock, CreditCard, DollarSign, FileText, Filter, Info, RefreshCw } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 type Payment = {
   id: string;
@@ -58,48 +58,6 @@ export default function TenantPayments() {
     item: null
   });
 
-  // Tenant role verification
-  if (role && role !== 'tenant') {
-    return (
-      <TenantLayout title="Unauthorized" description="">
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            You don't have permission to access this page.
-          </AlertDescription>
-        </Alert>
-      </TenantLayout>
-    );
-  }
-
-  const handlePayNow = (type: 'payment' | 'invoice', item: Payment | Invoice) => {
-    // Validate amount
-    const amount = type === 'invoice' ? Number((item as Invoice).total_amount) : Number((item as Payment).amount);
-    if (!amount || amount <= 0) {
-      return;
-    }
-    
-    // Validate status - only allow payment for pending/sent/overdue
-    const validStatuses = ['pending', 'sent', 'overdue'];
-    if (!validStatuses.includes(item.status)) {
-      return;
-    }
-    
-    // Show confirmation dialog
-    setConfirmDialog({ open: true, type, item });
-  };
-
-  const confirmPayment = () => {
-    if (!confirmDialog.item) return;
-    
-    const { type, item } = confirmDialog;
-    const amount = type === 'invoice' ? Number((item as Invoice).total_amount) : Number((item as Payment).amount);
-    
-    setSelectedPayment({ type, item });
-    trackPaymentInitiated(item.id, amount, type);
-    setConfirmDialog({ open: false, type: 'payment', item: null });
-  };
-
   const { data: payments = [], isLoading: paymentsLoading, error: paymentsError, refetch: refetchPayments } = useQuery({
     queryKey: ['tenant-payments-all', user?.id],
     queryFn: async () => {
@@ -130,6 +88,34 @@ export default function TenantPayments() {
     },
     enabled: !!user?.id,
   });
+
+  const handlePayNow = (type: 'payment' | 'invoice', item: Payment | Invoice) => {
+    // Validate amount
+    const amount = type === 'invoice' ? Number((item as Invoice).total_amount) : Number((item as Payment).amount);
+    if (!amount || amount <= 0) {
+      return;
+    }
+    
+    // Validate status - only allow payment for pending/sent/overdue
+    const validStatuses = ['pending', 'sent', 'overdue'];
+    if (!validStatuses.includes(item.status)) {
+      return;
+    }
+    
+    // Show confirmation dialog
+    setConfirmDialog({ open: true, type, item });
+  };
+
+  const confirmPayment = () => {
+    if (!confirmDialog.item) return;
+    
+    const { type, item } = confirmDialog;
+    const amount = type === 'invoice' ? Number((item as Invoice).total_amount) : Number((item as Payment).amount);
+    
+    setSelectedPayment({ type, item });
+    trackPaymentInitiated(item.id, amount, type);
+    setConfirmDialog({ open: false, type: 'payment', item: null });
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -197,6 +183,20 @@ export default function TenantPayments() {
     pendingInvoices.reduce((sum, i) => sum + Number(i.total_amount), 0);
 
   const totalPaid = paidPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+
+  // Tenant role verification
+  if (role && role !== 'tenant') {
+    return (
+      <TenantLayout title="Unauthorized" description="">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            You don't have permission to access this page.
+          </AlertDescription>
+        </Alert>
+      </TenantLayout>
+    );
+  }
 
   // Error state
   if (paymentsError || invoicesError) {

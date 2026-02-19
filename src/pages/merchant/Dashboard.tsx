@@ -1,33 +1,32 @@
+import { useAnalytics } from '@/features/analytics/hooks/useAnalytics';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { SubscriptionWidget } from '@/features/subscriptions/components/SubscriptionWidget';
+import { TrialCountdownWidget } from '@/features/subscriptions/components/TrialCountdownWidget';
+import { supabase } from '@/lib/integrations/supabase/client';
+import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
+import { Alert, AlertDescription } from '@/shared/components/ui/alert';
+import { Button } from '@/shared/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Progress } from '@/shared/components/ui/progress';
+import { MerchantDashboardSkeleton } from '@/shared/components/ui/skeletons';
+import { formatCurrency } from '@/shared/utils/currency';
+import { formatDisplayDate, getCurrentMonthDateRange, getLastNDaysRange, getNextNDaysRange, getPreviousMonthDateRange } from '@/shared/utils/dateUtils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
-import { 
-  TrendingUp,
-  TrendingDown,
-  Home,
-  Users,
-  Wallet,
-  ArrowUpRight,
+import {
+  AlertCircle,
   ArrowDownRight,
-  Calendar,
+  ArrowUpRight,
   Bell,
+  Calendar,
+  Home,
   Minus,
   RefreshCw,
-  AlertCircle
+  TrendingDown,
+  TrendingUp,
+  Users,
+  Wallet
 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { MerchantLayout } from '@/components/layouts/MerchantLayout';
-import { SubscriptionWidget } from '@/components/merchant/SubscriptionWidget';
-import { TrialCountdownWidget } from '@/components/merchant/TrialCountdownWidget';
-import { MerchantDashboardSkeleton } from '@/components/ui/skeletons';
-import { useAuth } from '@/hooks/useAuth';
-import { useAnalytics } from '@/hooks/useAnalytics';
-import { supabase } from '@/integrations/supabase/client';
-import { formatCurrency } from '@/lib/currency';
-import { formatDisplayDate, getCurrentMonthDateRange, getPreviousMonthDateRange, getNextNDaysRange, getLastNDaysRange } from '@/lib/dateUtils';
-import type { DashboardStats, UpcomingPayment, RecentPayment } from '@/types/merchant';
+import { useNavigate } from 'react-router-dom';
 
 export default function MerchantDashboard() {
   const { merchant } = useAuth();

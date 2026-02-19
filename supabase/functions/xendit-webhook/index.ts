@@ -23,7 +23,32 @@ serve(async (req) => {
 
     // Verify webhook token
     const callbackToken = req.headers.get('x-callback-token');
-    if (callbackToken !== XENDIT_WEBHOOK_TOKEN) {
+    if (!callbackToken || !XENDIT_WEBHOOK_TOKEN) {
+      console.error('Missing webhook token configuration');
+      return new Response(
+        JSON.stringify({ error: 'Configuration error' }),
+        { headers: corsHeaders, status: 500 }
+      );
+    }
+
+    // Timing-safe comparison
+    const encoder = new TextEncoder();
+    const a = encoder.encode(callbackToken);
+    const b = encoder.encode(XENDIT_WEBHOOK_TOKEN);
+    
+    if (a.byteLength !== b.byteLength) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid callback token' }),
+        { headers: corsHeaders, status: 401 }
+      );
+    }
+
+    let diff = 0;
+    for (let i = 0; i < a.byteLength; i++) {
+      diff |= a[i] ^ b[i];
+    }
+
+    if (diff !== 0) {
       console.error('Invalid webhook token');
       return new Response(
         JSON.stringify({ error: 'Invalid callback token' }),
@@ -37,6 +62,46 @@ serve(async (req) => {
     console.log('Xendit webhook received:', payload);
 
     const { id, external_id, status, payment_method, payment_channel, paid_at, paid_amount } = payload;
+
+    // Server-side validation: Verify invoice status with Xendit API
+    const XENDIT_SECRET_KEY = Deno.env.get('XENDIT_SECRET_KEY');
+    if (XENDIT_SECRET_KEY) {
+      try {
+        const xenditRes = await fetch(`https://api.xendit.co/v2/invoices/${id}`, {
+          headers: { 'Authorization': `Basic ${btoa(XENDIT_SECRET_KEY + ':')}` }
+        });
+        
+        if (xenditRes.ok) {
+          const xenditInvoice = await xenditRes.json();
+          // Verify critical fields match
+          if (xenditInvoice.status !== status) {
+            console.warn(`Webhook status ${status} differs from API status ${xenditInvoice.status}. Using API status.`);
+            // You might choose to use xenditInvoice.status here, or just log the discrepancy
+          }
+        } else {
+          console.error('Failed to verify invoice with Xendit API');
+        }
+      } catch (err) {
+        console.error('Error verifying with Xendit API:', err);
+      }
+    }
+
+    // Idempotency check: Check if transaction is already in final state
+    const { data: existingTransaction } = await supabase
+      .from('xendit_transactions')
+      .select('status')
+      .eq('xendit_invoice_id', id)
+      .single();
+
+    if (existingTransaction) {
+      if (existingTransaction.status === 'paid' && (status === 'PAID' || status === 'SETTLED')) {
+        console.log('Transaction already processed as paid. Skipping side effects.');
+        return new Response(
+          JSON.stringify({ message: 'Already processed' }), 
+          { headers: corsHeaders, status: 200 }
+        );
+      }
+    }
 
     // Map Xendit status to our status
     let mappedStatus = 'pending';

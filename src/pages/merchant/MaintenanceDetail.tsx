@@ -1,279 +1,73 @@
-import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { MerchantLayout } from '@/components/layouts/MerchantLayout';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
-import { UpdateTimeline } from '@/components/maintenance/UpdateTimeline';
-import { SLABadge, getSLAText } from '@/components/maintenance/SLABadge';
-import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Clock, Wrench, CheckCircle, XCircle, AlertTriangle, User, MapPin, Calendar, Phone, Star } from 'lucide-react';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { SLABadge, getSLAText } from '@/features/maintenance/components/SLABadge';
+import { UpdateTimeline } from '@/features/maintenance/components/UpdateTimeline';
+import {
+  useMaintenanceRequest,
+  useUpdateMaintenanceRequest,
+  useVerifiedVendors
+} from '@/features/maintenance/hooks/useMaintenance';
+import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
+import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { Skeleton } from '@/shared/components/ui/skeleton';
+import { useToast } from '@/shared/hooks/use-toast';
 import { format } from 'date-fns';
-
-type MaintenanceRequest = {
-  id: string;
-  title: string;
-  description: string | null;
-  category: string;
-  priority: string;
-  status: string;
-  assigned_to: string | null;
-  assigned_vendor_id: string | null;
-  created_at: string;
-  resolved_at: string | null;
-  images: string[] | null;
-  unit_id: string;
-  tenant_user_id: string;
-  merchant_id: string;
-  sla_deadline: string | null;
-  preferred_schedule: string | null;
-};
-
-type Unit = {
-  id: string;
-  unit_number: string;
-  property: {
-    id: string;
-    name: string;
-    address: string;
-  };
-};
-
-type Profile = {
-  full_name: string | null;
-  phone: string | null;
-  email: string;
-};
-
-type Vendor = {
-  id: string;
-  business_name: string;
-  service_categories: string[] | null;
-  rating: number | null;
-  user_id: string;
-};
+import { AlertTriangle, ArrowLeft, Calendar, CheckCircle, Clock, FileText, MapPin, Phone, Star, User, Wrench, XCircle } from 'lucide-react';
+import { useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 
 export default function MerchantMaintenanceDetail() {
   const { id } = useParams<{ id: string }>();
   const { merchant } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [selectedVendorId, setSelectedVendorId] = useState('');
   const [agreedPrice, setAgreedPrice] = useState('');
 
-  const { data: request, isLoading } = useQuery({
-    queryKey: ['maintenance-request', id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('maintenance_requests')
-        .select('*')
-        .eq('id', id)
-        .single();
-      if (error) throw error;
-      return data as MaintenanceRequest;
-    },
-    enabled: !!id,
-  });
+  const { data: request, isLoading } = useMaintenanceRequest(id);
+  const { data: vendors = [] } = useVerifiedVendors();
+  const updateStatusMutation = useUpdateMaintenanceRequest();
 
-  const { data: unit } = useQuery({
-    queryKey: ['unit', request?.unit_id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('units')
-        .select('id, unit_number, property:properties(id, name, address)')
-        .eq('id', request?.unit_id)
-        .single();
-      if (error) throw error;
-      return data as unknown as Unit;
-    },
-    enabled: !!request?.unit_id,
-  });
+  const contract = getRelevantContract(request?.unit?.contracts, request?.tenant_user_id);
 
-  const { data: tenantProfile } = useQuery({
-    queryKey: ['tenant-profile', request?.tenant_user_id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('full_name, phone, email')
-        .eq('user_id', request?.tenant_user_id)
-        .single();
-      if (error) throw error;
-      return data as Profile;
-    },
-    enabled: !!request?.tenant_user_id,
-  });
+  const isContractActive = contract?.status === 'active' || contract?.status === 'notice';
+  const isContractValidDate = contract && request && 
+    new Date(request.created_at) >= new Date(contract.start_date) &&
+    (!contract.end_date || new Date(request.created_at) <= new Date(contract.end_date));
 
-  const { data: vendors = [] } = useQuery({
-    queryKey: ['verified-vendors'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('vendors')
-        .select('id, business_name, service_categories, rating, user_id')
-        .eq('verification_status', 'verified');
-      if (error) throw error;
-      return data as Vendor[];
-    },
-  });
+  const handleUpdateStatus = (status: string) => {
+    if (!request || !merchant) return;
 
-  const { data: updates = [], refetch: refetchUpdates } = useQuery({
-    queryKey: ['maintenance-updates', id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('maintenance_updates')
-        .select('*')
-        .eq('maintenance_request_id', id)
-        .order('created_at', { ascending: true });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!id,
-  });
-
-  const updateStatusMutation = useMutation({
-    mutationFn: async ({ status, vendor_id, agreed_price }: { status: string; vendor_id?: string; agreed_price?: number }) => {
-      const updateData: Record<string, unknown> = { status };
-      const vendor = vendor_id ? vendors.find(v => v.id === vendor_id) : null;
-      
-      if (status === 'completed') {
-        updateData.resolved_at = new Date().toISOString();
-      }
-
-      if (vendor_id && vendor) {
-        updateData.assigned_to = vendor.business_name;
-        updateData.assigned_vendor_id = vendor_id;
-      }
-
-      const { error } = await supabase
-        .from('maintenance_requests')
-        .update(updateData)
-        .eq('id', id);
-      if (error) throw error;
-
-      // Insert timeline entry
-      const timelineMessage = status === 'in_progress' && vendor
-        ? `Assigned to vendor: ${vendor.business_name}`
-        : status === 'completed'
-          ? 'Maintenance request marked as completed'
-          : status === 'cancelled'
-            ? 'Maintenance request cancelled'
-            : `Status changed to ${status}`;
-
-      await supabase.from('maintenance_timeline').insert({
-        maintenance_request_id: id,
+    updateStatusMutation.mutate(
+      {
+        id: request.id,
         status,
-        message: timelineMessage,
-        actor_id: merchant?.user_id,
-        actor_role: 'merchant',
-        metadata: vendor_id ? { vendor_id, vendor_name: vendor?.business_name } : {},
-      });
-
-      // Create vendor job when assigning vendor
-      if (vendor_id && merchant && status === 'in_progress') {
-        const { data: existingJob } = await supabase
-          .from('vendor_jobs')
-          .select('id')
-          .eq('maintenance_request_id', id)
-          .eq('vendor_id', vendor_id)
-          .maybeSingle();
-
-        if (!existingJob) {
-          const { error: jobError } = await supabase
-            .from('vendor_jobs')
-            .insert({
-              vendor_id: vendor_id,
-              maintenance_request_id: id,
-              merchant_id: merchant.id,
-              agreed_price: agreed_price || null,
-              status: 'pending',
-            });
-          if (jobError) throw jobError;
-        }
-
-        // Create notification for vendor
-        if (vendor) {
-          await supabase.from('notifications').insert({
-            user_id: vendor.user_id,
-            title: 'New Job Assignment',
-            message: `You have been assigned to maintenance request: ${request?.title}`,
-            type: 'maintenance',
-            link: '/vendor/jobs',
+        merchant_id: merchant.id,
+        assigned_vendor_id: selectedVendorId || undefined,
+        agreed_price: agreedPrice ? parseFloat(agreedPrice) : undefined,
+        actor_id: merchant.user_id,
+        actor_role: 'merchant'
+      },
+      {
+        onSuccess: () => {
+          toast({ title: 'Status updated successfully' });
+          setSelectedVendorId('');
+          setAgreedPrice('');
+        },
+        onError: (error) => {
+          toast({ 
+            title: 'Failed to update status', 
+            description: error.message,
+            variant: 'destructive' 
           });
-        }
-
-        // Create notification for tenant
-        if (request?.tenant_user_id) {
-          await supabase.from('notifications').insert({
-            user_id: request.tenant_user_id,
-            title: 'Vendor Assigned',
-            message: `A vendor (${vendor?.business_name}) has been assigned to your maintenance request: ${request.title}`,
-            type: 'maintenance',
-            link: `/tenant/maintenance/${id}`,
-          });
-        }
+        },
       }
-
-      // When completing a job with a vendor, update vendor_job and create earnings
-      if (status === 'completed' && request?.assigned_to) {
-        const { data: vendorJob } = await supabase
-          .from('vendor_jobs')
-          .select('id, vendor_id, agreed_price')
-          .eq('maintenance_request_id', id)
-          .eq('status', 'pending')
-          .maybeSingle();
-
-        if (vendorJob && vendorJob.agreed_price) {
-          await supabase
-            .from('vendor_jobs')
-            .update({
-              status: 'completed',
-              completed_at: new Date().toISOString(),
-            })
-            .eq('id', vendorJob.id);
-
-          const amount = vendorJob.agreed_price;
-          const feeAmount = amount * 0.1;
-          const netAmount = amount - feeAmount;
-
-          await supabase.from('vendor_earnings').insert({
-            vendor_id: vendorJob.vendor_id,
-            vendor_job_id: vendorJob.id,
-            amount,
-            fee_amount: feeAmount,
-            net_amount: netAmount,
-            status: 'pending',
-          });
-        }
-
-        // Notify tenant of completion
-        if (request?.tenant_user_id) {
-          await supabase.from('notifications').insert({
-            user_id: request.tenant_user_id,
-            title: 'Maintenance Completed',
-            message: `Your maintenance request "${request.title}" has been completed. Please review the work.`,
-            type: 'maintenance',
-            link: `/tenant/maintenance/${id}`,
-          });
-        }
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['maintenance-request', id] });
-      queryClient.invalidateQueries({ queryKey: ['maintenance-timeline', id] });
-      toast({ title: 'Status updated successfully' });
-      setSelectedVendorId('');
-      setAgreedPrice('');
-    },
-    onError: () => {
-      toast({ title: 'Failed to update status', variant: 'destructive' });
-    },
-  });
+    );
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -435,14 +229,14 @@ export default function MerchantMaintenanceDetail() {
                     <User className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <p className="font-medium">{tenantProfile?.full_name || 'Unknown'}</p>
-                    <p className="text-sm text-muted-foreground">{tenantProfile?.email}</p>
+                    <p className="font-medium">{request.tenant?.full_name || 'Unknown'}</p>
+                    <p className="text-sm text-muted-foreground">{request.tenant?.email}</p>
                   </div>
                 </div>
-                {tenantProfile?.phone && (
+                {request.tenant?.phone_number && (
                   <div className="flex items-center gap-2 text-sm">
                     <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span>{tenantProfile.phone}</span>
+                    <span>{request.tenant.phone_number}</span>
                   </div>
                 )}
               </CardContent>
@@ -457,11 +251,19 @@ export default function MerchantMaintenanceDetail() {
                 <div className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <p className="font-medium">{unit?.property?.name}</p>
-                    <p className="text-sm text-muted-foreground">Unit {unit?.unit_number}</p>
+                    <p className="font-medium">{request.unit?.property?.name}</p>
+                    <p className="text-sm text-muted-foreground">Unit {request.unit?.unit_number}</p>
                   </div>
                 </div>
-                <p className="text-sm text-muted-foreground">{unit?.property?.address}</p>
+                <p className="text-sm text-muted-foreground">{request.unit?.property?.address}</p>
+                {contract && (
+                  <div className={`mt-2 p-2 rounded text-sm flex items-center gap-2 ${
+                    contract.status === 'active' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'
+                  }`}>
+                    <FileText className="h-4 w-4" />
+                    <span className="capitalize">Contract: {contract.status.replace('_', ' ')}</span>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -476,6 +278,37 @@ export default function MerchantMaintenanceDetail() {
                   <span>Created {format(new Date(request.created_at), 'MMM d, yyyy')}</span>
                 </div>
 
+                {!isContractActive && contract && (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Contract Warning</AlertTitle>
+                    <AlertDescription>
+                      The contract for this unit is currently <strong>{contract.status}</strong>. 
+                      Proceed with caution when assigning vendors.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {contract && !isContractValidDate && (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Date Mismatch</AlertTitle>
+                    <AlertDescription>
+                      This request was created outside the active contract period ({format(new Date(contract.start_date), 'MMM d, yyyy')} - {contract.end_date ? format(new Date(contract.end_date), 'MMM d, yyyy') : 'Indefinite'}).
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {!contract && request.tenant && (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>No Active Contract</AlertTitle>
+                    <AlertDescription>
+                      There is no active contract found for this unit. Please verify tenant status.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
                 {request.status !== 'completed' && request.status !== 'cancelled' && (
                   <>
                     <div className="space-y-2">
@@ -485,7 +318,7 @@ export default function MerchantMaintenanceDetail() {
                           <SelectValue placeholder="Select a vendor" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">No vendor</SelectItem>
+                          <SelectItem value="none">No vendor</SelectItem>
                           {vendors.map(vendor => (
                             <SelectItem key={vendor.id} value={vendor.id}>
                               <div className="flex items-center gap-2">
@@ -503,7 +336,7 @@ export default function MerchantMaintenanceDetail() {
                       </Select>
                     </div>
 
-                    {selectedVendorId && (
+                    {selectedVendorId && selectedVendorId !== 'none' && (
                       <div className="space-y-2">
                         <Label>Agreed Price (IDR)</Label>
                         <Input
@@ -519,7 +352,7 @@ export default function MerchantMaintenanceDetail() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => updateStatusMutation.mutate({ status: 'in_progress', vendor_id: selectedVendorId, agreed_price: agreedPrice ? parseFloat(agreedPrice) : undefined })}
+                        onClick={() => handleUpdateStatus('in_progress')}
                         disabled={updateStatusMutation.isPending}
                       >
                         In Progress
@@ -527,7 +360,7 @@ export default function MerchantMaintenanceDetail() {
                       <Button
                         size="sm"
                         className="bg-success text-success-foreground hover:bg-success/90"
-                        onClick={() => updateStatusMutation.mutate({ status: 'completed' })}
+                        onClick={() => handleUpdateStatus('completed')}
                         disabled={updateStatusMutation.isPending}
                       >
                         Complete
@@ -537,12 +370,35 @@ export default function MerchantMaintenanceDetail() {
                       variant="destructive"
                       size="sm"
                       className="w-full"
-                      onClick={() => updateStatusMutation.mutate({ status: 'cancelled' })}
+                      onClick={() => handleUpdateStatus('cancelled')}
                       disabled={updateStatusMutation.isPending}
                     >
                       Cancel Request
                     </Button>
                   </>
+                )}
+                
+                {request.status === 'completed' && (
+                  <div className="p-4 bg-success/10 rounded-lg text-center">
+                    <p className="text-success font-medium flex items-center justify-center gap-2">
+                      <CheckCircle className="h-5 w-5" />
+                      Completed
+                    </p>
+                    {request.resolved_at && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        on {format(new Date(request.resolved_at), 'MMM d, yyyy')}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {request.status === 'cancelled' && (
+                  <div className="p-4 bg-destructive/10 rounded-lg text-center">
+                    <p className="text-destructive font-medium flex items-center justify-center gap-2">
+                      <XCircle className="h-5 w-5" />
+                      Cancelled
+                    </p>
+                  </div>
                 )}
               </CardContent>
             </Card>

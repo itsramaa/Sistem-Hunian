@@ -1,25 +1,26 @@
-import { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { TenantLayout } from '@/components/layouts/TenantLayout';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useToast } from '@/hooks/use-toast';
-import { Plus, Wrench, Clock, CheckCircle, AlertTriangle, ChevronRight, Loader2, X, RefreshCw, Filter, Search } from 'lucide-react';
-import { MaintenanceCardSkeleton } from "@/components/ui/skeletons";
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { MaintenancePhotoUpload } from '@/features/maintenance/components/MaintenancePhotoUpload';
+import { SLABadge, getSLAText } from '@/features/maintenance/components/SLABadge';
+import { useCancelMaintenanceRequest, useTenantMaintenanceRequests } from '@/features/maintenance/hooks/useMaintenance';
+import { supabase } from '@/lib/integrations/supabase/client';
+import { TenantLayout } from '@/shared/components/layouts/TenantLayout';
+import { Alert, AlertDescription } from '@/shared/components/ui/alert';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { Card, CardContent } from '@/shared/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { MaintenanceCardSkeleton } from "@/shared/components/ui/skeletons";
+import { Textarea } from '@/shared/components/ui/textarea';
+import { useIsMobile } from '@/shared/hooks/use-mobile';
+import { useToast } from '@/shared/hooks/use-toast';
+import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
+import { AlertTriangle, CheckCircle, ChevronRight, Clock, Filter, Loader2, Plus, RefreshCw, Search, Wrench, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { MaintenancePhotoUpload } from '@/components/maintenance/MaintenancePhotoUpload';
-import { SLABadge, getSLAText } from '@/components/maintenance/SLABadge';
 
 // Constants for validation
 const MAX_TITLE_LENGTH = 100;
@@ -37,7 +38,6 @@ const sanitizeInput = (input: string): string => {
 export default function TenantMaintenance() {
   const { user, role } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   
@@ -57,20 +57,6 @@ export default function TenantMaintenance() {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [requestToCancel, setRequestToCancel] = useState<string | null>(null);
 
-  // Tenant role verification
-  if (role && role !== 'tenant') {
-    return (
-      <TenantLayout title="Unauthorized" description="">
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            You don't have permission to access this page.
-          </AlertDescription>
-        </Alert>
-      </TenantLayout>
-    );
-  }
-
   // Get tenant's contract to find unit and merchant - use maybeSingle() instead of single()
   const { data: contract, isLoading: contractLoading, error: contractError } = useQuery({
     queryKey: ['tenant-contract', user?.id],
@@ -80,28 +66,15 @@ export default function TenantMaintenance() {
         .from('contracts')
         .select('*, units(*, properties(merchant_id))')
         .eq('tenant_user_id', user.id)
-        .eq('status', 'active')
+        .in('status', ['active', 'notice'])
         .maybeSingle();
       if (error) throw error;
       return data;
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && role === 'tenant',
   });
 
-  const { data: requests = [], isLoading, error: requestsError, refetch } = useQuery({
-    queryKey: ['tenant-maintenance-requests', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      const { data, error } = await supabase
-        .from('maintenance_requests')
-        .select('*')
-        .eq('tenant_user_id', user.id)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id,
-  });
+  const { data: requests = [], isLoading, error: requestsError, refetch } = useTenantMaintenanceRequests(user?.id);
 
   // Filter requests based on status and search
   const filteredRequests = useMemo(() => {
@@ -124,40 +97,26 @@ export default function TenantMaintenance() {
   }, [requests, statusFilter, searchQuery]);
 
   // Cancel mutation
-  const cancelMutation = useMutation({
-    mutationFn: async (requestId: string) => {
-      const { error } = await supabase
-        .from('maintenance_requests')
-        .update({ status: 'cancelled' })
-        .eq('id', requestId)
-        .eq('tenant_user_id', user?.id)
-        .eq('status', 'pending');
-      
-      if (error) throw error;
-      
-      // Add timeline entry
-      await supabase.from('maintenance_timeline').insert({
-        maintenance_request_id: requestId,
-        status: 'cancelled',
-        message: 'Request cancelled by tenant',
-        actor_id: user?.id,
-        actor_role: 'tenant',
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tenant-maintenance-requests'] });
-      toast({ title: 'Request cancelled successfully' });
-      setCancelDialogOpen(false);
-      setRequestToCancel(null);
-    },
-    onError: (error) => {
-      toast({ 
-        title: 'Failed to cancel request', 
-        description: error instanceof Error ? error.message : 'Please try again',
-        variant: 'destructive' 
-      });
-    },
-  });
+  const cancelMutation = useCancelMaintenanceRequest();
+
+  const handleConfirmCancel = () => {
+    if (!user?.id || !requestToCancel) return;
+    
+    cancelMutation.mutate({ requestId: requestToCancel, userId: user.id }, {
+      onSuccess: () => {
+        toast({ title: 'Request cancelled successfully' });
+        setCancelDialogOpen(false);
+        setRequestToCancel(null);
+      },
+      onError: (error) => {
+        toast({ 
+          title: 'Failed to cancel request', 
+          description: error instanceof Error ? error.message : 'Please try again',
+          variant: 'destructive' 
+        });
+      },
+    });
+  };
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -243,6 +202,20 @@ export default function TenantMaintenance() {
       });
     },
   });
+
+  // Tenant role verification
+  if (role && role !== 'tenant') {
+    return (
+      <TenantLayout title="Unauthorized" description="">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            You don't have permission to access this page.
+          </AlertDescription>
+        </Alert>
+      </TenantLayout>
+    );
+  }
 
   const resetForm = () => {
     setIsDialogOpen(false);
@@ -433,7 +406,7 @@ export default function TenantMaintenance() {
             <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
             <p className="font-medium">No Active Contract</p>
             <p className="text-muted-foreground text-sm">
-              You need an active rental contract to submit maintenance requests.
+              You need an active or notice period rental contract to submit maintenance requests.
             </p>
           </CardContent>
         </Card>
@@ -568,7 +541,7 @@ export default function TenantMaintenance() {
             </Button>
             <Button 
               variant="destructive" 
-              onClick={() => requestToCancel && cancelMutation.mutate(requestToCancel)}
+              onClick={handleConfirmCancel}
               disabled={cancelMutation.isPending}
             >
               {cancelMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}

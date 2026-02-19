@@ -4,15 +4,15 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, Building2, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { PasswordStrengthMeter } from '@/components/auth/PasswordStrengthMeter';
-import { strongPasswordSchema } from '@/lib/validations/auth';
-import { getAuthErrorMessage } from '@/lib/auth-errors';
+import { Button } from '@/shared/components/ui/button';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { useToast } from '@/shared/hooks/use-toast';
+import { supabase } from '@/lib/integrations/supabase/client';
+import { PasswordStrengthMeter } from '@/features/auth/components/PasswordStrengthMeter';
+import { strongPasswordSchema } from '@/shared/utils/validations/auth';
+import { getAuthErrorMessage } from '@/features/auth/utils/auth-errors';
 
 const updatePasswordSchema = z.object({
   password: strongPasswordSchema,

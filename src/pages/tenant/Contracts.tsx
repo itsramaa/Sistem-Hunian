@@ -1,54 +1,19 @@
-import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useNavigate, Navigate } from "react-router-dom";
-import { TenantLayout } from "@/components/layouts/TenantLayout";
-import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { FileText, Calendar, Home, Download, DollarSign, PenLine, CheckCircle, LogOut, AlertTriangle, Loader2, AlertCircle } from "lucide-react";
-import { ContractCardSkeleton } from "@/components/ui/skeletons";
-import { format, differenceInDays } from "date-fns";
-import { MoveOutNoticeDialog } from "@/components/tenant/MoveOutNoticeDialog";
-import { MoveOutDashboard } from "@/components/tenant/MoveOutDashboard";
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { MoveOutDashboard } from "@/features/contracts/components/MoveOutDashboard";
+import { MoveOutNoticeDialog } from "@/features/contracts/components/MoveOutNoticeDialog";
+import { useTenantContracts } from "@/features/contracts/hooks/useTenantContract";
+import { Contract } from "@/features/contracts/types";
+import { TenantLayout } from "@/shared/components/layouts/TenantLayout";
+import { Alert, AlertDescription } from "@/shared/components/ui/alert";
+import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
+import { Card, CardContent, CardDescription, CardTitle } from "@/shared/components/ui/card";
+import { ContractCardSkeleton } from "@/shared/components/ui/skeletons";
+import { differenceInDays, format } from "date-fns";
+import { AlertCircle, AlertTriangle, Calendar, CheckCircle, DollarSign, Download, FileText, Home, Loader2, LogOut, PenLine } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-
-// Contract type definition
-interface ContractUnit {
-  unit_number: string;
-  property: {
-    name: string;
-    address: string;
-    city: string;
-  } | null;
-}
-
-interface Contract {
-  id: string;
-  tenant_user_id: string;
-  merchant_id: string;
-  unit_id: string;
-  start_date: string;
-  end_date: string;
-  rent_amount: number;
-  deposit_amount: number | null;
-  status: string | null;
-  terms: string | null;
-  signature_status: string | null;
-  tenant_signature_url: string | null;
-  tenant_signed_at: string | null;
-  merchant_signature_url: string | null;
-  merchant_signed_at: string | null;
-  contract_document_url: string | null;
-  move_out_notice_given: boolean | null;
-  notice_period_days: number | null;
-  early_termination_penalty_rate: number | null;
-  created_at: string;
-  updated_at: string;
-  unit: ContractUnit | null;
-}
 
 interface SelectedContract extends Contract {
   isEarlyTermination?: boolean;
@@ -64,29 +29,7 @@ const TenantContracts = () => {
   // Tenant role verification
   const isTenant = role === 'tenant';
 
-  const { data: contracts, isLoading, error, refetch } = useQuery({
-    queryKey: ['tenant-contracts', user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('contracts')
-        .select(`
-          *,
-          unit:units (
-            unit_number,
-            property:properties (
-              name,
-              address,
-              city
-            )
-          )
-        `)
-        .eq('tenant_user_id', user?.id)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data as Contract[];
-    },
-    enabled: !!user?.id && isTenant,
-  });
+  const { data: contracts, isLoading, error, refetch } = useTenantContracts(user?.id);
 
   const activeContract = useMemo(() => contracts?.find(c => c.status === 'active'), [contracts]);
   const pastContracts = useMemo(() => contracts?.filter(c => c.status !== 'active') || [], [contracts]);

@@ -1,36 +1,19 @@
+import { useAdminGuard } from "@/features/auth/hooks/useAdminGuard";
+import { useSubscriptionStats } from "@/features/subscriptions/hooks/useSubscriptions";
+import { useSubscriptionTiers } from "@/features/subscriptions/hooks/useSubscriptionTiers";
+import { SubscriptionTier, SubscriptionTierInput } from "@/features/subscriptions/types/subscription-tier";
+import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
+import { AdminLayout } from "@/shared/components/layouts/AdminLayout";
+import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
+import { Switch } from "@/shared/components/ui/switch";
+import { Textarea } from "@/shared/components/ui/textarea";
+import { AlertTriangle, Building2, Check, Crown, Edit2, Loader2, Plus, Star, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { AdminLayout } from "@/components/layouts/AdminLayout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { Plus, Edit2, Trash2, Crown, Star, Building2, Loader2, Check, AlertTriangle } from "lucide-react";
-import { useAdminGuard } from "@/hooks/useAdminGuard";
-import { createAuditLog } from "@/lib/auditLog";
-import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
-
-interface SubscriptionTier {
-  id: string;
-  name: string;
-  display_name: string;
-  description: string | null;
-  price_monthly: number;
-  price_yearly: number | null;
-  max_properties: number;
-  max_units: number;
-  max_tenants: number;
-  features: string[] | null;
-  is_active: boolean;
-  trial_days: number | null;
-  sort_order: number;
-}
 
 const defaultFormData = {
   name: "",
@@ -47,8 +30,10 @@ const defaultFormData = {
 };
 
 export default function AdminSubscriptionTiers() {
-  const { isLoading: guardLoading, isAdmin } = useAdminGuard();
-  const queryClient = useQueryClient();
+  const { isLoading: guardLoading } = useAdminGuard();
+  const { tiers, isLoading, createTier, updateTier, deleteTier, isCreating, isUpdating, isDeleting } = useSubscriptionTiers();
+  const { data: stats } = useSubscriptionStats();
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTier, setEditingTier] = useState<SubscriptionTier | null>(null);
   const [formData, setFormData] = useState(defaultFormData);
@@ -56,159 +41,7 @@ export default function AdminSubscriptionTiers() {
   const [tierToDelete, setTierToDelete] = useState<SubscriptionTier | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  const { data: tiers, isLoading } = useQuery({
-    queryKey: ["subscription-tiers"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("subscription_tiers")
-        .select("*")
-        .order("sort_order", { ascending: true });
-      if (error) throw new Error(`Failed to load tiers: ${error.message}`);
-      return data as SubscriptionTier[];
-    },
-    enabled: isAdmin,
-  });
-
-  // Check for active subscribers on a tier
-  const checkActiveSubscribers = async (tierId: string): Promise<number> => {
-    const { count, error } = await supabase
-      .from("merchant_subscriptions")
-      .select("id", { count: 'exact' })
-      .eq("tier_id", tierId)
-      .in("status", ["active", "trialing"]);
-    if (error) throw error;
-    return count || 0;
-  };
-
-  const saveMutation = useMutation({
-    mutationFn: async (data: typeof formData & { id?: string }) => {
-      // Check for duplicate names
-      const existingTier = tiers?.find(
-        t => t.name.toLowerCase() === data.name.toLowerCase().replace(/\s+/g, "_") && t.id !== data.id
-      );
-      if (existingTier) {
-        throw new Error("A tier with this name already exists");
-      }
-
-      const featuresArray = data.features
-        .split("\n")
-        .map((f) => f.trim())
-        .filter((f) => f);
-
-      const tierData = {
-        name: data.name.toLowerCase().replace(/\s+/g, "_"),
-        display_name: data.display_name,
-        description: data.description || null,
-        price_monthly: data.price_monthly,
-        price_yearly: data.price_yearly || null,
-        max_properties: data.max_properties,
-        max_units: data.max_units,
-        max_tenants: data.max_tenants,
-        features: featuresArray.length > 0 ? featuresArray : null,
-        is_active: data.is_active,
-        trial_days: data.trial_days || null,
-      };
-
-      if (data.id) {
-        const oldTier = tiers?.find(t => t.id === data.id);
-        const { error } = await supabase
-          .from("subscription_tiers")
-          .update(tierData)
-          .eq("id", data.id);
-        if (error) {
-          if (error.code === '23505') {
-            throw new Error("A tier with this name already exists");
-          }
-          throw new Error(`Failed to update tier: ${error.message}`);
-        }
-        await createAuditLog({
-          action: "update",
-          entityType: "subscription_tier",
-          entityId: data.id,
-          oldData: oldTier,
-          newData: tierData,
-        });
-      } else {
-        // Calculate next sort order
-        const maxSortOrder = Math.max(...(tiers?.map(t => t.sort_order) || [0]), 0);
-        const { data: newTier, error } = await supabase
-          .from("subscription_tiers")
-          .insert({
-            ...tierData,
-            sort_order: maxSortOrder + 1,
-          })
-          .select()
-          .single();
-        if (error) {
-          if (error.code === '23505') {
-            throw new Error("A tier with this name already exists");
-          }
-          throw new Error(`Failed to create tier: ${error.message}`);
-        }
-        await createAuditLog({
-          action: "create",
-          entityType: "subscription_tier",
-          entityId: newTier.id,
-          newData: tierData,
-        });
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["subscription-tiers"] });
-      toast.success(editingTier ? "Tier updated" : "Tier created");
-      handleCloseDialog();
-    },
-    onError: (error: Error) => {
-      toast.error(error.message);
-      setValidationError(error.message);
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (tier: SubscriptionTier) => {
-      // Check for active subscribers
-      const activeCount = await checkActiveSubscribers(tier.id);
-      if (activeCount > 0) {
-        throw new Error(`Cannot delete tier with ${activeCount} active subscriber(s). Please migrate them to another tier first.`);
-      }
-
-      const { error } = await supabase
-        .from("subscription_tiers")
-        .delete()
-        .eq("id", tier.id);
-      if (error) throw new Error(`Failed to delete tier: ${error.message}`);
-
-      await createAuditLog({
-        action: "delete",
-        entityType: "subscription_tier",
-        entityId: tier.id,
-        oldData: tier,
-      });
-
-      // Reorder remaining tiers
-      const remainingTiers = tiers?.filter(t => t.id !== tier.id) || [];
-      for (let i = 0; i < remainingTiers.length; i++) {
-        if (remainingTiers[i].sort_order !== i + 1) {
-          await supabase
-            .from("subscription_tiers")
-            .update({ sort_order: i + 1 })
-            .eq("id", remainingTiers[i].id);
-        }
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["subscription-tiers"] });
-      toast.success("Tier deleted");
-      setDeleteConfirmOpen(false);
-      setTierToDelete(null);
-    },
-    onError: (error: Error) => {
-      toast.error(error.message);
-    },
-  });
-
   const handleOpenDialog = (tier?: SubscriptionTier) => {
-    setValidationError(null);
     if (tier) {
       setEditingTier(tier);
       setFormData({
@@ -220,7 +53,7 @@ export default function AdminSubscriptionTiers() {
         max_properties: tier.max_properties,
         max_units: tier.max_units,
         max_tenants: tier.max_tenants,
-        features: Array.isArray(tier.features) ? tier.features.join("\n") : "",
+        features: tier.features ? tier.features.join("\n") : "",
         is_active: tier.is_active,
         trial_days: tier.trial_days || 14,
       });
@@ -228,6 +61,7 @@ export default function AdminSubscriptionTiers() {
       setEditingTier(null);
       setFormData(defaultFormData);
     }
+    setValidationError(null);
     setIsDialogOpen(true);
   };
 
@@ -238,38 +72,80 @@ export default function AdminSubscriptionTiers() {
     setValidationError(null);
   };
 
+  const validateForm = () => {
+    if (!formData.name.trim()) return "Internal name is required";
+    if (!formData.display_name.trim()) return "Display name is required";
+    if (formData.price_monthly < 0) return "Monthly price cannot be negative";
+    return null;
+  };
+
+  const handleSubmit = () => {
+    const error = validateForm();
+    if (error) {
+      setValidationError(error);
+      return;
+    }
+
+    const featuresArray = formData.features
+      .split("\n")
+      .map((f) => f.trim())
+      .filter((f) => f);
+
+    const tierData: SubscriptionTierInput = {
+      name: formData.name.toLowerCase().replace(/\s+/g, "_"),
+      display_name: formData.display_name,
+      description: formData.description || null,
+      price_monthly: formData.price_monthly,
+      price_yearly: formData.price_yearly || null,
+      max_properties: formData.max_properties,
+      max_units: formData.max_units,
+      max_tenants: formData.max_tenants,
+      features: featuresArray.length > 0 ? featuresArray : null,
+      is_active: formData.is_active,
+      trial_days: formData.trial_days || null,
+    };
+
+    if (editingTier) {
+      updateTier(
+        { id: editingTier.id, data: tierData },
+        {
+          onSuccess: handleCloseDialog,
+          onError: (err) => setValidationError(err.message),
+        }
+      );
+    } else {
+      createTier(tierData, {
+        onSuccess: handleCloseDialog,
+        onError: (err) => setValidationError(err.message),
+      });
+    }
+  };
+
   const handleDeleteClick = (tier: SubscriptionTier) => {
     setTierToDelete(tier);
     setDeleteConfirmOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setValidationError(null);
-    saveMutation.mutate({ ...formData, id: editingTier?.id });
-  };
-
-  const getTierIcon = (name: string) => {
-    switch (name) {
-      case "enterprise":
-        return <Crown className="h-6 w-6 text-accent" />;
-      case "pro":
-        return <Star className="h-6 w-6 text-primary" />;
-      default:
-        return <Building2 className="h-6 w-6 text-muted-foreground" />;
+  const handleConfirmDelete = () => {
+    if (tierToDelete) {
+      deleteTier(tierToDelete.id, {
+        onSuccess: () => {
+          setDeleteConfirmOpen(false);
+          setTierToDelete(null);
+        },
+      });
     }
   };
 
-  const formatPrice = (price: number) => {
-    if (price === 0) return "Free";
+  const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
       minimumFractionDigits: 0,
-    }).format(price);
+    }).format(amount);
   };
 
-  if (guardLoading) {
+  if (guardLoading || isLoading) {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
@@ -284,266 +160,249 @@ export default function AdminSubscriptionTiers() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Subscription Tiers</h1>
-            <p className="text-muted-foreground">Manage subscription plans and pricing</p>
+            <h1 className="text-3xl font-bold tracking-tight">Subscription Tiers</h1>
+            <p className="text-muted-foreground">Manage merchant subscription packages and pricing</p>
           </div>
-          <Button onClick={() => handleOpenDialog()}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Tier
+          <Button onClick={() => handleOpenDialog()} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Add New Tier
           </Button>
         </div>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        ) : tiers?.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Crown className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium">No subscription tiers</h3>
-              <p className="text-muted-foreground mb-4">Create your first subscription tier</p>
-              <Button onClick={() => handleOpenDialog()}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Tier
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {tiers?.map((tier) => (
-              <Card key={tier.id} className={`relative ${!tier.is_active ? "opacity-60" : ""}`}>
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      {getTierIcon(tier.name)}
-                      <div>
-                        <CardTitle className="text-lg">{tier.display_name}</CardTitle>
-                        {!tier.is_active && (
-                          <Badge variant="outline" className="mt-1">Inactive</Badge>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(tier)}>
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteClick(tier)}
-                        disabled={deleteMutation.isPending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  <CardDescription>{tier.description}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <p className="text-2xl font-bold">{formatPrice(tier.price_monthly)}</p>
-                    <p className="text-sm text-muted-foreground">/month</p>
-                    {tier.price_yearly && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        or {formatPrice(tier.price_yearly)}/year
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Properties</span>
-                      <span className="font-medium">{tier.max_properties}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Units</span>
-                      <span className="font-medium">{tier.max_units}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Tenants</span>
-                      <span className="font-medium">{tier.max_tenants}</span>
-                    </div>
-                    {tier.trial_days && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Trial</span>
-                        <span className="font-medium">{tier.trial_days} days</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {tier.features && Array.isArray(tier.features) && tier.features.length > 0 && (
-                    <div className="border-t pt-4">
-                      <p className="text-sm font-medium mb-2">Features</p>
-                      <ul className="space-y-1">
-                        {tier.features.slice(0, 5).map((feature, idx) => (
-                          <li key={idx} className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Check className="h-3.5 w-3.5 text-success" />
-                            {feature}
-                          </li>
-                        ))}
-                        {tier.features.length > 5 && (
-                          <li className="text-xs text-muted-foreground">
-                            +{tier.features.length - 5} more features
-                          </li>
-                        )}
-                      </ul>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {/* Edit/Create Dialog */}
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editingTier ? "Edit Tier" : "Create Tier"}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {validationError && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-                  <AlertTriangle className="h-4 w-4" />
-                  {validationError}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {tiers?.map((tier) => (
+            <Card key={tier.id} className={`relative flex flex-col ${!tier.is_active ? 'opacity-75 bg-muted/50' : ''}`}>
+              {!tier.is_active && (
+                <div className="absolute top-4 right-4 z-10">
+                  <Badge variant="secondary">Inactive</Badge>
                 </div>
               )}
+              <CardHeader>
+                <div className="flex items-center justify-between mb-2">
+                  <Badge variant={tier.is_active ? "default" : "outline"} className="capitalize">
+                    {tier.name.replace(/_/g, " ")}
+                  </Badge>
+                  {tier.name === 'enterprise' && <Crown className="h-5 w-5 text-yellow-500" />}
+                  {tier.name === 'pro' && <Star className="h-5 w-5 text-primary" />}
+                  {tier.name === 'starter' && <Building2 className="h-5 w-5 text-muted-foreground" />}
+                </div>
+                <CardTitle className="text-2xl">{tier.display_name}</CardTitle>
+                <CardDescription className="line-clamp-2 min-h-[40px]">
+                  {tier.description || "No description provided"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex-1 flex flex-col space-y-4">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <div className="text-3xl font-bold">
+                      {formatCurrency(tier.price_monthly)}
+                      <span className="text-sm font-normal text-muted-foreground">/mo</span>
+                    </div>
+                    <Badge variant="outline" className="ml-2">
+                      {stats?.[tier.name.toLowerCase()] || 0} active
+                    </Badge>
+                  </div>
+                  {tier.price_yearly && (
+                    <div className="text-sm text-muted-foreground">
+                      {formatCurrency(tier.price_yearly)}/yr (save {Math.round((1 - tier.price_yearly / (tier.price_monthly * 12)) * 100)}%)
+                    </div>
+                  )}
+                </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Internal Name</Label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="e.g., pro"
-                    required
-                  />
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Up to {tier.max_properties} properties</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Up to {tier.max_units} units</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span>Up to {tier.max_tenants} tenants</span>
+                  </div>
+                  {tier.trial_days && (
+                    <div className="flex items-center gap-2">
+                      <Check className="h-4 w-4 text-green-500" />
+                      <span>{tier.trial_days}-day free trial</span>
+                    </div>
+                  )}
                 </div>
-                <div className="space-y-2">
-                  <Label>Display Name</Label>
-                  <Input
-                    value={formData.display_name}
-                    onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
-                    placeholder="e.g., Professional"
-                    required
-                  />
+
+                <div className="flex-1" />
+
+                <div className="flex items-center gap-2 pt-4 border-t">
+                  <Button variant="outline" size="sm" className="flex-1" onClick={() => handleOpenDialog(tier)}>
+                    <Edit2 className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => handleDeleteClick(tier)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingTier ? "Edit Subscription Tier" : "Create New Tier"}</DialogTitle>
+          </DialogHeader>
+          
+          <div className="grid gap-6 py-4">
+            {validationError && (
+              <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                {validationError}
               </div>
+            )}
 
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Description</Label>
+                <Label htmlFor="name">Internal Name (ID)</Label>
                 <Input
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Short description"
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g. starter_plan"
+                  disabled={!!editingTier} // Cannot change ID of existing tier usually, but name is editable in service?
+                />
+                <p className="text-xs text-muted-foreground">Unique identifier, used in code</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="display_name">Display Name</Label>
+                <Input
+                  id="display_name"
+                  value={formData.display_name}
+                  onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
+                  placeholder="e.g. Starter Plan"
                 />
               </div>
+            </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Monthly Price (IDR)</Label>
-                  <Input
-                    type="number"
-                    value={formData.price_monthly}
-                    onChange={(e) => setFormData({ ...formData, price_monthly: parseInt(e.target.value) || 0 })}
-                    min={0}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Yearly Price (IDR)</Label>
-                  <Input
-                    type="number"
-                    value={formData.price_yearly}
-                    onChange={(e) => setFormData({ ...formData, price_yearly: parseInt(e.target.value) || 0 })}
-                    min={0}
-                  />
-                </div>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Brief description of the tier"
+              />
+            </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Max Properties</Label>
-                  <Input
-                    type="number"
-                    value={formData.max_properties}
-                    onChange={(e) => setFormData({ ...formData, max_properties: parseInt(e.target.value) || 1 })}
-                    min={1}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Max Units</Label>
-                  <Input
-                    type="number"
-                    value={formData.max_units}
-                    onChange={(e) => setFormData({ ...formData, max_units: parseInt(e.target.value) || 1 })}
-                    min={1}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Max Tenants</Label>
-                  <Input
-                    type="number"
-                    value={formData.max_tenants}
-                    onChange={(e) => setFormData({ ...formData, max_tenants: parseInt(e.target.value) || 1 })}
-                    min={1}
-                  />
-                </div>
-              </div>
-
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Trial Days</Label>
+                <Label htmlFor="price_monthly">Monthly Price (IDR)</Label>
                 <Input
+                  id="price_monthly"
                   type="number"
-                  value={formData.trial_days}
-                  onChange={(e) => setFormData({ ...formData, trial_days: parseInt(e.target.value) || 0 })}
-                  min={0}
+                  value={formData.price_monthly}
+                  onChange={(e) => setFormData({ ...formData, price_monthly: Number(e.target.value) })}
+                  min="0"
                 />
               </div>
-
               <div className="space-y-2">
-                <Label>Features (one per line)</Label>
-                <Textarea
-                  value={formData.features}
-                  onChange={(e) => setFormData({ ...formData, features: e.target.value })}
-                  placeholder="Feature 1&#10;Feature 2&#10;Feature 3"
-                  rows={5}
+                <Label htmlFor="price_yearly">Yearly Price (IDR)</Label>
+                <Input
+                  id="price_yearly"
+                  type="number"
+                  value={formData.price_yearly}
+                  onChange={(e) => setFormData({ ...formData, price_yearly: Number(e.target.value) })}
+                  min="0"
                 />
               </div>
+            </div>
 
-              <div className="flex items-center justify-between">
-                <Label>Active</Label>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="max_properties">Max Properties</Label>
+                <Input
+                  id="max_properties"
+                  type="number"
+                  value={formData.max_properties}
+                  onChange={(e) => setFormData({ ...formData, max_properties: Number(e.target.value) })}
+                  min="1"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="max_units">Max Units</Label>
+                <Input
+                  id="max_units"
+                  type="number"
+                  value={formData.max_units}
+                  onChange={(e) => setFormData({ ...formData, max_units: Number(e.target.value) })}
+                  min="1"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="max_tenants">Max Tenants</Label>
+                <Input
+                  id="max_tenants"
+                  type="number"
+                  value={formData.max_tenants}
+                  onChange={(e) => setFormData({ ...formData, max_tenants: Number(e.target.value) })}
+                  min="1"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="features">Features (One per line)</Label>
+              <Textarea
+                id="features"
+                value={formData.features}
+                onChange={(e) => setFormData({ ...formData, features: e.target.value })}
+                placeholder="Feature 1&#10;Feature 2&#10;Feature 3"
+                className="min-h-[100px]"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
                 <Switch
+                  id="is_active"
                   checked={formData.is_active}
                   onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
                 />
+                <Label htmlFor="is_active">Active (Visible to users)</Label>
               </div>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="trial_days">Trial Days</Label>
+                <Input
+                  id="trial_days"
+                  type="number"
+                  value={formData.trial_days}
+                  onChange={(e) => setFormData({ ...formData, trial_days: Number(e.target.value) })}
+                  className="w-20"
+                  min="0"
+                />
+              </div>
+            </div>
+          </div>
 
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={handleCloseDialog}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={saveMutation.isPending}>
-                  {saveMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  {editingTier ? "Update" : "Create"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCloseDialog} disabled={isCreating || isUpdating}>Cancel</Button>
+            <Button onClick={handleSubmit} disabled={isCreating || isUpdating}>
+              {(isCreating || isUpdating) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {editingTier ? "Save Changes" : "Create Tier"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        {/* Delete Confirmation Dialog */}
-        <ConfirmDialog
-          open={deleteConfirmOpen}
-          onOpenChange={setDeleteConfirmOpen}
-          title="Delete Subscription Tier"
-          description={`Are you sure you want to delete "${tierToDelete?.display_name}"? This action cannot be undone.`}
-          confirmLabel="Delete"
-          variant="destructive"
-          isLoading={deleteMutation.isPending}
-          onConfirm={() => tierToDelete && deleteMutation.mutate(tierToDelete)}
-        />
-      </div>
+      <ConfirmDialog
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Subscription Tier"
+        description={`Are you sure you want to delete "${tierToDelete?.display_name}"? This action cannot be undone.`}
+        confirmText={isDeleting ? "Deleting..." : "Delete Tier"}
+        variant="destructive"
+      />
     </AdminLayout>
   );
 }

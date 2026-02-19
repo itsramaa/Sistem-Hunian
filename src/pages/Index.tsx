@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import { Building2, ArrowRight, Shield, Wallet, Users, CheckCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/shared/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 

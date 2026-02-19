@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import { VendorLayout } from '@/components/layouts/VendorLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
+import { VendorLayout } from '@/shared/components/layouts/VendorLayout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Button } from '@/shared/components/ui/button';
+import { Badge } from '@/shared/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { Textarea } from '@/shared/components/ui/textarea';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/integrations/supabase/client';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { 
@@ -27,10 +27,10 @@ import {
   Loader2,
   RefreshCw
 } from 'lucide-react';
-import { formatCurrency } from '@/lib/currency';
-import { calculatePlatformFee, calculateNetAmount } from '@/lib/constants/platformFees';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { OrderAutoRejectCountdown } from '@/components/vendor/OrderAutoRejectCountdown';
+import { formatCurrency } from '@/shared/utils/currency';
+import { calculatePlatformFee, calculateNetAmount } from '@/constants/platformFees';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/shared/components/ui/alert-dialog';
+import { OrderAutoRejectCountdown } from '@/features/orders/components/OrderAutoRejectCountdown';
 
 type Order = {
   id: string;

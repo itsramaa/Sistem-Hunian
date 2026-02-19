@@ -1,51 +1,24 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { AdminLayout } from "@/components/layouts/AdminLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { useAdminGuard } from "@/hooks/useAdminGuard";
-import { logStatusChange } from "@/lib/auditLog";
-import { AlertTriangle, Search, CheckCircle, Clock, Eye, Loader2, MessageSquare, AlertCircle } from "lucide-react";
+import { useAdminGuard } from "@/features/auth/hooks/useAdminGuard";
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useDisputes } from "@/features/disputes/hooks/useDisputes";
+import { Dispute } from "@/features/disputes/types";
+import { AdminLayout } from "@/shared/components/layouts/AdminLayout";
+import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/components/ui/table";
+import { Textarea } from "@/shared/components/ui/textarea";
 import { format } from "date-fns";
-
-interface Dispute {
-  id: string;
-  title: string;
-  description: string;
-  status: string | null;
-  priority: string | null;
-  resolution: string | null;
-  resolved_at: string | null;
-  resolved_by: string | null;
-  created_at: string;
-  tenant_user_id: string;
-  merchant_id: string;
-  contract_id: string | null;
-  contract?: {
-    id: string;
-    unit?: {
-      unit_number: string;
-      property?: {
-        name: string;
-      };
-    };
-  } | null;
-}
+import { AlertCircle, AlertTriangle, CheckCircle, Clock, Eye, Loader2, MessageSquare, Search } from "lucide-react";
+import { useState } from "react";
 
 const AdminDisputes = () => {
   const { user } = useAuth();
   const { isLoading: guardLoading, isAdmin } = useAdminGuard();
-  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedDispute, setSelectedDispute] = useState<Dispute | null>(null);
@@ -54,62 +27,35 @@ const AdminDisputes = () => {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
 
-  const { data: disputesData, isLoading, error, refetch } = useQuery({
-    queryKey: ['admin-disputes', page],
-    queryFn: async () => {
-      const { data, error, count } = await supabase
-        .from('disputes')
-        .select(`
-          *,
-          contract:contracts (
-            id,
-            unit:units (
-              unit_number,
-              property:properties (
-                name
-              )
-            )
-          )
-        `, { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
-      if (error) throw error;
-      return { disputes: data as Dispute[], total: count || 0 };
-    },
-    enabled: isAdmin,
-  });
+  const {
+    disputes,
+    totalCount,
+    hasMore,
+    isLoading,
+    error,
+    refetch,
+    resolveDispute
+  } = useDisputes(page, PAGE_SIZE, isAdmin);
 
-  const disputes = disputesData?.disputes || [];
-  const totalCount = disputesData?.total || 0;
-  const hasMore = page * PAGE_SIZE < totalCount;
-
-  const resolveDispute = useMutation({
-    mutationFn: async ({ id, status, resolution }: { id: string; status: string; resolution: string }) => {
-      const dispute = disputes.find(d => d.id === id);
-      if (!dispute) throw new Error("Dispute not found");
-
-      const { error } = await supabase
-        .from('disputes')
-        .update({
-          status,
-          resolution,
-          resolved_by: user?.id,
-          resolved_at: new Date().toISOString(),
-        })
-        .eq('id', id);
-      if (error) throw error;
-
-      await logStatusChange('dispute', id, dispute.status || 'open', status, resolution);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-disputes'] });
-      toast.success('Dispute resolved');
-      setShowResolveDialog(false);
-      setSelectedDispute(null);
-      setResolution("");
-    },
-    onError: (err: Error) => toast.error(err.message || 'Failed to resolve dispute'),
-  });
+  const handleResolve = (status: string, resolutionText: string) => {
+    if (!selectedDispute || !user) return;
+    
+    resolveDispute.mutate({
+      params: {
+        id: selectedDispute.id,
+        status,
+        resolution: resolutionText,
+        resolved_by: user.id
+      },
+      currentStatus: selectedDispute.status || 'open'
+    }, {
+      onSuccess: () => {
+        setShowResolveDialog(false);
+        setSelectedDispute(null);
+        setResolution("");
+      }
+    });
+  };
 
   const getStatusBadge = (status: string | null) => {
     switch (status) {
@@ -411,14 +357,14 @@ const AdminDisputes = () => {
                   {selectedDispute?.status === 'open' && (
                     <Button
                       variant="secondary"
-                      onClick={() => resolveDispute.mutate({ id: selectedDispute.id, status: 'in_progress', resolution: '' })}
+                      onClick={() => handleResolve('in_progress', '')}
                       disabled={resolveDispute.isPending}
                     >
                       Mark In Progress
                     </Button>
                   )}
                   <Button
-                    onClick={() => resolveDispute.mutate({ id: selectedDispute!.id, status: 'resolved', resolution })}
+                    onClick={() => handleResolve('resolved', resolution)}
                     disabled={resolveDispute.isPending || resolution.length < 10}
                   >
                     {resolveDispute.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}

@@ -1,57 +1,21 @@
-import { useState } from 'react';
-import { AdminLayout } from '@/components/layouts/AdminLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { useAdminGuard } from '@/features/auth/hooks/useAdminGuard';
+import { useForumModeration } from '@/features/forum/hooks/useForumModeration';
+import { ForumReport, ForumReportStatus } from '@/features/forum/types';
+import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
+import { AdminLayout } from '@/shared/components/layouts/AdminLayout';
+import { Alert, AlertDescription } from '@/shared/components/ui/alert';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { Label } from '@/shared/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { Textarea } from '@/shared/components/ui/textarea';
 import { format } from 'date-fns';
-import { toast } from 'sonner';
-import { Flag, Eye, EyeOff, MessageSquare, AlertTriangle, CheckCircle, XCircle, Loader2, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
-import { useAdminGuard } from '@/hooks/useAdminGuard';
-import { createAuditLog } from '@/lib/auditLog';
-import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
-
-type ForumReport = {
-  id: string;
-  post_id: string | null;
-  comment_id: string | null;
-  reporter_id: string;
-  reason: string;
-  description: string | null;
-  status: string;
-  reviewed_at: string | null;
-  reviewed_by: string | null;
-  created_at: string;
-};
-
-type ForumPost = {
-  id: string;
-  title: string;
-  content: string;
-  author_id: string;
-  is_visible: boolean;
-  is_locked: boolean;
-  like_count: number;
-  comment_count: number;
-  created_at: string;
-};
-
-type ForumComment = {
-  id: string;
-  post_id: string;
-  content: string;
-  author_id: string;
-  is_visible: boolean;
-  created_at: string;
-};
+import { AlertTriangle, CheckCircle, ChevronLeft, ChevronRight, Eye, EyeOff, Flag, Loader2, MessageSquare, XCircle } from 'lucide-react';
+import { useState } from 'react';
 
 const statusColors: Record<string, string> = {
   pending: 'bg-warning/10 text-warning border-warning/30',
@@ -65,192 +29,39 @@ const ITEMS_PER_PAGE = 20;
 
 export default function ForumModeration() {
   const { isAdmin, isLoading: guardLoading } = useAdminGuard();
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
-  const [selectedReport, setSelectedReport] = useState<ForumReport | null>(null);
-  const [resolutionNotes, setResolutionNotes] = useState('');
-  const [showResolveDialog, setShowResolveDialog] = useState(false);
-  const [resolveAction, setResolveAction] = useState<'resolved' | 'dismissed' | 'action_taken'>('resolved');
-  const [showContentDialog, setShowContentDialog] = useState(false);
-  const [contentToView, setContentToView] = useState<{ type: 'post' | 'comment'; content: string; title?: string } | null>(null);
-  const [showVisibilityConfirm, setShowVisibilityConfirm] = useState(false);
-  const [visibilityTarget, setVisibilityTarget] = useState<{ type: 'post' | 'comment'; id: string; currentlyVisible: boolean } | null>(null);
-  
-  // Pagination
   const [reportsPage, setReportsPage] = useState(1);
   const [postsPage, setPostsPage] = useState(1);
   const [commentsPage, setCommentsPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  
+  const {
+    reports,
+    totalReports,
+    posts,
+    totalPosts,
+    comments,
+    totalComments,
+    stats,
+    isLoading,
+    error,
+    updateStatus,
+    updateVisibility,
+    fetchContent,
+    isUpdating
+  } = useForumModeration(reportsPage, ITEMS_PER_PAGE, statusFilter, postsPage, commentsPage);
 
-  // Fetch reports with pagination
-  const { data: reportsData, isLoading: reportsLoading, error: reportsError } = useQuery({
-    queryKey: ['forum-reports', reportsPage],
-    queryFn: async () => {
-      const { count } = await supabase
-        .from('forum_reports')
-        .select('id', { count: 'exact', head: true });
-      
-      const offset = (reportsPage - 1) * ITEMS_PER_PAGE;
-      const { data, error } = await supabase
-        .from('forum_reports')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .range(offset, offset + ITEMS_PER_PAGE - 1);
-      
-      if (error) throw error;
-      return { reports: data as ForumReport[], total: count || 0 };
-    },
-    enabled: isAdmin,
-  });
+  const [selectedReport, setSelectedReport] = useState<ForumReport | null>(null);
+  const [resolutionNotes, setResolutionNotes] = useState('');
+  const [showResolveDialog, setShowResolveDialog] = useState(false);
+  const [resolveAction, setResolveAction] = useState<ForumReportStatus>('resolved');
+  
+  const [showContentDialog, setShowContentDialog] = useState(false);
+  const [contentToView, setContentToView] = useState<{ type: 'post' | 'comment'; content: string; title?: string } | null>(null);
+  
+  const [showVisibilityConfirm, setShowVisibilityConfirm] = useState(false);
+  const [visibilityTarget, setVisibilityTarget] = useState<{ type: 'post' | 'comment'; id: string; currentlyVisible: boolean } | null>(null);
 
-  const reports = reportsData?.reports || [];
-  const totalReports = reportsData?.total || 0;
-  const totalReportPages = Math.ceil(totalReports / ITEMS_PER_PAGE);
-
-  // Fetch all posts for moderation with pagination
-  const { data: postsData } = useQuery({
-    queryKey: ['all-forum-posts', postsPage],
-    queryFn: async () => {
-      const { count } = await supabase
-        .from('forum_posts')
-        .select('id', { count: 'exact', head: true });
-      
-      const offset = (postsPage - 1) * ITEMS_PER_PAGE;
-      const { data, error } = await supabase
-        .from('forum_posts')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .range(offset, offset + ITEMS_PER_PAGE - 1);
-      
-      if (error) throw error;
-      return { posts: data as ForumPost[], total: count || 0 };
-    },
-    enabled: isAdmin,
-  });
-
-  const allPosts = postsData?.posts || [];
-  const totalPosts = postsData?.total || 0;
-  const totalPostPages = Math.ceil(totalPosts / ITEMS_PER_PAGE);
-
-  // Fetch all comments for moderation with pagination
-  const { data: commentsData } = useQuery({
-    queryKey: ['all-forum-comments', commentsPage],
-    queryFn: async () => {
-      const { count } = await supabase
-        .from('forum_comments')
-        .select('id', { count: 'exact', head: true });
-      
-      const offset = (commentsPage - 1) * ITEMS_PER_PAGE;
-      const { data, error } = await supabase
-        .from('forum_comments')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .range(offset, offset + ITEMS_PER_PAGE - 1);
-      
-      if (error) throw error;
-      return { comments: data as ForumComment[], total: count || 0 };
-    },
-    enabled: isAdmin,
-  });
-
-  const allComments = commentsData?.comments || [];
-  const totalComments = commentsData?.total || 0;
-  const totalCommentPages = Math.ceil(totalComments / ITEMS_PER_PAGE);
-
-  // Resolve report mutation
-  const resolveReportMutation = useMutation({
-    mutationFn: async ({ reportId, status, notes }: { reportId: string; status: string; notes: string }) => {
-      if (!notes.trim() && (status === 'resolved' || status === 'dismissed' || status === 'action_taken')) {
-        throw new Error('Resolution notes are required');
-      }
-      
-      const { error } = await supabase
-        .from('forum_reports')
-        .update({
-          status,
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user?.id,
-          description: notes ? `${selectedReport?.description || ''}\n\n--- Admin Notes ---\n${notes}` : selectedReport?.description,
-        })
-        .eq('id', reportId);
-      
-      if (error) throw error;
-
-      await createAuditLog({
-        action: status === 'resolved' ? 'resolve' : 'dismiss',
-        entityType: 'forum_report',
-        entityId: reportId,
-        newData: { status, notes },
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['forum-reports'] });
-      toast.success('Report updated successfully');
-      setShowResolveDialog(false);
-      setSelectedReport(null);
-      setResolutionNotes('');
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update report');
-    },
-  });
-
-  // Toggle post visibility mutation
-  const togglePostVisibilityMutation = useMutation({
-    mutationFn: async ({ postId, isVisible }: { postId: string; isVisible: boolean }) => {
-      const { error } = await supabase
-        .from('forum_posts')
-        .update({ is_visible: isVisible })
-        .eq('id', postId);
-      
-      if (error) throw error;
-
-      await createAuditLog({
-        action: 'toggle_visibility',
-        entityType: 'forum_post',
-        entityId: postId,
-        newData: { is_visible: isVisible },
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['all-forum-posts'] });
-      toast.success('Post visibility updated');
-      setShowVisibilityConfirm(false);
-      setVisibilityTarget(null);
-    },
-    onError: () => {
-      toast.error('Failed to update post visibility');
-    },
-  });
-
-  // Toggle comment visibility mutation
-  const toggleCommentVisibilityMutation = useMutation({
-    mutationFn: async ({ commentId, isVisible }: { commentId: string; isVisible: boolean }) => {
-      const { error } = await supabase
-        .from('forum_comments')
-        .update({ is_visible: isVisible })
-        .eq('id', commentId);
-      
-      if (error) throw error;
-
-      await createAuditLog({
-        action: 'toggle_visibility',
-        entityType: 'forum_comment',
-        entityId: commentId,
-        newData: { is_visible: isVisible },
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['all-forum-comments'] });
-      toast.success('Comment visibility updated');
-      setShowVisibilityConfirm(false);
-      setVisibilityTarget(null);
-    },
-    onError: () => {
-      toast.error('Failed to update comment visibility');
-    },
-  });
-
-  const openResolveDialog = (report: ForumReport, action: 'resolved' | 'dismissed' | 'action_taken') => {
+  const openResolveDialog = (report: ForumReport, action: ForumReportStatus) => {
     setSelectedReport(report);
     setResolveAction(action);
     setResolutionNotes('');
@@ -259,37 +70,47 @@ export default function ForumModeration() {
 
   const handleResolve = () => {
     if (!selectedReport) return;
-    resolveReportMutation.mutate({
-      reportId: selectedReport.id,
+    updateStatus({
+      id: selectedReport.id,
       status: resolveAction,
       notes: resolutionNotes,
     });
+    setShowResolveDialog(false);
   };
 
   const viewContent = async (report: ForumReport) => {
     if (report.post_id) {
-      const post = allPosts.find(p => p.id === report.post_id);
+      // Check if post is in current list
+      const post = posts.find(p => p.id === report.post_id);
       if (post) {
         setContentToView({ type: 'post', title: post.title, content: post.content });
         setShowContentDialog(true);
       } else {
-        // Fetch if not in current page
-        const { data } = await supabase.from('forum_posts').select('title, content').eq('id', report.post_id).single();
-        if (data) {
-          setContentToView({ type: 'post', title: data.title, content: data.content });
-          setShowContentDialog(true);
+        // Fetch
+        try {
+          const fetchedPost = await fetchContent('post', report.post_id);
+          if (fetchedPost) {
+            setContentToView({ type: 'post', title: fetchedPost.title, content: fetchedPost.content });
+            setShowContentDialog(true);
+          }
+        } catch (e) {
+          console.error(e);
         }
       }
     } else if (report.comment_id) {
-      const comment = allComments.find(c => c.id === report.comment_id);
+      const comment = comments.find(c => c.id === report.comment_id);
       if (comment) {
         setContentToView({ type: 'comment', content: comment.content });
         setShowContentDialog(true);
       } else {
-        const { data } = await supabase.from('forum_comments').select('content').eq('id', report.comment_id).single();
-        if (data) {
-          setContentToView({ type: 'comment', content: data.content });
-          setShowContentDialog(true);
+         try {
+          const fetchedComment = await fetchContent('comment', report.comment_id);
+          if (fetchedComment) {
+            setContentToView({ type: 'comment', content: fetchedComment.content });
+            setShowContentDialog(true);
+          }
+        } catch (e) {
+          console.error(e);
         }
       }
     }
@@ -302,22 +123,20 @@ export default function ForumModeration() {
 
   const handleVisibilityConfirm = () => {
     if (!visibilityTarget) return;
-    if (visibilityTarget.type === 'post') {
-      togglePostVisibilityMutation.mutate({ postId: visibilityTarget.id, isVisible: !visibilityTarget.currentlyVisible });
-    } else {
-      toggleCommentVisibilityMutation.mutate({ commentId: visibilityTarget.id, isVisible: !visibilityTarget.currentlyVisible });
-    }
+    updateVisibility({
+      type: visibilityTarget.type,
+      id: visibilityTarget.id,
+      isVisible: !visibilityTarget.currentlyVisible
+    });
+    setShowVisibilityConfirm(false);
+    setVisibilityTarget(null);
   };
 
-  const pendingReports = reports.filter((r) => r.status === 'pending');
-  const stats = {
-    totalReports: totalReports,
-    pendingReports: reports.filter((r) => r.status === 'pending').length,
-    hiddenPosts: allPosts.filter((p) => !p.is_visible).length,
-    hiddenComments: allComments.filter((c) => !c.is_visible).length,
-  };
+  const totalReportPages = Math.ceil(totalReports / ITEMS_PER_PAGE);
+  const totalPostPages = Math.ceil(totalPosts / ITEMS_PER_PAGE);
+  const totalCommentPages = Math.ceil(totalComments / ITEMS_PER_PAGE);
 
-  if (guardLoading) {
+  if (guardLoading || isLoading) {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
@@ -336,11 +155,11 @@ export default function ForumModeration() {
         </div>
 
         {/* Error State */}
-        {reportsError && (
+        {error && (
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              Failed to load reports: {reportsError instanceof Error ? reportsError.message : 'Unknown error'}
+              Failed to load reports: {error instanceof Error ? error.message : 'Unknown error'}
             </AlertDescription>
           </Alert>
         )}
@@ -352,31 +171,31 @@ export default function ForumModeration() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Reports</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalReports}</div>
+              <div className="text-2xl font-bold">{stats?.total || 0}</div>
             </CardContent>
           </Card>
-          <Card className={stats.pendingReports > 0 ? 'border-warning' : ''}>
+          <Card className={(stats?.pending || 0) > 0 ? 'border-warning' : ''}>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Pending Reports</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-warning">{stats.pendingReports}</div>
+              <div className="text-2xl font-bold text-warning">{stats?.pending || 0}</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Hidden Posts</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Resolved</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.hiddenPosts}</div>
+              <div className="text-2xl font-bold text-success">{stats?.resolved || 0}</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Hidden Comments</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Dismissed</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.hiddenComments}</div>
+              <div className="text-2xl font-bold text-muted-foreground">{stats?.dismissed || 0}</div>
             </CardContent>
           </Card>
         </div>
@@ -385,7 +204,7 @@ export default function ForumModeration() {
           <TabsList>
             <TabsTrigger value="reports" className="flex items-center gap-2">
               <Flag className="h-4 w-4" />
-              Reports {pendingReports.length > 0 && <Badge variant="destructive">{pendingReports.length}</Badge>}
+              Reports {(stats?.pending || 0) > 0 && <Badge variant="destructive">{stats?.pending || 0}</Badge>}
             </TabsTrigger>
             <TabsTrigger value="posts" className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
@@ -398,95 +217,82 @@ export default function ForumModeration() {
           </TabsList>
 
           {/* Reports Tab */}
-          <TabsContent value="reports">
+          <TabsContent value="reports" className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle>Content Reports</CardTitle>
-                <CardDescription>Review and resolve user-submitted reports</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Reports</CardTitle>
+                  <CardDescription>Review and act on user reports</CardDescription>
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="reviewed">Reviewed</SelectItem>
+                    <SelectItem value="resolved">Resolved</SelectItem>
+                    <SelectItem value="dismissed">Dismissed</SelectItem>
+                    <SelectItem value="action_taken">Action Taken</SelectItem>
+                  </SelectContent>
+                </Select>
               </CardHeader>
               <CardContent>
-                {reportsLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
-                ) : reports.length === 0 ? (
-                  <div className="text-center py-8">
-                    <CheckCircle className="h-12 w-12 mx-auto text-success mb-4" />
-                    <p className="text-muted-foreground">No reports to review</p>
-                  </div>
-                ) : (
-                  <>
-                    <Table>
-                      <TableHeader>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Reason</TableHead>
+                        <TableHead>Reporter</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {reports.length === 0 ? (
                         <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Reason</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
+                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                            No reports found
+                          </TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {reports.map((report) => (
+                      ) : (
+                        reports.map((report) => (
                           <TableRow key={report.id}>
-                            <TableCell>{format(new Date(report.created_at), 'dd MMM yyyy')}</TableCell>
+                            <TableCell>{format(new Date(report.created_at), 'MMM d, yyyy')}</TableCell>
                             <TableCell>
-                              <Badge variant="outline">
-                                {report.post_id ? 'Post' : 'Comment'}
-                              </Badge>
+                              {report.post_id ? (
+                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Post</Badge>
+                              ) : (
+                                <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Comment</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="max-w-[200px] truncate" title={report.description || ''}>
+                              <span className="font-medium block">{report.reason}</span>
+                              <span className="text-xs text-muted-foreground">{report.description}</span>
                             </TableCell>
                             <TableCell>
-                              <div>
-                                <p className="font-medium">{report.reason}</p>
-                                {report.description && (
-                                  <p className="text-sm text-muted-foreground truncate max-w-xs">
-                                    {report.description}
-                                  </p>
-                                )}
-                              </div>
+                              <div className="text-sm">{report.reporter?.full_name || 'Unknown'}</div>
+                              <div className="text-xs text-muted-foreground">{report.reporter?.email}</div>
                             </TableCell>
                             <TableCell>
-                              <Badge className={statusColors[report.status] || ''}>
-                                {report.status}
+                              <Badge variant="outline" className={statusColors[report.status]}>
+                                {report.status.replace('_', ' ')}
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">
-                              <div className="flex justify-end gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => viewContent(report)}
-                                  title="View Content"
-                                >
-                                  <FileText className="h-4 w-4" />
+                              <div className="flex items-center justify-end gap-2">
+                                <Button variant="ghost" size="sm" onClick={() => viewContent(report)}>
+                                  <Eye className="h-4 w-4 mr-1" /> View Content
                                 </Button>
                                 {report.status === 'pending' && (
                                   <>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="text-success"
-                                      onClick={() => openResolveDialog(report, 'resolved')}
-                                      title="Resolve"
-                                    >
+                                    <Button variant="ghost" size="sm" className="text-success hover:text-success hover:bg-success/10" onClick={() => openResolveDialog(report, 'resolved')}>
                                       <CheckCircle className="h-4 w-4" />
                                     </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="text-destructive"
-                                      onClick={() => openResolveDialog(report, 'action_taken')}
-                                      title="Take Action"
-                                    >
-                                      <AlertTriangle className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="text-muted-foreground"
-                                      onClick={() => openResolveDialog(report, 'dismissed')}
-                                      title="Dismiss"
-                                    >
+                                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" onClick={() => openResolveDialog(report, 'dismissed')}>
                                       <XCircle className="h-4 w-4" />
                                     </Button>
                                   </>
@@ -494,129 +300,135 @@ export default function ForumModeration() {
                               </div>
                             </TableCell>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
 
-                    {/* Pagination */}
-                    {totalReportPages > 1 && (
-                      <div className="flex items-center justify-between mt-4">
-                        <p className="text-sm text-muted-foreground">
-                          Page {reportsPage} of {totalReportPages}
-                        </p>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setReportsPage(p => Math.max(1, p - 1))}
-                            disabled={reportsPage === 1}
-                          >
-                            <ChevronLeft className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setReportsPage(p => Math.min(totalReportPages, p + 1))}
-                            disabled={reportsPage === totalReportPages}
-                          >
-                            <ChevronRight className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </>
+                {/* Pagination */}
+                {totalReportPages > 1 && (
+                  <div className="flex items-center justify-end space-x-2 py-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setReportsPage((p) => Math.max(1, p - 1))}
+                      disabled={reportsPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    <div className="text-sm text-muted-foreground">
+                      Page {reportsPage} of {totalReportPages}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setReportsPage((p) => Math.min(totalReportPages, p + 1))}
+                      disabled={reportsPage === totalReportPages}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>
           </TabsContent>
 
           {/* Posts Tab */}
-          <TabsContent value="posts">
+          <TabsContent value="posts" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>All Forum Posts</CardTitle>
-                <CardDescription>Moderate forum posts ({totalPosts} total)</CardDescription>
+                <CardTitle>Forum Posts</CardTitle>
+                <CardDescription>Moderate user posts</CardDescription>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Stats</TableHead>
-                      <TableHead>Visibility</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {allPosts.map((post) => (
-                      <TableRow key={post.id} className={!post.is_visible ? 'opacity-50' : ''}>
-                        <TableCell>{format(new Date(post.created_at), 'dd MMM yyyy')}</TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium truncate max-w-xs">{post.title}</p>
-                            <p className="text-sm text-muted-foreground truncate max-w-xs">
-                              {post.content.slice(0, 50)}...
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2 text-sm text-muted-foreground">
-                            <span>{post.like_count} likes</span>
-                            <span>•</span>
-                            <span>{post.comment_count} comments</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={post.is_visible ? 'default' : 'secondary'}>
-                            {post.is_visible ? 'Visible' : 'Hidden'}
-                          </Badge>
-                          {post.is_locked && (
-                            <Badge variant="outline" className="ml-1">Locked</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => confirmVisibilityToggle('post', post.id, post.is_visible)}
-                          >
-                            {post.is_visible ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </TableCell>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Author</TableHead>
+                        <TableHead>Title/Content</TableHead>
+                        <TableHead>Stats</TableHead>
+                        <TableHead>Visibility</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-
-                {/* Pagination */}
-                {totalPostPages > 1 && (
-                  <div className="flex items-center justify-between mt-4">
-                    <p className="text-sm text-muted-foreground">
+                    </TableHeader>
+                    <TableBody>
+                      {posts.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                            No posts found
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        posts.map((post) => (
+                          <TableRow key={post.id}>
+                            <TableCell>{format(new Date(post.created_at), 'MMM d, yyyy')}</TableCell>
+                            <TableCell>
+                              <div className="text-sm">{post.author?.full_name || 'Unknown'}</div>
+                              <div className="text-xs text-muted-foreground">{post.author?.email}</div>
+                            </TableCell>
+                            <TableCell className="max-w-[300px]">
+                              <div className="font-medium truncate">{post.title}</div>
+                              <div className="text-xs text-muted-foreground truncate">{post.content}</div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2 text-xs text-muted-foreground">
+                                <span>{post.like_count || 0} likes</span>
+                                <span>{post.comment_count || 0} comments</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {post.is_visible ? (
+                                <Badge variant="outline" className="bg-success/10 text-success border-success/20">Visible</Badge>
+                              ) : (
+                                <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">Hidden</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => confirmVisibilityToggle('post', post.id, post.is_visible)}
+                                className={post.is_visible ? "text-destructive hover:text-destructive hover:bg-destructive/10" : "text-success hover:text-success hover:bg-success/10"}
+                              >
+                                {post.is_visible ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
+                                {post.is_visible ? 'Hide' : 'Show'}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+                 {/* Pagination for Posts */}
+                 {totalPostPages > 1 && (
+                  <div className="flex items-center justify-end space-x-2 py-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPostsPage((p) => Math.max(1, p - 1))}
+                      disabled={postsPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    <div className="text-sm text-muted-foreground">
                       Page {postsPage} of {totalPostPages}
-                    </p>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPostsPage(p => Math.max(1, p - 1))}
-                        disabled={postsPage === 1}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPostsPage(p => Math.min(totalPostPages, p + 1))}
-                        disabled={postsPage === totalPostPages}
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
                     </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPostsPage((p) => Math.min(totalPostPages, p + 1))}
+                      disabled={postsPage === totalPostPages}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
                   </div>
                 )}
               </CardContent>
@@ -624,76 +436,90 @@ export default function ForumModeration() {
           </TabsContent>
 
           {/* Comments Tab */}
-          <TabsContent value="comments">
+          <TabsContent value="comments" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>All Forum Comments</CardTitle>
-                <CardDescription>Moderate forum comments ({totalComments} total)</CardDescription>
+                <CardTitle>Forum Comments</CardTitle>
+                <CardDescription>Moderate user comments</CardDescription>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Content</TableHead>
-                      <TableHead>Visibility</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {allComments.map((comment) => (
-                      <TableRow key={comment.id} className={!comment.is_visible ? 'opacity-50' : ''}>
-                        <TableCell>{format(new Date(comment.created_at), 'dd MMM yyyy')}</TableCell>
-                        <TableCell>
-                          <p className="truncate max-w-md">{comment.content}</p>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={comment.is_visible ? 'default' : 'secondary'}>
-                            {comment.is_visible ? 'Visible' : 'Hidden'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => confirmVisibilityToggle('comment', comment.id, comment.is_visible)}
-                          >
-                            {comment.is_visible ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </TableCell>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Author</TableHead>
+                        <TableHead>Content</TableHead>
+                        <TableHead>Visibility</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-
-                {/* Pagination */}
-                {totalCommentPages > 1 && (
-                  <div className="flex items-center justify-between mt-4">
-                    <p className="text-sm text-muted-foreground">
+                    </TableHeader>
+                    <TableBody>
+                      {comments.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                            No comments found
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        comments.map((comment) => (
+                          <TableRow key={comment.id}>
+                            <TableCell>{format(new Date(comment.created_at), 'MMM d, yyyy')}</TableCell>
+                            <TableCell>
+                              <div className="text-sm">{comment.author?.full_name || 'Unknown'}</div>
+                              <div className="text-xs text-muted-foreground">{comment.author?.email}</div>
+                            </TableCell>
+                            <TableCell className="max-w-[400px]">
+                              <div className="text-sm truncate">{comment.content}</div>
+                            </TableCell>
+                            <TableCell>
+                              {comment.is_visible ? (
+                                <Badge variant="outline" className="bg-success/10 text-success border-success/20">Visible</Badge>
+                              ) : (
+                                <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">Hidden</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => confirmVisibilityToggle('comment', comment.id, comment.is_visible)}
+                                className={comment.is_visible ? "text-destructive hover:text-destructive hover:bg-destructive/10" : "text-success hover:text-success hover:bg-success/10"}
+                              >
+                                {comment.is_visible ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
+                                {comment.is_visible ? 'Hide' : 'Show'}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+                 {/* Pagination for Comments */}
+                 {totalCommentPages > 1 && (
+                  <div className="flex items-center justify-end space-x-2 py-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCommentsPage((p) => Math.max(1, p - 1))}
+                      disabled={commentsPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    <div className="text-sm text-muted-foreground">
                       Page {commentsPage} of {totalCommentPages}
-                    </p>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCommentsPage(p => Math.max(1, p - 1))}
-                        disabled={commentsPage === 1}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCommentsPage(p => Math.min(totalCommentPages, p + 1))}
-                        disabled={commentsPage === totalCommentPages}
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
                     </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCommentsPage((p) => Math.min(totalCommentPages, p + 1))}
+                      disabled={commentsPage === totalCommentPages}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
                   </div>
                 )}
               </CardContent>
@@ -705,45 +531,46 @@ export default function ForumModeration() {
         <Dialog open={showResolveDialog} onOpenChange={setShowResolveDialog}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>
-                {resolveAction === 'resolved' && 'Resolve Report'}
-                {resolveAction === 'dismissed' && 'Dismiss Report'}
-                {resolveAction === 'action_taken' && 'Take Action on Report'}
-              </DialogTitle>
+              <DialogTitle>Resolve Report</DialogTitle>
               <DialogDescription>
-                {resolveAction === 'resolved' && 'Mark this report as resolved. The content remains visible.'}
-                {resolveAction === 'dismissed' && 'Dismiss this report as invalid or not actionable.'}
-                {resolveAction === 'action_taken' && 'Record that action was taken on the reported content.'}
+                Update the status of this report.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="notes">Resolution Notes (Required)</Label>
+            
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="action">Action</Label>
+                <Select 
+                  value={resolveAction} 
+                  onValueChange={(v) => setResolveAction(v as ForumReportStatus)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select action" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="resolved">Mark as Resolved</SelectItem>
+                    <SelectItem value="dismissed">Dismiss Report</SelectItem>
+                    <SelectItem value="action_taken">Take Action & Resolve</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="notes">Notes (Optional)</Label>
                 <Textarea
                   id="notes"
-                  placeholder="Explain your decision..."
                   value={resolutionNotes}
                   onChange={(e) => setResolutionNotes(e.target.value)}
-                  className="mt-1"
+                  placeholder="Add details about your decision..."
                 />
-                {!resolutionNotes.trim() && (
-                  <p className="text-sm text-destructive mt-1">Notes are required</p>
-                )}
               </div>
             </div>
+
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowResolveDialog(false)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleResolve}
-                disabled={!resolutionNotes.trim() || resolveReportMutation.isPending}
-                variant={resolveAction === 'action_taken' ? 'destructive' : 'default'}
-              >
-                {resolveReportMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                {resolveAction === 'resolved' && 'Resolve'}
-                {resolveAction === 'dismissed' && 'Dismiss'}
-                {resolveAction === 'action_taken' && 'Confirm Action Taken'}
+              <Button variant="outline" onClick={() => setShowResolveDialog(false)}>Cancel</Button>
+              <Button onClick={handleResolve} disabled={isUpdating}>
+                {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Confirm
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -753,40 +580,36 @@ export default function ForumModeration() {
         <Dialog open={showContentDialog} onOpenChange={setShowContentDialog}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Reported {contentToView?.type === 'post' ? 'Post' : 'Comment'}</DialogTitle>
+              <DialogTitle>
+                View {contentToView?.type === 'post' ? 'Post' : 'Comment'} Content
+              </DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="py-4 space-y-4">
               {contentToView?.title && (
                 <div>
-                  <Label className="text-muted-foreground">Title</Label>
-                  <p className="font-medium">{contentToView.title}</p>
+                  <h3 className="text-lg font-semibold">{contentToView.title}</h3>
                 </div>
               )}
-              <div>
-                <Label className="text-muted-foreground">Content</Label>
-                <div className="mt-1 p-4 bg-muted rounded-lg max-h-96 overflow-y-auto">
-                  <p className="whitespace-pre-wrap">{contentToView?.content}</p>
-                </div>
+              <div className="p-4 bg-muted/50 rounded-md whitespace-pre-wrap">
+                {contentToView?.content}
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowContentDialog(false)}>
-                Close
-              </Button>
+              <Button onClick={() => setShowContentDialog(false)}>Close</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
-        {/* Visibility Confirmation Dialog */}
+        {/* Visibility Confirm Dialog */}
         <ConfirmDialog
-          open={showVisibilityConfirm}
-          onOpenChange={setShowVisibilityConfirm}
-          title={`${visibilityTarget?.currentlyVisible ? 'Hide' : 'Show'} ${visibilityTarget?.type}`}
-          description={`Are you sure you want to ${visibilityTarget?.currentlyVisible ? 'hide' : 'show'} this ${visibilityTarget?.type}?`}
-          confirmLabel={visibilityTarget?.currentlyVisible ? 'Hide' : 'Show'}
+          isOpen={showVisibilityConfirm}
+          onClose={() => setShowVisibilityConfirm(false)}
           onConfirm={handleVisibilityConfirm}
-          isLoading={togglePostVisibilityMutation.isPending || toggleCommentVisibilityMutation.isPending}
-          variant={visibilityTarget?.currentlyVisible ? 'destructive' : 'default'}
+          title={visibilityTarget?.currentlyVisible ? "Hide Content" : "Show Content"}
+          description={`Are you sure you want to ${visibilityTarget?.currentlyVisible ? "hide" : "show"} this ${visibilityTarget?.type}?`}
+          confirmLabel={visibilityTarget?.currentlyVisible ? "Hide" : "Show"}
+          variant={visibilityTarget?.currentlyVisible ? "destructive" : "default"}
+          isLoading={isUpdating}
         />
       </div>
     </AdminLayout>

@@ -1,32 +1,33 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { TenantLayout } from '@/components/layouts/TenantLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  Wrench, 
-  DollarSign, 
-  FileText, 
-  Store,
-  Gift,
+import { useAnalytics } from '@/features/analytics/hooks/useAnalytics';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useTenantActiveContract } from '@/features/contracts/hooks/useTenantContract';
+import { useTenantActiveMaintenanceRequests } from '@/features/maintenance/hooks/useMaintenance';
+import { useTenantInvoices } from '@/features/payments/hooks/useTenantInvoices';
+import { TenantLayout } from '@/shared/components/layouts/TenantLayout';
+import { Alert, AlertDescription } from '@/shared/components/ui/alert';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Skeleton } from '@/shared/components/ui/skeleton';
+import { cn } from '@/shared/utils/utils';
+import { format, isPast, parseISO } from 'date-fns';
+import Autoplay from 'embla-carousel-autoplay';
+import useEmblaCarousel from 'embla-carousel-react';
+import {
+  AlertCircle,
+  AlertTriangle,
   ChevronRight,
   ClipboardList,
-  RefreshCw,
-  AlertTriangle,
+  DollarSign,
+  FileText,
+  Gift,
   Home,
-  AlertCircle
+  RefreshCw,
+  Store,
+  Wrench
 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { format, isPast, parseISO } from 'date-fns';
-import { useAnalytics } from '@/hooks/useAnalytics';
-import useEmblaCarousel from 'embla-carousel-react';
-import Autoplay from 'embla-carousel-autoplay';
-import { cn } from '@/lib/utils';
-import { Skeleton } from '@/components/ui/skeleton';
 
 // Banner slides data
 const bannerSlides = [
@@ -91,69 +92,26 @@ export default function TenantDashboard() {
   );
 
   // Query active contract for current unit info
-  const { data: activeContract, isLoading: contractLoading, error: contractError } = useQuery({
-    queryKey: ['tenant-active-contract', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null;
-      const { data, error } = await supabase
-        .from('contracts')
-        .select(`
-          id,
-          status,
-          unit:units (
-            unit_number,
-            property:properties (
-              name,
-              address
-            )
-          )
-        `)
-        .eq('tenant_user_id', user.id)
-        .eq('status', 'active')
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id && isTenant,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
+  const { 
+    data: activeContract, 
+    isLoading: contractLoading, 
+    error: contractError 
+  } = useTenantActiveContract(user?.id);
 
   // Fetch invoices instead of payments for accurate status
-  const { data: invoices = [], isLoading: invoicesLoading, error: invoicesError, refetch: refetchInvoices } = useQuery({
-    queryKey: ['tenant-invoices-dashboard', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('id, invoice_number, amount, total_amount, status, due_date, late_fee')
-        .eq('tenant_user_id', user.id)
-        .in('status', ['pending', 'sent', 'overdue'])
-        .order('due_date', { ascending: true })
-        .limit(5);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id && isTenant,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-  });
+  const { 
+    data: invoices = [], 
+    isLoading: invoicesLoading, 
+    error: invoicesError, 
+    refetch: refetchInvoices 
+  } = useTenantInvoices(user?.id, 5);
 
-  const { data: maintenanceRequests = [], isLoading: maintenanceLoading, error: maintenanceError, refetch: refetchMaintenance } = useQuery({
-    queryKey: ['tenant-maintenance-dashboard', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      const { data, error } = await supabase
-        .from('maintenance_requests')
-        .select('id, title, category, status, priority, created_at')
-        .eq('tenant_user_id', user.id)
-        .in('status', ['pending', 'in_progress', 'assigned'])
-        .order('created_at', { ascending: false })
-        .limit(5);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id && isTenant,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-  });
+  const { 
+    data: maintenanceRequests = [], 
+    isLoading: maintenanceLoading, 
+    error: maintenanceError, 
+    refetch: refetchMaintenance 
+  } = useTenantActiveMaintenanceRequests(user?.id, 5);
 
   // Memoized calculations
   const pendingInvoices = useMemo(() => invoices.filter(i => ['pending', 'sent'].includes(i.status)), [invoices]);

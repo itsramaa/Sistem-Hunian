@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { VendorLayout } from '@/components/layouts/VendorLayout';
-import { useAuth } from '@/hooks/useAuth';
-import { SalesAnalytics } from '@/components/vendor/SalesAnalytics';
-import { CustomerInsights } from '@/components/vendor/CustomerInsights';
-import { AnalyticsExport } from '@/components/vendor/AnalyticsExport';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { VendorLayout } from '@/shared/components/layouts/VendorLayout';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { SalesAnalytics } from '@/features/analytics/components/SalesAnalytics';
+import { CustomerInsights } from "@/features/analytics/components/CustomerInsights";
+import { AnalyticsExport } from '@/features/analytics/components/AnalyticsExport';
+import { Skeleton } from '@/shared/components/ui/skeleton';
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Button } from '@/shared/components/ui/button';
 import { Calendar, RefreshCw, Clock } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { format } from 'date-fns';
 
 type DateRange = '7d' | '30d' | '90d' | 'all';

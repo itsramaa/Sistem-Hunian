@@ -39,6 +39,20 @@ const isValidRole = (role: string): boolean => {
   return role === 'user' || role === 'assistant';
 };
 
+interface Knowledge {
+  question: string;
+  answer: string;
+  category: string;
+}
+
+interface Vendor {
+  business_name: string;
+  service_categories: string[];
+  rating: number;
+  city: string;
+  description: string;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -117,7 +131,7 @@ serve(async (req) => {
       .eq("is_active", true);
 
     if (knowledge) {
-      const relevantFaqs = knowledge.filter((k: any) => {
+      const relevantFaqs = knowledge.filter((k: Knowledge) => {
         const qLower = k.question.toLowerCase();
         const aLower = k.answer.toLowerCase();
         return keywords.some((kw: string) => 
@@ -127,7 +141,7 @@ serve(async (req) => {
 
       if (relevantFaqs.length > 0) {
         knowledgeContext = "\n\nFAQ Terkait:\n" + 
-          relevantFaqs.map((f: any) => `Q: ${f.question}\nA: ${f.answer}`).join("\n\n");
+          relevantFaqs.map((f: Knowledge) => `Q: ${f.question}\nA: ${f.answer}`).join("\n\n");
       }
     }
 
@@ -170,7 +184,7 @@ serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(3);
 
-      const unit = activeContract?.unit as any;
+      const unit = activeContract?.unit as { unit_number: string; property: { name: string; address: string } } | null;
       const unpaidTotal = invoices?.reduce((sum, inv) => sum + Number(inv.amount), 0) || 0;
 
       userContext = `
@@ -211,7 +225,7 @@ ${maintenance?.map(m => `- ${m.title} (${m.status})`).join("\n") || "Tidak ada"}
         category = "AC";
       }
 
-      let vendorQuery = supabase
+      const vendorQuery = supabase
         .from("vendors")
         .select("business_name, service_categories, rating, city, description")
         .eq("verification_status", "verified")
@@ -222,7 +236,7 @@ ${maintenance?.map(m => `- ${m.title} (${m.status})`).join("\n") || "Tidak ada"}
 
       if (vendors && vendors.length > 0) {
         vendorContext = "\n\nVENDOR TERSEDIA:\n" + 
-          vendors.map((v: any, idx: number) => 
+          vendors.map((v: Vendor, idx: number) => 
             `${idx + 1}. ${v.business_name}
    - Kategori: ${v.service_categories?.join(", ") || "Umum"}
    - Rating: ${v.rating ? `⭐ ${v.rating}` : "Baru"}
