@@ -1,228 +1,337 @@
 
-
-# Maksimalisasi Database Schema Documentation - SiHuni Platform
+# Maksimalisasi Deployment & Infrastructure Document - SiHuni Platform
 
 ## Ringkasan
 
-File `docs/database-schema.md` saat ini berisi schema lama yang tidak sesuai dengan implementasi aktual. Dokumen mendeskripsikan tabel `users`, `rooms`, `leases`, `transactions`, `documents`, `ml_predictions` yang **tidak ada** di database sebenarnya. Database aktual memiliki **66 tabel**, **18 database functions**, **191 RLS policies**, dan **1 custom enum type** (`app_role`).
+File `docs/deployment-infrastructure.md` saat ini mendeskripsikan arsitektur **yang sama sekali tidak sesuai** dengan implementasi aktual. Dokumen berbicara tentang AWS VPC, ECS Clusters, NestJS containers, Docker, RDS Proxy, BullMQ workers, dan CloudFormation -- **tidak satupun teknologi tersebut digunakan**. Platform sebenarnya berjalan di **Lovable Cloud** (Supabase-powered) dengan frontend React/Vite dan 31 Deno Edge Functions.
 
-Dokumen akan di-rewrite total untuk mencerminkan schema PostgreSQL yang sebenarnya di Lovable Cloud.
+Dokumen akan di-rewrite total untuk mencerminkan infrastruktur deployment sebenarnya.
 
 ---
 
 ## Perubahan yang Akan Dilakukan
 
-### File: `docs/database-schema.md` (Full Rewrite)
+### File: `docs/deployment-infrastructure.md` (Full Rewrite)
 
-### 1. Executive Summary (Diperbarui)
-- Update dari design doc menjadi living documentation of actual schema
-- PostgreSQL 16 on Lovable Cloud (bukan AWS RDS)
-- 66 public tables, 18 functions, 191 RLS policies
-- UUID v4 (`gen_random_uuid()`) bukan v7
-- `timestamptz` untuk semua timestamps
-- No ORM -- Supabase SDK client direct access
-- Currency: IDR (Indonesian Rupiah)
+### 1. Introduction (Diperbarui Total)
+- Platform: Lovable Cloud (bukan AWS)
+- Architecture: Serverless Modular Monolith (bukan ECS microservices)
+- No Docker, no Kubernetes, no VPC management
+- Two environments: Test (preview) + Production (published)
+- Document version: v2.0
 
-### 2. ERD (Full Rewrite -- 9 Domain Groups)
+### 2. Platform Architecture (Baru - Menggantikan AWS Diagram)
 
-Mermaid ER diagram baru yang mencakup:
-1. **Identity & Access**: `profiles`, `user_roles`, `merchants`, `tenants`, `vendors`
-2. **Property**: `properties`, `units`, `unit_listings`
-3. **Contract**: `contracts`, `move_out_notices`, `move_out_inspections`, `move_out_tasks`, `move_out_timeline`, `early_termination_requests`
-4. **Billing**: `invoices`, `payments`, `payment_plans`, `payment_plan_installments`, `late_fee_records`, `collections_cases`
-5. **Financial**: `escrow_accounts`, `escrow_transactions`, `disbursements`, `bank_accounts`, `xendit_transactions`, `deposit_refunds`, `deposit_disputes`
-6. **Subscription**: `subscription_tiers`, `merchant_subscriptions`, `subscription_invoices`, `pending_subscription_changes`, `cancellation_feedback`
-7. **Marketplace**: `products`, `orders`, `order_reviews`, `vendor_bank_accounts`, `vendor_verifications`, `vendor_jobs`, `vendor_earnings`, `vouchers`
-8. **Community**: `forum_posts`, `forum_comments`, `forum_likes`, `forum_reports`, `chat_conversations`, `chat_messages`, `chatbot_knowledge`, `chatbot_analytics`
-9. **System**: `notifications`, `audit_logs`, `analytics_events`, `platform_settings`, `referrals`, `referral_rewards`, `referral_commissions`, `provinces`, `cities`, `tenant_invitations`, `tenant_merchant_history`, `merchant_verifications`, `merchant_verification_history`, `maintenance_requests`, `maintenance_updates`, `maintenance_timeline`, `maintenance_reviews`, `disputes`
-
-### 3. Detailed Table Definitions (66 Tables)
-
-Setiap tabel akan didokumentasikan dengan format:
+Diagram arsitektur yang benar:
 
 ```text
-Table: [name]
-Purpose: [description]
-+------------------+---------------+----------+------------------+
-| Column           | Type          | Nullable | Default          |
-+------------------+---------------+----------+------------------+
-| id               | uuid          | NO       | gen_random_uuid()|
-| ...              | ...           | ...      | ...              |
-+------------------+---------------+----------+------------------+
-Indexes: [list]
-RLS: [summary of policies]
+User Browser
+    |
+    v
+Lovable CDN (*.lovable.app / custom domain)
+    |
+    v
+React SPA (Vite build, gzip+brotli compressed)
+    |
+    +---> Supabase PostgreSQL 16 (direct via SDK + RLS)
+    +---> 31 Deno Edge Functions (serverless, auto-scaling)
+    +---> Supabase Storage (5 buckets)
+    +---> External: Xendit, Resend, Lovable AI
 ```
 
-Dikelompokkan per domain:
+Mermaid diagram pengganti untuk high-level deployment topology.
 
-#### 3.1 Identity & Access Management
-- `profiles` (8 cols) -- user profiles linked to `auth.users`
-- `user_roles` (4 cols) -- RBAC with `app_role` enum (admin, merchant, tenant, vendor)
-- `merchants` (30 cols) -- merchant business data, verification, billing config
-- `tenants` (21 cols) -- tenant profile, KTP, emergency contact, auto-pay settings
-- `vendors` (19 cols) -- vendor business data, ratings, verification
+### 3. Technology Stack - Deployment Layer
 
-#### 3.2 Property & Units
-- `properties` (16 cols) -- property master data with amenities, images
-- `units` (16 cols) -- individual units with status tracking, vacancy days
-- `unit_listings` -- public listing for vacant units
+| Component | Actual Technology | Previous (Wrong) |
+|-----------|-------------------|------------------|
+| **Hosting** | Lovable Cloud CDN | AWS CloudFront + ALB |
+| **Backend Runtime** | Deno Edge Functions | NestJS on ECS |
+| **Database** | Supabase PostgreSQL 16 | AWS RDS + RDS Proxy |
+| **Cache** | None (Supabase built-in) | ElastiCache Redis |
+| **Storage** | Supabase Storage (S3-compatible) | AWS S3 direct |
+| **Secrets** | Lovable Cloud Secrets | AWS Secrets Manager |
+| **CI/CD** | Lovable auto-deploy | GitHub Actions + ECR |
+| **Containerization** | None (serverless) | Docker + ECS |
+| **IaC** | None needed | Terraform/CloudFormation |
 
-#### 3.3 Contracts & Move-Out
-- `contracts` (31 cols) -- rental contracts with signature, billing, termination config
-- `move_out_notices` -- tenant move-out intentions
-- `move_out_inspections` (16 cols) -- inspection with deductions, signatures, photos
-- `move_out_tasks` -- checklist items for move-out
-- `move_out_timeline` -- timeline events during move-out
-- `early_termination_requests` -- penalty calculation, counter-offers
+### 4. Environment Architecture
 
-#### 3.4 Invoices & Payments
-- `invoices` (21 cols) -- rent invoices with late fee, grace period, payment plan link
-- `payments` (13 cols) -- payment records per contract
-- `payment_plans` (18 cols) -- installment/deferred plans
-- `payment_plan_installments` -- individual installment tracking
-- `late_fee_records` -- late fee application history
-- `collections_cases` (15 cols) -- escalated overdue cases
+#### 4.1 Two-Environment Model
 
-#### 3.5 Financial & Escrow
-- `escrow_accounts` -- per-merchant escrow balance
-- `escrow_transactions` (13 cols) -- deposits/withdrawals with fee breakdown
-- `disbursements` (18 cols) -- payout to bank with review workflow
-- `bank_accounts` (8 cols) -- merchant bank details
-- `xendit_transactions` (18 cols) -- payment gateway records
-- `deposit_refunds` (17 cols) -- tenant deposit return with deductions
-- `deposit_disputes` (14 cols) -- disputed deductions
+| Aspect | Test (Preview) | Production (Published) |
+|--------|----------------|------------------------|
+| URL | `*-preview--*.lovable.app` | `testing-sihuni.lovable.app` / custom domain |
+| Database | Isolated test schema+data | Separate production database |
+| Edge Functions | Auto-deployed on code change | Deployed immediately (backend) |
+| Frontend | Auto-deployed on code change | Manual publish trigger |
+| Secrets | Shared configuration | Shared configuration |
+| Storage | Shared buckets | Shared buckets |
 
-#### 3.6 Subscriptions
-- `subscription_tiers` (15 cols) -- plan definitions with limits
-- `merchant_subscriptions` -- active subscriptions per merchant
-- `subscription_invoices` (17 cols) -- subscription billing records
-- `pending_subscription_changes` -- queued plan changes
-- `cancellation_feedback` (7 cols) -- churn feedback
+#### 4.2 Environment Variables
 
-#### 3.7 Marketplace
-- `products` -- vendor product catalog
-- `orders` -- order records with status workflow
-- `order_reviews` -- tenant reviews for vendor orders
-- `vendor_bank_accounts` (9 cols) -- vendor payout details
-- `vendor_verifications` (9 cols) -- vendor document verification
-- `vendor_jobs` -- maintenance job assignments
-- `vendor_earnings` -- earning tracking per vendor
-- `vouchers` -- discount/promo codes
+| Variable | Scope | Purpose |
+|----------|-------|---------|
+| `SUPABASE_URL` | Edge Functions | Database connection |
+| `SUPABASE_SERVICE_ROLE_KEY` | Edge Functions | Admin-level access |
+| `SUPABASE_ANON_KEY` | Edge Functions | Public-level access |
+| `XENDIT_SECRET_KEY` | Edge Functions | Payment gateway |
+| `XENDIT_WEBHOOK_TOKEN` | Edge Functions | Webhook verification |
+| `RESEND_API_KEY` | Edge Functions | Email service |
+| `LOVABLE_API_KEY` | Edge Functions | AI chatbot |
+| `VITE_SUPABASE_URL` | Frontend | Client SDK |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Frontend | Client SDK |
 
-#### 3.8 Community & AI
-- `forum_posts` (14 cols) -- community posts with photos, tags
-- `forum_comments` -- post comments
-- `forum_likes` -- like system
-- `forum_reports` -- content moderation reports
-- `chat_conversations` (7 cols) -- AI chatbot conversations
-- `chat_messages` -- conversation messages
-- `chatbot_knowledge` (8 cols) -- FAQ knowledge base
-- `chatbot_analytics` (10 cols) -- chatbot usage tracking
+### 5. Deployment Pipeline (Actual Flow)
 
-#### 3.9 System & Operations
-- `notifications` -- in-app notification system
-- `audit_logs` (11 cols) -- immutable action logs
-- `analytics_events` (7 cols) -- frontend event tracking
-- `platform_settings` (6 cols) -- global config (key-value JSONB)
-- `referrals` (19 cols) -- referral tracking
-- `referral_rewards` (11 cols) -- reward management
-- `referral_commissions` -- commission processing
-- `provinces` / `cities` -- Indonesian geography reference
-- `tenant_invitations` -- invitation tokens
-- `tenant_merchant_history` -- tenant transfer history
-- `merchant_verifications` -- verification documents
-- `merchant_verification_history` (11 cols) -- verification audit trail
-- `maintenance_requests` -- maintenance ticket system
-- `maintenance_updates` -- status update entries
-- `maintenance_timeline` -- timeline tracking
-- `maintenance_reviews` -- vendor reviews from maintenance
-- `disputes` (13 cols) -- general dispute resolution
+Mermaid sequence diagram showing the real pipeline:
 
-### 4. Custom Enum Type
+1. Developer edits code in Lovable IDE
+2. TypeScript compilation check (automatic)
+3. Preview deployment (automatic, instant)
+4. Edge functions deploy (automatic, immediate)
+5. Database migration (semi-automatic, user-approved)
+6. Production publish (manual trigger via Publish button)
 
-```sql
-CREATE TYPE app_role AS ENUM ('admin', 'merchant', 'tenant', 'vendor');
-```
+Key distinctions:
+- Frontend changes require manual "Update" click to go live
+- Backend changes (edge functions, DB migrations) deploy immediately
+- No Docker builds, no container registries, no CI/CD pipelines
 
-Used in `user_roles.role` column and `has_role()` function.
+### 6. Frontend Build & Optimization
 
-### 5. Database Functions (18 Functions)
+#### 6.1 Vite Build Configuration
+- Build tool: Vite 5.4 with React SWC plugin
+- Compression: Dual gzip + Brotli (via `vite-plugin-compression`)
+- Code splitting strategy (6 manual chunks):
+  - `vendor`: react, react-dom, react-router-dom, react-helmet-async
+  - `ui`: 25 Radix UI packages + CVA + lucide-react
+  - `data`: TanStack Query, Supabase SDK, Zod, Zustand
+  - `charts`: Recharts
+  - `maps`: Leaflet, React Leaflet
+  - Dynamic imports: 25 feature modules lazy-loaded per route
+- Chunk size warning limit: 1000 KB
 
-| Function | Returns | Description |
-|----------|---------|-------------|
-| `has_role(user_id, role)` | boolean | Check if user has specific role (used in RLS) |
-| `get_user_role(user_id)` | app_role | Get user's primary role |
-| `handle_new_user()` | trigger | Auto-create profile on auth signup |
-| `generate_merchant_code()` | text | Generate unique merchant code |
-| `set_merchant_code()` | trigger | Auto-set merchant code on insert |
-| `create_merchant_escrow()` | trigger | Auto-create escrow account for new merchant |
-| `generate_invoice_number()` | trigger | Auto-generate invoice numbers |
-| `generate_order_number()` | trigger | Auto-generate order numbers |
-| `generate_referral_code()` | trigger | Auto-generate referral codes |
-| `generate_voucher_code()` | text | Generate unique voucher code |
-| `update_updated_at_column()` | trigger | Auto-update `updated_at` timestamp |
-| `update_property_unit_counts()` | trigger | Sync property total/occupied counts |
-| `update_unit_status_on_contract_sign()` | trigger | Mark unit occupied on contract sign |
-| `calculate_sla_deadline()` | timestamptz | Calculate maintenance SLA deadline |
-| `set_maintenance_sla_deadline()` | trigger | Auto-set SLA deadline on request create |
-| `update_vendor_maintenance_rating()` | trigger | Recalculate vendor rating on review |
-| `set_cancellation_effective_date()` | trigger | Auto-set subscription cancellation date |
-| `check_phone_unique_per_role()` | boolean | Validate phone uniqueness per role |
+#### 6.2 Static Asset Delivery
+- Served via Lovable CDN with edge caching
+- Content hashing for cache-busting
+- Immutable asset headers for hashed files
 
-### 6. Indexing Strategy (Actual Indexes)
+### 7. Edge Functions Infrastructure
 
-Document all existing indexes grouped by purpose:
-- **Primary keys**: All 66 tables have UUID PKs
-- **Lookup indexes**: `idx_audit_logs_user_id`, `idx_contracts_merchant_id`, etc.
-- **Status filters**: `idx_collections_cases_status`, `idx_deposit_refunds_status`
-- **Partial indexes**: `idx_contracts_move_out` (WHERE move_out_notice_given = true), `idx_disbursements_pending_review` (WHERE requires_manual_review = true)
-- **Composite indexes**: Various multi-column indexes for dashboard queries
-- **Unique constraints**: `profiles(user_id)`, `merchants(user_id)`, etc.
+#### 7.1 Runtime Details
+- Runtime: Deno (V8 isolate, TypeScript native)
+- Cold start: ~50-200ms
+- Auto-scaling: Managed by Lovable Cloud (zero config)
+- No container management required
 
-### 7. RLS Policy Summary (191 Policies)
+#### 7.2 Function Catalog (31 Functions)
 
-Grouped by access pattern:
-- **Admin full access**: `has_role(auth.uid(), 'admin')` on most tables
-- **Merchant own-data**: via `merchants.user_id = auth.uid()` join pattern
-- **Tenant own-data**: `tenant_user_id = auth.uid()` direct or join
-- **Vendor own-data**: `vendors.user_id = auth.uid()` join pattern
-- **Public read**: `platform_settings`, `subscription_tiers` (active), `forum_posts` (visible)
-- **System insert**: `audit_logs`, `xendit_transactions` (with_check = true)
+Grouped by category with JWT verification status:
 
-### 8. Key Relationships
+| Category | Functions | verify_jwt |
+|----------|-----------|------------|
+| **Auth** | `ensure-user-bootstrap`, `validate-admin-secret`, `auth-webhook` | false/true |
+| **Tenant Invitation** | `get-tenant-invitation`, `accept-tenant-invitation` | false |
+| **Billing Crons** | `auto-generate-invoices`, `auto-pay-execute`, `check-overdue-escalation`, `check-payment-plan` | true |
+| **Payment** | `xendit-create-invoice`, `xendit-webhook`, `subscription-payment` | mixed |
+| **Escrow** | `scheduled-disbursement`, `xendit-disbursement`, `xendit-disbursement-webhook`, `process-deposit-refund` | true |
+| **Subscription** | `subscription-billing`, `subscription-renewal`, `subscription-grace-check` | true |
+| **Referral** | `process-referral-commissions`, `process-referral-reward`, `process-vendor-order-referral` | true |
+| **AI** | `ai-chatbot`, `merchant-ai-assistant`, `vendor-ai-assistant` | true |
+| **Notification** | `send-notification`, `send-payment-reminder`, `whatsapp-notification` | true |
+| **Operations** | `vacancy-tracking-cron`, `order-auto-reject`, `generate-invoice-pdf` | true |
 
-Document all foreign key-like relationships (enforced at application level via Supabase SDK `.select()` joins):
-- `profiles.user_id` -> `auth.users.id`
-- `merchants.user_id` -> `auth.users.id`
-- `contracts.merchant_id` -> `merchants.id`
-- `contracts.unit_id` -> `units.id`
-- `units.property_id` -> `properties.id`
-- `invoices.contract_id` -> `contracts.id`
-- `escrow_transactions.escrow_account_id` -> `escrow_accounts.id`
-- And 40+ more application-level relationships
+#### 7.3 Public Functions (No Auth Required)
+4 functions with `verify_jwt = false` in `supabase/config.toml`:
+- `get-tenant-invitation` -- Token-based validation
+- `accept-tenant-invitation` -- Token-based validation
+- `ensure-user-bootstrap` -- Called during signup
+- `subscription-payment` -- Xendit callback/redirect
 
-### 9. JSONB Column Patterns
+### 8. Database Infrastructure
 
-Document all JSONB columns and their expected structure:
-- `tenants.notification_preferences` -- notification toggle flags
-- `move_out_inspections.inspection_report` -- inspection findings
-- `move_out_inspections.deduction_details` -- itemized deductions
-- `chat_conversations.context` -- AI chatbot context
-- `analytics_events.event_data` -- frontend event payload
-- `platform_settings.setting_value` -- dynamic config values
-- `audit_logs.metadata` -- action metadata
-- `subscription_tiers.features` -- feature list per tier
+#### 8.1 PostgreSQL 16 on Lovable Cloud
+- 66 public tables
+- 18 database functions
+- 191 RLS policies
+- 1 custom enum (`app_role`)
+- Auto-managed by Lovable Cloud (no DBA required)
+- Connection pooling: Built-in (Supavisor)
+- Backups: Automatic daily snapshots
 
-### 10. Data Migration & Conventions
+#### 8.2 Migration Strategy
+- Migrations created via Lovable IDE database migration tool
+- User approval required before execution
+- Migrations apply to Test environment first
+- Publishing deploys schema changes to Production
+- **Critical**: Check Live data before destructive schema changes
 
-- All PKs: `uuid DEFAULT gen_random_uuid()`
-- All timestamps: `timestamptz` (with timezone)
-- All `created_at`: `DEFAULT now()`
-- All `updated_at`: auto-updated via `update_updated_at_column()` trigger
-- Status columns: `text` with application-level validation (not DB enums, except `app_role`)
-- Monetary values: `numeric` (not float)
-- Arrays: `text[]` for photos, tags, keywords
-- No soft deletes (no `deleted_at` columns in actual schema)
+### 9. Storage Infrastructure
+
+#### 9.1 Supabase Storage Buckets
+
+| Bucket | Public | Purpose | Content |
+|--------|--------|---------|---------|
+| `verification-documents` | No | KTP, business docs | Private merchant/vendor docs |
+| `property-images` | Yes | Property photos | Unit and property images |
+| `maintenance-photos` | Yes | Maintenance evidence | Before/after repair photos |
+| `product-photos` | Yes | Vendor products | Marketplace product images |
+| `contract-documents` | No | Signed contracts | Digital signatures, PDFs |
+
+#### 9.2 Storage Policies
+- Private buckets: Accessible only via authenticated requests with RLS
+- Public buckets: Read-accessible via CDN URL, write requires auth
+- File path convention: `{user_id}/{folder}/{timestamp}-{random}.{ext}`
+
+### 10. External Service Integrations
+
+#### 10.1 Xendit (Payment Gateway)
+- Invoice creation API
+- Webhook callbacks (PAID, EXPIRED, FAILED)
+- Disbursement API (bank transfers)
+- Disbursement webhook confirmation
+- Webhook verification: HMAC-based token validation
+- Idempotency: Duplicate webhook detection via `xendit_transactions` table
+
+#### 10.2 Resend (Email)
+- Transactional emails (30+ templates)
+- Triggered from edge functions
+- Categories: payment confirmations, overdue reminders, subscription notices, invitations
+
+#### 10.3 Lovable AI (Chatbot)
+- Models: Gemini 2.5 Flash/Pro (no API key needed)
+- 3 role-specific assistants
+- Context injection from database per role
+
+### 11. Cron Job Infrastructure
+
+#### 11.1 Scheduling Architecture
+- 12 daily automated jobs
+- Triggered via external cron service calling edge function endpoints
+- Each job is an independent edge function with its own error handling
+- Idempotent design (safe to re-run)
+
+#### 11.2 Cron Job Schedule
+
+| Time | Function | Purpose |
+|------|----------|---------|
+| 00:00 | `auto-generate-invoices` | Generate rent invoices on billing day |
+| 01:00 | `check-overdue-escalation` | Escalate overdue invoices (4-tier) |
+| 02:00 | `check-payment-plan` | Monitor installment deadlines |
+| 03:00 | `auto-pay-execute` | Process auto-pay enabled tenants |
+| 04:00 | `subscription-billing` | Generate subscription invoices |
+| 05:00 | `subscription-renewal` | Auto-renew expiring subscriptions |
+| 06:00 | `subscription-grace-check` | Suspend/cancel grace-expired subs |
+| 07:00 | `process-referral-commissions` | Process pending referral rewards |
+| 08:00 | `send-payment-reminder` | Send upcoming payment reminders |
+| 09:00 | `scheduled-disbursement` | Process merchant payouts |
+| 10:00 | `order-auto-reject` | Reject unconfirmed orders (48h) |
+| 11:00 | `vacancy-tracking-cron` | Update vacancy day counters |
+
+### 12. Security Infrastructure
+
+#### 12.1 Authentication Layer
+- Supabase Auth (JWT-based)
+- RBAC via `user_roles` table + `has_role()` function
+- Admin 2FA (TOTP) via `otpauth` library
+- Session management: Supabase built-in (refresh tokens)
+
+#### 12.2 Data Security
+- Row Level Security (RLS): 191 policies enforce data isolation
+- All edge functions use `SUPABASE_SERVICE_ROLE_KEY` for admin operations
+- Webhook verification: Timing-safe HMAC comparison for Xendit
+- Input sanitization: DOMPurify for user-generated content
+- No PCI data storage: Xendit handles all card/payment data
+
+#### 12.3 Network Security
+- HTTPS enforced on all endpoints
+- CORS managed by Supabase Edge Functions
+- Rate limiting: Built-in via Supabase/Lovable Cloud
+- No exposed database ports (SDK-only access)
+
+### 13. Scalability Architecture
+
+#### 13.1 Frontend Scaling
+- Static SPA served from CDN (infinite horizontal scaling)
+- Code splitting reduces initial bundle size
+- Lazy loading for 25 feature modules
+
+#### 13.2 Backend Scaling
+- Edge functions: Auto-scale to zero, scale up on demand
+- Database: Lovable Cloud managed (upgradable instance size in Settings)
+- Storage: S3-compatible, virtually unlimited
+- No manual capacity planning required
+
+#### 13.3 Performance Optimization
+- TanStack Query: Client-side caching with stale-while-revalidate
+- Supabase SDK: Connection pooling via Supavisor
+- Partial indexes: Optimized queries for status-based filters
+- JSONB: Flexible schema for dynamic data (settings, metadata)
+
+### 14. Monitoring & Observability
+
+#### 14.1 Available Monitoring
+- Edge Function logs (Lovable Cloud dashboard)
+- Database logs (postgres_logs)
+- Auth logs (auth_logs)
+- Audit trail (`audit_logs` table -- immutable)
+- Analytics events (`analytics_events` table)
+
+#### 14.2 Error Tracking
+- Console-based logging in edge functions
+- Frontend: Browser console + Lovable debug tools
+- No external APM (DataDog/Sentry) currently integrated
+
+#### 14.3 Business Metrics
+- `analytics_events` table for user behavior tracking
+- Dashboard analytics built into admin panel
+- Recharts visualizations for revenue, occupancy, subscription metrics
+
+### 15. Disaster Recovery
+
+#### 15.1 Backup Strategy
+- Database: Automatic daily backups (Lovable Cloud managed)
+- Point-in-time recovery: Available via Cloud settings
+- Storage: Object versioning via Supabase Storage
+- Code: Git-based version history in Lovable IDE
+
+#### 15.2 Recovery Procedures
+- Database restore: Via Lovable Cloud advanced settings
+- Code rollback: Revert to previous version in Lovable IDE
+- Edge function rollback: Re-deploy previous code version
+
+#### 15.3 Data Protection
+- Test and Production databases are fully isolated
+- Publishing deploys schema only (no data sync)
+- Destructive schema changes require manual Live data migration
+
+### 16. Cost Architecture
+
+#### 16.1 Lovable Cloud Pricing
+- Usage-based pricing with free tier
+- Instance size upgradable in Settings (affects cost)
+- Edge function invocations: Usage-based
+- Storage: Usage-based
+- Database: Included in Cloud plan
+
+#### 16.2 External Service Costs
+- Xendit: Per-transaction fees (VA, e-wallet, QRIS rates)
+- Resend: Per-email pricing
+- Lovable AI: Usage-based with free tier included
+
+### 17. Deployment Checklist
+
+Pre-production checklist for new releases:
+1. All TypeScript errors resolved
+2. RLS policies verified for new tables
+3. Edge functions tested via curl/preview
+4. Database migrations applied and verified in Test
+5. Secrets configured for all required API keys
+6. Storage bucket policies set correctly
+7. Cron job endpoints tested manually
+8. Publish frontend via Publish button
+9. Verify production URL health
 
 ---
 
@@ -230,17 +339,18 @@ Document all JSONB columns and their expected structure:
 
 | Skill | Penerapan |
 |-------|-----------|
-| `database-design` | Normalization analysis, PK strategy, relationship types, timestamp strategy |
-| `database-schema-designer` | Table documentation format, ERD design |
-| `supabase-postgres-best-practices` | Data types (text vs varchar, bigint, timestamptz, numeric), PK strategy, RLS patterns, index types, JSONB indexing |
-| `sql-optimization-patterns` | Index analysis, query pattern documentation |
-| `security-auditor` | RLS policy audit, data access patterns |
-| `pci-compliance` | Financial data handling (numeric for money, no PAN storage) |
-| `database-optimizer` | Partial indexes, composite indexes, covering indexes |
+| `deployment-pipeline-design` | Pipeline stages, environment strategy, rollback procedures |
+| `architecture-patterns` | Serverless modular monolith, event-driven cron architecture |
+| `api-security-best-practices` | HTTPS, CORS, webhook verification, secrets management |
+| `pci-compliance` | No PCI data storage, tokenized payment handling |
+| `security-auditor` | RLS audit, audit trail, data isolation |
+| `web-performance-optimization` | Code splitting, compression (gzip+brotli), lazy loading, CDN |
+| `supabase-postgres-best-practices` | Connection pooling, RLS, indexing, backup strategy |
+| `billing-automation` | Cron job scheduling, idempotent job design |
+| `workflow-patterns` | Environment separation, migration workflow |
 
 ---
 
 ## Hasil Akhir
 
-Dokumen database schema lengkap (~1500+ baris) yang mencakup seluruh 66 tabel dengan kolom, tipe data, default values, 18 database functions, 191 RLS policies, indexing strategy, JSONB patterns, dan relationship maps yang mencerminkan database aktual di Lovable Cloud.
-
+Dokumen deployment & infrastructure lengkap (~800+ baris) yang mencerminkan arsitektur Lovable Cloud sebenarnya: serverless Deno Edge Functions, Supabase PostgreSQL, React/Vite SPA dengan CDN delivery, 5 storage buckets, 12 cron jobs, dan zero-config auto-scaling -- menggantikan seluruh referensi AWS/Docker/ECS yang tidak relevan.
