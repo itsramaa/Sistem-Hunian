@@ -1,238 +1,242 @@
 
-
-# Maksimalisasi API Specification - SiHuni Platform
+# Maksimalisasi Business Process Document - SiHuni Platform
 
 ## Ringkasan
 
-File `docs/api-specification.md` saat ini hanya mencakup sebagian kecil dari fitur yang sudah diimplementasikan. Dokumen akan di-rewrite secara menyeluruh untuk mencerminkan **seluruh 32 edge functions**, **25+ feature modules**, dan **40+ database tables** yang ada di project. Struktur akan mengikuti best practices dari skills `api-design-principles`, `api-security-best-practices`, dan `payment-integration`.
+File `docs/business-process.md` saat ini hanya mendokumentasikan 5 proses dasar (onboarding, payment, expense, occupancy, room/invoice state machines) yang sudah sangat tertinggal dari implementasi aktual. Dokumen akan di-rewrite secara menyeluruh untuk mencakup **seluruh 20+ proses bisnis end-to-end** yang sudah berjalan di platform, termasuk financial workflows, escrow, subscription lifecycle, marketplace, dan automated operations.
 
 ---
 
 ## Perubahan yang Akan Dilakukan
 
-### File: `docs/api-specification.md` (Full Rewrite)
+### File: `docs/business-process.md` (Full Rewrite)
 
-Dokumen baru akan memiliki struktur berikut:
+### 1. Introduction (Diperbarui)
+- Update scope dari 5 proses menjadi 20+ proses
+- Tambah referensi ke `api-specification.md` dan `backend-architecture.md`
+- Tambah document versioning (v2.0)
 
-### 1. Overview & Architecture
-- Base URL, content-type, date format, currency (IDR)
-- Architecture diagram (Client -> Edge Functions -> Database)
-- Environment: Lovable Cloud + Deno Edge Functions
-- Payment Gateway: Xendit (bukan Midtrans)
+### 2. Actors & Roles (Diperluas dari 5 menjadi 8 aktor)
 
-### 2. Authentication & Authorization (Diperluas)
-- Supabase Auth JWT-based authentication
-- RBAC: `super_admin`, `admin`, `moderator`, `support`, `merchant`, `tenant`, `vendor`
-- Security headers termasuk CORS policy
-- Admin 2FA (TOTP) via `validate-admin-secret`
-- User bootstrap flow via `ensure-user-bootstrap`
-- Tenant invitation flow (public, no JWT required)
+| Actor | Deskripsi |
+|-------|-----------|
+| **Super Admin** | Platform owner, full access |
+| **Admin** | Manage merchants, tenants, disputes, moderation |
+| **Merchant (Pemilik Kos)** | Manage properties, contracts, invoices, escrow |
+| **Tenant (Penyewa)** | Pay rent, maintenance requests, forum, AI chatbot |
+| **Vendor** | Marketplace products, fulfill orders, maintenance jobs |
+| **System (Cron)** | 12 automated daily jobs |
+| **Xendit (Payment Gateway)** | Payment processing, webhooks, disbursement |
+| **Resend (Email)** | 30+ transactional email templates |
 
-### 3. Standard Response & Error Handling (Diperbaiki)
-- Error codes yang sudah diimplementasikan (`ERR_RATE_LIMIT`, `ERR_AI_UNAVAILABLE`, `ERR_INVALID_INPUT`, `ERR_AUTH_REQUIRED`, dll)
-- HTTP status codes mapping
-- Pagination format (offset-based)
+### 3. Core Business Processes (20+ proses)
 
-### 4. Edge Functions API (32 Functions - BARU)
+#### 3.1 User Registration & Bootstrap
+- Registration flow per role (merchant/tenant/vendor)
+- `ensure-user-bootstrap` edge function creates profile + role-specific records
+- Admin 2FA (TOTP) setup via `validate-admin-secret`
+- Mermaid: sequence diagram registration -> bootstrap -> role dashboard
 
-#### 4.1 Authentication & User Management
-| Function | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `ensure-user-bootstrap` | POST | JWT | Bootstrap user profile, roles, merchant/tenant/vendor records |
-| `validate-admin-secret` | POST | None | Validate admin setup secret key |
-| `auth-webhook` | POST | Webhook | Handle auth events from Supabase |
+#### 3.2 Merchant Verification Workflow
+- Document submission (KTP, business docs)
+- Admin review: approve / reject / request resubmission
+- Status transitions: `pending` -> `verified` / `rejected`
+- Resubmission counter and instructions
+- Mermaid: state diagram verification lifecycle
 
-#### 4.2 Tenant Invitation
-| Function | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `get-tenant-invitation` | POST | None | Validate invitation token, return invitation details |
-| `accept-tenant-invitation` | POST | None | Accept invitation, create tenant profile, contract, invoices |
+#### 3.3 Tenant Invitation & Onboarding
+- Merchant invites tenant via email (generates token)
+- `get-tenant-invitation` validates token (public, no auth)
+- Tenant registers -> `accept-tenant-invitation` creates:
+  - Tenant profile
+  - Contract (draft/active)
+  - First invoice(s)
+  - Unit status update
+- Mermaid: sequence diagram invitation -> registration -> contract creation
 
-#### 4.3 Payment & Billing (Xendit Integration)
-| Function | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `xendit-create-invoice` | POST | JWT | Create Xendit payment invoice for rent/order/subscription |
-| `xendit-webhook` | POST | Webhook Token | Handle Xendit payment callbacks (paid, expired, failed) |
-| `xendit-disbursement` | POST | JWT | Process disbursement to merchant/vendor bank account |
-| `xendit-disbursement-webhook` | POST | Webhook Token | Handle disbursement status callbacks |
-| `subscription-payment` | POST | JWT | Create subscription payment via Xendit |
-| `auto-pay-execute` | POST | Cron | Execute auto-pay for tenants with auto-pay enabled |
+#### 3.4 Property & Unit Management
+- CRUD properties and units
+- Unit status: vacant / occupied / maintenance / reserved
+- Vacancy tracking via `vacancy-tracking-cron` (daily)
+- Mermaid: state diagram unit lifecycle
 
-#### 4.4 Invoice & Billing Automation
-| Function | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `auto-generate-invoices` | POST | Cron | Generate monthly rent invoices based on billing_day |
-| `generate-invoice-pdf` | POST | JWT | Generate PDF for invoice with merchant/tenant details |
-| `send-payment-reminder` | POST | Cron | Send reminders at 7 days, 3 days, and due date |
-| `check-overdue-escalation` | POST | Cron | Escalate overdue invoices: late fees, collections |
-| `check-payment-plan` | POST | Cron | Monitor payment plan installments, auto-default |
+#### 3.5 Contract Lifecycle
+- Creation (draft -> pending_signature)
+- Digital signature flow (merchant signs, tenant signs)
+- Signature status: `unsigned` -> `merchant_signed` -> `fully_signed`
+- Status transitions: `draft` -> `active` -> `notice` -> `completed` / `terminated`
+- Early termination request + penalty calculation
+- Move-out notice -> inspection -> deposit refund
+- Mermaid: state diagram full contract lifecycle
 
-#### 4.5 Subscription Management
-| Function | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `subscription-billing` | POST | Cron | Check and create subscription invoices for due subscriptions |
-| `subscription-renewal` | POST | Cron | Auto-renew subscriptions at period end |
-| `subscription-grace-check` | POST | Cron | Check grace period, suspend/cancel overdue subscriptions |
+#### 3.6 Invoice Generation & Billing Automation
+- `auto-generate-invoices` (daily cron, checks billing_day)
+- Invoice lifecycle: `draft` -> `pending` -> `sent` -> `paid` / `overdue` -> `cancelled`
+- Grace period handling
+- Late fee calculation (percentage or fixed based on contract)
+- Mermaid: flowchart auto-generation logic + state diagram invoice lifecycle
 
-#### 4.6 Escrow & Disbursement
-| Function | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `scheduled-disbursement` | POST | Cron | Auto-disburse escrow based on merchant schedule (daily/weekly/monthly) |
-| `process-deposit-refund` | POST | JWT | Process tenant deposit refund via Xendit disbursement |
-
-#### 4.7 Referral Program
-| Function | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `process-referral-commissions` | POST | Cron | Process eligible referral commissions |
-| `process-referral-reward` | POST | Service | Credit referral rewards to users |
-| `process-vendor-order-referral` | POST | Service | Process vendor order referral bonuses |
-
-#### 4.8 Notifications
-| Function | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `send-notification` | POST | Service | Send email via Resend (30+ notification types) |
-| `whatsapp-notification` | POST | JWT | Send WhatsApp message via Whatsmeow API |
-
-#### 4.9 AI & Chatbot
-| Function | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `ai-chatbot` | POST | JWT | Multi-role AI chatbot (tenant context-aware) |
-| `merchant-ai-assistant` | POST | JWT | Merchant-specific AI with property/financial context |
-| `vendor-ai-assistant` | POST | JWT | Vendor-specific AI with order/product context |
-
-#### 4.10 Operations
-| Function | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `vacancy-tracking-cron` | POST | Cron | Track vacant units, calculate vacancy days, send alerts |
-| `order-auto-reject` | POST | Cron | Auto-reject orders not responded within 48 hours |
-
-### 5. Database-Driven API (Supabase Client)
-
-Documenting all CRUD operations performed via Supabase client SDK (not edge functions):
-
-#### 5.1 Properties Management
-- CRUD operations on `properties` table
-- CRUD operations on `units` table
-- RLS: merchant sees own, admin sees all
-
-#### 5.2 Contract Management
-- Create/update/terminate contracts
-- Move-out notices, inspections, tasks
-- Early termination requests
-- Deposit refunds and disputes
-
-#### 5.3 Invoice & Payment Management
-- Invoice CRUD with status transitions
-- Payment plans (installments, deferred)
-- Late fee records and collections cases
-
-#### 5.4 Maintenance Management
-- Create/update maintenance requests
-- Assign vendors, track timeline
-- Tenant reviews
-
-#### 5.5 Merchant Management
-- Verification workflow (submit/approve/reject)
-- Bank account management
-- Escrow account overview
-
-#### 5.6 Subscription Management
-- Subscription tiers (CRUD by admin)
-- Merchant subscriptions lifecycle
-- Cancellation feedback
-
-#### 5.7 Vendor & Marketplace
-- Vendor registration and verification
-- Product CRUD
-- Order management with status workflow
-
-#### 5.8 Forum & Community
-- Posts, comments, likes
-- Report moderation (admin)
-- Content visibility toggle
-
-#### 5.9 Referral Program
-- Referral code generation
-- Tracking and commission management
-
-#### 5.10 Notifications & Audit
-- In-app notifications
-- Audit logs (read-only for admin)
-- Analytics events
-
-### 6. Data Models (Diperbaiki sesuai implementasi aktual)
-
-Semua TypeScript interfaces akan di-update sesuai database schema yang sebenarnya:
-- `Profile`, `Merchant`, `Tenant`, `Vendor`
-- `Property`, `Unit`, `Contract`
-- `Invoice`, `Payment`, `PaymentPlan`
-- `EscrowAccount`, `EscrowTransaction`, `Disbursement`
-- `MaintenanceRequest`, `MoveOutNotice`
-- `SubscriptionTier`, `MerchantSubscription`
-- `ForumPost`, `ForumComment`, `ForumReport`
-- `Referral`, `ReferralReward`
-- `Order`, `Product`, `VendorJob`
-- `Notification`, `AuditLog`
-
-### 7. Webhooks (BARU)
-
-#### Xendit Payment Webhook
-- Endpoint: `xendit-webhook`
-- Auth: `x-callback-token` header (timing-safe comparison)
-- Events: `PAID`, `EXPIRED`, `FAILED`
+#### 3.7 Payment Collection (Xendit Integration)
+- Tenant initiates payment -> `xendit-create-invoice` creates Xendit invoice
+- Tenant pays via VA/e-wallet/QRIS
+- `xendit-webhook` receives callback (PAID/EXPIRED/FAILED)
 - Fee calculation: Platform 1% + Gateway 2.5%
+- Net amount deposited to merchant's escrow
+- Idempotency check (prevents duplicate processing)
+- Mermaid: sequence diagram tenant -> Xendit -> webhook -> escrow
 
-#### Xendit Disbursement Webhook
-- Endpoint: `xendit-disbursement-webhook`
-- Events: `COMPLETED`, `FAILED`
+#### 3.8 Overdue Escalation Process
+- `check-overdue-escalation` (daily cron)
+- 4-tier escalation:
+  - Day 1-3: Grace period (daily reminders)
+  - Day 4-7: Post-grace (email + in-app, merchant notified)
+  - Day 8-14: Pre-collection (formal email with penalty)
+  - Day 15+: Collection case created
+- Mermaid: flowchart escalation tiers
 
-#### Auth Webhook
-- Endpoint: `auth-webhook`
-- Handles user creation/deletion events
+#### 3.9 Payment Plan Management
+- Merchant creates payment plan for overdue tenant
+- Types: `installments` (split) or `deferred` (postpone)
+- `check-payment-plan` (daily cron) monitors installments
+- Auto-default if installment missed
+- Mermaid: state diagram payment plan lifecycle
 
-### 8. Cron Jobs (BARU)
+#### 3.10 Auto-Pay Execution
+- Tenant enables auto-pay
+- `auto-pay-execute` (cron) creates Xendit invoices for due invoices
+- Automatic payment without tenant action
+- Mermaid: flowchart auto-pay decision logic
 
-| Schedule | Function | Purpose |
-|----------|----------|---------|
-| Daily | `auto-generate-invoices` | Generate rent invoices on billing day |
-| Daily | `send-payment-reminder` | Send payment reminders (7d, 3d, due) |
-| Daily | `check-overdue-escalation` | Apply late fees, escalate to collections |
-| Daily | `check-payment-plan` | Check installment status, auto-default |
-| Daily | `subscription-billing` | Generate subscription invoices |
-| Daily | `subscription-renewal` | Renew expiring subscriptions |
-| Daily | `subscription-grace-check` | Suspend/cancel overdue subscriptions |
-| Configurable | `scheduled-disbursement` | Auto-disburse escrow funds |
-| Daily | `vacancy-tracking-cron` | Track and alert vacant units |
-| Daily | `order-auto-reject` | Auto-reject unresponded orders (48h) |
-| Daily | `process-referral-commissions` | Process eligible commissions |
+#### 3.11 Escrow & Disbursement Engine
+- Rent payments deposited to escrow (net after fees)
+- `scheduled-disbursement` (configurable: daily/weekly/monthly)
+- Fee rates: Daily 0.25%, Weekly/Monthly free
+- Manual review for large amounts
+- Admin approve/reject disbursement
+- `xendit-disbursement` calls Xendit API
+- `xendit-disbursement-webhook` confirms completion
+- Mermaid: sequence diagram payment -> escrow -> disbursement -> bank
 
-### 9. Security (BARU - dari `api-security-best-practices` skill)
+#### 3.12 Deposit Refund Process
+- Move-out notice triggers deposit review
+- Inspection and deduction calculation
+- `process-deposit-refund` creates Xendit disbursement to tenant
+- Status: `pending` -> `pending_bank_details` -> `processing` -> `refunded`
+- Mermaid: flowchart deposit refund with deductions
 
-- RLS policies on all tables (restrictive mode)
-- JWT validation on authenticated endpoints
-- Webhook signature verification (timing-safe)
-- Input sanitization (AI prompt injection prevention)
-- CORS configuration
-- Service role key isolation (server-side only)
-- Admin 2FA TOTP
+#### 3.13 Merchant Subscription Lifecycle
+- Tiers: Free, Basic, Pro, Enterprise (admin-managed)
+- Trial period (configurable days per tier)
+- `subscription-billing` (daily) creates subscription invoices
+- Payment via Xendit (`subscription-payment`)
+- `subscription-renewal` (daily) auto-renew at period end
+- `subscription-grace-check` (daily): suspend after grace, cancel after extended grace
+- Feature gating based on tier (max properties, units, tenants)
+- Mermaid: state diagram subscription lifecycle (trial -> active -> past_due -> suspended -> cancelled)
 
-### 10. Integrations (Diperbaiki)
+#### 3.14 Marketplace & Order Management
+- Vendor lists products (CRUD)
+- Tenant places order
+- Order status: `pending` -> `confirmed` -> `in_progress` -> `completed` / `canceled`
+- `order-auto-reject` (daily, 48h timeout)
+- Service fee calculation
+- Tenant reviews vendor after completion
+- Mermaid: state diagram order lifecycle
 
-- **Payment Gateway**: Xendit (invoice creation, disbursement, webhook)
-- **Email**: Resend API (30+ notification templates)
-- **WhatsApp**: Whatsmeow API (mock, ready for production)
-- **AI**: Lovable AI (Gemini models for chatbot)
-- **Storage**: Supabase Storage (KTP photos, signatures, documents)
+#### 3.15 Maintenance Request Workflow
+- Tenant creates request (title, description, category, priority, images)
+- Merchant acknowledges and assigns vendor
+- Status: `pending` -> `acknowledged` -> `in_progress` -> `completed` / `cancelled`
+- SLA deadline tracking
+- Timeline entries for each status change
+- Tenant reviews vendor after completion
+- Mermaid: state diagram maintenance lifecycle
 
-### 11. Rate Limiting & Fees (BARU - dari `payment-integration` skill)
+#### 3.16 Referral Program
+- User generates referral code
+- Referee registers with code
+- Events that trigger rewards: `rent_paid`, `subscription_paid`, vendor order
+- `process-referral-commissions` (daily cron)
+- `process-referral-reward` credits reward to user
+- `process-vendor-order-referral` for marketplace referrals
+- Mermaid: flowchart referral -> registration -> payment -> reward
 
+#### 3.17 Dispute Resolution
+- Tenant/merchant creates dispute
+- Admin reviews and resolves
+- Status: `open` -> `in_review` -> `resolved` / `dismissed`
+- Resolution notes and audit trail
+- Mermaid: state diagram dispute lifecycle
+
+#### 3.18 Forum & Community
+- Tenant/merchant creates posts and comments
+- Like system
+- Report moderation (admin): `pending` -> `reviewed` -> `resolved` / `dismissed` / `action_taken`
+- Content visibility toggle (hide/unhide)
+- Post locking
+- Mermaid: state diagram report moderation lifecycle
+
+#### 3.19 AI Chatbot Operations
+- 3 role-specific chatbots:
+  - `ai-chatbot` (tenant): property info, payment status, maintenance
+  - `merchant-ai-assistant`: financial analysis, tenant management
+  - `vendor-ai-assistant`: order management, product optimization
+- Context injection per role (property data, financial data, order data)
+- Prompt injection sanitization
+- Mermaid: flowchart chatbot context-loading -> AI response
+
+#### 3.20 Notification System
+- In-app notifications (stored in `notifications` table)
+- Email via Resend (30+ templates)
+- WhatsApp via Whatsmeow (mock, ready for production)
+- Triggered by: payments, overdue, subscription, orders, maintenance, referrals
+- Mermaid: flowchart notification routing (in-app + email + WhatsApp)
+
+### 4. Data Lifecycle & State Machines (Diperluas dari 2 menjadi 10)
+
+State machines baru yang akan didokumentasikan:
+1. **Unit State**: Vacant -> Occupied -> Maintenance -> Reserved
+2. **Contract State**: Draft -> Active -> Notice -> Completed/Terminated
+3. **Invoice State**: Draft -> Pending -> Paid/Overdue -> Cancelled
+4. **Payment State**: Pending -> Paid/Failed/Cancelled
+5. **Order State**: Pending -> Confirmed -> In Progress -> Completed/Canceled
+6. **Maintenance State**: Pending -> Acknowledged -> In Progress -> Completed/Cancelled
+7. **Subscription State**: Trial -> Active -> Past Due -> Suspended -> Cancelled
+8. **Disbursement State**: Pending -> Pending Review -> Approved -> Completed/Failed
+9. **Dispute State**: Open -> In Review -> Resolved/Dismissed
+10. **Forum Report State**: Pending -> Reviewed -> Resolved/Dismissed/Action Taken
+
+### 5. Financial Rules & Fee Structure (Baru)
 - Platform fee: 1% per transaction
 - Gateway fee: 2.5% per transaction
-- Disbursement fees by schedule:
-  - Daily: 0.25%
-  - Weekly: 0.2%
-  - Bi-weekly: 0.15%
-  - Monthly: 0.1%
+- Disbursement fee: Daily 0.25%, Weekly/Monthly free
+- Late fee: configurable per contract (percentage or fixed)
+- Referral reward: Rp 50,000 default
+- Subscription pricing per tier
+
+### 6. Validation Rules & Business Constraints (Diperluas)
+- Contract validations (dates, amounts, unit availability)
+- Invoice validations (due date, amounts)
+- Payment validations (amount matching, method)
+- Phone number validation (Indonesian format)
+- Email validation
+- Status transition validations (using defined transition maps)
+
+### 7. Cron Job Schedule (Baru)
+Complete schedule of 12 daily automated jobs with timing and dependencies.
+
+### 8. Integration Points (Diperbarui)
+- Xendit: Invoice creation, webhooks, disbursement
+- Resend: 30+ email templates
+- Whatsmeow: WhatsApp notifications
+- Lovable AI: Context-aware chatbot (Gemini models)
+- Supabase Storage: Documents, signatures, images
+
+### 9. Audit & Compliance (Baru)
+- Immutable audit log for all financial actions
+- Actor tracking (who did what, when)
+- RLS-enforced data isolation
+- Admin 2FA for sensitive operations
 
 ---
 
@@ -240,17 +244,19 @@ Semua TypeScript interfaces akan di-update sesuai database schema yang sebenarny
 
 | Skill | Penerapan |
 |-------|-----------|
-| `api-design-principles` | RESTful resource naming, pagination pattern, error handling, HTTP status codes |
-| `api-security-best-practices` | JWT auth, input validation, webhook security, RBAC documentation |
-| `payment-integration` | Xendit webhook idempotency, PCI compliance notes, fee structure |
-| `billing-automation` | Cron job documentation, invoice lifecycle, subscription billing |
-| `referral-program` | Referral commission flow, multi-tier reward system |
-| `database-design` | Data model documentation, foreign key relationships |
-| `supabase-postgres-best-practices` | RLS policy documentation, query patterns |
+| `billing-automation` | Invoice lifecycle, subscription billing, dunning, payment plan processes |
+| `payment-integration` | Xendit webhook flow, idempotency, fee calculation, escrow deposit |
+| `referral-program` | Multi-event referral trigger, commission processing, reward crediting |
+| `api-security-best-practices` | Webhook verification, audit trails, RLS documentation |
+| `pci-compliance` | Tokenized payment handling, no PAN storage |
+| `security-auditor` | Immutable audit logs, financial action tracking |
+| `workflow-patterns` | State machine documentation, escalation tiers |
+| `architecture-patterns` | Event-driven cron job architecture |
+| `database-design` | State transition maps, validation rules |
+| `mermaid-visualizer` | 15+ diagrams (state, sequence, flowchart) |
 
 ---
 
 ## Hasil Akhir
 
-Dokumen API specification yang lengkap (~800-1000 baris) mencakup seluruh 32 edge functions, 40+ database tables, webhook flows, cron jobs, security model, dan fee structure yang sudah diimplementasikan di project SiHuni.
-
+Dokumen business process yang lengkap (~1200+ baris) mencakup 20+ proses bisnis end-to-end, 10 state machines, 15+ Mermaid diagrams, financial rules, validation constraints, dan cron job schedules yang mencerminkan implementasi aktual di platform SiHuni.
