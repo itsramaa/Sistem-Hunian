@@ -1,171 +1,146 @@
 
+# Maximalisasi UI/UX Design Documentation v3.0 (DSS Edition)
 
-# Maximalisasi PRD DSS Manajemen Kosan v3.0
+## Masalah
 
-## Ringkasan Masalah
+Dokumen UI/UX saat ini (v1.0, 3059 baris) memiliki gap signifikan dengan implementasi aktual:
 
-PRD v2 saat ini **tidak sinkron** dengan arsitektur aktual project. Dokumen ini masih merujuk pada tech stack lama (AWS, Flask, Tesseract, Redis, Celery, Airflow, EC2, dll.) padahal project sudah berjalan di **Lovable Cloud** dengan Deno Edge Functions, Supabase PostgreSQL, dan Gemini AI via Lovable AI Gateway.
+| Aspek | v1.0 (Sekarang) | Implementasi Aktual |
+|-------|-----------------|---------------------|
+| Component Library | Raw HTML/CSS examples (8 komponen) | shadcn/ui + Radix UI (54 komponen) |
+| Styling | Vanilla CSS manual | Tailwind CSS + CSS Variables via `tailwind.config.ts` |
+| Icon System | "Heroicons/Feather recommended" | Lucide React (sudah dipakai) |
+| Layout | Generic sidebar layout | 4 portal layouts (Tenant, Merchant, Vendor, Admin) + Mobile Layout |
+| Navigation | Hamburger menu manual | Role-based nav config, mobile bottom nav, collapsible sidebar |
+| AI/DSS UI | Tidak ada | Floating AI button, chatbot dialog, DSS dashboard components |
+| Dark Mode | `prefers-color-scheme` media query | `class`-based dark mode via Tailwind `darkMode: ["class"]` |
+| State Management | Vanilla JS | React Context + Zustand (sidebar state) |
+| Toast/Notifications | Custom CSS toast | Sonner library |
+| Charts | Tidak ada | Recharts dengan 5 chart color tokens |
 
-Berikut gap utama yang ditemukan:
+## Rencana Rewrite
 
-| Aspek | PRD v2 (Lama) | Arsitektur Aktual (v3.0) |
-|-------|---------------|--------------------------|
-| Backend | Flask/FastAPI + Python | Deno Edge Functions (43 functions) |
-| Database | PostgreSQL 15 + Redis + MongoDB | PostgreSQL 16 via Supabase (72 tables, 215+ RLS) |
-| OCR Engine | Tesseract + Python-tesseract | Gemini 2.5 Pro Vision via Lovable AI |
-| ML Pipeline | Scikit-learn + XGBoost + Airflow | Gemini 2.5 Pro Reasoning via Lovable AI |
-| Infra | AWS EC2 + ALB + S3 + Lambda | Lovable Cloud (serverless, zero-config) |
-| State Mgmt | Redux Toolkit | TanStack Query + Zustand |
-| Auth | Custom JWT | Supabase Auth + RLS + 7 roles |
-| Biaya Infra | ~$135/bulan (AWS) | Included in Lovable Cloud |
-| Tim | 14 FTE | Lovable-assisted (significantly smaller) |
+Rewrite total menjadi **v3.0** yang 100% aligned dengan arsitektur aktual. Struktur baru:
 
-## Rencana Perubahan
+### Daftar Isi Baru (24 Section)
 
-Rewrite PRD menjadi **v3.0** dengan menyelaraskan seluruh konten ke arsitektur aktual. Struktur section tetap dipertahankan tetapi konten disegarkan total.
+1. Design Philosophy (dipertahankan + update DSS vision)
+2. Typography System (dipertahankan, update ke Tailwind classes)
+3. Color System (update ke HSL variables format aktual dari `index.css`)
+4. Design Tokens (update ke Tailwind config format aktual)
+5. Component Library - shadcn/ui (rewrite total: 54 komponen aktual)
+6. Layout System - 4 Portals (baru: Tenant, Merchant, Vendor, Admin)
+7. Navigation System (baru: role-based config, mobile bottom nav)
+8. Spacing & Sizing (update ke Tailwind spacing scale)
+9. Accessibility Guidelines (dipertahankan + ARIA patterns aktual)
+10. Responsive Design (update: Tailwind breakpoints, mobile-first)
+11. Dark Mode Implementation (rewrite: class-based, Zustand)
+12. Design Patterns & Interactions (update: skeleton, empty states, loading)
+13. Icon System - Lucide React (rewrite total)
+14. Animation & Micro-interactions (update: Tailwind keyframes aktual)
+15. **DSS: OCR Interface Patterns (BARU)**
+16. **DSS: Risk & Analytics Dashboard (BARU)**
+17. **DSS: AI Advisor UI Patterns (BARU)**
+18. **DSS: Confidence Score Visualization (BARU)**
+19. **DSS: Tier-Gated Feature UI (BARU)**
+20. Floating AI Assistant (baru: FAB + chatbot dialog)
+21. Form Patterns (baru: React Hook Form + Zod)
+22. Data Table Patterns (update: TanStack-compatible)
+23. Chart & Data Visualization (baru: Recharts patterns)
+24. Implementation Checklist (update ke actual stack)
 
-### Section-by-Section Changes
+### Detail Perubahan per Section
 
-**1. Header & Executive Summary**
-- Update ke v3.0, status "Aligned with Implementation"
-- Pertahankan target KPI (revenue +8-15%, tunggakan -20-30%)
-- Tambahkan referensi ke 8 dokumen teknis v3.0
+**Section 1-4: Foundation**
+- Update Design Vision: tambahkan DSS value ("Data-driven decisions, AI-augmented workflows")
+- Update target users: 4 personas (Merchant 40-60yo, Tenant 20-40yo, Vendor 25-45yo, Admin 25-35yo)
+- Color System: gunakan format HSL tanpa `hsl()` wrapper sesuai `index.css` aktual (e.g., `35 32% 41%`)
+- Design Tokens: referensi langsung ke `tailwind.config.ts` values
 
-**2. Section 1: Product Vision & Context**
-- Pertahankan problem statement (masih relevan)
-- Update proposed solution diagram: 3-layer DSS on Lovable Cloud
-- Tambahkan mapping ke 12 DSS edge functions aktual
+**Section 5: Component Library (Rewrite Total)**
+- Dokumentasikan 54 shadcn/ui components yang sudah terinstall
+- Gunakan JSX/TSX examples bukan raw HTML
+- Referensi import path aktual: `@/shared/components/ui/button`
+- Tambahkan variant mapping ke Tailwind classes (bukan CSS manual)
+- Contoh: Button menggunakan `class-variance-authority`, bukan `.btn-primary` CSS
 
-**3. Section 2: Stakeholder Analysis**
-- Update persona sesuai SiHuni actors (Merchant/Pemilik Kos, Tenant, Vendor, Admin)
-- Selaraskan dengan 7 roles di `user_roles` table
-- Tambahkan persona Vendor (dari vendor-ai-assistant yang sudah ada)
+**Section 6-7: Layout & Navigation (Baru)**
+- Dokumentasikan `DashboardLayout.tsx` (desktop) dan `MobileLayout.tsx`
+- Mapping dari `navigation-config.ts`: 4 role configs, brand identity per role
+- Mobile bottom nav: 5 items untuk tenant, none untuk merchant/vendor/admin
+- Sidebar: `sidebar.tsx` dari shadcn/ui, collapsible, dark brown theme
 
-**4. Section 3.1: Functional Requirements (FR)**
-- **FR-1 (OCR)**: Ganti Tesseract dengan Gemini 2.5 Pro Vision. Update acceptance criteria sesuai confidence thresholds aktual (High >=0.85, Medium 0.60-0.84, Low 0.40-0.59). Referensi 4 OCR edge functions: `ocr-ktp-extract`, `ocr-payment-proof`, `ocr-business-document`, `ocr-maintenance-receipt`
-- **FR-2 (ML)**: Ganti Scikit-learn/XGBoost dengan Gemini 2.5 Pro Reasoning. Update 4 ML edge functions: `ml-revenue-forecast`, `ml-tenant-risk-score`, `ml-churn-prediction`, `ml-optimal-pricing`. Selaraskan output format dengan DSS data models dari `api-specification.md`
-- **FR-3 (GenAI)**: Update dari Google Gemini API standalone ke Lovable AI Gateway. Referensi 4 advisor functions: `dss-pricing-advisor`, `dss-collection-strategy`, `dss-maintenance-priority`, `dss-investment-insight`
-- **FR-4 (Dashboard)**: Selaraskan dengan Recharts + shadcn/ui components. Update layout sesuai actual dashboard yang sudah dibangun
-- **FR-5 (Data Management)**: Update schema references ke 72 actual tables. Ganti AWS S3 dengan Supabase Storage
+**Section 15: DSS OCR Interface Patterns (Baru)**
+- Upload area: drag-and-drop image upload untuk KTP/bukti bayar
+- Processing state: spinner + "Menganalisis dokumen..."
+- Result display: extracted fields dengan confidence badges
+  - High (>=0.85): `bg-success/10 text-success` -- auto-accepted
+  - Medium (0.60-0.84): `bg-warning/10 text-warning` -- manual review
+  - Low (0.40-0.59): `bg-destructive/10 text-destructive` -- re-upload required
+- Side-by-side: original image vs extracted data
+- Payment matching: tolerance indicator (plus/minus Rp 1,000)
 
-**5. Section 3.2: Non-Functional Requirements (NFR)**
-- **NFR-1 Performance**: Update sesuai edge function latency targets
-- **NFR-2 Reliability**: Update dengan Lovable Cloud SLA
-- **NFR-3 Security**: Rewrite total - RLS-first security, 215+ policies, Supabase Auth, 7 RBAC roles
-- **NFR-4 Scalability**: Serverless auto-scaling (bukan EC2 auto-scaling)
-- **NFR-5 Usability**: Pertahankan WCAG 2.1 AA, tambahkan shadcn/ui compliance
-- **NFR-6 Maintainability**: Update ke TypeScript strict, Deno testing, 28 feature modules
-- **NFR-7 Cost**: Rewrite total - Lovable Cloud pricing model, bukan AWS itemized
+**Section 16: DSS Risk & Analytics Dashboard (Baru)**
+- Risk score gauge: 0-100 scale with color zones
+  - 0-25: Green (`text-success`)
+  - 26-50: Yellow (`text-warning`) 
+  - 51-75: Orange (`text-warning` darker)
+  - 76-100: Red (`text-destructive`)
+- Revenue forecast chart: Recharts LineChart with prediction band
+- Occupancy heatmap: grid visualization
+- Trend indicators: arrow up/down with percentage change
 
-**6. Section 4: Technology Stack & Architecture**
-- Rewrite total sesuai actual stack dari `development-standards.md`:
-  - Frontend: React 18 + Vite + Tailwind + shadcn/ui + TanStack Query + Zustand
-  - Backend: 43 Deno Edge Functions on Lovable Cloud
-  - Database: PostgreSQL 16 (72 tables, 215+ RLS policies)
-  - AI: Lovable AI (Gemini 2.5 Pro - Vision + Reasoning)
-  - Payments: Xendit
-  - Email: Resend
-- Update architecture diagram dari AWS multi-tier ke Lovable Cloud serverless
-- Update database schema ke actual tables (UUID PKs, timestamptz, numeric for money)
-- Update API design dari REST endpoints ke Edge Functions + Supabase SDK direct access
+**Section 17: DSS AI Advisor UI Patterns (Baru)**
+- Recommendation card: title + reasoning + confidence + action buttons
+- Status lifecycle badges: generated -> viewed -> accepted/rejected -> measured
+- Advisor types: pricing, collection, maintenance priority, investment
+- AI response streaming: typewriter effect in chatbot dialog
 
-**7. Section 5: ML Model Specifications**
-- Pertahankan model descriptions dan scoring formulas (business logic tetap valid)
-- Update implementation dari Python libraries ke Gemini 2.5 Pro Reasoning prompts
-- Update retraining dari Airflow DAG ke 2 cron jobs (`ml-daily-risk-scoring`, `ml-weekly-forecast`)
-- Update monitoring dari CloudWatch ke edge function logs + `ml_model_runs` audit table
+**Section 18: Confidence Score Visualization (Baru)**
+- Progress bar variant: filled to confidence percentage
+- Badge variant: color-coded label (High/Medium/Low)
+- Tooltip: detailed breakdown on hover
+- Table column: sortable confidence values
 
-**8. Section 6: Data Privacy & Compliance**
-- Update encryption dari AWS KMS ke Supabase/Lovable Cloud encryption
-- Update RBAC dari 3 roles ke 7 roles
-- Update audit trail ke `audit_logs` + `ml_model_runs` (immutable)
-- Tambahkan DSS-specific data retention dari `business-process.md` v3.0
+**Section 19: Tier-Gated Feature UI (Baru)**
+- Lock overlay: blur + lock icon + "Upgrade to [Tier]" CTA
+- Feature comparison table: checkmarks per tier
+- Upgrade prompt: inline banner when accessing gated feature
+- Badge: "Pro", "Business", "Enterprise" tier labels
 
-**9. Section 7: Product Roadmap**
-- Rewrite sesuai Lovable Cloud development velocity
-- Update dari 6-phase waterfall ke sprint-based with Lovable AI acceleration
-- Update deliverables per phase sesuai actual feature modules
+**Section 20: Floating AI Assistant (Baru)**
+- FloatingActionButton component: bottom-right, primary color, sparkle icon
+- ChatbotDialog: sheet/drawer with message list, quick actions, streaming
+- Role-specific: tenant (global), merchant (global), vendor (embedded in dashboard)
+- Mobile: respects bottom nav spacing (bottom-20 positioning)
 
-**10. Section 8: Resource Plan & Budget**
-- Rewrite total - Lovable-assisted development membutuhkan tim jauh lebih kecil
-- Update infra costs ke Lovable Cloud model
-- Update per-property cost projection
+**Section 23: Chart & Data Visualization (Baru)**
+- Recharts integration patterns
+- 5 chart color tokens mapped to semantic meanings
+- Responsive chart containers
+- DSS-specific charts: risk distribution, revenue forecast, occupancy trends
 
-**11. Section 9: Risk Management**
-- Update risks: remove AWS-specific, add Lovable Cloud specific
-- Update mitigation strategies sesuai actual architecture
+### Skills yang Diterapkan
 
-**12. Section 10: Success Metrics & KPI**
-- Pertahankan business KPIs (masih relevan)
-- Update technical KPIs sesuai edge function monitoring
-- Tambahkan DSS-specific KPIs
+| Skill | Penerapan |
+|-------|-----------|
+| `ui-ux-designer` | Keseluruhan struktur, design principles, user flows |
+| `design-system-patterns` | Token architecture, component taxonomy, variant system |
+| `accessibility-compliance` | WCAG 2.1 AA, ARIA patterns, keyboard navigation |
+| `responsive-design` | Breakpoint strategy, mobile-first, touch targets |
+| `interaction-design` | Micro-interactions, state transitions, feedback loops |
+| `visual-design-foundations` | Color theory, typography scale, spacing rhythm |
+| `shadcn-ui` | Component API reference, variant mapping |
+| `tailwind-css-patterns` | Utility classes, custom extensions, dark mode |
+| `radix-ui-design-system` | Accessible primitives, composition patterns |
+| `web-performance-optimization` | Animation performance, lazy loading UI |
+| `frontend-design` | React component patterns, JSX examples |
+| `stitch-ui-design` | Design token structure, systematic naming |
+| `icon-design` | Lucide icon system, sizing conventions |
+| `prompt-engineering-patterns` | AI chatbot UI, streaming response display |
+| `startup-metrics-framework` | KPI dashboard layout, metric card design |
+| `pricing-strategy` | Tier-gated UI, upgrade flow design |
 
-**13. Sections 11-12: Glossary & Appendix**
-- Tambahkan Lovable Cloud terminology
-- Update tools & references ke actual stack
-- Tambahkan cross-references ke 8 dokumen v3.0
+### Estimasi
 
-### Skills yang Digunakan
-
-| Skill | Penerapan dalam PRD |
-|-------|---------------------|
-| `database-design` | Schema design principles, UUID PKs, JSONB patterns, indexing strategy |
-| `architecture-patterns` | Serverless modular monolith, feature-based architecture |
-| `api-design-principles` | Edge function API design, RLS-first approach |
-| `security-auditor` | RLS policies, RBAC, data encryption, audit trails |
-| `accessibility-compliance` | WCAG 2.1 AA requirements dalam NFR |
-| `performance-engineer` | Edge function latency targets, caching strategy |
-| `startup-metrics-framework` | Business KPIs, unit economics, ROI calculations |
-| `startup-financial-modeling` | Budget rewrite, per-property cost, breakeven |
-| `pricing-strategy` | Subscription tier gating untuk DSS features |
-| `gdpr-data-handling` | Data retention, PII handling, consent management |
-| `deployment-pipeline-design` | CI/CD via Lovable Cloud, cron jobs |
-| `clean-architecture` | Feature-based modules, separation of concerns |
-| `web-performance-optimization` | FCP targets, code splitting, lazy loading |
-| `responsive-design` | Mobile-first dashboard requirements |
-| `prompt-engineering-patterns` | Gemini prompt design untuk OCR/ML/DSS |
-| `e2e-testing-patterns` | DSS function testing, UAT criteria |
-| `market-sizing-analysis` | Updated market sizing untuk Indonesia kosan |
-| `competitive-landscape` | USP comparison dengan actual DSS capabilities |
-
-### Detail Teknis
-
-Berikut contoh perubahan kunci:
-
-**Architecture Diagram (Before vs After)**
-
-Before: AWS EC2 + ALB + RDS + S3 + Lambda + Redis + Airflow
-After:
-```text
-Client (React PWA + Supabase JS SDK)
-    |
-    +-- Direct CRUD via RLS (72 tables)
-    |
-    +-- invoke() to 43 Edge Functions
-            |
-            +-- Xendit (Payments)
-            +-- Resend (Email)  
-            +-- Lovable AI Gateway
-                  +-- Gemini 2.5 Pro Vision (OCR)
-                  +-- Gemini 2.5 Pro Reasoning (ML/DSS)
-```
-
-**Database Schema (Before vs After)**
-
-Before: `SERIAL` PKs, `ENUM` types, `TIMESTAMP`, 8 tables
-After: `UUID` PKs, `text` status columns, `timestamptz`, 72 tables (66 core + 6 DSS) with 215+ RLS policies
-
-**OCR Pipeline (Before vs After)**
-
-Before: Tesseract v5 + NLP entity extraction + Python processing
-After: Gemini 2.5 Pro Vision multimodal -- single API call extracts structured JSON with confidence scores
-
-**ML Pipeline (Before vs After)**
-
-Before: Scikit-learn + XGBoost + ARIMA + Airflow DAGs + monthly retraining
-After: Gemini 2.5 Pro Reasoning with structured prompts, cached results in `dss_recommendations` + `tenant_risk_scores`, 2 daily/weekly cron jobs, `ml_model_runs` immutable audit
-
-### Estimasi Ukuran
-
-PRD v3.0 akan tetap ~2000-2200 baris (serupa v2) tetapi dengan konten yang 100% aligned dengan implementasi aktual.
-
+PRD UI/UX v3.0: ~3200-3500 baris (vs 3059 saat ini), tetapi dengan 100% konten yang selaras dengan implementasi aktual dan 10 section DSS baru.
