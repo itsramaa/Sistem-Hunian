@@ -38,3 +38,12 @@ export interface ActiveTenant {
     phone: string | null;
   } | null;
 }
+
+export interface AdminTenant extends ActiveTenant {
+  merchant_id: string;
+  merchant_profile: {
+    full_name: string | null;
+    email: string | null;
+    phone: string | null;
+  } | null;
+}

@@ -1,23 +1,25 @@
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { getRelevantContract } from '@/features/contracts/utils/contract-utils';
+import { MaintenancePriorityBadge } from '@/features/maintenance/components/MaintenancePriorityBadge';
+import { MaintenanceStatusBadge } from '@/features/maintenance/components/MaintenanceStatusBadge';
 import { SLABadge, getSLAText } from '@/features/maintenance/components/SLABadge';
+import { UpdateMaintenanceDialog } from '@/features/maintenance/components/UpdateMaintenanceDialog';
 import { UpdateTimeline } from '@/features/maintenance/components/UpdateTimeline';
 import {
-  useMaintenanceRequest,
-  useUpdateMaintenanceRequest,
-  useVerifiedVendors
+    useMaintenanceRequest,
+    useUpdateMaintenanceRequest,
+    useVerifiedVendors
 } from '@/features/maintenance/hooks/useMaintenance';
+import { UpdateMaintenanceStatusPayload } from '@/features/maintenance/types';
 import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
 import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert';
-import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
-import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { useToast } from '@/shared/hooks/use-toast';
 import { format } from 'date-fns';
-import { AlertTriangle, ArrowLeft, Calendar, CheckCircle, Clock, FileText, MapPin, Phone, Star, User, Wrench, XCircle } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Calendar, CheckCircle, FileText, MapPin, Phone, User, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
@@ -25,8 +27,7 @@ export default function MerchantMaintenanceDetail() {
   const { id } = useParams<{ id: string }>();
   const { merchant } = useAuth();
   const { toast } = useToast();
-  const [selectedVendorId, setSelectedVendorId] = useState('');
-  const [agreedPrice, setAgreedPrice] = useState('');
+  const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
 
   const { data: request, isLoading } = useMaintenanceRequest(id);
   const { data: vendors = [] } = useVerifiedVendors();
@@ -39,24 +40,19 @@ export default function MerchantMaintenanceDetail() {
     new Date(request.created_at) >= new Date(contract.start_date) &&
     (!contract.end_date || new Date(request.created_at) <= new Date(contract.end_date));
 
-  const handleUpdateStatus = (status: string) => {
+  const handleUpdateStatus = (data: UpdateMaintenanceStatusPayload) => {
     if (!request || !merchant) return;
 
     updateStatusMutation.mutate(
       {
-        id: request.id,
-        status,
-        merchant_id: merchant.id,
-        assigned_vendor_id: selectedVendorId || undefined,
-        agreed_price: agreedPrice ? parseFloat(agreedPrice) : undefined,
+        ...data,
         actor_id: merchant.user_id,
         actor_role: 'merchant'
       },
       {
         onSuccess: () => {
           toast({ title: 'Status updated successfully' });
-          setSelectedVendorId('');
-          setAgreedPrice('');
+          setIsUpdateDialogOpen(false);
         },
         onError: (error) => {
           toast({ 
@@ -67,36 +63,6 @@ export default function MerchantMaintenanceDetail() {
         },
       }
     );
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending': return <Clock className="h-5 w-5" />;
-      case 'in_progress': return <Wrench className="h-5 w-5" />;
-      case 'completed': return <CheckCircle className="h-5 w-5" />;
-      case 'cancelled': return <XCircle className="h-5 w-5" />;
-      default: return <AlertTriangle className="h-5 w-5" />;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-warning/10 text-warning border-warning/30';
-      case 'in_progress': return 'bg-info/10 text-info border-info/30';
-      case 'completed': return 'bg-success/10 text-success border-success/30';
-      case 'cancelled': return 'bg-destructive/10 text-destructive border-destructive/30';
-      default: return 'bg-muted text-muted-foreground';
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return 'destructive';
-      case 'high': return 'default';
-      case 'medium': return 'secondary';
-      case 'low': return 'outline';
-      default: return 'secondary';
-    }
   };
 
   if (isLoading) {
@@ -142,18 +108,13 @@ export default function MerchantMaintenanceDetail() {
           <div className="flex-1">
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-display font-bold">{request.title}</h1>
-              <Badge variant={getPriorityColor(request.priority) as "default" | "secondary" | "destructive" | "outline"}>
-                {request.priority}
-              </Badge>
+              <MaintenancePriorityBadge priority={request.priority} />
             </div>
             <p className="text-muted-foreground">#{id?.slice(0, 8)} • SLA: {getSLAText(request.priority)}</p>
           </div>
           <div className="flex items-center gap-2">
             <SLABadge slaDeadline={request.sla_deadline} status={request.status} />
-            <Badge variant="outline" className={`gap-1 ${getStatusColor(request.status)}`}>
-              {getStatusIcon(request.status)}
-              {request.status.replace('_', ' ')}
-            </Badge>
+            <MaintenanceStatusBadge status={request.status} />
           </div>
         </div>
 
@@ -310,72 +271,12 @@ export default function MerchantMaintenanceDetail() {
                 )}
 
                 {request.status !== 'completed' && request.status !== 'cancelled' && (
-                  <>
-                    <div className="space-y-2">
-                      <Label>Assign to Vendor</Label>
-                      <Select value={selectedVendorId} onValueChange={setSelectedVendorId}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a vendor" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">No vendor</SelectItem>
-                          {vendors.map(vendor => (
-                            <SelectItem key={vendor.id} value={vendor.id}>
-                              <div className="flex items-center gap-2">
-                                <span>{vendor.business_name}</span>
-                                {vendor.rating && vendor.rating > 0 && (
-                                  <span className="flex items-center gap-0.5 text-xs text-warning">
-                                    <Star className="h-3 w-3 fill-current" />
-                                    {vendor.rating.toFixed(1)}
-                                  </span>
-                                )}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {selectedVendorId && selectedVendorId !== 'none' && (
-                      <div className="space-y-2">
-                        <Label>Agreed Price (IDR)</Label>
-                        <Input
-                          type="number"
-                          value={agreedPrice}
-                          onChange={(e) => setAgreedPrice(e.target.value)}
-                          placeholder="Enter agreed price"
-                        />
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleUpdateStatus('in_progress')}
-                        disabled={updateStatusMutation.isPending}
-                      >
-                        In Progress
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="bg-success text-success-foreground hover:bg-success/90"
-                        onClick={() => handleUpdateStatus('completed')}
-                        disabled={updateStatusMutation.isPending}
-                      >
-                        Complete
-                      </Button>
-                    </div>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => handleUpdateStatus('cancelled')}
-                      disabled={updateStatusMutation.isPending}
-                    >
-                      Cancel Request
-                    </Button>
-                  </>
+                  <Button 
+                    className="w-full" 
+                    onClick={() => setIsUpdateDialogOpen(true)}
+                  >
+                    Update Status / Assign Vendor
+                  </Button>
                 )}
                 
                 {request.status === 'completed' && (
@@ -389,6 +290,13 @@ export default function MerchantMaintenanceDetail() {
                         on {format(new Date(request.resolved_at), 'MMM d, yyyy')}
                       </p>
                     )}
+                    <Button 
+                      variant="outline" 
+                      className="mt-4 w-full"
+                      onClick={() => setIsUpdateDialogOpen(true)}
+                    >
+                      Update Details
+                    </Button>
                   </div>
                 )}
 
@@ -405,6 +313,15 @@ export default function MerchantMaintenanceDetail() {
           </div>
         </div>
       </div>
+
+      <UpdateMaintenanceDialog
+        open={isUpdateDialogOpen}
+        onOpenChange={setIsUpdateDialogOpen}
+        request={request}
+        vendors={vendors}
+        onSubmit={handleUpdateStatus}
+        loading={updateStatusMutation.isPending}
+      />
     </MerchantLayout>
   );
 }

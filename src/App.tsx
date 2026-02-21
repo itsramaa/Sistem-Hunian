@@ -34,6 +34,7 @@ const AdminDisputes = lazy(() => import("@/pages/admin/Disputes"));
 const AdminEscrow = lazy(() => import("@/pages/admin/Escrow"));
 const AdminForumModeration = lazy(() => import("@/pages/admin/ForumModeration"));
 const AdminMerchants = lazy(() => import("@/pages/admin/Merchants"));
+const AdminProperties = lazy(() => import("@/pages/admin/Properties"));
 const AdminOrders = lazy(() => import("@/pages/admin/Orders"));
 const AdminPlatformConfig = lazy(() => import("@/pages/admin/PlatformConfig"));
 const AdminReferrals = lazy(() => import("@/pages/admin/Referrals"));
@@ -42,6 +43,9 @@ const AdminSubscriptionTiers = lazy(() => import("@/pages/admin/SubscriptionTier
 const AdminSubscriptions = lazy(() => import("@/pages/admin/Subscriptions"));
 const AdminVendorVerifications = lazy(() => import("@/pages/admin/VendorVerifications"));
 const AdminVendors = lazy(() => import("@/pages/admin/Vendors"));
+const AdminTenants = lazy(() => import("@/pages/admin/Tenants"));
+const AdminUsers = lazy(() => import("@/pages/admin/AdminUsers"));
+const AdminLogin = lazy(() => import("@/pages/admin/AdminLogin"));
 
 // Merchant Pages
 const MerchantBilling = lazy(() => import("@/pages/merchant/Billing"));
@@ -122,12 +126,16 @@ const App = () => (
                   <Route path="/admin-setup" element={<AdminSetup />} />
                   <Route path="/invite/:token" element={<Invite />} />
                   <Route path="/referral" element={<ReferralInvite />} />
+                  <Route path="/admin/login" element={<AdminLogin />} />
                   
                   {/* Admin Routes */}
                   <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
                   <Route path="/admin/merchants" element={<ProtectedRoute allowedRoles={['admin']}><AdminMerchants /></ProtectedRoute>} />
+                  <Route path="/admin/properties" element={<ProtectedRoute allowedRoles={['admin']}><AdminProperties /></ProtectedRoute>} />
                   <Route path="/admin/escrow" element={<ProtectedRoute allowedRoles={['admin']}><AdminEscrow /></ProtectedRoute>} />
                   <Route path="/admin/vendors" element={<ProtectedRoute allowedRoles={['admin']}><AdminVendors /></ProtectedRoute>} />
+                  <Route path="/admin/tenants" element={<ProtectedRoute allowedRoles={['admin']}><AdminTenants /></ProtectedRoute>} />
+                  <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']}><AdminUsers /></ProtectedRoute>} />
                   <Route path="/admin/subscriptions" element={<ProtectedRoute allowedRoles={['admin']}><AdminSubscriptions /></ProtectedRoute>} />
                   <Route path="/admin/subscription-tiers" element={<ProtectedRoute allowedRoles={['admin']}><AdminSubscriptionTiers /></ProtectedRoute>} />
                   <Route path="/admin/disputes" element={<ProtectedRoute allowedRoles={['admin']}><AdminDisputes /></ProtectedRoute>} />

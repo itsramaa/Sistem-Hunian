@@ -91,3 +91,15 @@ export interface EscrowFilters {
   status?: string;
   type?: string;
 }
+
+export interface BankAccount {
+  id: string;
+  merchant_id: string;
+  bank_name: string;
+  account_name: string;
+  account_number: string;
+  branch_code: string | null;
+  is_primary: boolean;
+  created_at: string;
+  updated_at: string;
+}

@@ -16,7 +16,7 @@ export interface Contract {
   end_date: string;
   rent_amount: number;
   deposit_amount: number | null;
-  status: 'active' | 'pending' | 'expired' | 'terminated' | 'cancelled' | 'notice';
+  status: 'active' | 'pending' | 'expired' | 'terminated' | 'cancelled' | 'notice' | 'draft' | 'completed';
   terms: string | null;
   signature_status: string | null;
   tenant_signature_url: string | null;
@@ -51,6 +51,7 @@ export interface MoveOutNotice {
   tenant_user_id: string;
   intended_move_out_date: string;
   reason: string;
+  is_early_termination?: boolean;
   status: string;
   contract: {
     id: string;

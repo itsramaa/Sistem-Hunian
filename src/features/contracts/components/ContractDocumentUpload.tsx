@@ -1,10 +1,10 @@
-import { useState } from 'react';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { Download, FileText, Loader2, Upload, X } from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
-import { Upload, FileText, Download, Loader2, X } from 'lucide-react';
+import { contractService } from '../services/contractService';
 
 interface ContractDocumentUploadProps {
   contractId: string;
@@ -49,29 +49,7 @@ export function ContractDocumentUpload({
 
     setIsUploading(true);
     try {
-      const fileName = `${contractId}/${Date.now()}_${selectedFile.name}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('contract-documents')
-        .upload(fileName, selectedFile, {
-          contentType: 'application/pdf',
-          upsert: true,
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('contract-documents')
-        .getPublicUrl(fileName);
-
-      // Update contract with document URL
-      const { error: updateError } = await supabase
-        .from('contracts')
-        .update({ contract_document_url: publicUrl })
-        .eq('id', contractId);
-
-      if (updateError) throw updateError;
-
+      const publicUrl = await contractService.uploadContractDocument(contractId, selectedFile);
       onUploadComplete(publicUrl);
       setSelectedFile(null);
       toast.success('Contract document uploaded successfully');

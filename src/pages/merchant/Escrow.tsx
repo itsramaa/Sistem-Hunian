@@ -1,36 +1,27 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/integrations/supabase/client';
-import { useAuth } from '@/features/auth/hooks/useAuth';
-import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
-import { Button } from '@/shared/components/ui/button';
-import { Badge } from '@/shared/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
-import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert';
-import { useToast } from '@/shared/hooks/use-toast';
-import { Wallet, ArrowUpRight, ArrowDownLeft, Clock, Calendar, Loader2, Info, Send, AlertCircle, ShieldAlert, TrendingUp, CreditCard, ChevronLeft, ChevronRight } from 'lucide-react';
-import { format } from 'date-fns';
-import { formatCurrency } from '@/shared/utils/currency';
-import { getEscrowStatusColors, getTransactionTypeColors } from '@/shared/utils/statusColors';
 import { MINIMUM_PAYOUT_AMOUNT } from '@/constants/platformFees';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { DisbursementDialog } from '@/features/escrow/components/DisbursementDialog';
+import { EscrowBalanceCards } from '@/features/escrow/components/EscrowBalanceCards';
+import { EscrowFilters } from '@/features/escrow/components/EscrowFilters';
+import { EscrowTransactionsTable } from '@/features/escrow/components/EscrowTransactionsTable';
+import { DISBURSEMENT_OPTIONS } from '@/features/escrow/constants';
+import { calculateDisbursementFee } from '@/features/escrow/utils/disbursement';
+import { supabase } from '@/lib/integrations/supabase/client';
+import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
+import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { useToast } from '@/shared/hooks/use-toast';
+import { useDebounce } from '@/shared/hooks/useDebounce';
+import { formatCurrency } from '@/shared/utils/currency';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AlertCircle, Calendar, CreditCard, Info, Loader2, Send, ShieldAlert } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-const DISBURSEMENT_OPTIONS = [
-  { value: 'daily', label: 'Daily', fee: '0.25%', feeRate: 0.0025, description: 'Receive funds daily with 0.25% fee' },
-  { value: 'weekly', label: 'Weekly', fee: 'Free', feeRate: 0, description: 'Receive funds every Monday, no fee' },
-  { value: 'monthly', label: 'Monthly', fee: 'Free', feeRate: 0, description: 'Receive funds on the 1st, no fee' },
-  { value: 'on_demand', label: 'On Demand', fee: '0.5%', feeRate: 0.005, description: 'Request anytime with 0.5% fee' },
-];
-
-const calculateDisbursementFee = (amount: number, scheduleType: string = 'on_demand') => {
-  const option = DISBURSEMENT_OPTIONS.find(o => o.value === scheduleType) || DISBURSEMENT_OPTIONS[3];
-  return amount * option.feeRate;
-};
-
-const TRANSACTIONS_PER_PAGE = 20;
+const ITEMS_PER_PAGE = 10;
 
 export default function MerchantEscrow() {
   const { merchant, user } = useAuth();
@@ -38,10 +29,21 @@ export default function MerchantEscrow() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [disbursementDialogOpen, setDisbursementDialogOpen] = useState(false);
-  const [transactionPage, setTransactionPage] = useState(0);
+  const [transactionPage, setTransactionPage] = useState(1);
+  
+  // Filters state
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 500);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setTransactionPage(1);
+  }, [debouncedSearch, statusFilter, typeFilter]);
 
   // Fetch escrow account - using maybeSingle() instead of single()
-  const { data: escrowAccount, isLoading: loadingAccount, error: escrowError } = useQuery({
+  const { data: escrowAccount, isLoading: loadingAccount } = useQuery({
     queryKey: ['escrow-account', merchant?.id],
     queryFn: async () => {
       if (!merchant?.id) return null;
@@ -56,37 +58,55 @@ export default function MerchantEscrow() {
     enabled: !!merchant?.id,
   });
 
-  // Fetch transactions with pagination
-  const { data: transactionsData, isLoading: loadingTransactions } = useQuery({
-    queryKey: ['escrow-transactions', escrowAccount?.id, transactionPage],
+  // Fetch ALL transactions for client-side filtering/pagination
+  const { data: allTransactions, isLoading: loadingTransactions } = useQuery({
+    queryKey: ['escrow-transactions', escrowAccount?.id],
     queryFn: async () => {
-      if (!escrowAccount?.id) return { transactions: [], total: 0 };
+      if (!escrowAccount?.id) return [];
       
-      // Get total count
-      const { count, error: countError } = await supabase
-        .from('escrow_transactions')
-        .select('*', { count: 'exact', head: true })
-        .eq('escrow_account_id', escrowAccount.id);
-      
-      if (countError) throw countError;
-
-      // Get paginated data
       const { data, error } = await supabase
         .from('escrow_transactions')
         .select('*')
         .eq('escrow_account_id', escrowAccount.id)
-        .order('created_at', { ascending: false })
-        .range(transactionPage * TRANSACTIONS_PER_PAGE, (transactionPage + 1) * TRANSACTIONS_PER_PAGE - 1);
+        .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return { transactions: data || [], total: count || 0 };
+      return data || [];
     },
     enabled: !!escrowAccount?.id,
   });
 
-  const transactions = transactionsData?.transactions || [];
-  const totalTransactions = transactionsData?.total || 0;
-  const totalPages = Math.ceil(totalTransactions / TRANSACTIONS_PER_PAGE);
+  // Client-side filtering
+  const filteredTransactions = useMemo(() => {
+    let result = allTransactions || [];
+
+    if (debouncedSearch) {
+      const lowerSearch = debouncedSearch.toLowerCase();
+      result = result.filter(tx => 
+        (tx.description && tx.description.toLowerCase().includes(lowerSearch)) ||
+        (tx.reference && tx.reference.toLowerCase().includes(lowerSearch))
+      );
+    }
+    
+    if (statusFilter !== 'all') {
+      result = result.filter(tx => tx.status === statusFilter);
+    }
+    
+    if (typeFilter !== 'all') {
+      result = result.filter(tx => tx.type === typeFilter);
+    }
+
+    return result;
+  }, [allTransactions, debouncedSearch, statusFilter, typeFilter]);
+
+  // Client-side pagination
+  const transactions = useMemo(() => {
+    const start = (transactionPage - 1) * ITEMS_PER_PAGE;
+    return filteredTransactions.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredTransactions, transactionPage]);
+
+  const totalTransactions = filteredTransactions.length;
+  const totalPages = Math.ceil(totalTransactions / ITEMS_PER_PAGE);
 
   // Fetch merchant for disbursement schedule and stats
   const { data: merchantData } = useQuery({
@@ -116,7 +136,7 @@ export default function MerchantEscrow() {
         .eq('is_primary', true)
         .single();
       if (error && error.code !== 'PGRST116') throw error;
-      return data;
+      return data as unknown as BankAccount;
     },
     enabled: !!merchant?.id,
   });
@@ -187,7 +207,7 @@ export default function MerchantEscrow() {
 
         if (error) throw error;
 
-        // Create notification for admins (using a general admin notification approach)
+        // Create notification for admins
         await supabase.from('notifications').insert({
           user_id: user?.id || '',
           title: 'Disbursement Pending Review',
@@ -247,25 +267,6 @@ export default function MerchantEscrow() {
   const netAmount = balance - feeAmount;
   const minDisbursementAmount = merchantData?.min_disbursement_amount || MINIMUM_PAYOUT_AMOUNT;
 
-  const getStatusBadge = (status: string) => {
-    const colors = getEscrowStatusColors(status);
-    return (
-      <Badge variant="outline" className={colors}>
-        {status}
-      </Badge>
-    );
-  };
-
-  const getTypeBadge = (type: string) => {
-    const isDeposit = type === 'deposit' || type === 'payment_received';
-    return (
-      <div className={`flex items-center gap-1 ${isDeposit ? 'text-green-600' : 'text-red-600'}`}>
-        {isDeposit ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
-        <span className="capitalize">{type.replace('_', ' ')}</span>
-      </div>
-    );
-  };
-
   if (loadingAccount) {
     return (
       <MerchantLayout>
@@ -296,79 +297,12 @@ export default function MerchantEscrow() {
         )}
 
         {/* Balance Cards */}
-        <div className="grid md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Available Balance</p>
-                  <p className="text-3xl font-bold text-green-600">
-                    {formatCurrency(escrowAccount?.balance || 0)}
-                  </p>
-                </div>
-                <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center">
-                  <Wallet className="h-6 w-6 text-green-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Pending Balance</p>
-                  <p className="text-3xl font-bold text-yellow-600">
-                    {formatCurrency(escrowAccount?.pending_balance || 0)}
-                  </p>
-                </div>
-                <div className="w-12 h-12 rounded-full bg-yellow-500/10 flex items-center justify-center">
-                  <Clock className="h-6 w-6 text-yellow-600" />
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Awaiting clearance (usually 1-3 business days)
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Disbursed</p>
-                  <p className="text-3xl font-bold text-primary">
-                    {formatCurrency(merchantData?.total_disbursed || 0)}
-                  </p>
-                </div>
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <TrendingUp className="h-6 w-6 text-primary" />
-                </div>
-              </div>
-              {merchantData?.last_disbursement_date && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Last: {format(new Date(merchantData.last_disbursement_date), 'dd MMM yyyy')}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Balance</p>
-                  <p className="text-3xl font-bold">
-                    {formatCurrency((escrowAccount?.balance || 0) + (escrowAccount?.pending_balance || 0))}
-                  </p>
-                </div>
-                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-                  <Wallet className="h-6 w-6 text-muted-foreground" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <EscrowBalanceCards 
+          balance={escrowAccount?.balance || 0}
+          pendingBalance={escrowAccount?.pending_balance || 0}
+          totalDisbursed={merchantData?.total_disbursed || 0}
+          lastDisbursementDate={merchantData?.last_disbursement_date}
+        />
 
         {/* On-Demand Disbursement */}
         <Card className="border-primary/20">
@@ -490,146 +424,40 @@ export default function MerchantEscrow() {
             <CardDescription>Recent escrow transactions</CardDescription>
           </CardHeader>
           <CardContent>
-            {loadingTransactions ? (
-              <div className="flex items-center justify-center h-32">
-                <Loader2 className="h-6 w-6 animate-spin" />
-              </div>
-            ) : transactions.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Wallet className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>No transactions yet</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Reference</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {transactions.map((tx) => (
-                      <TableRow key={tx.id}>
-                        <TableCell className="text-muted-foreground">
-                          {format(new Date(tx.created_at), 'dd MMM yyyy')}
-                        </TableCell>
-                        <TableCell>{getTypeBadge(tx.type)}</TableCell>
-                        <TableCell>{tx.description || '-'}</TableCell>
-                        <TableCell className="font-mono text-sm">
-                          {tx.reference || '-'}
-                        </TableCell>
-                        <TableCell className={`font-medium ${
-                          tx.type === 'deposit' || tx.type === 'payment_received' 
-                            ? 'text-green-600' 
-                            : 'text-red-600'
-                        }`}>
-                          {tx.type === 'deposit' || tx.type === 'payment_received' ? '+' : '-'}
-                          {formatCurrency(tx.amount)}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(tx.status || 'pending')}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-between border-t px-4 py-3">
-                    <p className="text-sm text-muted-foreground">
-                      Showing {transactionPage * TRANSACTIONS_PER_PAGE + 1} - {Math.min((transactionPage + 1) * TRANSACTIONS_PER_PAGE, totalTransactions)} of {totalTransactions}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => setTransactionPage(p => Math.max(0, p - 1))}
-                        disabled={transactionPage === 0}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                        Previous
-                      </Button>
-                      <span className="text-sm">
-                        Page {transactionPage + 1} of {totalPages}
-                      </span>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => setTransactionPage(p => Math.min(totalPages - 1, p + 1))}
-                        disabled={transactionPage >= totalPages - 1}
-                      >
-                        Next
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            <EscrowFilters 
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
+              typeFilter={typeFilter}
+              onTypeFilterChange={setTypeFilter}
+              className="mb-6"
+            />
+            
+            <EscrowTransactionsTable
+              transactions={transactions}
+              loading={loadingTransactions}
+              page={transactionPage}
+              totalPages={totalPages}
+              totalTransactions={totalTransactions}
+              onPageChange={setTransactionPage}
+              itemsPerPage={ITEMS_PER_PAGE}
+            />
           </CardContent>
         </Card>
-      </div>
 
-      {/* On-Demand Disbursement Confirmation Dialog */}
-      <Dialog open={disbursementDialogOpen} onOpenChange={setDisbursementDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Disbursement Request</DialogTitle>
-            <DialogDescription>
-              You're about to request an immediate transfer of your available balance.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 rounded-lg bg-muted/50">
-                <p className="text-sm text-muted-foreground">Available Balance</p>
-                <p className="text-xl font-bold">{formatCurrency(balance)}</p>
-              </div>
-              <div className="p-4 rounded-lg bg-muted/50">
-                <p className="text-sm text-muted-foreground">Fee (0.5%)</p>
-                <p className="text-xl font-bold text-destructive">-{formatCurrency(feeAmount)}</p>
-              </div>
-            </div>
-            <div className="p-4 rounded-lg bg-success/10 border border-success/20">
-              <p className="text-sm text-muted-foreground">You will receive</p>
-              <p className="text-2xl font-bold text-success">{formatCurrency(netAmount)}</p>
-            </div>
-            {bankAccount && (
-              <div className="p-4 rounded-lg border">
-                <p className="text-sm text-muted-foreground">Transfer to</p>
-                <p className="font-medium">{bankAccount.bank_name} - {bankAccount.account_number}</p>
-                <p className="text-sm text-muted-foreground">{bankAccount.account_name}</p>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDisbursementDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={() => requestDisbursement.mutate()}
-              disabled={requestDisbursement.isPending}
-              className="gradient-primary"
-            >
-              {requestDisbursement.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  Confirm Disbursement
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        <DisbursementDialog
+          open={disbursementDialogOpen}
+          onOpenChange={setDisbursementDialogOpen}
+          balance={balance}
+          feeAmount={feeAmount}
+          netAmount={netAmount}
+          bankAccount={bankAccount}
+          onConfirm={() => requestDisbursement.mutate()}
+          isLoading={requestDisbursement.isPending}
+          onAddBankAccount={() => navigate('/merchant/settings?tab=bank')}
+        />
+      </div>
     </MerchantLayout>
   );
 }

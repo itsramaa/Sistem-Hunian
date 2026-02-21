@@ -52,8 +52,9 @@ export interface Invoice {
   id: string;
   invoice_number: string;
   amount: number;
+  tax_amount?: number;
   total_amount: number;
-  status: 'pending' | 'sent' | 'paid' | 'overdue' | 'cancelled' | 'partially_paid';
+  status: 'draft' | 'pending' | 'sent' | 'paid' | 'overdue' | 'cancelled' | 'partially_paid';
   due_date: string;
   late_fee: number;
   paid_at?: string | null;
@@ -68,4 +69,19 @@ export interface Invoice {
   late_fee_applied_at?: string | null;
   grace_period_active?: boolean | null;
   overdue_since?: string | null;
+}
+
+export interface Payment {
+  id: string;
+  amount: number;
+  payment_type: string;
+  payment_method: string | null;
+  reference: string | null;
+  status: 'pending' | 'paid' | 'overdue' | 'cancelled' | 'failed';
+  due_date: string;
+  paid_at: string | null;
+  created_at: string;
+  contract_id: string;
+  tenant_user_id: string;
+  merchant_id: string;
 }

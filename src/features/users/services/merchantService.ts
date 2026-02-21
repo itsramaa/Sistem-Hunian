@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/integrations/supabase/client";
-import { HistoryEntry, Merchant, Verification } from "../types/admin-merchant";
+import { AuditLog, HistoryEntry, Merchant, Verification } from "../types/admin-merchant";
 
 export const merchantService = {
   async fetchMerchants(filters?: {
@@ -85,6 +85,26 @@ export const merchantService = {
 
     if (error) throw error;
     return (data || []) as Verification[];
+  },
+
+  async fetchMerchantActivity(merchantId: string): Promise<AuditLog[]> {
+    const { data: merchant } = await supabase
+      .from('merchants')
+      .select('user_id')
+      .eq('id', merchantId)
+      .single();
+
+    if (!merchant) return [];
+
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .select('*')
+      .or(`entity_id.eq.${merchantId},user_id.eq.${merchant.user_id}`)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error) throw error;
+    return (data || []) as AuditLog[];
   },
 
   async verifyMerchant(
@@ -199,7 +219,7 @@ export const merchantService = {
       old_status: merchant.verification_status,
       new_status: newStatus,
     });
-
+    
     // Insert audit log
     await supabase.from('audit_logs').insert({
       user_id: adminId,
@@ -210,196 +230,66 @@ export const merchantService = {
       new_data: { verification_status: newStatus },
       user_agent: navigator.userAgent,
     });
-
+    
     return newStatus;
   },
 
-  async bulkApproveMerchants(
+  async bulkApprove(
     merchants: Merchant[], 
-    selectedIds: string[], 
+    merchantIds: string[], 
     notes: string
   ): Promise<void> {
     const { data: { user } } = await supabase.auth.getUser();
     const adminId = user?.id;
-
-    for (const merchantId of selectedIds) {
-      const merchant = merchants.find(m => m.id === merchantId);
-      if (!merchant || merchant.verification_status !== 'pending') continue;
-
-      await supabase
-        .from('merchants')
-        .update({
-          verification_status: 'verified',
-          verified_at: new Date().toISOString(),
-          verified_by: adminId,
-        })
-        .eq('id', merchantId);
-
-      await supabase.from('merchant_verification_history').insert({
-        merchant_id: merchantId,
-        action: 'approved',
-        performed_by: adminId,
-        approval_notes: notes,
-        old_status: 'pending',
-        new_status: 'verified',
-      });
-
-      await supabase.from('audit_logs').insert({
-        user_id: adminId,
-        action: 'verification_approved',
-        entity_type: 'merchant',
-        entity_id: merchantId,
-        old_data: { verification_status: 'pending' },
-        new_data: { verification_status: 'verified', approval_notes: notes },
-        user_agent: navigator.userAgent,
-      });
-
-      await supabase.from('notifications').insert({
-        user_id: merchant.user_id,
-        type: 'verification_approved',
-        title: 'Akun Terverifikasi!',
-        message: 'Selamat! Akun bisnis Anda telah terverifikasi. Semua fitur telah dibuka.',
-        link: '/merchant',
-      });
-
-      // Send email notification for bulk approval
-      try {
-        await supabase.functions.invoke('send-notification', {
-          body: {
-            type: 'verification_approved',
-            recipientEmail: merchant.profiles?.email,
-            recipientName: merchant.profiles?.full_name || 'Merchant',
-            data: {
-              businessName: merchant.business_name,
-              dashboardLink: `${window.location.origin}/merchant`,
-              approvalNotes: notes || null,
-            }
-          }
-        });
-      } catch (emailError) {
-        console.error('Failed to send bulk approval email:', emailError);
-      }
-    }
-  },
-
-  async fetchMerchantAnalytics(merchantId: string): Promise<MerchantAnalytics> {
-    // Fetch payments (paid)
-    const { data: payments } = await supabase
-      .from('payments')
-      .select('amount')
-      .eq('merchant_id', merchantId)
-      .eq('status', 'paid');
-
-    const totalRevenue = payments?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
-
-    // Fetch properties and units
-    const { data: properties } = await supabase
-      .from('properties')
-      .select('id')
-      .eq('merchant_id', merchantId);
-
-    const propertyIds = properties?.map(p => p.id) || [];
     
-    let totalUnits = 0;
-    let occupiedUnits = 0;
+    const targetMerchants = merchants.filter(m => merchantIds.includes(m.id));
     
-    if (propertyIds.length > 0) {
-      const { data: units } = await supabase
-        .from('units')
-        .select('id, status')
-        .in('property_id', propertyIds);
+    // 1. Update merchants status
+    const { error } = await supabase
+      .from('merchants')
+      .update({ 
+        verification_status: 'verified',
+        verified_at: new Date().toISOString(),
+        verified_by: adminId
+      })
+      .in('id', merchantIds);
       
-      totalUnits = units?.length || 0;
-      occupiedUnits = units?.filter(u => u.status === 'occupied').length || 0;
-    }
-
-    // Fetch contracts
-    const { data: contracts } = await supabase
-      .from('contracts')
-      .select('id, status, tenant_user_id')
-      .eq('merchant_id', merchantId);
-
-    const activeContracts = contracts?.filter(c => c.status === 'active').length || 0;
-    const uniqueTenants = new Set(contracts?.map(c => c.tenant_user_id)).size;
-
-    // Fetch invoices
-    const { data: invoices } = await supabase
-      .from('invoices')
-      .select('id, status, due_date, paid_at')
-      .eq('merchant_id', merchantId);
-
-    const paidInvoices = invoices?.filter(i => i.status === 'paid').length || 0;
-    const pendingInvoices = invoices?.filter(i => i.status === 'pending').length || 0;
-    const overdueInvoices = invoices?.filter(i => 
-      i.status === 'pending' && new Date(i.due_date) < new Date()
-    ).length || 0;
-
-    // Calculate on-time payment rate
-    const totalPaidInvoices = invoices?.filter(i => i.status === 'paid' && i.paid_at && i.due_date) || [];
-    const onTimePaid = totalPaidInvoices.filter(i => 
-      new Date(i.paid_at!) <= new Date(i.due_date)
-    ).length;
-    const onTimePaymentRate = totalPaidInvoices.length > 0 
-      ? (onTimePaid / totalPaidInvoices.length) * 100 
-      : 0;
-
-    return {
-      totalRevenue,
-      totalTenants: uniqueTenants,
-      totalProperties: properties?.length || 0,
-      totalUnits,
-      occupiedUnits,
-      occupancyRate: totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0,
-      activeContracts,
-      paidInvoices,
-      pendingInvoices,
-      overdueInvoices,
-      onTimePaymentRate,
-    };
-  },
-
-  async fetchMerchantProperties(merchantId: string): Promise<MerchantProperty[]> {
-    const { data, error } = await supabase
-      .from('properties')
-      .select('id, name, address, city, province, property_type, total_units, occupied_units, status')
-      .eq('merchant_id', merchantId)
-      .order('created_at', { ascending: false });
-
     if (error) throw error;
-    return (data || []) as MerchantProperty[];
-  },
-
-  async fetchMerchantActivity(merchantId: string): Promise<AuditLog[]> {
-    // First get property IDs for this merchant
-    const { data: properties } = await supabase
-      .from('properties')
-      .select('id')
-      .eq('merchant_id', merchantId);
-
-    const propertyIds = properties?.map(p => p.id) || [];
-
-    // Fetch audit logs for merchant and related entities
-    const query = supabase
-      .from('audit_logs')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    // Build OR conditions for entity_id matching
-    const orConditions = [
-      `entity_id.eq.${merchantId}`,
-    ];
-
-    if (propertyIds.length > 0) {
-      propertyIds.forEach(id => {
-        orConditions.push(`entity_id.eq.${id}`);
-      });
-    }
-
-    const { data, error } = await query.or(orConditions.join(','));
-
-    if (error) throw error;
-    return (data as AuditLog[]) || [];
-  },
+    
+    // 2. Insert history entries
+    const historyEntries = targetMerchants.map(m => ({
+      merchant_id: m.id,
+      action: 'approved',
+      performed_by: adminId,
+      approval_notes: notes,
+      old_status: m.verification_status,
+      new_status: 'verified'
+    }));
+    
+    await supabase.from('merchant_verification_history').insert(historyEntries);
+    
+    // 3. Insert audit logs
+    const auditLogs = targetMerchants.map(m => ({
+      user_id: adminId,
+      action: 'verification_approved',
+      entity_type: 'merchant',
+      entity_id: m.id,
+      old_data: { verification_status: m.verification_status },
+      new_data: { verification_status: 'verified', notes },
+      user_agent: navigator.userAgent
+    }));
+    
+    await supabase.from('audit_logs').insert(auditLogs);
+    
+    // 4. Create notifications
+    const notifications = targetMerchants.map(m => ({
+      user_id: m.user_id,
+      type: 'verification_approved',
+      title: 'Akun Terverifikasi!',
+      message: 'Selamat! Akun bisnis Anda telah terverifikasi secara massal.',
+      link: '/merchant'
+    }));
+    
+    await supabase.from('notifications').insert(notifications);
+  }
 };
-

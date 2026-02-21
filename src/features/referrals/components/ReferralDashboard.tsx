@@ -1,17 +1,17 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/integrations/supabase/client';
-import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useReferralTracking } from '@/features/analytics/hooks/useAnalytics';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/card';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { supabase } from '@/lib/integrations/supabase/client';
 import { Button } from '@/shared/components/ui/button';
-import { Badge } from '@/shared/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Input } from '@/shared/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
-import { Share2, Copy, Users, Gift, Wallet, Check, Mail, ExternalLink, Info, ChevronDown, RefreshCw, Calendar } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { subDays, subMonths } from 'date-fns';
+import { Calendar, Check, Copy, ExternalLink, Gift, Info, Mail, RefreshCw, Share2, Users, Wallet } from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
-import { format, subDays, subMonths, isAfter } from 'date-fns';
-import { id } from 'date-fns/locale';
+import { ReferralHistoryTable } from './ReferralHistoryTable';
+import { ReferralRewardsTable } from './ReferralRewardsTable';
 
 // TypeScript interfaces for referral data
 interface Referral {
@@ -72,7 +72,7 @@ const DATE_RANGES = [
   { value: '6m', label: '6 Bulan Terakhir' },
 ];
 
-const ITEMS_PER_PAGE = 5;
+const ITEMS_PER_PAGE = 10;
 
 export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
   const { user } = useAuth();
@@ -81,6 +81,12 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
   const [dateRange, setDateRange] = useState('all');
   const [historyPage, setHistoryPage] = useState(1);
   const [rewardsPage, setRewardsPage] = useState(1);
+
+  // Reset pagination when date range changes
+  useEffect(() => {
+    setHistoryPage(1);
+    setRewardsPage(1);
+  }, [dateRange]);
 
   // Get date filter
   const getDateFilter = (range: string): Date | null => {
@@ -237,12 +243,12 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
 
   // Paginated data
   const referralHistory = referralHistoryData?.items || [];
-  const paginatedHistory = referralHistory.slice(0, historyPage * ITEMS_PER_PAGE);
-  const hasMoreHistory = referralHistory.length > historyPage * ITEMS_PER_PAGE;
+  const paginatedHistory = referralHistory.slice((historyPage - 1) * ITEMS_PER_PAGE, historyPage * ITEMS_PER_PAGE);
+  const totalHistoryPages = Math.ceil(referralHistory.length / ITEMS_PER_PAGE);
 
   const rewards = rewardsData?.items || [];
-  const paginatedRewards = rewards.slice(0, rewardsPage * ITEMS_PER_PAGE);
-  const hasMoreRewards = rewards.length > rewardsPage * ITEMS_PER_PAGE;
+  const paginatedRewards = rewards.slice((rewardsPage - 1) * ITEMS_PER_PAGE, rewardsPage * ITEMS_PER_PAGE);
+  const totalRewardsPages = Math.ceil(rewards.length / ITEMS_PER_PAGE);
 
   // Normalize referral code to uppercase for consistent display
   const referralCode = referralData?.referral_code?.toUpperCase() || '';
@@ -521,47 +527,15 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {historyLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
-            </div>
-          ) : paginatedHistory.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Belum ada yang mendaftar menggunakan kode Anda.</p>
-              <p className="text-sm mt-1">Bagikan link referral untuk mulai mengundang!</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {paginatedHistory.map((ref: any) => (
-                <div key={ref.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <p className="font-medium">
-                      {(ref.profiles as any)?.full_name || 'Pengguna Baru'}
-                    </p>
-                    <p className="text-sm text-muted-foreground capitalize">
-                      {ref.referee_role || 'User'} • {format(new Date(ref.created_at), 'd MMM yyyy', { locale: id })}
-                    </p>
-                  </div>
-                  <Badge variant={ref.status === 'completed' ? 'default' : 'secondary'}>
-                    {ref.status === 'completed' ? 'Selesai' : 
-                     ref.status === 'pending' ? 'Menunggu' : ref.status}
-                  </Badge>
-                </div>
-              ))}
-              
-              {hasMoreHistory && (
-                <Button 
-                  variant="ghost" 
-                  className="w-full" 
-                  onClick={() => setHistoryPage(p => p + 1)}
-                >
-                  <ChevronDown className="h-4 w-4 mr-2" />
-                  Tampilkan Lebih Banyak
-                </Button>
-              )}
-            </div>
-          )}
+          <ReferralHistoryTable
+            referrals={paginatedHistory}
+            loading={historyLoading}
+            page={historyPage}
+            totalPages={totalHistoryPages}
+            totalReferrals={referralHistory.length}
+            onPageChange={setHistoryPage}
+            itemsPerPage={ITEMS_PER_PAGE}
+          />
         </CardContent>
       </Card>
 
@@ -575,53 +549,15 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {rewardsLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
-            </div>
-          ) : paginatedRewards.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Gift className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Belum ada reward. Mulai bagikan link referral Anda!</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {paginatedRewards.map((reward) => (
-                <div key={reward.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <p className="font-medium capitalize">{reward.type.replace(/_/g, ' ')}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {format(new Date(reward.created_at), 'd MMM yyyy', { locale: id })}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold">
-                      {new Intl.NumberFormat('id-ID', {
-                        style: 'currency',
-                        currency: 'IDR',
-                        minimumFractionDigits: 0,
-                      }).format(Number(reward.amount))}
-                    </p>
-                    <Badge variant={reward.status === 'credited' ? 'default' : 'secondary'}>
-                      {reward.status === 'credited' ? 'Dikreditkan' : 
-                       reward.status === 'pending' ? 'Menunggu' : reward.status}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-              
-              {hasMoreRewards && (
-                <Button 
-                  variant="ghost" 
-                  className="w-full" 
-                  onClick={() => setRewardsPage(p => p + 1)}
-                >
-                  <ChevronDown className="h-4 w-4 mr-2" />
-                  Tampilkan Lebih Banyak
-                </Button>
-              )}
-            </div>
-          )}
+          <ReferralRewardsTable
+            rewards={paginatedRewards}
+            loading={rewardsLoading}
+            page={rewardsPage}
+            totalPages={totalRewardsPages}
+            totalRewards={rewards.length}
+            onPageChange={setRewardsPage}
+            itemsPerPage={ITEMS_PER_PAGE}
+          />
         </CardContent>
       </Card>
     </div>

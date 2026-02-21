@@ -1,33 +1,29 @@
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useMerchantContracts } from '@/features/contracts/hooks/useMerchantContracts';
+import { CreateInvoiceDialog } from '@/features/payments/components/CreateInvoiceDialog';
+import { InvoiceDetailsDialog } from '@/features/payments/components/InvoiceDetailsDialog';
+import { InvoicesFilters } from '@/features/payments/components/InvoicesFilters';
+import { InvoicesStats } from '@/features/payments/components/InvoicesStats';
+import { InvoicesTable } from '@/features/payments/components/InvoicesTable';
 import { useMerchantInvoices } from '@/features/payments/hooks/useMerchantInvoices';
 import { Invoice } from '@/features/payments/types';
 import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
-import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/shared/components/ui/dialog';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
-import { Textarea } from '@/shared/components/ui/textarea';
 import { useToast } from '@/shared/hooks/use-toast';
-import { format } from 'date-fns';
-import { Bell, DollarSign, Download, Eye, FileText, Loader2, Plus, Search, Send } from 'lucide-react';
-import { useState } from 'react';
+import { useDebounce } from '@/shared/hooks/useDebounce';
+import { Plus } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+
+const ITEMS_PER_PAGE = 10;
 
 export default function MerchantInvoices() {
   const { merchant } = useAuth();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 500);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [page, setPage] = useState(1);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [selectedContract, setSelectedContract] = useState('');
-  const [amount, setAmount] = useState('');
-  const [taxAmount, setTaxAmount] = useState('0');
-  const [description, setDescription] = useState('');
-  const [dueDate, setDueDate] = useState('');
   const [viewInvoice, setViewInvoice] = useState<Invoice | null>(null);
 
   const { 
@@ -40,41 +36,27 @@ export default function MerchantInvoices() {
     generatePdfMutation
   } = useMerchantInvoices(merchant?.id);
 
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter]);
+
   const { contracts: allContracts = [] } = useMerchantContracts(merchant?.id);
   const contracts = allContracts.filter(c => c.status === 'active');
 
-  const handleCreateInvoice = async () => {
+  const handleCreateInvoice = async (data: {
+    contract_id: string;
+    merchant_id: string;
+    tenant_user_id: string;
+    amount: number;
+    tax_amount: number;
+    description: string;
+    due_date: string;
+  }) => {
     try {
-      if (!merchant?.id) throw new Error('No merchant');
-      const contract = contracts.find(c => c.id === selectedContract);
-      if (!contract) throw new Error('Contract not found');
-      
-      const amountNum = parseFloat(amount);
-      const taxNum = parseFloat(taxAmount) || 0;
-      
-      if (amountNum <= 0) {
-        toast({ title: 'Amount must be greater than zero', variant: 'destructive' });
-        return;
-      }
-      
-      if (taxNum < 0) {
-        toast({ title: 'Tax amount cannot be negative', variant: 'destructive' });
-        return;
-      }
-
-      await createInvoiceMutation.mutateAsync({
-        contract_id: selectedContract,
-        merchant_id: merchant.id,
-        tenant_user_id: contract.tenant_user_id,
-        amount: amountNum,
-        tax_amount: taxNum,
-        description,
-        due_date: dueDate,
-      });
-
+      await createInvoiceMutation.mutateAsync(data);
       toast({ title: 'Invoice created successfully' });
       setIsCreateOpen(false);
-      resetForm();
     } catch (error) {
       toast({ title: 'Failed to create invoice', description: (error as Error).message, variant: 'destructive' });
     }
@@ -129,389 +111,81 @@ export default function MerchantInvoices() {
     }
   };
 
-  const resetForm = () => {
-    setSelectedContract('');
-    setAmount('');
-    setTaxAmount('0');
-    setDescription('');
-    setDueDate('');
-  };
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter(invoice => {
+      const matchesSearch = (invoice.invoice_number.toLowerCase() || '').includes(debouncedSearch.toLowerCase()) ||
+        (invoice.description?.toLowerCase() || '').includes(debouncedSearch.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || invoice.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [invoices, debouncedSearch, statusFilter]);
 
-  const filteredInvoices = invoices.filter(invoice => {
-    const matchesSearch = invoice.invoice_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      invoice.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || invoice.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'draft': return 'secondary';
-      case 'sent': return 'default';
-      case 'paid': return 'outline';
-      case 'overdue': return 'destructive';
-      default: return 'secondary';
-    }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  const stats = {
-    total: invoices.reduce((sum, i) => sum + Number(i.total_amount), 0),
-    paid: invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + Number(i.total_amount), 0),
-    pending: invoices.filter(i => i.status === 'sent').reduce((sum, i) => sum + Number(i.total_amount), 0),
-    draft: invoices.filter(i => i.status === 'draft').length,
-  };
-
-  const selectedContractData = contracts.find(c => c.id === selectedContract);
+  const paginatedInvoices = useMemo(() => {
+    const start = (page - 1) * ITEMS_PER_PAGE;
+    return filteredInvoices.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredInvoices, page]);
 
   return (
     <MerchantLayout>
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-display font-bold">Invoices</h1>
-            <p className="text-muted-foreground">Create and manage tenant invoices</p>
+            <p className="text-muted-foreground">Manage and track your invoices</p>
           </div>
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                New Invoice
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Create Invoice</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Tenant / Contract</Label>
-                  <Select value={selectedContract} onValueChange={setSelectedContract}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a tenant" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {contracts.map((contract) => (
-                        <SelectItem key={contract.id} value={contract.id}>
-                          {contract.units?.properties?.name} - Unit {contract.units?.unit_number}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                {selectedContractData && (
-                  <div className="p-3 bg-muted rounded-lg text-sm">
-                    <p>Monthly Rent: {formatCurrency(selectedContractData.rent_amount)}</p>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Amount</Label>
-                    <Input
-                      type="number"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Tax Amount</Label>
-                    <Input
-                      type="number"
-                      value={taxAmount}
-                      onChange={(e) => setTaxAmount(e.target.value)}
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-
-                {amount && (
-                  <div className="p-3 bg-primary/10 rounded-lg">
-                    <p className="text-sm text-muted-foreground">Total Amount</p>
-                    <p className="text-xl font-bold">
-                      {formatCurrency(parseFloat(amount || '0') + parseFloat(taxAmount || '0'))}
-                    </p>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <Label>Due Date</Label>
-                  <Input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Description</Label>
-                  <Textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Invoice details..."
-                    rows={3}
-                  />
-                </div>
-
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button 
-                    onClick={handleCreateInvoice} 
-                    disabled={!selectedContract || !amount || !dueDate || createInvoiceMutation.isPending}
-                  >
-                    {createInvoiceMutation.isPending ? 'Creating...' : 'Create Invoice'}
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={() => setIsCreateOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Invoice
+          </Button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Invoiced</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{formatCurrency(stats.total)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Paid</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-green-600">{formatCurrency(stats.paid)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-yellow-600">{formatCurrency(stats.pending)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Drafts</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{stats.draft}</p>
-            </CardContent>
-          </Card>
-        </div>
+        <InvoicesStats invoices={invoices} />
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search invoices..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="sent">Sent</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
-              <SelectItem value="overdue">Overdue</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <InvoicesFilters
+          searchTerm={searchQuery}
+          onSearchChange={setSearchQuery}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+        />
 
-        {/* Invoices Table */}
-        <Card>
-          <CardContent className="p-0">
-            {isLoading ? (
-              <div className="p-8 text-center text-muted-foreground">Loading...</div>
-            ) : filteredInvoices.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">
-                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No invoices found</p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Invoice #</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Due Date</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredInvoices.map((invoice) => (
-                    <TableRow key={invoice.id}>
-                      <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">
-                        {invoice.description || '-'}
-                      </TableCell>
-                      <TableCell>{formatCurrency(Number(invoice.total_amount))}</TableCell>
-                      <TableCell>{format(new Date(invoice.due_date), 'MMM d, yyyy')}</TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusColor(invoice.status) as "default" | "secondary" | "destructive" | "outline"}>
-                          {invoice.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setViewInvoice(invoice)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => downloadInvoicePdf(invoice.id)}
-                            title="Download PDF"
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          {invoice.status === 'draft' && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => sendMutation.mutate(invoice.id)}
-                              disabled={sendMutation.isPending}
-                              title="Send invoice with email notification"
-                            >
-                              {sendMutation.isPending ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Send className="h-4 w-4" />
-                              )}
-                            </Button>
-                          )}
-                          {(invoice.status === 'sent' || invoice.status === 'overdue') && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => sendReminderMutation.mutate(invoice.id)}
-                              disabled={sendingReminderId === invoice.id}
-                              title="Send payment reminder"
-                            >
-                              {sendingReminderId === invoice.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Bell className="h-4 w-4" />
-                              )}
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+        <InvoicesTable 
+          invoices={paginatedInvoices} 
+          isLoading={isLoading}
+          onView={setViewInvoice}
+          onDownload={downloadInvoicePdf}
+          onSend={handleSendInvoice}
+          onRemind={handleSendReminder}
+          sendingId={sendInvoiceMutation.isPending ? sendInvoiceMutation.variables?.invoiceId : null}
+          remindingId={sendReminderMutation.isPending ? sendReminderMutation.variables?.invoiceId : null}
+          page={page}
+          totalPages={Math.ceil(filteredInvoices.length / ITEMS_PER_PAGE)}
+          totalInvoices={filteredInvoices.length}
+          onPageChange={setPage}
+          itemsPerPage={ITEMS_PER_PAGE}
+        />
+
+        <CreateInvoiceDialog
+          open={isCreateOpen}
+          onOpenChange={setIsCreateOpen}
+          contracts={contracts}
+          merchantId={merchant?.id || ''}
+          onCreate={handleCreateInvoice}
+          isCreating={createInvoiceMutation.isPending}
+        />
+
+        <InvoiceDetailsDialog
+          invoice={viewInvoice}
+          open={!!viewInvoice}
+          onOpenChange={(open) => !open && setViewInvoice(null)}
+          onDownload={downloadInvoicePdf}
+          onSend={handleSendInvoice}
+          onMarkPaid={handleMarkAsPaid}
+          onRemind={handleSendReminder}
+          isSending={sendInvoiceMutation.isPending}
+          isReminding={sendReminderMutation.isPending}
+          remindingId={sendReminderMutation.isPending ? sendReminderMutation.variables?.invoiceId : null}
+        />
       </div>
-
-      {/* View Invoice Dialog */}
-      <Dialog open={!!viewInvoice} onOpenChange={() => setViewInvoice(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Invoice Details</DialogTitle>
-          </DialogHeader>
-          {viewInvoice && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Invoice Number</p>
-                  <p className="text-xl font-bold">{viewInvoice.invoice_number}</p>
-                </div>
-                <Badge variant={getStatusColor(viewInvoice.status) as "default" | "secondary" | "destructive" | "outline"}>
-                  {viewInvoice.status}
-                </Badge>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Due Date</p>
-                  <p className="font-medium">{format(new Date(viewInvoice.due_date), 'MMM d, yyyy')}</p>
-                </div>
-                {viewInvoice.issued_at && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Issued</p>
-                    <p className="font-medium">{format(new Date(viewInvoice.issued_at), 'MMM d, yyyy')}</p>
-                  </div>
-                )}
-              </div>
-
-              {viewInvoice.description && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Description</p>
-                  <p>{viewInvoice.description}</p>
-                </div>
-              )}
-
-              <div className="border-t pt-4 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span>{formatCurrency(Number(viewInvoice.amount))}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tax</span>
-                  <span>{formatCurrency(Number(viewInvoice.tax_amount))}</span>
-                </div>
-                <div className="flex justify-between text-lg font-bold border-t pt-2">
-                  <span>Total</span>
-                  <span>{formatCurrency(Number(viewInvoice.total_amount))}</span>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2">
-                {viewInvoice.status === 'draft' && (
-                  <Button 
-                    onClick={() => {
-                      sendMutation.mutate(viewInvoice.id);
-                      setViewInvoice(null);
-                    }}
-                  >
-                    <Send className="h-4 w-4 mr-2" />
-                    Send Invoice
-                  </Button>
-                )}
-                {viewInvoice.status === 'sent' && (
-                  <Button 
-                    onClick={() => markPaidMutation.mutate(viewInvoice.id)}
-                    disabled={markPaidMutation.isPending}
-                  >
-                    <DollarSign className="h-4 w-4 mr-2" />
-                    Mark as Paid
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </MerchantLayout>
   );
 }

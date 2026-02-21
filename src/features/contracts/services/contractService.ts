@@ -211,5 +211,31 @@ export const contractService = {
       .eq('id', contractId);
     
     if (error) throw error;
+  },
+
+  async uploadContractDocument(contractId: string, file: File): Promise<string> {
+    const fileName = `${contractId}/${Date.now()}_${file.name}`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from('contract-documents')
+      .upload(fileName, file, {
+        contentType: 'application/pdf',
+        upsert: true,
+      });
+
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('contract-documents')
+      .getPublicUrl(fileName);
+
+    const { error: updateError } = await supabase
+      .from('contracts')
+      .update({ contract_document_url: publicUrl })
+      .eq('id', contractId);
+
+    if (updateError) throw updateError;
+    
+    return publicUrl;
   }
 };

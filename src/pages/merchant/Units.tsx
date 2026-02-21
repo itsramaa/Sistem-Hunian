@@ -1,150 +1,53 @@
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { UnitPhotoUpload } from "@/features/properties/components/UnitPhotoUpload";
+import { UnitFilters } from "@/features/properties/components/UnitFilters";
+import { UnitFormDialog } from "@/features/properties/components/UnitFormDialog";
+import { UnitsStats } from "@/features/properties/components/UnitsStats";
+import { UnitsTable } from "@/features/properties/components/UnitsTable";
+import { useMerchantProperties } from "@/features/properties/hooks/useMerchantProperties";
+import { useMerchantUnits } from "@/features/properties/hooks/useMerchantUnits";
+import { Unit, UnitFormData } from "@/features/properties/types";
 import { SubscriptionLimitWarning } from "@/features/subscriptions/components/SubscriptionLimitWarning";
 import { useSubscriptionLimits } from "@/features/subscriptions/hooks/useSubscriptionLimits";
 import { MerchantLayout } from "@/shared/components/layouts/MerchantLayout";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
 } from "@/shared/components/ui/alert-dialog";
-import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/shared/components/ui/dialog";
-import { Input } from "@/shared/components/ui/input";
-import { Label } from "@/shared/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/shared/components/ui/table";
-import { Textarea } from "@/shared/components/ui/textarea";
-import { useQueryClient } from "@tanstack/react-query";
-import {
-  AlertTriangle,
-  Building2,
-  DollarSign,
-  Edit,
-  Filter,
-  Home,
-  Layers,
-  Loader2,
-  Plus,
-  Search,
-  Trash2
-} from "lucide-react";
-import { useMemo, useState } from "react";
+import { useDebounce } from "@/shared/hooks/useDebounce";
+import { Plus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { CreateUnitPayload, Unit } from "@/features/properties/types";
-
-// Dynamic unit types based on property type
-const getUnitTypesForProperty = (propertyType: string | undefined): { value: string; label: string }[] => {
-  switch (propertyType) {
-    case 'kost':
-      return [
-        { value: 'kamar_standard', label: 'Kamar Standard' },
-        { value: 'kamar_vip', label: 'Kamar VIP' },
-        { value: 'kamar_deluxe', label: 'Kamar Deluxe' },
-        { value: 'kamar_ac', label: 'Kamar AC' },
-        { value: 'kamar_non_ac', label: 'Kamar Non-AC' },
-      ];
-    case 'apartment':
-      return [
-        { value: 'studio', label: 'Studio' },
-        { value: '1br', label: '1 Bedroom' },
-        { value: '2br', label: '2 Bedroom' },
-        { value: '3br', label: '3 Bedroom' },
-        { value: 'penthouse', label: 'Penthouse' },
-      ];
-    case 'house':
-      return [
-        { value: 'full_house', label: 'Full House' },
-      ];
-    case 'kontrakan':
-      return [
-        { value: 'petak', label: 'Petak' },
-        { value: 'full_bangunan', label: 'Full Bangunan' },
-      ];
-    case 'ruko':
-      return [
-        { value: 'lantai_1', label: 'Lantai 1' },
-        { value: 'lantai_2', label: 'Lantai 2' },
-        { value: 'lantai_3', label: 'Lantai 3' },
-        { value: 'full_building', label: 'Full Building' },
-      ];
-    default:
-      return [
-        { value: 'studio', label: 'Studio' },
-        { value: 'room', label: 'Room' },
-        { value: 'apartment', label: 'Apartment' },
-        { value: 'house', label: 'House' },
-        { value: 'office', label: 'Office' },
-        { value: 'retail', label: 'Retail' },
-      ];
-  }
-};
-
-const statusColors: Record<string, string> = {
-  available: 'bg-success/10 text-success border-success/20',
-  occupied: 'bg-primary/10 text-primary border-primary/20',
-  maintenance: 'bg-warning/10 text-warning border-warning/20',
-  reserved: 'bg-info/10 text-info border-info/20',
-};
-
-const MAX_REASONABLE_SIZE = 10000; // 10,000 sqm
+const ITEMS_PER_PAGE = 10;
 
 export default function MerchantUnits() {
   const { merchant } = useAuth();
-  const queryClient = useQueryClient();
   const { data: subscriptionLimits } = useSubscriptionLimits();
+  
+  // State
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 500);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
+  const [page, setPage] = useState(1);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    property_id: '',
-    unit_number: '',
-    unit_type: 'apartment',
-    floor: '',
-    size_sqm: '',
-    rent_amount: '',
-    deposit_amount: '',
-    status: 'available',
-    description: '',
-    photos: [] as string[],
-  });
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  // Fetch properties
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter, propertyFilter]);
+
+  // Data Fetching
   const { properties, loading: propertiesLoading } = useMerchantProperties(merchant?.id || '');
-
-  // Fetch all units
   const { 
     units, 
     loading: unitsLoading, 
@@ -156,157 +59,20 @@ export default function MerchantUnits() {
     isDeleting
   } = useMerchantUnits(merchant?.id || '');
 
-  // Validate form
-  const validateForm = (): boolean => {
-    const errors: Record<string, string> = {};
-
-    if (!formData.property_id) {
-      errors.property_id = 'Please select a property';
-    }
-    if (!formData.unit_number.trim()) {
-      errors.unit_number = 'Unit number is required';
-    }
-    
-    const rentAmount = parseFloat(formData.rent_amount);
-    if (!formData.rent_amount || isNaN(rentAmount)) {
-      errors.rent_amount = 'Valid rent amount is required';
-    } else if (rentAmount < 0) {
-      errors.rent_amount = 'Rent amount cannot be negative';
-    }
-
-    const floor = formData.floor ? parseInt(formData.floor) : null;
-    if (floor !== null && floor < 0) {
-      errors.floor = 'Floor cannot be negative';
-    }
-
-    const size = formData.size_sqm ? parseFloat(formData.size_sqm) : null;
-    if (size !== null && (size < 0 || size > MAX_REASONABLE_SIZE)) {
-      errors.size_sqm = `Size must be between 0 and ${MAX_REASONABLE_SIZE} sqm`;
-    }
-
-    const deposit = formData.deposit_amount ? parseFloat(formData.deposit_amount) : null;
-    if (deposit !== null && deposit < 0) {
-      errors.deposit_amount = 'Deposit cannot be negative';
-    }
-
-    // Check for duplicate unit number within same property
-    const existingUnit = units.find(u => 
-      u.property_id === formData.property_id && 
-      u.unit_number.toLowerCase() === formData.unit_number.toLowerCase().trim() &&
-      u.id !== editingUnit?.id
-    );
-    if (existingUnit) {
-      errors.unit_number = 'A unit with this number already exists in this property';
-    }
-
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleSave = async () => {
-    try {
-      if (!validateForm()) {
-        toast.error('Please fix the form errors');
-        return;
-      }
-
-      // Check subscription limits for new units
-      if (!editingUnit && subscriptionLimits && !subscriptionLimits.canAddUnit) {
-        toast.error(`Unit limit reached (${subscriptionLimits.currentUnits}/${subscriptionLimits.maxUnits}). Please upgrade your subscription.`);
-        return;
-      }
-
-      const unitData: CreateUnitPayload = {
-        property_id: formData.property_id,
-        unit_number: formData.unit_number.trim(),
-        unit_type: formData.unit_type,
-        floor: formData.floor ? parseInt(formData.floor) : null,
-        size_sqm: formData.size_sqm ? parseFloat(formData.size_sqm) : null,
-        rent_amount: parseFloat(formData.rent_amount),
-        deposit_amount: formData.deposit_amount ? parseFloat(formData.deposit_amount) : null,
-        status: formData.status as any,
-        description: formData.description?.trim() || null,
-        photos: formData.photos,
-        amenities: [], // Assuming amenities are handled elsewhere or default to empty
-      };
-
-      if (editingUnit) {
-        await updateUnit({ id: editingUnit.id, payload: unitData });
-      } else {
-        await createUnit(unitData);
-      }
-      
-      handleDialogClose();
-    } catch {
-      // Toast is handled in hook
-    }
-  };
-
-  const handleDialogClose = () => {
-    setIsDialogOpen(false);
-    setEditingUnit(null);
-    setFormErrors({});
-    setFormData({
-      property_id: '',
-      unit_number: '',
-      unit_type: 'apartment',
-      floor: '',
-      size_sqm: '',
-      rent_amount: '',
-      deposit_amount: '',
-      status: 'available',
-      description: '',
-      photos: [],
-    });
-  };
-
-  const handleEdit = (unit: Unit) => {
-    setEditingUnit(unit);
-    setFormErrors({});
-    setFormData({
-      property_id: unit.property_id,
-      unit_number: unit.unit_number,
-      unit_type: unit.unit_type || 'apartment',
-      floor: unit.floor?.toString() || '',
-      size_sqm: unit.size_sqm?.toString() || '',
-      rent_amount: unit.rent_amount.toString(),
-      deposit_amount: unit.deposit_amount?.toString() || '',
-      status: unit.status || 'available',
-      description: unit.description || '',
-      photos: unit.photos || [],
-    });
-    setIsDialogOpen(true);
-  };
-
-  const handleDelete = async (unitId: string) => {
-    setDeleteLoading(unitId);
-    try {
-      await deleteUnit(unitId);
-    } catch (error) {
-      // Toast is handled in hook
-    } finally {
-      setDeleteLoading(null);
-    }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  // Memoize filtered units
+  // Computed
   const filteredUnits = useMemo(() => units.filter(unit => {
-    const matchesSearch = unit.unit_number.toLowerCase().includes(search.toLowerCase()) ||
-      unit.property?.name.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = unit.unit_number.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      unit.property?.name.toLowerCase().includes(debouncedSearch.toLowerCase());
     const matchesStatus = statusFilter === 'all' || unit.status === statusFilter;
     const matchesProperty = propertyFilter === 'all' || unit.property_id === propertyFilter;
     return matchesSearch && matchesStatus && matchesProperty;
-  }), [units, search, statusFilter, propertyFilter]);
+  }), [units, debouncedSearch, statusFilter, propertyFilter]);
 
-  // Memoize statistics
+  const paginatedUnits = useMemo(() => {
+    const start = (page - 1) * ITEMS_PER_PAGE;
+    return filteredUnits.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredUnits, page]);
+
   const stats = useMemo(() => ({
     totalUnits: units.length,
     occupiedUnits: units.filter(u => u.status === 'occupied').length,
@@ -316,198 +82,66 @@ export default function MerchantUnits() {
 
   const canAddUnit = !subscriptionLimits || subscriptionLimits.canAddUnit;
 
+  // Handlers
+  const handleCreate = () => {
+    setEditingUnit(null);
+    setIsDialogOpen(true);
+  };
+
+  const handleEdit = (unit: Unit) => {
+    setEditingUnit(unit);
+    setIsDialogOpen(true);
+  };
+
+  const handleDeleteClick = (id: string) => {
+    setDeleteId(id);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteId) return;
+    try {
+      await deleteUnit(deleteId);
+      setDeleteId(null);
+    } catch (error) {
+      // Error handled by hook
+    }
+  };
+
+  const handleFormSubmit = async (data: UnitFormData) => {
+    try {
+      if (!editingUnit && subscriptionLimits && !subscriptionLimits.canAddUnit) {
+        toast.error(`Unit limit reached (${subscriptionLimits.currentUnits}/${subscriptionLimits.maxUnits}). Please upgrade your subscription.`);
+        return;
+      }
+
+      // Convert form data to payload format (omit amenities if not in form)
+      const payload = {
+        ...data,
+        amenities: [], // Default to empty array as it's not in the form yet
+      };
+
+      if (editingUnit) {
+        await updateUnit({ id: editingUnit.id, payload });
+      } else {
+        await createUnit(payload);
+      }
+      setIsDialogOpen(false);
+    } catch (error) {
+      // Error handled by hook
+    }
+  };
+
   return (
     <MerchantLayout 
       description="View and manage all your rental units"
       actions={
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button disabled={properties.length === 0 || !canAddUnit}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Unit
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>{editingUnit ? 'Edit Unit' : 'Add New Unit'}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-              <div className="space-y-2">
-                <Label>Property *</Label>
-                <Select 
-                  value={formData.property_id} 
-                  onValueChange={(value) => setFormData({ ...formData, property_id: value })}
-                >
-                  <SelectTrigger className={formErrors.property_id ? 'border-destructive' : ''}>
-                    <SelectValue placeholder="Select property" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {properties.map(property => (
-                      <SelectItem key={property.id} value={property.id}>
-                        {property.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {formErrors.property_id && (
-                  <p className="text-sm text-destructive">{formErrors.property_id}</p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Unit Number *</Label>
-                  <Input
-                    value={formData.unit_number}
-                    onChange={(e) => setFormData({ ...formData, unit_number: e.target.value })}
-                    placeholder="e.g., A101"
-                    className={formErrors.unit_number ? 'border-destructive' : ''}
-                  />
-                  {formErrors.unit_number && (
-                    <p className="text-sm text-destructive">{formErrors.unit_number}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label>Unit Type</Label>
-                  <Select 
-                    value={formData.unit_type} 
-                    onValueChange={(value) => setFormData({ ...formData, unit_type: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {getUnitTypesForProperty(properties.find(p => p.id === formData.property_id)?.property_type).map(type => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Floor</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={formData.floor}
-                    onChange={(e) => setFormData({ ...formData, floor: e.target.value })}
-                    placeholder="Floor number"
-                    className={formErrors.floor ? 'border-destructive' : ''}
-                  />
-                  {formErrors.floor && (
-                    <p className="text-sm text-destructive">{formErrors.floor}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label>Size (sqm)</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max={MAX_REASONABLE_SIZE}
-                    value={formData.size_sqm}
-                    onChange={(e) => setFormData({ ...formData, size_sqm: e.target.value })}
-                    placeholder="Size in sqm"
-                    className={formErrors.size_sqm ? 'border-destructive' : ''}
-                  />
-                  {formErrors.size_sqm && (
-                    <p className="text-sm text-destructive">{formErrors.size_sqm}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Monthly Rent *</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={formData.rent_amount}
-                    onChange={(e) => setFormData({ ...formData, rent_amount: e.target.value })}
-                    placeholder="Rent amount"
-                    className={formErrors.rent_amount ? 'border-destructive' : ''}
-                  />
-                  {formErrors.rent_amount && (
-                    <p className="text-sm text-destructive">{formErrors.rent_amount}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label>Deposit Amount</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={formData.deposit_amount}
-                    onChange={(e) => setFormData({ ...formData, deposit_amount: e.target.value })}
-                    placeholder="Deposit amount"
-                    className={formErrors.deposit_amount ? 'border-destructive' : ''}
-                  />
-                  {formErrors.deposit_amount && (
-                    <p className="text-sm text-destructive">{formErrors.deposit_amount}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select 
-                  value={formData.status} 
-                  onValueChange={(value) => setFormData({ ...formData, status: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="available">Available</SelectItem>
-                    <SelectItem value="occupied">Occupied</SelectItem>
-                    <SelectItem value="maintenance">Maintenance</SelectItem>
-                    <SelectItem value="reserved">Reserved</SelectItem>
-                  </SelectContent>
-                </Select>
-                {formData.status === 'occupied' && !editingUnit && (
-                  <p className="text-xs text-warning flex items-center gap-1">
-                    <AlertTriangle className="h-3 w-3" />
-                    Setting as occupied manually. Consider creating a contract instead.
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Unit description..."
-                  rows={3}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Photos</Label>
-                <UnitPhotoUpload
-                  photos={formData.photos}
-                  onPhotosChange={(photos) => setFormData({ ...formData, photos })}
-                  maxPhotos={10}
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" onClick={handleDialogClose}>
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={() => saveMutation.mutate()}
-                  disabled={saveMutation.isPending}
-                >
-                  {saveMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  {editingUnit ? 'Update' : 'Create'}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button 
+          disabled={properties.length === 0 || !canAddUnit}
+          onClick={handleCreate}
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Add Unit
+        </Button>
       }
     >
       {/* Subscription Warning */}
@@ -515,208 +149,70 @@ export default function MerchantUnits() {
         <SubscriptionLimitWarning type="unit" />
       )}
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Layers className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Units</p>
-                <p className="text-2xl font-bold">{stats.totalUnits}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-success/10">
-                <Home className="h-5 w-5 text-success" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Available</p>
-                <p className="text-2xl font-bold">{stats.availableUnits}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-info/10">
-                <Building2 className="h-5 w-5 text-info" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Occupied</p>
-                <p className="text-2xl font-bold">{stats.occupiedUnits}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-warning/10">
-                <DollarSign className="h-5 w-5 text-warning" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Monthly Revenue</p>
-                <p className="text-lg font-bold">{formatCurrency(stats.totalMonthlyRent)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Statistics */}
+      <UnitsStats stats={stats} />
 
       {/* Filters */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search units..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={propertyFilter} onValueChange={setPropertyFilter}>
-              <SelectTrigger className="w-full md:w-48">
-                <Building2 className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Filter by property" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Properties</SelectItem>
-                {properties.map(property => (
-                  <SelectItem key={property.id} value={property.id}>
-                    {property.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full md:w-40">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="available">Available</SelectItem>
-                <SelectItem value="occupied">Occupied</SelectItem>
-                <SelectItem value="maintenance">Maintenance</SelectItem>
-                <SelectItem value="reserved">Reserved</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <UnitFilters
+        search={search}
+        onSearchChange={setSearch}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        propertyFilter={propertyFilter}
+        onPropertyFilterChange={setPropertyFilter}
+        properties={properties}
+        onReset={() => {
+          setSearch("");
+          setStatusFilter("all");
+          setPropertyFilter("all");
+        }}
+      />
 
-      {/* Units Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>All Units ({filteredUnits.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="py-8 text-center text-muted-foreground">Loading units...</div>
-          ) : filteredUnits.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground">
-              <Home className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No units found</p>
-              {properties.length === 0 && (
-                <p className="text-sm mt-2">Add a property first to create units</p>
-              )}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Unit</TableHead>
-                    <TableHead>Property</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Size</TableHead>
-                    <TableHead>Rent</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredUnits.map((unit) => (
-                    <TableRow key={unit.id}>
-                      <TableCell className="font-medium">{unit.unit_number}</TableCell>
-                      <TableCell>{unit.property?.name}</TableCell>
-                      <TableCell className="capitalize">{unit.unit_type || '-'}</TableCell>
-                      <TableCell>{unit.size_sqm ? `${unit.size_sqm} sqm` : '-'}</TableCell>
-                      <TableCell>{formatCurrency(unit.rent_amount)}</TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant="outline" 
-                          className={statusColors[unit.status || 'available']}
-                        >
-                          {unit.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleEdit(unit)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                disabled={deleteLoading === unit.id}
-                              >
-                                {deleteLoading === unit.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                )}
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Unit</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to delete unit "{unit.unit_number}"? This action cannot be undone.
-                                  {unit.status === 'occupied' && (
-                                    <span className="block mt-2 text-destructive font-medium">
-                                      Warning: This unit appears to be occupied.
-                                    </span>
-                                  )}
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDelete(unit.id)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Table */}
+      <UnitsTable
+        units={paginatedUnits}
+        properties={properties}
+        onEdit={handleEdit}
+        onDelete={handleDeleteClick}
+        page={page}
+        totalPages={Math.ceil(filteredUnits.length / ITEMS_PER_PAGE)}
+        totalUnits={filteredUnits.length}
+        onPageChange={setPage}
+        itemsPerPage={ITEMS_PER_PAGE}
+      />
+
+      {/* Create/Edit Dialog */}
+      <UnitFormDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        unit={editingUnit}
+        properties={properties}
+        onSubmit={handleFormSubmit}
+        isLoading={isCreating || isUpdating}
+      />
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the unit
+              and all associated data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MerchantLayout>
   );
 }

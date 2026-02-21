@@ -64,7 +64,10 @@ export default function Admin2FA() {
 
   if (isStatusLoading) {
      return (
-       <AdminLayout>
+       <AdminLayout
+         title="Two-Factor Authentication"
+         description="Add an extra layer of security to your admin account"
+       >
          <div className="flex items-center justify-center h-64">
            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
          </div>
@@ -73,13 +76,11 @@ export default function Admin2FA() {
   }
 
   return (
-    <AdminLayout>
+    <AdminLayout
+      title="Two-Factor Authentication"
+      description="Add an extra layer of security to your admin account"
+    >
       <div className="space-y-6 max-w-3xl">
-        <div>
-          <h1 className="text-3xl font-display font-bold text-foreground">Two-Factor Authentication</h1>
-          <p className="text-muted-foreground mt-1">Add an extra layer of security to your admin account</p>
-        </div>
-
         {/* Status Card */}
         <Card>
           <CardHeader>

@@ -1,8 +1,8 @@
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { CustomAmenities } from '@/features/properties/components/CustomAmenities';
-import { LocationPicker } from '@/features/properties/components/LocationPicker';
-import { ProvincesCitiesSelect } from '@/features/properties/components/ProvincesCitiesSelect';
-import { UnitPhotoUpload } from '@/features/properties/components/UnitPhotoUpload';
+import { PropertyCard } from '@/features/properties/components/PropertyCard';
+import { PropertyFilters } from '@/features/properties/components/PropertyFilters';
+import { PropertyFormData, PropertyFormDialog } from '@/features/properties/components/PropertyFormDialog';
+import { PropertyTable } from '@/features/properties/components/PropertyTable';
 import { UnitsManager } from '@/features/properties/components/UnitsManager';
 import { useMerchantProperties } from '@/features/properties/hooks/useMerchantProperties';
 import { CreatePropertyPayload, Property, UpdatePropertyPayload } from '@/features/properties/types';
@@ -11,64 +11,24 @@ import { useSubscriptionLimits } from '@/features/subscriptions/hooks/useSubscri
 import { ImageGalleryUpload } from '@/shared/components/FileUpload';
 import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
 import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert';
-import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Card, CardContent } from '@/shared/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
 import { Progress } from '@/shared/components/ui/progress';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
-import { Textarea } from '@/shared/components/ui/textarea';
 import { useToast } from '@/shared/hooks/use-toast';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { useDebounce } from '@/shared/hooks/useDebounce';
 import {
   AlertTriangle,
   Building2,
-  DoorOpen,
-  Edit,
-  Grid,
+  ChevronLeft,
+  ChevronRight,
   Home,
-  Image as ImageIcon,
-  List,
-  MapPin,
-  MoreHorizontal,
   Plus,
-  RefreshCw,
-  Search,
-  Trash2
+  RefreshCw
 } from 'lucide-react';
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import { useEffect, useMemo, useState } from 'react';
 
-const propertySchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters').max(100),
-  property_type: z.enum(['kost', 'apartment', 'house', 'kontrakan', 'ruko']),
-  address: z.string().min(5, 'Address is required').max(255),
-  city: z.string().min(2, 'City is required').max(100),
-  province: z.string().min(2, 'Province is required').max(100),
-  postal_code: z.string().max(10).optional(),
-  description: z.string().max(1000).optional(),
-  amenities: z.array(z.string()).optional(),
-});
-
-type PropertyFormData = z.infer<typeof propertySchema>;
-
-const propertyTypes = [
-  { value: 'kost', label: 'Kost' },
-  { value: 'apartment', label: 'Apartment' },
-  { value: 'house', label: 'House' },
-  { value: 'kontrakan', label: 'Kontrakan' },
-  { value: 'ruko', label: 'Ruko' },
-];
-
-const statusColors: Record<string, string> = {
-  active: 'bg-success/10 text-success border-success/30',
-  inactive: 'bg-muted text-muted-foreground border-muted',
-  maintenance: 'bg-warning/10 text-warning border-warning/30',
-};
+const ITEMS_PER_PAGE = 9;
 
 export default function MerchantProperties() {
   const { merchant } = useAuth();
@@ -82,13 +42,14 @@ export default function MerchantProperties() {
     checkCanDelete,
     isCreating,
     isUpdating,
-    isDeleting,
     refetch
   } = useMerchantProperties(merchant?.id || '');
   
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 500);
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [page, setPage] = useState(1);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null); // Keep specifically for which item is deleting
@@ -98,22 +59,10 @@ export default function MerchantProperties() {
   const { toast } = useToast();
   const { data: limits } = useSubscriptionLimits();
 
-  const form = useForm<PropertyFormData>({
-    resolver: zodResolver(propertySchema),
-    defaultValues: {
-      name: '',
-      property_type: 'kost',
-      address: '',
-      city: '',
-      province: '',
-      postal_code: '',
-      description: '',
-      amenities: [],
-    },
-  });
-
-  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
-  const [formImages, setFormImages] = useState<string[]>([]);
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, typeFilter]);
 
   const handleSubmit = async (data: PropertyFormData) => {
     if (!merchant) return;
@@ -128,8 +77,8 @@ export default function MerchantProperties() {
           province: data.province,
           postal_code: data.postal_code || null,
           description: data.description || null,
-          amenities: selectedAmenities,
-          images: formImages,
+          amenities: data.amenities,
+          images: data.images,
         };
         await updateProperty({ id: editingProperty.id, payload });
         toast({ title: 'Property Updated', description: 'Property has been updated successfully' });
@@ -142,8 +91,8 @@ export default function MerchantProperties() {
           province: data.province,
           postal_code: data.postal_code || null,
           description: data.description || null,
-          images: formImages,
-          amenities: selectedAmenities,
+          amenities: data.amenities || [],
+          images: data.images || [],
         };
         await createProperty(payload);
         toast({ title: 'Property Created', description: 'New property has been added successfully' });
@@ -151,9 +100,6 @@ export default function MerchantProperties() {
 
       setShowAddDialog(false);
       setEditingProperty(null);
-      setSelectedAmenities([]);
-      setFormImages([]);
-      form.reset();
     } catch (error) {
       console.error('Error saving property:', error);
       toast({
@@ -192,18 +138,6 @@ export default function MerchantProperties() {
 
   const handleEdit = (property: Property) => {
     setEditingProperty(property);
-    form.reset({
-      name: property.name,
-      property_type: property.property_type,
-      address: property.address,
-      city: property.city,
-      province: property.province,
-      postal_code: property.postal_code || '',
-      description: property.description || '',
-      amenities: property.amenities || [],
-    });
-    setSelectedAmenities(property.amenities || []);
-    setFormImages(property.images || []);
     setShowAddDialog(true);
   };
 
@@ -240,20 +174,27 @@ export default function MerchantProperties() {
     }
   };
 
-  const handleDialogClose = () => {
-    setShowAddDialog(false);
-    setEditingProperty(null);
-    setSelectedAmenities([]);
-    setFormImages([]);
-    form.reset();
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+      setShowAddDialog(false);
+      setEditingProperty(null);
+    } else {
+      setShowAddDialog(true);
+    }
   };
 
-  const filteredProperties = properties.filter(property => {
-    const matchesSearch = property.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      property.city.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredProperties = useMemo(() => properties.filter(property => {
+    const matchesSearch = property.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      property.city.toLowerCase().includes(debouncedSearch.toLowerCase());
     const matchesType = typeFilter === 'all' || property.property_type === typeFilter;
     return matchesSearch && matchesType;
-  });
+  }), [properties, debouncedSearch, typeFilter]);
+
+  const totalPages = Math.ceil(filteredProperties.length / ITEMS_PER_PAGE);
+  const paginatedProperties = useMemo(() => filteredProperties.slice(
+    (page - 1) * ITEMS_PER_PAGE,
+    page * ITEMS_PER_PAGE
+  ), [filteredProperties, page]);
 
   const totalUnits = properties.reduce((sum, p) => sum + p.total_units, 0);
   const occupiedUnits = properties.reduce((sum, p) => sum + p.occupied_units, 0);
@@ -277,115 +218,13 @@ export default function MerchantProperties() {
         {/* Subscription limit warning */}
         <SubscriptionLimitWarning type="property" />
         
-        <Dialog open={showAddDialog} onOpenChange={handleDialogClose}>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>{editingProperty ? 'Edit Property' : 'Add New Property'}</DialogTitle>
-                <DialogDescription>
-                  {editingProperty ? 'Update property details' : 'Add a new rental property to your portfolio'}
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 mt-4 max-h-[70vh] overflow-y-auto pr-2">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <Label htmlFor="name">Nama Properti</Label>
-                    <Input
-                      id="name"
-                      placeholder="Contoh: Kost Harmoni"
-                      {...form.register('name')}
-                    />
-                    {form.formState.errors.name && (
-                      <p className="text-sm text-destructive mt-1">{form.formState.errors.name.message}</p>
-                    )}
-                  </div>
-                  <div className="col-span-2">
-                    <Label htmlFor="property_type">Tipe Properti</Label>
-                    <Select 
-                      value={form.watch('property_type')} 
-                      onValueChange={(value) => form.setValue('property_type', value as any)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {propertyTypes.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>
-                            {type.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  {/* Province & City Dropdowns */}
-                  <ProvincesCitiesSelect
-                    provinceValue={form.watch('province')}
-                    cityValue={form.watch('city')}
-                    onProvinceChange={(value) => form.setValue('province', value)}
-                    onCityChange={(value) => form.setValue('city', value)}
-                    provinceError={form.formState.errors.province?.message}
-                    cityError={form.formState.errors.city?.message}
-                  />
-
-                  {/* Address with Map */}
-                  <div className="col-span-2">
-                    <Label htmlFor="address">Alamat</Label>
-                    <LocationPicker
-                      value={form.watch('address')}
-                      onChange={(address) => form.setValue('address', address)}
-                      placeholder="Cari atau klik peta untuk lokasi..."
-                      province={form.watch('province')}
-                      city={form.watch('city')}
-                    />
-                    {form.formState.errors.address && (
-                      <p className="text-sm text-destructive mt-1">{form.formState.errors.address.message}</p>
-                    )}
-                  </div>
-
-                  <div className="col-span-2">
-                    <Label htmlFor="postal_code">Kode Pos</Label>
-                    <Input
-                      id="postal_code"
-                      placeholder="Contoh: 12345"
-                      {...form.register('postal_code')}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <Label htmlFor="description">Deskripsi (Opsional)</Label>
-                    <Textarea
-                      id="description"
-                      placeholder="Deskripsikan properti Anda..."
-                      {...form.register('description')}
-                      rows={3}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <Label>Foto Properti</Label>
-                    <UnitPhotoUpload
-                      photos={formImages}
-                      onPhotosChange={setFormImages}
-                      maxPhotos={10}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <Label>Fasilitas</Label>
-                    <CustomAmenities
-                      selectedAmenities={selectedAmenities}
-                      onAmenitiesChange={setSelectedAmenities}
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={handleDialogClose}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={isCreating || isUpdating}>
-                    {isCreating || isUpdating ? 'Saving...' : editingProperty ? 'Update Property' : 'Add Property'}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+        <PropertyFormDialog
+          open={showAddDialog}
+          onOpenChange={handleDialogClose}
+          property={editingProperty}
+          onSubmit={handleSubmit}
+          isLoading={isCreating || isUpdating}
+        />
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -430,46 +269,14 @@ export default function MerchantProperties() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search properties..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-full md:w-[180px]">
-              <SelectValue placeholder="Property Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              {propertyTypes.map((type) => (
-                <SelectItem key={type.value} value={type.value}>
-                  {type.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="flex gap-1 border rounded-lg p-1">
-            <Button
-              variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-              size="icon"
-              onClick={() => setViewMode('grid')}
-            >
-              <Grid className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-              size="icon"
-              onClick={() => setViewMode('list')}
-            >
-              <List className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+        <PropertyFilters
+          searchTerm={searchQuery}
+          onSearchChange={setSearchQuery}
+          typeFilter={typeFilter}
+          onTypeFilterChange={setTypeFilter}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+        />
 
         {/* Error State */}
         {error && (
@@ -509,186 +316,70 @@ export default function MerchantProperties() {
               )}
             </CardContent>
           </Card>
-        ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredProperties.map((property) => (
-              <Card key={property.id} className="hover:shadow-card-hover transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <Building2 className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-base">{property.name}</CardTitle>
-                        <CardDescription className="capitalize">{property.property_type}</CardDescription>
-                      </div>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setUnitsProperty(property)}>
-                          <DoorOpen className="h-4 w-4 mr-2" />
-                          Manage Units
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenImages(property)}>
-                          <ImageIcon className="h-4 w-4 mr-2" />
-                          Manage Photos
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleEdit(property)}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => handleDelete(property)}
-                          className="text-destructive"
-                          disabled={deleteLoading === property.id}
-                        >
-                          {deleteLoading === property.id ? (
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4 mr-2" />
-                          )}
-                          {deleteLoading === property.id ? 'Checking...' : 'Delete'}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {property.images && property.images.length > 0 && (
-                    <div className="relative h-24 rounded-lg overflow-hidden bg-muted">
-                      <img 
-                        src={property.images[0]} 
-                        alt={property.name}
-                        className="w-full h-full object-cover"
-                      />
-                      {property.images.length > 1 && (
-                        <div className="absolute bottom-1 right-1 bg-black/60 text-white text-xs px-2 py-0.5 rounded">
-                          +{property.images.length - 1}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4" />
-                    <span>{property.city}, {property.province}</span>
-                  </div>
-                  {/* Amenity Badges */}
-                  {property.amenities && property.amenities.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {property.amenities.slice(0, 4).map((amenity) => {
-                        // Format amenity: replace underscores with spaces and capitalize
-                        const amenityLabel = amenity.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-                        return (
-                          <Badge key={amenity} variant="secondary" className="text-xs py-0">
-                            {amenityLabel}
-                          </Badge>
-                        );
-                      })}
-                      {property.amenities.length > 4 && (
-                        <Badge variant="outline" className="text-xs py-0">
-                          +{property.amenities.length - 4}
-                        </Badge>
-                      )}
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Occupancy</p>
-                      <p className="font-medium">{property.occupied_units}/{property.total_units} units</p>
-                    </div>
-                    <Badge variant="outline" className={statusColors[property.status]}>
-                      {property.status}
-                    </Badge>
-                  </div>
-                  <Progress 
-                    value={property.total_units > 0 ? (property.occupied_units / property.total_units) * 100 : 0} 
-                    className="h-2" 
-                  />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
         ) : (
-          <Card>
-            <CardContent className="p-0">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Property</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Location</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Units</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                    <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredProperties.map((property) => (
-                    <tr key={property.id} className="border-b border-border/50 hover:bg-muted/50">
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <Building2 className="h-4 w-4 text-primary" />
-                          </div>
-                          <div>
-                            <p className="font-medium">{property.name}</p>
-                            <p className="text-xs text-muted-foreground capitalize">{property.property_type}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-sm">{property.city}, {property.province}</td>
-                      <td className="py-3 px-4 text-sm">{property.occupied_units}/{property.total_units}</td>
-                      <td className="py-3 px-4">
-                        <Badge variant="outline" className={statusColors[property.status]}>
-                          {property.status}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setUnitsProperty(property)}>
-                              <DoorOpen className="h-4 w-4 mr-2" />
-                              Manage Units
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleOpenImages(property)}>
-                              <ImageIcon className="h-4 w-4 mr-2" />
-                              Manage Photos
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEdit(property)}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => handleDelete(property)}
-                              className="text-destructive"
-                              disabled={deleteLoading === property.id}
-                            >
-                              {deleteLoading === property.id ? (
-                                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-4 w-4 mr-2" />
-                              )}
-                              {deleteLoading === property.id ? 'Checking...' : 'Delete'}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
+          <>
+            {viewMode === 'grid' ? (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {paginatedProperties.map((property) => (
+                    <PropertyCard
+                      key={property.id}
+                      property={property}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      onManageUnits={setUnitsProperty}
+                      onManagePhotos={handleOpenImages}
+                      isDeleting={deleteLoading === property.id}
+                    />
                   ))}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
+                </div>
+                
+                {/* Pagination Controls */}
+                <div className="flex items-center justify-between mt-6">
+                  <div className="flex-1 text-sm text-muted-foreground">
+                    Showing {((page - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(page * ITEMS_PER_PAGE, filteredProperties.length)} of {filteredProperties.length} properties
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(page - 1)}
+                      disabled={page <= 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    <div className="text-sm font-medium">
+                      Page {page} of {totalPages}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(page + 1)}
+                      disabled={page >= totalPages}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <PropertyTable
+                properties={paginatedProperties}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onManageUnits={setUnitsProperty}
+                onManagePhotos={handleOpenImages}
+                deleteLoadingId={deleteLoading}
+                page={page}
+                totalPages={totalPages}
+                totalProperties={filteredProperties.length}
+                onPageChange={setPage}
+                itemsPerPage={ITEMS_PER_PAGE}
+              />
+            )}
+          </>
         )}
 
         {/* Units Manager Dialog */}

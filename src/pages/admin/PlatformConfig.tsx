@@ -21,15 +21,11 @@ const PlatformConfig = () => {
   }
 
   return (
-    <AdminLayout>
+    <AdminLayout
+      title="Platform Configuration"
+      description="Manage platform fees, commissions, and global settings"
+    >
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Platform Configuration</h1>
-            <p className="text-muted-foreground">Manage platform fees, commissions, and global settings</p>
-          </div>
-        </div>
-
         <Tabs defaultValue="fees" className="space-y-4">
           <TabsList>
             <TabsTrigger value="fees" className="gap-2">

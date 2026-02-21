@@ -176,13 +176,13 @@ export const FeatureToggles = () => {
       </div>
 
       <ConfirmDialog
-        isOpen={showConfirmDialog}
-        onClose={() => setShowConfirmDialog(false)}
+        open={showConfirmDialog}
+        onOpenChange={setShowConfirmDialog}
         onConfirm={confirmSave}
         title="Save Feature Configuration"
         description="Are you sure you want to update feature flags? This may immediately affect user access and functionality."
-        confirmText="Save Changes"
-        cancelText="Cancel"
+        confirmLabel="Save Changes"
+        cancelLabel="Cancel"
         variant="default"
       />
     </div>
