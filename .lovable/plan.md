@@ -2,7 +2,7 @@
 
 # DSS Documentation Update Progress
 
-## Status: File 2 of 8 Complete ✅
+## Status: File 3 of 8 Complete ✅
 
 ### Completed Files
 
@@ -29,9 +29,21 @@
 - Renumbered sections 12-20 → 15-23
 - Added LOVABLE_API_KEY to environment variables appendix
 
-### Remaining Files (6)
+#### ✅ File 3: `docs/business-process.md` (v3.0)
+- Updated scope from 20+ to 25+ business processes
+- Added Section 3.22: DSS — OCR Document Processing (pipeline, KTP, payment proof, business doc, receipt)
+- Added Section 3.23: DSS — ML Predictive Analytics (revenue forecast, risk scoring, churn, pricing)
+- Added Section 3.24: DSS — AI Decision Support Advisors (pricing, collection, maintenance, investment)
+- Updated subscription feature gating with DSS tier matrix
+- Added 2 DSS cron jobs to schedule (14 total)
+- Updated integration points (OCR now Gemini Vision)
+- Added DSS audit/compliance requirements
+- Added DSS data retention policies
+- Expanded glossary with DSS terms
+- Added 10+ mermaid diagrams for DSS workflows
 
-3. `docs/business-process.md` — Add DSS business processes and workflows
+### Remaining Files (5)
+
 4. `docs/database-schema.md` — Add 6 DSS tables with full column specs and RLS policies
 5. `docs/deployment-infrastructure.md` — Update for DSS deployment considerations
 6. `docs/development-standards.md` — Add DSS development patterns and conventions
