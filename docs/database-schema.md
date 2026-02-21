@@ -1,6 +1,6 @@
 # Database Schema Documentation
 
-> **SiHuni Platform — Living Schema Reference v2.0**
+> **SiHuni Platform — Living Schema Reference v3.0 (DSS Edition)**
 >
 > Last updated: 2026-02-21 | PostgreSQL 16 on Lovable Cloud
 >
@@ -21,6 +21,7 @@
 9. [Foreign Key Relationships](#9-foreign-key-relationships)
 10. [JSONB Column Patterns](#10-jsonb-column-patterns)
 11. [Data Conventions](#11-data-conventions)
+12. [DSS Tables](#12-dss-tables)
 
 ---
 
@@ -28,10 +29,10 @@
 
 | Metric | Value |
 |--------|-------|
-| **Total Tables** | 66 public tables |
+| **Total Tables** | 72 public tables (66 core + 6 DSS) |
 | **Database Functions** | 16 custom functions |
 | **Triggers** | 45+ triggers (auto-timestamps, code generation, status sync) |
-| **RLS Policies** | 191 policies across all tables |
+| **RLS Policies** | 215+ policies across all tables |
 | **Custom Enum Types** | 1 (`app_role`) |
 | **Primary Key Strategy** | UUID v4 (`gen_random_uuid()`) |
 | **Timestamp Strategy** | `timestamptz` (timezone-aware) on all temporal columns |
@@ -42,7 +43,7 @@
 
 ### Architecture Principles
 
-1. **UUID v4 PKs** — All 66 tables use `uuid DEFAULT gen_random_uuid()` for primary keys
+1. **UUID v4 PKs** — All 72 tables use `uuid DEFAULT gen_random_uuid()` for primary keys
 2. **Immutable Timestamps** — `created_at DEFAULT now()`, `updated_at` auto-managed via trigger
 3. **Numeric for Money** — All monetary values use `numeric` (not `float`) for exact precision
 4. **Text Arrays** — Photos, tags, keywords stored as `text[]`
@@ -246,6 +247,73 @@ erDiagram
         text order_number UK
         numeric total_amount
         text status
+    }
+```
+
+### 2.4 DSS & ML Analytics
+
+```mermaid
+erDiagram
+    OCR_RESULTS ||--o| PAYMENT_VERIFICATIONS : "may verify"
+    OCR_RESULTS ||--o| MAINTENANCE_EXPENSES : "may create"
+    TENANTS ||--o{ TENANT_RISK_SCORES : "scored"
+    MERCHANTS ||--o{ DSS_RECOMMENDATIONS : "receives"
+    ML_MODEL_RUNS }|--|| OCR_RESULTS : "audits"
+    ML_MODEL_RUNS }|--|| TENANT_RISK_SCORES : "audits"
+    ML_MODEL_RUNS }|--|| DSS_RECOMMENDATIONS : "audits"
+
+    OCR_RESULTS {
+        uuid id PK
+        uuid user_id
+        text document_type
+        text image_url
+        jsonb extracted_data
+        numeric confidence_score
+        text status
+    }
+
+    PAYMENT_VERIFICATIONS {
+        uuid id PK
+        uuid ocr_result_id FK
+        uuid invoice_id FK
+        numeric extracted_amount
+        text match_status
+        numeric match_confidence
+    }
+
+    MAINTENANCE_EXPENSES {
+        uuid id PK
+        uuid maintenance_request_id FK
+        uuid ocr_result_id FK
+        numeric total_amount
+        jsonb line_items
+    }
+
+    TENANT_RISK_SCORES {
+        uuid id PK
+        uuid tenant_user_id
+        uuid merchant_id FK
+        integer risk_score
+        text risk_level
+        jsonb risk_factors
+    }
+
+    DSS_RECOMMENDATIONS {
+        uuid id PK
+        uuid merchant_id FK
+        text recommendation_type
+        jsonb recommendation_data
+        text status
+        numeric impact_score
+    }
+
+    ML_MODEL_RUNS {
+        uuid id PK
+        text function_name
+        text model_used
+        text input_hash
+        jsonb output_data
+        integer processing_time_ms
     }
 ```
 
@@ -1362,13 +1430,14 @@ Auto-created on merchant signup via `create_merchant_escrow()` trigger.
 
 | Pattern | Tables | Expression |
 |---------|--------|-----------|
-| **Admin full access** | 40+ | `has_role(auth.uid(), 'admin')` → ALL |
-| **Merchant own-data** | 20+ | `merchants.user_id = auth.uid()` via JOIN |
+| **Admin full access** | 45+ | `has_role(auth.uid(), 'admin')` → ALL |
+| **Merchant own-data** | 25+ | `merchants.user_id = auth.uid()` via JOIN |
 | **Tenant own-data** | 15+ | `tenant_user_id = auth.uid()` direct |
 | **Vendor own-data** | 8 | `vendors.user_id = auth.uid()` via JOIN |
 | **Public read** | 11 | `true` or condition-based SELECT |
-| **System insert** | 5 | `WITH CHECK (true)` service role |
+| **System insert** | 7 | `WITH CHECK (true)` service role |
 | **Author-based** | 4 (forum) | `author_id = auth.uid()` |
+| **DSS owner-data** | 6 | Merchant/tenant via JOIN, admin full |
 
 ### 8.2 Public Read Tables
 
@@ -1380,6 +1449,8 @@ Auto-created on merchant signup via `create_merchant_escrow()` trigger.
 |-------|-----------|
 | `audit_logs` | Insert + admin read only |
 | `chatbot_analytics` | Append-only |
+| `cancellation_feedback` | Insert + read only |
+| `ml_model_runs` | Insert + read only (audit trail) |
 | `cancellation_feedback` | Insert + read only |
 
 ---
@@ -1442,6 +1513,16 @@ chat_conversations.id → chat_messages, chatbot_analytics
 forum_posts.id → forum_comments, forum_likes, forum_reports
 forum_comments.id → forum_comments.parent_id (self-ref), forum_likes, forum_reports
 provinces.id → cities.province_id
+
+## DSS Relationships
+ocr_results.id → payment_verifications.ocr_result_id, maintenance_expenses.ocr_result_id
+invoices.id → payment_verifications.invoice_id
+maintenance_requests.id → maintenance_expenses.maintenance_request_id
+merchants.id → tenant_risk_scores.merchant_id, dss_recommendations.merchant_id
+```
+forum_posts.id → forum_comments, forum_likes, forum_reports
+forum_comments.id → forum_comments.parent_id (self-ref), forum_likes, forum_reports
+provinces.id → cities.province_id
 ```
 
 ---
@@ -1478,6 +1559,61 @@ provinces.id → cities.province_id
 { "monday": { "open": "08:00", "close": "17:00" }, "sunday": null }
 ```
 
+#### `ocr_results.extracted_data`
+```json
+{
+  "nik": "3201234567890001",
+  "full_name": "John Doe",
+  "date_of_birth": "1990-01-15",
+  "address": "Jl. Merdeka No. 10",
+  "gender": "male"
+}
+```
+
+#### `tenant_risk_scores.risk_factors`
+```json
+{
+  "late_payment_ratio": 0.35,
+  "avg_days_late": 12,
+  "overdue_invoices": 3,
+  "collections_cases": 1,
+  "contract_remaining_months": 2,
+  "maintenance_complaints": 5
+}
+```
+
+#### `dss_recommendations.recommendation_data`
+```json
+{
+  "type": "pricing",
+  "unit_id": "uuid",
+  "current_price": 2500000,
+  "suggested_price": 2750000,
+  "price_range": { "min": 2600000, "max": 2900000 },
+  "justification": "Based on occupancy trends and comparable units...",
+  "expected_impact": "10% revenue increase"
+}
+```
+
+#### `maintenance_expenses.line_items`
+```json
+[
+  { "description": "Pipe replacement", "quantity": 2, "amount": 150000 },
+  { "description": "Labor", "quantity": 1, "amount": 200000 }
+]
+```
+
+#### `ml_model_runs.output_data`
+```json
+{
+  "predictions": [
+    { "tenant_id": "uuid", "score": 72, "risk_level": "high" }
+  ],
+  "model_confidence": 0.89,
+  "data_points_used": 156
+}
+```
+
 ---
 
 ## 11. Data Conventions
@@ -1507,4 +1643,214 @@ provinces.id → cities.province_id
 
 ---
 
-> **Note:** This document reflects the actual database schema queried from the live Lovable Cloud instance. For API endpoints see [`api-specification.md`](./api-specification.md). For business processes see [`business-process.md`](./business-process.md).
+## 12. DSS Tables
+
+> 6 new tables supporting OCR, ML Analytics, and AI Decision Support features.
+
+### 12.1 `ocr_results`
+> Stores all OCR extraction results from document scanning (KTP, payment proof, business docs, receipts).
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| `id` | uuid | NO | `gen_random_uuid()` |
+| `user_id` | uuid | NO | — |
+| `merchant_id` | uuid | YES | — |
+| `document_type` | text | NO | — |
+| `image_url` | text | NO | — |
+| `storage_bucket` | text | NO | — |
+| `extracted_data` | jsonb | NO | `'{}'` |
+| `confidence_score` | numeric | NO | — |
+| `status` | text | NO | `'processing'` |
+| `error_message` | text | YES | — |
+| `processing_time_ms` | integer | YES | — |
+| `reviewed_by` | uuid | YES | — |
+| `reviewed_at` | timestamptz | YES | — |
+| `model_run_id` | uuid | YES | — |
+| `created_at` | timestamptz | NO | `now()` |
+| `updated_at` | timestamptz | NO | `now()` |
+
+**Document Types:** `ktp`, `payment_proof`, `nib`, `siup`, `akta`, `npwp`, `maintenance_receipt`
+**Status:** `processing`, `completed`, `failed`, `needs_review`, `reviewed`
+**Indexes:** `idx_ocr_results_user_id`, `idx_ocr_results_document_type`, `idx_ocr_results_status`
+**RLS:** Users view own; Merchants view via merchant_id; Admins full access; System insert/update.
+
+---
+
+### 12.2 `payment_verifications`
+> OCR-matched payment proofs linked to invoices. Auto-created by `ocr-payment-proof` function.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| `id` | uuid | NO | `gen_random_uuid()` |
+| `ocr_result_id` | uuid | NO | — |
+| `invoice_id` | uuid | YES | — |
+| `tenant_user_id` | uuid | NO | — |
+| `merchant_id` | uuid | NO | — |
+| `extracted_amount` | numeric | NO | — |
+| `extracted_bank_name` | text | YES | — |
+| `extracted_date` | date | YES | — |
+| `extracted_reference` | text | YES | — |
+| `match_status` | text | NO | `'pending'` |
+| `match_confidence` | numeric | YES | — |
+| `amount_difference` | numeric | YES | — |
+| `verified_by` | uuid | YES | — |
+| `verified_at` | timestamptz | YES | — |
+| `rejection_reason` | text | YES | — |
+| `created_at` | timestamptz | NO | `now()` |
+| `updated_at` | timestamptz | NO | `now()` |
+
+**FK:** `ocr_result_id` → `ocr_results.id`, `invoice_id` → `invoices.id`
+**Match Status:** `pending`, `auto_matched`, `manually_verified`, `rejected`, `amount_mismatch`
+**Business Logic:** Auto-match tolerance ± Rp 1,000; date within 7 days of due_date
+**Indexes:** `idx_payment_verifications_invoice_id`, `idx_payment_verifications_status`
+**RLS:** Merchants manage (via merchant_id); Tenants view own; Admins full access.
+
+---
+
+### 12.3 `maintenance_expenses`
+> Cost tracking from receipt OCR, linked to maintenance requests.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| `id` | uuid | NO | `gen_random_uuid()` |
+| `maintenance_request_id` | uuid | NO | — |
+| `ocr_result_id` | uuid | YES | — |
+| `merchant_id` | uuid | NO | — |
+| `vendor_name` | text | YES | — |
+| `line_items` | jsonb | YES | `'[]'` |
+| `total_amount` | numeric | NO | — |
+| `receipt_date` | date | YES | — |
+| `notes` | text | YES | — |
+| `approved_by` | uuid | YES | — |
+| `approved_at` | timestamptz | YES | — |
+| `status` | text | NO | `'pending'` |
+| `created_at` | timestamptz | NO | `now()` |
+| `updated_at` | timestamptz | NO | `now()` |
+
+**FK:** `maintenance_request_id` → `maintenance_requests.id`, `ocr_result_id` → `ocr_results.id`
+**Status:** `pending`, `approved`, `rejected`
+**Indexes:** `idx_maintenance_expenses_request_id`, `idx_maintenance_expenses_merchant_id`
+**RLS:** Merchants manage (via merchant_id); Admins full access.
+
+---
+
+### 12.4 `tenant_risk_scores`
+> Cached risk scores per tenant, updated daily via cron or on-demand.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| `id` | uuid | NO | `gen_random_uuid()` |
+| `tenant_user_id` | uuid | NO | — |
+| `merchant_id` | uuid | NO | — |
+| `risk_score` | integer | NO | — |
+| `risk_level` | text | NO | — |
+| `risk_factors` | jsonb | NO | `'{}'` |
+| `recommended_actions` | text[] | YES | `'{}'` |
+| `data_points_count` | integer | YES | — |
+| `scoring_model_version` | text | YES | — |
+| `model_run_id` | uuid | YES | — |
+| `valid_until` | timestamptz | YES | — |
+| `created_at` | timestamptz | NO | `now()` |
+| `updated_at` | timestamptz | NO | `now()` |
+
+**Risk Score:** 0–100 (0=safest, 100=highest risk)
+**Risk Level:** `low` (0–25), `medium` (26–50), `high` (51–75), `critical` (76–100)
+**Unique:** `(tenant_user_id, merchant_id)` — one active score per tenant per merchant
+**Indexes:** `idx_tenant_risk_scores_merchant_id`, `idx_tenant_risk_scores_risk_level`, `idx_tenant_risk_scores_valid_until`
+**RLS:** Merchants view own (via merchant_id); Admins full access; System insert/update.
+**Side Effects:** Notifications triggered for `high`/`critical` risk level changes.
+
+---
+
+### 12.5 `dss_recommendations`
+> Stored AI recommendations with lifecycle tracking (generated → accepted/rejected → measured).
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| `id` | uuid | NO | `gen_random_uuid()` |
+| `merchant_id` | uuid | NO | — |
+| `recommendation_type` | text | NO | — |
+| `recommendation_data` | jsonb | NO | `'{}'` |
+| `context_data` | jsonb | YES | `'{}'` |
+| `impact_score` | numeric | YES | — |
+| `confidence` | numeric | YES | — |
+| `status` | text | NO | `'generated'` |
+| `accepted_at` | timestamptz | YES | — |
+| `rejected_at` | timestamptz | YES | — |
+| `rejection_reason` | text | YES | — |
+| `measured_impact` | jsonb | YES | — |
+| `measured_at` | timestamptz | YES | — |
+| `model_run_id` | uuid | YES | — |
+| `expires_at` | timestamptz | YES | — |
+| `created_at` | timestamptz | NO | `now()` |
+| `updated_at` | timestamptz | NO | `now()` |
+
+**Recommendation Types:** `pricing`, `collection_strategy`, `maintenance_priority`, `investment_insight`, `churn_prevention`, `revenue_forecast`
+**Status:** `generated`, `viewed`, `accepted`, `rejected`, `expired`, `measured`
+**FK:** `merchant_id` → `merchants.id`, `model_run_id` → `ml_model_runs.id`
+**Indexes:** `idx_dss_recommendations_merchant_id`, `idx_dss_recommendations_type`, `idx_dss_recommendations_status`
+**RLS:** Merchants manage own (via merchant_id); Admins full access.
+
+---
+
+### 12.6 `ml_model_runs`
+> **Immutable** audit log for all ML/AI predictions. Insert + read only.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| `id` | uuid | NO | `gen_random_uuid()` |
+| `function_name` | text | NO | — |
+| `model_used` | text | NO | — |
+| `merchant_id` | uuid | YES | — |
+| `user_id` | uuid | YES | — |
+| `input_hash` | text | NO | — |
+| `input_summary` | jsonb | YES | `'{}'` |
+| `output_data` | jsonb | NO | `'{}'` |
+| `processing_time_ms` | integer | YES | — |
+| `token_count` | integer | YES | — |
+| `status` | text | NO | `'completed'` |
+| `error_message` | text | YES | — |
+| `created_at` | timestamptz | NO | `now()` |
+
+**Function Names:** All 12 DSS edge functions (`ocr-ktp-extract`, `ml-revenue-forecast`, etc.)
+**Status:** `completed`, `failed`, `timeout`
+**Indexes:** `idx_ml_model_runs_function_name`, `idx_ml_model_runs_merchant_id`, `idx_ml_model_runs_created_at` (DESC)
+**RLS:** System insert (service role); Merchants view own; Admins full access. No update/delete.
+
+---
+
+### 12.7 DSS Indexes Summary
+
+| Index | Table | Type | Purpose |
+|-------|-------|------|---------|
+| `idx_ocr_results_user_id` | `ocr_results` | btree | User lookup |
+| `idx_ocr_results_document_type` | `ocr_results` | btree | Type filtering |
+| `idx_ocr_results_status` | `ocr_results` | btree | Status filtering |
+| `idx_payment_verifications_invoice_id` | `payment_verifications` | btree | Invoice matching |
+| `idx_payment_verifications_status` | `payment_verifications` | btree | Status filtering |
+| `idx_maintenance_expenses_request_id` | `maintenance_expenses` | btree | Request lookup |
+| `idx_maintenance_expenses_merchant_id` | `maintenance_expenses` | btree | Merchant dashboard |
+| `idx_tenant_risk_scores_merchant_id` | `tenant_risk_scores` | btree | Merchant lookup |
+| `idx_tenant_risk_scores_risk_level` | `tenant_risk_scores` | btree | Risk filtering |
+| `idx_tenant_risk_scores_valid_until` | `tenant_risk_scores` | btree | Expiry check |
+| `idx_dss_recommendations_merchant_id` | `dss_recommendations` | btree | Merchant lookup |
+| `idx_dss_recommendations_type` | `dss_recommendations` | btree | Type filtering |
+| `idx_dss_recommendations_status` | `dss_recommendations` | btree | Status filtering |
+| `idx_ml_model_runs_function_name` | `ml_model_runs` | btree | Function lookup |
+| `idx_ml_model_runs_merchant_id` | `ml_model_runs` | btree | Merchant audit |
+| `idx_ml_model_runs_created_at` | `ml_model_runs` | btree DESC | Time-series |
+
+### 12.8 DSS RLS Policy Summary (24 new policies)
+
+| Table | Pattern | Policies |
+|-------|---------|----------|
+| `ocr_results` | User own + merchant + admin + system | SELECT own, INSERT system, UPDATE system, ALL admin |
+| `payment_verifications` | Merchant manage + tenant view + admin | ALL merchant, SELECT tenant, ALL admin |
+| `maintenance_expenses` | Merchant manage + admin | ALL merchant, ALL admin |
+| `tenant_risk_scores` | Merchant view + admin + system | SELECT merchant, ALL admin, INSERT/UPDATE system |
+| `dss_recommendations` | Merchant manage + admin | ALL merchant, ALL admin |
+| `ml_model_runs` | System insert + merchant view + admin read | INSERT system, SELECT merchant, SELECT admin |
+
+---
+
+> **Note:** This document reflects the actual database schema queried from the live Lovable Cloud instance (v3.0 — DSS Edition). Total: 72 tables, 215+ RLS policies, 16 functions, 45+ triggers. For API endpoints see [`api-specification.md`](./api-specification.md). For business processes see [`business-process.md`](./business-process.md). For backend architecture see [`backend-architecture.md`](./backend-architecture.md).
