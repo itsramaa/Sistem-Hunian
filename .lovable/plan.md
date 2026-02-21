@@ -2,7 +2,7 @@
 
 # DSS Documentation Update Progress
 
-## Status: File 6 of 8 Complete ✅
+## Status: File 7 of 8 Complete ✅
 
 ### Completed Files
 
@@ -82,7 +82,18 @@
 - Added `dss-patterns` skill to Appendix
 - Renumbered sections 15-19 → 16-20
 
-### Remaining Files (2)
+#### ✅ File 7: `docs/domain-state-machines.md` (v3.0)
+- Updated header, version, changelog
+- Added `ml_model_runs` to audit trail section
+- Added Section 22: DSS OCR Result Lifecycle (4 states, confidence sub-routing, document types)
+- Added Section 23: DSS Payment Verification Lifecycle (4 states, ± Rp 1,000 matching)
+- Added Section 24: DSS Recommendation Lifecycle (5 states, 4 advisor types, tier gating, transition map)
+- Added Section 25: DSS ML Model Run Lifecycle (3 states, immutable audit, usage pattern)
+- Updated cron table: 14 jobs (+2 DSS: ml-daily-risk-scoring, ml-weekly-forecast)
+- Added 6 DSS tables to Appendix A status reference
+- Added Appendix B: DSS UI State-Color Mapping (status colors, risk levels, confidence levels)
+- Updated Cross-Domain diagram (now Appendix C) with DSS nodes (OCR, Payment Verification, Recommendation, ML Run, Risk Score)
 
-7. `docs/domain-state-machines.md` — Add state machines for DSS entities
+### Remaining Files (1)
+
 8. `docs/marketing.md` — Update marketing content with DSS value propositions
