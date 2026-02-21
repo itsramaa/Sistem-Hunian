@@ -1,9 +1,9 @@
 # Business Process Documentation - SiHuni DSS Platform
 
-**Version:** 2.0
+**Version:** 3.0
 **Last Updated:** 2026-02-21
-**Status:** Complete
-**Document ID:** DOC-BP-002
+**Status:** Complete — DSS Layer Added
+**Document ID:** DOC-BP-003
 
 ## 1. Introduction
 
@@ -13,7 +13,7 @@ All processes support the core value proposition: **"Efficiency, Accuracy, and T
 
 ### 1.1 Scope
 
-This document covers **20+ business processes** across:
+This document covers **25+ business processes** across:
 
 1. User Registration, Bootstrap & Authentication
 2. Merchant Verification & Onboarding
@@ -36,6 +36,9 @@ This document covers **20+ business processes** across:
 19. AI Chatbot Operations
 20. Notification System
 21. Audit & Compliance
+22. **DSS — OCR Document Processing** *(NEW v3.0)*
+23. **DSS — ML Predictive Analytics** *(NEW v3.0)*
+24. **DSS — AI Decision Support Advisors** *(NEW v3.0)*
 
 ### 1.2 References
 
@@ -54,7 +57,7 @@ This document covers **20+ business processes** across:
 | **Merchant (Pemilik Kos)** | Property owner | Manage properties, contracts, invoices, escrow, tenants, vendors |
 | **Tenant (Penyewa)** | End user / renter | Pay rent, submit maintenance requests, forum participation, AI chatbot |
 | **Vendor** | Service/product provider | Marketplace products, fulfill orders, maintenance jobs |
-| **System (Cron Jobs)** | 12 automated daily jobs | Invoice generation, overdue checks, subscription billing, disbursement scheduling |
+| **System (Cron Jobs)** | 14 automated jobs (12 daily + 2 DSS) | Invoice generation, overdue checks, subscription billing, disbursement scheduling, ML risk scoring, revenue forecasting |
 | **Xendit (Payment Gateway)** | External payment processor | Invoice creation, payment callbacks, disbursement execution |
 | **Resend (Email Service)** | Transactional email provider | 30+ email templates for notifications, receipts, reminders |
 
@@ -805,23 +808,52 @@ IF merchant.subscription_tier = 'free' THEN
     max_units = 5
     escrow_enabled = false
     ai_chatbot = false
+    dss_ocr = false
+    dss_ml = false
+    dss_advisors = false
 ELSE IF merchant.subscription_tier = 'basic' THEN
     max_properties = 3
     max_units = 20
     escrow_enabled = false
     ai_chatbot = false
+    dss_ocr = 'payment_proof_only'   -- 5/month
+    dss_ml = false
+    dss_advisors = false
 ELSE IF merchant.subscription_tier = 'pro' THEN
     max_properties = 10
     max_units = 100
     escrow_enabled = true
     ai_chatbot = true
+    dss_ocr = true                   -- KTP 10/mo, payment 50/mo, business docs
+    dss_ml = 'revenue_forecast,tenant_risk'
+    dss_advisors = false
 ELSE IF merchant.subscription_tier = 'enterprise' THEN
     max_properties = unlimited
     max_units = unlimited
     escrow_enabled = true
     ai_chatbot = true
+    dss_ocr = true                   -- Unlimited all OCR
+    dss_ml = true                    -- All 4 ML models
+    dss_advisors = true              -- All 4 advisors
 END IF
 ```
+
+#### 3.13.5 DSS Feature Gating Matrix
+
+| DSS Feature | Free | Basic | Pro | Enterprise |
+| :--- | :--- | :--- | :--- | :--- |
+| OCR KTP Extract | ❌ | ❌ | 10/bulan | Unlimited |
+| OCR Payment Proof | ❌ | 5/bulan | 50/bulan | Unlimited |
+| OCR Business Document | ❌ | ❌ | 10/bulan | Unlimited |
+| OCR Maintenance Receipt | ❌ | ❌ | 20/bulan | Unlimited |
+| ML Revenue Forecast | ❌ | ❌ | ✅ | ✅ |
+| ML Tenant Risk Score | ❌ | ❌ | ✅ | ✅ |
+| ML Churn Prediction | ❌ | ❌ | ❌ | ✅ |
+| ML Optimal Pricing | ❌ | ❌ | ❌ | ✅ |
+| DSS Pricing Advisor | ❌ | ❌ | ❌ | ✅ |
+| DSS Collection Strategy | ❌ | ❌ | ❌ | ✅ |
+| DSS Maintenance Priority | ❌ | ❌ | ❌ | ✅ |
+| DSS Investment Insight | ❌ | ❌ | ❌ | ✅ |
 
 ---
 
@@ -1127,6 +1159,393 @@ flowchart TD
 
 ---
 
+### 3.22 DSS — OCR Document Processing *(NEW v3.0)*
+
+**Edge Functions:** `ocr-ktp-extract`, `ocr-payment-proof`, `ocr-business-document`, `ocr-maintenance-receipt`
+**Tables:** `ocr_results`, `payment_verifications`, `maintenance_expenses`
+**AI Model:** Lovable AI (Gemini 2.5 Pro — Multimodal Vision)
+**Goal:** Automate document data extraction using AI-powered OCR with confidence scoring.
+
+#### 3.22.1 OCR Processing Pipeline
+
+All OCR workflows follow the same core pipeline:
+
+1. User uploads document image (KTP, payment proof, business doc, or receipt).
+2. Image stored in private storage bucket (`verification-documents` or `contract-documents`).
+3. Edge function downloads image, converts to base64.
+4. Sends to Gemini 2.5 Pro with structured extraction prompt + tool calling schema.
+5. AI returns extracted fields with per-field confidence scores.
+6. **System** evaluates overall confidence:
+   - `≥ 80%`: Auto-fill form fields, status `verified`.
+   - `60–79%`: Auto-fill with warning, status `needs_review`.
+   - `< 60%`: Manual entry required, status `low_confidence`.
+7. Result stored in `ocr_results` table with full extraction data.
+8. Downstream actions triggered (auto-populate forms, match invoices, etc.).
+
+#### 3.22.2 OCR Pipeline Flowchart
+
+```mermaid
+flowchart TD
+    Upload[User uploads document image]
+    Store[Store in private storage bucket]
+    Download[Edge function downloads image]
+    Base64[Convert to base64]
+    SendAI[Send to Gemini 2.5 Pro Vision]
+    Extract[AI extracts structured fields]
+    Confidence{Confidence ≥ 80%?}
+    
+    AutoFill[Auto-fill form fields\nStatus: verified]
+    MedConfidence{Confidence ≥ 60%?}
+    ReviewFill[Auto-fill with warning\nStatus: needs_review]
+    ManualEntry[Manual entry required\nStatus: low_confidence]
+    
+    SaveResult[Save to ocr_results table]
+    Downstream[Trigger downstream actions]
+
+    Upload --> Store --> Download --> Base64 --> SendAI --> Extract --> Confidence
+    Confidence -- Yes --> AutoFill --> SaveResult
+    Confidence -- No --> MedConfidence
+    MedConfidence -- Yes --> ReviewFill --> SaveResult
+    MedConfidence -- No --> ManualEntry --> SaveResult
+    SaveResult --> Downstream
+```
+
+#### 3.22.3 KTP OCR Business Process
+
+1. Admin/merchant uploads KTP image during tenant onboarding.
+2. `ocr-ktp-extract` extracts: NIK, full_name, date_of_birth, address, gender.
+3. Extracted data auto-populates tenant registration form.
+4. Admin verifies against physical card, corrects if needed.
+5. OCR result linked to tenant profile for audit trail.
+
+#### 3.22.4 Payment Proof OCR Business Process
+
+1. Tenant uploads bukti transfer (bank transfer screenshot/receipt).
+2. `ocr-payment-proof` extracts: amount, bank_name, date, reference_number.
+3. **System** attempts fuzzy match against pending invoices:
+   - Amount tolerance: ± Rp 1,000.
+   - Date within 7 days of invoice due_date.
+   - Reference number cross-checked against `xendit_transactions`.
+4. If match found: creates `payment_verifications` record, links to invoice.
+5. Merchant reviews verification → approves or rejects.
+6. If approved: invoice status → `paid`.
+
+```mermaid
+sequenceDiagram
+    participant Tenant
+    participant UI as SiHuni UI
+    participant OCR as ocr-payment-proof
+    participant AI as Gemini 2.5 Pro
+    participant DB as Database
+
+    Tenant->>UI: Upload bukti transfer
+    UI->>OCR: POST /ocr-payment-proof
+    OCR->>DB: Download image from storage
+    OCR->>AI: Extract payment data (vision)
+    AI-->>OCR: {amount, bank, date, ref_number}
+    OCR->>DB: Fuzzy match against pending invoices
+    
+    alt Match Found
+        OCR->>DB: Create payment_verifications record
+        OCR-->>UI: Match found (invoice #INV-xxx)
+    else No Match
+        OCR->>DB: Save OCR result (unmatched)
+        OCR-->>UI: No matching invoice found
+    end
+    
+    UI-->>Tenant: Show verification result
+```
+
+#### 3.22.5 Business Document OCR Business Process
+
+1. Merchant uploads business document (NIB, SIUP, Akta, NPWP) during verification.
+2. `ocr-business-document` extracts fields specific to document type:
+   - **NIB:** company_name, nib_number, address, business_type, issue_date.
+   - **SIUP:** company_name, siup_number, business_category, validity_period.
+   - **Akta:** notary_name, akta_number, company_name, establishment_date.
+   - **NPWP:** tax_id, company_name, registration_date, tax_office.
+3. Extracted data auto-populates merchant verification form.
+4. Document number and expiry stored for compliance tracking.
+
+#### 3.22.6 Maintenance Receipt OCR Business Process
+
+1. Merchant/vendor uploads maintenance receipt after repair work.
+2. `ocr-maintenance-receipt` extracts: vendor_name, line items (description, qty, amount), total, date.
+3. Creates `maintenance_expenses` record linked to maintenance request.
+4. Expense data used by DSS Investment Insight for property P&L analysis.
+
+---
+
+### 3.23 DSS — ML Predictive Analytics *(NEW v3.0)*
+
+**Edge Functions:** `ml-revenue-forecast`, `ml-tenant-risk-score`, `ml-churn-prediction`, `ml-optimal-pricing`
+**Tables:** `tenant_risk_scores`, `ml_model_runs`
+**Cron Jobs:** `ml-daily-risk-scoring`, `ml-weekly-forecast`
+**AI Model:** Lovable AI (Gemini 2.5 Pro — Reasoning + Tool Calling)
+**Goal:** Provide data-driven predictions for revenue, tenant risk, churn, and pricing.
+
+#### 3.23.1 ML Prediction Pipeline
+
+All ML predictions follow a common pattern:
+
+1. Edge function receives request (merchant_id, parameters).
+2. **System** checks subscription tier (Pro/Enterprise required).
+3. **System** aggregates historical data from relevant tables (last 12 months).
+4. Data formatted as structured context for Gemini.
+5. Gemini analyzes patterns and returns predictions via tool calling.
+6. Results validated (score ranges, probability bounds).
+7. Stored in appropriate table + logged in `ml_model_runs` for audit.
+8. Cached results served for subsequent requests within TTL.
+
+#### 3.23.2 Revenue Forecasting Process
+
+1. Merchant requests revenue forecast (3/6/12 months) for property or portfolio.
+2. **System** aggregates from `payments`, `contracts`, `units`:
+   - Monthly revenue history (last 12 months).
+   - Occupancy rates per month.
+   - Contract renewal/churn rates.
+   - Seasonal patterns.
+3. Gemini analyzes trends and produces per-month forecasts with confidence intervals.
+4. Output includes: predicted_revenue, occupancy_rate, trend direction, seasonality_factor.
+
+```mermaid
+flowchart TD
+    Request[Merchant requests forecast]
+    CheckTier{Subscription ≥ Pro?}
+    Denied[Access denied - upgrade required]
+    
+    AggregatePayments[Aggregate payment history 12 months]
+    AggregateContracts[Aggregate contract data renewals and churn]
+    AggregateOccupancy[Calculate occupancy rates per month]
+    
+    FormatContext[Format as structured context]
+    CallAI[Call Gemini 2.5 Pro]
+    ParseResult[Parse forecast predictions]
+    
+    Store[Store in ml_model_runs]
+    Return[Return forecast to merchant]
+
+    Request --> CheckTier
+    CheckTier -- No --> Denied
+    CheckTier -- Yes --> AggregatePayments
+    CheckTier -- Yes --> AggregateContracts
+    CheckTier -- Yes --> AggregateOccupancy
+    AggregatePayments --> FormatContext
+    AggregateContracts --> FormatContext
+    AggregateOccupancy --> FormatContext
+    FormatContext --> CallAI --> ParseResult --> Store --> Return
+```
+
+#### 3.23.3 Tenant Risk Scoring Process
+
+1. Triggered on-demand or by `ml-daily-risk-scoring` cron (daily batch).
+2. For each active tenant, **system** aggregates:
+   - Payment history: late payment ratio, average days late.
+   - Invoice data: overdue count, total outstanding.
+   - Contract compliance: churn history, early terminations.
+   - Collections cases: escalation history.
+3. Gemini produces risk score (0–100) with risk level classification:
+   - **0–25:** Low risk (green) — reliable tenant.
+   - **26–50:** Medium risk (yellow) — occasional late payments.
+   - **51–75:** High risk (orange) — frequent issues, needs attention.
+   - **76–100:** Critical risk (red) — high churn/default probability.
+4. Risk factors and recommended actions provided per tenant.
+5. Score stored in `tenant_risk_scores` (upsert, updated daily).
+6. **Notifications triggered** for High/Critical risk scores to merchant.
+
+```mermaid
+sequenceDiagram
+    participant Cron as ml-daily-risk-scoring
+    participant DB as Database
+    participant AI as Gemini 2.5 Pro
+    participant Notify as Notification System
+
+    Cron->>DB: Query all active tenants per merchant
+    loop For each tenant
+        Cron->>DB: Aggregate payment history
+        Cron->>DB: Aggregate invoice overdue data
+        Cron->>DB: Aggregate contract/churn history
+        Cron->>AI: Analyze risk factors
+        AI-->>Cron: score, risk_level, factors, actions
+        Cron->>DB: Upsert tenant_risk_scores
+        Cron->>DB: Log in ml_model_runs
+        
+        alt Risk = High or Critical
+            Cron->>Notify: Alert merchant
+        end
+    end
+```
+
+#### 3.23.4 Churn Prediction Process
+
+1. Merchant requests churn prediction for all active tenants (1/3/6 month window).
+2. **System** identifies churn signals:
+   - Increasing payment delays (trend analysis).
+   - Rising maintenance complaint frequency.
+   - Contract nearing end date without renewal discussion.
+   - Move-out notice indicators.
+3. Gemini produces per-tenant churn probability (0–1) with risk factors.
+4. Retention suggestions tailored to each tenant's profile.
+
+#### 3.23.5 Optimal Pricing Process
+
+1. Merchant requests pricing recommendations for unit(s) or entire property.
+2. **System** aggregates:
+   - Unit attributes: type, floor, size, amenities.
+   - Location data: city, comparable properties.
+   - Historical rent: past contract amounts for same/similar units.
+   - Occupancy: vacancy duration history.
+3. Gemini suggests optimal price with min/max range and justification.
+4. Market comparison included when sufficient data available.
+
+---
+
+### 3.24 DSS — AI Decision Support Advisors *(NEW v3.0)*
+
+**Edge Functions:** `dss-pricing-advisor`, `dss-collection-strategy`, `dss-maintenance-priority`, `dss-investment-insight`
+**Tables:** `dss_recommendations`
+**AI Model:** Lovable AI (Gemini 2.5 Pro — Reasoning)
+**Goal:** Provide actionable, AI-powered business recommendations for merchants.
+
+#### 3.24.1 DSS Advisor Architecture
+
+All DSS advisors follow this pattern:
+
+1. Merchant triggers advisor from dashboard (Enterprise tier required).
+2. **System** loads relevant ML model outputs as context:
+   - Pricing Advisor ← `ml-optimal-pricing` results.
+   - Collection Strategy ← `ml-tenant-risk-score` results.
+   - Maintenance Priority ← maintenance data + tenant satisfaction scores.
+   - Investment Insight ← financial data + occupancy trends.
+3. Additional context loaded (market data, historical decisions, merchant goals).
+4. Gemini produces comprehensive recommendation with:
+   - Executive summary (natural language advice).
+   - Prioritized action items with expected impact.
+   - Alternative approaches if primary recommendation isn't suitable.
+5. Recommendation stored in `dss_recommendations` (status: `pending`).
+6. Merchant reviews → accepts, rejects, or defers recommendation.
+7. Accepted recommendations tracked for outcome measurement.
+
+#### 3.24.2 DSS Recommendation Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> generated: AI Produces Recommendation
+    
+    generated --> pending: Saved to dss_recommendations
+    
+    pending --> accepted: Merchant Accepts
+    pending --> rejected: Merchant Rejects
+    pending --> deferred: Merchant Defers
+    
+    accepted --> implemented: Merchant Takes Action
+    implemented --> measured: Outcome Tracked
+    
+    deferred --> pending: Merchant Revisits
+    
+    measured --> [*]: Effectiveness Logged
+    rejected --> [*]: Rejection Reason Logged
+    
+    Note right of generated: Includes confidence score
+    Note right of accepted: Expected impact recorded
+    Note right of measured: Actual vs predicted comparison
+```
+
+#### 3.24.3 Pricing Advisor Business Process
+
+1. Merchant opens Pricing Advisor for a property.
+2. **System** runs `ml-optimal-pricing` for all units in the property.
+3. Gemini acts as pricing consultant, combining:
+   - ML pricing recommendations.
+   - Market positioning strategy.
+   - Occupancy optimization goals.
+   - Revenue maximization vs. occupancy tradeoff.
+4. Output: natural language pricing advice + per-unit action items.
+5. Example actions: "Increase Unit A rent by 8%", "Offer 10% discount on Unit C to fill vacancy".
+
+#### 3.24.4 Collection Strategy Business Process
+
+1. Merchant requests collection strategy for a delinquent tenant or overdue invoice.
+2. **System** loads tenant risk score, payment history, and escalation data.
+3. Gemini produces tailored collection approach:
+   - Recommended communication channel and tone.
+   - Timing for each follow-up action.
+   - Message templates (SMS, email, in-app).
+   - Success probability estimate.
+   - Alternative approaches (payment plan offer, mediation).
+4. Strategy stored as `dss_recommendations` for tracking.
+
+```mermaid
+flowchart TD
+    Request[Merchant requests collection strategy]
+    LoadRisk[Load tenant risk score]
+    LoadPayments[Load payment history]
+    LoadEscalation[Load escalation and collections data]
+    
+    Combine[Combine into analysis context]
+    CallAI[Gemini produces strategy]
+    
+    Strategy[Collection strategy with actions]
+    Templates[Message templates per channel]
+    Alternatives[Alternative approaches]
+    
+    SaveRec[Save to dss_recommendations]
+    MerchantReview[Merchant reviews strategy]
+    
+    Accept{Accept?}
+    Execute[Execute recommended actions]
+    Reject[Log rejection reason]
+
+    Request --> LoadRisk
+    Request --> LoadPayments
+    Request --> LoadEscalation
+    LoadRisk --> Combine
+    LoadPayments --> Combine
+    LoadEscalation --> Combine
+    Combine --> CallAI
+    CallAI --> Strategy
+    CallAI --> Templates
+    CallAI --> Alternatives
+    Strategy --> SaveRec
+    Templates --> SaveRec
+    Alternatives --> SaveRec
+    SaveRec --> MerchantReview --> Accept
+    Accept -- Yes --> Execute
+    Accept -- No --> Reject
+```
+
+#### 3.24.5 Maintenance Priority Business Process
+
+1. Merchant opens Maintenance Priority advisor.
+2. **System** loads all open/pending maintenance requests for merchant.
+3. Gemini evaluates each request considering:
+   - **Tenant impact:** risk score, payment reliability, contract value.
+   - **Revenue impact:** unit rent amount, vacancy risk if unresolved.
+   - **Safety:** category severity (electrical > plumbing > cosmetic).
+   - **SLA compliance:** time remaining vs. SLA deadline.
+4. Returns prioritized list with:
+   - Priority score (1–100) per request.
+   - Impact analysis narrative.
+   - Recommended vendor (if applicable).
+   - Estimated cost range.
+   - Urgency reason.
+
+#### 3.24.6 Investment Insight Business Process
+
+1. Merchant requests investment analysis for a property.
+2. **System** aggregates comprehensive P&L data:
+   - Revenue: `escrow_transactions` (type: payment_received).
+   - Expenses: `disbursements`, `maintenance_expenses`.
+   - Occupancy trends: `contracts`, `units` status history.
+   - Market context: city, property type comparisons.
+3. Gemini produces:
+   - ROI analysis: current, projected 6-month, projected 12-month.
+   - Improvement suggestions ranked by ROI payback period.
+   - Risk assessment narrative.
+4. Example: "Renovate Unit 3B bathroom (est. Rp 5M) → expected rent increase Rp 500K/month → payback: 10 months".
+
+---
+
 ## 4. Data Lifecycle & State Machines Summary
 
 | Entity | States | Key Transitions |
@@ -1141,6 +1560,10 @@ flowchart TD
 | **Disbursement** | pending, pending_review, processing, completed, failed, rejected | Review, Xendit API |
 | **Dispute** | open, in_review, resolved, dismissed | Admin action |
 | **Forum Report** | pending, reviewed, resolved, dismissed, action_taken | Moderation |
+| **OCR Result** | processing, verified, needs_review, low_confidence, failed | Confidence threshold |
+| **Payment Verification** | pending, approved, rejected | Merchant review |
+| **Tenant Risk Score** | low, medium, high, critical | Daily ML re-scoring |
+| **DSS Recommendation** | generated, pending, accepted, rejected, deferred, implemented, measured | Merchant review, outcome tracking |
 
 ---
 
@@ -1223,22 +1646,24 @@ flowchart TD
 
 ## 7. Cron Job Schedule
 
-All cron jobs run daily. The following table shows the complete automated job schedule:
+The following table shows the complete automated job schedule (12 daily + 2 DSS):
 
-| # | Cron Job | Schedule | Description |
-| :--- | :--- | :--- | :--- |
-| 1 | `auto-generate-invoices` | Daily | Generate invoices for contracts matching billing_day |
-| 2 | `check-overdue-escalation` | Daily | Escalate overdue invoices through 4 tiers |
-| 3 | `check-payment-plan` | Daily | Monitor payment plan installments |
-| 4 | `auto-pay-execute` | Daily | Process auto-pay for enrolled tenants |
-| 5 | `subscription-billing` | Daily | Create subscription billing invoices |
-| 6 | `subscription-renewal` | Daily | Auto-renew subscriptions at period end |
-| 7 | `subscription-grace-check` | Daily | Suspend/cancel subscriptions past grace |
-| 8 | `scheduled-disbursement` | Daily | Process scheduled escrow disbursements |
-| 9 | `vacancy-tracking-cron` | Daily | Track unit vacancy durations |
-| 10 | `order-auto-reject` | Daily | Auto-reject unconfirmed orders (48h) |
-| 11 | `process-referral-commissions` | Daily | Detect and process referral qualifying events |
-| 12 | `contract-renewal-check` | Daily | Check expiring contracts and send reminders |
+| # | Cron Job | Schedule | Category | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| 1 | `auto-generate-invoices` | Daily | Billing | Generate invoices for contracts matching billing_day |
+| 2 | `check-overdue-escalation` | Daily | Collections | Escalate overdue invoices through 4 tiers |
+| 3 | `check-payment-plan` | Daily | Billing | Monitor payment plan installments |
+| 4 | `auto-pay-execute` | Daily | Billing | Process auto-pay for enrolled tenants |
+| 5 | `subscription-billing` | Daily | Subscription | Create subscription billing invoices |
+| 6 | `subscription-renewal` | Daily | Subscription | Auto-renew subscriptions at period end |
+| 7 | `subscription-grace-check` | Daily | Subscription | Suspend/cancel subscriptions past grace |
+| 8 | `scheduled-disbursement` | Daily | Finance | Process scheduled escrow disbursements |
+| 9 | `vacancy-tracking-cron` | Daily | Property | Track unit vacancy durations |
+| 10 | `order-auto-reject` | Daily | Marketplace | Auto-reject unconfirmed orders (48h) |
+| 11 | `process-referral-commissions` | Daily | Referral | Detect and process referral qualifying events |
+| 12 | `contract-renewal-check` | Daily | Contract | Check expiring contracts and send reminders |
+| 13 | `ml-daily-risk-scoring` | Daily | **DSS** | Batch tenant risk scoring for all active tenants |
+| 14 | `ml-weekly-forecast` | Weekly | **DSS** | Revenue forecast update per merchant |
 
 ---
 
@@ -1249,8 +1674,8 @@ All cron jobs run daily. The following table shows the complete automated job sc
 | **Payment Processing** | Xendit API | Invoice creation, payment callbacks, disbursements |
 | **Email** | Resend | 30+ transactional templates (receipts, reminders, alerts) |
 | **WhatsApp** | Whatsmeow | Notification delivery (configurable per user) |
-| **AI Models** | Lovable AI (Gemini) | Context-aware chatbot responses |
-| **OCR** | Google Cloud Vision / Tesseract | KTP data extraction (NIK, Name, DOB, Address) |
+| **AI Models** | Lovable AI (Gemini 2.5 Pro) | Context-aware chatbot, ML predictions, DSS advisors |
+| **OCR** | Lovable AI (Gemini 2.5 Pro — Vision) | KTP, payment proof, business document, maintenance receipt extraction |
 | **File Storage** | Supabase Storage | Documents, signatures, photos, KTP images |
 | **Authentication** | Supabase Auth | JWT-based auth, email verification, password reset |
 
@@ -1284,6 +1709,9 @@ All financial and sensitive actions are logged in the `audit_logs` table:
 | **Access Control** | RLS policies enforce role-based data isolation |
 | **Admin Security** | 2FA (TOTP) required for admin operations |
 | **Webhook Security** | Timing-safe signature verification for all webhooks |
+| **DSS Audit Trail** | All ML predictions logged in `ml_model_runs` (input hash, output, model version) |
+| **DSS Data Isolation** | OCR results and ML predictions scoped to merchant via RLS |
+| **DSS Tier Enforcement** | Feature gating enforced at edge function level before AI calls |
 
 ### 9.3 Data Retention
 
@@ -1294,6 +1722,10 @@ All financial and sensitive actions are logged in the `audit_logs` table:
 | Chat messages | 1 year (configurable) |
 | Notification records | 90 days |
 | Analytics events | 1 year |
+| OCR results | Indefinite (linked to tenant/merchant records) |
+| ML model runs | 1 year (audit log for predictions) |
+| DSS recommendations | Indefinite (outcome tracking) |
+| Tenant risk scores | Latest only (overwritten daily, history in ml_model_runs) |
 
 ---
 
@@ -1301,7 +1733,9 @@ All financial and sensitive actions are logged in the `audit_logs` table:
 
 | Term | Definition |
 | :--- | :--- |
-| **DSS** | Decision Support System |
+| **DSS** | Decision Support System — AI-powered analytics and recommendations layer |
+| **OCR** | Optical Character Recognition — AI vision-based document data extraction |
+| **ML** | Machine Learning — predictive analytics using historical data patterns |
 | **Escrow** | Funds held by platform between tenant payment and merchant disbursement |
 | **Disbursement** | Transfer of escrow funds to merchant's bank account |
 | **Grace Period** | Days after due date before late fees apply |
@@ -1312,3 +1746,11 @@ All financial and sensitive actions are logged in the `audit_logs` table:
 | **TOTP** | Time-based One-Time Password — 2FA method |
 | **VA** | Virtual Account — bank transfer payment method |
 | **QRIS** | QR Indonesian Standard — QR code payment method |
+| **Churn** | Tenant leaving / not renewing contract |
+| **Risk Score** | 0–100 numeric assessment of tenant reliability |
+| **Feature Gating** | Restricting access to features based on subscription tier |
+
+---
+
+*Document Version: 3.0 — DSS business processes added (OCR, ML, AI Advisors)*
+*Total Processes: 25+ | Cron Jobs: 14 | Edge Functions: 43 | AI Model: Gemini 2.5 Pro*
