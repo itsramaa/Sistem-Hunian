@@ -2,7 +2,7 @@
 
 # DSS Documentation Update Progress
 
-## Status: File 5 of 8 Complete ✅
+## Status: File 6 of 8 Complete ✅
 
 ### Completed Files
 
@@ -61,8 +61,28 @@
 - Updated security: DSS data isolation, OCR storage, ml_model_runs audit
 - Updated all counts and footer
 
-### Remaining Files (3)
+#### ✅ File 6: `docs/development-standards.md` (v3.0)
+- Updated header, version, changelog
+- Updated tech stack: 43 edge functions, 72 tables, added Gemini Vision + Reasoning rows
+- Updated project structure: 28 feature modules (+3 DSS), 43 edge functions (+12 DSS)
+- Added 3 DSS feature module structures (dss-ocr, dss-ml, dss-advisor) with full directory layout
+- Added `_shared/dss-helpers.ts` to shared utilities
+- Updated env vars: LOVABLE_API_KEY now covers chatbot + DSS
+- Added Section 15: DSS Development Patterns (7 subsections)
+  - 15.1 Pattern E: DSS Edge Function (full implementation template)
+  - 15.2 DSS Feature Module Conventions (naming table)
+  - 15.3 Tier Gating Implementation (utility + component + mapping)
+  - 15.4 OCR-Specific Patterns (confidence thresholds, payment tolerance, image validation)
+  - 15.5 ML/Analytics Patterns (risk scoring, caching strategy, aggregation)
+  - 15.6 Recommendation Lifecycle (status flow, hooks, mutations)
+  - 15.7 DSS Shared Helpers (hashInput, prompt builders, JSON parser, audit logger)
+- Added Section 16.4: DSS Anti-Patterns (6 forbidden patterns)
+- Added Section 19.4: DSS Function Testing (6 test areas + example tests)
+- Added 6 DSS security checklist items to Section 20
+- Added `dss-patterns` skill to Appendix
+- Renumbered sections 15-19 → 16-20
 
-6. `docs/development-standards.md` — Add DSS development patterns and conventions
+### Remaining Files (2)
+
 7. `docs/domain-state-machines.md` — Add state machines for DSS entities
 8. `docs/marketing.md` — Update marketing content with DSS value propositions
