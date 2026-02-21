@@ -46,6 +46,18 @@ export type CreatePropertyPayload = Omit<Property, 'id' | 'merchant_id' | 'total
 
 export type UpdatePropertyPayload = Partial<CreatePropertyPayload>;
 
+export interface UnitFormData {
+  unit_number: string;
+  unit_type: string;
+  floor?: number | null;
+  size_sqm?: number | null;
+  rent_amount: number;
+  deposit_amount?: number | null;
+  status: 'available' | 'occupied' | 'maintenance' | 'reserved';
+  description?: string | null;
+  amenities?: string[];
+}
+
 export interface PropertyWithUnits {
   id: string;
   name: string;

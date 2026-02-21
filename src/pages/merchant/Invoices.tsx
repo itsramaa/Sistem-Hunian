@@ -177,7 +177,6 @@ export default function MerchantInvoices() {
           invoice={viewInvoice}
           open={!!viewInvoice}
           onOpenChange={(open) => !open && setViewInvoice(null)}
-          onDownload={downloadInvoicePdf}
           onSend={handleSendInvoice}
           onMarkPaid={handleMarkAsPaid}
           onRemind={handleSendReminder}

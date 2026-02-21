@@ -4,7 +4,7 @@ import { AdminReferralPayoutDialog } from "@/features/referrals/components/admin
 import { AdminReferralsTable } from "@/features/referrals/components/admin/AdminReferralsTable";
 import { AdminReferralStats } from "@/features/referrals/components/admin/AdminReferralStats";
 import { useReferrals } from "@/features/referrals/hooks/useReferrals";
-import { Referral } from "@/features/referrals/types";
+import { Referral } from "@/features/referrals/types/referrals";
 import { AdminLayout } from "@/shared/components/layouts/AdminLayout";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";

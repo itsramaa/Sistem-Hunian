@@ -47,3 +47,9 @@ export interface AdminTenant extends ActiveTenant {
     phone: string | null;
   } | null;
 }
+
+export interface InvitationFormData {
+  email: string;
+  phone?: string;
+  unit_id: string;
+}

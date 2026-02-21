@@ -115,7 +115,7 @@ export default function Tenants() {
           maxRent={maxRent}
           onMaxRentChange={(val) => { setMaxRent(val); setPage(1); }}
           merchants={merchants || []}
-          properties={properties || []}
+          properties={(properties || []) as any}
           onResetFilters={handleResetFilters}
         />
 

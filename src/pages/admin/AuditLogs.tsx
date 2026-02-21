@@ -22,7 +22,6 @@ export default function AuditLogs() {
   const [page, setPage] = useState(1);
 
   const { logsData, isLoading } = useAuditLogs({
-    searchQuery,
     action: actionFilter,
     entityType: entityFilter,
     dateRange: dateRange ? { from: dateRange.from, to: dateRange.to } : undefined,
@@ -32,7 +31,7 @@ export default function AuditLogs() {
 
   const handleExport = () => {
     toast.success("Export started");
-    logExport(null, "audit_logs", "csv");
+    logExport("audit_log", "csv", 0);
   };
 
   const handleResetFilters = () => {

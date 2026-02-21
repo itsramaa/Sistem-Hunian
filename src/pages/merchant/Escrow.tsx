@@ -18,8 +18,20 @@ import { useDebounce } from '@/shared/hooks/useDebounce';
 import { formatCurrency } from '@/shared/utils/currency';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Calendar, CreditCard, Info, Loader2, Send, ShieldAlert } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+interface BankAccount {
+  id: string;
+  bank_name: string;
+  account_number: string;
+  account_name: string;
+  is_primary: boolean;
+  merchant_id: string;
+  branch_code: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 const ITEMS_PER_PAGE = 10;
 

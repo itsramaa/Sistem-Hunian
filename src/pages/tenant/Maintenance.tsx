@@ -3,6 +3,7 @@ import { MaintenancePhotoUpload } from '@/features/maintenance/components/Mainte
 import { SLABadge, getSLAText } from '@/features/maintenance/components/SLABadge';
 import { useCancelMaintenanceRequest, useTenantMaintenanceRequests } from '@/features/maintenance/hooks/useMaintenance';
 import { supabase } from '@/lib/integrations/supabase/client';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { TenantLayout } from '@/shared/components/layouts/TenantLayout';
 import { Alert, AlertDescription } from '@/shared/components/ui/alert';
 import { Badge } from '@/shared/components/ui/badge';
@@ -40,6 +41,7 @@ export default function TenantMaintenance() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [title, setTitle] = useState('');

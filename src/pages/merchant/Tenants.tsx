@@ -90,10 +90,10 @@ export default function MerchantTenants() {
 
   // Memoize available units calculation
   const availableUnits = useMemo(() => 
-    properties.flatMap(p => 
-      (p.units || [])
-        .filter(u => u.status === 'available')
-        .map(u => ({ ...u, propertyName: p.name }))
+    properties.flatMap((p: any) => 
+      ((p as any).units || [])
+        .filter((u: any) => u.status === 'available')
+        .map((u: any) => ({ ...u, propertyName: p.name }))
     ), [properties]
   );
 

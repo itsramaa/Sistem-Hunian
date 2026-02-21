@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ProfileFormSkeleton } from "@/shared/components/ui/skeletons";
 import { Switch } from "@/shared/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { AlertTriangle, Banknote, Calendar, CreditCard, Eye, EyeOff, Loader2, Phone, RefreshCw, Save, Shield, Upload, User, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -263,7 +263,7 @@ const TenantProfile = () => {
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription className="flex items-center justify-between">
             <span>Gagal memuat profil. Silakan coba lagi.</span>
-            <Button variant="outline" size="sm" onClick={() => { refetchProfile(); refetchTenant(); }}>
+            <Button variant="outline" size="sm" onClick={() => { queryClient.invalidateQueries({ queryKey: ['profile'] }); queryClient.invalidateQueries({ queryKey: ['tenant-profile'] }); }}>
               <RefreshCw className="h-4 w-4 mr-2" />
               Coba Lagi
             </Button>
@@ -607,9 +607,9 @@ const TenantProfile = () => {
               </div>
               <Button 
                 onClick={handleChangePassword}
-                disabled={changePassword.isPending || !passwordForm.newPassword || passwordForm.newPassword.length < 8}
+                disabled={!passwordForm.newPassword || passwordForm.newPassword.length < 8}
               >
-                {changePassword.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Shield className="h-4 w-4 mr-2" />}
+                <Shield className="h-4 w-4 mr-2" />
                 Ubah Password
               </Button>
             </CardContent>

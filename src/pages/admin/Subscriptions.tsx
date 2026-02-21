@@ -1,5 +1,5 @@
 import { useSubscriptions, useSubscriptionStats } from "@/features/subscriptions/hooks/useSubscriptions";
-import { SubscriptionMerchant } from "@/features/subscriptions/types/subscriptions";
+import { SubscriptionMerchant, SubscriptionStats } from "@/features/subscriptions/types/subscriptions";
 import { AdminLayout } from "@/shared/components/layouts/AdminLayout";
 import { Button } from "@/shared/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
@@ -77,7 +77,7 @@ const AdminSubscriptions = () => {
       description="Manage merchant subscriptions and billing"
     >
       <div className="space-y-6">
-        <AdminSubscriptionStats stats={stats} isLoading={statsLoading} />
+        <AdminSubscriptionStats stats={stats as SubscriptionStats | undefined} isLoading={statsLoading} />
 
         {/* Tabs */}
         <Tabs defaultValue="merchants" className="space-y-4">

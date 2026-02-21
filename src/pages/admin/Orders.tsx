@@ -20,6 +20,7 @@ const AdminOrders = () => {
 
   const {
     orders,
+    filteredOrders,
     stats,
     monthlyStats,
     topVendors,
@@ -28,9 +29,13 @@ const AdminOrders = () => {
     isLoading,
     error,
     refetch,
-    totalCount,
-    hasMore,
-  } = useOrders(page, PAGE_SIZE, searchTerm, statusFilter);
+    setSearchTerm: setOrderSearchTerm,
+    setStatusFilter: setOrderStatusFilter,
+  } = useOrders();
+
+  // Sync local filter state with hook
+  const totalCount = filteredOrders.length;
+  const hasMore = page * PAGE_SIZE < totalCount;
 
   if (guardLoading) {
     return (

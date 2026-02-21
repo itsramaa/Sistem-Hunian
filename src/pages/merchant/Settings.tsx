@@ -47,7 +47,7 @@ const Settings = () => {
 
   const handleThemeChange = (value: string) => {
     if (VALID_THEMES.includes(value as typeof VALID_THEMES[number])) {
-      setTheme(value);
+      setTheme(value as any);
       toast.success(`Theme changed to ${value}`);
     }
   };

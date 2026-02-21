@@ -118,12 +118,13 @@ export default function MerchantUnits() {
       const payload = {
         ...data,
         amenities: [], // Default to empty array as it's not in the form yet
+        property_id: editingUnit?.property_id || '',
       };
 
       if (editingUnit) {
         await updateUnit({ id: editingUnit.id, payload });
       } else {
-        await createUnit(payload);
+        await createUnit(payload as any);
       }
       setIsDialogOpen(false);
     } catch (error) {

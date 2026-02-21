@@ -100,9 +100,8 @@ const sanitizeEventData = (data: Record<string, unknown>): Record<string, string
     if (ANALYTICS_PII_FIELDS.some(pii => lowerKey.includes(pii))) {
       sanitized[key] = '[REDACTED]';
     } else if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null) {
-      sanitized[key] = value;
+      sanitized[key] = value as string | number | boolean;
     } else {
-      // Convert objects to string representation
       sanitized[key] = JSON.stringify(value);
     }
   }

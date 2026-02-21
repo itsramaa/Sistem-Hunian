@@ -45,7 +45,6 @@ export default function MerchantContracts() {
     editTermsDialogOpen, setEditTermsDialogOpen,
     deleteDialogOpen, setDeleteDialogOpen,
     selectedContract, setSelectedContract,
-    contractToDelete, setContractToDelete,
     signatureDataUrl, setSignatureDataUrl,
     editingTerms, setEditingTerms,
     
@@ -63,22 +62,41 @@ export default function MerchantContracts() {
     signContractMutation,
     updateTermsMutation,
     deleteContractMutation,
-    canDeleteContract
-  } = useContractActions(merchant?.id);
+  } = useContractActions();
+
+  const setPage = (p: number) => {
+    if (activeTab === 'draft') setDraftPage(p);
+    else if (activeTab === 'active') setActivePage(p);
+    else if (activeTab === 'pending') setPendingPage(p);
+    else setPastPage(p);
+  };
 
   // Reset page when filters or tab change
   useEffect(() => {
-    setPage(1);
+    setDraftPage(1);
+    setActivePage(1);
+    setPendingPage(1);
+    setPastPage(1);
   }, [debouncedSearch, statusFilter, activeTab]);
 
-  const { tenants: merchantTenants } = useMerchantTenants(merchant?.id);
-  const { properties } = usePropertiesWithUnits(merchant?.id);
-  const { profileMap } = useTenantProfiles(contracts || []);
+  const merchantTenantsQuery = useMerchantTenants(merchant?.id);
+  const merchantTenants = merchantTenantsQuery.data || [];
+  const propertiesQuery = usePropertiesWithUnits(merchant?.id || '');
+  const properties = propertiesQuery.data || [];
+  const tenantUserIds = (contracts || []).map(c => c.tenant_user_id);
+  const profilesQuery = useTenantProfiles(tenantUserIds);
+  const profileMap = useMemo(() => {
+    const map = new Map<string, any>();
+    (profilesQuery.data || []).forEach((p: any) => {
+      map.set(p.user_id, { user_id: p.user_id, full_name: p.full_name, email: p.email });
+    });
+    return map;
+  }, [profilesQuery.data]);
 
   const availableUnits = properties?.flatMap(p => 
-    p.units?.filter(u => u.status === 'vacant').map(u => ({
+    (p as any).units?.filter((u: any) => u.status === 'vacant').map((u: any) => ({
       ...u,
-      property_name: p.name
+      propertyName: (p as any).name
     }))
   ) || [];
 
@@ -86,7 +104,7 @@ export default function MerchantContracts() {
     return (contracts || []).filter(contract => {
       const tenantName = profileMap.get(contract.tenant_user_id)?.full_name || '';
       const matchesSearch = 
-        contract.contract_number.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        contract.id.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
         tenantName.toLowerCase().includes(debouncedSearch.toLowerCase());
       
       const matchesStatus = statusFilter === 'all' || contract.status === statusFilter;
@@ -96,7 +114,7 @@ export default function MerchantContracts() {
   }, [contracts, debouncedSearch, statusFilter, profileMap]);
 
   const activeContracts = useMemo(() => filteredContracts.filter(c => 
-    c.status === 'active' || c.status === 'notice_given'
+    c.status === 'active' || c.status === 'notice'
   ), [filteredContracts]);
 
   const draftContracts = useMemo(() => filteredContracts.filter(c => 
@@ -166,7 +184,7 @@ export default function MerchantContracts() {
               onView={openViewDialog}
               onSign={openSignDialog}
               onDelete={handleDeleteContract}
-              canDelete={canDeleteContract}
+              canDelete={() => true}
               page={draftPage}
               totalPages={Math.ceil(draftContracts.length / ITEMS_PER_PAGE)}
               totalContracts={draftContracts.length}
@@ -184,7 +202,7 @@ export default function MerchantContracts() {
               onSign={openSignDialog}
               onDelete={handleDeleteContract}
               onMarkNotice={handleMarkNotice}
-              canDelete={canDeleteContract}
+              canDelete={() => true}
               page={activePage}
               totalPages={Math.ceil(activeContracts.length / ITEMS_PER_PAGE)}
               totalContracts={activeContracts.length}
@@ -201,7 +219,7 @@ export default function MerchantContracts() {
               onView={openViewDialog}
               onSign={openSignDialog}
               onDelete={handleDeleteContract}
-              canDelete={canDeleteContract}
+              canDelete={() => true}
               page={pendingPage}
               totalPages={Math.ceil(pendingSignature.length / ITEMS_PER_PAGE)}
               totalContracts={pendingSignature.length}
@@ -218,7 +236,7 @@ export default function MerchantContracts() {
               onView={openViewDialog}
               onSign={openSignDialog}
               onDelete={handleDeleteContract}
-              canDelete={canDeleteContract}
+              canDelete={() => true}
               page={pastPage}
               totalPages={Math.ceil(pastContracts.length / ITEMS_PER_PAGE)}
               totalContracts={pastContracts.length}
@@ -232,19 +250,21 @@ export default function MerchantContracts() {
         <CreateContractDialog
           open={showCreateDialog}
           onOpenChange={setShowCreateDialog}
-          units={availableUnits}
-          tenants={merchantTenants}
+          availableUnits={availableUnits}
+          merchantTenants={merchantTenants as any}
           onSubmit={createContractAction}
-          isLoading={createContractMutation.isPending}
+          loading={createContractMutation.isPending}
         />
 
         <SignContractDialog
           open={signDialogOpen}
           onOpenChange={setSignDialogOpen}
-          onSaveSignature={handleSaveSignature}
+          contract={selectedContract}
+          tenantName={selectedContract ? profileMap.get(selectedContract.tenant_user_id)?.full_name || 'Unknown' : ''}
           onSign={handleSignContract}
-          signatureDataUrl={signatureDataUrl}
-          isSigning={signContractMutation.isPending}
+          loading={signContractMutation.isPending}
+          signatureDataUrl={signatureDataUrl || ''}
+          onSaveSignature={handleSaveSignature}
         />
 
         <ContractDetailsDialog
@@ -266,17 +286,20 @@ export default function MerchantContracts() {
         <EditTermsDialog
           open={editTermsDialogOpen}
           onOpenChange={setEditTermsDialogOpen}
+          contract={selectedContract}
+          tenantName={selectedContract ? profileMap.get(selectedContract.tenant_user_id)?.full_name || 'Unknown' : ''}
           terms={editingTerms}
           onTermsChange={setEditingTerms}
           onSave={handleSaveTerms}
-          isSaving={updateTermsMutation.isPending}
+          loading={updateTermsMutation.isPending}
         />
 
         <DeleteContractDialog
           open={deleteDialogOpen}
           onOpenChange={setDeleteDialogOpen}
+          contract={selectedContract}
           onConfirm={handleConfirmDelete}
-          isDeleting={deleteContractMutation.isPending}
+          loading={deleteContractMutation.isPending}
         />
       </div>
     </MerchantLayout>

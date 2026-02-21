@@ -9,13 +9,17 @@ import { useAdminAnalytics } from "@/features/analytics/hooks/useAdminAnalytics"
 import { useAdminGuard } from "@/features/auth/hooks/useAdminGuard";
 import { AdminLayout } from "@/shared/components/layouts/AdminLayout";
 import { Alert, AlertDescription, AlertTitle } from "@/shared/components/ui/alert";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
+import { Skeleton } from "@/shared/components/ui/skeleton";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/shared/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis } from "recharts";
 import { Button } from "@/shared/components/ui/button";
 import { DateRangePicker } from "@/shared/components/ui/date-range-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { logExport } from "@/shared/utils/auditLog";
 import { exportToCSV, exportToPDF } from "@/shared/utils/exportUtils";
 import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
-import { Activity, AlertCircle, CreditCard, Download, FileText, Loader2, TrendingUp, UserCheck } from "lucide-react";
+import { Activity, AlertCircle, CreditCard, DollarSign, Download, FileText, Loader2, TrendingDown, TrendingUp, UserCheck } from "lucide-react";
 import { useState } from "react";
 import { DateRange } from "react-day-picker";
 
@@ -107,6 +111,21 @@ const AdminAnalytics = () => {
   };
 
   const monthlyTenantData = getMonthlyData();
+
+  const chartConfig = {
+    count: { label: "Count", color: "hsl(var(--destructive))" },
+  };
+
+  const churnReasons = () => {
+    const reasons: Record<string, number> = {};
+    tenantAnalytics?.contracts
+      ?.filter(c => c.status === 'terminated' || c.status === 'expired')
+      .forEach(c => {
+        const reason = (c as { churn_reason?: string }).churn_reason || 'Unknown';
+        reasons[reason] = (reasons[reason] || 0) + 1;
+      });
+    return Object.entries(reasons).map(([name, count]) => ({ name, count }));
+  };
 
   // Payment behavior analytics
   const paymentBehavior = () => {
@@ -237,8 +256,8 @@ const AdminAnalytics = () => {
           <TabsContent value="tenants" className="mt-6 space-y-6">
             <AdminTenantAnalyticsStats
               activeTenants={activeTenants}
-              newTenants={monthlyTenantData[5]?.newTenants || 0}
-              churnedTenants={monthlyTenantData[5]?.churnedTenants || 0}
+              newTenantsThisMonth={monthlyTenantData[5]?.newTenants || 0}
+              churnedTenantsThisMonth={monthlyTenantData[5]?.churnedTenants || 0}
               pendingMaintenance={maintenanceData[0]?.count || 0}
               isLoading={tenantLoading}
             />
