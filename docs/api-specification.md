@@ -1,6 +1,6 @@
 # API Specification - SiHuni Platform
 
-> **Sistem Manajemen Hunian** — Multi-tenant SaaS platform for property management, billing automation, marketplace, and AI-powered operations.
+> **Sistem DSS Manajemen Kosan** — B2B cloud-based Decision Support System yang mengotomatisasi dan mengoptimalkan operasional properti kosan melalui digitalisasi dokumen (OCR), analitik prediktif (ML), dan decision support berbasis AI. Target: revenue per-unit +8-15%, risiko tunggakan -20-30%.
 
 ---
 
@@ -32,7 +32,7 @@
 | **Currency** | IDR (Indonesian Rupiah) |
 | **Payment Gateway** | Xendit |
 | **Email Service** | Resend API |
-| **AI Provider** | Lovable AI (Gemini models) |
+| **AI Provider** | Lovable AI (Gemini 2.5 Pro — Vision + Reasoning for OCR/ML/DSS) |
 | **Storage** | Supabase Storage |
 
 ### 1.2 Architecture
@@ -45,17 +45,53 @@
            │ Direct CRUD (RLS)    │ invoke()
            ▼                      ▼
 ┌──────────────────┐   ┌─────────────────────────────┐
-│   PostgreSQL DB  │   │  31 Deno Edge Functions      │
-│   (40+ Tables)   │◄──│  (Auth, Payment, AI, Cron)  │
+│   PostgreSQL DB  │   │  43 Deno Edge Functions      │
+│   (46+ Tables)   │◄──│  (Auth, Payment, AI, Cron)  │
 │   RLS Policies   │   │  Service Role Key            │
 └──────────────────┘   └──────────┬──────────────────┘
                                   │
                     ┌─────────────┼─────────────┐
                     ▼             ▼             ▼
-              ┌──────────┐ ┌──────────┐ ┌──────────────┐
-              │  Xendit   │ │  Resend  │ │  Lovable AI  │
-              │ Payment   │ │  Email   │ │  (Gemini)    │
-              └──────────┘ └──────────┘ └──────────────┘
+              ┌──────────┐ ┌──────────┐ ┌───────────────────────┐
+              │  Xendit   │ │  Resend  │ │  Lovable AI           │
+              │ Payment   │ │  Email   │ │  (Gemini 2.5 Pro)     │
+              └──────────┘ └──────────┘ │  Vision + Reasoning   │
+                                        │  OCR / ML / DSS       │
+                                        └───────────────────────┘
+```
+
+### 1.4 DSS (Decision Support System) Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    DSS Layer (12 Edge Functions)             │
+├─────────────────┬──────────────────┬────────────────────────┤
+│   OCR Services  │  ML Predictive   │  AI Decision Support   │
+│                 │  Analytics       │  (Advisors)            │
+│  ┌────────────┐ │  ┌────────────┐  │  ┌──────────────────┐  │
+│  │ KTP Extract│ │  │ Revenue    │  │  │ Pricing Advisor  │  │
+│  │ Pay Proof  │ │  │ Forecast   │  │  │ Collection Strat │  │
+│  │ Biz Docs   │ │  │ Tenant Risk│  │  │ Maint Priority   │  │
+│  │ Maint Rcpt │ │  │ Churn Pred │  │  │ Investment Insgt │  │
+│  │            │ │  │ Opt Pricing│  │  │                  │  │
+│  └──────┬─────┘ │  └──────┬─────┘  │  └────────┬─────────┘  │
+│         │       │         │        │           │             │
+└─────────┼───────┴─────────┼────────┴───────────┼─────────────┘
+          │                 │                    │
+          ▼                 ▼                    ▼
+┌──────────────────────────────────────────────────────────────┐
+│          Lovable AI Gateway (Gemini 2.5 Pro)                 │
+│   Multimodal Vision (OCR) + Contextual Reasoning (ML/DSS)    │
+│   Tool Calling for Structured Output Extraction              │
+└──────────────────────────────────────────────────────────────┘
+          │
+          ▼
+┌──────────────────────────────────────────────────────────────┐
+│              PostgreSQL (Historical Data Context)             │
+│   payments, invoices, contracts, units, maintenance_requests  │
+│   escrow_transactions, disbursements, collections_cases       │
+│   → Aggregated + sent as context to Gemini for analysis       │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ### 1.3 API Access Patterns
@@ -225,7 +261,7 @@ Supabase SDK uses `.range(from, to)` for pagination. Default limit: 1000 rows.
 
 ## 4. Edge Functions API
 
-SiHuni memiliki **31 Edge Functions** yang di-deploy sebagai Deno serverless functions.
+SiHuni memiliki **43 Edge Functions** yang di-deploy sebagai Deno serverless functions (31 core + 12 DSS).
 
 ### 4.1 Authentication & User Management
 
@@ -963,6 +999,778 @@ Auto-reject marketplace orders not responded within 48 hours.
 
 ---
 
+### 4.10 OCR Services (DSS)
+
+#### `ocr-ktp-extract`
+Extract data from KTP (Indonesian National ID) photo using Gemini Vision.
+
+| Key | Value |
+|-----|-------|
+| **Method** | `POST` |
+| **Auth** | JWT |
+| **AI Model** | Gemini 2.5 Pro (multimodal vision) |
+| **Tier Gate** | Professional (10/bulan), Enterprise (Unlimited) |
+
+**Request Body:**
+```json
+{
+  "image_url": "verification-documents/tenant_uuid/ktp.jpg"
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "nik": "3201234567890001",
+    "full_name": "JOHN DOE",
+    "date_of_birth": "1990-05-15",
+    "place_of_birth": "JAKARTA",
+    "gender": "LAKI-LAKI",
+    "address": "JL. SUDIRMAN NO. 10 RT 001/002",
+    "kelurahan": "MENTENG",
+    "kecamatan": "MENTENG",
+    "religion": "ISLAM",
+    "marital_status": "BELUM KAWIN",
+    "occupation": "KARYAWAN SWASTA",
+    "nationality": "WNI",
+    "valid_until": "SEUMUR HIDUP",
+    "confidence_score": 0.92
+  },
+  "ocr_result_id": "uuid",
+  "requires_review": false
+}
+```
+
+**Implementation Pattern:**
+```typescript
+// Fetch image from Supabase Storage → base64 → Gemini Vision
+const { data: imageData } = await supabaseAdmin.storage
+  .from('verification-documents')
+  .download(imagePath);
+
+const base64 = btoa(String.fromCharCode(...new Uint8Array(await imageData.arrayBuffer())));
+
+const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  method: "POST",
+  headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+  body: JSON.stringify({
+    model: "google/gemini-2.5-pro",
+    messages: [{
+      role: "user",
+      content: [
+        { type: "text", text: "Extract all fields from this Indonesian KTP (National ID Card)..." },
+        { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64}` } }
+      ]
+    }],
+    tools: [{ type: "function", function: { name: "extract_ktp", parameters: ktpSchema } }],
+    tool_choice: { type: "function", function: { name: "extract_ktp" } }
+  })
+});
+```
+
+**Business Rules:**
+- Confidence ≥ 80%: Auto-fill tenant form fields
+- Confidence < 80%: Flag `requires_review = true`, merchant must verify manually
+- Image must be from private `verification-documents` bucket
+- Stores result in `ocr_results` table with `document_type = 'ktp'`
+
+**Side Effects:**
+- Creates `ocr_results` record
+- If confidence ≥ 80%: Auto-populates `tenants.ktp_number`, `tenants.gender`, `tenants.date_of_birth`
+- Creates `audit_logs` entry
+
+---
+
+#### `ocr-payment-proof`
+Extract data from payment proof / transfer receipt and auto-match with pending invoices.
+
+| Key | Value |
+|-----|-------|
+| **Method** | `POST` |
+| **Auth** | JWT |
+| **AI Model** | Gemini 2.5 Pro (multimodal vision) |
+| **Tier Gate** | Basic (5/bulan), Professional (50/bulan), Enterprise (Unlimited) |
+
+**Request Body:**
+```json
+{
+  "image_url": "verification-documents/tenant_uuid/payment_proof.jpg",
+  "invoice_id": "uuid"
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "amount": 1500000,
+    "bank_name": "BCA",
+    "sender_name": "JOHN DOE",
+    "sender_account": "1234567890",
+    "recipient_name": "KOS HARMONI",
+    "recipient_account": "0987654321",
+    "transaction_date": "2026-02-15",
+    "reference_number": "TRF/2026/0215/12345",
+    "confidence_score": 0.88
+  },
+  "matched_invoice": {
+    "invoice_id": "uuid",
+    "invoice_number": "INV2026020001",
+    "match_confidence": 0.95,
+    "amount_match": true,
+    "date_within_range": true
+  },
+  "verification_id": "uuid"
+}
+```
+
+**Matching Logic:**
+- Amount tolerance: ±Rp 1.000 (fuzzy match)
+- Date range: Within 7 days of invoice `due_date`
+- If `invoice_id` provided: Direct match
+- If `invoice_id` not provided: Scan all `pending`/`overdue` invoices for tenant's merchant
+
+**Side Effects:**
+- Creates `payment_verifications` record with `status = 'pending_review'`
+- If high confidence (≥ 90%): Auto-suggest confirmation to merchant
+- Creates `ocr_results` record with `document_type = 'payment_proof'`
+
+---
+
+#### `ocr-business-document`
+Extract data from merchant business documents (NIB, SIUP, Akta, NPWP).
+
+| Key | Value |
+|-----|-------|
+| **Method** | `POST` |
+| **Auth** | JWT |
+| **AI Model** | Gemini 2.5 Pro (multimodal vision) |
+| **Tier Gate** | Professional, Enterprise |
+
+**Request Body:**
+```json
+{
+  "document_url": "verification-documents/merchant_uuid/nib.pdf",
+  "document_type": "nib"
+}
+```
+
+**Supported Document Types:**
+
+| Type | Full Name | Fields Extracted |
+|------|-----------|-----------------|
+| `nib` | Nomor Induk Berusaha | nib_number, business_name, address, issue_date, kbli_codes |
+| `siup` | Surat Izin Usaha Perdagangan | siup_number, business_name, business_type, capital_category, valid_until |
+| `akta` | Akta Pendirian | akta_number, notary_name, establishment_date, founders, business_purpose |
+| `npwp` | Nomor Pokok Wajib Pajak | npwp_number, taxpayer_name, address, registration_date, tax_office |
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "document_number": "1234567890123",
+    "extracted_fields": {
+      "nib_number": "1234567890123",
+      "business_name": "PT Kos Harmoni",
+      "address": "Jl. Sudirman No. 10",
+      "issue_date": "2024-01-15",
+      "kbli_codes": ["55901", "68110"]
+    },
+    "expiry_date": null,
+    "confidence_score": 0.85
+  },
+  "ocr_result_id": "uuid"
+}
+```
+
+**Side Effects:**
+- Creates `ocr_results` record with corresponding `document_type`
+- Auto-populates `merchant_verifications` document fields
+- If confidence ≥ 85%: Updates `merchants.business_name` if different
+
+---
+
+#### `ocr-maintenance-receipt`
+Extract cost data from maintenance receipts/invoices for expense tracking.
+
+| Key | Value |
+|-----|-------|
+| **Method** | `POST` |
+| **Auth** | JWT |
+| **AI Model** | Gemini 2.5 Pro (multimodal vision) |
+| **Tier Gate** | Professional, Enterprise |
+
+**Request Body:**
+```json
+{
+  "image_url": "maintenance-photos/receipt_uuid/nota.jpg",
+  "maintenance_request_id": "uuid"
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "vendor_name": "Toko Material Jaya",
+    "items": [
+      { "description": "Pipa PVC 3/4 inch", "quantity": 2, "unit_price": 25000, "amount": 50000 },
+      { "description": "Lem pipa", "quantity": 1, "unit_price": 15000, "amount": 15000 },
+      { "description": "Jasa tukang", "quantity": 1, "unit_price": 150000, "amount": 150000 }
+    ],
+    "subtotal": 215000,
+    "tax": 0,
+    "total": 215000,
+    "receipt_date": "2026-02-10",
+    "receipt_number": "NT/2026/0210/001",
+    "confidence_score": 0.82
+  },
+  "expense_id": "uuid"
+}
+```
+
+**Side Effects:**
+- Creates `maintenance_expenses` record linked to `maintenance_request_id`
+- Updates maintenance request with `actual_cost = total`
+- Creates `ocr_results` record with `document_type = 'maintenance_receipt'`
+
+---
+
+### 4.11 ML Predictive Analytics (DSS)
+
+#### `ml-revenue-forecast`
+Predict revenue for 3-12 months based on historical data analysis.
+
+| Key | Value |
+|-----|-------|
+| **Method** | `POST` |
+| **Auth** | JWT (merchant/admin) |
+| **AI Model** | Gemini 2.5 Pro (contextual reasoning) |
+| **Tier Gate** | Professional, Enterprise |
+
+**Request Body:**
+```json
+{
+  "merchant_id": "uuid",
+  "forecast_months": 6,
+  "property_id": "uuid"
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "forecasts": [
+      {
+        "month": "2026-03",
+        "predicted_revenue": 15000000,
+        "confidence_interval": { "lower": 13500000, "upper": 16500000 },
+        "predicted_occupancy_rate": 0.85,
+        "revenue_breakdown": {
+          "rent_income": 14000000,
+          "late_fees": 500000,
+          "marketplace_income": 500000
+        }
+      }
+    ],
+    "trend": "stable_growth",
+    "seasonality_factor": 1.05,
+    "key_assumptions": [
+      "Current occupancy rate maintained at 85%",
+      "No significant contract expirations in forecast period",
+      "Late payment rate continues at 12%"
+    ],
+    "risk_factors": [
+      "3 contracts expiring in next 2 months",
+      "1 unit in maintenance > 30 days"
+    ]
+  },
+  "model_run_id": "uuid"
+}
+```
+
+**Data Sources Aggregated:**
+- `payments` — Last 12 months payment amounts and timing
+- `contracts` — Active contracts, rent amounts, end dates
+- `units` — Occupancy status, vacancy duration
+- `invoices` — Collection rates, overdue patterns
+- `escrow_transactions` — Net revenue after fees
+
+**Implementation:** Historical data aggregated per month → sent as structured context to Gemini → tool calling for structured forecast output.
+
+---
+
+#### `ml-tenant-risk-score`
+Calculate risk score (0-100) for tenant default probability.
+
+| Key | Value |
+|-----|-------|
+| **Method** | `POST` |
+| **Auth** | JWT (merchant/admin) |
+| **AI Model** | Gemini 2.5 Pro (contextual reasoning) |
+| **Tier Gate** | Professional, Enterprise |
+
+**Request Body (single tenant):**
+```json
+{
+  "tenant_user_id": "uuid"
+}
+```
+
+**Request Body (batch — all merchant's tenants):**
+```json
+{
+  "merchant_id": "uuid"
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "risk_scores": [
+      {
+        "tenant_user_id": "uuid",
+        "tenant_name": "John Doe",
+        "unit_number": "A-101",
+        "score": 72,
+        "risk_level": "high",
+        "factors": [
+          "Late payment 4 of last 6 months (67%)",
+          "Average days late: 8.5 days",
+          "Active collections case",
+          "Contract ends in 45 days, no renewal signal"
+        ],
+        "recommended_actions": [
+          "Schedule personal meeting to discuss payment concerns",
+          "Offer payment plan for outstanding balance",
+          "Prepare move-out process if no improvement in 30 days"
+        ],
+        "payment_history": {
+          "total_invoices": 12,
+          "on_time": 5,
+          "late": 6,
+          "unpaid": 1,
+          "avg_days_late": 8.5
+        }
+      }
+    ],
+    "summary": {
+      "total_tenants": 15,
+      "low_risk": 8,
+      "medium_risk": 4,
+      "high_risk": 2,
+      "critical_risk": 1
+    }
+  },
+  "model_run_id": "uuid"
+}
+```
+
+**Risk Level Thresholds:**
+
+| Score | Level | Description |
+|-------|-------|-------------|
+| 0-25 | `low` | Consistently on-time, stable tenant |
+| 26-50 | `medium` | Occasional late payments, monitor |
+| 51-75 | `high` | Frequent late, active issues, intervention needed |
+| 76-100 | `critical` | Default imminent, escalate immediately |
+
+**Data Sources:**
+- `payments` — Payment timing vs due dates (late ratio)
+- `invoices` — Overdue count, total outstanding
+- `contracts` — Duration, renewal history, churn signals
+- `collections_cases` — Active cases, escalation level
+- `maintenance_requests` — Complaint frequency (churn signal)
+
+**Side Effects:**
+- Upserts `tenant_risk_scores` record (cached for 24h)
+- If score ≥ 76 (critical): Creates notification to merchant
+- Creates `ml_model_runs` audit record
+
+---
+
+#### `ml-churn-prediction`
+Predict which tenants are likely to leave within 1-6 months.
+
+| Key | Value |
+|-----|-------|
+| **Method** | `POST` |
+| **Auth** | JWT (merchant/admin) |
+| **AI Model** | Gemini 2.5 Pro |
+| **Tier Gate** | Enterprise only |
+
+**Request Body:**
+```json
+{
+  "merchant_id": "uuid",
+  "prediction_window_months": 3
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "predictions": [
+      {
+        "tenant_user_id": "uuid",
+        "tenant_name": "Jane Smith",
+        "unit_number": "B-203",
+        "churn_probability": 0.78,
+        "risk_factors": [
+          "Contract ends in 60 days, no renewal discussion",
+          "Payment delays increasing trend (avg 3d → 7d → 12d)",
+          "Filed 3 maintenance complaints in last month",
+          "Searching behavior detected (frequent login without payment)"
+        ],
+        "retention_suggestions": [
+          "Offer 5% rent discount for 6-month renewal",
+          "Address outstanding maintenance requests within 48 hours",
+          "Schedule check-in meeting to understand tenant concerns",
+          "Highlight property improvements planned"
+        ],
+        "estimated_revenue_at_risk": 18000000
+      }
+    ],
+    "summary": {
+      "total_analyzed": 20,
+      "high_churn_risk": 3,
+      "medium_churn_risk": 5,
+      "total_revenue_at_risk": 54000000
+    }
+  },
+  "model_run_id": "uuid"
+}
+```
+
+**Data Sources:**
+- `contracts` — End dates, renewal history
+- `payments` — Payment delay trends (increasing/stable/decreasing)
+- `maintenance_requests` — Complaint frequency and resolution time
+- `move_out_notices` — Historical move-out patterns
+- `forum_posts` / `chat_messages` — Sentiment signals (optional)
+
+---
+
+#### `ml-optimal-pricing`
+Recommend optimal rental prices per unit based on data analysis.
+
+| Key | Value |
+|-----|-------|
+| **Method** | `POST` |
+| **Auth** | JWT (merchant) |
+| **AI Model** | Gemini 2.5 Pro |
+| **Tier Gate** | Enterprise only |
+
+**Request Body:**
+```json
+{
+  "property_id": "uuid"
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "recommendations": [
+      {
+        "unit_id": "uuid",
+        "unit_number": "A-101",
+        "current_price": 1500000,
+        "suggested_price": 1650000,
+        "price_range": { "min": 1400000, "max": 1800000 },
+        "adjustment_percentage": 10,
+        "justification": "Unit A-101 has been consistently occupied for 18 months with zero vacancy. Current price is 15% below comparable units in the area. Amenities (AC, private bathroom) support higher pricing.",
+        "market_comparison": {
+          "area_average": 1700000,
+          "similar_units_range": "Rp 1.400.000 - Rp 1.900.000",
+          "data_source": "Historical contracts in same city/property_type"
+        },
+        "expected_impact": {
+          "revenue_increase_monthly": 150000,
+          "vacancy_risk": "low"
+        }
+      }
+    ],
+    "property_summary": {
+      "current_monthly_revenue": 12000000,
+      "optimized_monthly_revenue": 13200000,
+      "potential_increase_percentage": 10
+    }
+  },
+  "model_run_id": "uuid"
+}
+```
+
+**Data Sources:**
+- `units` — Amenities, size, type, current rent
+- `properties` — Location, property type
+- `contracts` — Historical rent amounts, vacancy periods
+- `cities` — Area-level data
+
+---
+
+### 4.12 AI Decision Support Advisors (DSS)
+
+#### `dss-pricing-advisor`
+AI-powered pricing consultant combining ML optimal pricing with market context.
+
+| Key | Value |
+|-----|-------|
+| **Method** | `POST` |
+| **Auth** | JWT (merchant) |
+| **AI Model** | Gemini 2.5 Pro |
+| **Tier Gate** | Enterprise only |
+
+**Request Body:**
+```json
+{
+  "property_id": "uuid",
+  "context": "I want to increase revenue but worried about tenants leaving"
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "advice": "Based on your property's 95% occupancy rate and below-market pricing, a phased 8% increase is recommended. Start with vacant units and apply to renewals over 3 months to minimize churn risk.",
+    "recommendations": [
+      {
+        "unit_id": "uuid",
+        "unit_number": "A-101",
+        "action": "Increase rent by Rp 120.000 at next renewal",
+        "expected_impact": "+Rp 120.000/month, vacancy risk: low",
+        "priority": "high",
+        "timing": "Next contract renewal (2026-04-01)"
+      }
+    ],
+    "market_insights": "Kos prices in Jakarta Selatan have increased 12% YoY. Properties with AC and private bathroom command 20% premium. Your property is currently priced 15% below market average.",
+    "risk_assessment": "Low risk — high occupancy and tenant satisfaction scores suggest price elasticity tolerance of up to 15%."
+  },
+  "recommendation_id": "uuid"
+}
+```
+
+**Side Effects:**
+- Creates `dss_recommendations` record with `type = 'pricing'`, `status = 'pending'`
+- Merchant can accept/dismiss recommendations (tracked for model improvement)
+
+---
+
+#### `dss-collection-strategy`
+AI-recommended collection approach per tenant based on risk profile and payment patterns.
+
+| Key | Value |
+|-----|-------|
+| **Method** | `POST` |
+| **Auth** | JWT (merchant) |
+| **AI Model** | Gemini 2.5 Pro |
+| **Tier Gate** | Enterprise only |
+
+**Request Body:**
+```json
+{
+  "tenant_user_id": "uuid"
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "strategy": "Empathetic Engagement — This tenant has a history of paying but with delays. Personal approach recommended over formal escalation.",
+    "recommended_actions": [
+      {
+        "action": "Send personalized WhatsApp message",
+        "timing": "Day 3 after due date",
+        "channel": "whatsapp",
+        "message_template": "Halo [name], kami notice pembayaran sewa bulan ini belum masuk. Apakah ada kendala? Kami bisa bantu atur cicilan jika diperlukan 🙏"
+      },
+      {
+        "action": "Offer payment plan",
+        "timing": "Day 7 if no response",
+        "channel": "in_app",
+        "message_template": "Kami menawarkan cicilan 2x untuk sewa bulan ini. Klik di sini untuk melihat opsi pembayaran."
+      },
+      {
+        "action": "Formal reminder with late fee warning",
+        "timing": "Day 14",
+        "channel": "email",
+        "message_template": null
+      }
+    ],
+    "success_probability": 0.82,
+    "alternative_approaches": [
+      "Deposit deduction with written notice (if > 30 days overdue)",
+      "Early termination offer with reduced penalty"
+    ],
+    "tenant_profile": {
+      "risk_score": 58,
+      "risk_level": "high",
+      "total_outstanding": 3000000,
+      "payment_pattern": "Pays between day 5-10 typically"
+    }
+  },
+  "recommendation_id": "uuid"
+}
+```
+
+---
+
+#### `dss-maintenance-priority`
+AI-prioritized maintenance queue based on impact analysis.
+
+| Key | Value |
+|-----|-------|
+| **Method** | `POST` |
+| **Auth** | JWT (merchant) |
+| **AI Model** | Gemini 2.5 Pro |
+| **Tier Gate** | Enterprise only |
+
+**Request Body:**
+```json
+{
+  "merchant_id": "uuid"
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "prioritized_requests": [
+      {
+        "request_id": "uuid",
+        "title": "Water leak in bathroom",
+        "current_priority": "medium",
+        "recommended_priority": "urgent",
+        "priority_score": 95,
+        "impact_analysis": "Water leak affects structural integrity. Tenant A-101 pays Rp 1.8M/month and has churn probability of 0.45. Delayed repair could increase churn risk to 0.72.",
+        "recommended_vendor": {
+          "vendor_id": "uuid",
+          "business_name": "Tukang Ledeng Jaya",
+          "rating": 4.8,
+          "estimated_response_time": "2 hours"
+        },
+        "estimated_cost": 350000,
+        "urgency_reason": "Safety concern + high-value tenant retention risk",
+        "revenue_at_risk": 21600000
+      }
+    ],
+    "summary": {
+      "total_open_requests": 8,
+      "urgent_recommended": 2,
+      "total_estimated_cost": 2500000,
+      "total_revenue_at_risk": 45000000
+    }
+  },
+  "recommendation_id": "uuid"
+}
+```
+
+**Prioritization Factors:**
+1. Safety/habitability impact (weight: 40%)
+2. Tenant revenue value (weight: 25%)
+3. Tenant churn probability (weight: 20%)
+4. SLA deadline proximity (weight: 15%)
+
+---
+
+#### `dss-investment-insight`
+ROI analysis and improvement recommendations per property.
+
+| Key | Value |
+|-----|-------|
+| **Method** | `POST` |
+| **Auth** | JWT (merchant) |
+| **AI Model** | Gemini 2.5 Pro |
+| **Tier Gate** | Enterprise only |
+
+**Request Body:**
+```json
+{
+  "property_id": "uuid"
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "roi_analysis": {
+      "current_roi_annual": 0.12,
+      "projected_roi_6m": 0.14,
+      "projected_roi_12m": 0.15,
+      "total_revenue_12m": 180000000,
+      "total_expenses_12m": 45000000,
+      "net_income_12m": 135000000,
+      "occupancy_rate_avg": 0.87,
+      "revenue_per_unit": 1500000,
+      "expense_per_unit": 375000
+    },
+    "improvement_suggestions": [
+      {
+        "suggestion": "Add AC to 3 non-AC units",
+        "estimated_cost": 12000000,
+        "expected_revenue_increase_monthly": 600000,
+        "payback_months": 20,
+        "roi_impact": "+4% annual ROI",
+        "confidence": "medium"
+      },
+      {
+        "suggestion": "Renovate shared bathroom (Block B)",
+        "estimated_cost": 8000000,
+        "expected_revenue_increase_monthly": 200000,
+        "payback_months": 40,
+        "roi_impact": "+1.5% annual ROI",
+        "confidence": "low"
+      },
+      {
+        "suggestion": "Increase rent for 5 below-market units",
+        "estimated_cost": 0,
+        "expected_revenue_increase_monthly": 750000,
+        "payback_months": 0,
+        "roi_impact": "+5% annual ROI",
+        "confidence": "high"
+      }
+    ],
+    "risk_assessment": "Property has stable cash flow with diversified tenants. Main risk: 3 contracts expiring Q2 2026 (30% of revenue). Recommend proactive renewal outreach.",
+    "benchmark_comparison": {
+      "property_roi": 0.12,
+      "area_average_roi": 0.10,
+      "performance_rating": "Above Average"
+    }
+  },
+  "recommendation_id": "uuid"
+}
+```
+
+**Data Sources:**
+- `escrow_transactions` — Revenue after fees
+- `disbursements` — Outflows
+- `maintenance_requests` — Maintenance costs (via `maintenance_expenses`)
+- `units` — Per-unit metrics
+- `contracts` — Lease terms, renewal patterns
+
+---
+
 ## 5. Database-Driven API (Client SDK)
 
 These operations are performed directly via the Supabase JS SDK client with RLS enforcement. No edge functions involved.
@@ -1443,7 +2251,7 @@ interface SubscriptionTier {
 
 interface MerchantSubscription {
   id: string;
-  merchant_id: string;          // unique (one-to-one)
+  merchant_id: string;
   tier_id: string;
   status: 'trial' | 'active' | 'grace_period' | 'suspended' | 'canceled';
   payment_status: 'paid' | 'pending' | 'failed';
@@ -1461,6 +2269,130 @@ interface MerchantSubscription {
   xendit_recurring_id: string | null;
   created_at: string;
   updated_at: string;
+}
+```
+
+### 6.8 DSS Data Models
+
+```typescript
+// === OCR Models ===
+
+interface OcrResult {
+  id: string;
+  user_id: string;
+  merchant_id: string | null;
+  document_type: 'ktp' | 'payment_proof' | 'nib' | 'siup' | 'akta' | 'npwp' | 'maintenance_receipt';
+  source_url: string;                    // Storage path
+  extracted_data: Record<string, any>;   // Structured output from Gemini
+  confidence_score: number;              // 0-1
+  requires_review: boolean;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  status: 'completed' | 'failed' | 'pending_review' | 'reviewed';
+  error_message: string | null;
+  processing_time_ms: number | null;
+  created_at: string;
+}
+
+interface PaymentVerification {
+  id: string;
+  ocr_result_id: string;
+  invoice_id: string | null;
+  tenant_user_id: string;
+  merchant_id: string;
+  extracted_amount: number;
+  extracted_date: string | null;
+  extracted_reference: string | null;
+  extracted_bank: string | null;
+  match_confidence: number;               // 0-1
+  amount_matches: boolean;
+  date_within_range: boolean;
+  status: 'pending_review' | 'confirmed' | 'rejected' | 'auto_confirmed';
+  confirmed_by: string | null;
+  confirmed_at: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+}
+
+interface MaintenanceExpense {
+  id: string;
+  maintenance_request_id: string;
+  ocr_result_id: string | null;
+  merchant_id: string;
+  vendor_name: string | null;
+  items: {
+    description: string;
+    quantity: number;
+    unit_price: number;
+    amount: number;
+  }[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  receipt_date: string | null;
+  receipt_number: string | null;
+  receipt_url: string | null;
+  status: 'draft' | 'confirmed' | 'disputed';
+  created_at: string;
+  updated_at: string;
+}
+
+// === ML Models ===
+
+interface TenantRiskScore {
+  id: string;
+  tenant_user_id: string;
+  merchant_id: string;
+  score: number;                          // 0-100
+  risk_level: 'low' | 'medium' | 'high' | 'critical';
+  factors: string[];
+  recommended_actions: string[];
+  payment_history_summary: {
+    total_invoices: number;
+    on_time: number;
+    late: number;
+    unpaid: number;
+    avg_days_late: number;
+  };
+  model_run_id: string;
+  valid_until: string;                    // Cache expiry (24h)
+  created_at: string;
+  updated_at: string;
+}
+
+interface DssRecommendation {
+  id: string;
+  merchant_id: string;
+  type: 'pricing' | 'collection' | 'maintenance' | 'investment';
+  property_id: string | null;
+  tenant_user_id: string | null;
+  recommendation_data: Record<string, any>;  // Full structured response
+  status: 'pending' | 'accepted' | 'dismissed' | 'expired';
+  accepted_at: string | null;
+  dismissed_at: string | null;
+  dismiss_reason: string | null;
+  model_run_id: string;
+  created_at: string;
+  expires_at: string;
+}
+
+interface MlModelRun {
+  id: string;
+  function_name: string;                 // e.g., 'ml-tenant-risk-score'
+  merchant_id: string;
+  input_hash: string;                    // SHA256 of input for deduplication
+  input_summary: Record<string, any>;    // Sanitized input metadata
+  output_summary: Record<string, any>;   // Key output metrics
+  model_version: string;                 // e.g., 'gemini-2.5-pro-2026-02'
+  processing_time_ms: number;
+  token_usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  } | null;
+  status: 'completed' | 'failed' | 'timeout';
+  error_message: string | null;
+  created_at: string;
 }
 ```
 
@@ -1536,6 +2468,8 @@ All cron jobs are invoked via `POST` with service role authorization.
 | Daily 07:00 | `order-auto-reject` | Auto-reject unresponded orders after 48 hours |
 | Daily 09:00 | `process-referral-commissions` | Process eligible referral commissions |
 | Daily 10:00 | `auto-pay-execute` | Execute auto-pay for opted-in tenants |
+| Daily 11:00 | `ml-daily-risk-scoring` | Batch tenant risk scoring for all active tenants |
+| Weekly Mon 06:00 | `ml-weekly-forecast` | Revenue forecast update per merchant |
 
 ---
 
@@ -1569,6 +2503,16 @@ All cron jobs are invoked via `POST` with service role authorization.
 - **AI chatbot** — Prompt injection prevention via system prompt guardrails
 - **Forum content** — DOMPurify for user-generated HTML content
 - **File uploads** — Validated MIME types for images (KTP, signatures, receipts)
+- **OCR inputs** — Images must originate from private Supabase Storage buckets (no external URLs)
+
+### 9.5 DSS Security
+
+- **OCR images** — Must be stored in private buckets (`verification-documents`, `contract-documents`, `maintenance-photos`)
+- **ML/DSS results** — RLS enforced: merchant can only access own data via `merchant_id = auth.uid()` check
+- **Audit trail** — All ML predictions logged in `ml_model_runs` (input hash, output summary, model version)
+- **Tier enforcement** — DSS functions check `merchant_subscriptions.tier_id` against feature gate before processing
+- **Rate limiting** — DSS functions respect per-tier usage quotas (tracked in `ocr_results` count per month)
+- **Data minimization** — Only necessary fields sent to Gemini (no raw PII in prompts where avoidable)
 
 ### 9.5 Admin 2FA (TOTP)
 
@@ -1611,13 +2555,17 @@ All cron jobs are invoked via `POST` with service role authorization.
 
 **Secret Required:** `RESEND_API_KEY`
 
-### 10.3 Lovable AI (Chatbot)
+### 10.3 Lovable AI (Chatbot + OCR + ML + DSS)
 
 | Feature | Details |
 |---------|---------|
-| Models | Gemini (via Lovable AI proxy) |
-| No API Key Required | Built-in to Lovable Cloud |
-| Use Cases | Tenant chatbot, Merchant assistant, Vendor assistant |
+| Models | Gemini 2.5 Pro (via Lovable AI gateway) |
+| No API Key Required | Built-in to Lovable Cloud (`LOVABLE_API_KEY` auto-provisioned) |
+| Vision (OCR) | Multimodal image analysis for KTP, receipts, business docs |
+| Reasoning (ML) | Contextual data analysis for risk scoring, forecasting, pricing |
+| Decision Support | AI advisory combining ML outputs with business context |
+| Use Cases | Tenant chatbot, Merchant assistant, Vendor assistant, OCR, ML analytics, DSS advisors |
+| Tool Calling | Structured output extraction via function calling |
 
 ### 10.4 Supabase Storage
 
@@ -1672,14 +2620,31 @@ Managed via `subscription_tiers` table. Configurable by admin.
 
 **Default Tiers:**
 
-| Tier | Properties | Units | Tenants | Trial |
-|------|-----------|-------|---------|-------|
-| Free | 1 | 5 | 5 | - |
-| Starter | 3 | 20 | 20 | 14 days |
-| Professional | 10 | 100 | 100 | 14 days |
-| Enterprise | Unlimited | Unlimited | Unlimited | 14 days |
+| Tier | Monthly | Yearly | Properties | Units | Tenants | Trial |
+|------|---------|--------|-----------|-------|---------|-------|
+| Free | Rp 0 | Rp 0 | 1 | 5 | 5 | 14 days |
+| Basic | Rp 99.000 | Rp 990.000 | 3 | 25 | 25 | 14 days |
+| Professional | Rp 249.000 | Rp 2.490.000 | 10 | 100 | 100 | 14 days |
+| Enterprise | Rp 599.000 | Rp 5.990.000 | Unlimited | Unlimited | Unlimited | 30 days |
 
-### 11.4 Rate Limiting
+### 11.4 DSS Feature Gating per Tier
+
+| Feature | Free | Basic | Professional | Enterprise |
+|---------|------|-------|-------------|-----------|
+| OCR KTP Extract | — | — | 10/bulan | Unlimited |
+| OCR Payment Proof | — | 5/bulan | 50/bulan | Unlimited |
+| OCR Business Document | — | — | 10/bulan | Unlimited |
+| OCR Maintenance Receipt | — | — | 20/bulan | Unlimited |
+| ML Revenue Forecast | — | — | ✓ | ✓ |
+| ML Tenant Risk Score | — | — | ✓ | ✓ |
+| ML Churn Prediction | — | — | — | ✓ |
+| ML Optimal Pricing | — | — | — | ✓ |
+| DSS Pricing Advisor | — | — | — | ✓ |
+| DSS Collection Strategy | — | — | — | ✓ |
+| DSS Maintenance Priority | — | — | — | ✓ |
+| DSS Investment Insight | — | — | — | ✓ |
+
+### 11.5 Rate Limiting
 
 - Edge functions: Default Deno Deploy limits
 - AI Chatbot: Rate limited per user (configurable)
@@ -1724,8 +2689,10 @@ All other functions use default JWT verification (`verify_jwt = true`).
 
 ---
 
-> **Document Version:** 2.0
+> **Document Version:** 3.0 (DSS Update)
 > **Last Updated:** 2026-02-21
-> **Total Edge Functions:** 31
-> **Total Database Tables:** 40+
-> **Skills Applied:** `api-design-principles`, `api-security-best-practices`, `payment-integration`, `billing-automation`, `referral-program`, `database-design`, `supabase-postgres-best-practices`
+> **Total Edge Functions:** 43 (31 core + 12 DSS)
+> **Total Database Tables:** 46+ (40 core + 6 DSS)
+> **DSS Functions:** 4 OCR + 4 ML + 4 AI Advisors
+> **AI Provider:** Lovable AI (Gemini 2.5 Pro — Vision + Reasoning)
+> **Skills Applied:** `api-design-principles`, `api-security-best-practices`, `payment-integration`, `billing-automation`, `referral-program`, `database-design`, `supabase-postgres-best-practices`, `ocr-document-processing`, `ml-predictive-analytics`, `decision-support-systems`
