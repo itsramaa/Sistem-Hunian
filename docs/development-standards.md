@@ -1,8 +1,9 @@
 # Development Standards & Best Practices
 **System:** SiHuni (Sistem Hunian)  
-**Version:** 2.0.0  
+**Version:** 3.0.0 — DSS Edition  
 **Last Updated:** 2026-02-21  
-**Status:** Enforced
+**Status:** Enforced  
+**Changelog:** Added DSS development patterns (OCR, ML, AI Advisor), 3 new feature modules, Pattern E (DSS Function), DSS-specific validation/testing/security standards
 
 ---
 
@@ -29,9 +30,11 @@
 | **State (Client)** | Zustand | 5.x | Persistent UI state (sidebar, preferences) |
 | **Forms** | React Hook Form + Zod | 7.x / 3.x | Validation, error handling |
 | **Routing** | React Router | 6.x | SPA routing, role-based guards |
-| **Backend** | Deno Edge Functions | Latest | 31 serverless functions on Lovable Cloud |
-| **Database** | Supabase SDK (PostgreSQL 16) | 2.89+ | Direct SDK access with RLS |
-| **AI** | Lovable AI (Gemini) | — | Role-specific chatbot assistants |
+| **Backend** | Deno Edge Functions | Latest | 43 serverless functions on Lovable Cloud (31 core + 12 DSS) |
+| **Database** | Supabase SDK (PostgreSQL 16) | 2.89+ | Direct SDK access with RLS, 72 tables |
+| **AI — Chatbot** | Lovable AI (Gemini) | — | Role-specific chatbot assistants |
+| **AI — OCR** | Lovable AI (Gemini 2.5 Pro) | — | Multimodal Vision: KTP, receipts, payment proof, business docs |
+| **AI — ML/DSS** | Lovable AI (Gemini 2.5 Pro) | — | Reasoning: risk scoring, forecasting, pricing, advisors |
 | **Charts** | Recharts | 2.x | Dashboard visualizations |
 | **Maps** | Leaflet + React Leaflet | 1.9 / 4.2 | Property location mapping |
 | **Auth** | Supabase Auth (JWT) | — | RBAC via `user_roles` + `has_role()` |
@@ -44,7 +47,7 @@
 
 ```text
 src/
-├── features/                    # 25 feature modules (domain-based)
+├── features/                    # 28 feature modules (domain-based)
 │   ├── auth/                    # Authentication & authorization
 │   │   ├── components/          # LoginForm, SignupForm, AuthLoadingSkeleton
 │   │   ├── hooks/               # useAuth (context provider)
@@ -76,6 +79,24 @@ src/
 │   ├── collections/             # Debt collection cases
 │   ├── ai-chatbot/              # AI assistant per role
 │   ├── admin/                   # Admin-specific features
+│   ├── dss-ocr/                 # 🆕 DSS: OCR document processing
+│   │   ├── components/          # OcrResultViewer, PaymentVerificationCard
+│   │   ├── hooks/               # useOcrExtract, usePaymentVerification
+│   │   ├── services/            # ocrService (edge function calls)
+│   │   ├── types/               # OcrResult, PaymentVerification, OcrDocType
+│   │   └── utils/               # confidenceThresholds, amountMatcher
+│   ├── dss-ml/                  # 🆕 DSS: ML Predictive Analytics
+│   │   ├── components/          # RiskScoreCard, ForecastChart, ChurnIndicator
+│   │   ├── hooks/               # useRiskScore, useRevenueForecast, useChurnPrediction
+│   │   ├── services/            # mlService (edge function calls)
+│   │   ├── types/               # TenantRiskScore, RevenueForecast, ChurnPrediction
+│   │   └── utils/               # riskLevelMapper, forecastAggregator
+│   ├── dss-advisor/             # 🆕 DSS: AI Decision Support Advisors
+│   │   ├── components/          # RecommendationCard, AdvisorPanel, ImpactBadge
+│   │   ├── hooks/               # useAdvisor, useRecommendations
+│   │   ├── services/            # advisorService (edge function calls)
+│   │   ├── types/               # DssRecommendation, AdvisorType, RecommendationStatus
+│   │   └── utils/               # impactCalculator, tierGateChecker
 │   └── ...
 ├── shared/                      # Cross-cutting concerns
 │   ├── components/              # Shared UI (ConfirmDialog, FileUpload, NavLink, Meta)
@@ -92,10 +113,25 @@ src/
 └── lib/                         # Integration wrappers
 
 supabase/
-├── functions/                   # 31 Deno Edge Functions
-│   ├── _shared/                 # Shared utilities (CORS, helpers)
+├── functions/                   # 43 Deno Edge Functions (31 core + 12 DSS)
+│   ├── _shared/                 # Shared utilities (CORS, helpers, DSS helpers)
+│   │   ├── cors.ts
+│   │   ├── helpers.ts
+│   │   └── dss-helpers.ts       # 🆕 Tier gating, AI prompt builder, confidence scorer
 │   ├── xendit-webhook/
 │   ├── ai-chatbot/
+│   ├── ocr-ktp-extract/         # 🆕 DSS OCR
+│   ├── ocr-payment-proof/       # 🆕 DSS OCR
+│   ├── ocr-business-document/   # 🆕 DSS OCR
+│   ├── ocr-maintenance-receipt/ # 🆕 DSS OCR
+│   ├── ml-revenue-forecast/     # 🆕 DSS ML
+│   ├── ml-tenant-risk-score/    # 🆕 DSS ML
+│   ├── ml-churn-prediction/     # 🆕 DSS ML
+│   ├── ml-optimal-pricing/      # 🆕 DSS ML
+│   ├── dss-pricing-advisor/     # 🆕 DSS Advisor
+│   ├── dss-collection-strategy/ # 🆕 DSS Advisor
+│   ├── dss-maintenance-priority/# 🆕 DSS Advisor
+│   ├── dss-investment-insight/  # 🆕 DSS Advisor
 │   └── ...
 └── config.toml                  # Edge function JWT config (auto-managed)
 
@@ -377,7 +413,7 @@ function verifyWebhookToken(request: Request): boolean {
 | `XENDIT_SECRET_KEY` | Edge Functions | Payment gateway API |
 | `XENDIT_WEBHOOK_TOKEN` | Edge Functions | Webhook HMAC verification |
 | `RESEND_API_KEY` | Edge Functions | Email service |
-| `LOVABLE_API_KEY` | Edge Functions | AI chatbot |
+| `LOVABLE_API_KEY` | Edge Functions | AI chatbot + DSS (OCR, ML, Advisors) |
 
 ---
 
@@ -741,15 +777,289 @@ import { VENDOR_PLATFORM_FEE_PERCENT } from '@/constants/platformFees';
 
 ---
 
-## 15. Forbidden Patterns
+## 15. DSS Development Patterns
 
-### 15.1 Auto-Generated Files (DO NOT EDIT)
+### 15.1 Pattern E: DSS Edge Function (AI-Powered with Tier Gating)
+
+All 12 DSS edge functions follow a consistent pattern:
+
+```typescript
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    // 1. Auth & merchant resolution
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+    const authHeader = req.headers.get("Authorization");
+    const { data: { user } } = await supabase.auth.getUser(authHeader?.replace("Bearer ", ""));
+
+    // 2. Tier gating — check subscription tier
+    const { data: merchant } = await supabase
+      .from("merchants")
+      .select("id, subscription_tier")
+      .eq("user_id", user.id)
+      .single();
+
+    const requiredTier = "professional"; // or "enterprise"
+    if (!hasTierAccess(merchant.subscription_tier, requiredTier)) {
+      return new Response(
+        JSON.stringify({ error: "Upgrade required", required_tier: requiredTier }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 403 }
+      );
+    }
+
+    // 3. Input validation
+    const body = await req.json();
+    // Validate with Zod or manual checks...
+
+    // 4. AI call via Lovable AI
+    const aiResponse = await fetch("https://api.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-pro",  // Vision for OCR, Reasoning for ML/DSS
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+    const aiResult = await aiResponse.json();
+
+    // 5. Parse AI response → structured data
+    const parsed = parseAiResponse(aiResult);
+
+    // 6. Store result in database
+    const { data: result } = await supabase
+      .from("ocr_results") // or tenant_risk_scores, dss_recommendations, etc.
+      .insert({ merchant_id: merchant.id, ...parsed })
+      .select()
+      .single();
+
+    // 7. Log to ml_model_runs (immutable audit)
+    await supabase.from("ml_model_runs").insert({
+      function_name: "ocr-ktp-extract",
+      merchant_id: merchant.id,
+      model_version: "google/gemini-2.5-pro",
+      input_hash: hashInput(body),
+      output_summary: { confidence: parsed.confidence_score },
+      tokens_used: aiResult.usage?.total_tokens || 0,
+      execution_time_ms: Date.now() - startTime,
+      status: "completed",
+    });
+
+    return new Response(
+      JSON.stringify({ success: true, data: result }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+    );
+  } catch (error) {
+    console.error("DSS function error:", error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+    );
+  }
+});
+```
+
+### 15.2 DSS Feature Module Conventions
+
+| Convention | Rule | Example |
+|-----------|------|---------|
+| **Module prefix** | `dss-ocr/`, `dss-ml/`, `dss-advisor/` | `src/features/dss-ocr/` |
+| **Edge function prefix** | `ocr-*`, `ml-*`, `dss-*` | `ocr-ktp-extract`, `ml-tenant-risk-score` |
+| **Service naming** | `{domain}Service` | `ocrService`, `mlService`, `advisorService` |
+| **Hook naming** | `use{Action}` | `useOcrExtract`, `useRiskScore`, `useAdvisor` |
+| **DB table prefix** | None (flat namespace) | `ocr_results`, `tenant_risk_scores`, `dss_recommendations` |
+| **Type naming** | PascalCase domain types | `OcrResult`, `TenantRiskScore`, `DssRecommendation` |
+
+### 15.3 Tier Gating Implementation
+
+```typescript
+// @/shared/utils/tierGating.ts
+const TIER_HIERARCHY = ['free', 'starter', 'professional', 'enterprise'] as const;
+type SubscriptionTier = typeof TIER_HIERARCHY[number];
+
+export function hasTierAccess(currentTier: string, requiredTier: SubscriptionTier): boolean {
+  const currentIndex = TIER_HIERARCHY.indexOf(currentTier as SubscriptionTier);
+  const requiredIndex = TIER_HIERARCHY.indexOf(requiredTier);
+  return currentIndex >= requiredIndex;
+}
+
+// DSS Feature → Minimum Tier mapping
+export const DSS_TIER_REQUIREMENTS = {
+  // OCR — Professional+
+  'ocr-ktp-extract': 'professional',
+  'ocr-payment-proof': 'professional',
+  'ocr-business-document': 'professional',
+  'ocr-maintenance-receipt': 'professional',
+  // ML — Professional+
+  'ml-revenue-forecast': 'professional',
+  'ml-tenant-risk-score': 'professional',
+  'ml-churn-prediction': 'enterprise',
+  'ml-optimal-pricing': 'enterprise',
+  // Advisors — Enterprise
+  'dss-pricing-advisor': 'enterprise',
+  'dss-collection-strategy': 'enterprise',
+  'dss-maintenance-priority': 'professional',
+  'dss-investment-insight': 'enterprise',
+} as const;
+```
+
+**Frontend tier gate component:**
+
+```tsx
+// src/features/dss-advisor/components/TierGate.tsx
+function TierGate({ feature, children }: { feature: string; children: React.ReactNode }) {
+  const { merchant } = useAuth();
+  const required = DSS_TIER_REQUIREMENTS[feature];
+  
+  if (!hasTierAccess(merchant?.subscription_tier, required)) {
+    return <UpgradePrompt requiredTier={required} feature={feature} />;
+  }
+  return <>{children}</>;
+}
+```
+
+### 15.4 OCR-Specific Patterns
+
+```typescript
+// Confidence thresholds
+export const OCR_CONFIDENCE = {
+  HIGH: 0.85,    // Auto-accept
+  MEDIUM: 0.60,  // Needs review
+  LOW: 0.40,     // Manual entry required
+} as const;
+
+// Payment matching tolerance
+export const PAYMENT_MATCH_TOLERANCE = 1000; // ± Rp 1,000
+
+// Image validation before OCR
+export function validateOcrImage(file: File): { valid: boolean; error?: string } {
+  const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+  
+  if (!ALLOWED_TYPES.includes(file.type)) return { valid: false, error: 'Format tidak didukung' };
+  if (file.size > MAX_SIZE) return { valid: false, error: 'Ukuran file melebihi 10MB' };
+  return { valid: true };
+}
+```
+
+### 15.5 ML/Analytics Patterns
+
+```typescript
+// Risk score color mapping
+export function getRiskLevel(score: number): 'low' | 'medium' | 'high' | 'critical' {
+  if (score <= 25) return 'low';
+  if (score <= 50) return 'medium';
+  if (score <= 75) return 'high';
+  return 'critical';
+}
+
+export const RISK_COLORS = {
+  low: 'success',
+  medium: 'warning',
+  high: 'destructive',
+  critical: 'destructive',
+} as const;
+
+// Forecast data aggregation
+export function aggregateMonthlyData(records: any[], dateField: string, valueField: string) {
+  // Group by month, sum values, return sorted array
+}
+
+// Caching: ML results cached per merchant, refreshed by cron
+// - tenant_risk_scores: refreshed daily (ml-daily-risk-scoring cron)
+// - revenue forecasts: refreshed weekly (ml-weekly-forecast cron)
+```
+
+### 15.6 Recommendation Lifecycle
+
+```typescript
+// DssRecommendation status flow
+type RecommendationStatus = 'generated' | 'viewed' | 'accepted' | 'rejected' | 'measured';
+
+// Frontend hook pattern
+function useRecommendations(merchantId: string, advisorType: string) {
+  return useQuery({
+    queryKey: ['dss-recommendations', merchantId, advisorType],
+    queryFn: () => advisorService.getRecommendations(merchantId, advisorType),
+  });
+}
+
+// Accept/reject with feedback
+const acceptMutation = useMutation({
+  mutationFn: ({ id, feedback }: { id: string; feedback?: string }) =>
+    advisorService.updateStatus(id, 'accepted', feedback),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['dss-recommendations'] });
+    toast.success('Rekomendasi diterima');
+  },
+});
+```
+
+### 15.7 DSS Shared Helpers (`_shared/dss-helpers.ts`)
+
+```typescript
+// supabase/functions/_shared/dss-helpers.ts
+
+export function hashInput(input: any): string {
+  // SHA-256 hash of JSON-stringified input for audit trail
+}
+
+export function buildOcrPrompt(docType: string, base64Image: string): any[] {
+  // Returns structured messages array for Gemini Vision
+}
+
+export function buildMlPrompt(modelType: string, data: any): any[] {
+  // Returns structured messages for Gemini Reasoning
+}
+
+export function parseJsonFromAi(text: string): any {
+  // Extract JSON from AI response (handles markdown code blocks)
+  const match = text.match(/```json\n?([\s\S]*?)```/);
+  return JSON.parse(match ? match[1] : text);
+}
+
+export function logModelRun(supabase: any, params: {
+  function_name: string;
+  merchant_id: string;
+  model_version: string;
+  input_hash: string;
+  output_summary: any;
+  tokens_used: number;
+  execution_time_ms: number;
+  status: string;
+  error_message?: string;
+}) {
+  return supabase.from("ml_model_runs").insert(params);
+}
+```
+
+---
+
+## 16. Forbidden Patterns
+
+### 16.1 Auto-Generated Files (DO NOT EDIT)
 - ❌ `src/integrations/supabase/client.ts`
 - ❌ `src/integrations/supabase/types.ts`
 - ❌ `supabase/config.toml`
 - ❌ `.env`
 
-### 15.2 Styling Anti-Patterns
+### 16.2 Styling Anti-Patterns
 - ❌ Raw colors: `bg-white`, `text-gray-500`, `border-gray-200`
 - ❌ Manual dark mode: `dark:bg-gray-900`, `dark:text-white`
 - ❌ `transition-all` — use specific properties
@@ -757,7 +1067,7 @@ import { VENDOR_PLATFORM_FEE_PERCENT } from '@/constants/platformFees';
 - ❌ Random z-index: `z-[999]`, `z-[9999]`
 - ❌ Random spacing: `p-5`, `m-7`, `gap-9`
 
-### 15.3 Code Anti-Patterns
+### 16.3 Code Anti-Patterns
 - ❌ `any` type without explicit comment justification
 - ❌ Direct `fetch()` to Supabase — use SDK
 - ❌ `console.log` in production code (use `console.error` for errors only)
@@ -765,9 +1075,17 @@ import { VENDOR_PLATFORM_FEE_PERCENT } from '@/constants/platformFees';
 - ❌ Non-lazy page imports
 - ❌ Cross-feature direct imports (must go through `@/shared/`)
 
+### 16.4 DSS Anti-Patterns
+- ❌ Calling Lovable AI directly from frontend — always go through edge functions
+- ❌ Storing raw AI responses without parsing — always extract structured data
+- ❌ Skipping `ml_model_runs` audit log — every AI call must be logged
+- ❌ Hardcoding tier checks — use `hasTierAccess()` utility
+- ❌ Displaying raw confidence scores to users — map to human-readable levels (High/Medium/Low)
+- ❌ Skipping image validation before OCR — always validate type/size
+
 ---
 
-## 16. Accessibility (WCAG 2.1 AA)
+## 17. Accessibility (WCAG 2.1 AA)
 
 - **Semantic HTML:** Use `<button>`, `<nav>`, `<main>`, `<article>`, `<section>` correctly
 - **Forms:** All inputs MUST have associated labels (`htmlFor` + `id`)
@@ -779,7 +1097,7 @@ import { VENDOR_PLATFORM_FEE_PERCENT } from '@/constants/platformFees';
 
 ---
 
-## 17. Version Control
+## 18. Version Control
 
 - **Auto-deploy:** Lovable IDE handles deployment automatically
 - **Version history:** Git-based, managed by Lovable
@@ -789,7 +1107,7 @@ import { VENDOR_PLATFORM_FEE_PERCENT } from '@/constants/platformFees';
 
 ---
 
-## 18. Testing Strategy
+## 19. Testing Strategy
 
 ### 18.1 Test Pyramid
 
@@ -813,7 +1131,7 @@ describe('formatCurrency', () => {
 });
 ```
 
-### 18.3 Edge Function Testing
+### 19.3 Edge Function Testing
 
 ```typescript
 // Test via curl or Lovable browser tools
@@ -821,9 +1139,33 @@ describe('formatCurrency', () => {
 // Always test with and without auth headers for protected functions
 ```
 
+### 19.4 DSS Function Testing
+
+```typescript
+// DSS functions require additional test coverage:
+// 1. Tier gating — verify 403 for insufficient tier
+// 2. AI response parsing — test with mock AI responses
+// 3. Confidence thresholds — verify HIGH/MEDIUM/LOW routing
+// 4. ml_model_runs audit — verify audit row created on every call
+// 5. Payment matching — test ± Rp 1,000 tolerance boundary
+// 6. Error handling — verify graceful degradation when AI is unavailable
+
+describe('ocrService', () => {
+  it('should reject files over 10MB', () => {
+    const result = validateOcrImage(largeFile);
+    expect(result.valid).toBe(false);
+  });
+
+  it('should match payment within Rp 1,000 tolerance', () => {
+    expect(isPaymentMatch(1500000, 1500500)).toBe(true);
+    expect(isPaymentMatch(1500000, 1502000)).toBe(false);
+  });
+});
+```
+
 ---
 
-## 19. Security Checklist
+## 20. Security Checklist
 
 - [ ] RLS policies on all tables with user-specific data
 - [ ] `verify_jwt = true` for all authenticated endpoints
@@ -835,6 +1177,12 @@ describe('formatCurrency', () => {
 - [ ] CORS headers on all edge function responses
 - [ ] Rate limiting via Lovable Cloud (built-in)
 - [ ] No database credentials in frontend code
+- [ ] 🆕 DSS: All AI calls logged to `ml_model_runs` (immutable audit)
+- [ ] 🆕 DSS: Tier gating enforced server-side (not just frontend)
+- [ ] 🆕 DSS: OCR images stored in private buckets only
+- [ ] 🆕 DSS: AI prompts never include PII beyond what's necessary
+- [ ] 🆕 DSS: Confidence scores validated before auto-processing
+- [ ] 🆕 DSS: Merchant data isolation via RLS on all 6 DSS tables
 
 ---
 
@@ -850,3 +1198,8 @@ describe('formatCurrency', () => {
 | `pci-compliance` | No PAN storage, tokenized payment references via Xendit |
 | `security-auditor` | Audit log patterns, immutable logging, RBAC, RLS enforcement |
 | `schema-data-types` | bigint IDs, text over varchar, timestamptz, numeric for money |
+| `dss-patterns` | 🆕 Pattern E (AI-Powered DSS), tier gating, OCR confidence thresholds, ML caching, recommendation lifecycle, `ml_model_runs` audit |
+
+---
+
+*Document version 3.0.0 — DSS Edition | 28 feature modules | 43 edge functions | 72 database tables | 215+ RLS policies*
