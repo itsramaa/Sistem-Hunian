@@ -2,7 +2,7 @@
 
 # DSS Documentation Update Progress
 
-## Status: File 3 of 8 Complete ✅
+## Status: File 4 of 8 Complete ✅
 
 ### Completed Files
 
@@ -42,9 +42,18 @@
 - Expanded glossary with DSS terms
 - Added 10+ mermaid diagrams for DSS workflows
 
-### Remaining Files (5)
+#### ✅ File 4: `docs/database-schema.md` (v3.0)
+- Updated executive summary: 72 tables (66 core + 6 DSS), 215+ RLS policies
+- Added DSS ER diagram (Section 2.4) with all 6 new tables
+- Added Section 12: DSS Tables with full column specs for all 6 tables
+- Added 16 new DSS indexes
+- Added 24 new DSS RLS policies summary
+- Added DSS FK relationships
+- Added 5 new JSONB column patterns for DSS tables
+- Added `ml_model_runs` as immutable audit table
 
-4. `docs/database-schema.md` — Add 6 DSS tables with full column specs and RLS policies
+### Remaining Files (4)
+
 5. `docs/deployment-infrastructure.md` — Update for DSS deployment considerations
 6. `docs/development-standards.md` — Add DSS development patterns and conventions
 7. `docs/domain-state-machines.md` — Add state machines for DSS entities
