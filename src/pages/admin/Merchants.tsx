@@ -5,6 +5,9 @@ import { useMerchantActions } from '@/features/users/hooks/useMerchantActions';
 import { useMerchants } from '@/features/users/hooks/useMerchants';
 import { Merchant } from '@/features/users/types/admin-merchant';
 import { BulkApprovalDialog } from '@/features/verification/components/BulkApprovalDialog';
+import { MerchantDetailDialog } from '@/features/users/components/admin/MerchantDetailDialog';
+import { MerchantRejectionDialog } from '@/features/users/components/admin/MerchantRejectionDialog';
+import { MerchantApprovalDialog } from '@/features/users/components/admin/MerchantApprovalDialog';
 import { AdminLayout } from '@/shared/components/layouts/AdminLayout';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
@@ -272,9 +275,8 @@ export default function AdminMerchants() {
         <BulkApprovalDialog
           open={showBulkApprovalDialog}
           onOpenChange={setShowBulkApprovalDialog}
-          merchantCount={selectedMerchantIds.length}
+          selectedCount={selectedMerchantIds.length}
           onConfirm={handleBulkApprove}
-          isLoading={actionLoading}
         />
       </div>
     </AdminLayout>

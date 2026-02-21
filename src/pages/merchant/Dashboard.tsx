@@ -116,11 +116,10 @@ export default function MerchantDashboard() {
               </div>
               <Progress 
                 value={stats?.properties.occupancyRate || 0} 
-                className="mt-2 h-2" 
-                indicatorClassName={
-                  (stats?.properties.occupancyRate || 0) >= 80 ? 'bg-success' : 
-                  (stats?.properties.occupancyRate || 0) >= 50 ? 'bg-warning' : 'bg-destructive'
-                }
+                className={`mt-2 h-2 ${
+                  (stats?.properties.occupancyRate || 0) >= 80 ? '[&>div]:bg-success' : 
+                  (stats?.properties.occupancyRate || 0) >= 50 ? '[&>div]:bg-warning' : '[&>div]:bg-destructive'
+                }`}
               />
               <p className="mt-1 text-xs text-muted-foreground">
                 {stats?.properties.occupiedUnits || 0} occupied / {stats?.properties.totalUnits || 0} total

@@ -72,9 +72,11 @@ export interface DisbursementParams {
 
 export interface ReviewDisbursementParams {
   id: string;
+  status?: string;
   amount?: number;
   escrow_account_id?: string;
   bank_account_id?: string;
+  merchant_id?: string;
   notes?: string;
   user_id?: string;
   business_name?: string;

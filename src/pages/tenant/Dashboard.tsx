@@ -409,12 +409,9 @@ export default function TenantDashboard() {
                       </div>
                     </div>
                     <Badge variant={
-                      request.status === 'completed' ? 'default' :
-                      request.status === 'in_progress' ? 'secondary' : 'outline'
+                      request.status === 'completed' ? 'default' : 'outline'
                     } className="text-[10px] px-1.5 py-0 shrink-0">
-                      {request.status === 'completed' ? 'Selesai' : 
-                       request.status === 'in_progress' ? 'Dikerjakan' : 
-                       request.status === 'assigned' ? 'Ditugaskan' : 'Pending'}
+                      {request.status === 'completed' ? 'Selesai' : 'Pending'}
                     </Badge>
                   </Link>
                 ))}

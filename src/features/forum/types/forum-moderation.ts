@@ -1,4 +1,4 @@
-export type ForumReportStatus = 'pending' | 'resolved' | 'dismissed' | 'action_taken';
+export type ForumReportStatus = 'pending' | 'reviewed' | 'resolved' | 'dismissed' | 'action_taken';
 
 export interface ForumReport {
   id: string;
@@ -7,7 +7,7 @@ export interface ForumReport {
   reporter_id: string;
   reason: string;
   description: string | null;
-  status: string | null;
+  status: ForumReportStatus;
   reviewed_at: string | null;
   reviewed_by: string | null;
   created_at: string;

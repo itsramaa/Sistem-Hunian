@@ -43,7 +43,6 @@ const AdminVendors = () => {
     page, 
     pageSize: PAGE_SIZE, 
     search: debouncedSearch,
-    status: statusFilter !== 'all' ? statusFilter : undefined
   });
 
   const { data: stats, isLoading: statsLoading } = useVendorStats();

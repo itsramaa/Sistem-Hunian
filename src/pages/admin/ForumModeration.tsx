@@ -6,7 +6,7 @@ import { ForumReportsTable } from '@/features/forum/components/admin/ForumReport
 import { ForumResolveDialog } from '@/features/forum/components/admin/ForumResolveDialog';
 import { ForumStats } from '@/features/forum/components/admin/ForumStats';
 import { useForumModeration } from '@/features/forum/hooks/useForumModeration';
-import { ForumReport, ForumReportStatus } from '@/features/forum/types';
+import { ForumReport, ForumReportStatus } from '@/features/forum/types/forum-moderation';
 import { AdminLayout } from '@/shared/components/layouts/AdminLayout';
 import { Alert, AlertDescription } from '@/shared/components/ui/alert';
 import { Badge } from '@/shared/components/ui/badge';
@@ -88,8 +88,8 @@ export default function ForumModeration() {
         // Fetch
         try {
           const fetchedPost = await fetchContent('post', report.post_id);
-          if (fetchedPost) {
-            setContentToView({ type: 'post', title: fetchedPost.title, content: fetchedPost.content });
+            if (fetchedPost) {
+              setContentToView({ type: 'post', title: (fetchedPost as { title?: string }).title, content: fetchedPost.content });
             setShowContentDialog(true);
           }
         } catch (e) {

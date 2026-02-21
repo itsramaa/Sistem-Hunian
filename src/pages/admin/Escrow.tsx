@@ -286,8 +286,8 @@ export default function AdminEscrow() {
 
         {/* Confirm Disbursement Dialog */}
         <ConfirmDialog
-          isOpen={showConfirmDisbursement}
-          onClose={() => setShowConfirmDisbursement(false)}
+          open={showConfirmDisbursement}
+          onOpenChange={setShowConfirmDisbursement}
           onConfirm={confirmDisbursement}
           title="Confirm Disbursement"
           description={`Are you sure you want to disburse ${disbursementAmount ? formatCurrency(parseFloat(disbursementAmount)) : '0'} to ${selectedAccount?.merchant?.business_name}? This action cannot be undone.`}

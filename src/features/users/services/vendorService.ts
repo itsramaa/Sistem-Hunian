@@ -54,11 +54,10 @@ export const vendorService = {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         await logStatusChange(
-          id,
           'vendor',
+          id,
           oldStatus,
           status,
-          user.id,
           reason
         );
       }
