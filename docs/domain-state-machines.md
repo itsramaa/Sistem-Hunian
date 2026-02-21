@@ -1,8 +1,9 @@
 # Domain State Machines & Workflows
 
-> **Version:** 2.0  
+> **Version:** 3.0 — DSS Edition  
 > **Last Updated:** 2026-02-21  
-> **Platform:** SiHuni — Lovable Cloud (React 18 SPA + Deno Edge Functions)
+> **Platform:** SiHuni — Lovable Cloud (React 18 SPA + Deno Edge Functions)  
+> **Changelog:** Added 4 DSS state machines (OCR Result, Payment Verification, DSS Recommendation, ML Model Run), updated cron table (14 jobs), updated cross-domain diagram
 
 ## Table of Contents
 
@@ -27,6 +28,10 @@
 19. [Escrow Transaction Lifecycle](#19-escrow-transaction-lifecycle)
 20. [UI State-Color Mapping](#20-ui-state-color-mapping)
 21. [Implementation Guidelines](#21-implementation-guidelines)
+22. [DSS: OCR Result Lifecycle](#22-dss-ocr-result-lifecycle)
+23. [DSS: Payment Verification Lifecycle](#23-dss-payment-verification-lifecycle)
+24. [DSS: Recommendation Lifecycle](#24-dss-recommendation-lifecycle)
+25. [DSS: ML Model Run Lifecycle](#25-dss-ml-model-run-lifecycle)
 
 ---
 
@@ -58,6 +63,7 @@ State changes are tracked via:
 - **`audit_logs`** table — generic audit for all entity state changes (`old_data`, `new_data` JSONB)
 - **`maintenance_timeline`** — granular timeline for maintenance requests
 - **`merchant_verification_history`** — verification state change history
+- **`ml_model_runs`** — 🆕 immutable audit trail for all DSS/AI function executions
 - **`createAuditLog()`** utility — centralized TypeScript helper in `src/shared/utils/auditLog.ts`
 
 ---
@@ -1209,6 +1215,8 @@ await createAuditLog({
 | `check-overdue-installments` | Daily 06:00 | Installment `pending` → `overdue` |
 | `cleanup-expired-invitations` | Daily 00:00 | Invitation `pending` → `expired` |
 | `check-referral-expiry` | Daily 00:00 | Referral `pending` → `expired` |
+| 🆕 `ml-daily-risk-scoring` | Daily 12:00 | Refreshes `tenant_risk_scores` for all active tenants |
+| 🆕 `ml-weekly-forecast` | Weekly Mon 13:00 | Refreshes revenue forecasts per merchant |
 
 ### No External State Libraries
 
@@ -1225,6 +1233,258 @@ Instead, state management uses:
 - ✅ Database triggers for cross-table state sync
 - ✅ Cron edge functions for time-based transitions
 - ✅ Webhook handlers for external event-driven transitions (Xendit)
+
+---
+
+---
+
+## 22. DSS: OCR Result Lifecycle
+
+**Table:** `ocr_results`  
+**Column:** `status` (text, default: `'processing'`)
+
+### States (4)
+
+| State | Description |
+|-------|-------------|
+| `processing` | Image submitted, AI extraction in progress |
+| `completed` | Extraction successful, structured data available |
+| `failed` | AI extraction failed (low quality, unsupported format) |
+| `reviewed` | Human reviewed and corrected extracted data |
+
+### State Diagram
+
+```mermaid
+stateDiagram-v2
+    [*] --> processing: Image uploaded to OCR function
+    processing --> completed: AI extracts data (confidence ≥ 0.40)
+    processing --> failed: AI cannot extract / error
+    completed --> reviewed: User verifies/corrects data
+    reviewed --> [*]
+    failed --> [*]
+    completed --> [*]
+```
+
+### Confidence Sub-Routing
+
+| Confidence | Level | Action |
+|-----------|-------|--------|
+| ≥ 0.85 | HIGH | Auto-accepted, minimal review needed |
+| 0.60–0.84 | MEDIUM | Requires user review |
+| 0.40–0.59 | LOW | Flagged for manual correction |
+| < 0.40 | — | → `failed` status |
+
+### Side Effects
+
+| Transition | Side Effect |
+|------------|-------------|
+| → `completed` | `extracted_data` JSONB populated, `confidence_score` set |
+| → `completed` (payment proof) | Auto-creates `payment_verifications` record |
+| → `failed` | `error_message` populated, notification sent |
+| Any transition | `ml_model_runs` audit row created |
+
+### Document Types
+
+| `document_type` | Source Function | Extracted Fields |
+|----------------|-----------------|------------------|
+| `ktp` | `ocr-ktp-extract` | NIK, nama, alamat, tempat/tanggal lahir |
+| `payment_proof` | `ocr-payment-proof` | amount, date, sender, receiver, reference |
+| `business_doc` | `ocr-business-document` | entity_name, registration_number, doc_type |
+| `receipt` | `ocr-maintenance-receipt` | items[], total, vendor_name, date |
+
+---
+
+## 23. DSS: Payment Verification Lifecycle
+
+**Table:** `payment_verifications`  
+**Column:** `verification_status` (text, default: `'pending'`)
+
+### States (4)
+
+| State | Description |
+|-------|-------------|
+| `pending` | OCR completed, awaiting verification logic |
+| `auto_matched` | Amount matches invoice within ± Rp 1,000 |
+| `manual_review` | Amount mismatch or low confidence, needs human |
+| `verified` | Payment confirmed (auto or manual) |
+
+### State Diagram
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending: OCR payment proof completed
+    pending --> auto_matched: Amount within ± Rp 1,000 tolerance
+    pending --> manual_review: Amount mismatch / low confidence
+    auto_matched --> verified: Auto-confirmed
+    manual_review --> verified: Merchant confirms
+    verified --> [*]
+```
+
+### Matching Logic
+
+```typescript
+const TOLERANCE = 1000; // Rp 1,000
+
+function matchPayment(ocrAmount: number, invoiceAmount: number): boolean {
+  return Math.abs(ocrAmount - invoiceAmount) <= TOLERANCE;
+}
+```
+
+### Side Effects
+
+| Transition | Side Effect |
+|------------|-------------|
+| → `auto_matched` | `matched_invoice_id` linked, `match_confidence` set |
+| → `verified` | Invoice status → `paid`, `paid_at` set, escrow transaction created |
+| → `manual_review` | Notification sent to merchant |
+
+---
+
+## 24. DSS: Recommendation Lifecycle
+
+**Table:** `dss_recommendations`  
+**Column:** `status` (text, default: `'generated'`)
+
+### States (5)
+
+| State | Description |
+|-------|-------------|
+| `generated` | AI advisor produced recommendation |
+| `viewed` | Merchant opened/viewed the recommendation |
+| `accepted` | Merchant accepted and plans to implement |
+| `rejected` | Merchant dismissed the recommendation |
+| `measured` | Impact measured after implementation period |
+
+### State Diagram
+
+```mermaid
+stateDiagram-v2
+    [*] --> generated: Advisor function produces recommendation
+    generated --> viewed: Merchant views in dashboard
+    viewed --> accepted: Merchant accepts recommendation
+    viewed --> rejected: Merchant rejects with feedback
+    accepted --> measured: Impact period elapsed, outcome recorded
+    rejected --> [*]
+    measured --> [*]
+```
+
+### Advisor Types
+
+| `advisor_type` | Source Function | Recommendation Examples |
+|---------------|-----------------|------------------------|
+| `pricing` | `dss-pricing-advisor` | Optimal rent price, market comparison |
+| `collection` | `dss-collection-strategy` | Best collection approach per tenant risk |
+| `maintenance` | `dss-maintenance-priority` | Priority ranking, vendor suggestion |
+| `investment` | `dss-investment-insight` | ROI analysis, expansion opportunities |
+
+### Side Effects
+
+| Transition | Side Effect |
+|------------|-------------|
+| → `generated` | `recommendation_data` JSONB populated, `confidence_score` set |
+| → `viewed` | `viewed_at` timestamp set |
+| → `accepted` | `accepted_at` timestamp set, `user_feedback` optional |
+| → `rejected` | `rejected_at` timestamp set, `user_feedback` captured |
+| → `measured` | `impact_data` JSONB populated (actual vs predicted) |
+
+### Transition Map
+
+```typescript
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  generated: ['viewed'],
+  viewed: ['accepted', 'rejected'],
+  accepted: ['measured'],
+  // rejected and measured are terminal states
+};
+```
+
+### Tier Gating
+
+| Advisor | Minimum Tier |
+|---------|-------------|
+| `maintenance` | Professional |
+| `pricing` | Enterprise |
+| `collection` | Enterprise |
+| `investment` | Enterprise |
+
+---
+
+## 25. DSS: ML Model Run Lifecycle
+
+**Table:** `ml_model_runs`  
+**Column:** `status` (text, default: `'running'`)  
+**Note:** This table is **immutable** — rows are INSERT-only, never updated or deleted.
+
+### States (3)
+
+| State | Description |
+|-------|-------------|
+| `running` | AI function execution in progress |
+| `completed` | Execution finished, output available |
+| `failed` | Execution error, error_message captured |
+
+### State Diagram
+
+```mermaid
+stateDiagram-v2
+    [*] --> running: DSS edge function invoked
+    running --> completed: AI response parsed successfully
+    running --> failed: Error during execution
+    completed --> [*]
+    failed --> [*]
+```
+
+### Immutability
+
+```sql
+-- ml_model_runs is append-only
+-- No UPDATE or DELETE policies exist
+-- RLS: Merchants can SELECT their own runs, System can INSERT
+```
+
+### Tracked Fields
+
+| Field | Purpose |
+|-------|---------|
+| `function_name` | Which of the 12 DSS functions was called |
+| `model_version` | AI model used (e.g., `google/gemini-2.5-pro`) |
+| `input_hash` | SHA-256 of input for deduplication/audit |
+| `output_summary` | Key results (JSONB, not full response) |
+| `tokens_used` | Token consumption for cost tracking |
+| `execution_time_ms` | Performance monitoring |
+| `error_message` | Failure details (null on success) |
+
+### Usage Pattern
+
+```typescript
+// Every DSS function follows this audit pattern
+const startTime = Date.now();
+try {
+  const result = await callAI(prompt);
+  await logModelRun(supabase, {
+    function_name: 'ml-tenant-risk-score',
+    merchant_id,
+    model_version: 'google/gemini-2.5-pro',
+    input_hash: hashInput(inputData),
+    output_summary: { risk_score: result.score, risk_level: result.level },
+    tokens_used: result.usage.total_tokens,
+    execution_time_ms: Date.now() - startTime,
+    status: 'completed',
+  });
+} catch (error) {
+  await logModelRun(supabase, {
+    function_name: 'ml-tenant-risk-score',
+    merchant_id,
+    model_version: 'google/gemini-2.5-pro',
+    input_hash: hashInput(inputData),
+    output_summary: {},
+    tokens_used: 0,
+    execution_time_ms: Date.now() - startTime,
+    status: 'failed',
+    error_message: error.message,
+  });
+}
+```
 
 ---
 
@@ -1262,10 +1522,50 @@ Instead, state management uses:
 | `referrals` | `status` | `pending` | pending, active, completed, expired |
 | `referral_rewards` | `status` | `pending` | pending, credited, used, expired |
 | `properties` | `status` | `active` | active, inactive |
+| 🆕 `ocr_results` | `status` | `processing` | processing, completed, failed, reviewed |
+| 🆕 `payment_verifications` | `verification_status` | `pending` | pending, auto_matched, manual_review, verified |
+| 🆕 `tenant_risk_scores` | `risk_level` | — | low, medium, high, critical |
+| 🆕 `dss_recommendations` | `status` | `generated` | generated, viewed, accepted, rejected, measured |
+| 🆕 `ml_model_runs` | `status` | `running` | running, completed, failed |
 
 ---
 
-## Appendix B: Cross-Domain State Dependencies
+## Appendix B: DSS UI State-Color Mapping
+
+| Status | Text Class | Background Class | Context |
+|--------|------------|-----------------|---------|
+| `processing` | `text-primary` | `bg-primary/10` | OCR in progress |
+| `completed` | `text-success` | `bg-success/10` | OCR/ML completed |
+| `failed` | `text-destructive` | `bg-destructive/10` | OCR/ML failed |
+| `reviewed` | `text-info` | `bg-info/10` | Human-reviewed OCR |
+| `auto_matched` | `text-success` | `bg-success/10` | Payment auto-verified |
+| `manual_review` | `text-warning` | `bg-warning/10` | Needs human review |
+| `generated` | `text-primary` | `bg-primary/10` | New recommendation |
+| `viewed` | `text-muted-foreground` | `bg-muted` | Recommendation seen |
+| `accepted` | `text-success` | `bg-success/10` | Recommendation accepted |
+| `rejected` | `text-destructive` | `bg-destructive/10` | Recommendation rejected |
+| `measured` | `text-info` | `bg-info/10` | Impact measured |
+
+### Risk Level Colors
+
+| Risk Level | Text Class | Background Class |
+|-----------|------------|-----------------|
+| `low` (0–25) | `text-success` | `bg-success/10` |
+| `medium` (26–50) | `text-warning` | `bg-warning/10` |
+| `high` (51–75) | `text-destructive` | `bg-destructive/10` |
+| `critical` (76–100) | `text-destructive font-bold` | `bg-destructive/20` |
+
+### Confidence Level Colors
+
+| Confidence | Level | Color |
+|-----------|-------|-------|
+| ≥ 0.85 | HIGH | `text-success` |
+| 0.60–0.84 | MEDIUM | `text-warning` |
+| 0.40–0.59 | LOW | `text-destructive` |
+
+---
+
+## Appendix C: Cross-Domain State Dependencies
 
 ```mermaid
 graph TD
@@ -1299,11 +1599,32 @@ graph TD
     INVITATION[Tenant Invitation] -.-> CONTRACT
     REFERRAL[Referral] -.-> SUBSCRIPTION
 
+    %% DSS Layer
+    OCR[🆕 OCR Result] --> PAY_VERIF[🆕 Payment Verification]
+    PAY_VERIF --> INVOICE
+    OCR --> MAINTENANCE
+    SUBSCRIPTION --> DSS_REC[🆕 DSS Recommendation]
+    DSS_REC -.-> CONTRACT
+    DSS_REC -.-> INVOICE
+    ML_RUN[🆕 ML Model Run] -.-> OCR
+    ML_RUN -.-> DSS_REC
+    RISK[🆕 Tenant Risk Score] -.-> COLLECTION
+
     style CONTRACT fill:#f9f,stroke:#333,stroke-width:2px
     style INVOICE fill:#bbf,stroke:#333,stroke-width:2px
     style SUBSCRIPTION fill:#bfb,stroke:#333,stroke-width:2px
+    style OCR fill:#ffd,stroke:#333,stroke-width:2px
+    style PAY_VERIF fill:#ffd,stroke:#333,stroke-width:2px
+    style DSS_REC fill:#ffd,stroke:#333,stroke-width:2px
+    style ML_RUN fill:#ffd,stroke:#333,stroke-width:2px
+    style RISK fill:#ffd,stroke:#333,stroke-width:2px
 ```
 
 **Legend:**
 - Solid arrows (→): Direct state dependency (parent state change triggers child)
 - Dashed arrows (⇢): Indirect relationship (business flow, not automatic trigger)
+- 🟡 Yellow nodes: DSS Layer entities (new in v3.0)
+
+---
+
+*Document version 3.0 — DSS Edition | 25 state machines | 14 cron jobs | 72 tables | 215+ RLS policies*
