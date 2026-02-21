@@ -1,5 +1,6 @@
 
 import { ActiveTenant, AdminTenant } from "@/features/users/types/tenant";
+import { cn } from "@/shared/utils/utils";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import {

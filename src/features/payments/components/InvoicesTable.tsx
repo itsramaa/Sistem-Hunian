@@ -11,7 +11,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
 import { formatCurrency } from '@/shared/utils/currency';
 import { format } from 'date-fns';
-import { Bell, Download, Eye, FileText, Loader2, MoreHorizontal, Send } from 'lucide-react';
+import { Bell, ChevronLeft, ChevronRight, Download, Eye, FileText, Loader2, MoreHorizontal, Send } from 'lucide-react';
 import { Invoice } from '../types';
 
 interface InvoicesTableProps {

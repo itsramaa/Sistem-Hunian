@@ -8,19 +8,19 @@ export const maintenanceService = {
       .from('maintenance_requests')
       .select(`
         *,
-        assigned_vendor:vendors(business_name, phone_number),
+        assigned_vendor:vendors(business_name),
         unit:units(
           unit_number,
           property:properties(name, address),
           contracts(status, start_date, end_date, tenant_user_id)
         ),
-        tenant:profiles!tenant_user_id(full_name, phone_number, email)
+        tenant:profiles!maintenance_requests_tenant_user_id_fkey(full_name, email)
       `)
       .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data as MaintenanceRequest[];
+    return (data as unknown) as MaintenanceRequest[];
   },
 
   async getTenantRequests(tenantId: string): Promise<MaintenanceRequest[]> {
@@ -28,7 +28,7 @@ export const maintenanceService = {
       .from('maintenance_requests')
       .select(`
         *,
-        assigned_vendor:vendors(business_name, phone_number),
+        assigned_vendor:vendors(business_name),
         unit:units(
           unit_number,
           property:properties(name, address)
@@ -38,7 +38,7 @@ export const maintenanceService = {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data as MaintenanceRequest[];
+    return (data as unknown) as MaintenanceRequest[];
   },
 
   async getTenantActiveRequests(tenantId: string, limit?: number): Promise<MaintenanceRequest[]> {
@@ -63,19 +63,19 @@ export const maintenanceService = {
       .from('maintenance_requests')
       .select(`
         *,
-        assigned_vendor:vendors(business_name, phone_number),
+        assigned_vendor:vendors(business_name),
         unit:units(
           unit_number,
           property:properties(name, address),
           contracts(status, start_date, end_date, tenant_user_id)
         ),
-        tenant:profiles!tenant_user_id(full_name, phone_number)
+        tenant:profiles!maintenance_requests_tenant_user_id_fkey(full_name, email)
       `)
       .eq('id', id)
       .single();
 
     if (error) throw error;
-    return data as MaintenanceRequest;
+    return (data as unknown) as MaintenanceRequest;
   },
 
   async createRequest(payload: CreateMaintenanceRequestPayload): Promise<MaintenanceRequest> {
@@ -356,7 +356,7 @@ export const maintenanceService = {
       }
     }
 
-    return request as MaintenanceRequest;
+    return (request as unknown) as MaintenanceRequest;
   },
 
   async getUpdates(requestId: string): Promise<MaintenanceTimeline[]> {
@@ -367,7 +367,7 @@ export const maintenanceService = {
       .order('created_at', { ascending: true });
 
     if (error) throw error;
-    return data as MaintenanceTimeline[];
+    return (data as unknown) as MaintenanceTimeline[];
   },
 
   async getReview(requestId: string): Promise<MaintenanceReview | null> {

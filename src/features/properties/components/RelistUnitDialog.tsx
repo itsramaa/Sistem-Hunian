@@ -19,9 +19,6 @@ interface RelistUnitData extends Partial<Unit> {
   has_wifi?: boolean;
   has_water_heater?: boolean;
   type?: string;
-  property?: {
-    name: string;
-  };
 }
 
 interface RelistUnitDialogProps {

@@ -56,12 +56,12 @@ export function useForumModeration(
       queryClient.invalidateQueries({ queryKey: ['admin-forum-reports'] });
       queryClient.invalidateQueries({ queryKey: ['admin-forum-stats'] });
       
-      createAuditLog(
-        user?.id || 'system',
-        'update_report_status',
-        { report_id: id, status },
-        { severity: 'medium' }
-      );
+      createAuditLog({
+        action: 'update',
+        entityType: 'forum_report',
+        entityId: id,
+        newData: { status },
+      });
 
       toast({
         title: 'Report Updated',
@@ -84,12 +84,12 @@ export function useForumModeration(
       queryClient.invalidateQueries({ queryKey: ['admin-forum-posts'] });
       queryClient.invalidateQueries({ queryKey: ['admin-forum-comments'] });
       
-      createAuditLog(
-        user?.id || 'system',
-        'update_content_visibility',
-        { type, id, is_visible: isVisible },
-        { severity: 'high' }
-      );
+      createAuditLog({
+        action: 'toggle_visibility',
+        entityType: type === 'post' ? 'forum_post' : 'forum_comment',
+        entityId: id,
+        newData: { is_visible: isVisible },
+      });
 
       toast({
         title: 'Visibility Updated',

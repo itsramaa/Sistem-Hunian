@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useQuery } from '@tanstack/react-query';
 import { subDays, subMonths } from 'date-fns';
 import { Calendar, Check, Copy, ExternalLink, Gift, Info, Mail, RefreshCw, Share2, Users, Wallet } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ReferralHistoryTable } from './ReferralHistoryTable';
 import { ReferralRewardsTable } from './ReferralRewardsTable';

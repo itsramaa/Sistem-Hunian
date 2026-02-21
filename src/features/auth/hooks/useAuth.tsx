@@ -185,6 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         merchant,
         vendor,
         isLoading: contextIsLoading,
+        error,
         signIn,
         signUp,
         signOut,

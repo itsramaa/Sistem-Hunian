@@ -20,7 +20,7 @@ export const propertyService = {
       .eq('merchant_id', merchantId);
 
     if (error) throw error;
-    return (data as Property[]) || [];
+    return (data as unknown as Property[]) || [];
   },
 
   async createProperty(payload: CreatePropertyPayload, merchantId: string): Promise<Property> {

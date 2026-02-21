@@ -7,9 +7,9 @@ import { createAuditLog } from "@/shared/utils/auditLog";
 export function useSubscriptionTiers() {
   const queryClient = useQueryClient();
 
-  const { data: tiers, isLoading, error } = useQuery({
+  const { data: tiers, isLoading, error } = useQuery<SubscriptionTier[]>({
     queryKey: ["subscription-tiers"],
-    queryFn: subscriptionService.fetchTiers,
+    queryFn: () => subscriptionService.fetchTiers(),
   });
 
   const createMutation = useMutation({

@@ -187,7 +187,7 @@ export const analyticsService = {
     if (paymentsRes.error) throw paymentsRes.error;
 
     return {
-      contracts: (contractsRes.data || []) as Pick<ContractData, 'id' | 'created_at' | 'status' | 'churn_reason' | 'unit_id'>[],
+      contracts: (contractsRes.data || []) as Pick<ContractData, 'id' | 'created_at' | 'status' | 'churn_reason' | 'unit_id' | 'end_date'>[],
       payments: (paymentsRes.data || []) as Pick<PaymentData, 'id' | 'status' | 'due_date' | 'paid_at' | 'amount'>[],
     };
   },

@@ -1,4 +1,4 @@
-
+import { cn } from "@/shared/utils/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/shared/components/ui/avatar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { ScrollArea } from "@/shared/components/ui/scroll-area";

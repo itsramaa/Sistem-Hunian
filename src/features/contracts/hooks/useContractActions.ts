@@ -1,7 +1,7 @@
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Contract } from '../types';
+import { Contract, CreateContractPayload } from '../types';
 import { ContractFormData } from '../types/schema';
 import { useMerchantContracts } from './useMerchantContracts';
 
@@ -35,7 +35,7 @@ export function useContractActions() {
       ...data,
       merchant_id: merchant.id,
       status: 'draft',
-    }, {
+    } as CreateContractPayload, {
       onSuccess: () => {
         toast.success('Contract created successfully');
         setCreateDialogOpen(false);

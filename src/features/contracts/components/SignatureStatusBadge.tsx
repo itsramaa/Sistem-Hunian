@@ -1,6 +1,6 @@
 import { Badge } from '@/shared/components/ui/badge';
 import { CheckCircle, PenLine } from 'lucide-react';
-import { Contract } from '../../types';
+import { Contract } from '../types';
 
 interface SignatureStatusBadgeProps {
   contract: Contract;

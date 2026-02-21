@@ -11,7 +11,7 @@ import { AlertTriangle, CheckCircle2, MessageSquare, XCircle } from "lucide-reac
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { EarlyTerminationRequest } from "../types";
+import { EarlyTerminationRequest } from "../types/index";
 
 interface EarlyTerminationReviewDialogProps {
   open: boolean;
@@ -45,7 +45,7 @@ export function EarlyTerminationReviewDialog({
 
     setIsSubmitting(true);
     try {
-      const updateData: Partial<EarlyTerminationRequest> = {
+      const updateData: Record<string, unknown> = {
         merchant_response: response,
         updated_at: new Date().toISOString(),
       };
