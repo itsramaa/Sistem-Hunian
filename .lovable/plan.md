@@ -1,242 +1,228 @@
 
-# Maksimalisasi Business Process Document - SiHuni Platform
+
+# Maksimalisasi Database Schema Documentation - SiHuni Platform
 
 ## Ringkasan
 
-File `docs/business-process.md` saat ini hanya mendokumentasikan 5 proses dasar (onboarding, payment, expense, occupancy, room/invoice state machines) yang sudah sangat tertinggal dari implementasi aktual. Dokumen akan di-rewrite secara menyeluruh untuk mencakup **seluruh 20+ proses bisnis end-to-end** yang sudah berjalan di platform, termasuk financial workflows, escrow, subscription lifecycle, marketplace, dan automated operations.
+File `docs/database-schema.md` saat ini berisi schema lama yang tidak sesuai dengan implementasi aktual. Dokumen mendeskripsikan tabel `users`, `rooms`, `leases`, `transactions`, `documents`, `ml_predictions` yang **tidak ada** di database sebenarnya. Database aktual memiliki **66 tabel**, **18 database functions**, **191 RLS policies**, dan **1 custom enum type** (`app_role`).
+
+Dokumen akan di-rewrite total untuk mencerminkan schema PostgreSQL yang sebenarnya di Lovable Cloud.
 
 ---
 
 ## Perubahan yang Akan Dilakukan
 
-### File: `docs/business-process.md` (Full Rewrite)
+### File: `docs/database-schema.md` (Full Rewrite)
 
-### 1. Introduction (Diperbarui)
-- Update scope dari 5 proses menjadi 20+ proses
-- Tambah referensi ke `api-specification.md` dan `backend-architecture.md`
-- Tambah document versioning (v2.0)
+### 1. Executive Summary (Diperbarui)
+- Update dari design doc menjadi living documentation of actual schema
+- PostgreSQL 16 on Lovable Cloud (bukan AWS RDS)
+- 66 public tables, 18 functions, 191 RLS policies
+- UUID v4 (`gen_random_uuid()`) bukan v7
+- `timestamptz` untuk semua timestamps
+- No ORM -- Supabase SDK client direct access
+- Currency: IDR (Indonesian Rupiah)
 
-### 2. Actors & Roles (Diperluas dari 5 menjadi 8 aktor)
+### 2. ERD (Full Rewrite -- 9 Domain Groups)
 
-| Actor | Deskripsi |
-|-------|-----------|
-| **Super Admin** | Platform owner, full access |
-| **Admin** | Manage merchants, tenants, disputes, moderation |
-| **Merchant (Pemilik Kos)** | Manage properties, contracts, invoices, escrow |
-| **Tenant (Penyewa)** | Pay rent, maintenance requests, forum, AI chatbot |
-| **Vendor** | Marketplace products, fulfill orders, maintenance jobs |
-| **System (Cron)** | 12 automated daily jobs |
-| **Xendit (Payment Gateway)** | Payment processing, webhooks, disbursement |
-| **Resend (Email)** | 30+ transactional email templates |
+Mermaid ER diagram baru yang mencakup:
+1. **Identity & Access**: `profiles`, `user_roles`, `merchants`, `tenants`, `vendors`
+2. **Property**: `properties`, `units`, `unit_listings`
+3. **Contract**: `contracts`, `move_out_notices`, `move_out_inspections`, `move_out_tasks`, `move_out_timeline`, `early_termination_requests`
+4. **Billing**: `invoices`, `payments`, `payment_plans`, `payment_plan_installments`, `late_fee_records`, `collections_cases`
+5. **Financial**: `escrow_accounts`, `escrow_transactions`, `disbursements`, `bank_accounts`, `xendit_transactions`, `deposit_refunds`, `deposit_disputes`
+6. **Subscription**: `subscription_tiers`, `merchant_subscriptions`, `subscription_invoices`, `pending_subscription_changes`, `cancellation_feedback`
+7. **Marketplace**: `products`, `orders`, `order_reviews`, `vendor_bank_accounts`, `vendor_verifications`, `vendor_jobs`, `vendor_earnings`, `vouchers`
+8. **Community**: `forum_posts`, `forum_comments`, `forum_likes`, `forum_reports`, `chat_conversations`, `chat_messages`, `chatbot_knowledge`, `chatbot_analytics`
+9. **System**: `notifications`, `audit_logs`, `analytics_events`, `platform_settings`, `referrals`, `referral_rewards`, `referral_commissions`, `provinces`, `cities`, `tenant_invitations`, `tenant_merchant_history`, `merchant_verifications`, `merchant_verification_history`, `maintenance_requests`, `maintenance_updates`, `maintenance_timeline`, `maintenance_reviews`, `disputes`
 
-### 3. Core Business Processes (20+ proses)
+### 3. Detailed Table Definitions (66 Tables)
 
-#### 3.1 User Registration & Bootstrap
-- Registration flow per role (merchant/tenant/vendor)
-- `ensure-user-bootstrap` edge function creates profile + role-specific records
-- Admin 2FA (TOTP) setup via `validate-admin-secret`
-- Mermaid: sequence diagram registration -> bootstrap -> role dashboard
+Setiap tabel akan didokumentasikan dengan format:
 
-#### 3.2 Merchant Verification Workflow
-- Document submission (KTP, business docs)
-- Admin review: approve / reject / request resubmission
-- Status transitions: `pending` -> `verified` / `rejected`
-- Resubmission counter and instructions
-- Mermaid: state diagram verification lifecycle
+```text
+Table: [name]
+Purpose: [description]
++------------------+---------------+----------+------------------+
+| Column           | Type          | Nullable | Default          |
++------------------+---------------+----------+------------------+
+| id               | uuid          | NO       | gen_random_uuid()|
+| ...              | ...           | ...      | ...              |
++------------------+---------------+----------+------------------+
+Indexes: [list]
+RLS: [summary of policies]
+```
 
-#### 3.3 Tenant Invitation & Onboarding
-- Merchant invites tenant via email (generates token)
-- `get-tenant-invitation` validates token (public, no auth)
-- Tenant registers -> `accept-tenant-invitation` creates:
-  - Tenant profile
-  - Contract (draft/active)
-  - First invoice(s)
-  - Unit status update
-- Mermaid: sequence diagram invitation -> registration -> contract creation
+Dikelompokkan per domain:
 
-#### 3.4 Property & Unit Management
-- CRUD properties and units
-- Unit status: vacant / occupied / maintenance / reserved
-- Vacancy tracking via `vacancy-tracking-cron` (daily)
-- Mermaid: state diagram unit lifecycle
+#### 3.1 Identity & Access Management
+- `profiles` (8 cols) -- user profiles linked to `auth.users`
+- `user_roles` (4 cols) -- RBAC with `app_role` enum (admin, merchant, tenant, vendor)
+- `merchants` (30 cols) -- merchant business data, verification, billing config
+- `tenants` (21 cols) -- tenant profile, KTP, emergency contact, auto-pay settings
+- `vendors` (19 cols) -- vendor business data, ratings, verification
 
-#### 3.5 Contract Lifecycle
-- Creation (draft -> pending_signature)
-- Digital signature flow (merchant signs, tenant signs)
-- Signature status: `unsigned` -> `merchant_signed` -> `fully_signed`
-- Status transitions: `draft` -> `active` -> `notice` -> `completed` / `terminated`
-- Early termination request + penalty calculation
-- Move-out notice -> inspection -> deposit refund
-- Mermaid: state diagram full contract lifecycle
+#### 3.2 Property & Units
+- `properties` (16 cols) -- property master data with amenities, images
+- `units` (16 cols) -- individual units with status tracking, vacancy days
+- `unit_listings` -- public listing for vacant units
 
-#### 3.6 Invoice Generation & Billing Automation
-- `auto-generate-invoices` (daily cron, checks billing_day)
-- Invoice lifecycle: `draft` -> `pending` -> `sent` -> `paid` / `overdue` -> `cancelled`
-- Grace period handling
-- Late fee calculation (percentage or fixed based on contract)
-- Mermaid: flowchart auto-generation logic + state diagram invoice lifecycle
+#### 3.3 Contracts & Move-Out
+- `contracts` (31 cols) -- rental contracts with signature, billing, termination config
+- `move_out_notices` -- tenant move-out intentions
+- `move_out_inspections` (16 cols) -- inspection with deductions, signatures, photos
+- `move_out_tasks` -- checklist items for move-out
+- `move_out_timeline` -- timeline events during move-out
+- `early_termination_requests` -- penalty calculation, counter-offers
 
-#### 3.7 Payment Collection (Xendit Integration)
-- Tenant initiates payment -> `xendit-create-invoice` creates Xendit invoice
-- Tenant pays via VA/e-wallet/QRIS
-- `xendit-webhook` receives callback (PAID/EXPIRED/FAILED)
-- Fee calculation: Platform 1% + Gateway 2.5%
-- Net amount deposited to merchant's escrow
-- Idempotency check (prevents duplicate processing)
-- Mermaid: sequence diagram tenant -> Xendit -> webhook -> escrow
+#### 3.4 Invoices & Payments
+- `invoices` (21 cols) -- rent invoices with late fee, grace period, payment plan link
+- `payments` (13 cols) -- payment records per contract
+- `payment_plans` (18 cols) -- installment/deferred plans
+- `payment_plan_installments` -- individual installment tracking
+- `late_fee_records` -- late fee application history
+- `collections_cases` (15 cols) -- escalated overdue cases
 
-#### 3.8 Overdue Escalation Process
-- `check-overdue-escalation` (daily cron)
-- 4-tier escalation:
-  - Day 1-3: Grace period (daily reminders)
-  - Day 4-7: Post-grace (email + in-app, merchant notified)
-  - Day 8-14: Pre-collection (formal email with penalty)
-  - Day 15+: Collection case created
-- Mermaid: flowchart escalation tiers
+#### 3.5 Financial & Escrow
+- `escrow_accounts` -- per-merchant escrow balance
+- `escrow_transactions` (13 cols) -- deposits/withdrawals with fee breakdown
+- `disbursements` (18 cols) -- payout to bank with review workflow
+- `bank_accounts` (8 cols) -- merchant bank details
+- `xendit_transactions` (18 cols) -- payment gateway records
+- `deposit_refunds` (17 cols) -- tenant deposit return with deductions
+- `deposit_disputes` (14 cols) -- disputed deductions
 
-#### 3.9 Payment Plan Management
-- Merchant creates payment plan for overdue tenant
-- Types: `installments` (split) or `deferred` (postpone)
-- `check-payment-plan` (daily cron) monitors installments
-- Auto-default if installment missed
-- Mermaid: state diagram payment plan lifecycle
+#### 3.6 Subscriptions
+- `subscription_tiers` (15 cols) -- plan definitions with limits
+- `merchant_subscriptions` -- active subscriptions per merchant
+- `subscription_invoices` (17 cols) -- subscription billing records
+- `pending_subscription_changes` -- queued plan changes
+- `cancellation_feedback` (7 cols) -- churn feedback
 
-#### 3.10 Auto-Pay Execution
-- Tenant enables auto-pay
-- `auto-pay-execute` (cron) creates Xendit invoices for due invoices
-- Automatic payment without tenant action
-- Mermaid: flowchart auto-pay decision logic
+#### 3.7 Marketplace
+- `products` -- vendor product catalog
+- `orders` -- order records with status workflow
+- `order_reviews` -- tenant reviews for vendor orders
+- `vendor_bank_accounts` (9 cols) -- vendor payout details
+- `vendor_verifications` (9 cols) -- vendor document verification
+- `vendor_jobs` -- maintenance job assignments
+- `vendor_earnings` -- earning tracking per vendor
+- `vouchers` -- discount/promo codes
 
-#### 3.11 Escrow & Disbursement Engine
-- Rent payments deposited to escrow (net after fees)
-- `scheduled-disbursement` (configurable: daily/weekly/monthly)
-- Fee rates: Daily 0.25%, Weekly/Monthly free
-- Manual review for large amounts
-- Admin approve/reject disbursement
-- `xendit-disbursement` calls Xendit API
-- `xendit-disbursement-webhook` confirms completion
-- Mermaid: sequence diagram payment -> escrow -> disbursement -> bank
+#### 3.8 Community & AI
+- `forum_posts` (14 cols) -- community posts with photos, tags
+- `forum_comments` -- post comments
+- `forum_likes` -- like system
+- `forum_reports` -- content moderation reports
+- `chat_conversations` (7 cols) -- AI chatbot conversations
+- `chat_messages` -- conversation messages
+- `chatbot_knowledge` (8 cols) -- FAQ knowledge base
+- `chatbot_analytics` (10 cols) -- chatbot usage tracking
 
-#### 3.12 Deposit Refund Process
-- Move-out notice triggers deposit review
-- Inspection and deduction calculation
-- `process-deposit-refund` creates Xendit disbursement to tenant
-- Status: `pending` -> `pending_bank_details` -> `processing` -> `refunded`
-- Mermaid: flowchart deposit refund with deductions
+#### 3.9 System & Operations
+- `notifications` -- in-app notification system
+- `audit_logs` (11 cols) -- immutable action logs
+- `analytics_events` (7 cols) -- frontend event tracking
+- `platform_settings` (6 cols) -- global config (key-value JSONB)
+- `referrals` (19 cols) -- referral tracking
+- `referral_rewards` (11 cols) -- reward management
+- `referral_commissions` -- commission processing
+- `provinces` / `cities` -- Indonesian geography reference
+- `tenant_invitations` -- invitation tokens
+- `tenant_merchant_history` -- tenant transfer history
+- `merchant_verifications` -- verification documents
+- `merchant_verification_history` (11 cols) -- verification audit trail
+- `maintenance_requests` -- maintenance ticket system
+- `maintenance_updates` -- status update entries
+- `maintenance_timeline` -- timeline tracking
+- `maintenance_reviews` -- vendor reviews from maintenance
+- `disputes` (13 cols) -- general dispute resolution
 
-#### 3.13 Merchant Subscription Lifecycle
-- Tiers: Free, Basic, Pro, Enterprise (admin-managed)
-- Trial period (configurable days per tier)
-- `subscription-billing` (daily) creates subscription invoices
-- Payment via Xendit (`subscription-payment`)
-- `subscription-renewal` (daily) auto-renew at period end
-- `subscription-grace-check` (daily): suspend after grace, cancel after extended grace
-- Feature gating based on tier (max properties, units, tenants)
-- Mermaid: state diagram subscription lifecycle (trial -> active -> past_due -> suspended -> cancelled)
+### 4. Custom Enum Type
 
-#### 3.14 Marketplace & Order Management
-- Vendor lists products (CRUD)
-- Tenant places order
-- Order status: `pending` -> `confirmed` -> `in_progress` -> `completed` / `canceled`
-- `order-auto-reject` (daily, 48h timeout)
-- Service fee calculation
-- Tenant reviews vendor after completion
-- Mermaid: state diagram order lifecycle
+```sql
+CREATE TYPE app_role AS ENUM ('admin', 'merchant', 'tenant', 'vendor');
+```
 
-#### 3.15 Maintenance Request Workflow
-- Tenant creates request (title, description, category, priority, images)
-- Merchant acknowledges and assigns vendor
-- Status: `pending` -> `acknowledged` -> `in_progress` -> `completed` / `cancelled`
-- SLA deadline tracking
-- Timeline entries for each status change
-- Tenant reviews vendor after completion
-- Mermaid: state diagram maintenance lifecycle
+Used in `user_roles.role` column and `has_role()` function.
 
-#### 3.16 Referral Program
-- User generates referral code
-- Referee registers with code
-- Events that trigger rewards: `rent_paid`, `subscription_paid`, vendor order
-- `process-referral-commissions` (daily cron)
-- `process-referral-reward` credits reward to user
-- `process-vendor-order-referral` for marketplace referrals
-- Mermaid: flowchart referral -> registration -> payment -> reward
+### 5. Database Functions (18 Functions)
 
-#### 3.17 Dispute Resolution
-- Tenant/merchant creates dispute
-- Admin reviews and resolves
-- Status: `open` -> `in_review` -> `resolved` / `dismissed`
-- Resolution notes and audit trail
-- Mermaid: state diagram dispute lifecycle
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `has_role(user_id, role)` | boolean | Check if user has specific role (used in RLS) |
+| `get_user_role(user_id)` | app_role | Get user's primary role |
+| `handle_new_user()` | trigger | Auto-create profile on auth signup |
+| `generate_merchant_code()` | text | Generate unique merchant code |
+| `set_merchant_code()` | trigger | Auto-set merchant code on insert |
+| `create_merchant_escrow()` | trigger | Auto-create escrow account for new merchant |
+| `generate_invoice_number()` | trigger | Auto-generate invoice numbers |
+| `generate_order_number()` | trigger | Auto-generate order numbers |
+| `generate_referral_code()` | trigger | Auto-generate referral codes |
+| `generate_voucher_code()` | text | Generate unique voucher code |
+| `update_updated_at_column()` | trigger | Auto-update `updated_at` timestamp |
+| `update_property_unit_counts()` | trigger | Sync property total/occupied counts |
+| `update_unit_status_on_contract_sign()` | trigger | Mark unit occupied on contract sign |
+| `calculate_sla_deadline()` | timestamptz | Calculate maintenance SLA deadline |
+| `set_maintenance_sla_deadline()` | trigger | Auto-set SLA deadline on request create |
+| `update_vendor_maintenance_rating()` | trigger | Recalculate vendor rating on review |
+| `set_cancellation_effective_date()` | trigger | Auto-set subscription cancellation date |
+| `check_phone_unique_per_role()` | boolean | Validate phone uniqueness per role |
 
-#### 3.18 Forum & Community
-- Tenant/merchant creates posts and comments
-- Like system
-- Report moderation (admin): `pending` -> `reviewed` -> `resolved` / `dismissed` / `action_taken`
-- Content visibility toggle (hide/unhide)
-- Post locking
-- Mermaid: state diagram report moderation lifecycle
+### 6. Indexing Strategy (Actual Indexes)
 
-#### 3.19 AI Chatbot Operations
-- 3 role-specific chatbots:
-  - `ai-chatbot` (tenant): property info, payment status, maintenance
-  - `merchant-ai-assistant`: financial analysis, tenant management
-  - `vendor-ai-assistant`: order management, product optimization
-- Context injection per role (property data, financial data, order data)
-- Prompt injection sanitization
-- Mermaid: flowchart chatbot context-loading -> AI response
+Document all existing indexes grouped by purpose:
+- **Primary keys**: All 66 tables have UUID PKs
+- **Lookup indexes**: `idx_audit_logs_user_id`, `idx_contracts_merchant_id`, etc.
+- **Status filters**: `idx_collections_cases_status`, `idx_deposit_refunds_status`
+- **Partial indexes**: `idx_contracts_move_out` (WHERE move_out_notice_given = true), `idx_disbursements_pending_review` (WHERE requires_manual_review = true)
+- **Composite indexes**: Various multi-column indexes for dashboard queries
+- **Unique constraints**: `profiles(user_id)`, `merchants(user_id)`, etc.
 
-#### 3.20 Notification System
-- In-app notifications (stored in `notifications` table)
-- Email via Resend (30+ templates)
-- WhatsApp via Whatsmeow (mock, ready for production)
-- Triggered by: payments, overdue, subscription, orders, maintenance, referrals
-- Mermaid: flowchart notification routing (in-app + email + WhatsApp)
+### 7. RLS Policy Summary (191 Policies)
 
-### 4. Data Lifecycle & State Machines (Diperluas dari 2 menjadi 10)
+Grouped by access pattern:
+- **Admin full access**: `has_role(auth.uid(), 'admin')` on most tables
+- **Merchant own-data**: via `merchants.user_id = auth.uid()` join pattern
+- **Tenant own-data**: `tenant_user_id = auth.uid()` direct or join
+- **Vendor own-data**: `vendors.user_id = auth.uid()` join pattern
+- **Public read**: `platform_settings`, `subscription_tiers` (active), `forum_posts` (visible)
+- **System insert**: `audit_logs`, `xendit_transactions` (with_check = true)
 
-State machines baru yang akan didokumentasikan:
-1. **Unit State**: Vacant -> Occupied -> Maintenance -> Reserved
-2. **Contract State**: Draft -> Active -> Notice -> Completed/Terminated
-3. **Invoice State**: Draft -> Pending -> Paid/Overdue -> Cancelled
-4. **Payment State**: Pending -> Paid/Failed/Cancelled
-5. **Order State**: Pending -> Confirmed -> In Progress -> Completed/Canceled
-6. **Maintenance State**: Pending -> Acknowledged -> In Progress -> Completed/Cancelled
-7. **Subscription State**: Trial -> Active -> Past Due -> Suspended -> Cancelled
-8. **Disbursement State**: Pending -> Pending Review -> Approved -> Completed/Failed
-9. **Dispute State**: Open -> In Review -> Resolved/Dismissed
-10. **Forum Report State**: Pending -> Reviewed -> Resolved/Dismissed/Action Taken
+### 8. Key Relationships
 
-### 5. Financial Rules & Fee Structure (Baru)
-- Platform fee: 1% per transaction
-- Gateway fee: 2.5% per transaction
-- Disbursement fee: Daily 0.25%, Weekly/Monthly free
-- Late fee: configurable per contract (percentage or fixed)
-- Referral reward: Rp 50,000 default
-- Subscription pricing per tier
+Document all foreign key-like relationships (enforced at application level via Supabase SDK `.select()` joins):
+- `profiles.user_id` -> `auth.users.id`
+- `merchants.user_id` -> `auth.users.id`
+- `contracts.merchant_id` -> `merchants.id`
+- `contracts.unit_id` -> `units.id`
+- `units.property_id` -> `properties.id`
+- `invoices.contract_id` -> `contracts.id`
+- `escrow_transactions.escrow_account_id` -> `escrow_accounts.id`
+- And 40+ more application-level relationships
 
-### 6. Validation Rules & Business Constraints (Diperluas)
-- Contract validations (dates, amounts, unit availability)
-- Invoice validations (due date, amounts)
-- Payment validations (amount matching, method)
-- Phone number validation (Indonesian format)
-- Email validation
-- Status transition validations (using defined transition maps)
+### 9. JSONB Column Patterns
 
-### 7. Cron Job Schedule (Baru)
-Complete schedule of 12 daily automated jobs with timing and dependencies.
+Document all JSONB columns and their expected structure:
+- `tenants.notification_preferences` -- notification toggle flags
+- `move_out_inspections.inspection_report` -- inspection findings
+- `move_out_inspections.deduction_details` -- itemized deductions
+- `chat_conversations.context` -- AI chatbot context
+- `analytics_events.event_data` -- frontend event payload
+- `platform_settings.setting_value` -- dynamic config values
+- `audit_logs.metadata` -- action metadata
+- `subscription_tiers.features` -- feature list per tier
 
-### 8. Integration Points (Diperbarui)
-- Xendit: Invoice creation, webhooks, disbursement
-- Resend: 30+ email templates
-- Whatsmeow: WhatsApp notifications
-- Lovable AI: Context-aware chatbot (Gemini models)
-- Supabase Storage: Documents, signatures, images
+### 10. Data Migration & Conventions
 
-### 9. Audit & Compliance (Baru)
-- Immutable audit log for all financial actions
-- Actor tracking (who did what, when)
-- RLS-enforced data isolation
-- Admin 2FA for sensitive operations
+- All PKs: `uuid DEFAULT gen_random_uuid()`
+- All timestamps: `timestamptz` (with timezone)
+- All `created_at`: `DEFAULT now()`
+- All `updated_at`: auto-updated via `update_updated_at_column()` trigger
+- Status columns: `text` with application-level validation (not DB enums, except `app_role`)
+- Monetary values: `numeric` (not float)
+- Arrays: `text[]` for photos, tags, keywords
+- No soft deletes (no `deleted_at` columns in actual schema)
 
 ---
 
@@ -244,19 +230,17 @@ Complete schedule of 12 daily automated jobs with timing and dependencies.
 
 | Skill | Penerapan |
 |-------|-----------|
-| `billing-automation` | Invoice lifecycle, subscription billing, dunning, payment plan processes |
-| `payment-integration` | Xendit webhook flow, idempotency, fee calculation, escrow deposit |
-| `referral-program` | Multi-event referral trigger, commission processing, reward crediting |
-| `api-security-best-practices` | Webhook verification, audit trails, RLS documentation |
-| `pci-compliance` | Tokenized payment handling, no PAN storage |
-| `security-auditor` | Immutable audit logs, financial action tracking |
-| `workflow-patterns` | State machine documentation, escalation tiers |
-| `architecture-patterns` | Event-driven cron job architecture |
-| `database-design` | State transition maps, validation rules |
-| `mermaid-visualizer` | 15+ diagrams (state, sequence, flowchart) |
+| `database-design` | Normalization analysis, PK strategy, relationship types, timestamp strategy |
+| `database-schema-designer` | Table documentation format, ERD design |
+| `supabase-postgres-best-practices` | Data types (text vs varchar, bigint, timestamptz, numeric), PK strategy, RLS patterns, index types, JSONB indexing |
+| `sql-optimization-patterns` | Index analysis, query pattern documentation |
+| `security-auditor` | RLS policy audit, data access patterns |
+| `pci-compliance` | Financial data handling (numeric for money, no PAN storage) |
+| `database-optimizer` | Partial indexes, composite indexes, covering indexes |
 
 ---
 
 ## Hasil Akhir
 
-Dokumen business process yang lengkap (~1200+ baris) mencakup 20+ proses bisnis end-to-end, 10 state machines, 15+ Mermaid diagrams, financial rules, validation constraints, dan cron job schedules yang mencerminkan implementasi aktual di platform SiHuni.
+Dokumen database schema lengkap (~1500+ baris) yang mencakup seluruh 66 tabel dengan kolom, tipe data, default values, 18 database functions, 191 RLS policies, indexing strategy, JSONB patterns, dan relationship maps yang mencerminkan database aktual di Lovable Cloud.
+
