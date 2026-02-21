@@ -1,10 +1,11 @@
 # Marketing Strategy & Go-to-Market Document — SiHuni
 
-**Version:** 2.0
+**Version:** 3.0 — DSS Edition
 **Last Updated:** 2026-02-22
 **Status:** Final Draft
-**Document ID:** DOC-MKT-002
-**Supersedes:** DOC-MKT-001 (v1.0)
+**Document ID:** DOC-MKT-003
+**Supersedes:** DOC-MKT-002 (v2.0)
+**Changelog:** Added DSS value propositions (OCR, ML, AI Advisors), updated feature gating matrix with DSS tiers, added DSS content strategy, new free tool (AI Rent Analyzer), updated competitor comparison with AI differentiation
 
 ---
 
@@ -45,13 +46,32 @@
 | **Referral Network** | Double-sided referral rewards with commission tracking and payouts | `referral_codes`, `referral_rewards`, 3 processing edge functions |
 | **4-Tier Overdue Escalation** | Automated dunning from grace period → reminders → pre-collection → collections case | `check-overdue-escalation` edge function, `collections_cases` table |
 | **Digital Contracts & Signatures** | Online contract signing with signature capture, multi-party workflow | `contracts` table with `signature_status`, `merchant_signature_url`, `tenant_signature_url` |
+| 🆕 **AI-Powered OCR** | Extract data from KTP, payment proofs, receipts, and business docs using Gemini Vision | 4 `ocr-*` edge functions, `ocr_results` table |
+| 🆕 **ML Predictive Analytics** | Revenue forecasting, tenant risk scoring, churn prediction, optimal pricing | 4 `ml-*` edge functions, `tenant_risk_scores` table |
+| 🆕 **AI Decision Support** | Smart advisors for pricing, collection strategy, maintenance priority, investment insights | 4 `dss-*` edge functions, `dss_recommendations` table |
 
 ### 1.2 Core Value Proposition
 
-> **"Kelola Kos Lebih Cerdas dengan Automasi & Data."**
-> (Manage Smarter with Automation & Data.)
+> **"Kelola Kos Lebih Cerdas dengan AI, Automasi & Data."**
+> (Manage Smarter with AI, Automation & Data.)
 
-For Indonesian kos owners who lose time chasing rent payments and managing spreadsheets, SiHuni automates billing, payments, and tenant lifecycle — so they can focus on growing their property business.
+For Indonesian kos owners who lose time chasing rent payments and managing spreadsheets, SiHuni automates billing, payments, and tenant lifecycle — and now uses **AI to predict risks, optimize pricing, and provide actionable business recommendations** — so they can focus on growing their property business.
+
+### 1.3 DSS Value Proposition (NEW)
+
+> **"AI yang Mengerti Bisnis Kos Anda."**
+> (AI that Understands Your Kos Business.)
+
+SiHuni's Decision Support System (DSS) transforms raw data into actionable intelligence:
+
+| DSS Capability | Business Value | Example Output |
+| :--- | :--- | :--- |
+| **OCR Document Processing** | Eliminate manual data entry — photo a KTP or receipt, AI extracts the data | "NIK: 3275xxxx, Nama: Ahmad Suryadi" extracted in 3 seconds |
+| **Payment Proof Matching** | Stop checking bank mutations — photo payment proof, AI matches to invoice | "Payment Rp 1.500.000 matched to Invoice #INV-2026-001 ✓" |
+| **Tenant Risk Scoring** | Know which tenants are likely to default before they do | "Tenant A: Risk Score 72/100 (HIGH) — late 3x in 6 months" |
+| **Revenue Forecasting** | See projected income for the next 3–12 months | "Projected Q3 revenue: Rp 45M (+12% vs Q2)" |
+| **Pricing Advisor** | Get AI-recommended rent prices based on market data | "Recommended price for Unit A: Rp 1.8M/month (+15% vs current)" |
+| **Collection Strategy** | Optimal approach per tenant based on their risk profile | "For Tenant B (Risk: Medium): Send reminder Day 3, call Day 7" |
 
 ---
 
@@ -77,10 +97,10 @@ For Indonesian kos owners who lose time chasing rent payments and managing sprea
 
 | Action | What SiHuni Does |
 | :--- | :--- |
-| **Eliminate** | Manual bank reconciliation (auto-matched via Xendit webhooks). Manual tenant data entry (digital invitation flow with auto-profile creation). |
-| **Reduce** | Administrative overhead: auto-invoicing, auto-reminders, 4-tier escalation reduce time spent chasing payments by ~80%. |
-| **Raise** | Financial transparency: real-time escrow balances, P&L analytics, disbursement tracking. Tenant trust: digital contracts with e-signatures and payment receipts. |
-| **Create** | Vendor marketplace inside kos platform (no competitor offers this). Role-specific AI chatbots. Referral commission system for organic growth. |
+| **Eliminate** | Manual bank reconciliation (auto-matched via Xendit webhooks). Manual tenant data entry (digital invitation flow with auto-profile creation). 🆕 Manual KTP/receipt data entry (OCR auto-extraction). |
+| **Reduce** | Administrative overhead: auto-invoicing, auto-reminders, 4-tier escalation reduce time spent chasing payments by ~80%. 🆕 Decision fatigue: AI advisors recommend optimal pricing, collection strategy, and maintenance priority. |
+| **Raise** | Financial transparency: real-time escrow balances, P&L analytics, disbursement tracking. 🆕 Predictive intelligence: revenue forecasts, tenant risk scores, churn prediction. Tenant trust: digital contracts with e-signatures and payment receipts. |
+| **Create** | Vendor marketplace inside kos platform (no competitor offers this). Role-specific AI chatbots. Referral commission system for organic growth. 🆕 AI-powered Decision Support System with OCR, ML analytics, and smart advisors — unprecedented in the Indonesian kos market. |
 
 ### 2.3 Positioning Map
 
@@ -124,6 +144,10 @@ For Indonesian kos owners who lose time chasing rent payments and managing sprea
 | **AI Assistance** | Not available | Not available | **3 role-specific AI chatbots (Gemini)** |
 | **Referral Program** | Word-of-mouth | Not available | **Built-in referral with commission tracking** |
 | **Security** | Minimal | Basic | **AES-256 encryption, RBAC, audit logs, RLS** |
+| 🆕 **OCR Document Processing** | Manual typing from photos | Not available | **AI extracts data from KTP, receipts, payment proofs** |
+| 🆕 **Predictive Analytics** | Gut feeling | Not available | **ML-powered risk scoring, revenue forecast, churn prediction** |
+| 🆕 **AI Business Advisors** | Hire consultant | Not available | **AI-powered pricing, collection, maintenance, investment advisors** |
+| 🆕 **Payment Proof Matching** | Check bank mutation manually | Not available | **OCR + auto-match to invoice within ± Rp 1.000** |
 
 ---
 
@@ -138,9 +162,9 @@ For Indonesian kos owners who lose time chasing rent payments and managing sprea
   - *"Ada penyewa yang kabur tanpa bayar, dan saya baru tahu setelah sebulan."* (A tenant ran away without paying, and I only found out after a month.)
   - *"Admin saya sering salah catat di Excel, dan saya tidak bisa audit."* (My admin makes errors in Excel, and I can't audit.)
   - *"Saya tidak tahu berapa net profit sebenarnya per properti."* (I don't know the actual net profit per property.)
-- **Motivation:** Financial clarity, automated collections, peace of mind.
-- **Aha Moment:** Seeing the first auto-generated invoice get paid by tenant via QRIS — without any manual follow-up.
-- **Willingness to Pay:** Rp 99k–249k/month (less than 1 day's room rent).
+- **Motivation:** Financial clarity, automated collections, peace of mind. 🆕 AI-powered insights to maximize rental income.
+- **Aha Moment:** Seeing the first auto-generated invoice get paid by tenant via QRIS — without any manual follow-up. 🆕 **DSS Aha Moment:** Seeing AI predict a tenant's default risk before it happens.
+- **Willingness to Pay:** Rp 99k–249k/month (less than 1 day's room rent). 🆕 Professional tier (Rp 249k) justified by OCR + risk scoring ROI.
 
 ### 3.2 Secondary Persona: "Mba Siti, The Admin/Staff"
 
@@ -160,6 +184,7 @@ For Indonesian kos owners who lose time chasing rent payments and managing sprea
 - **Pain Points:**
   - *"Pemilik kos tidak pernah kasih kuitansi, jadi saya tidak punya bukti bayar."* (The owner never gives receipts, so I have no proof of payment.)
   - *"Kalau AC rusak, saya harus WA berulang-ulang sampai diperbaiki."* (When the AC breaks, I have to WhatsApp repeatedly until it's fixed.)
+  - 🆕 *"Saya tidak tahu kapan harga sewa kamar saya harus naik."* (I don't know when to raise my room rent price.)
   - *"Saya mau bayar pakai QRIS tapi pemilik cuma terima transfer bank."* (I want to pay via QRIS but the owner only accepts bank transfer.)
 - **Motivation:** Easy digital payment, transparent billing, trackable maintenance requests.
 - **Aha Moment:** Pay rent via QRIS in 5 seconds, get instant digital receipt.
@@ -229,6 +254,16 @@ For Indonesian kos owners who lose time chasing rent payments and managing sprea
 | Digital contracts + e-sign | Basic | Full | Full | Full + custom templates |
 | Priority support | ❌ | ❌ | ✅ | ✅ + dedicated AM |
 | White-label options | ❌ | ❌ | ❌ | ✅ |
+| 🆕 **OCR Document Processing** | ❌ | ❌ | ✅ | ✅ |
+| 🆕 **Payment Proof OCR + Auto-Match** | ❌ | ❌ | ✅ | ✅ |
+| 🆕 **Revenue Forecasting** | ❌ | ❌ | ✅ | ✅ |
+| 🆕 **Tenant Risk Scoring** | ❌ | ❌ | ✅ | ✅ |
+| 🆕 **Churn Prediction** | ❌ | ❌ | ❌ | ✅ |
+| 🆕 **Optimal Pricing AI** | ❌ | ❌ | ❌ | ✅ |
+| 🆕 **AI Pricing Advisor** | ❌ | ❌ | ❌ | ✅ |
+| 🆕 **AI Collection Strategy** | ❌ | ❌ | ❌ | ✅ |
+| 🆕 **AI Maintenance Priority** | ❌ | ❌ | ✅ | ✅ |
+| 🆕 **AI Investment Insights** | ❌ | ❌ | ❌ | ✅ |
 
 ### 4.5 Pricing Psychology
 
@@ -326,6 +361,7 @@ flowchart LR
 | **Template Kontrak Sewa** | Generator | "contoh kontrak sewa kos", "template perjanjian kos" | High | High | Low |
 | **Cek Harga Sewa per Kota** | Analyzer | "harga sewa kos [kota]", "harga kos Jakarta" | High | Medium | Medium |
 | **Kalkulator Biaya Renovasi Kamar** | Calculator | "biaya renovasi kamar kos", "estimasi biaya kos" | Medium | Medium | Low |
+| 🆕 **AI Analisis Harga Sewa** | AI Tool | "harga sewa kos ideal", "berapa harga kos saya", "analisis harga kos AI" | High | Very High | Medium |
 
 ### 6.2 Tool Design Principles
 
@@ -367,10 +403,11 @@ flowchart LR
 
 | Pillar | Allocation | Topics | Primary Format | Buyer Stage |
 | :--- | :--- | :--- | :--- | :--- |
-| **Manajemen Kos** | 30% | Tips pengelolaan, efisiensi operasional, tenant management | Blog, PDF Guide | Awareness |
-| **Keuangan Properti** | 25% | ROI, cashflow, pajak kos, analisis investasi | Calculator, Infographic | Consideration |
-| **Hukum & Kepatuhan** | 20% | Kontrak sewa, hak pemilik, regulasi daerah, pajak | Blog, Template, Checklist | Consideration |
+| **Manajemen Kos** | 25% | Tips pengelolaan, efisiensi operasional, tenant management | Blog, PDF Guide | Awareness |
+| **Keuangan Properti** | 20% | ROI, cashflow, pajak kos, analisis investasi | Calculator, Infographic | Consideration |
+| **Hukum & Kepatuhan** | 15% | Kontrak sewa, hak pemilik, regulasi daerah, pajak | Blog, Template, Checklist | Consideration |
 | **Teknologi & Automasi** | 15% | Demo produk, tutorial, studi kasus, comparison | Video, Tutorial, Case Study | Decision |
+| 🆕 **AI & Data Intelligence** | 15% | OCR tips, AI untuk bisnis kos, prediksi pendapatan, risk management | Blog, Demo Video, Infographic | Consideration / Decision |
 | **Komunitas & Inspirasi** | 10% | Cerita sukses owner, tips bisnis properti, market trends | Social Post, Interview | Awareness |
 
 ### 7.2 Hub-and-Spoke SEO Structure
@@ -383,6 +420,8 @@ flowchart LR
 - Keuangan: "Menghitung ROI Investasi Kos-Kosan", "Strategi Cashflow untuk Pemilik Kos"
 - Hukum: "Panduan Kontrak Sewa Kos yang Sah", "Hak Pemilik Kos Menurut Hukum Indonesia"
 - Teknologi: "Excel vs Aplikasi Kos: Perbandingan Lengkap", "Tutorial: Auto-Invoice dalam 5 Menit"
+- 🆕 AI & Data: "Cara AI Prediksi Penyewa yang Akan Nunggak", "OCR: Foto KTP Langsung Jadi Data", "AI Pricing: Berapa Harga Sewa Ideal Kamar Anda?"
+- Komunitas: "Dari 5 Kamar ke 100: Perjalanan Pak Budi", "Tren Bisnis Kos 2026"
 - Komunitas: "Dari 5 Kamar ke 100: Perjalanan Pak Budi", "Tren Bisnis Kos 2026"
 
 ### 7.3 Keyword Research by Buyer Stage
@@ -692,14 +731,17 @@ SEO-driven comparison pages to capture high-intent traffic from owners actively 
 | SiHuni vs WhatsApp | `/vs/whatsapp` | "manajemen kos tanpa whatsapp", "aplikasi kos bukan whatsapp" | Data loss risk, no audit trail, missed payments |
 | SiHuni vs Manual | `/alternatives/manual` | "alternatif manajemen kos manual", "digitalisasi kos" | ROI calculator embedded, before/after scenarios |
 | Best Kos Apps 2026 | `/blog/best-kos-apps` | "aplikasi manajemen kos terbaik 2026" | Listicle with SiHuni featured prominently (with honest comparison) |
+| 🆕 SiHuni AI vs Konsultan | `/vs/consultant` | "konsultan properti kos", "analisis harga sewa kos" | AI advisor = Rp 249k/bulan vs. konsultan = Rp 5M+/engagement |
+| 🆕 AI untuk Bisnis Kos | `/blog/ai-kos` | "AI untuk manajemen kos", "teknologi AI properti" | Educational: how AI transforms kos management (OCR, prediction, advisors) |
 
 **Page Template Structure:**
 1. Hero: "SiHuni vs [Alternative] — Perbandingan Lengkap"
 2. Quick comparison table (features, price, ease of use)
 3. Detailed feature-by-feature breakdown
 4. Real scenario: "Pak Budi's day with Excel vs. SiHuni"
-5. Testimonial from converted user
-6. CTA: "Coba Gratis 14 Hari"
+5. 🆕 AI Demo: Interactive before/after showing OCR extraction or risk score prediction
+6. Testimonial from converted user
+7. CTA: "Coba Gratis 14 Hari"
 
 ---
 
@@ -822,17 +864,18 @@ This metric captures the core value delivered: a property with auto-invoicing me
 | `marketing-ideas` | Overall strategy structure, channel selection, tactics prioritization |
 | `pricing-strategy` | Value metric analysis, Good-Better-Best framework, tier differentiation, pricing page best practices |
 | `referral-program` | Referral loop design, trigger moments, double-sided rewards, K-Factor tracking |
-| `content-strategy` | 5 content pillars, hub-and-spoke structure, content calendar, keyword research by buyer stage |
+| `content-strategy` | 6 content pillars (incl. AI & Data Intelligence), hub-and-spoke structure, content calendar, keyword research |
 | `launch-strategy` | ORB framework, five-phase launch, Product Hunt checklist, launch timeline |
 | `startup-metrics-framework` | North Star metric, SaaS metrics dashboard (MRR/CAC/LTV/NDR), reporting cadence |
 | `marketing-psychology` | 12 applied mental models (zero-price, endowment, loss aversion, IKEA, bandwagon, etc.) |
 | `competitive-landscape` | Porter's Five Forces, Blue Ocean Strategy (Four Actions Framework), positioning map |
-| `competitor-alternatives` | Competitor comparison page strategy, positioning statement template |
+| `competitor-alternatives` | Competitor comparison page strategy, positioning statement template, 🆕 AI vs Consultant comparison |
 | `email-sequence` | 4 email sequences (onboarding, payment escalation, win-back, upgrade) |
 | `social-content` | Platform selection, content mix ratios, hook formulas for Indonesian audience |
-| `free-tool-strategy` | 4 engineering-as-marketing tools, evaluation scorecard, lead capture strategy |
+| `free-tool-strategy` | 5 engineering-as-marketing tools (🆕 +AI Analisis Harga Sewa), evaluation scorecard, lead capture |
 | `seo-content-writer` | Keyword research, hub-and-spoke SEO structure, content optimization guidelines |
+| 🆕 `dss-value-proposition` | DSS messaging framework, AI feature differentiation, tier-gated DSS positioning |
 
 ---
 
-*Document maintained by Product & Marketing Team. Last reviewed: 2026-02-22.*
+*Document version 3.0 — DSS Edition | Product & Marketing Team | Last reviewed: 2026-02-22*
