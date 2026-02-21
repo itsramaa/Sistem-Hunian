@@ -1,309 +1,353 @@
 
 
-# Maksimalisasi Development Standards Document - SiHuni Platform
+# Maksimalisasi Domain State Machines & Workflows - SiHuni Platform
 
 ## Ringkasan
 
-File `docs/development-standards.md` saat ini mendeskripsikan standar pengembangan yang **sama sekali tidak sesuai** dengan implementasi aktual. Dokumen berbicara tentang:
-- **Next.js / React 19** (aktual: React 18 + Vite SPA)
-- **NestJS backend** (aktual: 31 Deno Edge Functions)
-- **Prisma ORM** (aktual: Supabase SDK direct)
-- **Python FastAPI / ML Service** (aktual: tidak ada)
-- **BullMQ queue** (aktual: cron edge functions)
-- **Monorepo (`apps/`, `packages/`)** (aktual: single Vite project)
-- **`useOptimistic` React 19** (aktual: React 18, tidak digunakan)
+File `docs/domain-state-machines.md` saat ini mendeskripsikan state machines yang **100% tidak sesuai** dengan implementasi aktual:
+- **Document Processing OCR** -- tidak ada fitur OCR di platform
+- **ML Model Lifecycle (MLOps)** -- tidak ada ML/AI training pipeline
+- **Temporal Workflows** -- tidak digunakan (Deno Edge Functions + cron)
+- **xstate / NestJS State Pattern** -- tidak ada (status transitions via Supabase SDK)
+- **Room status: RESERVED, DIRTY** -- status unit aktual: `available`, `occupied`, `maintenance`
+- **Tenant: PROSPECT, SCREENING, BLACKLISTED** -- tidak ada status tenant berbasis risk scoring
+- **Payment: WRITE_OFF, VERIFIED** -- status aktual berbeda (draft, sent, paid, overdue, cancelled, partially_paid)
+- **PostgreSQL ENUMs** -- hanya `app_role` yang menggunakan enum; semua status lain menggunakan `text` columns
 
-Dokumen akan di-rewrite total untuk mencerminkan standar pengembangan yang benar-benar diterapkan di codebase.
-
----
+Platform sebenarnya memiliki **34 tabel dengan kolom status** dan **15+ distinct state machines** yang diimplementasikan via application-level transitions di Supabase SDK dan Edge Functions.
 
 ## Perubahan yang Akan Dilakukan
 
-### File: `docs/development-standards.md` (Full Rewrite)
+### File: `docs/domain-state-machines.md` (Full Rewrite)
 
-### 1. Introduction (Diperbarui)
-- Version 2.0, reflecting actual codebase
-- Platform: Lovable Cloud, React 18 SPA + Deno Edge Functions
-- No monorepo, no NestJS, no Python, no Docker
+### 1. Introduction (Diperbarui Total)
+- Version 2.0
+- Architecture: Status columns (`text`) with application-level transitions
+- No xstate, no Temporal, no NestJS State Pattern
+- Transitions enforced via: `VALID_STATUS_TRANSITIONS` maps in TypeScript, edge function logic, database triggers
+- State persistence: PostgreSQL `text` columns with default values
+- Audit: State changes logged to `audit_logs`, `maintenance_timeline`, `move_out_timeline`
 
-### 2. Technology Stack (Dikoreksi Total)
+### 2. Contract Lifecycle (Menggantikan Tenant Lifecycle + Room Occupancy)
 
-| Layer | Actual Technology | Previous (Wrong) |
-|-------|-------------------|------------------|
-| **Frontend** | React 18.3 | React 19 / Next.js |
-| **Build** | Vite 5.4 + SWC | Vite (generic) |
-| **Styling** | Tailwind CSS + shadcn/ui | Tailwind only |
-| **State** | Zustand + TanStack Query | Not specified |
-| **Backend** | Deno Edge Functions | NestJS 10.x |
-| **Database** | Supabase SDK (direct) | Prisma ORM |
-| **AI/ML** | Lovable AI (Gemini) | Python FastAPI |
-| **Queue** | Cron Edge Functions | BullMQ |
-| **Forms** | React Hook Form + Zod | Not specified |
-| **Charts** | Recharts | Not specified |
-| **Maps** | Leaflet + React Leaflet | Not specified |
+**States (8):** `draft` -> `active` -> `pending` -> `notice` -> `completed` -> `terminated` -> `expired` -> `cancelled`
 
-### 3. Project Structure (Actual)
+Default: `active`
+
+State diagram (Mermaid):
 
 ```text
-src/
-  features/          -- 25 feature modules (feature-based architecture)
-    auth/            -- components/, hooks/, services/, types/, utils/
-    billing/         -- components/, constants/, hooks/, services/, types/, utils/
-    contracts/       -- components/, hooks/, services/, types/, utils/
-    ...
-  shared/            -- Cross-cutting concerns
-    components/      -- UI library (54 shadcn components), layouts (5 role-based)
-    context/         -- ThemeContext
-    hooks/           -- Reusable hooks (useDebounce, useMobile, useResumableUpload, etc.)
-    services/        -- Shared services (locationService)
-    types/           -- Shared type definitions
-    utils/           -- Utility functions (currency, dateUtils, auditLog, statusColors, etc.)
-  store/             -- Zustand global store
-  constants/         -- Business constants (platformFees, subscriptionStatus, analytics)
-  pages/             -- Route page components (lazy-loaded)
-  integrations/      -- Auto-generated Supabase client & types
-  lib/               -- Integration wrappers
-supabase/
-  functions/         -- 31 Deno Edge Functions
-  config.toml        -- Edge function JWT config (auto-managed)
-docs/                -- Architecture & business documentation
+[*] --> draft (merchant creates contract)
+draft --> active (both parties sign / merchant_signed + tenant_signed = fully_signed)
+active --> notice (tenant submits move-out notice)
+active --> terminated (early termination approved)
+notice --> completed (move-out inspection done, deposit processed)
+draft --> cancelled (merchant cancels before signing)
+active --> expired (end_date passed without renewal)
 ```
 
-### 4. Frontend Standards (Diperbarui Total)
+Signature sub-states: `signature_status` column tracks `merchant_signed`, `tenant_signed`, `fully_signed`
 
-#### 4.1 Feature Module Pattern
-- Setiap feature di `src/features/` memiliki subdirektori: `components/`, `hooks/`, `services/`, `types/`, `utils/`
-- Cross-feature imports harus melalui `@/shared/`
-- Contoh aktual dari codebase (auth, billing, contracts, properties, dll.)
+Side effects:
+- `update_unit_status_on_contract_sign()` trigger: unit.status -> `occupied` when contract signed
+- Unit returns to `available` when contract completed/terminated
 
-#### 4.2 Component Architecture
-- **Page Components**: `src/pages/` -- thin wrappers, lazy-loaded via `React.lazy()`
-- **Layout Components**: 5 role-based layouts (`AdminLayout`, `MerchantLayout`, `TenantLayout`, `VendorLayout`, `DashboardLayout`)
-- **UI Components**: 54 shadcn/ui primitives in `src/shared/components/ui/`
-- **Feature Components**: Domain-specific in `src/features/*/components/`
-- **Shared Components**: `ConfirmDialog`, `FileUpload`, `EnhancedFileUpload`, `NavLink`, `Meta`
+### 3. Unit Status (Menggantikan Room/Property Occupancy)
 
-#### 4.3 React Patterns (React 18 -- bukan 19)
-- `React.lazy()` + `Suspense` untuk code splitting (semua 80+ pages lazy-loaded)
-- `useCallback`, `useState`, `useEffect`, `useContext` -- standard hooks
-- Context pattern: `AuthProvider` wrapping entire app
-- TanStack Query untuk server state management
-- Zustand untuk client UI state (sidebar toggle, persist)
-- React Hook Form + Zod untuk form validation
+**States (3):** `available` | `occupied` | `maintenance`
 
-#### 4.4 Routing & Authorization
-- React Router v6 (`BrowserRouter` + `Routes` + `Route`)
-- `ProtectedRoute` component dengan `allowedRoles` prop
-- 4 role prefixes: `/admin/*`, `/merchant/*`, `/tenant/*`, `/vendor/*`
-- Public routes: `/auth`, `/invite/:token`, `/referral`, `/payment/*`
-- Lazy loading semua page components
+Default: `available`
 
-#### 4.5 Styling Standards
-Berdasarkan Tailwind patterns skill:
-- **Semantic color tokens** (WAJIB): `bg-card`, `text-foreground`, `text-muted-foreground` -- JANGAN `bg-white`, `text-gray-900`
-- **Dark mode**: Otomatis via CSS variables -- JANGAN manual `dark:` variants
-- **Responsive**: Mobile-first (`grid-cols-1 md:grid-cols-2 lg:grid-cols-3`)
-- **Spacing scale**: 2, 4, 6, 8, 12, 16, 24 -- JANGAN random (5, 7, 9, 11)
-- **Font families**: `font-sans` (Inter) untuk body, `font-display` (Plus Jakarta Sans) untuk headings
-- **Custom utilities**: `.glass`, `.gradient-primary`, `.gradient-accent`, `.safe-area-top/bottom`
-- **Touch targets**: Minimum 44x44px untuk mobile
-- **Animations**: Gunakan `transition-transform`/`transition-opacity` (GPU) -- JANGAN `transition-all`
-
-#### 4.6 Design Token Reference (Actual CSS Variables)
-Dokumentasi lengkap light/dark mode tokens:
-- Primary: `#8B6F47` (Cokelat Gelap)
-- Secondary: `#A68B5B` (Cokelat Medium)
-- Background: `#FFF8E7` (Krem)
-- Accent: `#F4D03F` (Kuning Keemasan)
-- Success/Warning/Info/Destructive semantic colors
-- Chart colors (5 variants)
-- Sidebar-specific colors
-
-### 5. Backend Standards (Deno Edge Functions -- Menggantikan NestJS)
-
-#### 5.1 Edge Function Structure
 ```text
-supabase/functions/[function-name]/
-  index.ts          -- Single entry point per function
+[*] --> available
+available --> occupied (contract fully signed -- via DB trigger)
+occupied --> maintenance (maintenance request urgent)
+occupied --> available (contract completed/terminated)
+maintenance --> available (repair complete)
 ```
 
-#### 5.2 Standard Pattern
-- CORS headers helper (shared pattern across all functions)
-- `serve()` from Deno std library
-- Supabase client creation with `SUPABASE_SERVICE_ROLE_KEY`
-- Environment variables via `Deno.env.get()`
-- JSON response with proper status codes
+Key difference from old doc: No `RESERVED`, `DIRTY` states. No booking/check-in flow.
 
-#### 5.3 Security Patterns
-- Webhook verification: Timing-safe HMAC comparison (Xendit)
-- JWT verification: `verify_jwt` config per function in `config.toml`
-- Service role key: For admin-level database operations
-- Idempotency: Check existing records before processing (webhooks)
+### 4. Invoice Lifecycle (Menggantikan Payment Transaction)
 
-#### 5.4 Error Handling Pattern
-- Try/catch at function level
-- Console.error for logging
-- Structured JSON error responses with CORS headers
-- HTTP status codes: 200 (success), 400 (client error), 401 (unauthorized), 500 (server error)
+**States (7):** `draft` | `pending` | `sent` | `paid` | `overdue` | `cancelled` | `partially_paid`
 
-### 6. Data Layer Standards (Menggantikan Prisma)
+Default: `draft`
 
-#### 6.1 Supabase SDK Patterns
-- Import: `import { supabase } from "@/integrations/supabase/client"`
-- `.select()` for reads, `.insert()`, `.update()`, `.delete()` for writes
-- `.maybeSingle()` untuk queries yang mungkin return 0 rows (race condition safe)
-- `.eq()`, `.in()`, `.gte()`, `.lte()` untuk filtering
-- JANGAN edit `client.ts` atau `types.ts` (auto-generated)
-
-#### 6.2 Type Safety
-- Types auto-generated dari database schema di `src/integrations/supabase/types.ts`
-- Feature-specific types di `src/features/*/types/`
-- Zod schemas untuk runtime validation (forms, API inputs)
-- `as never` cast untuk JSONB columns (Supabase SDK limitation)
-
-#### 6.3 Currency & Number Handling
-- `formatCurrency()`: `Intl.NumberFormat('id-ID', { currency: 'IDR' })` -- centralized
-- `formatCurrencyCompact()`: Rp 1.2M, Rp 500K -- for dashboards
-- `parseCurrency()`: Strip formatting for input processing
-- `numeric` type di database, `number` di TypeScript
-- `Math.round()` untuk fee calculations (avoid floating point)
-
-### 7. State Management Standards (Baru)
-
-#### 7.1 Server State: TanStack Query
-- Used for all API data fetching
-- `QueryClientProvider` at app root
-- Cache-first with stale-while-revalidate
-
-#### 7.2 Client State: Zustand
-- Persistent UI state (sidebar, preferences)
-- `persist` middleware with `localStorage`
-- Minimal global state -- prefer local component state
-
-#### 7.3 Auth State: React Context
-- `AuthProvider` wrapping BrowserRouter
-- Exposes: `user`, `session`, `profile`, `role`, `merchant`, `vendor`
-- Methods: `signIn`, `signUp`, `signOut`, `refreshProfile`
-- Session listener via `supabase.auth.onAuthStateChange()`
-
-### 8. Validation Standards (Baru)
-
-#### 8.1 Zod Schemas (Centralized)
-Documented schemas from actual codebase:
-- `strongPasswordSchema`: 12+ chars, upper/lower/number/special, common password blacklist
-- `phoneSchema`: Indonesian format `(+62|62|0)[0-9]{9,13}`
-- `emailSchema`: Standard email validation
-- `businessNameSchema`: 3-100 chars, alphanumeric + basic punctuation
-- `merchantCodeSchema`: 6 chars uppercase alphanumeric
-- `referralCodeSchema`: 8 chars uppercase alphanumeric
-- `appRoleSchema`: `admin | merchant | tenant | vendor`
-
-#### 8.2 Form Validation
-- React Hook Form + Zod resolver
-- Indonesian language error messages (Bahasa Indonesia)
-- Password strength calculator with visual feedback
-
-### 9. Audit & Logging Standards (Baru)
-
-#### 9.1 Audit Log Pattern
-- Centralized via `createAuditLog()` utility
-- Typed actions: `create`, `update`, `delete`, `approve`, `reject`, `suspend`, `payout`, `export`, etc.
-- Typed entities: `merchant`, `vendor`, `dispute`, `escrow`, `disbursement`, etc.
-- Auto-captures: `user_id`, `user_agent`, `timestamp`
-- Stores `old_data` and `new_data` for change tracking
-- Helper functions: `logExport()`, `logConfigChange()`, `logPayout()`, `logStatusChange()`
-
-### 10. Utility Standards (Baru)
-
-#### 10.1 Date Utilities (Centralized)
-- `formatDisplayDate()` -- `date-fns` based formatting
-- `isOverdue()`, `isDueSoon()`, `getDaysOverdue()` -- business date logic
-- Date range helpers: `getMonthDateRange()`, `getLastNDaysRange()`
-- Re-exports from `date-fns` for consistency
-
-#### 10.2 Status Color Mapping (Centralized)
-- `getPriorityColor()` -- maps priority to badge variant
-- `getJobStatusColor()`, `getOrderStatusColor()`, etc.
-- Uses shadcn Badge variants: `default`, `secondary`, `destructive`, `outline`
-
-#### 10.3 Business Constants (Centralized)
-- `VENDOR_PLATFORM_FEE_PERCENT`: 5%
-- `MINIMUM_PAYOUT_AMOUNT`: Rp 50,000
-- `calculatePlatformFee()`, `calculateNetAmount()`
-
-### 11. Build & Performance Standards (Diperbarui)
-
-#### 11.1 Code Splitting Strategy
-- 6 manual chunks: `vendor`, `ui`, `data`, `charts`, `maps`
-- 80+ lazy-loaded page components
-- Chunk size warning limit: 1000 KB
-- Compression: Dual gzip + Brotli
-
-#### 11.2 Performance Patterns (dari Tailwind patterns skill)
-- GPU-accelerated animations only (`transform`, `opacity`)
-- `aspect-ratio` for images (prevent CLS)
-- `min-w-0` on grid items (prevent overflow)
-- Mobile-first responsive breakpoints
-
-### 12. TypeScript Configuration (Actual)
-
-```json
-{
-  "compilerOptions": {
-    "allowJs": true,
-    "noImplicitAny": false,
-    "strictNullChecks": false,
-    "paths": { "@/*": ["./src/*"] }
-  }
-}
+Transition map (from `merchantInvoiceService.ts`):
+```text
+draft --> sent, cancelled
+sent --> paid, overdue, cancelled
+overdue --> paid, cancelled
+paid --> (terminal)
+cancelled --> (terminal)
 ```
 
-Note: `noImplicitAny: false` dan `strictNullChecks: false` -- ini adalah konfigurasi pragmatis untuk development speed, bukan strict mode seperti yang diklaim di dokumen lama.
+Side effects:
+- `auto-generate-invoices` cron: Creates invoices on billing_day -> `draft`
+- `check-overdue-escalation` cron: `sent` -> `overdue` when past due_date
+- Xendit webhook: `sent`/`overdue` -> `paid` on payment callback
+- Late fee applied via `late_fee_records` table
 
-### 13. Import & Path Conventions
+### 5. Overdue Escalation (4-Tier) -- NEW
 
-- Path alias: `@/` maps to `src/`
-- Feature imports: `@/features/auth/hooks/useAuth`
-- Shared imports: `@/shared/components/ui/button`
-- Integration imports: `@/integrations/supabase/client` (JANGAN di-edit)
-- Lib imports: `@/lib/integrations/supabase/client` (wrapper)
+This is a sub-workflow of Invoice, implemented in `check-overdue-escalation` edge function:
 
-### 14. Naming Conventions (Actual)
+```text
+Day 1-3:   Grace Period (daily reminder notification)
+Day 4-7:   Post-Grace (twice daily, stronger warnings)
+Day 8-14:  Pre-Collection (escalate to merchant, admin notified)
+Day 15+:   Collections (create/escalate collections_case)
+```
 
-| Type | Convention | Example |
-|------|-----------|---------|
-| Components | PascalCase | `PropertyCard.tsx` |
-| Hooks | camelCase `use*` | `useAuth.tsx`, `useDebounce.ts` |
-| Services | camelCase | `locationService.ts` |
-| Utils | camelCase | `currency.ts`, `dateUtils.ts` |
-| Types | PascalCase | `auth.ts` (exports `AppRole`, `UserProfile`) |
-| Constants | SCREAMING_SNAKE | `VENDOR_PLATFORM_FEE_PERCENT` |
-| Pages | PascalCase | `Dashboard.tsx` |
-| Layouts | PascalCase + `Layout` | `AdminLayout.tsx` |
-| Edge Functions | kebab-case directory | `xendit-webhook/index.ts` |
-| CSS Variables | kebab-case | `--primary-foreground` |
-| Database cols | snake_case | `created_at`, `user_id` |
-| Zod schemas | camelCase + `Schema` | `strongPasswordSchema` |
+**Collections Case States:** `initiated` -> escalation levels 1, 2, 3 based on days overdue:
+- Level 1: 15-20 days overdue
+- Level 2: 21-29 days overdue
+- Level 3: 30+ days overdue
 
-### 15. Forbidden Patterns (Baru)
+### 6. Payment Status
 
-- JANGAN edit `src/integrations/supabase/client.ts` (auto-generated)
-- JANGAN edit `src/integrations/supabase/types.ts` (auto-generated)
-- JANGAN edit `supabase/config.toml` (auto-managed)
-- JANGAN edit `.env` (auto-managed)
-- JANGAN gunakan raw colors (`bg-white`, `text-gray-500`) -- gunakan semantic tokens
-- JANGAN gunakan `dark:` variants -- semantic tokens handle dark mode
-- JANGAN gunakan `any` tanpa justifikasi
-- JANGAN gunakan `transition-all` -- gunakan specific properties
-- JANGAN gunakan fixed px values untuk font sizes (`text-[16px]`)
-- JANGAN gunakan random z-index (`z-[999]`, `z-[9999]`)
+**States (5):** `pending` | `paid` | `overdue` | `cancelled` | `failed`
 
-### 16. Version Control (Diperbarui)
+Default: `pending`
 
-- Lovable IDE auto-deploys (no manual CI/CD)
-- Git-based version history in Lovable
-- No branching strategy needed (Lovable manages this)
-- Code review via Lovable chat interaction
+```text
+[*] --> pending
+pending --> paid (Xendit callback / manual entry)
+pending --> overdue (due_date passed)
+pending --> failed (payment gateway failure)
+overdue --> paid (late payment received)
+paid --> (terminal)
+cancelled --> (terminal)
+```
+
+### 7. Payment Plan Lifecycle -- NEW
+
+**States (6):** `pending_acceptance` | `active` | `accepted` | `completed` | `defaulted` | `cancelled`
+
+Default: `pending_acceptance`
+
+```text
+[*] --> pending_acceptance (merchant creates plan)
+pending_acceptance --> accepted (tenant accepts)
+accepted --> active (first installment period begins)
+active --> completed (all installments paid)
+active --> defaulted (installment overdue beyond threshold)
+pending_acceptance --> cancelled (merchant/tenant cancels)
+```
+
+**Installment sub-states (4):** `pending` | `paid` | `overdue` | `cancelled`
+
+### 8. Maintenance Request Lifecycle (Diperbarui Total)
+
+**States (4):** `pending` | `in_progress` | `completed` | `cancelled`
+
+Default: `pending`
+
+Transition map (from `UpdateMaintenanceDialog.tsx`):
+```text
+pending --> in_progress, cancelled
+in_progress --> completed, cancelled
+completed --> (terminal)
+cancelled --> (terminal)
+```
+
+Guard conditions:
+- `completed` requires `notes` (completion notes mandatory)
+- Vendor assignment validated against `service_categories`
+- SLA deadline auto-calculated via `calculate_sla_deadline()` trigger
+
+Timeline tracking: `maintenance_timeline` table logs every status change with `actor_id`, `actor_role`, `message`
+
+### 9. Merchant Subscription Lifecycle -- NEW
+
+**States (5):** `trialing` | `active` | `suspended` | `cancelled` | (implicit: `past_due`)
+
+Default: `trialing`
+
+```text
+[*] --> trialing (merchant onboards with free trial)
+trialing --> active (trial ends + payment method provided)
+trialing --> active (downgraded to free tier if no payment)
+active --> suspended (subscription invoice overdue)
+suspended --> active (payment received within grace period)
+suspended --> cancelled (grace period expired -- 7 days)
+active --> cancelled (cancellation_effective_date reached)
+```
+
+Cron functions:
+- `subscription-renewal`: Handles trial expiry and period renewal
+- `subscription-grace-check`: Manages 7-day grace period, suspension, cancellation
+- `subscription-billing`: Generates subscription invoices
+
+### 10. Move-Out Workflow -- NEW
+
+Three connected state machines:
+
+#### 10.1 Move-Out Notice
+**States:** `submitted` | `acknowledged` | `approved` | `rejected` | `completed`
+
+Default: `submitted`
+
+```text
+[*] --> submitted (tenant submits notice)
+submitted --> acknowledged (merchant reviews)
+acknowledged --> approved (merchant approves)
+approved --> completed (inspection done, deposit processed)
+submitted --> rejected (merchant rejects)
+```
+
+#### 10.2 Move-Out Inspection
+**States (3):** `scheduled` | `completed` | `pending`
+
+Default: `scheduled`
+
+```text
+[*] --> scheduled (auto-created with move-out notice)
+scheduled --> completed (inspector submits inspection_report JSONB)
+```
+
+#### 10.3 Early Termination Request
+**States:** `pending_approval` | `approved` | `denied` | `counter_offered`
+
+Default: `pending_approval`
+
+```text
+[*] --> pending_approval (tenant requests early termination)
+pending_approval --> approved (merchant accepts, penalty applied)
+pending_approval --> denied (merchant denies with reason)
+pending_approval --> counter_offered (merchant proposes different amount)
+counter_offered --> approved (tenant accepts counter)
+counter_offered --> denied (tenant rejects counter)
+```
+
+### 11. Order Lifecycle (Marketplace) -- NEW
+
+**States (5):** `pending` | `confirmed` | `in_progress` | `completed` | `canceled`
+
+Default: `pending`
+
+```text
+[*] --> pending (tenant places order)
+pending --> confirmed (vendor confirms)
+pending --> canceled (auto-reject after 48h via order-auto-reject cron)
+confirmed --> in_progress (vendor starts work)
+in_progress --> completed (vendor marks done)
+confirmed --> canceled (vendor/tenant cancels)
+```
+
+### 12. Vendor Job Lifecycle -- NEW
+
+**States:** `pending` | `accepted` | `in_progress` | `completed` | `rejected` | `cancelled`
+
+Default: `pending`
+
+### 13. Disbursement Lifecycle -- NEW
+
+**States:** `pending` | `approved` | `rejected` | `processing` | `completed` | `failed`
+
+Default: `pending`
+
+```text
+[*] --> pending (scheduled-disbursement cron creates)
+pending --> approved (admin reviews, or auto-approved if !requires_manual_review)
+pending --> rejected (admin rejects with notes)
+approved --> processing (xendit-disbursement sends to bank)
+processing --> completed (xendit-disbursement-webhook confirms)
+processing --> failed (xendit reports failure)
+```
+
+### 14. Tenant Invitation Lifecycle -- NEW
+
+**States (3):** `pending` | `accepted` | `expired`
+
+Default: `pending`
+
+```text
+[*] --> pending (merchant sends invitation with 7-day token)
+pending --> accepted (tenant clicks link + accepts)
+pending --> expired (7 days passed without acceptance)
+```
+
+Token-based validation (no JWT required for `get-tenant-invitation` and `accept-tenant-invitation` edge functions).
+
+### 15. Referral Lifecycle -- NEW
+
+**States:** `pending` | `active` | `completed` | `expired`
+
+Default: `pending`
+
+```text
+[*] --> pending (referee signs up via referral code)
+pending --> active (referee completes onboarding)
+active --> completed (referee makes first payment / meets criteria)
+pending --> expired (no action within period)
+```
+
+### 16. Verification Workflows -- NEW
+
+#### 16.1 Merchant Verification
+**States:** `pending` | `approved` | `rejected`
+
+Default: `pending`
+
+With audit trail in `merchant_verification_history` table.
+
+#### 16.2 Vendor Verification
+**States:** `pending` | `approved` | `rejected`
+
+Default: `pending`
+
+### 17. Dispute Lifecycle
+
+**States:** `open` | `in_progress` | `resolved` | `closed`
+
+Default: `open`
+
+### 18. Deposit Refund Lifecycle -- NEW
+
+**States:** `pending_processing` | `approved` | `processing` | `completed` | `rejected`
+
+Default: `pending_processing`
+
+With linked `deposit_disputes` (status: `pending` | `resolved` | `rejected`)
+
+### 19. Escrow Transaction Lifecycle -- NEW
+
+**States:** `pending` | `completed` | `failed`
+
+Default: `pending`
+
+### 20. UI State-Color Mapping (Actual Implementation)
+
+Centralized in `src/shared/utils/statusColors.ts`:
+
+| Status | Badge Variant | Text Class | Background Class |
+|--------|--------------|------------|-----------------|
+| `pending` | `secondary` | `text-warning` | `bg-warning/10` |
+| `active` | `outline` | `text-primary` | `bg-primary/10` |
+| `in_progress` | `default` | `text-primary` | `bg-primary/10` |
+| `completed` | `outline` | `text-success` | `bg-success/10` |
+| `paid` | `outline` | `text-success` | `bg-success/10` |
+| `cancelled` | `destructive` | `text-destructive` | `bg-destructive/10` |
+| `rejected` | `destructive` | `text-destructive` | `bg-destructive/10` |
+| `overdue` | `destructive` | `text-destructive` | `bg-destructive/10` |
+| `terminated` | `destructive` | `text-destructive` | `bg-destructive/10` |
+| `suspended` | `destructive` | `text-destructive` | `bg-destructive/10` |
+| `draft` | `secondary` | `text-muted-foreground` | `bg-muted` |
+| `expired` | `default` | `text-muted-foreground` | `bg-muted` |
+| `trialing` | `default` | `text-primary` | `bg-primary/10` |
+| `verified` | `outline` | `text-success` | `bg-success/10` |
+
+### 21. Implementation Guidelines (Diperbarui Total)
+
+- **No PostgreSQL enums for status** (except `app_role`): All status columns use `text` type with application-level validation
+- **Transition enforcement pattern**: `VALID_STATUS_TRANSITIONS` maps in TypeScript service files
+- **No xstate/state library**: Simple object maps + if/switch guards
+- **Audit logging**: `createAuditLog()` utility for tracking state changes with `old_data`/`new_data`
+- **Timeline tables**: `maintenance_timeline`, `move_out_timeline` for detailed state change history
+- **Trigger-based automation**: Database triggers for unit status sync, SLA calculation, vendor rating updates
+- **Cron-based transitions**: 12 daily edge functions for time-based state changes (overdue escalation, auto-reject, subscription grace)
 
 ---
 
@@ -311,18 +355,20 @@ Note: `noImplicitAny: false` dan `strictNullChecks: false` -- ini adalah konfigu
 
 | Skill | Penerapan |
 |-------|-----------|
-| `tailwind-patterns` | Semantic colors, responsive design, spacing scale, dark mode, touch targets, animation performance, z-index, form validation states |
-| `supabase-postgres-best-practices` | Data types (text, timestamptz, numeric), SDK patterns, RLS awareness |
-| `api-security-best-practices` | Webhook verification, JWT config, timing-safe comparison |
-| `architecture-patterns` | Feature-based module organization, layered service architecture |
-| `database-design` | Type safety with auto-generated types, JSONB handling |
-| `web-performance-optimization` | Code splitting, lazy loading, GPU animations, compression |
-| `pci-compliance` | No PAN storage, tokenized payment references |
-| `security-auditor` | Audit log patterns, immutable logging, role-based access |
+| `workflow-patterns` | State machine design, transition guards, side effects |
+| `workflow-orchestration-patterns` | Cron-based orchestration, idempotent job design |
+| `architecture-patterns` | Application-level vs DB-level state enforcement |
+| `database-design` | text vs enum for status columns, timeline/history tables |
+| `supabase-postgres-best-practices` | Trigger-based automation, RLS-aware state changes |
+| `billing-automation` | Invoice lifecycle, overdue escalation tiers, payment plans |
+| `payment-integration` | Xendit webhook-driven state transitions, idempotency |
+| `security-auditor` | Audit log patterns for state change tracking |
+| `design-system-patterns` | Status-to-color mapping, badge variant system |
+| `tailwind-patterns` | Semantic color tokens for status visualization |
 
 ---
 
 ## Hasil Akhir
 
-Dokumen development standards lengkap (~900+ baris) yang mencerminkan standar pengembangan aktual: React 18 + Vite SPA, 25 feature modules, 54 shadcn/ui components, Deno Edge Functions, Supabase SDK direct access, Zustand + TanStack Query state management, Zod validation, dan Tailwind semantic token system -- menggantikan seluruh referensi NestJS/Prisma/Python/BullMQ yang tidak relevan.
+Dokumen domain state machines lengkap (~1000+ baris) mencakup **15+ state machines** aktual dari 34 tabel dengan status columns: Contract (8 states), Unit (3 states), Invoice (7 states), Payment (5 states), Overdue Escalation (4 tiers), Payment Plan (6 states), Maintenance (4 states), Subscription (5 states), Move-Out (3 sub-workflows), Order (5 states), Disbursement (6 states), Tenant Invitation (3 states), Referral (4 states), Verification (3 states), Dispute (4 states), Deposit Refund (5 states), dan Escrow Transaction (3 states) -- menggantikan seluruh referensi OCR/ML/Temporal/xstate yang tidak relevan.
 
