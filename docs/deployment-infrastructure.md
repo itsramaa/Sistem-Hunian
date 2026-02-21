@@ -1,6 +1,6 @@
-# Deployment & Infrastructure Documentation — SiHuni v2.0
+# Deployment & Infrastructure Documentation — SiHuni v3.0 (DSS Edition)
 
-**Version:** 2.0.0  
+**Version:** 3.0.0  
 **Last Updated:** 2026-02-21  
 **Status:** Living Document — Reflects Actual Implementation  
 **Platform:** Lovable Cloud (Supabase-powered Serverless)
@@ -15,10 +15,10 @@ This document defines the **actual** deployment architecture, infrastructure com
 
 - Lovable Cloud serverless infrastructure
 - Frontend build & delivery pipeline
-- 31 Deno Edge Functions (backend)
+- 43 Deno Edge Functions (31 core + 12 DSS)
 - PostgreSQL 16 managed database
 - Storage buckets & file handling
-- External service integrations (Xendit, Resend, Lovable AI)
+- External service integrations (Xendit, Resend, Lovable AI — Vision + Reasoning)
 - Cron job scheduling
 - Security & compliance
 - Monitoring & disaster recovery
@@ -30,7 +30,7 @@ This document defines the **actual** deployment architecture, infrastructure com
 | **Serverless-First** | No servers to manage; edge functions auto-scale to zero |
 | **Zero-Config Scaling** | Lovable Cloud handles compute, database, and CDN scaling |
 | **Two-Environment Model** | Isolated Test (preview) and Production (published) environments |
-| **Security by Default** | 191 RLS policies, JWT auth, RBAC, HTTPS everywhere |
+| **Security by Default** | 215+ RLS policies, JWT auth, RBAC, HTTPS everywhere |
 | **No Infrastructure-as-Code** | No Terraform, CloudFormation, or Docker — managed platform |
 
 ---
@@ -45,14 +45,14 @@ graph TD
 
     CDN -->|Static Files| SPA["React SPA<br/>Vite 5.4 Build<br/>gzip + Brotli"]
 
-    SPA -->|Supabase SDK| DB[("PostgreSQL 16<br/>66 Tables<br/>191 RLS Policies")]
-    SPA -->|fetch()| EF["31 Deno Edge Functions<br/>Serverless, Auto-scaling"]
+    SPA -->|Supabase SDK| DB[("PostgreSQL 16<br/>72 Tables<br/>215+ RLS Policies")]
+    SPA -->|fetch()| EF["43 Deno Edge Functions<br/>Serverless, Auto-scaling"]
     SPA -->|SDK| Storage["Supabase Storage<br/>5 Buckets"]
 
     EF -->|Service Role| DB
     EF -->|API| Xendit["Xendit<br/>Payment Gateway"]
     EF -->|API| Resend["Resend<br/>Transactional Email"]
-    EF -->|API| AI["Lovable AI<br/>Gemini 2.5 Flash/Pro"]
+    EF -->|API| AI["Lovable AI<br/>Gemini 2.5 Pro<br/>Vision + Reasoning"]
     EF -->|SDK| Storage
 
     Xendit -->|Webhook| EF
@@ -272,7 +272,7 @@ sequenceDiagram
 | **Timeout** | Platform default |
 | **Container** | None — V8 isolate-based |
 
-### 6.2 Function Catalog (31 Functions)
+### 6.2 Function Catalog (43 Functions)
 
 #### 6.2.1 Authentication & User Bootstrapping
 
@@ -355,6 +355,33 @@ sequenceDiagram
 | `order-auto-reject` | true | Reject unconfirmed orders (48h timeout) |
 | `generate-invoice-pdf` | true | Generate downloadable invoice PDFs |
 
+#### 6.2.11 DSS — OCR Services
+
+| Function | `verify_jwt` | Purpose |
+|----------|-------------|---------|
+| `ocr-ktp-extract` | true | Extract data from KTP photos via Gemini Vision |
+| `ocr-payment-proof` | true | Extract & match payment proof to invoices |
+| `ocr-business-document` | true | Extract business document data (NIB, SIUP, etc.) |
+| `ocr-maintenance-receipt` | true | Extract line items from maintenance receipts |
+
+#### 6.2.12 DSS — ML Predictive Analytics
+
+| Function | `verify_jwt` | Purpose |
+|----------|-------------|---------|
+| `ml-revenue-forecast` | true | Revenue forecasting (3/6/12 months) |
+| `ml-tenant-risk-score` | true | Tenant risk scoring (0–100) |
+| `ml-churn-prediction` | true | Tenant churn probability prediction |
+| `ml-optimal-pricing` | true | Unit pricing optimization recommendations |
+
+#### 6.2.13 DSS — AI Decision Support
+
+| Function | `verify_jwt` | Purpose |
+|----------|-------------|---------|
+| `dss-pricing-advisor` | true | Comprehensive pricing consultant |
+| `dss-collection-strategy` | true | Optimal debt collection strategy |
+| `dss-maintenance-priority` | true | Maintenance request prioritization |
+| `dss-investment-insight` | true | Property investment ROI analysis |
+
 ### 6.3 Public Functions (No JWT Required)
 
 4 functions configured with `verify_jwt = false` in `supabase/config.toml`:
@@ -387,10 +414,10 @@ verify_jwt = false
 | Metric | Value |
 |--------|-------|
 | **Engine** | PostgreSQL 16 |
-| **Tables** | 66 public tables |
+| **Tables** | 72 public tables (66 core + 6 DSS) |
 | **Functions** | 18 database functions |
 | **Triggers** | 45+ triggers |
-| **RLS Policies** | 191 policies |
+| **RLS Policies** | 215+ policies |
 | **Custom Types** | 1 enum (`app_role`) |
 | **Connection Pooling** | Supavisor (built-in) |
 | **Backups** | Automatic daily snapshots |
@@ -496,15 +523,29 @@ graph LR
 | `vendor-ai-assistant` | Gemini 2.5 Flash | Job management, earnings insights |
 
 **Secret:** `LOVABLE_API_KEY` (system-managed, cannot be deleted)  
-**Note:** No external API key required — Lovable AI provides models natively.
+**Note:** No external API key required — Lovable AI provides models natively.  
+**DSS Usage:** All 12 DSS functions use Gemini 2.5 Pro for Vision (OCR) and Reasoning (ML/DSS).
 
 ---
+
+### 9.4 Lovable AI — DSS Functions
+
+| Function Category | Model | Capability Used |
+|-------------------|-------|-----------------|
+| OCR Services (4) | Gemini 2.5 Pro | **Multimodal Vision** — image → structured data |
+| ML Analytics (4) | Gemini 2.5 Pro | **Reasoning + Tool Calling** — data → predictions |
+| DSS Advisors (4) | Gemini 2.5 Pro | **Reasoning + Tool Calling** — analysis → recommendations |
+
+**Implementation Pattern:**
+- OCR: Image downloaded from Storage → base64 → Gemini Vision → structured extraction via tool_choice
+- ML: Historical data aggregated from DB → JSON context → Gemini Reasoning → scored predictions
+- DSS: Combines ML outputs + business context → Gemini → actionable recommendations
 
 ## 10. Cron Job Infrastructure
 
 ### 10.1 Architecture
 
-- **12 daily automated jobs** running as independent edge functions
+- **14 daily automated jobs** running as independent edge functions (12 core + 2 DSS)
 - Triggered via external cron service calling edge function HTTP endpoints
 - Each job is **idempotent** (safe to re-run without side effects)
 - Each job handles its own error logging and recovery
@@ -525,6 +566,8 @@ graph LR
 | 09:00 | `scheduled-disbursement` | Financial | Process merchant payouts to bank |
 | 10:00 | `order-auto-reject` | Marketplace | Reject unconfirmed orders (48h) |
 | 11:00 | `vacancy-tracking-cron` | Property | Update vacancy day counters |
+| 12:00 | `ml-daily-risk-scoring` | **DSS** | Batch tenant risk scoring for all active tenants |
+| 13:00 | `ml-weekly-forecast` | **DSS** | Weekly revenue forecast update per merchant (Mon only) |
 
 ### 10.3 Cron Job Design Principles
 
@@ -553,12 +596,14 @@ graph LR
 
 | Measure | Detail |
 |---------|--------|
-| **Row Level Security** | 191 policies enforce per-role data isolation |
+| **Row Level Security** | 215+ policies enforce per-role data isolation |
 | **Service Role Key** | Edge functions use `SUPABASE_SERVICE_ROLE_KEY` for admin ops |
 | **Webhook HMAC** | Timing-safe comparison for Xendit webhook verification |
 | **Input Sanitization** | DOMPurify for user-generated HTML content |
 | **PCI Compliance** | No card/payment data stored — Xendit handles all PCI scope |
-| **Audit Trail** | Immutable `audit_logs` table (INSERT-only, no UPDATE/DELETE policies) |
+| **Audit Trail** | Immutable `audit_logs` + `ml_model_runs` tables (INSERT-only) |
+| **DSS Data Isolation** | All DSS results scoped to merchant via RLS |
+| **OCR Storage** | Document images in private buckets only (`verification-documents`, `contract-documents`) |
 
 ### 11.3 Network Security
 
@@ -726,10 +771,11 @@ graph LR
 | **Database Schema** | [`docs/database-schema.md`](./database-schema.md) |
 | **API Specification** | [`docs/api-specification.md`](./api-specification.md) |
 | **Backend Architecture** | [`docs/backend-architecture.md`](./backend-architecture.md) |
-| **Edge Function Code** | `supabase/functions/` (31 directories) |
+| **Business Processes** | [`docs/business-process.md`](./business-process.md) |
+| **Edge Function Code** | `supabase/functions/` (43 directories) |
 | **Vite Config** | `vite.config.ts` |
 | **Supabase Config** | `supabase/config.toml` |
 
 ---
 
-*Document auto-generated from live Lovable Cloud infrastructure analysis. Last verified against 31 deployed edge functions, 66 database tables, 4 configured secrets, and 5 storage buckets.*
+*Document auto-generated from live Lovable Cloud infrastructure analysis (v3.0 — DSS Edition). Last verified against 43 deployed edge functions, 72 database tables, 4 configured secrets, 5 storage buckets, and 14 cron jobs.*
