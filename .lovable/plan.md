@@ -2,7 +2,7 @@
 
 # DSS Documentation Update Progress
 
-## Status: File 4 of 8 Complete ✅
+## Status: File 5 of 8 Complete ✅
 
 ### Completed Files
 
@@ -52,9 +52,17 @@
 - Added 5 new JSONB column patterns for DSS tables
 - Added `ml_model_runs` as immutable audit table
 
-### Remaining Files (4)
+#### ✅ File 5: `docs/deployment-infrastructure.md` (v3.0)
+- Updated header, version, architecture philosophy (215+ RLS)
+- Updated topology diagram: 72 tables, 43 functions, Gemini Vision + Reasoning
+- Added 12 DSS functions catalog (Sections 6.2.11–6.2.13)
+- Added Section 9.4: Lovable AI DSS Functions with implementation patterns
+- Updated cron jobs to 14 (added ml-daily-risk-scoring, ml-weekly-forecast)
+- Updated security: DSS data isolation, OCR storage, ml_model_runs audit
+- Updated all counts and footer
 
-5. `docs/deployment-infrastructure.md` — Update for DSS deployment considerations
+### Remaining Files (3)
+
 6. `docs/development-standards.md` — Add DSS development patterns and conventions
 7. `docs/domain-state-machines.md` — Add state machines for DSS entities
 8. `docs/marketing.md` — Update marketing content with DSS value propositions
