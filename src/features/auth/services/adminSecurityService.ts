@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/integrations/supabase/client';
 import { createAuditLog } from '@/shared/utils/auditLog';
+import * as OTPAuth from 'otpauth';
 
 export const adminSecurityService = {
   async validateAdminSecret(secretKey: string): Promise<boolean> {

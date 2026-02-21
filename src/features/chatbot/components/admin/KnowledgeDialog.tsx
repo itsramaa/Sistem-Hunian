@@ -102,7 +102,7 @@ export function KnowledgeDialog({
   }, [open, initialData, form]);
 
   const handleSubmit = (data: FormValues) => {
-    onSubmit(data);
+    onSubmit(data as KnowledgeFormData);
   };
 
   return (

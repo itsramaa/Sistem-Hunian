@@ -97,7 +97,7 @@ export function MoveOutsTable({
                 <TableCell>
                   {tenant?.full_name || 'Unknown'}
                   <span className="block text-xs text-muted-foreground">
-                    {tenant?.phone_number || tenant?.email}
+                    {tenant?.email}
                   </span>
                 </TableCell>
                 <TableCell>

@@ -1,0 +1,37 @@
+export interface Merchant {
+  id: string;
+  user_id: string;
+  business_name: string;
+  business_type: string | null;
+  address: string | null;
+  city: string | null;
+  province: string | null;
+  postal_code: string | null;
+  merchant_code: string | null;
+  verification_status: string | null;
+  verification_submitted_at: string | null;
+  verified_at: string | null;
+  verified_by: string | null;
+  rejected_at: string | null;
+  rejected_by: string | null;
+  rejection_details: string | null;
+  resubmission_count: number | null;
+  resubmission_instructions: string | null;
+  subscription_tier: string | null;
+  disbursement_schedule: string | null;
+  billing_day: number | null;
+  penalty_rate: number | null;
+  referred_by: string | null;
+  referral_discount: number | null;
+  referral_discount_months: number | null;
+  total_disbursed: number | null;
+  last_disbursement_date: string | null;
+  min_disbursement_amount: number | null;
+  created_at: string;
+  updated_at: string;
+  profiles?: {
+    email: string;
+    full_name: string | null;
+    phone: string | null;
+  };
+}

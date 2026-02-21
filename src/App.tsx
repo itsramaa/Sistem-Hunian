@@ -4,6 +4,7 @@ import { Suspense, lazy } from "react";
 import { HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
+import { InactivityMonitor } from "@/features/auth/components/InactivityMonitor";
 import { ProtectedRoute } from "@/features/auth/components/ProtectedRoute";
 import { AuthProvider } from "@/features/auth/hooks/useAuth";
 import { Meta } from "@/shared/components/meta";

@@ -88,9 +88,10 @@ export function MerchantDocumentsTab({ merchantId }: MerchantDocumentsTabProps) 
 
       {showLightbox && verifications.length > 0 && (
         <DocumentLightbox
-          documents={verifications.map(v => ({ url: v.document_url, type: v.document_type }))}
+          open={showLightbox}
+          onOpenChange={setShowLightbox}
+          documents={verifications.map(v => ({ id: v.id, document_type: v.document_type, document_url: v.document_url }))}
           initialIndex={lightboxInitialIndex}
-          onClose={() => setShowLightbox(false)}
         />
       )}
     </>

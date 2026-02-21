@@ -1,7 +1,7 @@
 import { useToast } from '@/shared/hooks/use-toast';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { merchantService } from '../services/merchantService';
-import { Merchant } from '../types/merchant';
+import { Merchant } from '../types/admin-merchant';
 
 export function useMerchantActions(onSuccess?: () => void) {
   const { toast } = useToast();
@@ -72,7 +72,7 @@ export function useMerchantActions(onSuccess?: () => void) {
 
   const bulkApproveMutation = useMutation({
     mutationFn: async ({ merchants, selectedIds, notes }: { merchants: Merchant[], selectedIds: string[], notes: string }) => {
-      await merchantService.bulkApproveMerchants(merchants, selectedIds, notes);
+      await merchantService.bulkApprove(merchants, selectedIds, notes);
       return selectedIds.length;
     },
     onSuccess: (count) => {

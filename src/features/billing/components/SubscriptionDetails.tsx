@@ -7,7 +7,8 @@ import {
     CardHeader,
     CardTitle
 } from '@/shared/components/ui/card';
-import { AlertCircle, CreditCard } from 'lucide-react';
+import { format } from 'date-fns';
+import { Activity, AlertCircle, Calendar, CreditCard } from 'lucide-react';
 import React from 'react';
 import { useBillingStore } from '../hooks/useBillingStore';
 

@@ -23,7 +23,7 @@ export function useEscrow(
     queryKey: ['admin-escrow-transactions', page, pageSize, filters?.status, filters?.type, filters?.search],
     queryFn: () => escrowService.fetchTransactions(page, pageSize, filters),
     enabled: isAdmin,
-    keepPreviousData: true,
+    placeholderData: (previousData) => previousData,
   });
 
   const { data: pendingReviews = [], isLoading: pendingLoading } = useQuery({
@@ -72,8 +72,8 @@ export function useEscrow(
 
   return {
     accounts,
-    transactions: transactionsData?.data || [],
-    totalTransactions: transactionsData?.count || 0,
+    transactions: (transactionsData as any)?.data || [],
+    totalTransactions: (transactionsData as any)?.count || 0,
     pendingReviews,
     isLoading: accountsLoading || transactionsLoading || pendingLoading,
     processDisbursement: processDisbursementMutation,

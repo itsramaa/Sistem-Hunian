@@ -26,9 +26,11 @@ export function MerchantRejectionDialog({
           </DialogDescription>
         </DialogHeader>
         <RejectionReasonForm 
-          onSubmit={onConfirm}
-          onCancel={() => onOpenChange(false)}
-          isLoading={isLoading}
+          open={open}
+          onOpenChange={onOpenChange}
+          merchantName=""
+          onConfirm={onConfirm}
+          loading={isLoading}
         />
       </DialogContent>
     </Dialog>

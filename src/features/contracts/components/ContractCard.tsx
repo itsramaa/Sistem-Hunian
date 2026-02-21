@@ -11,7 +11,7 @@ import {
   PenLine,
   Trash2
 } from 'lucide-react';
-import { Contract } from '../../types';
+import { Contract } from '../types';
 import { ContractStatusBadge } from './ContractStatusBadge';
 import { SignatureStatusBadge } from './SignatureStatusBadge';
 
