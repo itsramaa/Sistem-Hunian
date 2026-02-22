@@ -95,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         // Defer Supabase calls with setTimeout
         if (session?.user) {
+          setIsProfileLoading(true);
           setTimeout(() => {
             fetchUserData(session.user.id);
           }, 0);
