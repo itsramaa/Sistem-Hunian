@@ -144,8 +144,7 @@ export default function MerchantContracts() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-6">
-        <PageHeader icon={FileText} title="Contracts" description="Manage rental agreements with your tenants">
+      <PageHeader icon={FileText} title="Contracts" description="Manage rental agreements with your tenants">
           <Button onClick={() => setShowCreateDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Create Contract
@@ -304,7 +303,6 @@ export default function MerchantContracts() {
           onConfirm={handleConfirmDelete}
           loading={deleteContractMutation.isPending}
         />
-      </div>
     </div>
   );
 }

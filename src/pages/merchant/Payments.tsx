@@ -102,8 +102,7 @@ export default function MerchantPayments() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-6">
-        <PageHeader icon={CreditCard} title="Payments" description="Track rent payments and payment history">
+      <PageHeader icon={CreditCard} title="Payments" description="Track rent payments and payment history">
           <Button 
             variant="outline" 
             onClick={() => refetchPayments()} 
@@ -198,7 +197,6 @@ export default function MerchantPayments() {
             merchant_id: merchantId || '',
           } : null}
         />
-      </div>
     </div>
   );
 }

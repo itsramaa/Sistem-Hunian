@@ -106,24 +106,20 @@ const MerchantMoveOuts = () => {
   }
 
   return (
-    <>
-      <div className="space-y-6">
-        <PageHeader icon={DoorOpen} title="Move Outs" description="Manage move-out notices and vacancies" />
+    <div className="space-y-6">
+      <PageHeader icon={DoorOpen} title="Move Outs" description="Manage move-out notices and vacancies" />
 
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-          <StatCard icon={Clock} title="Upcoming" value={upcomingMoveOuts.length} accentColor="hsl(var(--warning))" index={0} />
-          <StatCard icon={AlertTriangle} title="Pending Approval" value={earlyTermRequests?.length || 0} accentColor="hsl(var(--destructive))" index={1} />
-          <StatCard icon={CheckCircle2} title="Completed" value={completedMoveOuts.length} accentColor="hsl(var(--success))" index={2} />
-          <StatCard icon={Users} title="Total Notices" value={moveOutNotices?.length || 0} accentColor="hsl(var(--primary))" index={3} />
-        </div>
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        <StatCard icon={Clock} title="Upcoming" value={upcomingMoveOuts.length} accentColor="hsl(var(--warning))" index={0} />
+        <StatCard icon={AlertTriangle} title="Pending Approval" value={earlyTermRequests?.length || 0} accentColor="hsl(var(--destructive))" index={1} />
+        <StatCard icon={CheckCircle2} title="Completed" value={completedMoveOuts.length} accentColor="hsl(var(--success))" index={2} />
+        <StatCard icon={Users} title="Total Notices" value={moveOutNotices?.length || 0} accentColor="hsl(var(--primary))" index={3} />
       </div>
 
-      <div className="mt-6 mb-6">
-        <MoveOutsFilters
-          searchTerm={searchQuery}
-          onSearchChange={setSearchQuery}
-        />
-      </div>
+      <MoveOutsFilters
+        searchTerm={searchQuery}
+        onSearchChange={setSearchQuery}
+      />
 
       <Tabs defaultValue="upcoming" className="space-y-6">
         <TabsList>
@@ -218,7 +214,7 @@ const MerchantMoveOuts = () => {
           setEarlyTermDialogOpen(false);
         }}
       />
-    </>
+    </div>
   );
 };
 

@@ -5,17 +5,16 @@ import { Badge } from "@/shared/components/ui/badge";
 import { PageHeader } from "@/shared/components/ui/PageHeader";
 import { Progress } from "@/shared/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
-import { Loader2, TrendingUp, AlertTriangle, Users, DollarSign, RefreshCw, Lock, BarChart3 } from "lucide-react";
+import { Loader2, TrendingUp, AlertTriangle, Users, DollarSign, RefreshCw, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { useRevenueForecast, useTenantRiskScores, useRefreshRiskScore, useChurnPrediction, useOptimalPricing } from "@/features/dss/hooks/useMlAnalytics";
-import { useMerchantTier } from "@/features/dss/hooks/useMerchantTier";
+import { TierGate } from "@/features/dss/components/TierGate";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function MlAnalytics() {
   const { user } = useAuth();
-  const { canAccess, tierName, isLoading: tierLoading } = useMerchantTier();
 
   const { data: merchant } = useQuery({
     queryKey: ["merchant-id", user?.id],
@@ -67,28 +66,14 @@ export default function MlAnalytics() {
     }
   };
 
-  const TierGate = ({ feature, children }: { feature: string; children: React.ReactNode }) => {
-    if (tierLoading) return <Loader2 className="h-4 w-4 animate-spin" />;
-    if (!canAccess(feature)) {
-      return (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-10 text-center">
-            <Lock className="h-10 w-10 text-muted-foreground mb-3" />
-            <p className="text-muted-foreground">This feature requires a higher subscription tier.</p>
-            <Badge variant="outline" className="mt-2">{tierName} plan</Badge>
-          </CardContent>
-        </Card>
-      );
-    }
-    return <>{children}</>;
-  };
+  // TierGate is now imported from shared component
 
   const riskLevelColor = (level: string) => {
     switch (level) {
-      case "low": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-      case "medium": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-      case "high": return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200";
-      case "critical": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
+      case "low": return "bg-success/10 text-success";
+      case "medium": return "bg-warning/10 text-warning";
+      case "high": return "bg-destructive/20 text-destructive";
+      case "critical": return "bg-destructive/10 text-destructive";
       default: return "bg-muted text-muted-foreground";
     }
   };

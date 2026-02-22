@@ -1,9 +1,16 @@
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/card';
 
+const gridColsMap: Record<number, string> = {
+  2: 'lg:grid-cols-2',
+  3: 'lg:grid-cols-3',
+  4: 'lg:grid-cols-4',
+  5: 'lg:grid-cols-5',
+};
+
 export function StatsRowSkeleton({ count = 4 }: { count?: number }) {
   return (
-    <div className={`grid gap-4 grid-cols-2 lg:grid-cols-${count}`}>
+    <div className={`grid gap-4 grid-cols-2 ${gridColsMap[count] || 'lg:grid-cols-4'}`}>
       {Array.from({ length: count }).map((_, i) => (
         <Card key={i} className="animate-fade-in" style={{ animationDelay: `${i * 80}ms`, animationFillMode: 'both' }}>
           <CardContent className="p-4">

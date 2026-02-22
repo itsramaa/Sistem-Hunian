@@ -135,7 +135,7 @@ function OcrTutorial() {
             {OCR_TYPES.map((type) => (
               <Card
                 key={type.id}
-                className={`cursor-pointer transition-all hover:shadow-md ${
+                className={`cursor-pointer transition-[transform,box-shadow] hover:shadow-md ${
                   selectedType === type.id ? "ring-2 ring-primary" : ""
                 }`}
                 onClick={() => setSelectedType(type.id)}

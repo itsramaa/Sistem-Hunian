@@ -63,7 +63,7 @@ export function StatCard({ title, value, subtitle, icon: Icon, accentColor = 'hs
 
   const content = (
     <Card 
-      className="transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 animate-fade-in border-l-4"
+      className="transition-[transform,box-shadow] duration-200 hover:shadow-md hover:-translate-y-0.5 animate-fade-in border-l-4"
       style={{ 
         borderLeftColor: accentColor, 
         animationDelay: `${index * 80}ms`,
