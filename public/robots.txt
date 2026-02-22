@@ -1,8 +1,20 @@
 User-agent: Googlebot
 Allow: /
+Disallow: /merchant/
+Disallow: /tenant/
+Disallow: /vendor/
+Disallow: /admin/
+Disallow: /onboarding/
+Disallow: /auth/
 
 User-agent: Bingbot
 Allow: /
+Disallow: /merchant/
+Disallow: /tenant/
+Disallow: /vendor/
+Disallow: /admin/
+Disallow: /onboarding/
+Disallow: /auth/
 
 User-agent: Twitterbot
 Allow: /
@@ -12,3 +24,11 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /merchant/
+Disallow: /tenant/
+Disallow: /vendor/
+Disallow: /admin/
+Disallow: /onboarding/
+Disallow: /auth/
+
+Sitemap: https://sihuni.app/sitemap.xml

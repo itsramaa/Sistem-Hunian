@@ -6,6 +6,8 @@ interface MetaProps {
   image?: string;
   url?: string;
   type?: string;
+  noindex?: boolean;
+  canonical?: string;
 }
 
 export function Meta({ 
@@ -13,24 +15,26 @@ export function Meta({
   description = 'Platform manajemen properti terintegrasi',
   image = '/placeholder.svg',
   url = typeof window !== 'undefined' ? window.location.href : '',
-  type = 'website'
+  type = 'website',
+  noindex = false,
+  canonical,
 }: MetaProps) {
   const siteTitle = title === 'Sistem Hunian' ? title : `${title} | Sistem Hunian`;
+  const canonicalUrl = canonical || (typeof window !== 'undefined' ? window.location.origin + window.location.pathname : '');
 
   return (
     <Helmet>
-      {/* Standard metadata tags */}
       <title>{siteTitle}</title>
       <meta name='description' content={description} />
+      <meta name='robots' content={noindex ? 'noindex, nofollow' : 'index, follow'} />
+      <link rel='canonical' href={canonicalUrl} />
       
-      {/* Open Graph tags (Facebook, LinkedIn, etc.) */}
       <meta property='og:title' content={siteTitle} />
       <meta property='og:description' content={description} />
       <meta property='og:image' content={image} />
       <meta property='og:url' content={url} />
       <meta property='og:type' content={type} />
       
-      {/* Twitter tags */}
       <meta name='twitter:card' content='summary_large_image' />
       <meta name='twitter:title' content={siteTitle} />
       <meta name='twitter:description' content={description} />
