@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from './useAuth';
 
-const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minutes
-const WARNING_TIMEOUT = 14 * 60 * 1000; // Show warning 1 minute before
+const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+const WARNING_TIMEOUT = 29 * 60 * 1000; // Show warning 1 minute before
 
 export function useInactivityLogout() {
   const { user, signOut } = useAuth();
