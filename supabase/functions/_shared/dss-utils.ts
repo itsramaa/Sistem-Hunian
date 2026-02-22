@@ -330,6 +330,189 @@ export async function createOcrResult(
   return data.id;
 }
 
+// ─── DSS Recommendation Creation ──────────────────────────────────────────
+
+export async function createDssRecommendation(
+  serviceClient: SupabaseClient,
+  params: {
+    merchantId: string;
+    type: string;
+    title: string;
+    description: string;
+    recommendationData: Record<string, unknown>;
+    confidenceScore?: number;
+    impactEstimate?: Record<string, unknown>;
+    mlModelRunId?: string;
+    expiresAt?: string;
+  }
+): Promise<string> {
+  const { data, error } = await serviceClient
+    .from("dss_recommendations")
+    .insert({
+      merchant_id: params.merchantId,
+      type: params.type,
+      title: params.title,
+      description: params.description,
+      recommendation_data: params.recommendationData,
+      confidence_score: params.confidenceScore,
+      impact_estimate: params.impactEstimate,
+      ml_model_run_id: params.mlModelRunId,
+      expires_at: params.expiresAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      status: "pending",
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    console.error("Failed to create DSS recommendation:", error);
+    throw error;
+  }
+  return data.id;
+}
+
+// ─── Upsert Risk Score ────────────────────────────────────────────────────
+
+export async function upsertRiskScore(
+  serviceClient: SupabaseClient,
+  params: {
+    tenantUserId: string;
+    merchantId: string;
+    riskScore: number;
+    riskLevel: string;
+    factors: Record<string, unknown>;
+    mlModelRunId: string;
+  }
+): Promise<void> {
+  const { error } = await serviceClient
+    .from("tenant_risk_scores")
+    .upsert(
+      {
+        tenant_user_id: params.tenantUserId,
+        merchant_id: params.merchantId,
+        risk_score: params.riskScore,
+        risk_level: params.riskLevel,
+        risk_factors: params.factors,
+        ml_model_run_id: params.mlModelRunId,
+        calculated_at: new Date().toISOString(),
+      },
+      { onConflict: "tenant_user_id,merchant_id" }
+    );
+
+  if (error) {
+    console.error("Failed to upsert risk score:", error);
+    throw error;
+  }
+}
+
+// ─── Data Aggregation Helpers ─────────────────────────────────────────────
+
+export async function aggregatePaymentHistory(
+  serviceClient: SupabaseClient,
+  merchantId: string,
+  months = 12
+): Promise<Record<string, unknown>> {
+  const since = new Date();
+  since.setMonth(since.getMonth() - months);
+
+  const { data: invoices } = await serviceClient
+    .from("invoices")
+    .select("id, amount, total_amount, status, due_date, paid_at, late_fee, created_at")
+    .eq("merchant_id", merchantId)
+    .gte("created_at", since.toISOString())
+    .order("created_at", { ascending: false });
+
+  const all = invoices || [];
+  const paid = all.filter((i) => i.status === "paid");
+  const overdue = all.filter((i) => i.status === "overdue");
+  const latePaid = paid.filter((i) => i.paid_at && i.due_date && new Date(i.paid_at) > new Date(i.due_date));
+
+  return {
+    totalInvoices: all.length,
+    paidCount: paid.length,
+    overdueCount: overdue.length,
+    latePaidCount: latePaid.length,
+    lateRatio: all.length > 0 ? latePaid.length / all.length : 0,
+    totalRevenue: paid.reduce((s, i) => s + (i.total_amount || i.amount), 0),
+    totalLateFees: all.reduce((s, i) => s + (i.late_fee || 0), 0),
+    monthsCovered: months,
+    invoices: all.slice(0, 50),
+  };
+}
+
+export async function aggregateOccupancyData(
+  serviceClient: SupabaseClient,
+  merchantId: string,
+  propertyId?: string
+): Promise<Record<string, unknown>> {
+  let query = serviceClient
+    .from("units")
+    .select("id, status, rent_price, property_id, properties(name)")
+    .eq("properties.merchant_id", merchantId);
+
+  if (propertyId) query = query.eq("property_id", propertyId);
+
+  const { data: units } = await query;
+  const all = units || [];
+  const occupied = all.filter((u) => u.status === "occupied");
+  const available = all.filter((u) => u.status === "available");
+
+  const { data: contracts } = await serviceClient
+    .from("contracts")
+    .select("id, unit_id, start_date, end_date, rent_amount, status")
+    .eq("merchant_id", merchantId)
+    .in("status", ["active", "pending_signature"]);
+
+  return {
+    totalUnits: all.length,
+    occupiedCount: occupied.length,
+    availableCount: available.length,
+    occupancyRate: all.length > 0 ? occupied.length / all.length : 0,
+    avgRentPrice: all.length > 0 ? all.reduce((s, u) => s + (u.rent_price || 0), 0) / all.length : 0,
+    activeContracts: (contracts || []).length,
+    contracts: (contracts || []).slice(0, 50),
+  };
+}
+
+export async function aggregateMaintenanceData(
+  serviceClient: SupabaseClient,
+  merchantId: string
+): Promise<Record<string, unknown>> {
+  const { data: requests } = await serviceClient
+    .from("maintenance_requests")
+    .select("id, status, priority, category, created_at, resolved_at, unit_id, tenant_user_id, assigned_vendor_id")
+    .eq("merchant_id", merchantId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  const all = requests || [];
+  const open = all.filter((r) => !["resolved", "closed"].includes(r.status));
+  const resolved = all.filter((r) => r.status === "resolved");
+
+  const avgResolutionMs =
+    resolved.length > 0
+      ? resolved.reduce((s, r) => {
+          if (r.resolved_at && r.created_at) {
+            return s + (new Date(r.resolved_at).getTime() - new Date(r.created_at).getTime());
+          }
+          return s;
+        }, 0) / resolved.length
+      : 0;
+
+  return {
+    totalRequests: all.length,
+    openCount: open.length,
+    resolvedCount: resolved.length,
+    avgResolutionHours: Math.round(avgResolutionMs / (1000 * 60 * 60)),
+    byPriority: {
+      urgent: all.filter((r) => r.priority === "urgent").length,
+      high: all.filter((r) => r.priority === "high").length,
+      medium: all.filter((r) => r.priority === "medium").length,
+      low: all.filter((r) => r.priority === "low").length,
+    },
+    openRequests: open.slice(0, 30),
+  };
+}
+
 // ─── Error Response Helper ─────────────────────────────────────────────────
 
 export function errorResponse(message: string, status: number): Response {

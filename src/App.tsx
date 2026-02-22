@@ -67,6 +67,8 @@ const MerchantSettings = lazy(() => import("@/pages/merchant/Settings"));
 const MerchantTenants = lazy(() => import("@/pages/merchant/Tenants"));
 const MerchantUnits = lazy(() => import("@/pages/merchant/Units"));
 const MerchantOcrTutorial = lazy(() => import("@/pages/merchant/OcrTutorial"));
+const MerchantMlAnalytics = lazy(() => import("@/pages/merchant/MlAnalytics"));
+const MerchantDssAdvisor = lazy(() => import("@/pages/merchant/DssAdvisor"));
 
 // Tenant Pages
 const TenantContracts = lazy(() => import("@/pages/tenant/Contracts"));
@@ -172,7 +174,9 @@ const App = () => (
                   <Route path="/merchant/billing" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantBilling /></ProtectedRoute>} />
                   <Route path="/merchant/move-outs" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantMoveOuts /></ProtectedRoute>} />
                   <Route path="/merchant/ocr-tutorial" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantOcrTutorial /></ProtectedRoute>} />
-                  
+                  <Route path="/merchant/ml-analytics" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantMlAnalytics /></ProtectedRoute>} />
+                  <Route path="/merchant/dss-advisor" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantDssAdvisor /></ProtectedRoute>} />
+
                   {/* Tenant Routes */}
                   <Route path="/tenant" element={<ProtectedRoute allowedRoles={['tenant']}><TenantDashboard /></ProtectedRoute>} />
                   <Route path="/tenant/maintenance" element={<ProtectedRoute allowedRoles={['tenant']}><TenantMaintenance /></ProtectedRoute>} />
