@@ -8,10 +8,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shared/components/ui/dropdown-menu';
+import { EmptyState } from '@/shared/components/ui/EmptyState';
+import { Skeleton } from '@/shared/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
+import { TablePagination } from '@/shared/components/ui/TablePagination';
 import { formatCurrency } from '@/shared/utils/currency';
+import { getInvoiceStatusColor } from '@/shared/utils/statusColors';
 import { format } from 'date-fns';
-import { Bell, ChevronLeft, ChevronRight, Download, Eye, FileText, Loader2, MoreHorizontal, Send } from 'lucide-react';
+import { Bell, Download, Eye, FileText, Loader2, MoreHorizontal, Send } from 'lucide-react';
 import { Invoice } from '../types';
 
 interface InvoicesTableProps {
@@ -45,36 +49,45 @@ export const InvoicesTable = ({
   onPageChange,
   itemsPerPage
 }: InvoicesTableProps) => {
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'draft': return 'secondary';
-      case 'sent': return 'default';
-      case 'paid': return 'outline';
-      case 'overdue': return 'destructive';
-      default: return 'secondary';
-    }
-  };
-
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-16 w-full bg-muted/20 animate-pulse rounded-md" />
-        ))}
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Invoice #</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead>Amount</TableHead>
+              <TableHead>Due Date</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <TableRow key={i}>
+                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
     );
   }
 
   if (invoices.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center border rounded-md bg-card text-card-foreground shadow-sm">
-        <div className="p-4 rounded-full bg-muted mb-4">
-          <FileText className="h-8 w-8 text-muted-foreground" />
-        </div>
-        <h3 className="text-lg font-medium">No invoices found</h3>
-        <p className="text-muted-foreground mt-1">
-          Create a new invoice to get started.
-        </p>
+      <div className="border rounded-md bg-card">
+        <EmptyState
+          icon={FileText}
+          title="No invoices found"
+          description="Create a new invoice to get started."
+        />
       </div>
     );
   }
@@ -102,7 +115,7 @@ export const InvoicesTable = ({
               <TableCell>{formatCurrency(Number(invoice.total_amount))}</TableCell>
               <TableCell>{format(new Date(invoice.due_date), 'MMM d, yyyy')}</TableCell>
               <TableCell>
-                <Badge variant={getStatusColor(invoice.status) as "default" | "secondary" | "destructive" | "outline"}>
+                <Badge variant={getInvoiceStatusColor(invoice.status)}>
                   {invoice.status}
                 </Badge>
               </TableCell>
@@ -164,35 +177,14 @@ export const InvoicesTable = ({
         </TableBody>
       </Table>
       
-      {/* Pagination Controls */}
-      <div className="flex items-center justify-between px-4 py-4 border-t">
-        <div className="flex-1 text-sm text-muted-foreground">
-          Showing {((page - 1) * itemsPerPage) + 1} to {Math.min(page * itemsPerPage, totalInvoices)} of {totalInvoices} invoices
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(page - 1)}
-            disabled={page <= 1}
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Previous
-          </Button>
-          <div className="text-sm font-medium">
-            Page {page} of {totalPages}
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(page + 1)}
-            disabled={page >= totalPages}
-          >
-            Next
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+      <TablePagination
+        page={page}
+        totalPages={totalPages}
+        totalItems={totalInvoices}
+        itemsPerPage={itemsPerPage}
+        onPageChange={onPageChange}
+        itemLabel="invoices"
+      />
     </div>
   );
 };

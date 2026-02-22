@@ -1,12 +1,14 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { StatCard } from '@/shared/components/ui/StatCard';
 import { Invoice } from '../types';
 import { formatCurrency } from '@/shared/utils/currency';
+import { CheckCircle, Clock, FileText } from 'lucide-react';
 
 interface InvoicesStatsProps {
   invoices: Invoice[];
+  loading?: boolean;
 }
 
-export const InvoicesStats = ({ invoices }: InvoicesStatsProps) => {
+export const InvoicesStats = ({ invoices, loading = false }: InvoicesStatsProps) => {
   const stats = {
     total: invoices.reduce((sum, i) => sum + Number(i.total_amount), 0),
     paid: invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + Number(i.total_amount), 0),
@@ -16,38 +18,38 @@ export const InvoicesStats = ({ invoices }: InvoicesStatsProps) => {
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Total Invoiced</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-bold">{formatCurrency(stats.total)}</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Paid</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-bold text-green-600">{formatCurrency(stats.paid)}</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-bold text-yellow-600">{formatCurrency(stats.pending)}</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Drafts</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-bold">{stats.draft}</p>
-        </CardContent>
-      </Card>
+      <StatCard
+        title="Total Invoiced"
+        value={formatCurrency(stats.total)}
+        icon={FileText}
+        accentColor="hsl(var(--primary))"
+        loading={loading}
+        index={0}
+      />
+      <StatCard
+        title="Paid"
+        value={formatCurrency(stats.paid)}
+        icon={CheckCircle}
+        accentColor="hsl(var(--success))"
+        loading={loading}
+        index={1}
+      />
+      <StatCard
+        title="Pending"
+        value={formatCurrency(stats.pending)}
+        icon={Clock}
+        accentColor="hsl(var(--warning))"
+        loading={loading}
+        index={2}
+      />
+      <StatCard
+        title="Drafts"
+        value={stats.draft}
+        icon={FileText}
+        accentColor="hsl(var(--muted-foreground))"
+        loading={loading}
+        index={3}
+      />
     </div>
   );
 };

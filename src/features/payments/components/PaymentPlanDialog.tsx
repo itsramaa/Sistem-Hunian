@@ -129,10 +129,10 @@ export function PaymentPlanDialog({ open, onOpenChange, invoice }: PaymentPlanDi
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CreditCard className="h-5 w-5" />
-            Buat Rencana Cicilan
+            Create Payment Plan
           </DialogTitle>
           <DialogDescription>
-            Tawarkan cicilan kepada penyewa untuk invoice {invoice?.invoice_number}
+            Offer an installment plan to the tenant for invoice {invoice?.invoice_number}
           </DialogDescription>
         </DialogHeader>
 
@@ -141,12 +141,12 @@ export function PaymentPlanDialog({ open, onOpenChange, invoice }: PaymentPlanDi
             {/* Invoice Summary */}
             <div className="p-4 bg-muted rounded-lg space-y-2">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Total Tagihan:</span>
+                <span className="text-muted-foreground">Total Amount:</span>
                 <span className="font-semibold">{formatCurrency(invoice.total_amount)}</span>
               </div>
               {invoice.late_fee > 0 && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Termasuk Denda:</span>
+                  <span className="text-muted-foreground">Including Late Fee:</span>
                   <span className="text-destructive">{formatCurrency(invoice.late_fee)}</span>
                 </div>
               )}
@@ -155,39 +155,39 @@ export function PaymentPlanDialog({ open, onOpenChange, invoice }: PaymentPlanDi
             {/* Plan Configuration */}
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Jumlah Cicilan</Label>
+                <Label>Number of Installments</Label>
                 <Select value={installmentCount} onValueChange={setInstallmentCount}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="2">2 Kali</SelectItem>
-                    <SelectItem value="3">3 Kali</SelectItem>
-                    <SelectItem value="4">4 Kali</SelectItem>
-                    <SelectItem value="6">6 Kali</SelectItem>
+                    <SelectItem value="2">2 Times</SelectItem>
+                    <SelectItem value="3">3 Times</SelectItem>
+                    <SelectItem value="4">4 Times</SelectItem>
+                    <SelectItem value="6">6 Times</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label>Frekuensi Pembayaran</Label>
+                <Label>Payment Frequency</Label>
                 <Select value={frequency} onValueChange={(v: any) => setFrequency(v)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="weekly">Mingguan</SelectItem>
-                    <SelectItem value="bi-weekly">2 Mingguan</SelectItem>
-                    <SelectItem value="monthly">Bulanan</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="bi-weekly">Bi-Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="flex items-center justify-between space-x-2">
                 <Label htmlFor="waive-fee" className="flex flex-col space-y-1">
-                  <span>Hapus Denda Keterlambatan</span>
+                  <span>Waive Late Fee</span>
                   <span className="font-normal text-xs text-muted-foreground">
-                    Hapus denda {formatCurrency(invoice.late_fee)} dari total
+                    Remove {formatCurrency(invoice.late_fee)} late fee from total
                   </span>
                 </Label>
                 <Switch
@@ -199,9 +199,9 @@ export function PaymentPlanDialog({ open, onOpenChange, invoice }: PaymentPlanDi
               </div>
 
               <div className="space-y-2">
-                <Label>Catatan / Syarat Tambahan</Label>
+                <Label>Additional Notes / Terms</Label>
                 <Textarea 
-                  placeholder="Masukkan catatan untuk penyewa..."
+                  placeholder="Enter notes for the tenant..."
                   value={terms}
                   onChange={(e) => setTerms(e.target.value)}
                 />
@@ -210,13 +210,13 @@ export function PaymentPlanDialog({ open, onOpenChange, invoice }: PaymentPlanDi
 
             {/* Schedule Preview */}
             <div className="space-y-2">
-              <Label>Estimasi Jadwal Pembayaran</Label>
+              <Label>Estimated Payment Schedule</Label>
               <div className="border rounded-md divide-y max-h-40 overflow-y-auto">
                 {schedule.map((item, index) => (
                   <div key={index} className="p-3 text-sm flex justify-between items-center">
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span>Cicilan {index + 1}</span>
+                      <span>Installment {index + 1}</span>
                     </div>
                     <div className="flex items-center gap-4">
                       <span className="text-muted-foreground">
@@ -235,11 +235,11 @@ export function PaymentPlanDialog({ open, onOpenChange, invoice }: PaymentPlanDi
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Batal
+            Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={isCreating}>
             {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Buat Penawaran
+            Create Offer
           </Button>
         </DialogFooter>
       </DialogContent>
