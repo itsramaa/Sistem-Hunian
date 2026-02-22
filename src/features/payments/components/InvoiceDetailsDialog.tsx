@@ -4,6 +4,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Invoice } from '../types';
 import { formatCurrency } from '@/shared/utils/currency';
 import { format } from 'date-fns';
+import { getInvoiceStatusColor } from '@/shared/utils/statusColors';
 import { Loader2, Send, Bell } from 'lucide-react';
 
 interface InvoiceDetailsDialogProps {
@@ -31,15 +32,6 @@ export const InvoiceDetailsDialog = ({
 }: InvoiceDetailsDialogProps) => {
   if (!invoice) return null;
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'draft': return 'secondary';
-      case 'sent': return 'default';
-      case 'paid': return 'outline';
-      case 'overdue': return 'destructive';
-      default: return 'secondary';
-    }
-  };
 
   const isCurrentReminding = isReminding && remindingId === invoice.id;
 
@@ -55,7 +47,7 @@ export const InvoiceDetailsDialog = ({
               <p className="text-sm text-muted-foreground">Invoice Number</p>
               <p className="text-xl font-bold">{invoice.invoice_number}</p>
             </div>
-            <Badge variant={getStatusColor(invoice.status) as "default" | "secondary" | "destructive" | "outline"}>
+            <Badge variant={getInvoiceStatusColor(invoice.status)}>
               {invoice.status}
             </Badge>
           </div>
@@ -90,7 +82,7 @@ export const InvoiceDetailsDialog = ({
               <span>{formatCurrency(Number(invoice.tax_amount || 0))}</span>
             </div>
             {invoice.late_fee > 0 && (
-              <div className="flex justify-between text-red-500">
+              <div className="flex justify-between text-destructive">
                 <span>Late Fee</span>
                 <span>{formatCurrency(invoice.late_fee)}</span>
               </div>

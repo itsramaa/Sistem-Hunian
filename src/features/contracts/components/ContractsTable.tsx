@@ -7,6 +7,8 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
+import { EmptyState } from "@/shared/components/ui/EmptyState";
+import { Skeleton } from "@/shared/components/ui/skeleton";
 import {
     Table,
     TableBody,
@@ -15,9 +17,10 @@ import {
     TableHeader,
     TableRow,
 } from "@/shared/components/ui/table";
+import { TablePagination } from "@/shared/components/ui/TablePagination";
 import { formatCurrency } from "@/shared/utils/currency";
 import { format } from "date-fns";
-import { ChevronLeft, ChevronRight, Eye, Loader2, MoreHorizontal, PenLine, Trash2 } from "lucide-react";
+import { Eye, FileText, MoreHorizontal, PenLine, Trash2 } from "lucide-react";
 import { Contract, TenantProfile } from "../types";
 import { ContractStatusBadge } from "./ContractStatusBadge";
 import { SignatureStatusBadge } from "./SignatureStatusBadge";
@@ -55,16 +58,45 @@ export function ContractsTable({
 }: ContractsTableProps) {
   if (isLoading) {
     return (
-      <div className="flex justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Tenant</TableHead>
+              <TableHead>Property / Unit</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Duration</TableHead>
+              <TableHead className="text-right">Rent Amount</TableHead>
+              <TableHead className="text-center">Signatures</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <TableRow key={i}>
+                <TableCell><Skeleton className="h-4 w-28" /><Skeleton className="h-3 w-36 mt-1" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-32" /><Skeleton className="h-3 w-20 mt-1" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                <TableCell className="text-right"><Skeleton className="h-4 w-24 ml-auto" /></TableCell>
+                <TableCell className="text-center"><Skeleton className="h-5 w-16 mx-auto rounded-full" /></TableCell>
+                <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
     );
   }
 
   if (contracts.length === 0) {
     return (
-      <div className="text-center py-12 border rounded-lg bg-muted/10">
-        <p className="text-muted-foreground">No contracts found</p>
+      <div className="border rounded-md bg-card">
+        <EmptyState
+          icon={FileText}
+          title="No contracts found"
+          description="Create a new contract to get started."
+        />
       </div>
     );
   }
@@ -162,36 +194,14 @@ export function ContractsTable({
         </TableBody>
       </Table>
       
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between border-t px-4 py-3">
-          <div className="text-sm text-muted-foreground">
-            Showing {((page - 1) * itemsPerPage) + 1} to {Math.min(page * itemsPerPage, totalContracts)} of {totalContracts} contracts
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(page - 1)}
-              disabled={page <= 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Previous
-            </Button>
-            <div className="text-sm font-medium">
-              Page {page} of {totalPages}
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(page + 1)}
-              disabled={page >= totalPages}
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
+      <TablePagination
+        page={page}
+        totalPages={totalPages}
+        totalItems={totalContracts}
+        itemsPerPage={itemsPerPage}
+        onPageChange={onPageChange}
+        itemLabel="contracts"
+      />
     </div>
   );
 }

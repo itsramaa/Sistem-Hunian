@@ -2,9 +2,10 @@ import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
+import { TablePagination } from '@/shared/components/ui/TablePagination';
 import { formatCurrency } from '@/shared/utils/currency';
 import { format } from 'date-fns';
-import { AlertTriangle, CheckCircle, ChevronLeft, ChevronRight, CreditCard } from 'lucide-react';
+import { AlertTriangle, CheckCircle, CreditCard } from 'lucide-react';
 import { Invoice } from '../types';
 
 
@@ -31,7 +32,7 @@ export function OverdueInvoicesTable({
     return (
       <Card>
         <CardContent className="p-8 text-center text-muted-foreground">
-          <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
+          <CheckCircle className="h-12 w-12 mx-auto mb-4 text-success" />
           <p>No overdue invoices! All payments are on track.</p>
         </CardContent>
       </Card>
@@ -98,35 +99,14 @@ export function OverdueInvoicesTable({
           </TableBody>
         </Table>
 
-        {/* Pagination Controls */}
-        <div className="flex items-center justify-between px-4 py-4 border-t">
-          <div className="flex-1 text-sm text-muted-foreground">
-            Showing {((page - 1) * itemsPerPage) + 1} to {Math.min(page * itemsPerPage, totalInvoices)} of {totalInvoices} invoices
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(page - 1)}
-              disabled={page <= 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Previous
-            </Button>
-            <div className="text-sm font-medium">
-              Page {page} of {totalPages}
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(page + 1)}
-              disabled={page >= totalPages}
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+        <TablePagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalInvoices}
+          itemsPerPage={itemsPerPage}
+          onPageChange={onPageChange}
+          itemLabel="invoices"
+        />
       </CardContent>
     </Card>
   );

@@ -133,7 +133,7 @@ export function DocumentLightbox({ open, onOpenChange, documents, initialIndex =
                   setCurrentIndex(index);
                   resetTransforms();
                 }}
-                className={`w-12 h-12 rounded border-2 overflow-hidden transition-all ${
+                className={`w-12 h-12 rounded border-2 overflow-hidden transition-[border-color,box-shadow] ${
                   index === currentIndex 
                     ? 'border-primary ring-2 ring-primary/30' 
                     : 'border-border opacity-60 hover:opacity-100'

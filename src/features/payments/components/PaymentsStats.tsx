@@ -1,12 +1,14 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { StatCard } from '@/shared/components/ui/StatCard';
 import { formatCurrency } from '@/shared/utils/currency';
 import { Payment } from '../types';
+import { AlertTriangle, Calendar, CheckCircle, Clock } from 'lucide-react';
 
 interface PaymentsStatsProps {
   payments: Payment[];
+  loading?: boolean;
 }
 
-export function PaymentsStats({ payments }: PaymentsStatsProps) {
+export function PaymentsStats({ payments, loading = false }: PaymentsStatsProps) {
   const stats = {
     totalCollected: payments
       .filter(p => p.status === 'paid')
@@ -28,38 +30,38 @@ export function PaymentsStats({ payments }: PaymentsStatsProps) {
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Total Collected</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-bold text-green-600">{formatCurrency(stats.totalCollected)}</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-bold text-yellow-600">{formatCurrency(stats.pending)}</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Overdue</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-bold text-red-600">{formatCurrency(stats.overdue)}</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">This Month</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-bold">{formatCurrency(stats.thisMonth)}</p>
-        </CardContent>
-      </Card>
+      <StatCard
+        title="Total Collected"
+        value={formatCurrency(stats.totalCollected)}
+        icon={CheckCircle}
+        accentColor="hsl(var(--success))"
+        loading={loading}
+        index={0}
+      />
+      <StatCard
+        title="Pending"
+        value={formatCurrency(stats.pending)}
+        icon={Clock}
+        accentColor="hsl(var(--warning))"
+        loading={loading}
+        index={1}
+      />
+      <StatCard
+        title="Overdue"
+        value={formatCurrency(stats.overdue)}
+        icon={AlertTriangle}
+        accentColor="hsl(var(--destructive))"
+        loading={loading}
+        index={2}
+      />
+      <StatCard
+        title="This Month"
+        value={formatCurrency(stats.thisMonth)}
+        icon={Calendar}
+        accentColor="hsl(var(--primary))"
+        loading={loading}
+        index={3}
+      />
     </div>
   );
 }

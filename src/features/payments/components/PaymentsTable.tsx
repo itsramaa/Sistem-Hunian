@@ -1,10 +1,13 @@
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent } from '@/shared/components/ui/card';
+import { EmptyState } from '@/shared/components/ui/EmptyState';
+import { Skeleton } from '@/shared/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
+import { TablePagination } from '@/shared/components/ui/TablePagination';
 import { formatCurrency } from '@/shared/utils/currency';
 import { format } from 'date-fns';
-import { Bell, Calendar, CheckCircle, ChevronLeft, ChevronRight, Clock, DollarSign, Loader2, XCircle } from 'lucide-react';
+import { Bell, Calendar, CheckCircle, Clock, DollarSign, Loader2, XCircle } from 'lucide-react';
 import { Payment } from '../types';
 
 interface PaymentsTableProps {
@@ -20,6 +23,24 @@ interface PaymentsTableProps {
   itemsPerPage: number;
 }
 
+const getStatusIcon = (status: string) => {
+  switch (status) {
+    case 'pending': return <Clock className="h-4 w-4" />;
+    case 'paid': return <CheckCircle className="h-4 w-4" />;
+    case 'overdue': return <XCircle className="h-4 w-4" />;
+    default: return <Calendar className="h-4 w-4" />;
+  }
+};
+
+const getStatusColor = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+  switch (status) {
+    case 'pending': return 'secondary';
+    case 'paid': return 'default';
+    case 'overdue': return 'destructive';
+    default: return 'secondary';
+  }
+};
+
 export function PaymentsTable({ 
   payments, 
   loading, 
@@ -32,30 +53,38 @@ export function PaymentsTable({
   onPageChange,
   itemsPerPage
 }: PaymentsTableProps) {
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending': return <Clock className="h-4 w-4" />;
-      case 'paid': return <CheckCircle className="h-4 w-4" />;
-      case 'overdue': return <XCircle className="h-4 w-4" />;
-      default: return <Calendar className="h-4 w-4" />;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'secondary';
-      case 'paid': return 'default';
-      case 'overdue': return 'destructive';
-      default: return 'secondary';
-    }
-  };
-
   if (loading) {
     return (
       <Card>
-        <CardContent className="p-8 text-center text-muted-foreground">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p>Loading payments...</p>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Type</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Due Date</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Method</TableHead>
+                <TableHead>Reference</TableHead>
+                <TableHead>Paid At</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-8 w-20" /></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     );
@@ -80,9 +109,12 @@ export function PaymentsTable({
           <TableBody>
             {payments.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
-                  <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No payments found</p>
+                <TableCell colSpan={8} className="p-0">
+                  <EmptyState
+                    icon={DollarSign}
+                    title="No payments found"
+                    description="Payments will appear here once invoices are created."
+                  />
                 </TableCell>
               </TableRow>
             ) : (
@@ -92,7 +124,7 @@ export function PaymentsTable({
                   <TableCell>{formatCurrency(Number(payment.amount))}</TableCell>
                   <TableCell>{format(new Date(payment.due_date), 'MMM d, yyyy')}</TableCell>
                   <TableCell>
-                    <Badge variant={getStatusColor(payment.status) as "default" | "secondary" | "destructive" | "outline"} className="gap-1">
+                    <Badge variant={getStatusColor(payment.status)} className="gap-1">
                       {getStatusIcon(payment.status)}
                       {payment.status}
                     </Badge>
@@ -118,7 +150,7 @@ export function PaymentsTable({
                             size="icon"
                             onClick={() => onSendReminder(payment.id)}
                             disabled={sendingReminderId === payment.id}
-                            title="Send payment reminder"
+                            aria-label="Send payment reminder"
                           >
                             {sendingReminderId === payment.id ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
@@ -136,36 +168,15 @@ export function PaymentsTable({
           </TableBody>
         </Table>
 
-      {/* Pagination Controls */}
-      <div className="flex items-center justify-between px-4 py-4 border-t">
-        <div className="flex-1 text-sm text-muted-foreground">
-          Showing {((page - 1) * itemsPerPage) + 1} to {Math.min(page * itemsPerPage, totalPayments)} of {totalPayments} payments
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(page - 1)}
-            disabled={page <= 1}
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Previous
-          </Button>
-          <div className="text-sm font-medium">
-            Page {page} of {totalPages}
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(page + 1)}
-            disabled={page >= totalPages}
-          >
-            Next
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    </CardContent>
-  </Card>
-);
+        <TablePagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalPayments}
+          itemsPerPage={itemsPerPage}
+          onPageChange={onPageChange}
+          itemLabel="payments"
+        />
+      </CardContent>
+    </Card>
+  );
 }
