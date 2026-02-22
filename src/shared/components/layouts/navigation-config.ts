@@ -107,26 +107,46 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
     },
     mainNav: [
       {
-        label: "Menu",
+        label: "Utama",
         items: [
           { path: "/merchant", icon: LayoutDashboard, label: "Dashboard" },
-          { path: "/merchant/properties", icon: Building2, label: "Properties" },
-          { path: "/merchant/units", icon: Home, label: "Units" },
-          { path: "/merchant/tenants", icon: Users, label: "Tenants" },
-          { path: "/merchant/contracts", icon: FileText, label: "Contracts" },
-          { path: "/merchant/invoices", icon: FileText, label: "Invoices" },
-          { path: "/merchant/payments", icon: Wallet, label: "Payments" },
-          { path: "/merchant/maintenance", icon: Wrench, label: "Maintenance" },
-          { path: "/merchant/move-outs", icon: LogOut, label: "Move-Outs" },
-          { path: "/merchant/reports", icon: BarChart3, label: "Reports" },
-          { path: "/merchant/ocr-tutorial", icon: ScanText, label: "OCR Tutorial" },
         ],
       },
       {
-        label: "DSS Intelligence",
+        label: "Properti",
         items: [
+          { path: "/merchant/properties", icon: Building2, label: "Properties" },
+          { path: "/merchant/units", icon: Home, label: "Units" },
+          { path: "/merchant/tenants", icon: Users, label: "Tenants" },
+        ],
+      },
+      {
+        label: "Keuangan",
+        items: [
+          { path: "/merchant/contracts", icon: ClipboardList, label: "Contracts" },
+          { path: "/merchant/invoices", icon: FileText, label: "Invoices" },
+          { path: "/merchant/payments", icon: Wallet, label: "Payments" },
+        ],
+      },
+      {
+        label: "Operasional",
+        items: [
+          { path: "/merchant/maintenance", icon: Wrench, label: "Maintenance" },
+          { path: "/merchant/move-outs", icon: LogOut, label: "Move-Outs" },
+        ],
+      },
+      {
+        label: "Analitik",
+        items: [
+          { path: "/merchant/reports", icon: BarChart3, label: "Reports" },
           { path: "/merchant/ml-analytics", icon: Brain, label: "ML Analytics" },
           { path: "/merchant/dss-advisor", icon: Lightbulb, label: "DSS Advisor" },
+        ],
+      },
+      {
+        label: "Bantuan",
+        items: [
+          { path: "/merchant/ocr-tutorial", icon: ScanText, label: "OCR Tutorial" },
         ],
       },
     ],
