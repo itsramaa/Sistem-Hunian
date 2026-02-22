@@ -1,25 +1,33 @@
 # Product Requirements Document (PRD)
 ## Sistem Pendukung Keputusan (DSS) Manajemen Kosan Terintegrasi OCR dan Machine Learning
 
-**Versi:** 3.0 | **Status:** Aligned with Implementation | **Tanggal:** 21 Februari 2026  
+**Versi:** 3.1 | **Status:** Aligned with Implementation | **Tanggal:** 22 Februari 2026  
 **Platform:** SiHuni (Sistem Hunian) on Lovable Cloud  
 **Scope Pilot:** 20 Kosan | **Timeline:** 6 Bulan | **Target Users:** 5-10 Active Users  
-**Architecture:** Serverless Modular Monolith + AI-Powered DSS Layer
+**Architecture:** Serverless Modular Monolith + AI-Powered DSS Layer  
+**Edge Functions:** 31 Deployed + 12 DSS (Planned) = 43 Total
 
 ---
 
 ### Dokumen Referensi Teknis v3.0
 
-| # | Dokumen | Deskripsi |
-|---|---------|-----------|
-| 1 | `docs/api-specification.md` | 43 Edge Functions, endpoints, payloads, webhooks |
-| 2 | `docs/backend-architecture.md` | Arsitektur serverless, 28 feature modules, DSS layer |
-| 3 | `docs/business-process.md` | 25+ business workflows end-to-end |
-| 4 | `docs/database-schema.md` | 72 tables, 215+ RLS policies, ER diagrams |
-| 5 | `docs/development-standards.md` | Coding standards, patterns, testing |
-| 6 | `docs/security-architecture.md` | 7 RBAC roles, RLS-first security |
-| 7 | `docs/marketing.md` | GTM strategy, pricing tiers, DSS positioning |
-| 8 | `docs/PRD_DSS_Manajemen_Kosan_v2_Professional.md` | Dokumen ini (PRD v3.0) |
+| # | Dokumen | Versi | Deskripsi |
+|---|---------|-------|-----------|
+| 1 | `docs/api-specification.md` | 3.0 | 43 Edge Functions, endpoints, payloads, webhooks |
+| 2 | `docs/backend-architecture.md` | 3.0 | Arsitektur serverless, 28 feature modules, DSS layer |
+| 3 | `docs/business-process.md` | 3.0 | 25+ business workflows end-to-end |
+| 4 | `docs/database-schema.md` | 3.0 | 72 tables, 215+ RLS policies, ER diagrams |
+| 5 | `docs/deployment-infrastructure.md` | 3.0 | Lovable Cloud deployment, 2-environment model |
+| 6 | `docs/development-standards.md` | 3.0 | Coding standards, patterns, testing |
+| 7 | `docs/domain-state-machines.md` | 3.0 | 18 state machines, 16 cron jobs, cross-domain flows |
+| 8 | `docs/marketing.md` | 3.0 | GTM strategy, pricing tiers, DSS positioning |
+| 9 | `docs/project-roadmap.md` | 3.0 | Milestone timeline, sprint planning |
+| 10 | `docs/security-architecture.md` | 3.0 | 7 RBAC roles, RLS-first security, audit trails |
+| 11 | `docs/seo.md` | 3.0 | SEO strategy, meta tags, schema markup, programmatic SEO |
+| 12 | `docs/system-architecture.md` | 3.0 | C4 diagrams, system context, container views |
+| 13 | `docs/testing-strategy.md` | 3.0 | Test pyramid, DSS/AI testing, CUJs, security testing |
+| 14 | `docs/UIUX_Design_Documentation_SiHuni.md` | 3.0 | Design system, component library, responsive patterns |
+| 15 | `docs/PRD_DSS_Manajemen_Kosan_v2_Professional.md` | 3.1 | Dokumen ini (PRD) |
 
 ---
 
@@ -54,6 +62,7 @@ Sistem DSS Manajemen Kosan adalah platform B2B berbasis cloud yang mengotomatisa
 │       ↓                ↓                ↓                   │
 │  4 OCR Edge       5 ML Edge        4 DSS Advisor           │
 │  Functions        Functions         Edge Functions          │
+│  (Planned)        (Planned)         (Planned)               │
 │                                                             │
 │  ┌──────────────────────────────────────────────────────┐ │
 │  │    Data Layer (PostgreSQL 16 on Lovable Cloud)       │ │
@@ -118,24 +127,76 @@ Platform web terintegrasi yang menghubungkan tiga pilar utama, di-deploy sebagai
               └──────────┘ └──────────┘ └───────────────────────┘
 ```
 
-### 1.3 DSS Edge Functions Mapping
+### 1.3 Edge Functions Status
 
-| Layer | Edge Function | Purpose |
-|-------|--------------|---------|
-| **OCR** | `ocr-ktp-extract` | Extract NIK, nama, TTL, alamat dari KTP |
-| **OCR** | `ocr-payment-proof` | Extract amount, date, sender dari bukti transfer |
-| **OCR** | `ocr-business-document` | Extract data dari SIUP, NPWP, akta usaha |
-| **OCR** | `ocr-maintenance-receipt` | Extract vendor, amount, items dari kuitansi |
-| **ML** | `ml-revenue-forecast` | Prediksi revenue 3-12 bulan ke depan |
-| **ML** | `ml-tenant-risk-score` | Scoring risiko tenant (0-100) |
-| **ML** | `ml-churn-prediction` | Prediksi probability churn per tenant |
-| **ML** | `ml-optimal-pricing` | Rekomendasi harga sewa optimal |
-| **ML** | `ml-daily-risk-scoring` | Cron: batch risk scoring harian |
-| **ML** | `ml-weekly-forecast` | Cron: batch forecasting mingguan |
-| **DSS** | `dss-pricing-advisor` | Advisor: strategi pricing berbasis data |
-| **DSS** | `dss-collection-strategy` | Advisor: strategi penagihan per tenant |
-| **DSS** | `dss-maintenance-priority` | Advisor: prioritas maintenance berbasis impact |
-| **DSS** | `dss-investment-insight` | Advisor: insight investasi properti |
+#### 1.3.1 Deployed Edge Functions (31 — Production)
+
+| # | Edge Function | Category | Status |
+|---|--------------|----------|--------|
+| 1 | `accept-tenant-invitation` | Tenant Onboarding | ✅ Deployed |
+| 2 | `ai-chatbot` | AI Chatbot (Tenant) | ✅ Deployed |
+| 3 | `auth-webhook` | Authentication | ✅ Deployed |
+| 4 | `auto-generate-invoices` | Billing Cron | ✅ Deployed |
+| 5 | `auto-pay-execute` | Payment Cron | ✅ Deployed |
+| 6 | `check-overdue-escalation` | Collections Cron | ✅ Deployed |
+| 7 | `check-payment-plan` | Payment Cron | ✅ Deployed |
+| 8 | `ensure-user-bootstrap` | Auth Setup | ✅ Deployed |
+| 9 | `generate-invoice-pdf` | Billing | ✅ Deployed |
+| 10 | `get-tenant-invitation` | Tenant Onboarding | ✅ Deployed |
+| 11 | `merchant-ai-assistant` | AI Chatbot (Merchant) | ✅ Deployed |
+| 12 | `order-auto-reject` | Marketplace Cron | ✅ Deployed |
+| 13 | `process-deposit-refund` | Move-Out Cron | ✅ Deployed |
+| 14 | `process-referral-commissions` | Referral Cron | ✅ Deployed |
+| 15 | `process-referral-reward` | Referral Cron | ✅ Deployed |
+| 16 | `process-vendor-order-referral` | Referral | ✅ Deployed |
+| 17 | `scheduled-disbursement` | Escrow Cron | ✅ Deployed |
+| 18 | `send-notification` | Notification | ✅ Deployed |
+| 19 | `send-payment-reminder` | Billing Cron | ✅ Deployed |
+| 20 | `subscription-billing` | Subscription Cron | ✅ Deployed |
+| 21 | `subscription-grace-check` | Subscription Cron | ✅ Deployed |
+| 22 | `subscription-payment` | Subscription | ✅ Deployed |
+| 23 | `subscription-renewal` | Subscription Cron | ✅ Deployed |
+| 24 | `vacancy-tracking-cron` | Property Cron | ✅ Deployed |
+| 25 | `validate-admin-secret` | Admin Auth | ✅ Deployed |
+| 26 | `vendor-ai-assistant` | AI Chatbot (Vendor) | ✅ Deployed |
+| 27 | `whatsapp-notification` | Notification | ✅ Deployed |
+| 28 | `xendit-create-invoice` | Payment | ✅ Deployed |
+| 29 | `xendit-disbursement-webhook` | Payment Webhook | ✅ Deployed |
+| 30 | `xendit-disbursement` | Payment | ✅ Deployed |
+| 31 | `xendit-webhook` | Payment Webhook | ✅ Deployed |
+
+#### 1.3.2 DSS Edge Functions (12 — Planned, Not Yet Deployed)
+
+> **Status:** Arsitektur dan spesifikasi sudah final. Implementasi dijadwalkan di Phase 3 roadmap.
+
+| Layer | Edge Function | Purpose | Priority |
+|-------|--------------|---------|----------|
+| **OCR** | `ocr-ktp-extract` | Extract NIK, nama, TTL, alamat dari KTP | P0 |
+| **OCR** | `ocr-payment-proof` | Extract amount, date, sender dari bukti transfer | P0 |
+| **OCR** | `ocr-business-document` | Extract data dari SIUP, NPWP, akta usaha | P1 |
+| **OCR** | `ocr-maintenance-receipt` | Extract vendor, amount, items dari kuitansi | P2 |
+| **ML** | `ml-revenue-forecast` | Prediksi revenue 3-12 bulan ke depan | P0 |
+| **ML** | `ml-tenant-risk-score` | Scoring risiko tenant (0-100) | P0 |
+| **ML** | `ml-churn-prediction` | Prediksi probability churn per tenant | P1 |
+| **ML** | `ml-optimal-pricing` | Rekomendasi harga sewa optimal | P1 |
+| **ML** | `ml-daily-risk-scoring` | Cron: batch risk scoring harian | P1 |
+| **ML** | `ml-weekly-forecast` | Cron: batch forecasting mingguan | P1 |
+| **DSS** | `dss-pricing-advisor` | Advisor: strategi pricing berbasis data | P1 |
+| **DSS** | `dss-collection-strategy` | Advisor: strategi penagihan per tenant | P1 |
+| **DSS** | `dss-maintenance-priority` | Advisor: prioritas maintenance berbasis impact | P2 |
+| **DSS** | `dss-investment-insight` | Advisor: insight investasi properti | P2 |
+
+#### 1.3.3 AI Chatbot Implementation (Deployed)
+
+Tiga AI chatbot role-specific sudah deployed menggunakan **Gemini 2.5 Flash** (bukan Pro, untuk optimasi latency dan cost):
+
+| Function | Model | Target User | Context Data |
+|----------|-------|-------------|-------------|
+| `ai-chatbot` | `google/gemini-2.5-flash` | Tenant | Chatbot knowledge base, general FAQ |
+| `merchant-ai-assistant` | `google/gemini-2.5-flash` | Merchant | Revenue, invoices, contracts, occupancy, predictions |
+| `vendor-ai-assistant` | `google/gemini-2.5-flash` | Vendor | Products, orders, reviews, performance analytics |
+
+> **Note:** DSS edge functions (OCR/ML/Advisor) akan menggunakan **Gemini 2.5 Pro** untuk akurasi lebih tinggi. Chatbots menggunakan Flash untuk balance cost/latency.
 
 ---
 
@@ -256,7 +317,7 @@ Diselaraskan dengan 7 roles aktual di tabel `user_roles` (enum `app_role`):
 - **Requirement:** Extract amount, date, sender dari bukti transfer dan auto-match ke invoice
 - **Acceptance Criteria:**
   - Extract: amount, transaction_date, sender_name, bank_name, reference_number
-  - Auto-match ke `invoices` table berdasarkan amount ± tolerance (Rp 500) + merchant_id
+  - Auto-match ke `invoices` table berdasarkan amount ± tolerance (Rp 1.000) + merchant_id
   - Hasil disimpan di `payment_verifications` table
   - Match status: `matched`, `partial_match`, `no_match`
   - Match confidence score untuk audit trail
@@ -860,9 +921,9 @@ src/features/{module}/
 | **Database** | PostgreSQL 16 (Supabase) | 16.x | 72 tables, 215+ RLS, 16 functions, 45+ triggers |
 | **ORM** | Supabase JS SDK | 2.89+ | Type-safe queries, realtime, auth, storage |
 | **Auth** | Supabase Auth (JWT) | — | RBAC via `user_roles` + `has_role()` + TOTP 2FA |
-| **AI (OCR)** | Lovable AI (Gemini 2.5 Pro Vision) | — | Multimodal document processing |
-| **AI (ML/DSS)** | Lovable AI (Gemini 2.5 Pro Reasoning) | — | Predictions + advisors |
-| **AI (Chatbot)** | Lovable AI (Gemini) | — | 3 role-specific assistants |
+| **AI (OCR)** | Lovable AI (Gemini 2.5 Pro Vision) | — | Multimodal document processing (planned) |
+| **AI (ML/DSS)** | Lovable AI (Gemini 2.5 Pro Reasoning) | — | Predictions + advisors (planned) |
+| **AI (Chatbot)** | Lovable AI (Gemini 2.5 Flash) | — | 3 role-specific assistants (deployed) |
 | **Payments** | Xendit | — | VA, QRIS, e-wallet, credit card, disbursement |
 | **Email** | Resend | — | 30+ transactional email templates |
 | **Storage** | Supabase Storage | — | KTP, signatures, photos, documents |
@@ -883,12 +944,12 @@ src/features/{module}/
 │  PostgreSQL 16   │   │  43 Deno Edge Functions       │
 │  72 Tables       │◄──│  (Service Role Key)           │
 │  215+ RLS        │   ├──────────────────────────────┤
-│  16 Functions    │   │  CORE (31):                   │
+│  16 Functions    │   │  CORE (31 — DEPLOYED):        │
 │  45+ Triggers    │   │  Auth, Payment, Billing,      │
 │                  │   │  Notification, Subscription,  │
-│                  │   │  Cron (14 jobs), Chatbot      │
+│                  │   │  Cron (14 jobs), 3 AI Chatbots│
 │                  │   ├──────────────────────────────┤
-│                  │   │  DSS (12):                    │
+│                  │   │  DSS (12 — PLANNED):         │
 │                  │   │  4 OCR + 5 ML + 4 Advisor     │
 │                  │   │  (incl. 2 ML cron jobs)       │
 └──────────────────┘   └──────────┬───────────────────┘
@@ -1393,9 +1454,16 @@ TOTAL: 3-4 FTE (vs 14 FTE in v2)
 | `backend-architecture.md` | System architecture, data flow, DSS layer detail | Saat architecture review |
 | `business-process.md` | 25+ workflow diagrams, state machines, sequence diagrams | Saat business logic development |
 | `database-schema.md` | 72 table definitions, ER diagrams, RLS policies, indexes | Saat database design |
-| `development-standards.md` | Coding standards, patterns, module structure | Saat daily development |
-| `security-architecture.md` | RBAC matrix, RLS policies, audit trail specs | Saat security review |
+| `deployment-infrastructure.md` | Lovable Cloud deployment, 2-environment model (Test/Prod) | Saat deployment planning |
+| `development-standards.md` | Coding standards, patterns, module structure, testing | Saat daily development |
+| `domain-state-machines.md` | 18 state machines, 16 cron jobs, cross-domain workflows | Saat business logic validation |
 | `marketing.md` | GTM strategy, pricing tiers, DSS feature gating | Saat go-to-market planning |
+| `project-roadmap.md` | Milestone timeline, sprint backlog, deliverables | Saat project planning |
+| `security-architecture.md` | RBAC matrix, RLS policies, audit trail specs | Saat security review |
+| `seo.md` | SEO strategy, meta tags, schema markup, programmatic SEO | Saat content & marketing |
+| `system-architecture.md` | C4 diagrams, system context, container, component views | Saat architecture overview |
+| `testing-strategy.md` | Test pyramid, Vitest/Deno testing, DSS/AI testing, 17 CUJs | Saat QA planning |
+| `UIUX_Design_Documentation_SiHuni.md` | Design system, component library, responsive patterns | Saat UI development |
 
 ### 12.2 Tools & Software (Actual Stack)
 
@@ -1475,8 +1543,9 @@ Monitoring:
 
 **END OF DOCUMENT**
 
-**Document Status:** ✅ v3.0 — Aligned with Implementation  
-**Last Updated:** 21 Februari 2026  
-**Architecture Alignment:** 100% synced with actual codebase  
+**Document Status:** ✅ v3.1 — Aligned with Implementation  
+**Last Updated:** 22 Februari 2026  
+**Architecture Alignment:** 100% synced with actual codebase (31 deployed + 12 planned edge functions)  
+**Documentation Suite:** 15 documents, all at v3.0+  
 **Next Review:** Month 3 (Mei 2026) — Post-pilot assessment  
 **Approval Sign-Off:** [Awaiting stakeholder review]
