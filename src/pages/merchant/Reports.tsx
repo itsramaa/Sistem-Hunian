@@ -375,8 +375,7 @@ export default function MerchantReports() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-6">
-        <PageHeader icon={BarChart3} title="Reports & Analytics" description="Track your property performance">
+      <PageHeader icon={BarChart3} title="Reports & Analytics" description="Track your property performance">
           <div className="flex items-center gap-2 flex-wrap">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -461,11 +460,11 @@ export default function MerchantReports() {
                       <p className="text-sm text-muted-foreground">Total Revenue</p>
                       <p className="text-2xl font-bold">{formatCurrency(totalRevenue)}</p>
                     </div>
-                    <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
-                      <DollarSign className="h-5 w-5 text-green-600" />
+                    <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
+                      <DollarSign className="h-5 w-5 text-success" />
                     </div>
                   </div>
-                  <div className={`flex items-center gap-1 mt-2 text-sm ${revenueChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  <div className={`flex items-center gap-1 mt-2 text-sm ${revenueChange >= 0 ? 'text-success' : 'text-destructive'}`}>
                     {revenueChange >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
                     <span>{revenueChange >= 0 ? '+' : ''}{revenueChange}% from previous period</span>
                   </div>
@@ -479,8 +478,8 @@ export default function MerchantReports() {
                       <p className="text-sm text-muted-foreground">Occupancy Rate</p>
                       <p className="text-2xl font-bold">{occupancyRate}%</p>
                     </div>
-                    <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
-                      <Building2 className="h-5 w-5 text-blue-600" />
+                    <div className="w-10 h-10 rounded-full bg-info/10 flex items-center justify-center">
+                      <Building2 className="h-5 w-5 text-info" />
                     </div>
                   </div>
                   <p className="text-sm text-muted-foreground mt-2">
@@ -496,8 +495,8 @@ export default function MerchantReports() {
                       <p className="text-sm text-muted-foreground">Pending Payments</p>
                       <p className="text-2xl font-bold">{formatCurrency(pendingPayments)}</p>
                     </div>
-                    <div className="w-10 h-10 rounded-full bg-yellow-500/10 flex items-center justify-center">
-                      <DollarSign className="h-5 w-5 text-yellow-600" />
+                    <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
+                      <DollarSign className="h-5 w-5 text-warning" />
                     </div>
                   </div>
                   <p className="text-sm text-muted-foreground mt-2">
@@ -515,8 +514,8 @@ export default function MerchantReports() {
                         {maintenanceRequests.filter(r => r.status !== 'completed').length}
                       </p>
                     </div>
-                    <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center">
-                      <Wrench className="h-5 w-5 text-purple-600" />
+                    <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
+                      <Wrench className="h-5 w-5 text-accent-foreground" />
                     </div>
                   </div>
                   <p className="text-sm text-muted-foreground mt-2">
@@ -640,7 +639,6 @@ export default function MerchantReports() {
             </div>
           </TabsContent>
         </Tabs>
-      </div>
     </div>
   );
 }

@@ -5,7 +5,8 @@ import { Badge } from "@/shared/components/ui/badge";
 import { PageHeader } from "@/shared/components/ui/PageHeader";
 import { Progress } from "@/shared/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
-import { Loader2, DollarSign, FileWarning, Wrench, TrendingUp, Check, X, Lock, Brain } from "lucide-react";
+import { Loader2, DollarSign, FileWarning, Wrench, TrendingUp, Check, X, Brain } from "lucide-react";
+import { TierGate } from "@/features/dss/components/TierGate";
 import { toast } from "sonner";
 import { usePricingAdvisor, useCollectionStrategy, useMaintenancePriority, useInvestmentInsight, useDssRecommendations, useUpdateRecommendation } from "@/features/dss/hooks/useDssAdvisors";
 import { useMerchantTier } from "@/features/dss/hooks/useMerchantTier";
@@ -14,10 +15,10 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  accepted: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  pending: "bg-warning/10 text-warning dark:bg-warning/20",
+  accepted: "bg-success/10 text-success dark:bg-success/20",
   dismissed: "bg-muted text-muted-foreground",
-  expired: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  expired: "bg-destructive/10 text-destructive dark:bg-destructive/20",
 };
 
 export default function DssAdvisor() {
@@ -86,21 +87,7 @@ export default function DssAdvisor() {
     }
   };
 
-  const TierGate = ({ children }: { children: React.ReactNode }) => {
-    if (tierLoading) return <Loader2 className="h-4 w-4 animate-spin" />;
-    if (!canAccess("ai_recommendations")) {
-      return (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-10 text-center">
-            <Lock className="h-10 w-10 text-muted-foreground mb-3" />
-            <p className="text-muted-foreground">DSS Advisor requires Professional or higher plan.</p>
-            <Badge variant="outline" className="mt-2">{tierName}</Badge>
-          </CardContent>
-        </Card>
-      );
-    }
-    return <>{children}</>;
-  };
+  // TierGate is now imported from shared component
 
   const tabIcons: Record<string, React.ReactNode> = {
     pricing: <DollarSign className="h-4 w-4 mr-1" />,

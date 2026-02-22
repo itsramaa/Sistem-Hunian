@@ -49,8 +49,8 @@ export default function MerchantDashboard() {
   }
 
   return (
-    <>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <p className="text-sm text-muted-foreground">
             {`Welcome back, ${merchant?.business_name || 'Merchant'}! Here's what's happening today.`}
@@ -62,13 +62,14 @@ export default function MerchantDashboard() {
           onClick={() => refetch()} 
           disabled={isRefetching}
           className="gap-2"
+          aria-label="Refresh dashboard data"
         >
           <RefreshCw className={`h-4 w-4 ${isRefetching ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
       </div>
-      <div className="space-y-6">
-        {/* Subscription Status & Alerts */}
+
+      {/* Subscription Status & Alerts */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <SubscriptionWidget />
@@ -81,7 +82,7 @@ export default function MerchantDashboard() {
         {/* Key Metrics Grid */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {/* Total Properties */}
-          <Card className="transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 animate-fade-in" style={{ animationDelay: '0ms', animationFillMode: 'both' }}>
+          <Card className="transition-[transform,box-shadow] duration-200 hover:shadow-md hover:-translate-y-0.5 animate-fade-in" style={{ animationDelay: '0ms', animationFillMode: 'both' }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Properties</CardTitle>
               <Building2 className="h-4 w-4 text-muted-foreground" />
@@ -95,7 +96,7 @@ export default function MerchantDashboard() {
           </Card>
 
           {/* Occupancy Rate */}
-          <Card className="transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 animate-fade-in" style={{ animationDelay: '80ms', animationFillMode: 'both' }}>
+          <Card className="transition-[transform,box-shadow] duration-200 hover:shadow-md hover:-translate-y-0.5 animate-fade-in" style={{ animationDelay: '80ms', animationFillMode: 'both' }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Occupancy Rate</CardTitle>
               <Home className="h-4 w-4 text-muted-foreground" />
@@ -118,7 +119,7 @@ export default function MerchantDashboard() {
           </Card>
 
           {/* Active Tenants */}
-          <Card className="transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 animate-fade-in" style={{ animationDelay: '160ms', animationFillMode: 'both' }}>
+          <Card className="transition-[transform,box-shadow] duration-200 hover:shadow-md hover:-translate-y-0.5 animate-fade-in" style={{ animationDelay: '160ms', animationFillMode: 'both' }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Active Tenants</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
@@ -155,7 +156,7 @@ export default function MerchantDashboard() {
           </Card>
 
           {/* Revenue / Escrow */}
-          <Card className="transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 animate-fade-in" style={{ animationDelay: '240ms', animationFillMode: 'both' }}>
+          <Card className="transition-[transform,box-shadow] duration-200 hover:shadow-md hover:-translate-y-0.5 animate-fade-in" style={{ animationDelay: '240ms', animationFillMode: 'both' }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Escrow Balance</CardTitle>
               <Wallet className="h-4 w-4 text-muted-foreground" />
@@ -256,7 +257,6 @@ export default function MerchantDashboard() {
             </CardContent>
           </Card>
         </div>
-      </div>
-    </>
+    </div>
   );
 }

@@ -74,8 +74,8 @@ export default function MerchantMaintenance() {
   }
 
   return (
-    <>
-      <div className="space-y-6">
+    <div className="space-y-6">
+      <PageHeader icon={Wrench} title="Maintenance" description="Track and manage maintenance requests" />
         <PageHeader icon={Wrench} title="Maintenance" description="Track and manage maintenance requests" />
 
         <MaintenanceStats
@@ -103,7 +103,6 @@ export default function MerchantMaintenance() {
           onPageChange={setPage}
           itemsPerPage={ITEMS_PER_PAGE}
         />
-      </div>
 
       <UpdateMaintenanceDialog
         open={!!selectedRequest}
@@ -113,6 +112,6 @@ export default function MerchantMaintenance() {
         onSubmit={handleUpdateStatus}
         loading={updateMutation.isPending}
       />
-    </>
+    </div>
   );
 }

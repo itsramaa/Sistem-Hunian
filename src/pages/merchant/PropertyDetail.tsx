@@ -158,7 +158,7 @@ export default function PropertyDetail() {
             </div>
             <p className="text-2xl font-bold">{Math.round(occupancyRate)}%</p>
             <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary mt-1">
-              <div className={`h-full rounded-full transition-all duration-500 ${getOccupancyColor(occupancyRate)}`} style={{ width: `${occupancyRate}%` }} />
+              <div className={`h-full rounded-full transition-[width] duration-500 ${getOccupancyColor(occupancyRate)}`} style={{ width: `${occupancyRate}%` }} />
             </div>
           </CardContent>
         </Card>

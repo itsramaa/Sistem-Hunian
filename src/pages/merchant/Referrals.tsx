@@ -7,7 +7,7 @@ import { Gift, TrendingUp, Percent, Users, Share2 } from 'lucide-react';
 export default function MerchantReferrals() {
   return (
     <div className="space-y-6">
-      <div className="space-y-6">
+      <PageHeader icon={Share2} title="Referral Program" description="Earn rewards by referring new merchants to SiHuni" />
         <PageHeader icon={Share2} title="Referral Program" description="Earn rewards by referring new merchants to SiHuni" />
 
         {/* Merchant-specific benefits card */}
@@ -69,7 +69,6 @@ export default function MerchantReferrals() {
         </Card>
 
         <ReferralDashboard userRole="merchant" />
-      </div>
     </div>
   );
 }

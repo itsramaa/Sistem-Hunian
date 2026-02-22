@@ -15,14 +15,12 @@ const Billing = () => {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-6">
-        <PageHeader icon={Receipt} title="Billing & Subscription" description="Manage your subscription and payout settings" />
-        <SuspensionWarningBanner />
-        <BillingDashboard customerId={merchant.id} />
-        <div className="pt-8 border-t">
-          <h2 className="text-lg font-semibold mb-4">Payout Settings</h2>
-          <DisbursementScheduleSettings />
-        </div>
+      <PageHeader icon={Receipt} title="Billing & Subscription" description="Manage your subscription and payout settings" />
+      <SuspensionWarningBanner />
+      <BillingDashboard customerId={merchant.id} />
+      <div className="pt-8 border-t">
+        <h3 className="text-lg font-semibold mb-4">Payout Settings</h3>
+        <DisbursementScheduleSettings />
       </div>
     </div>
   );
