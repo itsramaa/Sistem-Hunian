@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/integrations/supabase/client';
 import { Contract, CreateContractPayload } from '../types';
+import { CONTRACT_STATUS_TRANSITIONS, isValidTransition } from '@/shared/constants/state-machines';
+import { logStatusChange, createAuditLog } from '@/shared/utils/auditLog';
 
 export const contractService = {
   async getTenantActiveContract(tenantId: string): Promise<Contract | null> {
@@ -125,6 +127,12 @@ export const contractService = {
       .insert(payload);
     
     if (error) throw error;
+
+    await createAuditLog({
+      action: 'create',
+      entityType: 'contract',
+      newData: payload as unknown as object,
+    });
   },
 
   async merchantSignContract(contractId: string, signatureUrl: string, userId: string): Promise<void> {
@@ -159,27 +167,43 @@ export const contractService = {
       // Get current contract to check tenant signature
       const { data: contract, error: fetchError } = await supabase
         .from('contracts')
-        .select('tenant_signature_url')
+        .select('tenant_signature_url, status')
         .eq('id', contractId)
         .single();
 
       if (fetchError) throw fetchError;
 
-      const newStatus = contract?.tenant_signature_url ? 'fully_signed' : 'merchant_signed';
-      const contractStatus = contract?.tenant_signature_url ? 'active' : 'draft'; // If fully signed, make it active
+      const oldStatus = contract?.status || 'draft';
+      const newSignatureStatus = contract?.tenant_signature_url ? 'fully_signed' : 'merchant_signed';
+      const newContractStatus = contract?.tenant_signature_url ? 'active' : oldStatus;
 
       // Update contract
+      const updateData: Record<string, unknown> = {
+        merchant_signature_url: publicUrl,
+        merchant_signed_at: new Date().toISOString(),
+        signature_status: newSignatureStatus,
+      };
+      
+      if (newContractStatus === 'active') {
+        updateData.status = 'active';
+      }
+
       const { error: updateError } = await supabase
         .from('contracts')
-        .update({
-          merchant_signature_url: publicUrl,
-          merchant_signed_at: new Date().toISOString(),
-          signature_status: newStatus,
-          status: contractStatus === 'active' ? 'active' : undefined // Only update status if it becomes active
-        })
+        .update(updateData)
         .eq('id', contractId);
 
       if (updateError) throw updateError;
+
+      // Audit log for signing
+      await createAuditLog({
+        action: 'sign',
+        entityType: 'contract',
+        entityId: contractId,
+        oldData: { signature_status: 'pending', status: oldStatus },
+        newData: { signature_status: newSignatureStatus, status: newContractStatus },
+        userId,
+      });
     } catch (error) {
       console.error('Error signing contract:', error);
       throw error;
@@ -195,22 +219,59 @@ export const contractService = {
     if (error) throw error;
   },
 
-  async updateContractStatus(contractId: string, status: string): Promise<void> {
+  async updateContractStatus(contractId: string, newStatus: string): Promise<void> {
+    // Fetch current status for validation
+    const { data: contract, error: fetchError } = await supabase
+      .from('contracts')
+      .select('status')
+      .eq('id', contractId)
+      .single();
+
+    if (fetchError) throw fetchError;
+    const currentStatus = contract?.status || '';
+
+    // Validate transition
+    if (!isValidTransition(CONTRACT_STATUS_TRANSITIONS, currentStatus, newStatus)) {
+      throw new Error(
+        `Invalid contract status transition: "${currentStatus}" → "${newStatus}". ` +
+        `Allowed: [${(CONTRACT_STATUS_TRANSITIONS[currentStatus] || []).join(', ')}]`
+      );
+    }
+
     const { error } = await supabase
       .from('contracts')
-      .update({ status })
+      .update({ status: newStatus })
       .eq('id', contractId);
     
     if (error) throw error;
+
+    // Audit log
+    await logStatusChange('contract', contractId, currentStatus, newStatus);
   },
 
   async deleteContract(contractId: string): Promise<void> {
+    // Fetch contract data before deletion for audit
+    const { data: contract, error: fetchError } = await supabase
+      .from('contracts')
+      .select('status, unit_id, tenant_user_id, merchant_id')
+      .eq('id', contractId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
     const { error } = await supabase
       .from('contracts')
       .delete()
       .eq('id', contractId);
     
     if (error) throw error;
+
+    await createAuditLog({
+      action: 'delete',
+      entityType: 'contract',
+      entityId: contractId,
+      oldData: contract as unknown as object,
+    });
   },
 
   async uploadContractDocument(contractId: string, file: File): Promise<string> {

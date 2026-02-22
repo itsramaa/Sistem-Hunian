@@ -19,7 +19,14 @@ export type AuditAction =
   | "resolve"
   | "dismiss"
   | "enable_2fa"
-  | "disable_2fa";
+  | "disable_2fa"
+  | "sign"
+  | "send"
+  | "cancel"
+  | "complete"
+  | "acknowledge"
+  | "assign"
+  | "escalate";
 
 export type AuditEntityType =
   | "merchant"
@@ -37,7 +44,19 @@ export type AuditEntityType =
   | "forum_report"
   | "analytics"
   | "audit_log"
-  | "user";
+  | "user"
+  | "contract"
+  | "invoice"
+  | "payment"
+  | "maintenance"
+  | "property"
+  | "unit"
+  | "tenant"
+  | "order"
+  | "payment_plan"
+  | "move_out_notice"
+  | "deposit_refund"
+  | "notification";
 
 interface AuditLogParams {
   action: AuditAction;

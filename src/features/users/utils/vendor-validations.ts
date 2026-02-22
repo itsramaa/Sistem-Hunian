@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  VENDOR_JOB_STATUS_TRANSITIONS,
+  ORDER_STATUS_TRANSITIONS,
+  isValidTransition,
+} from '@/shared/constants/state-machines';
 
 // Phone number validation
 export const validatePhoneNumber = (phone: string): { isValid: boolean; error?: string } => {
@@ -124,33 +129,16 @@ export const declineReasonSchema = z.string()
   .min(10, 'Please provide a reason for declining (at least 10 characters)')
   .max(500, 'Reason is too long');
 
-// Status transition validation for jobs
-export const validJobStatusTransitions: Record<string, string[]> = {
-  pending: ['accepted', 'rejected'],
-  accepted: ['in_progress', 'rejected'],
-  in_progress: ['completed'],
-  completed: [],
-  rejected: [],
-};
+// Re-export centralized state machine constants
+export const validJobStatusTransitions = VENDOR_JOB_STATUS_TRANSITIONS;
+export const validOrderStatusTransitions = ORDER_STATUS_TRANSITIONS;
 
 export const isValidJobStatusTransition = (currentStatus: string, newStatus: string): boolean => {
-  const allowedTransitions = validJobStatusTransitions[currentStatus] || [];
-  return allowedTransitions.includes(newStatus);
-};
-
-// Status transition validation for orders
-export const validOrderStatusTransitions: Record<string, string[]> = {
-  pending: ['confirmed', 'cancelled'],
-  confirmed: ['processing', 'cancelled'],
-  processing: ['ready', 'cancelled'],
-  ready: ['completed', 'cancelled'],
-  completed: [],
-  cancelled: [],
+  return isValidTransition(VENDOR_JOB_STATUS_TRANSITIONS, currentStatus, newStatus);
 };
 
 export const isValidOrderStatusTransition = (currentStatus: string, newStatus: string): boolean => {
-  const allowedTransitions = validOrderStatusTransitions[currentStatus] || [];
-  return allowedTransitions.includes(newStatus);
+  return isValidTransition(ORDER_STATUS_TRANSITIONS, currentStatus, newStatus);
 };
 
 // Helper to mask sensitive data
