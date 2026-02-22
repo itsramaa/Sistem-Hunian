@@ -1,5 +1,7 @@
 import { supabase } from "@/lib/integrations/supabase/client";
 import { AuditLog, HistoryEntry, Merchant, Verification } from "../types/admin-merchant";
+import { MERCHANT_VERIFICATION_TRANSITIONS, isValidTransition } from "@/shared/constants/state-machines";
+import { createAuditLog, logStatusChange } from "@/shared/utils/auditLog";
 
 export const merchantService = {
   async fetchMerchants(filters?: {
@@ -118,6 +120,12 @@ export const merchantService = {
     },
     approvalNotes?: string
   ): Promise<void> {
+    // Validate transition
+    const currentStatus = merchant.verification_status || 'pending';
+    if (!isValidTransition(MERCHANT_VERIFICATION_TRANSITIONS, currentStatus, status)) {
+      throw new Error(`Invalid verification transition: ${currentStatus} → ${status}`);
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
     const adminId = user?.id;
 
@@ -151,20 +159,13 @@ export const merchantService = {
       rejection_reason: rejectionData?.reasonLabel,
       rejection_details: rejectionData?.details,
       resubmission_instructions: rejectionData?.resubmissionInstructions,
-      old_status: merchant.verification_status,
+      old_status: currentStatus,
       new_status: status,
     });
 
-    // Insert audit log
-    await supabase.from('audit_logs').insert({
-      user_id: adminId,
-      action: status === 'verified' ? 'verification_approved' : 'verification_rejected',
-      entity_type: 'merchant',
-      entity_id: merchant.id,
-      old_data: { verification_status: merchant.verification_status },
-      new_data: { verification_status: status, ...rejectionData },
-      user_agent: navigator.userAgent,
-    });
+    // Audit log via centralized utility
+    await logStatusChange('merchant', merchant.id, currentStatus, status, 
+      status === 'rejected' ? rejectionData?.reasonLabel : approvalNotes);
 
     // Create notification for merchant
     await supabase.from('notifications').insert({
@@ -200,10 +201,14 @@ export const merchantService = {
   },
 
   async suspendMerchant(merchant: Merchant): Promise<string> {
-    const { data: { user } } = await supabase.auth.getUser();
-    const adminId = user?.id;
-    
     const newStatus = merchant.verification_status === 'suspended' ? 'verified' : 'suspended';
+    const currentStatus = merchant.verification_status || 'pending';
+
+    // Validate transition
+    if (!isValidTransition(MERCHANT_VERIFICATION_TRANSITIONS, currentStatus, newStatus)) {
+      throw new Error(`Invalid verification transition: ${currentStatus} → ${newStatus}`);
+    }
+
     const { error } = await supabase
       .from('merchants')
       .update({ verification_status: newStatus })
@@ -211,25 +216,20 @@ export const merchantService = {
 
     if (error) throw error;
 
+    const { data: { user } } = await supabase.auth.getUser();
+    const adminId = user?.id;
+
     // Insert verification history
     await supabase.from('merchant_verification_history').insert({
       merchant_id: merchant.id,
       action: newStatus === 'suspended' ? 'suspended' : 'reactivated',
       performed_by: adminId,
-      old_status: merchant.verification_status,
+      old_status: currentStatus,
       new_status: newStatus,
     });
     
-    // Insert audit log
-    await supabase.from('audit_logs').insert({
-      user_id: adminId,
-      action: newStatus === 'suspended' ? 'merchant_suspended' : 'merchant_reactivated',
-      entity_type: 'merchant',
-      entity_id: merchant.id,
-      old_data: { verification_status: merchant.verification_status },
-      new_data: { verification_status: newStatus },
-      user_agent: navigator.userAgent,
-    });
+    // Audit log via centralized utility
+    await logStatusChange('merchant', merchant.id, currentStatus, newStatus);
     
     return newStatus;
   },
@@ -268,18 +268,16 @@ export const merchantService = {
     
     await supabase.from('merchant_verification_history').insert(historyEntries);
     
-    // 3. Insert audit logs
-    const auditLogs = targetMerchants.map(m => ({
-      user_id: adminId,
-      action: 'verification_approved',
-      entity_type: 'merchant',
-      entity_id: m.id,
-      old_data: { verification_status: m.verification_status },
-      new_data: { verification_status: 'verified', notes },
-      user_agent: navigator.userAgent
-    }));
-    
-    await supabase.from('audit_logs').insert(auditLogs);
+    // 3. Audit logs via centralized utility
+    for (const m of targetMerchants) {
+      await createAuditLog({
+        action: 'bulk_approve',
+        entityType: 'merchant',
+        entityId: m.id,
+        oldData: { verification_status: m.verification_status },
+        newData: { verification_status: 'verified', notes },
+      });
+    }
     
     // 4. Create notifications
     const notifications = targetMerchants.map(m => ({
