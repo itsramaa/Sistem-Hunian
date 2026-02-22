@@ -13,10 +13,13 @@ import { usePropertiesWithUnits } from '@/features/properties/hooks/useMerchantP
 import { useMerchantTenants, useTenantProfiles } from '@/features/users/hooks/useMerchantTenants';
 
 import { Button } from '@/shared/components/ui/button';
+import { EmptyState } from '@/shared/components/ui/EmptyState';
+import { PageHeader } from '@/shared/components/ui/PageHeader';
+import { TabsPageSkeleton } from '@/shared/components/ui/PageSkeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useQueryClient } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { FileText, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 const ITEMS_PER_PAGE = 10;
@@ -135,19 +138,19 @@ export default function MerchantContracts() {
     return data.slice(start, start + ITEMS_PER_PAGE);
   };
 
+  if (isLoading) {
+    return <TabsPageSkeleton statsCount={4} />;
+  }
+
   return (
     <div className="space-y-6">
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-display font-bold">Contracts</h1>
-            <p className="text-muted-foreground">Manage rental agreements with your tenants</p>
-          </div>
+        <PageHeader icon={FileText} title="Contracts" description="Manage rental agreements with your tenants">
           <Button onClick={() => setShowCreateDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Create Contract
           </Button>
-        </div>
+        </PageHeader>
 
         <ContractStats
           totalContracts={contracts?.length || 0}

@@ -6,9 +6,12 @@ import { UpdateMaintenanceDialog } from '@/features/maintenance/components/Updat
 import { useMerchantMaintenanceRequests, useUpdateMaintenanceRequest, useVerifiedVendors } from '@/features/maintenance/hooks/useMaintenance';
 import { MaintenanceRequest, UpdateMaintenanceStatusPayload } from '@/features/maintenance/types';
 
+import { PageHeader } from '@/shared/components/ui/PageHeader';
+import { TabsPageSkeleton } from '@/shared/components/ui/PageSkeleton';
 import { useToast } from '@/shared/hooks/use-toast';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useEffect, useMemo, useState } from 'react';
+import { Wrench } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -66,9 +69,15 @@ export default function MerchantMaintenance() {
     });
   };
 
+  if (isLoading && requests.length === 0) {
+    return <TabsPageSkeleton statsCount={4} />;
+  }
+
   return (
     <>
       <div className="space-y-6">
+        <PageHeader icon={Wrench} title="Maintenance" description="Track and manage maintenance requests" />
+
         <MaintenanceStats
           total={stats.total}
           pending={stats.pending}

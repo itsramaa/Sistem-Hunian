@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
+import { PageHeader } from "@/shared/components/ui/PageHeader";
 import { Progress } from "@/shared/components/ui/progress";
 import { ScanText, Upload, CheckCircle2, ArrowRight, FileText, CreditCard, Wrench, Building2, Eye, Sparkles } from "lucide-react";
 
@@ -82,9 +83,11 @@ function OcrTutorial() {
   const progress = ((currentStep + 1) / (TUTORIAL_STEPS.length + 1)) * 100;
 
   return (
-    <>
+    <div className="space-y-6">
+      <PageHeader icon={ScanText} title="OCR Tutorial" description="Pelajari cara menggunakan OCR untuk memproses dokumen" />
+
       {/* Progress Bar */}
-      <div className="space-y-2 mb-6">
+      <div className="space-y-2">
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">Progress Tutorial</span>
           <span className="font-medium">{Math.round(progress)}%</span>
@@ -323,7 +326,7 @@ function OcrTutorial() {
           <ArrowRight className="h-4 w-4 ml-2" />
         </Button>
       </div>
-    </>
+    </div>
   );
 }
 

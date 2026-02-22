@@ -81,7 +81,7 @@ export default function MerchantDashboard() {
         {/* Key Metrics Grid */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {/* Total Properties */}
-          <Card>
+          <Card className="transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 animate-fade-in" style={{ animationDelay: '0ms', animationFillMode: 'both' }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Properties</CardTitle>
               <Building2 className="h-4 w-4 text-muted-foreground" />
@@ -95,7 +95,7 @@ export default function MerchantDashboard() {
           </Card>
 
           {/* Occupancy Rate */}
-          <Card>
+          <Card className="transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 animate-fade-in" style={{ animationDelay: '80ms', animationFillMode: 'both' }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Occupancy Rate</CardTitle>
               <Home className="h-4 w-4 text-muted-foreground" />
@@ -118,7 +118,7 @@ export default function MerchantDashboard() {
           </Card>
 
           {/* Active Tenants */}
-          <Card>
+          <Card className="transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 animate-fade-in" style={{ animationDelay: '160ms', animationFillMode: 'both' }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Active Tenants</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
@@ -155,7 +155,7 @@ export default function MerchantDashboard() {
           </Card>
 
           {/* Revenue / Escrow */}
-          <Card>
+          <Card className="transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 animate-fade-in" style={{ animationDelay: '240ms', animationFillMode: 'both' }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Escrow Balance</CardTitle>
               <Wallet className="h-4 w-4 text-muted-foreground" />
@@ -188,7 +188,7 @@ export default function MerchantDashboard() {
                     : 0;
                   
                   return (
-                    <div key={property.id} className="space-y-2">
+                    <div key={property.id} className="space-y-2 cursor-pointer hover:bg-muted/50 rounded-lg p-2 -mx-2 transition-colors" onClick={() => navigate(`/merchant/properties/${property.id}`)}>
                       <div className="flex items-center justify-between text-sm">
                         <div className="font-medium">{property.name}</div>
                         <div className="text-muted-foreground">
