@@ -1,86 +1,57 @@
 
-# FASE 1 — FOUNDATION (Lanjutan): Remaining State Machine & Audit Gaps
+# FASE 1 — FOUNDATION (Final Round): Remaining Gaps
 
-## Status Implementasi Sebelumnya
+## Audit Summary
 
-Sudah selesai (round sebelumnya):
-- Centralized `state-machines.ts` dengan 20 transition maps + helpers
-- `auditLog.ts` expanded (29 actions, 28 entity types)
-- `contractService.ts` — transition validation + audit
-- `ContractStatusBadge.tsx` — 8 states
-- `merchantInvoiceService.ts` — transition validation + audit
-- `merchant-validations.ts` + `vendor-validations.ts` — centralized imports
-- `UpdateMaintenanceDialog.tsx` — centralized imports
+After thorough review, **most services are now aligned**. Three services still have gaps:
 
-## Remaining Gaps (5 Services)
+| # | Service | Gap |
+|---|---------|-----|
+| 1 | `merchantService.ts` | Uses **inline** `supabase.from('audit_logs').insert()` instead of `createAuditLog()`. Action values like `'verification_approved'`, `'merchant_suspended'` don't match `AuditAction` type. No `isValidTransition` for `VERIFICATION_STATUS_TRANSITIONS`. |
+| 2 | `vendorVerificationService.ts` | Updates `verification_status` to `'verified'` with **no validation** against `VERIFICATION_STATUS_TRANSITIONS` and **no audit log**. |
+| 3 | `merchantTenantService.ts` | `terminateContract()` updates unit status to `'available'` **without validating** against `UNIT_STATUS_TRANSITIONS`. |
 
-| # | Service | Gap | Fix |
-|---|---------|-----|-----|
-| 1 | `paymentPlanService.ts` | No transition validation, no audit logging. `acceptPaymentPlan` hardcodes `'active'` (should be `pending_acceptance` -> `accepted` -> `active`). `declinePaymentPlan` hardcodes `'cancelled'`. | Add validation + audit |
-| 2 | `adminTenantService.ts` | `updateTenantStatus()` updates contracts with NO validation, NO audit. `getTenantStats()` references `'evicted'` (not a valid contract state). | Add validation + audit, remove `'evicted'` |
-| 3 | `merchantTenantService.ts` | `terminateContract()` — no transition validation (hardcodes `'terminated'`), no audit. `cancelInvitation()` — no audit. | Add validation + audit |
-| 4 | `maintenanceService.ts` | `updateStatus()` — no centralized transition validation (accepts any status), no audit_logs (only timeline). `cancelRequest()` — no audit_logs. | Add `isValidTransition` + audit |
-| 5 | `disputesService.ts` | Has `logStatusChange` but no `isValidTransition` check against `DISPUTE_STATUS_TRANSITIONS`. | Add validation |
+Everything else (contract, invoice, payment plan, maintenance, dispute services + all UI components) is fully aligned.
 
-## Implementation Plan (5 Edits)
+---
 
-### Edit 1: `src/features/payments/services/paymentPlanService.ts`
+## Implementation Plan (3 Edits)
 
-- Import `PAYMENT_PLAN_STATUS_TRANSITIONS`, `isValidTransition` from centralized constants
-- Import `logStatusChange`, `createAuditLog` from auditLog
-- `acceptPaymentPlan()`: Fetch current status, validate `pending_acceptance` -> `active` transition, add audit log
-- `declinePaymentPlan()`: Fetch current status, validate transition to `cancelled`, add audit log
-- `createPaymentPlan()`: Add `createAuditLog` for creation
+### Edit 1: `merchantService.ts` — Migrate to `createAuditLog` + Add Validation
 
-### Edit 2: `src/features/users/services/adminTenantService.ts`
+- Import `VERIFICATION_STATUS_TRANSITIONS`, `isValidTransition` from centralized constants
+- Import `createAuditLog`, `logStatusChange` from auditLog
+- **`updateMerchantStatus()`** (line ~138): Add `isValidTransition` check before updating `verification_status`. Replace inline `supabase.from('audit_logs').insert()` with `createAuditLog()` using proper `AuditAction` values (`'approve'`/`'reject'`)
+- **`suspendMerchant()`** (line ~202): Add `isValidTransition` check. Replace inline audit insert with `logStatusChange()` using `'suspend'`/`'reactivate'` actions
+- **`bulkApprove()`** (line ~237): Replace inline audit insert with loop of `createAuditLog()` calls using `'bulk_approve'` action
 
-- Import `CONTRACT_STATUS_TRANSITIONS`, `isValidTransition` from centralized constants
+### Edit 2: `vendorVerificationService.ts` — Add Validation + Audit
+
+- Import `VERIFICATION_STATUS_TRANSITIONS`, `isValidTransition` from centralized constants
 - Import `logStatusChange` from auditLog
-- `updateTenantStatus()`: Fetch current contract status, validate transition, add audit log
-- `getTenantStats()`: Remove `'evicted'` from status filter (not a valid state) -- replace with `['terminated', 'expired', 'cancelled']`
+- **`updateVerification()`**: Add `logStatusChange` after status update
+- **`updateVendorStatusIfVerified()`**: Add `isValidTransition` check before updating vendor status. Add `logStatusChange` after update
 
-### Edit 3: `src/features/users/services/merchantTenantService.ts`
+### Edit 3: `merchantTenantService.ts` — Add Unit Status Validation
 
-- Import `CONTRACT_STATUS_TRANSITIONS`, `isValidTransition` from centralized constants
-- Import `logStatusChange`, `createAuditLog` from auditLog
-- `terminateContract()`: Validate current status allows transition to `'terminated'`, add audit log
-- `cancelInvitation()`: Add `createAuditLog` call
+- Import `UNIT_STATUS_TRANSITIONS` from centralized constants
+- **`terminateContract()`** (line ~184): Add `isValidTransition(UNIT_STATUS_TRANSITIONS, currentUnitStatus, 'available')` check before updating unit. Fetch current unit status first.
 
-### Edit 4: `src/features/maintenance/services/maintenanceService.ts`
+---
 
-- Import `MAINTENANCE_STATUS_TRANSITIONS`, `isValidTransition` from centralized constants
-- Import `logStatusChange` from auditLog
-- `updateStatus()`: Add `isValidTransition` check before updating, add `logStatusChange` after update
-- `cancelRequest()`: Add `logStatusChange` after cancel
+## Post-Implementation: Full Alignment Matrix
 
-### Edit 5: `src/features/disputes/services/disputesService.ts`
-
-- Import `DISPUTE_STATUS_TRANSITIONS`, `isValidTransition` from centralized constants
-- `resolveDispute()`: Add `isValidTransition` check before updating
-
-## Post-Implementation Verification
-
-After these 5 edits, every service that performs a status change will:
-1. Validate the transition against centralized `state-machines.ts`
-2. Log the change via `createAuditLog` or `logStatusChange`
-
-Full alignment matrix:
-
-| Domain | Centralized Constants | Transition Validation | Audit Log |
-|--------|----------------------|----------------------|-----------|
+| Domain | Centralized Constants | Transition Validation | Audit via `createAuditLog`/`logStatusChange` |
+|--------|----------------------|----------------------|---------------------------------------------|
 | Contract | Done | Done | Done |
 | Invoice | Done | Done | Done |
-| Payment Plan | Done (constants exist) | **Edit 1** | **Edit 1** |
-| Maintenance | Done | **Edit 4** | **Edit 4** |
-| Dispute | Done | **Edit 5** | Already done |
-| Subscription | Done | N/A (tier changes, not status transitions) | Already done |
-| Escrow/Disbursement | Done | N/A (edge function driven) | Already done |
-| Admin Contract Updates | Done (constants exist) | **Edit 2** | **Edit 2** |
-| Merchant Contract Terminate | Done (constants exist) | **Edit 3** | **Edit 3** |
+| Payment Plan | Done | Done | Done |
+| Maintenance | Done | Done | Done |
+| Dispute | Done | Done | Done |
+| Merchant Verification | Done | **Edit 1** | **Edit 1** |
+| Vendor Verification | Done | **Edit 2** | **Edit 2** |
+| Unit Status (on terminate) | Done | **Edit 3** | N/A (side-effect) |
+| Subscription | Done | N/A | Done |
+| Escrow/Disbursement | Done | N/A (edge function) | Done |
 
-## Technical Notes
-
-- No database changes needed
-- All edits are additive (backward compatible)
-- `'evicted'` is not a valid contract state per `domain-state-machines.md` -- removing from `adminTenantService`
-- `paymentPlanService.acceptPaymentPlan` currently goes directly to `'active'`, but per state machine it should be `pending_acceptance` -> `accepted` -> `active`. Since the UI combines accept+activate in one action, we validate against `PAYMENT_PLAN_STATUS_TRANSITIONS` allowing the current status to transition to `'active'` (via `accepted` as intermediate if needed, or we accept that the UI flow does `pending_acceptance -> active` as a shortcut and add `active` to allowed transitions from `pending_acceptance`)
+After these 3 edits, **FASE 1 FOUNDATION is complete** — every status change in the codebase validates against centralized state machines and logs via the audit utility.
