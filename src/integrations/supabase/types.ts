@@ -890,6 +890,45 @@ export type Database = {
           },
         ]
       }
+      dss_validation_logs: {
+        Row: {
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          new_state: string | null
+          old_state: string | null
+          performed_by: string | null
+          validation_details: Json | null
+          validation_result: string
+          validation_type: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          new_state?: string | null
+          old_state?: string | null
+          performed_by?: string | null
+          validation_details?: Json | null
+          validation_result: string
+          validation_type: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          new_state?: string | null
+          old_state?: string | null
+          performed_by?: string | null
+          validation_details?: Json | null
+          validation_result?: string
+          validation_type?: string
+        }
+        Relationships: []
+      }
       early_termination_requests: {
         Row: {
           approved_at: string | null
@@ -3241,6 +3280,51 @@ export type Database = {
           reward_paid?: boolean | null
           status?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      rls_access_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          ip_address: string | null
+          operation: string
+          policy_name: string | null
+          request_metadata: Json | null
+          table_name: string
+          user_agent: string | null
+          user_id: string | null
+          user_role: string | null
+          was_denied: boolean
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          ip_address?: string | null
+          operation: string
+          policy_name?: string | null
+          request_metadata?: Json | null
+          table_name: string
+          user_agent?: string | null
+          user_id?: string | null
+          user_role?: string | null
+          was_denied?: boolean
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          ip_address?: string | null
+          operation?: string
+          policy_name?: string | null
+          request_metadata?: Json | null
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string | null
+          user_role?: string | null
+          was_denied?: boolean
         }
         Relationships: []
       }
