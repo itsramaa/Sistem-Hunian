@@ -13,6 +13,17 @@ export const propertyService = {
     return (data as Property[]) || [];
   },
 
+  async fetchPropertyById(id: string): Promise<Property & { units?: any[] }> {
+    const { data, error } = await supabase
+      .from('properties')
+      .select('*, units(*)')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    return data as unknown as Property & { units?: any[] };
+  },
+
   async fetchPropertiesWithUnits(merchantId: string): Promise<Property[]> {
     const { data, error } = await supabase
       .from('properties')

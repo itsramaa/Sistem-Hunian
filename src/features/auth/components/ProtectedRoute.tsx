@@ -1,9 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { AppRole } from '@/features/auth/types/auth';
-import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { ContentSkeleton } from '@/shared/components/ui/ContentSkeleton';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -38,11 +38,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   const hasShownToast = useRef(false);
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <ContentSkeleton />;
   }
 
   // Not logged in - redirect to auth

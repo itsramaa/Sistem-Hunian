@@ -7,7 +7,7 @@ import { InvoicesStats } from '@/features/payments/components/InvoicesStats';
 import { InvoicesTable } from '@/features/payments/components/InvoicesTable';
 import { useMerchantInvoices } from '@/features/payments/hooks/useMerchantInvoices';
 import { Invoice } from '@/features/payments/types';
-import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
+
 import { Button } from '@/shared/components/ui/button';
 import { useToast } from '@/shared/hooks/use-toast';
 import { useDebounce } from '@/shared/hooks/useDebounce';
@@ -126,7 +126,7 @@ export default function MerchantInvoices() {
   }, [filteredInvoices, page]);
 
   return (
-    <MerchantLayout>
+    <div className="space-y-6">
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
@@ -185,6 +185,6 @@ export default function MerchantInvoices() {
           remindingId={sendReminderMutation.isPending ? sendReminderMutation.variables?.invoiceId : null}
         />
       </div>
-    </MerchantLayout>
+    </div>
   );
 }

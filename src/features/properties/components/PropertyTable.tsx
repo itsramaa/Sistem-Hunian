@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { Property } from '@/features/properties/types';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
@@ -61,6 +62,7 @@ export function PropertyTable({
   itemsPerPage,
   onItemsPerPageChange,
 }: PropertyTableProps) {
+  const navigate = useNavigate();
   const pageNumbers = getPageNumbers(page, totalPages);
 
   return (
@@ -81,7 +83,7 @@ export function PropertyTable({
             {properties.map((property) => {
               const occupancyRate = property.total_units > 0 ? (property.occupied_units / property.total_units) * 100 : 0;
               return (
-                <TableRow key={property.id} className="group hover:bg-muted/50 transition-colors">
+                <TableRow key={property.id} className="group hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => navigate(`/merchant/properties/${property.id}`)}>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       {/* Thumbnail */}

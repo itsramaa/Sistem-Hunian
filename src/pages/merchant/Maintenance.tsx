@@ -5,7 +5,7 @@ import { MaintenanceStats } from '@/features/maintenance/components/MaintenanceS
 import { UpdateMaintenanceDialog } from '@/features/maintenance/components/UpdateMaintenanceDialog';
 import { useMerchantMaintenanceRequests, useUpdateMaintenanceRequest, useVerifiedVendors } from '@/features/maintenance/hooks/useMaintenance';
 import { MaintenanceRequest, UpdateMaintenanceStatusPayload } from '@/features/maintenance/types';
-import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
+
 import { useToast } from '@/shared/hooks/use-toast';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useEffect, useMemo, useState } from 'react';
@@ -67,10 +67,7 @@ export default function MerchantMaintenance() {
   };
 
   return (
-    <MerchantLayout
-      title="Maintenance Requests"
-      description="Manage maintenance requests from tenants"
-    >
+    <>
       <div className="space-y-6">
         <MaintenanceStats
           total={stats.total}
@@ -107,6 +104,6 @@ export default function MerchantMaintenance() {
         onSubmit={handleUpdateStatus}
         loading={updateMutation.isPending}
       />
-    </MerchantLayout>
+    </>
   );
 }

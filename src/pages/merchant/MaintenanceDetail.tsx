@@ -11,7 +11,7 @@ import {
     useVerifiedVendors
 } from '@/features/maintenance/hooks/useMaintenance';
 import { UpdateMaintenanceStatusPayload } from '@/features/maintenance/types';
-import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
+
 import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
@@ -67,36 +67,32 @@ export default function MerchantMaintenanceDetail() {
 
   if (isLoading) {
     return (
-      <MerchantLayout>
-        <div className="space-y-6">
-          <Skeleton className="h-10 w-48" />
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              <Skeleton className="h-64" />
-              <Skeleton className="h-96" />
-            </div>
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-48" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
             <Skeleton className="h-64" />
+            <Skeleton className="h-96" />
           </div>
+          <Skeleton className="h-64" />
         </div>
-      </MerchantLayout>
+      </div>
     );
   }
 
   if (!request) {
     return (
-      <MerchantLayout>
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Maintenance request not found</p>
-          <Button asChild className="mt-4">
-            <Link to="/merchant/maintenance">Back to Maintenance</Link>
-          </Button>
-        </div>
-      </MerchantLayout>
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">Maintenance request not found</p>
+        <Button asChild className="mt-4">
+          <Link to="/merchant/maintenance">Back to Maintenance</Link>
+        </Button>
+      </div>
     );
   }
 
   return (
-    <MerchantLayout>
+    <>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
@@ -322,6 +318,6 @@ export default function MerchantMaintenanceDetail() {
         onSubmit={handleUpdateStatus}
         loading={updateStatusMutation.isPending}
       />
-    </MerchantLayout>
+    </>
   );
 }

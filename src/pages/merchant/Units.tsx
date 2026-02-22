@@ -8,7 +8,7 @@ import { useMerchantUnits } from "@/features/properties/hooks/useMerchantUnits";
 import { Unit, UnitFormData } from "@/features/properties/types";
 import { SubscriptionLimitWarning } from "@/features/subscriptions/components/SubscriptionLimitWarning";
 import { useSubscriptionLimits } from "@/features/subscriptions/hooks/useSubscriptionLimits";
-import { MerchantLayout } from "@/shared/components/layouts/MerchantLayout";
+
 import {
     AlertDialog,
     AlertDialogAction,
@@ -133,9 +133,9 @@ export default function MerchantUnits() {
   };
 
   return (
-    <MerchantLayout 
-      description="View and manage all your rental units"
-      actions={
+    <>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-muted-foreground">View and manage all your rental units</p>
         <Button 
           disabled={properties.length === 0 || !canAddUnit}
           onClick={handleCreate}
@@ -143,8 +143,7 @@ export default function MerchantUnits() {
           <Plus className="h-4 w-4 mr-2" />
           Add Unit
         </Button>
-      }
-    >
+      </div>
       {/* Subscription Warning */}
       {subscriptionLimits?.isNearUnitLimit && (
         <SubscriptionLimitWarning type="unit" />
@@ -214,6 +213,6 @@ export default function MerchantUnits() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </MerchantLayout>
+    </>
   );
 }

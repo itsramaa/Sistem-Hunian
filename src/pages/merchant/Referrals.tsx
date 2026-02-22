@@ -1,4 +1,3 @@
-import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
 import { ReferralDashboard } from '@/features/referrals/components/ReferralDashboard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Badge } from '@/shared/components/ui/badge';
@@ -6,7 +5,7 @@ import { Gift, TrendingUp, Percent, Users } from 'lucide-react';
 
 export default function MerchantReferrals() {
   return (
-    <MerchantLayout>
+    <div className="space-y-6">
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Referral Program</h1>
@@ -73,6 +72,6 @@ export default function MerchantReferrals() {
 
         <ReferralDashboard userRole="merchant" />
       </div>
-    </MerchantLayout>
+    </div>
   );
 }

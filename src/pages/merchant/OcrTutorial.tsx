@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DashboardLayout } from "@/shared/components/layouts/DashboardLayout";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
@@ -82,7 +82,7 @@ function OcrTutorial() {
   const progress = ((currentStep + 1) / (TUTORIAL_STEPS.length + 1)) * 100;
 
   return (
-    <DashboardLayout role="merchant" title="Tutorial OCR" description="Pelajari cara menggunakan fitur OCR untuk digitalisasi dokumen">
+    <>
       {/* Progress Bar */}
       <div className="space-y-2 mb-6">
         <div className="flex items-center justify-between text-sm">
@@ -323,7 +323,7 @@ function OcrTutorial() {
           <ArrowRight className="h-4 w-4 ml-2" />
         </Button>
       </div>
-    </DashboardLayout>
+    </>
   );
 }
 

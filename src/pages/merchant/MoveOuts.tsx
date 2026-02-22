@@ -8,7 +8,7 @@ import { EarlyTerminationRequest, MoveOutNotice } from "@/features/contracts/typ
 import { VacancyDashboard } from "@/features/dashboard/components/VacancyDashboard";
 import { MoveOutInspectionForm } from "@/features/properties/components/MoveOutInspectionForm";
 import { ScheduleInspectionDialog } from "@/features/properties/components/ScheduleInspectionDialog";
-import { MerchantLayout } from "@/shared/components/layouts/MerchantLayout";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 import { differenceInDays } from "date-fns";
@@ -97,7 +97,7 @@ const MerchantMoveOuts = () => {
   };
 
   return (
-    <MerchantLayout title="Move-Outs" description="Manage tenant move-outs and vacancies">
+    <>
       <div className="mb-6">
         <MoveOutsFilters
           searchTerm={searchQuery}
@@ -198,7 +198,7 @@ const MerchantMoveOuts = () => {
           setEarlyTermDialogOpen(false);
         }}
       />
-    </MerchantLayout>
+    </>
   );
 };
 

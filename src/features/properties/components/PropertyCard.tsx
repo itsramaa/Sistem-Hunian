@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { Property } from '@/features/properties/types';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
@@ -45,13 +46,22 @@ export function PropertyCard({
   isDeleting,
   style,
 }: PropertyCardProps) {
+  const navigate = useNavigate();
   const occupancyRate = property.total_units > 0 ? (property.occupied_units / property.total_units) * 100 : 0;
   const isNew = isNewProperty(property.created_at);
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't navigate if clicking on buttons/dropdowns
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('[role="menuitem"]') || target.closest('[data-radix-popper-content-wrapper]')) return;
+    navigate(`/merchant/properties/${property.id}`);
+  };
+
   return (
     <Card 
-      className="group hover:-translate-y-1 hover:shadow-lg transition-all duration-200"
+      className="group hover:-translate-y-1 hover:shadow-lg transition-all duration-200 cursor-pointer"
       style={style}
+      onClick={handleCardClick}
     >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">

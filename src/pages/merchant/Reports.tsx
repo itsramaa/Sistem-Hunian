@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/integrations/supabase/client';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Button } from '@/shared/components/ui/button';
@@ -372,7 +372,7 @@ export default function MerchantReports() {
   };
 
   return (
-    <MerchantLayout>
+    <div className="space-y-6">
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -643,6 +643,6 @@ export default function MerchantReports() {
           </TabsContent>
         </Tabs>
       </div>
-    </MerchantLayout>
+    </div>
   );
 }

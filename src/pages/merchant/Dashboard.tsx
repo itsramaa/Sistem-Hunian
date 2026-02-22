@@ -3,7 +3,7 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useMerchantDashboardStats } from '@/features/dashboard/hooks/useMerchantDashboardStats';
 import { SubscriptionWidget } from '@/features/subscriptions/components/SubscriptionWidget';
 import { TrialCountdownWidget } from '@/features/subscriptions/components/TrialCountdownWidget';
-import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
+
 import { Alert, AlertDescription } from '@/shared/components/ui/alert';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
@@ -31,40 +31,31 @@ export default function MerchantDashboard() {
   const { data: stats, isLoading, error, refetch, isRefetching } = useMerchantDashboardStats();
 
   if (isLoading) {
-    return (
-      <MerchantLayout 
-        title="Dashboard" 
-        description="Overview of your properties and business performance"
-      >
-        <MerchantDashboardSkeleton />
-      </MerchantLayout>
-    );
+    return <MerchantDashboardSkeleton />;
   }
 
   if (error) {
     return (
-      <MerchantLayout 
-        title="Dashboard" 
-        description="Overview of your properties and business performance"
-      >
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Failed to load dashboard data. Please try again.
-            <Button variant="outline" size="sm" onClick={() => refetch()} className="ml-2">
-              Retry
-            </Button>
-          </AlertDescription>
-        </Alert>
-      </MerchantLayout>
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          Failed to load dashboard data. Please try again.
+          <Button variant="outline" size="sm" onClick={() => refetch()} className="ml-2">
+            Retry
+          </Button>
+        </AlertDescription>
+      </Alert>
     );
   }
 
   return (
-    <MerchantLayout 
-      title="Dashboard" 
-      description={`Welcome back, ${merchant?.business_name || 'Merchant'}! Here's what's happening today.`}
-      actions={
+    <>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
+        <div>
+          <p className="text-sm text-muted-foreground">
+            {`Welcome back, ${merchant?.business_name || 'Merchant'}! Here's what's happening today.`}
+          </p>
+        </div>
         <Button 
           variant="outline" 
           size="sm" 
@@ -75,8 +66,7 @@ export default function MerchantDashboard() {
           <RefreshCw className={`h-4 w-4 ${isRefetching ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
-      }
-    >
+      </div>
       <div className="space-y-6">
         {/* Subscription Status & Alerts */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -267,6 +257,6 @@ export default function MerchantDashboard() {
           </Card>
         </div>
       </div>
-    </MerchantLayout>
+    </>
   );
 }

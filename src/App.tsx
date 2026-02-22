@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
+import { MerchantLayoutRoute } from "@/shared/components/layouts/MerchantLayoutRoute";
 import { Suspense, lazy } from "react";
 import { HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter, Route, Routes } from "react-router-dom";
@@ -61,6 +62,7 @@ const MerchantMoveOuts = lazy(() => import("@/pages/merchant/MoveOuts"));
 const MerchantPayments = lazy(() => import("@/pages/merchant/Payments"));
 const MerchantProfile = lazy(() => import("@/pages/merchant/Profile"));
 const MerchantProperties = lazy(() => import("@/pages/merchant/Properties"));
+const MerchantPropertyDetail = lazy(() => import("@/pages/merchant/PropertyDetail"));
 const MerchantReferrals = lazy(() => import("@/pages/merchant/Referrals"));
 const MerchantReports = lazy(() => import("@/pages/merchant/Reports"));
 const MerchantSettings = lazy(() => import("@/pages/merchant/Settings"));
@@ -156,26 +158,29 @@ const App = () => (
                   <Route path="/admin/2fa" element={<ProtectedRoute allowedRoles={['admin']}><Admin2FA /></ProtectedRoute>} />
                   <Route path="/admin/dss-health" element={<ProtectedRoute allowedRoles={['admin']}><AdminDssHealth /></ProtectedRoute>} />
                   
-                  {/* Merchant Routes */}
-                  <Route path="/merchant" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantDashboard /></ProtectedRoute>} />
-                  <Route path="/merchant/profile" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantProfile /></ProtectedRoute>} />
-                  <Route path="/merchant/properties" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantProperties /></ProtectedRoute>} />
-                  <Route path="/merchant/tenants" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantTenants /></ProtectedRoute>} />
-                  <Route path="/merchant/maintenance" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantMaintenance /></ProtectedRoute>} />
-                  <Route path="/merchant/maintenance/:id" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantMaintenanceDetail /></ProtectedRoute>} />
-                  <Route path="/merchant/payments" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantPayments /></ProtectedRoute>} />
-                  <Route path="/merchant/reports" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantReports /></ProtectedRoute>} />
-                  <Route path="/merchant/invoices" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantInvoices /></ProtectedRoute>} />
-                  <Route path="/merchant/settings" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantSettings /></ProtectedRoute>} />
-                  <Route path="/merchant/units" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantUnits /></ProtectedRoute>} />
-                  <Route path="/merchant/escrow" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantEscrow /></ProtectedRoute>} />
-                  <Route path="/merchant/referrals" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantReferrals /></ProtectedRoute>} />
-                  <Route path="/merchant/contracts" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantContracts /></ProtectedRoute>} />
-                  <Route path="/merchant/billing" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantBilling /></ProtectedRoute>} />
-                  <Route path="/merchant/move-outs" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantMoveOuts /></ProtectedRoute>} />
-                  <Route path="/merchant/ocr-tutorial" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantOcrTutorial /></ProtectedRoute>} />
-                  <Route path="/merchant/ml-analytics" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantMlAnalytics /></ProtectedRoute>} />
-                  <Route path="/merchant/dss-advisor" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantDssAdvisor /></ProtectedRoute>} />
+                  {/* Merchant Routes - Nested with layout */}
+                  <Route path="/merchant" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantLayoutRoute /></ProtectedRoute>}>
+                    <Route index element={<MerchantDashboard />} />
+                    <Route path="profile" element={<MerchantProfile />} />
+                    <Route path="properties" element={<MerchantProperties />} />
+                    <Route path="properties/:id" element={<MerchantPropertyDetail />} />
+                    <Route path="tenants" element={<MerchantTenants />} />
+                    <Route path="maintenance" element={<MerchantMaintenance />} />
+                    <Route path="maintenance/:id" element={<MerchantMaintenanceDetail />} />
+                    <Route path="payments" element={<MerchantPayments />} />
+                    <Route path="reports" element={<MerchantReports />} />
+                    <Route path="invoices" element={<MerchantInvoices />} />
+                    <Route path="settings" element={<MerchantSettings />} />
+                    <Route path="units" element={<MerchantUnits />} />
+                    <Route path="escrow" element={<MerchantEscrow />} />
+                    <Route path="referrals" element={<MerchantReferrals />} />
+                    <Route path="contracts" element={<MerchantContracts />} />
+                    <Route path="billing" element={<MerchantBilling />} />
+                    <Route path="move-outs" element={<MerchantMoveOuts />} />
+                    <Route path="ocr-tutorial" element={<MerchantOcrTutorial />} />
+                    <Route path="ml-analytics" element={<MerchantMlAnalytics />} />
+                    <Route path="dss-advisor" element={<MerchantDssAdvisor />} />
+                  </Route>
 
                   {/* Tenant Routes */}
                   <Route path="/tenant" element={<ProtectedRoute allowedRoles={['tenant']}><TenantDashboard /></ProtectedRoute>} />

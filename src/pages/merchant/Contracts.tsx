@@ -11,7 +11,7 @@ import { useContractActions } from '@/features/contracts/hooks/useContractAction
 import { Contract } from '@/features/contracts/types';
 import { usePropertiesWithUnits } from '@/features/properties/hooks/useMerchantProperties';
 import { useMerchantTenants, useTenantProfiles } from '@/features/users/hooks/useMerchantTenants';
-import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
+
 import { Button } from '@/shared/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { useDebounce } from '@/shared/hooks/useDebounce';
@@ -136,7 +136,7 @@ export default function MerchantContracts() {
   };
 
   return (
-    <MerchantLayout>
+    <div className="space-y-6">
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
@@ -302,6 +302,6 @@ export default function MerchantContracts() {
           loading={deleteContractMutation.isPending}
         />
       </div>
-    </MerchantLayout>
+    </div>
   );
 }

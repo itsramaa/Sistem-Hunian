@@ -2,21 +2,17 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import { BillingDashboard } from "@/features/billing/components/BillingDashboard";
 import { DisbursementScheduleSettings } from "@/features/payments/components/DisbursementScheduleSettings";
 import { SuspensionWarningBanner } from "@/features/users/components/SuspensionWarningBanner";
-import { MerchantLayout } from "@/shared/components/layouts/MerchantLayout";
+
 
 const Billing = () => {
   const { merchant } = useAuth();
 
   if (!merchant) {
-    return (
-      <MerchantLayout description="Manage your subscription and billing">
-        <div>Loading...</div>
-      </MerchantLayout>
-    );
+    return <div>Loading...</div>;
   }
 
   return (
-    <MerchantLayout description="Manage your subscription and billing">
+    <div className="space-y-6">
       <div className="space-y-6">
         <SuspensionWarningBanner />
         <BillingDashboard customerId={merchant.id} />
@@ -25,7 +21,7 @@ const Billing = () => {
           <DisbursementScheduleSettings />
         </div>
       </div>
-    </MerchantLayout>
+    </div>
   );
 };
 
