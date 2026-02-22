@@ -1,146 +1,128 @@
 
-# Maximalisasi UI/UX Design Documentation v3.0 (DSS Edition)
+# Maximalisasi Security Architecture Documentation v3.0 (DSS Edition)
 
-## Masalah
+## Ringkasan Masalah
 
-Dokumen UI/UX saat ini (v1.0, 3059 baris) memiliki gap signifikan dengan implementasi aktual:
+Dokumen `security-architecture.md` v1.0 (266 baris) **sepenuhnya tidak sinkron** dengan arsitektur aktual. Ini adalah gap paling kritis dibanding dokumen lainnya karena menyangkut keamanan.
 
 | Aspek | v1.0 (Sekarang) | Implementasi Aktual |
 |-------|-----------------|---------------------|
-| Component Library | Raw HTML/CSS examples (8 komponen) | shadcn/ui + Radix UI (54 komponen) |
-| Styling | Vanilla CSS manual | Tailwind CSS + CSS Variables via `tailwind.config.ts` |
-| Icon System | "Heroicons/Feather recommended" | Lucide React (sudah dipakai) |
-| Layout | Generic sidebar layout | 4 portal layouts (Tenant, Merchant, Vendor, Admin) + Mobile Layout |
-| Navigation | Hamburger menu manual | Role-based nav config, mobile bottom nav, collapsible sidebar |
-| AI/DSS UI | Tidak ada | Floating AI button, chatbot dialog, DSS dashboard components |
-| Dark Mode | `prefers-color-scheme` media query | `class`-based dark mode via Tailwind `darkMode: ["class"]` |
-| State Management | Vanilla JS | React Context + Zustand (sidebar state) |
-| Toast/Notifications | Custom CSS toast | Sonner library |
-| Charts | Tidak ada | Recharts dengan 5 chart color tokens |
+| Auth | Dual JWT (RS256) + Argon2 + Redis | Supabase Auth (JWT + bcrypt) + managed sessions |
+| RBAC | 5 roles (Super Admin, Owner, Manager, Surveyor, Tenant) | 7 roles via `app_role` enum (super_admin, admin, moderator, support, merchant, tenant, vendor) |
+| Role Storage | Implied inline (no detail) | Separate `user_roles` table + `has_role()` SECURITY DEFINER function |
+| Authorization | Middleware route checks | 215+ Row Level Security policies (database-enforced) |
+| Infra | AWS VPC + ALB + NestJS + Redis + S3 + WAF | Lovable Cloud (serverless, managed TLS, CDN, no VPC) |
+| Password | Argon2id | Supabase Auth managed (bcrypt) |
+| ORM | Prisma (parameterized) | Supabase SDK (parameterized) + direct RLS |
+| Encryption Keys | AWS KMS / HashiCorp Vault | Lovable Cloud Secrets (encrypted env vars) |
+| Document Storage | AWS S3 private bucket | Supabase Storage (5 buckets, 2 private) |
+| Admin 2FA | Not mentioned | TOTP via `otpauth` library + `validate-admin-secret` edge function |
+| Monitoring | Sentry + Prometheus | Edge function logs + `audit_logs` + `ml_model_runs` tables |
+| DSS Security | Not mentioned | 6 DSS tables with 24 RLS policies + immutable `ml_model_runs` audit |
 
 ## Rencana Rewrite
 
-Rewrite total menjadi **v3.0** yang 100% aligned dengan arsitektur aktual. Struktur baru:
+Rewrite total menjadi **v3.0** (target ~800-900 baris) yang 100% aligned dengan implementasi aktual dan dokumen v3.0 lainnya.
 
-### Daftar Isi Baru (24 Section)
+### Struktur Baru (12 Sections)
 
-1. Design Philosophy (dipertahankan + update DSS vision)
-2. Typography System (dipertahankan, update ke Tailwind classes)
-3. Color System (update ke HSL variables format aktual dari `index.css`)
-4. Design Tokens (update ke Tailwind config format aktual)
-5. Component Library - shadcn/ui (rewrite total: 54 komponen aktual)
-6. Layout System - 4 Portals (baru: Tenant, Merchant, Vendor, Admin)
-7. Navigation System (baru: role-based config, mobile bottom nav)
-8. Spacing & Sizing (update ke Tailwind spacing scale)
-9. Accessibility Guidelines (dipertahankan + ARIA patterns aktual)
-10. Responsive Design (update: Tailwind breakpoints, mobile-first)
-11. Dark Mode Implementation (rewrite: class-based, Zustand)
-12. Design Patterns & Interactions (update: skeleton, empty states, loading)
-13. Icon System - Lucide React (rewrite total)
-14. Animation & Micro-interactions (update: Tailwind keyframes aktual)
-15. **DSS: OCR Interface Patterns (BARU)**
-16. **DSS: Risk & Analytics Dashboard (BARU)**
-17. **DSS: AI Advisor UI Patterns (BARU)**
-18. **DSS: Confidence Score Visualization (BARU)**
-19. **DSS: Tier-Gated Feature UI (BARU)**
-20. Floating AI Assistant (baru: FAB + chatbot dialog)
-21. Form Patterns (baru: React Hook Form + Zod)
-22. Data Table Patterns (update: TanStack-compatible)
-23. Chart & Data Visualization (baru: Recharts patterns)
-24. Implementation Checklist (update ke actual stack)
+1. **Security Principles & Compliance** -- Update compliance mapping ke UU PDP + OWASP + PCI-DSS (Xendit-delegated)
+2. **Authentication Architecture** -- Rewrite: Supabase Auth, JWT managed sessions, `onAuthStateChange`, email verification required
+3. **Admin 2FA (TOTP)** -- Baru: `validate-admin-secret` edge function, `otpauth` library, recovery codes
+4. **Authorization: RBAC + RLS** -- Rewrite total: 7 roles, `user_roles` table, `has_role()` function, 215+ RLS policies with pattern taxonomy
+5. **Row Level Security Deep-Dive** -- Baru: 8 access patterns, public/immutable tables, DSS-specific RLS (24 policies), performance optimizations (`(select auth.uid())`)
+6. **Data Classification & Protection** -- Update: 4 tiers, Supabase Storage (private/public buckets), Lovable Cloud encryption
+7. **Application Security (OWASP)** -- Update: Supabase SDK (no ORM), Zod validation, DOMPurify, CORS edge function headers, prompt injection sanitization for AI
+8. **Edge Function Security** -- Baru: CORS headers, JWT verification patterns, webhook HMAC (Xendit), service role isolation, `verify_jwt` config
+9. **DSS & AI Security** -- Baru: OCR document handling, ML model audit trail (`ml_model_runs`), prompt injection prevention, confidence score validation, PII in OCR data
+10. **Payment Security (PCI)** -- Baru: Xendit delegation, webhook verification (timing-safe HMAC), escrow isolation, no card data stored
+11. **Audit Logging & Monitoring** -- Rewrite: `audit_logs` table schema, `ml_model_runs` immutable trail, `chatbot_analytics`, edge function logs, alerting
+12. **Incident Response** -- Update: Lovable Cloud context (token revocation via Supabase Auth, edge function re-deploy, secret rotation)
 
-### Detail Perubahan per Section
+### Detail Perubahan Kunci
 
-**Section 1-4: Foundation**
-- Update Design Vision: tambahkan DSS value ("Data-driven decisions, AI-augmented workflows")
-- Update target users: 4 personas (Merchant 40-60yo, Tenant 20-40yo, Vendor 25-45yo, Admin 25-35yo)
-- Color System: gunakan format HSL tanpa `hsl()` wrapper sesuai `index.css` aktual (e.g., `35 32% 41%`)
-- Design Tokens: referensi langsung ke `tailwind.config.ts` values
+**Section 2: Authentication Architecture**
+- Auth flow diagram: `Client -> Supabase Auth -> JWT -> onAuthStateChange -> fetchUserData`
+- Session management: Supabase-managed refresh tokens (not Redis)
+- Signup flow: email verification required, `handle_new_user` trigger auto-creates profile + role + merchant/tenant/vendor
+- No password policy control (Supabase Auth managed)
+- Rate limiting: platform-managed
 
-**Section 5: Component Library (Rewrite Total)**
-- Dokumentasikan 54 shadcn/ui components yang sudah terinstall
-- Gunakan JSX/TSX examples bukan raw HTML
-- Referensi import path aktual: `@/shared/components/ui/button`
-- Tambahkan variant mapping ke Tailwind classes (bukan CSS manual)
-- Contoh: Button menggunakan `class-variance-authority`, bukan `.btn-primary` CSS
+**Section 4: RBAC + RLS**
+- Role hierarchy diagram with 7 actual roles
+- Permission matrix: Admin (full), Merchant (own data via merchant_id JOIN), Tenant (own data via user_id), Vendor (own data via vendor_id JOIN), Public (11 tables)
+- `has_role()` function: `SECURITY DEFINER`, `STABLE`, `search_path = 'public'` -- prevents recursive RLS
+- `get_user_role()` function for quick role lookup
+- Role stored in separate `user_roles` table (NOT on profiles -- prevents privilege escalation)
 
-**Section 6-7: Layout & Navigation (Baru)**
-- Dokumentasikan `DashboardLayout.tsx` (desktop) dan `MobileLayout.tsx`
-- Mapping dari `navigation-config.ts`: 4 role configs, brand identity per role
-- Mobile bottom nav: 5 items untuk tenant, none untuk merchant/vendor/admin
-- Sidebar: `sidebar.tsx` dari shadcn/ui, collapsible, dark brown theme
+**Section 5: RLS Deep-Dive**
+- 8 access patterns from actual database-schema.md:
+  - Admin full access (45+ tables)
+  - Merchant own-data (25+ tables via JOIN)
+  - Tenant own-data (15+ tables direct)
+  - Vendor own-data (8 tables via JOIN)
+  - Public read (11 tables)
+  - System insert (7 tables, service role)
+  - Author-based (4 forum tables)
+  - DSS owner-data (6 tables)
+- Performance optimization: `(select auth.uid())` cached call pattern
+- Immutable tables: `audit_logs`, `ml_model_runs`, `chatbot_analytics`, `cancellation_feedback`
+- Policy examples from actual implementation
 
-**Section 15: DSS OCR Interface Patterns (Baru)**
-- Upload area: drag-and-drop image upload untuk KTP/bukti bayar
-- Processing state: spinner + "Menganalisis dokumen..."
-- Result display: extracted fields dengan confidence badges
-  - High (>=0.85): `bg-success/10 text-success` -- auto-accepted
-  - Medium (0.60-0.84): `bg-warning/10 text-warning` -- manual review
-  - Low (0.40-0.59): `bg-destructive/10 text-destructive` -- re-upload required
-- Side-by-side: original image vs extracted data
-- Payment matching: tolerance indicator (plus/minus Rp 1,000)
+**Section 8: Edge Function Security**
+- CORS headers template (actual headers used)
+- `verify_jwt = false` functions and why (4 functions: invitations, bootstrap, subscription-payment)
+- Webhook HMAC verification pattern (Xendit)
+- Service role key usage (`SUPABASE_SERVICE_ROLE_KEY`)
+- No raw SQL execution policy
+- Secret management: 9 secrets configured
 
-**Section 16: DSS Risk & Analytics Dashboard (Baru)**
-- Risk score gauge: 0-100 scale with color zones
-  - 0-25: Green (`text-success`)
-  - 26-50: Yellow (`text-warning`) 
-  - 51-75: Orange (`text-warning` darker)
-  - 76-100: Red (`text-destructive`)
-- Revenue forecast chart: Recharts LineChart with prediction band
-- Occupancy heatmap: grid visualization
-- Trend indicators: arrow up/down with percentage change
+**Section 9: DSS & AI Security**
+- OCR: PII extraction from KTP (NIK, name, address) -- stored in `ocr_results.extracted_data` JSONB
+- Document lifecycle: uploaded to private `verification-documents` bucket, RLS-scoped access
+- ML audit: `ml_model_runs` immutable table (INSERT + read only, no UPDATE/DELETE)
+- Prompt injection: sanitization filter before Gemini API calls
+- Confidence validation: High >= 0.85 auto-accepted, Medium 0.60-0.84 manual review, Low < 0.60 rejected
+- DSS data isolation: all 6 DSS tables scoped via `merchant_id` RLS
 
-**Section 17: DSS AI Advisor UI Patterns (Baru)**
-- Recommendation card: title + reasoning + confidence + action buttons
-- Status lifecycle badges: generated -> viewed -> accepted/rejected -> measured
-- Advisor types: pricing, collection, maintenance priority, investment
-- AI response streaming: typewriter effect in chatbot dialog
-
-**Section 18: Confidence Score Visualization (Baru)**
-- Progress bar variant: filled to confidence percentage
-- Badge variant: color-coded label (High/Medium/Low)
-- Tooltip: detailed breakdown on hover
-- Table column: sortable confidence values
-
-**Section 19: Tier-Gated Feature UI (Baru)**
-- Lock overlay: blur + lock icon + "Upgrade to [Tier]" CTA
-- Feature comparison table: checkmarks per tier
-- Upgrade prompt: inline banner when accessing gated feature
-- Badge: "Pro", "Business", "Enterprise" tier labels
-
-**Section 20: Floating AI Assistant (Baru)**
-- FloatingActionButton component: bottom-right, primary color, sparkle icon
-- ChatbotDialog: sheet/drawer with message list, quick actions, streaming
-- Role-specific: tenant (global), merchant (global), vendor (embedded in dashboard)
-- Mobile: respects bottom nav spacing (bottom-20 positioning)
-
-**Section 23: Chart & Data Visualization (Baru)**
-- Recharts integration patterns
-- 5 chart color tokens mapped to semantic meanings
-- Responsive chart containers
-- DSS-specific charts: risk distribution, revenue forecast, occupancy trends
+**Section 10: Payment Security**
+- Xendit PCI DSS Level 1 delegation
+- HMAC webhook verification with `XENDIT_WEBHOOK_TOKEN`
+- Idempotency via `xendit_external_id`
+- Escrow account isolation per merchant
+- No card data stored anywhere in system
 
 ### Skills yang Diterapkan
 
 | Skill | Penerapan |
 |-------|-----------|
-| `ui-ux-designer` | Keseluruhan struktur, design principles, user flows |
-| `design-system-patterns` | Token architecture, component taxonomy, variant system |
-| `accessibility-compliance` | WCAG 2.1 AA, ARIA patterns, keyboard navigation |
-| `responsive-design` | Breakpoint strategy, mobile-first, touch targets |
-| `interaction-design` | Micro-interactions, state transitions, feedback loops |
-| `visual-design-foundations` | Color theory, typography scale, spacing rhythm |
-| `shadcn-ui` | Component API reference, variant mapping |
-| `tailwind-css-patterns` | Utility classes, custom extensions, dark mode |
-| `radix-ui-design-system` | Accessible primitives, composition patterns |
-| `web-performance-optimization` | Animation performance, lazy loading UI |
-| `frontend-design` | React component patterns, JSX examples |
-| `stitch-ui-design` | Design token structure, systematic naming |
-| `icon-design` | Lucide icon system, sizing conventions |
-| `prompt-engineering-patterns` | AI chatbot UI, streaming response display |
-| `startup-metrics-framework` | KPI dashboard layout, metric card design |
-| `pricing-strategy` | Tier-gated UI, upgrade flow design |
+| `security-auditor` | Overall security posture assessment, threat model |
+| `api-security-best-practices` | Edge function auth, CORS, input validation |
+| `supabase-postgres-best-practices` | RLS patterns, performance optimization, `has_role()` |
+| `pci-compliance` | Payment security delegation to Xendit |
+| `gdpr-data-handling` | UU PDP compliance, data classification, PII handling |
+| `frontend-security-coder` | XSS prevention (DOMPurify), CSP headers |
+| `auth-implementation-patterns` | Supabase Auth flow, session management, 2FA |
+| `top-100-web-vulnerabilities-reference` | OWASP Top 10 mitigation mapping |
+| `broken-authentication-testing` | Auth flow security validation |
+| `html-injection-testing` | XSS and injection prevention |
+| `security-scanning-security-dependencies` | Dependency audit patterns |
+| `security-compliance-compliance-check` | UU PDP + OWASP ASVS compliance |
+| `security-requirement-extraction` | NFR security extraction from PRD |
+| `prompt-engineering-patterns` | Prompt injection sanitization for DSS |
+| `database-design` | UUID PKs, immutable audit tables, JSONB PII |
+| `clean-architecture` | Security layer separation in 5-layer model |
+
+### Cross-References
+
+Dokumen ini akan cross-reference ke:
+- `database-schema.md` v3.0 -- RLS policies, table definitions, DSS tables
+- `backend-architecture.md` v3.0 -- Security architecture section 19, edge functions
+- `deployment-infrastructure.md` v3.0 -- Security infrastructure section 11
+- `api-specification.md` v3.0 -- Edge function endpoints
+- `PRD_DSS_Manajemen_Kosan_v2_Professional.md` v3.0 -- NFR security requirements
+- `development-standards.md` v3.0 -- Coding security standards
 
 ### Estimasi
 
-PRD UI/UX v3.0: ~3200-3500 baris (vs 3059 saat ini), tetapi dengan 100% konten yang selaras dengan implementasi aktual dan 10 section DSS baru.
+Security Architecture v3.0: ~800-900 baris (vs 266 saat ini), dengan konten 100% aligned dengan implementasi aktual, mencakup seluruh aspek keamanan DSS yang sebelumnya tidak ada.
