@@ -293,7 +293,7 @@ export default function MerchantProperties() {
       </div>
       <div className="space-y-6">
         {/* Subscription limit warning */}
-        <SubscriptionLimitWarning type="property" />
+        <SubscriptionLimitWarning />
         
         <PropertyFormDialog
           open={showAddDialog}

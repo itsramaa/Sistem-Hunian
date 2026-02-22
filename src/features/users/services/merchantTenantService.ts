@@ -1,5 +1,6 @@
 import { Property } from '@/features/properties/types';
 import { ActiveTenant, TenantInvitation } from '@/features/users/types/tenant';
+import { AddTenantFormData } from '@/features/users/types/addTenantSchema';
 import { supabase } from '@/lib/integrations/supabase/client';
 import { CONTRACT_STATUS_TRANSITIONS, UNIT_STATUS_TRANSITIONS, isValidTransition } from '@/shared/constants/state-machines';
 import { logStatusChange, createAuditLog } from '@/shared/utils/auditLog';
@@ -210,5 +211,59 @@ export const merchantTenantService = {
     if (tenantError) throw tenantError;
 
     await logStatusChange('contract', contract.id, currentStatus, 'terminated');
+  },
+
+  async addTenantDirectly(merchantId: string, data: AddTenantFormData) {
+    // Check if user exists by email
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('user_id')
+      .eq('email', data.email.toLowerCase().trim())
+      .maybeSingle();
+
+    if (existingProfile) {
+      // User exists - create contract directly
+      const { error: contractError } = await supabase
+        .from('contracts')
+        .insert({
+          merchant_id: merchantId,
+          unit_id: data.unit_id,
+          tenant_user_id: existingProfile.user_id,
+          start_date: data.start_date,
+          end_date: data.end_date,
+          rent_amount: data.rent_amount,
+          deposit_amount: data.deposit_amount || null,
+          billing_day: data.billing_day || 1,
+          status: 'pending_signature',
+        });
+
+      if (contractError) throw contractError;
+
+      // Link tenant to merchant
+      await supabase
+        .from('tenants')
+        .update({ linked_merchant_id: merchantId, current_unit_id: data.unit_id })
+        .eq('user_id', existingProfile.user_id);
+
+    } else {
+      // User doesn't exist - create invitation
+      const { error: invError } = await supabase
+        .from('tenant_invitations')
+        .insert({
+          merchant_id: merchantId,
+          unit_id: data.unit_id,
+          email: data.email.toLowerCase().trim(),
+          phone: data.phone || null,
+        });
+
+      if (invError) throw invError;
+    }
+
+    await createAuditLog({
+      action: 'create',
+      entityType: 'tenant',
+      entityId: data.email,
+      newData: { unit_id: data.unit_id, email: data.email, existing_user: !!existingProfile },
+    });
   }
 };

@@ -110,9 +110,34 @@ export function useMerchantTenantMutations(merchantId: string | undefined) {
     },
   });
 
+  const addTenantDirectly = useMutation({
+    mutationFn: (data: import('@/features/users/types/addTenantSchema').AddTenantFormData) => {
+      if (!merchantId) throw new Error('Merchant ID is required');
+      return merchantTenantService.addTenantDirectly(merchantId, data);
+    },
+    onSuccess: (_, variables) => {
+      toast({
+        title: 'Tenant Added',
+        description: `Tenant ${variables.full_name} has been added successfully`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['active-tenants'] });
+      queryClient.invalidateQueries({ queryKey: ['active-contracts-count'] });
+      queryClient.invalidateQueries({ queryKey: ['tenant-invitations'] });
+      queryClient.invalidateQueries({ queryKey: ['merchant-properties-with-units'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: 'destructive',
+        title: 'Failed to add tenant',
+        description: error.message || 'Could not add the tenant. Please try again.',
+      });
+    },
+  });
+
   return {
     sendInvitation,
     cancelInvitation,
     terminateContract,
+    addTenantDirectly,
   };
 }
