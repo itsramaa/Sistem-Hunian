@@ -25,7 +25,7 @@ export interface Property {
   id: string;
   merchant_id: string;
   name: string;
-  property_type: 'kost' | 'apartment' | 'house' | 'kontrakan' | 'ruko';
+  property_type: 'kost' | 'kontrakan';
   address: string;
   city: string;
   province: string;
@@ -47,6 +47,7 @@ export type CreatePropertyPayload = Omit<Property, 'id' | 'merchant_id' | 'total
 export type UpdatePropertyPayload = Partial<CreatePropertyPayload>;
 
 export interface UnitFormData {
+  property_id: string;
   unit_number: string;
   unit_type: string;
   floor?: number | null;
@@ -56,6 +57,7 @@ export interface UnitFormData {
   status: 'available' | 'occupied' | 'maintenance' | 'reserved';
   description?: string | null;
   amenities?: string[];
+  photos?: string[];
 }
 
 export interface PropertyWithUnits {

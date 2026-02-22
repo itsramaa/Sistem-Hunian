@@ -20,7 +20,7 @@ import { cn } from "@/shared/utils/utils";
 
 const propertySchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(100),
-  property_type: z.enum(['kost', 'apartment', 'house', 'kontrakan', 'ruko']),
+  property_type: z.enum(['kost', 'kontrakan']),
   address: z.string().min(5, 'Address is required').max(255),
   city: z.string().min(2, 'City is required').max(100),
   province: z.string().min(2, 'Province is required').max(100),

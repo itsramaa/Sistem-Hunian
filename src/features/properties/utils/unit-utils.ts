@@ -8,39 +8,23 @@ export const getUnitTypesForProperty = (propertyType: string | undefined): { val
         { value: 'kamar_deluxe', label: 'Kamar Deluxe' },
         { value: 'kamar_ac', label: 'Kamar AC' },
         { value: 'kamar_non_ac', label: 'Kamar Non-AC' },
-      ];
-    case 'apartment':
-      return [
-        { value: 'studio', label: 'Studio' },
-        { value: '1br', label: '1 Bedroom' },
-        { value: '2br', label: '2 Bedroom' },
-        { value: '3br', label: '3 Bedroom' },
-        { value: 'penthouse', label: 'Penthouse' },
-      ];
-    case 'house':
-      return [
-        { value: 'full_house', label: 'Full House' },
+        { value: 'kamar_mandi_dalam', label: 'Kamar Mandi Dalam' },
+        { value: 'kamar_mandi_luar', label: 'Kamar Mandi Luar' },
       ];
     case 'kontrakan':
-      return [
-        { value: 'petak', label: 'Petak' },
-        { value: 'full_bangunan', label: 'Full Bangunan' },
-      ];
     case 'ruko':
       return [
-        { value: 'lantai_1', label: 'Lantai 1' },
-        { value: 'lantai_2', label: 'Lantai 2' },
-        { value: 'lantai_3', label: 'Lantai 3' },
-        { value: 'full_building', label: 'Full Building' },
+        { value: 'petak', label: 'Petak / Kontrakan' },
+        { value: 'rumah_full', label: 'Rumah Full' },
+        { value: 'ruko_lantai_1', label: 'Ruko Lantai 1' },
+        { value: 'ruko_lantai_2', label: 'Ruko Lantai 2' },
+        { value: 'ruko_full', label: 'Ruko Full' },
       ];
     default:
       return [
-        { value: 'studio', label: 'Studio' },
-        { value: 'room', label: 'Room' },
-        { value: 'apartment', label: 'Apartment' },
-        { value: 'house', label: 'House' },
-        { value: 'office', label: 'Office' },
-        { value: 'retail', label: 'Retail' },
+        { value: 'kamar_standard', label: 'Kamar Standard' },
+        { value: 'petak', label: 'Petak / Kontrakan' },
+        { value: 'ruko_full', label: 'Ruko Full' },
       ];
   }
 };
