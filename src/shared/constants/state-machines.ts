@@ -150,6 +150,21 @@ export const VERIFICATION_STATUS_TRANSITIONS: Record<string, string[]> = {
   approved: [],    // terminal
 };
 
+// Merchant verification uses 'verified' instead of 'approved', plus 'suspended'
+export const MERCHANT_VERIFICATION_TRANSITIONS: Record<string, string[]> = {
+  pending: ['verified', 'rejected'],
+  rejected: ['pending'],   // resubmission
+  verified: ['suspended'],
+  suspended: ['verified'],
+};
+
+// Vendor document verification
+export const VENDOR_VERIFICATION_TRANSITIONS: Record<string, string[]> = {
+  pending: ['verified', 'rejected'],
+  rejected: ['pending'],
+  verified: [],    // terminal
+};
+
 // ─── Section 17: Dispute Lifecycle ─────────────────────────────────────────
 export const DISPUTE_STATUS_TRANSITIONS: Record<string, string[]> = {
   open: ['in_progress'],

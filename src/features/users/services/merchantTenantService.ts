@@ -1,7 +1,7 @@
 import { Property } from '@/features/properties/types';
 import { ActiveTenant, TenantInvitation } from '@/features/users/types/tenant';
 import { supabase } from '@/lib/integrations/supabase/client';
-import { CONTRACT_STATUS_TRANSITIONS, isValidTransition } from '@/shared/constants/state-machines';
+import { CONTRACT_STATUS_TRANSITIONS, UNIT_STATUS_TRANSITIONS, isValidTransition } from '@/shared/constants/state-machines';
 import { logStatusChange, createAuditLog } from '@/shared/utils/auditLog';
 
 export const merchantTenantService = {
@@ -180,14 +180,25 @@ export const merchantTenantService = {
 
     if (contractError) throw contractError;
 
-    // Update unit status back to available
+    // Update unit status back to available (with validation)
     if (contract.unit?.id) {
-      const { error: unitError } = await supabase
+      const { data: unitData } = await supabase
         .from('units')
-        .update({ status: 'available' })
-        .eq('id', contract.unit.id);
+        .select('status')
+        .eq('id', contract.unit.id)
+        .single();
 
-      if (unitError) throw unitError;
+      const currentUnitStatus = unitData?.status || 'occupied';
+      if (!isValidTransition(UNIT_STATUS_TRANSITIONS, currentUnitStatus, 'available')) {
+        console.warn(`Unit transition not valid: ${currentUnitStatus} → available, skipping`);
+      } else {
+        const { error: unitError } = await supabase
+          .from('units')
+          .update({ status: 'available' })
+          .eq('id', contract.unit.id);
+
+        if (unitError) throw unitError;
+      }
     }
 
     // Update tenant's current_unit_id to null
