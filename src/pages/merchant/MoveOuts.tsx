@@ -9,6 +9,9 @@ import { VacancyDashboard } from "@/features/dashboard/components/VacancyDashboa
 import { MoveOutInspectionForm } from "@/features/properties/components/MoveOutInspectionForm";
 import { ScheduleInspectionDialog } from "@/features/properties/components/ScheduleInspectionDialog";
 
+import { PageHeader } from "@/shared/components/ui/PageHeader";
+import { StatCard } from "@/shared/components/ui/StatCard";
+import { TabsPageSkeleton } from "@/shared/components/ui/PageSkeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 import { differenceInDays } from "date-fns";
@@ -16,7 +19,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
-  Home
+  DoorOpen,
+  Home,
+  Users
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -96,9 +101,24 @@ const MerchantMoveOuts = () => {
     setEarlyTermDialogOpen(true);
   };
 
+  if (isLoading) {
+    return <TabsPageSkeleton statsCount={4} />;
+  }
+
   return (
     <>
-      <div className="mb-6">
+      <div className="space-y-6">
+        <PageHeader icon={DoorOpen} title="Move Outs" description="Manage move-out notices and vacancies" />
+
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+          <StatCard icon={Clock} title="Upcoming" value={upcomingMoveOuts.length} accentColor="hsl(var(--warning))" index={0} />
+          <StatCard icon={AlertTriangle} title="Pending Approval" value={earlyTermRequests?.length || 0} accentColor="hsl(var(--destructive))" index={1} />
+          <StatCard icon={CheckCircle2} title="Completed" value={completedMoveOuts.length} accentColor="hsl(var(--success))" index={2} />
+          <StatCard icon={Users} title="Total Notices" value={moveOutNotices?.length || 0} accentColor="hsl(var(--primary))" index={3} />
+        </div>
+      </div>
+
+      <div className="mt-6 mb-6">
         <MoveOutsFilters
           searchTerm={searchQuery}
           onSearchChange={setSearchQuery}

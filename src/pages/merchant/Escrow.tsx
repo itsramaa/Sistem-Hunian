@@ -12,12 +12,14 @@ import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/aler
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { PageHeader } from '@/shared/components/ui/PageHeader';
+import { TabsPageSkeleton } from '@/shared/components/ui/PageSkeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { useToast } from '@/shared/hooks/use-toast';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { formatCurrency } from '@/shared/utils/currency';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Calendar, CreditCard, Info, Loader2, Send, ShieldAlert } from 'lucide-react';
+import { AlertCircle, Calendar, CreditCard, Info, Loader2, Send, ShieldAlert, Vault } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -280,20 +282,13 @@ export default function MerchantEscrow() {
   const minDisbursementAmount = merchantData?.min_disbursement_amount || MINIMUM_PAYOUT_AMOUNT;
 
   if (loadingAccount) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <TabsPageSkeleton statsCount={3} />;
   }
 
   return (
     <div className="space-y-6">
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-display font-bold">Escrow Account</h1>
-          <p className="text-muted-foreground">Manage your escrow balance and disbursements</p>
-        </div>
+        <PageHeader icon={Vault} title="Escrow Account" description="Manage your escrow balance and disbursements" />
 
         {/* Non-verified merchant warning */}
         {!isVerified && (

@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
+import { PageHeader } from "@/shared/components/ui/PageHeader";
+import { Progress } from "@/shared/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
-import { Loader2, TrendingUp, AlertTriangle, Users, DollarSign, RefreshCw, Lock } from "lucide-react";
+import { Loader2, TrendingUp, AlertTriangle, Users, DollarSign, RefreshCw, Lock, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { useRevenueForecast, useTenantRiskScores, useRefreshRiskScore, useChurnPrediction, useOptimalPricing } from "@/features/dss/hooks/useMlAnalytics";
 import { useMerchantTier } from "@/features/dss/hooks/useMerchantTier";
@@ -93,10 +95,7 @@ export default function MlAnalytics() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">ML Analytics</h1>
-        <p className="text-muted-foreground">AI-powered predictive analytics for your properties</p>
-      </div>
+      <PageHeader icon={BarChart3} title="ML Analytics" description="AI-powered predictive analytics for your properties" />
 
       <Tabs defaultValue="forecast">
         <TabsList className="grid w-full grid-cols-4">
@@ -162,9 +161,15 @@ export default function MlAnalytics() {
                 ) : (
                   <div className="space-y-2">
                     {(riskScores || []).map((s: any) => (
-                      <div key={s.id} className="flex items-center justify-between rounded-lg border p-3">
+                      <div key={s.id} className="flex items-center justify-between rounded-lg border p-3 gap-3">
                         <span className="text-sm font-mono">{s.tenant_user_id?.slice(0, 8)}...</span>
-                        <span className="font-bold">{s.risk_score}/100</span>
+                        <div className="flex-1 max-w-[120px]">
+                          <Progress value={s.risk_score} className={`h-2 ${
+                            s.risk_score >= 75 ? '[&>div]:bg-destructive' :
+                            s.risk_score >= 50 ? '[&>div]:bg-warning' : '[&>div]:bg-success'
+                          }`} />
+                        </div>
+                        <span className="font-bold text-sm">{s.risk_score}/100</span>
                         <Badge className={riskLevelColor(s.risk_level)}>{s.risk_level}</Badge>
                       </div>
                     ))}

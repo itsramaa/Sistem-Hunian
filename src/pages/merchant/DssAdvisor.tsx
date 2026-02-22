@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
+import { PageHeader } from "@/shared/components/ui/PageHeader";
+import { Progress } from "@/shared/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
-import { Loader2, DollarSign, FileWarning, Wrench, TrendingUp, Check, X, Lock } from "lucide-react";
+import { Loader2, DollarSign, FileWarning, Wrench, TrendingUp, Check, X, Lock, Brain } from "lucide-react";
 import { toast } from "sonner";
 import { usePricingAdvisor, useCollectionStrategy, useMaintenancePriority, useInvestmentInsight, useDssRecommendations, useUpdateRecommendation } from "@/features/dss/hooks/useDssAdvisors";
 import { useMerchantTier } from "@/features/dss/hooks/useMerchantTier";
@@ -109,10 +111,7 @@ export default function DssAdvisor() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">DSS Advisor</h1>
-        <p className="text-muted-foreground">AI-powered decision support recommendations</p>
-      </div>
+      <PageHeader icon={Brain} title="DSS Advisor" description="AI-powered decision support recommendations" />
 
       <TierGate>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -156,9 +155,13 @@ export default function DssAdvisor() {
                             <Badge className={STATUS_COLORS[rec.status] || ""}>{rec.status}</Badge>
                           </div>
                           {rec.confidence_score && (
-                            <p className="text-xs text-muted-foreground">
-                              Confidence: {Math.round(rec.confidence_score * 100)}%
-                            </p>
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                <span>Confidence</span>
+                                <span>{Math.round(rec.confidence_score * 100)}%</span>
+                              </div>
+                              <Progress value={rec.confidence_score * 100} className="h-1.5" />
+                            </div>
                           )}
                           {rec.status === "pending" && (
                             <div className="flex gap-2 pt-1">

@@ -9,9 +9,11 @@ import { useMerchantInvoices } from '@/features/payments/hooks/useMerchantInvoic
 import { Invoice } from '@/features/payments/types';
 
 import { Button } from '@/shared/components/ui/button';
+import { PageHeader } from '@/shared/components/ui/PageHeader';
+import { TabsPageSkeleton } from '@/shared/components/ui/PageSkeleton';
 import { useToast } from '@/shared/hooks/use-toast';
 import { useDebounce } from '@/shared/hooks/useDebounce';
-import { Plus } from 'lucide-react';
+import { FileText, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 const ITEMS_PER_PAGE = 10;
@@ -125,19 +127,19 @@ export default function MerchantInvoices() {
     return filteredInvoices.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredInvoices, page]);
 
+  if (isLoading && invoices.length === 0) {
+    return <TabsPageSkeleton statsCount={4} />;
+  }
+
   return (
     <div className="space-y-6">
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-display font-bold">Invoices</h1>
-            <p className="text-muted-foreground">Manage and track your invoices</p>
-          </div>
+        <PageHeader icon={FileText} title="Invoices" description="Manage and track your invoices">
           <Button onClick={() => setIsCreateOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Create Invoice
           </Button>
-        </div>
+        </PageHeader>
 
         <InvoicesStats invoices={invoices} />
 

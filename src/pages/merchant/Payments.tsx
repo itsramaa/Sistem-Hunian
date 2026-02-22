@@ -10,9 +10,11 @@ import { Invoice, Payment } from '@/features/payments/types';
 
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
+import { PageHeader } from '@/shared/components/ui/PageHeader';
+import { TabsPageSkeleton } from '@/shared/components/ui/PageSkeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { useDebounce } from '@/shared/hooks/useDebounce';
-import { Bell, Loader2, RefreshCw } from 'lucide-react';
+import { Bell, CreditCard, Loader2, RefreshCw } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 const ITEMS_PER_PAGE = 10;
@@ -94,41 +96,37 @@ export default function MerchantPayments() {
     return filteredOverdueInvoices.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredOverdueInvoices, overduePage]);
 
+  if (isLoading && payments.length === 0) {
+    return <TabsPageSkeleton statsCount={4} />;
+  }
+
   return (
     <div className="space-y-6">
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-display font-bold">Payments</h1>
-            <p className="text-muted-foreground">Track rent payments and payment history</p>
-          </div>
-          <div className="flex gap-2 w-full sm:w-auto">
+        <PageHeader icon={CreditCard} title="Payments" description="Track rent payments and payment history">
+          <Button 
+            variant="outline" 
+            onClick={() => refetchPayments()} 
+            title="Refresh Data"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+          {overdueInvoices.length > 0 && (
             <Button 
-              variant="outline" 
-              onClick={() => refetchPayments()} 
-              title="Refresh Data"
-              className="flex-1 sm:flex-none"
+              variant="secondary" 
+              onClick={() => sendBulkReminder()} 
+              disabled={isSendingBulkReminder}
             >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
+              {isSendingBulkReminder ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Bell className="h-4 w-4 mr-2" />
+              )}
+              Send Reminders
             </Button>
-            {overdueInvoices.length > 0 && (
-              <Button 
-                variant="secondary" 
-                onClick={() => sendBulkReminder()} 
-                disabled={isSendingBulkReminder}
-                className="flex-1 sm:flex-none"
-              >
-                {isSendingBulkReminder ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Bell className="h-4 w-4 mr-2" />
-                )}
-                Send Reminders
-              </Button>
-            )}
-          </div>
-        </div>
+          )}
+        </PageHeader>
 
         <PaymentsStats payments={payments} />
 

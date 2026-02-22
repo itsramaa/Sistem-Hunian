@@ -1,16 +1,14 @@
 import { ReferralDashboard } from '@/features/referrals/components/ReferralDashboard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Badge } from '@/shared/components/ui/badge';
-import { Gift, TrendingUp, Percent, Users } from 'lucide-react';
+import { PageHeader } from '@/shared/components/ui/PageHeader';
+import { Gift, TrendingUp, Percent, Users, Share2 } from 'lucide-react';
 
 export default function MerchantReferrals() {
   return (
     <div className="space-y-6">
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Referral Program</h1>
-          <p className="text-muted-foreground">Earn rewards by referring new merchants to SiHuni</p>
-        </div>
+        <PageHeader icon={Share2} title="Referral Program" description="Earn rewards by referring new merchants to SiHuni" />
 
         {/* Merchant-specific benefits card */}
         <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">

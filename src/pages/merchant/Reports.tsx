@@ -26,6 +26,8 @@ import {
   Legend,
 } from 'recharts';
 import { TrendingUp, TrendingDown, Building2, Users, DollarSign, Wrench, Download, FileText, Table2, UserMinus, BarChart3, AlertTriangle, Loader2, RefreshCw } from 'lucide-react';
+import { PageHeader } from '@/shared/components/ui/PageHeader';
+import { ChartSkeleton, StatsRowSkeleton } from '@/shared/components/ui/PageSkeleton';
 import { format, subMonths, startOfMonth, endOfMonth, differenceInMonths } from 'date-fns';
 import { exportToCSV, exportToPDF, generateReportHTML } from '@/shared/utils/exportUtils';
 import { useToast } from '@/shared/hooks/use-toast';
@@ -374,11 +376,7 @@ export default function MerchantReports() {
   return (
     <div className="space-y-6">
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-display font-bold">Reports & Analytics</h1>
-            <p className="text-muted-foreground">Track your property performance</p>
-          </div>
+        <PageHeader icon={BarChart3} title="Reports & Analytics" description="Track your property performance">
           <div className="flex items-center gap-2 flex-wrap">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -423,7 +421,7 @@ export default function MerchantReports() {
               </SelectContent>
             </Select>
           </div>
-        </div>
+        </PageHeader>
 
         {hasError && (
           <Alert variant="destructive" className="mb-4">

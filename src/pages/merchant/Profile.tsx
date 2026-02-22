@@ -14,6 +14,7 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import { FileUpload } from "@/shared/components/FileUpload";
 import { BankAccountManager } from "@/features/payments/components/BankAccountManager";
 import { Building2, Shield, CreditCard, Loader2, Save, CheckCircle, Clock, XCircle, Trash2, Copy } from "lucide-react";
+import { PageHeader } from "@/shared/components/ui/PageHeader";
 import { ProfileFormSkeleton } from "@/shared/components/ui/skeletons";
 
 const MerchantProfile = () => {
@@ -198,7 +199,8 @@ const MerchantProfile = () => {
   }
 
   return (
-    <>
+    <div className="space-y-6">
+      <PageHeader icon={Building2} title="Profile" description="Manage your business and verification details" />
       <Tabs defaultValue="business" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="business" className="flex items-center gap-2">
@@ -491,7 +493,7 @@ const MerchantProfile = () => {
           <BankAccountManager />
         </TabsContent>
       </Tabs>
-    </>
+    </div>
   );
 };
 

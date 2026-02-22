@@ -7,10 +7,11 @@ import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
+import { PageHeader } from "@/shared/components/ui/PageHeader";
 import { RadioGroup, RadioGroupItem } from "@/shared/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { useTheme } from "@/shared/context/theme-context";
-import { AlertTriangle, Bell, CheckCircle, CreditCard, Loader2, Lock, Palette } from "lucide-react";
+import { AlertTriangle, Bell, CheckCircle, CreditCard, Loader2, Lock, Palette, Settings as SettingsIcon } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -106,7 +107,8 @@ const Settings = () => {
   };
 
   return (
-    <>
+    <div className="space-y-6">
+      <PageHeader icon={SettingsIcon} title="Settings" description="Configure your account preferences" />
       <Tabs defaultValue={defaultTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-5">
           <TabsTrigger value="theme" className="flex items-center gap-2">
@@ -280,7 +282,7 @@ const Settings = () => {
           <DisbursementScheduleSettings />
         </TabsContent>
       </Tabs>
-    </>
+    </div>
   );
 };
 
