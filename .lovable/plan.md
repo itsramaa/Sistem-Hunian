@@ -1,219 +1,174 @@
 
+# Maksimalkan UI/UX Halaman Properties Merchant
 
-# Full Implementation Alignment: System Architecture + Backend + Security + Deployment + API Spec
+## Analisis Kondisi Saat Ini
 
-## Gap Analysis Summary
+Halaman Properties (`src/pages/merchant/Properties.tsx`) sudah berfungsi dengan fitur CRUD, filter, pagination, grid/list view, dan dialog foto. Namun ada beberapa area yang bisa ditingkatkan berdasarkan UIUX Design Documentation SiHuni v3.0 dan skill `.trae/skills` (frontend-design, interaction-design, responsive-design, ui-ux-designer, page-cro).
 
-After cross-referencing all 5 documentation files against the actual codebase, the following gaps were identified:
+## Area Peningkatan
 
-| Area | Documented | Implemented | Gap |
-|------|-----------|-------------|-----|
-| Edge Functions | 43 (31 core + 12 DSS) | 36 (31 core + 4 OCR + 1 extra) | **8 missing** (4 ML + 4 DSS Advisors) |
-| config.toml verify_jwt | 4 functions = false | 9 functions = false | **5 OCR/RLS incorrectly set** |
-| Secrets | 9 documented (incl ADMIN_SETUP_SECRET) | 4 configured (+ 5 auto-provisioned) | **ADMIN_SETUP_SECRET missing** |
-| Frontend DSS hooks | ML + DSS advisor invocation hooks needed | Only OCR/health/RLS hooks exist | **8 hooks missing** |
-| DSS feature modules | dss-ocr, dss-ml, dss-advisor (or unified dss/) | Single dss/ module | Structure OK, content gaps |
+### 1. Stats Cards -- Tambah Visual & Trend Indicators
+**Kondisi saat ini:** 3 stat card polos (Total Properties, Total Units, Occupancy Rate) tanpa trend/warna diferensiasi.
 
-## Implementation Plan (22 Steps)
+**Peningkatan:**
+- Tambah stat ke-4: "Revenue Potential" (jumlah rent_amount dari units occupied)
+- Tambah trend indicator (arrow up/down + persentase) sesuai UIUX doc Section 16.4
+- Tambah subtle gradient/accent warna per card agar lebih informatif
+- Tambah tooltip hover info pada setiap stat
 
-### Phase 1: Security Fixes (config.toml + Secret)
+### 2. Property Card -- Enhanced Visual Hierarchy
+**Kondisi saat ini:** Card basic dengan icon placeholder jika tidak ada foto, amenity badges, occupancy bar.
 
-**Step 1:** Fix `supabase/config.toml` -- remove OCR functions from `verify_jwt = false`
+**Peningkatan:**
+- Tambah image placeholder/gradient jika tidak ada foto (bukan kosong)
+- Tambah hover effect `translateY(-4px)` + shadow sesuai interaction-design skill
+- Tambah quick action buttons visible on hover (tidak hanya di dropdown)
+- Tambah occupancy color coding: hijau (>80%), kuning (50-80%), merah (<50%)
+- Tambah badge "New" untuk properti yang baru dibuat (< 7 hari)
+- Tambah revenue info per property (total rent dari occupied units)
 
-The OCR functions already authenticate internally via `authenticateUser()`, and the docs specify only 4 functions should have `verify_jwt = false`. Remove these entries so they default to `true`:
-- `ocr-ktp-extract`
-- `ocr-payment-proof`
-- `ocr-business-document`
-- `ocr-maintenance-receipt`
+### 3. Skeleton Loading State
+**Kondisi saat ini:** Loading hanya spinner (`animate-spin`).
 
-Keep `log-rls-access` as `verify_jwt = false` (system utility function).
+**Peningkatan:**
+- Ganti spinner dengan skeleton screen yang menyerupai layout actual (3 stat skeleton + 9 card skeleton)
+- Sesuai interaction-design skill Pattern 1: Skeleton Screens
 
-Result: config.toml matches security-architecture.md Section 8.2 (only 4 public functions).
+### 4. Empty State -- Lebih Engaging
+**Kondisi saat ini:** Icon + teks polos + tombol "Add Your First Property".
 
-**Step 2:** Request `ADMIN_SETUP_SECRET` -- documented in security-architecture.md Section 6.4 and Section 12.2 but not configured. Use `add_secret` tool.
+**Peningkatan:**
+- Tambah ilustrasi/visual yang lebih inviting
+- Tambah step-by-step hints ("1. Add property 2. Create units 3. Invite tenants")
+- CTA lebih kuat dengan wording benefit-oriented sesuai page-cro skill
 
----
+### 5. Filter Bar -- Tambah Status Filter + Sort + Active Filter Badges
+**Kondisi saat ini:** Search + type filter + grid/list toggle.
 
-### Phase 2: ML Predictive Analytics Edge Functions (4 functions)
+**Peningkatan:**
+- Tambah status filter (Active/Inactive/Maintenance) sesuai property.status
+- Tambah sort option (Name A-Z, Occupancy, Newest, Oldest)
+- Tampilkan active filter badges yang bisa di-dismiss
+- Tambah "Reset filters" button saat ada filter aktif
+- Mobile: filter collapsible/sheet
 
-All 4 ML functions follow the same pattern from `backend-architecture.md` Section 13 and `api-specification.md` Section 4.11:
-1. Authenticate user via JWT
-2. Verify merchant subscription tier
-3. Aggregate historical data from database
-4. Send context to Gemini 2.5 Pro via Lovable AI Gateway with tool calling
-5. Store result in `ml_model_runs` (immutable audit)
-6. Cache results where applicable
-7. Return structured prediction
+### 6. Property Table (List View) -- Enhanced Data Display
+**Kondisi saat ini:** Basic table dengan kolom Property, Location, Units, Status, Actions.
 
-**Step 3:** Create `supabase/functions/ml-revenue-forecast/index.ts`
-- Aggregates: 12 months payments, occupancy trends, contract renewals
-- Output: Monthly predicted revenue with confidence intervals (3/6/12 month)
-- Tier gate: Professional + Enterprise
-- Tool calling schema: `forecast_revenue` with monthly predictions array
+**Peningkatan:**
+- Tambah kolom Revenue (total rent dari occupied units)
+- Tambah kolom amenities count
+- Sortable columns (click header to sort)
+- Row hover highlight
+- Thumbnail image kecil di kolom Property (jika ada)
 
-**Step 4:** Create `supabase/functions/ml-tenant-risk-score/index.ts`
-- Aggregates: Payment history (late ratio), overdue count, contract compliance, collections
-- Output: Score 0-100, risk_level, factors, recommended_actions
-- Tier gate: Professional + Enterprise
-- Side effects: Upsert `tenant_risk_scores`, notify merchant if score >= 76 (critical)
-- Supports single tenant + batch (all merchant tenants)
+### 7. Pagination -- Improved UX
+**Kondisi saat ini:** Previous/Next buttons dengan "Page X of Y".
 
-**Step 5:** Create `supabase/functions/ml-churn-prediction/index.ts`
-- Aggregates: Payment delay trends, maintenance complaints, contract end proximity, move-out notices
-- Output: Churn probability 0-1, risk factors, retention suggestions per tenant
-- Tier gate: Enterprise only
-- Trigger: Probability > 0.6 creates merchant notification
+**Peningkatan:**
+- Tambah page number buttons (1, 2, 3...) untuk navigasi langsung
+- Tambah items-per-page selector (9, 18, 27)
+- Sticky pagination di bottom saat scroll
 
-**Step 6:** Create `supabase/functions/ml-optimal-pricing/index.ts`
-- Aggregates: Unit amenities, location, occupancy history, comparable units, historical rent
-- Output: Current vs suggested price, price range, justification, market comparison per unit
-- Tier gate: Enterprise only
+### 8. Delete Confirmation -- Dialog Proper
+**Kondisi saat ini:** Menggunakan native `confirm()` dialog.
 
----
+**Peningkatan:**
+- Ganti dengan AlertDialog dari shadcn/ui (sudah terinstall @radix-ui/react-alert-dialog)
+- Tampilkan info property yang akan dihapus (nama, jumlah units)
+- Warning jika ada units occupied
 
-### Phase 3: DSS AI Advisor Edge Functions (4 functions)
+### 9. Mobile Responsiveness
+**Kondisi saat ini:** Grid responsif (1/2/3 kolom), tapi filter layout bisa lebih baik.
 
-All 4 DSS Advisors follow the pattern from `backend-architecture.md` Section 14 and `api-specification.md` Section 4.12. They combine ML outputs + business context and generate actionable recommendations stored in `dss_recommendations`.
+**Peningkatan:**
+- Filter bar: gunakan Sheet/Drawer di mobile untuk advanced filters
+- Stats card: horizontal scroll di mobile (bukan stack vertical)
+- Swipe gesture hints pada card di mobile
+- Touch-friendly action buttons (min 44px)
 
-**Step 7:** Create `supabase/functions/dss-pricing-advisor/index.ts`
-- Combines: `ml-optimal-pricing` output + occupancy trends + market context
-- Output: Strategic pricing advice, per-unit recommendations with expected revenue impact
-- Tier gate: Enterprise only
-- Side effect: Creates `dss_recommendations` with `type = 'pricing'`
+### 10. Micro-animations & Transitions
+**Peningkatan:**
+- Staggered fade-in saat cards muncul (CSS animation-delay)
+- Smooth transition saat switch grid/list view
+- Progress bar animated on mount
+- Stats counter animation (count up effect)
 
-**Step 8:** Create `supabase/functions/dss-collection-strategy/index.ts`
-- Combines: Risk score + payment history + escalation data
-- Output: Per-tenant collection approach, timing, channel, message templates
-- Tier gate: Enterprise only
-- Side effect: Creates `dss_recommendations` with `type = 'collection'`
+## Komponen yang Diubah
 
-**Step 9:** Create `supabase/functions/dss-maintenance-priority/index.ts`
-- Combines: Open requests + tenant satisfaction impact + unit revenue impact
-- Output: Prioritized maintenance queue with impact analysis and vendor suggestions
-- Tier gate: Enterprise only (Professional for basic priority)
-- Side effect: Creates `dss_recommendations` with `type = 'maintenance'`
+| File | Perubahan |
+|------|-----------|
+| `src/pages/merchant/Properties.tsx` | Skeleton loading, delete dialog, sort state, stats enhancement, items-per-page |
+| `src/features/properties/components/PropertyCard.tsx` | Hover effects, image placeholder, color-coded occupancy, quick actions, "New" badge |
+| `src/features/properties/components/PropertyFilters.tsx` | Status filter, sort dropdown, active filter badges, reset button |
+| `src/features/properties/components/PropertyTable.tsx` | Revenue kolom, sortable headers, thumbnail, row hover |
+| `src/features/properties/components/PropertySkeleton.tsx` (baru) | Skeleton loading component untuk stats + cards |
+| `src/features/properties/components/DeletePropertyDialog.tsx` (baru) | AlertDialog pengganti native confirm() |
 
-**Step 10:** Create `supabase/functions/dss-investment-insight/index.ts`
-- Combines: P&L per property + occupancy trends + maintenance costs
-- Output: ROI analysis, improvement suggestions with payback period
-- Tier gate: Enterprise only
-- Side effect: Creates `dss_recommendations` with `type = 'investment'`
+## Detail Teknis
 
----
+### PropertySkeleton.tsx (baru)
+```text
+StatsSkeleton: 3 skeleton cards (h-24, rounded-lg, animate-pulse)
+CardsSkeleton: 9 skeleton cards matching PropertyCard layout
+  - image area (h-24)
+  - title line (h-4 w-2/3)
+  - subtitle line (h-3 w-1/2)
+  - badge area (h-5 w-16)
+  - progress bar (h-2)
+```
 
-### Phase 4: Frontend Hooks for ML + DSS (Service + Hook layer)
+### DeletePropertyDialog.tsx (baru)
+```text
+Props: open, onOpenChange, property, onConfirm, isLoading
+Content:
+  - AlertDialog wrapper
+  - Property name + type display
+  - Unit count warning
+  - Destructive confirm button with loading state
+```
 
-**Step 11:** Create `src/features/dss/services/mlService.ts`
-- `invokeRevenueForcast(merchantId, forecastMonths, propertyId?)`
-- `invokeTenantRiskScore(tenantUserId?, merchantId?)`
-- `invokeChurnPrediction(merchantId, windowMonths)`
-- `invokeOptimalPricing(propertyId)`
-- All use `supabase.functions.invoke()` pattern
+### PropertyFilters.tsx (update)
+```text
+Tambah props:
+  - statusFilter, onStatusFilterChange
+  - sortBy, onSortByChange
+  - onResetFilters
+  - activeFilterCount
+Tambah komponen:
+  - Status Select (All/Active/Inactive/Maintenance)
+  - Sort Select (Name A-Z, Occupancy High-Low, Newest, Oldest)
+  - Badge count filter aktif
+  - Reset button
+```
 
-**Step 12:** Create `src/features/dss/services/dssAdvisorService.ts`
-- `invokePricingAdvisor(propertyId, context?)`
-- `invokeCollectionStrategy(tenantUserId)`
-- `invokeMaintenancePriority(merchantId)`
-- `invokeInvestmentInsight(propertyId)`
-- All use `supabase.functions.invoke()` pattern
+### PropertyCard.tsx (update)
+```text
+Tambah:
+  - Image placeholder gradient jika images kosong
+  - Hover transform: translateY(-2px) + shadow
+  - Occupancy bar warna dinamis (success/warning/destructive)
+  - "Baru" badge jika created_at < 7 hari
+  - Quick action icon buttons pada hover (Edit, Units, Photos)
+```
 
-**Step 13:** Create `src/features/dss/hooks/useMlAnalytics.ts`
-- `useRevenueForcast(merchantId, months)` -- React Query mutation
-- `useTenantRiskScores(merchantId)` -- query cached scores from `tenant_risk_scores`
-- `useRefreshRiskScore(tenantUserId)` -- mutation to trigger recalculation
-- `useChurnPrediction(merchantId)` -- mutation
-- `useOptimalPricing(propertyId)` -- mutation
+### Properties.tsx (update)
+```text
+Tambah state:
+  - statusFilter, sortBy, itemsPerPage
+  - deleteDialogProperty (ganti confirm())
+Tambah logic:
+  - Sort filteredProperties berdasarkan sortBy
+  - Skeleton loading (PropertySkeleton) ganti spinner
+  - DeletePropertyDialog ganti confirm()
+  - Stats: occupancy color, trend indicator
+```
 
-**Step 14:** Create `src/features/dss/hooks/useDssAdvisors.ts`
-- `usePricingAdvisor()` -- mutation
-- `useCollectionStrategy()` -- mutation
-- `useMaintenancePriority()` -- mutation
-- `useInvestmentInsight()` -- mutation
-- `useDssRecommendations(merchantId, type?)` -- query from `dss_recommendations`
-- `useUpdateRecommendation()` -- mutation for accept/dismiss
+## Urutan Implementasi
 
----
-
-### Phase 5: Frontend Pages for ML + DSS Dashboards
-
-**Step 15:** Create `src/pages/merchant/MlAnalytics.tsx`
-- Revenue Forecast section: chart (LineChart with confidence interval area), trigger button, last run info
-- Tenant Risk Scores section: table with scores, risk level badges, refresh button
-- Churn Prediction section: tenant list with churn probability, retention suggestions
-- Optimal Pricing section: per-unit comparison table (current vs suggested)
-- Tier-gated sections using `useMerchantTier` hook
-
-**Step 16:** Create `src/pages/merchant/DssAdvisor.tsx`
-- Tab-based UI: Pricing / Collection / Maintenance / Investment
-- Each tab shows:
-  - "Generate" button to invoke the advisor
-  - List of past recommendations from `dss_recommendations`
-  - Accept/Dismiss actions per recommendation
-  - Status badges (pending, accepted, dismissed, expired)
-- Tier-gated per advisor type
-
-**Step 17:** Add routes and navigation
-- Add `/merchant/ml-analytics` route in `App.tsx`
-- Add `/merchant/dss-advisor` route in `App.tsx`
-- Add navigation items in `navigation-config.ts` under Merchant menu group "DSS Intelligence"
-
----
-
-### Phase 6: Update Shared DSS Utils
-
-**Step 18:** Update `supabase/functions/_shared/dss-utils.ts`
-- Add `callLovableAIText()` helper for text-only context (ML/DSS functions don't need image_url)
-- Add `createDssRecommendation()` helper to insert into `dss_recommendations`
-- Add `upsertRiskScore()` helper to upsert `tenant_risk_scores`
-- Add `aggregatePaymentHistory()`, `aggregateOccupancyData()`, `aggregateMaintenanceData()` data aggregation helpers
-
----
-
-### Phase 7: Deploy and Update Docs Alignment
-
-**Step 19:** Deploy all 8 new edge functions
-
-**Step 20:** Update `src/features/dss/components/index.ts` -- add exports for any new components
-
-**Step 21:** Verify all 43 edge functions are present and deployed
-
-**Step 22:** Final checklist verification against all 5 docs
-
----
-
-## Alignment Verification Matrix
-
-| Doc | Section | Gap | Fixed By |
-|-----|---------|-----|----------|
-| system-architecture.md | 1.2 Scope: "12 DSS Edge Functions" | Only 4 OCR exist | Steps 3-10 |
-| system-architecture.md | 7.1: 43 functions listed | 36 exist | Steps 3-10 |
-| backend-architecture.md | 13: ML Predictive Analytics | 0 of 4 ML functions | Steps 3-6 |
-| backend-architecture.md | 14: AI Decision Support | 0 of 4 DSS functions | Steps 7-10 |
-| backend-architecture.md | 14.4: DSS Feature Gating | Tier limits defined in docs | Steps 3-10 (TIER_LIMITS) |
-| security-architecture.md | 8.2: only 4 verify_jwt=false | 9 currently set | Step 1 |
-| security-architecture.md | 6.4: ADMIN_SETUP_SECRET | Not in secrets | Step 2 |
-| security-architecture.md | 9.6: Tier-Gated DSS Access | OCR has it, ML/DSS missing | Steps 3-10 |
-| deployment-infrastructure.md | 6.2: 43 functions | 36 deployed | Steps 3-10, 19 |
-| deployment-infrastructure.md | 10.2: 14 cron jobs incl DSS | ml-daily-risk-scoring, ml-weekly-forecast missing | Steps 4, 3 (cron support) |
-| api-specification.md | 4.11: ML endpoints | Not implemented | Steps 3-6 |
-| api-specification.md | 4.12: DSS endpoints | Not implemented | Steps 7-10 |
-
-## Technical Notes
-
-- All 8 new functions reuse the existing `_shared/dss-utils.ts` infrastructure (auth, tier checking, AI gateway, model run logging)
-- The `callLovableAI` helper already supports text-only mode (just pass text content without image_url)
-- DSS Advisor functions will internally call the database for context (not call ML functions as sub-invocations) to avoid cascading edge function calls
-- Tier limits follow the exact matrix from `backend-architecture.md` Section 14.4
-- All functions produce `ml_model_runs` audit records (immutable)
-- DSS Advisor functions additionally create `dss_recommendations` records
-
-## Estimated Scope
-
-- 8 new edge function files (~200-350 lines each)
-- 1 shared utils update (~100 lines added)
-- 4 new frontend files (2 services, 2 hooks)
-- 2 new pages
-- 2 file updates (App.tsx, navigation-config.ts)
-- 1 config fix (config.toml)
-- 1 secret request (ADMIN_SETUP_SECRET)
-
+1. Buat `PropertySkeleton.tsx` -- komponen skeleton loading
+2. Buat `DeletePropertyDialog.tsx` -- AlertDialog untuk delete
+3. Update `PropertyFilters.tsx` -- status filter + sort + reset
+4. Update `PropertyCard.tsx` -- visual enhancements
+5. Update `PropertyTable.tsx` -- sortable + thumbnail + revenue
+6. Update `Properties.tsx` -- integrate semua perubahan + stats enhancement
