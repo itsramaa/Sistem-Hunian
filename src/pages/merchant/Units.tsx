@@ -145,9 +145,7 @@ export default function MerchantUnits() {
         </Button>
       </div>
       {/* Subscription Warning */}
-      {subscriptionLimits?.isNearUnitLimit && (
-        <SubscriptionLimitWarning type="unit" />
-      )}
+      <SubscriptionLimitWarning />
 
       {/* Statistics */}
       <UnitsStats stats={stats} />
