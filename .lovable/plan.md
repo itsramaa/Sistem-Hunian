@@ -1,149 +1,145 @@
 
+# FASE 1 — FOUNDATION: Implementasi State Machine & Audit Trail
 
-# Maximalisasi Testing Strategy Document v3.0 (DSS Edition)
+## Masalah yang Ditemukan
 
-## Ringkasan Masalah
+Setelah audit menyeluruh terhadap codebase vs dokumentasi (PRD, business-process.md, domain-state-machines.md), ditemukan **gap signifikan** antara apa yang didokumentasikan dan apa yang diimplementasikan:
 
-Dokumen `testing-strategy.md` v1.0 (218 baris) **sepenuhnya merujuk stack lama** yang sudah tidak digunakan. Ini adalah dokumen terakhir yang belum di-update ke v3.0.
+### 1. Contract State Machine — INCOMPLETE
 
-| Aspek | v1.0 (Sekarang) | Implementasi Aktual (v3.0) |
-|-------|-----------------|---------------------------|
-| Backend Testing | Pytest (Python) | Deno test runner (edge functions) / Vitest (frontend) |
-| Backend Stack | FastAPI + SQLAlchemy | Deno Edge Functions (43 functions) on Lovable Cloud |
-| Database Test | Ephemeral DB + SQLite | Lovable Cloud PostgreSQL (Test environment) |
-| Mocking Backend | `unittest.mock` + S3/OCR | Supabase SDK mock, Lovable AI mock |
-| Mocking Frontend | MSW (Mock Service Worker) | Vitest mocks + potential MSW |
-| CI/CD | GitHub Actions + Docker + SonarQube | Lovable Cloud auto-deploy (no CI pipeline) |
-| Test Environments | Local/CI/Staging/Prod (Docker Compose) | Test (preview) / Production (published) — 2 environments only |
-| Load Testing | k6 on API endpoints | Edge function latency testing via browser tools / curl |
-| Security Testing | OWASP ZAP + Snyk | Lovable security scan + RLS policy testing |
-| E2E Tool | Playwright (3 browsers) | Browser tools (manual) / Playwright (aspirational) |
-| CUJs | 4 journeys (Owner-centric) | 12+ journeys across 4 personas (Merchant, Tenant, Vendor, Admin) |
-| OCR Testing | Tesseract/PaddleOCR accuracy | Gemini Vision accuracy via edge function testing |
-| ML Testing | Scikit-learn k-fold validation | Gemini Reasoning structured output validation |
-| DSS Testing | Not mentioned | 12 DSS edge functions, 6 DSS tables, confidence thresholds |
-| Linting | ESLint + Black (Python) | ESLint + TypeScript strict (no Python) |
+| Aspek | Dokumentasi (domain-state-machines.md) | Implementasi Aktual |
+|-------|---------------------------------------|---------------------|
+| States | 8 states: draft, pending_signature, active, notice, terminated, expired, completed, cancelled | `CONTRACT_STATUS_TRANSITIONS` hanya punya 3 non-terminal states (pending, active) — MISSING draft, pending_signature, notice, completed |
+| Transition validation | Wajib di service layer | `contractService.updateContractStatus()` TIDAK ada validasi — menerima status apapun |
+| Audit logging | Wajib via `logStatusChange()` | TIDAK ada audit log di contract service |
+| UI Badge | Harus cover semua 8 states | `ContractStatusBadge` hanya cover 4 states (active, notice, expired, terminated) — MISSING draft, pending_signature, completed, cancelled |
 
-## Rencana Rewrite
+### 2. Invoice State Machine — INCONSISTENT
 
-Rewrite total menjadi **v3.0 (DSS Edition)** (~700-850 baris) yang 100% aligned dengan implementasi aktual dan semua dokumen v3.0.
+| Aspek | Dokumentasi | Implementasi |
+|-------|-------------|--------------|
+| Transitions dari draft | draft -> sent, cancelled | `merchant-validations.ts`: draft -> pending, cancelled (KONFLIK) |
+| Transitions dari sent | sent -> paid, overdue, cancelled, partially_paid | `merchantInvoiceService.ts`: sent -> paid, overdue, cancelled (MISSING partially_paid) |
+| `partially_paid` state | Didokumentasikan di state machine | Ada di type definition tapi TIDAK ada di transition maps |
 
-### Struktur Baru (14 Sections)
+### 3. Maintenance State Machine — MISSING STATES
 
-1. **Introduction** -- Update scope: React SPA + 43 Deno Edge Functions + Lovable Cloud, no Python/FastAPI
-2. **Quality Goals & KPIs** -- Align with PRD v3.0 business outcomes, add DSS accuracy targets
-3. **Test Architecture (Pyramid)** -- Rewrite: Vitest (unit/integration), Browser Tools (E2E manual), Edge Function Tests (Deno)
-4. **Layer 1: Unit Testing** -- Rewrite: Vitest + React Testing Library, target 70% coverage on business logic, hooks, utils; follow `testing-library` skill patterns (getByRole, userEvent.setup(), queryBy for negation)
-5. **Layer 2: Integration Testing** -- Rewrite: Vitest + RTL for component interactions, Supabase SDK mocking patterns, TanStack Query wrapper
-6. **Layer 3: E2E Testing** -- Rewrite: Browser tools for manual E2E, Playwright as aspirational; reference `e2e-testing-patterns` and `webapp-testing` skills
-7. **Edge Function Testing** -- BARU: Testing via `curl_edge_functions` tool, Deno test runner, auth/unauth scenarios, webhook HMAC verification
-8. **DSS & AI Testing** -- BARU: OCR accuracy validation (Gemini Vision), ML output validation (structured JSON parsing), confidence threshold testing (>=0.85 auto, 0.60-0.84 review, <0.60 reject), `ml_model_runs` audit trail verification, tier gating tests
-9. **Security Testing** -- Rewrite: Lovable security scan tool, RLS policy testing via SQL queries, RBAC role testing, edge function JWT verification, webhook HMAC
-10. **Accessibility Testing** -- Update: axe-core patterns, WCAG 2.1 AA, keyboard nav, semantic HTML checks aligned with `accessibility-compliance` skill and UI/UX doc
-11. **Performance Testing** -- Rewrite: Lighthouse for CWV (LCP <2s target from system-architecture v3.0), edge function cold start monitoring, database query EXPLAIN
-12. **Test Environment & Data** -- Rewrite: 2-environment model (Test/Production) from Lovable Cloud, test data seeding via Supabase SQL, PII masking for NIK/KTP
-13. **Critical User Journeys (CUJs)** -- Expand from 4 to 12+ journeys covering all 4 personas and DSS features
-14. **Defect Management & Tools Summary** -- Update tools to actual stack, remove Pytest/k6/SonarQube/Docker
+| Aspek | Dokumentasi | Implementasi |
+|-------|-------------|--------------|
+| States | pending, acknowledged, in_progress, completed, cancelled | `UpdateMaintenanceDialog`: MISSING `acknowledged` state |
+| `MAINTENANCE_STATUS_TRANSITIONS` | Termasuk acknowledged | Dialog component SKIP acknowledged |
 
-### Detail Perubahan Kunci
+### 4. Audit Trail — INCONSISTENT COVERAGE
 
-**Section 3: Test Architecture (Rewrite)**
-- Remove Pytest entirely (no Python in project)
-- Frontend unit/integration: Vitest + React Testing Library + jsdom
-- Edge function testing: Deno test runner + `curl_edge_functions` tool
-- E2E: Browser tools (manual, current reality) + Playwright (aspirational/future)
-- No CI/CD pipeline -- Lovable Cloud handles build/deploy; tests run on-demand
+| Service | Audit Log? | Notes |
+|---------|-----------|-------|
+| `contractService` | NO | Tidak ada `createAuditLog` atau `logStatusChange` |
+| `merchantInvoiceService` | NO | Tidak ada audit log untuk status changes |
+| `escrowService` | YES | Properly audited |
+| `disputesService` | YES | Uses `logStatusChange` |
+| `subscriptionService` | YES | Uses `createAuditLog` |
 
-**Section 4: Unit Testing (Rewrite)**
-- Configuration: `vitest.config.ts` with jsdom, `src/test/setup.ts` with `@testing-library/jest-dom`
-- Follow `testing-library` skill patterns:
-  - Query priority: `getByRole` > `getByLabelText` > `getByText` > `getByTestId`
-  - `userEvent.setup()` before interactions (not `fireEvent`)
-  - `queryBy` for absence checks, `findBy` for async
-  - `waitFor` only for assertions, not side effects
-- Target modules: utilities (`formatCurrency`, `passwordStrength`), hooks (`useAuth`, `useTenants`), Zustand stores
-- Coverage target: 70% (aligned with development-standards.md section 19)
+### 5. `AuditEntityType` — MISSING TYPES
 
-**Section 7: Edge Function Testing (BARU)**
-- Use `curl_edge_functions` tool for live testing
-- Deno test runner for unit tests within edge functions
-- Test matrix per function:
-  - Authenticated vs unauthenticated (JWT)
-  - Valid vs invalid payloads (Zod validation)
-  - Role-based access (merchant-only, admin-only, etc.)
-  - CORS headers in response
-- Webhook functions: HMAC signature verification with valid/invalid tokens
-- DSS functions: tier gating (403 for insufficient tier), AI response parsing
+Current `AuditEntityType` TIDAK include: `contract`, `invoice`, `payment`, `maintenance`, `property`, `unit`, `tenant`, `order` — hanya 16 types yang ada.
 
-**Section 8: DSS & AI Testing (BARU)**
-- OCR Testing (4 edge functions):
-  - Input: sample KTP/receipt images (JPEG/PNG, <10MB)
-  - Output: structured JSON with confidence scores
-  - Validation: field extraction accuracy (name, NIK, address from KTP)
-  - Edge cases: blurry images, rotated documents, partial occlusion
-  - Metric: Field Extraction Accuracy >85% (from PRD)
-- ML Testing (5 edge functions):
-  - Revenue forecasting: MAPE <10%
-  - Risk scoring: validate HIGH/MEDIUM/LOW classification
-  - Price prediction: compare against historical data
-  - Structured output parsing: verify Gemini returns valid JSON
-- AI Advisor Testing (4 edge functions):
-  - Recommendation quality: human review checklist
-  - Prompt injection prevention: test with adversarial inputs
-  - Graceful degradation: verify fallback when AI unavailable
-- Audit trail: every DSS call creates `ml_model_runs` row (immutable)
-- Confidence thresholds: test boundary values (0.59, 0.60, 0.84, 0.85)
+---
 
-**Section 9: Security Testing (Rewrite)**
-- Lovable security scan tool (`security--run_security_scan`)
-- RLS policy testing:
-  - Test each role can only access own data
-  - Test admin can access all data
-  - Test public tables are readable without auth
-  - Test immutable tables (audit_logs, ml_model_runs) reject UPDATE/DELETE
-- Auth testing:
-  - Email verification required
-  - 2FA (TOTP) for admin roles
-  - Session expiration
-  - Role escalation prevention (user_roles table, not profiles)
-- Edge function security:
-  - `verify_jwt = true` enforcement
-  - CORS headers present
-  - Service role key not exposed
+## Rencana Implementasi (7 Tasks)
 
-**Section 13: CUJs Expanded (12+ journeys)**
-- Merchant: Onboarding, Property Setup, Billing Cycle, OCR Digitization, DSS Dashboard
-- Tenant: Registration via Invitation, Payment, Maintenance Request, Move-Out
-- Vendor: Registration, Product Listing, Order Fulfillment
-- Admin: User Management, Dispute Resolution, Platform Config
+### Task 1: Centralized State Machine Constants
 
-### Skills yang Diterapkan
+Buat satu file `src/shared/constants/state-machines.ts` yang menjadi **single source of truth** untuk semua transition maps, aligned 100% dengan `domain-state-machines.md`.
 
-| Skill | Penerapan |
-|-------|-----------|
-| `testing-library` | Query priority, userEvent patterns, async testing, cleanup, MSW |
-| `e2e-testing-patterns` | E2E test structure, CUJ mapping, page object patterns |
-| `webapp-testing` | Playwright patterns, browser testing, screenshot verification |
-| `security-auditor` | RLS testing, auth flow testing, role escalation prevention |
-| `api-security-best-practices` | Edge function auth testing, HMAC verification, CORS |
-| `accessibility-compliance` | axe-core integration, WCAG 2.1 AA checklist, keyboard nav |
-| `performance-engineer` | CWV targets, Lighthouse integration, query optimization |
-| `supabase-postgres-best-practices` | RLS policy testing, query EXPLAIN, data seeding |
-| `prompt-engineering-patterns` | AI adversarial testing, prompt injection prevention |
-| `security-scanning-security-dependencies` | Dependency audit patterns |
-| `broken-authentication-testing` | Auth flow security validation |
+**File baru:** `src/shared/constants/state-machines.ts`
 
-### Cross-References
+```
+- CONTRACT_STATUS_TRANSITIONS (8 states, sesuai docs)
+- CONTRACT_SIGNATURE_TRANSITIONS (5 states)
+- INVOICE_STATUS_TRANSITIONS (7 states, termasuk partially_paid)
+- PAYMENT_STATUS_TRANSITIONS (5 states)
+- PAYMENT_PLAN_STATUS_TRANSITIONS (6 states)
+- MAINTENANCE_STATUS_TRANSITIONS (5 states, termasuk acknowledged)
+- SUBSCRIPTION_STATUS_TRANSITIONS (5 states)
+- ORDER_STATUS_TRANSITIONS (5 states)
+- DISBURSEMENT_STATUS_TRANSITIONS (6 states)
+- MOVE_OUT_NOTICE_TRANSITIONS (5 states)
+- DISPUTE_STATUS_TRANSITIONS (4 states)
+- DEPOSIT_REFUND_TRANSITIONS (5 states)
+- REFERRAL_STATUS_TRANSITIONS (4 states)
+- UNIT_STATUS_TRANSITIONS (3 states)
+```
 
-- `development-standards.md` v3.0 -- Section 19 (Testing Strategy, test pyramid, naming conventions, DSS testing patterns)
-- `backend-architecture.md` v3.0 -- 43 edge functions to test, DSS layer specs
-- `database-schema.md` v3.0 -- 72 tables, RLS policies to validate
-- `security-architecture.md` v3.0 -- Security testing requirements, RLS deep-dive, RBAC
-- `deployment-infrastructure.md` v3.0 -- 2-environment model, no CI/CD pipeline
-- `PRD_DSS_Manajemen_Kosan_v2_Professional.md` v3.0 -- Quality targets, CUJs, DSS accuracy metrics
-- `UIUX_Design_Documentation_SiHuni.md` v3.0 -- Accessibility standards, responsive design targets
+Plus helper function `isValidTransition(map, currentStatus, newStatus)` yang reusable.
 
-### Estimasi
+### Task 2: Expand AuditEntityType & AuditAction
 
-Testing Strategy v3.0: ~700-850 baris (vs 218 saat ini), dengan konten 100% aligned dengan implementasi aktual (Lovable Cloud, Vitest, Deno, no Python), mencakup DSS/AI testing yang sebelumnya tidak ada, dan CUJs diperluas ke 12+ journeys untuk semua 4 persona.
+Update `src/shared/utils/auditLog.ts`:
+- Add entity types: `contract`, `invoice`, `payment`, `maintenance`, `property`, `unit`, `tenant`, `order`, `payment_plan`, `move_out_notice`, `deposit_refund`, `notification`
+- Add actions: `sign`, `send`, `cancel`, `complete`, `acknowledge`, `assign`, `escalate`
 
+### Task 3: Fix Contract Service — Add Transition Validation & Audit
+
+Update `src/features/contracts/services/contractService.ts`:
+- Import centralized `CONTRACT_STATUS_TRANSITIONS`
+- Add validation to `updateContractStatus()` — reject invalid transitions
+- Add `logStatusChange()` calls to: `updateContractStatus`, `merchantSignContract`, `deleteContract`
+- Add side-effect documentation (unit status update is handled by DB trigger, so no code change needed there)
+
+### Task 4: Fix Contract UI — Badge & Transition Map
+
+- Update `ContractStatusBadge.tsx` — add missing states: `draft` (gray), `pending_signature` (blue), `completed` (green variant), `cancelled` (red)
+- Update `CONTRACT_STATUS_TRANSITIONS` in `merchant-validations.ts` to import from centralized constants
+- Align with domain-state-machines.md states
+
+### Task 5: Fix Invoice State Machine — Reconcile Inconsistencies
+
+- Update `INVOICE_STATUS_TRANSITIONS` in `merchant-validations.ts` to match docs:
+  - `draft` -> `['sent', 'cancelled']` (NOT `['pending', 'cancelled']`)
+  - `sent` -> `['paid', 'overdue', 'cancelled', 'partially_paid']`
+  - Add `partially_paid` -> `['paid', 'cancelled']`
+- Update `merchantInvoiceService.ts` `markAsPaid` to use centralized transitions
+- Add `logStatusChange()` to `sendInvoice`, `markAsPaid`, `createInvoice`
+
+### Task 6: Fix Maintenance State Machine — Add Acknowledged State
+
+- Update `MAINTENANCE_STATUS_TRANSITIONS` in `merchant-validations.ts` to import from centralized constants
+- Update `UpdateMaintenanceDialog.tsx` transition map: add `acknowledged` state between `pending` and `in_progress`
+- Ensure `pending` -> `['acknowledged', 'cancelled']`, `acknowledged` -> `['in_progress', 'cancelled']`
+
+### Task 7: Remove Duplicate Transition Maps & Wire Centralized Constants
+
+- Remove inline `VALID_STATUS_TRANSITIONS` from `merchantInvoiceService.ts` (use import)
+- Remove inline `VALID_STATUS_TRANSITIONS` from `UpdateMaintenanceDialog.tsx` (use import)
+- Remove duplicate maps from `merchant-validations.ts` and `vendor-validations.ts` (re-export from centralized)
+- Ensure all 4 files import from `src/shared/constants/state-machines.ts`
+
+---
+
+## File Changes Summary
+
+| File | Action | Description |
+|------|--------|-------------|
+| `src/shared/constants/state-machines.ts` | CREATE | Centralized state machine constants (14 transition maps + helper) |
+| `src/shared/utils/auditLog.ts` | EDIT | Expand AuditEntityType (+12 types) and AuditAction (+7 actions) |
+| `src/features/contracts/services/contractService.ts` | EDIT | Add transition validation + audit logging |
+| `src/features/contracts/components/ContractStatusBadge.tsx` | EDIT | Add 4 missing states |
+| `src/features/users/utils/merchant-validations.ts` | EDIT | Replace inline transitions with centralized imports |
+| `src/features/users/utils/vendor-validations.ts` | EDIT | Replace inline transitions with centralized imports |
+| `src/features/payments/services/merchantInvoiceService.ts` | EDIT | Use centralized transitions + add audit logging |
+| `src/features/maintenance/components/UpdateMaintenanceDialog.tsx` | EDIT | Use centralized transitions, add acknowledged state |
+
+## Technical Notes
+
+- **No DB migration needed** — semua status columns sudah `text` type (bukan enum), jadi penambahan states di application layer cukup
+- **DB trigger `update_unit_status_on_contract_sign()`** sudah handle side-effect unit status pada contract signing — tidak perlu diubah
+- **DB trigger `generate_invoice_number()`** sudah handle auto-generation — tidak perlu diubah
+- **Backward compatible** — semua perubahan additive, tidak mengubah existing valid transitions
+- **`isValidTransition()` helper** akan throw descriptive error saat invalid transition terjadi, membantu debugging
+
+## Alignment Verification
+
+Setelah implementasi, setiap state machine di codebase akan 1:1 match dengan:
+- `docs/domain-state-machines.md` Section 2-19
+- `docs/business-process.md` Section 3.x state diagrams
+- `docs/PRD_DSS_Manajemen_Kosan_v2_Professional.md` business process references
