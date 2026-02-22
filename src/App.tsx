@@ -47,6 +47,7 @@ const AdminVendors = lazy(() => import("@/pages/admin/Vendors"));
 const AdminTenants = lazy(() => import("@/pages/admin/Tenants"));
 const AdminUsers = lazy(() => import("@/pages/admin/AdminUsers"));
 const AdminLogin = lazy(() => import("@/pages/admin/AdminLogin"));
+const AdminDssHealth = lazy(() => import("@/pages/admin/DssHealth"));
 
 // Merchant Pages
 const MerchantBilling = lazy(() => import("@/pages/merchant/Billing"));
@@ -65,6 +66,7 @@ const MerchantReports = lazy(() => import("@/pages/merchant/Reports"));
 const MerchantSettings = lazy(() => import("@/pages/merchant/Settings"));
 const MerchantTenants = lazy(() => import("@/pages/merchant/Tenants"));
 const MerchantUnits = lazy(() => import("@/pages/merchant/Units"));
+const MerchantOcrTutorial = lazy(() => import("@/pages/merchant/OcrTutorial"));
 
 // Tenant Pages
 const TenantContracts = lazy(() => import("@/pages/tenant/Contracts"));
@@ -150,6 +152,7 @@ const App = () => (
                   <Route path="/admin/audit-logs" element={<ProtectedRoute allowedRoles={['admin']}><AdminAuditLogs /></ProtectedRoute>} />
                   <Route path="/admin/forum-moderation" element={<ProtectedRoute allowedRoles={['admin']}><AdminForumModeration /></ProtectedRoute>} />
                   <Route path="/admin/2fa" element={<ProtectedRoute allowedRoles={['admin']}><Admin2FA /></ProtectedRoute>} />
+                  <Route path="/admin/dss-health" element={<ProtectedRoute allowedRoles={['admin']}><AdminDssHealth /></ProtectedRoute>} />
                   
                   {/* Merchant Routes */}
                   <Route path="/merchant" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantDashboard /></ProtectedRoute>} />
@@ -168,6 +171,7 @@ const App = () => (
                   <Route path="/merchant/contracts" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantContracts /></ProtectedRoute>} />
                   <Route path="/merchant/billing" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantBilling /></ProtectedRoute>} />
                   <Route path="/merchant/move-outs" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantMoveOuts /></ProtectedRoute>} />
+                  <Route path="/merchant/ocr-tutorial" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantOcrTutorial /></ProtectedRoute>} />
                   
                   {/* Tenant Routes */}
                   <Route path="/tenant" element={<ProtectedRoute allowedRoles={['tenant']}><TenantDashboard /></ProtectedRoute>} />
