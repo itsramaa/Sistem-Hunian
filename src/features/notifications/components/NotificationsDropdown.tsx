@@ -13,7 +13,7 @@ import {
 } from "@/shared/components/ui/dropdown-menu";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
 import { Badge } from "@/shared/components/ui/badge";
-import { Bell, Check, CheckCheck, AlertTriangle, Info, FileText, CreditCard, Wrench, Settings, ChevronDown, ChevronUp } from "lucide-react";
+import { Bell, Check, CheckCheck, AlertTriangle, Info, FileText, CreditCard, Wrench, Settings, ChevronDown, ChevronUp, ShieldAlert } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { id } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
@@ -174,6 +174,8 @@ export function NotificationsDropdown() {
         return <Wrench className="h-4 w-4 text-orange-500" />;
       case 'warning':
         return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
+      case 'rls_alert':
+        return <ShieldAlert className="h-4 w-4 text-destructive" />;
       default:
         return <Info className="h-4 w-4 text-primary" />;
     }

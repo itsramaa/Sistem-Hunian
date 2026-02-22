@@ -57,6 +57,66 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ── RLS Denial Alerting ──────────────────────────────────────────
+    if (was_denied) {
+      try {
+        // Fetch active alert settings
+        const { data: alertSettings } = await serviceClient
+          .from("rls_alert_settings")
+          .select("*")
+          .eq("is_active", true);
+
+        if (alertSettings && alertSettings.length > 0) {
+          for (const setting of alertSettings) {
+            const windowStart = new Date();
+            windowStart.setMinutes(windowStart.getMinutes() - setting.window_minutes);
+
+            // Check cooldown
+            if (setting.last_alert_at) {
+              const cooldownEnd = new Date(setting.last_alert_at);
+              cooldownEnd.setMinutes(cooldownEnd.getMinutes() + setting.alert_cooldown_minutes);
+              if (new Date() < cooldownEnd) continue;
+            }
+
+            // Count denials in window
+            const { count } = await serviceClient
+              .from("rls_access_logs")
+              .select("id", { count: "exact", head: true })
+              .eq("was_denied", true)
+              .gte("created_at", windowStart.toISOString());
+
+            if (count && count >= setting.denial_threshold) {
+              // Get all admin user IDs
+              const { data: adminRoles } = await serviceClient
+                .from("user_roles")
+                .select("user_id")
+                .eq("role", "admin");
+
+              if (adminRoles && adminRoles.length > 0) {
+                const notifications = adminRoles.map((ar) => ({
+                  user_id: ar.user_id,
+                  title: "RLS Denial Spike Detected",
+                  message: `${count} RLS denials in the last ${setting.window_minutes} minutes. Latest: table "${table_name}" (${operation}). Review security dashboard.`,
+                  type: "rls_alert",
+                  link: "/admin/dss-health",
+                }));
+
+                await serviceClient.from("notifications").insert(notifications);
+              }
+
+              // Update last_alert_at
+              await serviceClient
+                .from("rls_alert_settings")
+                .update({ last_alert_at: new Date().toISOString() })
+                .eq("id", setting.id);
+            }
+          }
+        }
+      } catch (alertErr) {
+        console.error("Alert check failed (non-fatal):", alertErr);
+      }
+    }
+
     return new Response(
       JSON.stringify({ success: true }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

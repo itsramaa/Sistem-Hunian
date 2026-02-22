@@ -3328,6 +3328,50 @@ export type Database = {
         }
         Relationships: []
       }
+      rls_alert_settings: {
+        Row: {
+          alert_cooldown_minutes: number
+          created_at: string
+          denial_threshold: number
+          id: string
+          is_active: boolean
+          last_alert_at: string | null
+          merchant_id: string | null
+          updated_at: string
+          window_minutes: number
+        }
+        Insert: {
+          alert_cooldown_minutes?: number
+          created_at?: string
+          denial_threshold?: number
+          id?: string
+          is_active?: boolean
+          last_alert_at?: string | null
+          merchant_id?: string | null
+          updated_at?: string
+          window_minutes?: number
+        }
+        Update: {
+          alert_cooldown_minutes?: number
+          created_at?: string
+          denial_threshold?: number
+          id?: string
+          is_active?: boolean
+          last_alert_at?: string | null
+          merchant_id?: string | null
+          updated_at?: string
+          window_minutes?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rls_alert_settings_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_invoices: {
         Row: {
           amount: number
