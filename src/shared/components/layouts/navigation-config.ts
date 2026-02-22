@@ -1,6 +1,7 @@
 import {
     AlertTriangle,
     BarChart3,
+    Brain,
     Briefcase,
     Building2,
     ClipboardList,
@@ -10,6 +11,7 @@ import {
     Gift,
     Home,
     LayoutDashboard,
+    Lightbulb,
     LogOut,
     LucideIcon,
     Menu,
@@ -118,6 +120,13 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/merchant/move-outs", icon: LogOut, label: "Move-Outs" },
           { path: "/merchant/reports", icon: BarChart3, label: "Reports" },
           { path: "/merchant/ocr-tutorial", icon: ScanText, label: "OCR Tutorial" },
+        ],
+      },
+      {
+        label: "DSS Intelligence",
+        items: [
+          { path: "/merchant/ml-analytics", icon: Brain, label: "ML Analytics" },
+          { path: "/merchant/dss-advisor", icon: Lightbulb, label: "DSS Advisor" },
         ],
       },
     ],
