@@ -11,7 +11,7 @@ import { CreatePropertyPayload, Property, UpdatePropertyPayload } from '@/featur
 import { SubscriptionLimitWarning } from '@/features/subscriptions/components/SubscriptionLimitWarning';
 import { useSubscriptionLimits } from '@/features/subscriptions/hooks/useSubscriptionLimits';
 import { ImageGalleryUpload } from '@/shared/components/FileUpload';
-import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
+
 import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent } from '@/shared/components/ui/card';
@@ -280,10 +280,9 @@ export default function MerchantProperties() {
   const pageNumbers = getPageNumbers(page, totalPages);
 
   return (
-    <MerchantLayout 
-      title="Properties" 
-      description="Manage your rental properties"
-      actions={
+    <>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-muted-foreground">Manage your rental properties</p>
         <Button 
           onClick={() => setShowAddDialog(true)}
           disabled={limits && !limits.canAddProperty}
@@ -291,8 +290,7 @@ export default function MerchantProperties() {
           <Plus className="h-4 w-4 mr-2" />
           Add Property
         </Button>
-      }
-    >
+      </div>
       <div className="space-y-6">
         {/* Subscription limit warning */}
         <SubscriptionLimitWarning type="property" />
@@ -587,6 +585,6 @@ export default function MerchantProperties() {
           </DialogContent>
         </Dialog>
       </div>
-    </MerchantLayout>
+    </>
   );
 }

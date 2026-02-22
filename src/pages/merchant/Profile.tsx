@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { MerchantLayout } from "@/shared/components/layouts/MerchantLayout";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -194,15 +194,11 @@ const MerchantProfile = () => {
   const [selectedDocType, setSelectedDocType] = useState('ktp');
 
   if (isLoading) {
-    return (
-      <MerchantLayout description="Manage your business profile and verification">
-        <ProfileFormSkeleton />
-      </MerchantLayout>
-    );
+    return <ProfileFormSkeleton />;
   }
 
   return (
-    <MerchantLayout description="Manage your business profile, verification, and banking">
+    <>
       <Tabs defaultValue="business" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="business" className="flex items-center gap-2">
@@ -495,7 +491,7 @@ const MerchantProfile = () => {
           <BankAccountManager />
         </TabsContent>
       </Tabs>
-    </MerchantLayout>
+    </>
   );
 };
 

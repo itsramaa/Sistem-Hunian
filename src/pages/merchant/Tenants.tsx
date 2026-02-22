@@ -13,7 +13,7 @@ import {
   useMerchantTenantMutations,
 } from '@/features/users/hooks/useMerchantTenants';
 import { ActiveTenant, InvitationFormData } from '@/features/users/types/tenant';
-import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -167,35 +167,31 @@ export default function MerchantTenants() {
 
   if (hasError) {
     return (
-      <MerchantLayout title="Tenants" description="Manage tenant invitations and active tenants">
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
-            <h3 className="text-lg font-medium mb-2">Failed to load data</h3>
-            <p className="text-sm text-muted-foreground text-center mb-4">
-              There was an error loading tenant data. Please try again.
-            </p>
-            <Button onClick={() => { refetchInvitations(); refetchTenants(); }}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
-      </MerchantLayout>
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12">
+          <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
+          <h3 className="text-lg font-medium mb-2">Failed to load data</h3>
+          <p className="text-sm text-muted-foreground text-center mb-4">
+            There was an error loading tenant data. Please try again.
+          </p>
+          <Button onClick={() => { refetchInvitations(); refetchTenants(); }}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <MerchantLayout
-      title="Tenants"
-      description="Manage tenant invitations and active tenants"
-      actions={
+    <>
+      <div className="flex items-center justify-between mb-4">
+        <div />
         <Button onClick={() => setShowInviteDialog(true)} disabled={availableUnits.length === 0}>
           <Send className="h-4 w-4 mr-2" />
           Send Invitation
         </Button>
-      }
-    >
+      </div>
       <div className="space-y-6">
         <TenantStats
           pendingInvitationsCount={invitations.filter(i => i.status === 'pending').length}
@@ -307,6 +303,6 @@ export default function MerchantTenants() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </MerchantLayout>
+    </>
   );
 }

@@ -2,7 +2,7 @@ import { MerchantNotificationSettings as NotificationSettingsComponent } from "@
 import { BankAccountManager } from "@/features/payments/components/BankAccountManager";
 import { DisbursementScheduleSettings } from "@/features/payments/components/DisbursementScheduleSettings";
 import { supabase } from "@/lib/integrations/supabase/client";
-import { MerchantLayout } from "@/shared/components/layouts/MerchantLayout";
+
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
@@ -106,7 +106,7 @@ const Settings = () => {
   };
 
   return (
-    <MerchantLayout description="Manage your preferences">
+    <>
       <Tabs defaultValue={defaultTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-5">
           <TabsTrigger value="theme" className="flex items-center gap-2">
@@ -280,7 +280,7 @@ const Settings = () => {
           <DisbursementScheduleSettings />
         </TabsContent>
       </Tabs>
-    </MerchantLayout>
+    </>
   );
 };
 

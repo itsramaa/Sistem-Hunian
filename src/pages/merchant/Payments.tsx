@@ -7,7 +7,7 @@ import { PaymentsStats } from '@/features/payments/components/PaymentsStats';
 import { PaymentsTable } from '@/features/payments/components/PaymentsTable';
 import { useMerchantPayments } from '@/features/payments/hooks/useMerchantPayments';
 import { Invoice, Payment } from '@/features/payments/types';
-import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
+
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
@@ -95,7 +95,7 @@ export default function MerchantPayments() {
   }, [filteredOverdueInvoices, overduePage]);
 
   return (
-    <MerchantLayout>
+    <div className="space-y-6">
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
@@ -201,6 +201,6 @@ export default function MerchantPayments() {
           } : null}
         />
       </div>
-    </MerchantLayout>
+    </div>
   );
 }

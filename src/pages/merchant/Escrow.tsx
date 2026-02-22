@@ -7,7 +7,7 @@ import { EscrowTransactionsTable } from '@/features/escrow/components/EscrowTran
 import { DISBURSEMENT_OPTIONS } from '@/features/escrow/constants';
 import { calculateDisbursementFee } from '@/features/escrow/utils/disbursement';
 import { supabase } from '@/lib/integrations/supabase/client';
-import { MerchantLayout } from '@/shared/components/layouts/MerchantLayout';
+
 import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
@@ -281,16 +281,14 @@ export default function MerchantEscrow() {
 
   if (loadingAccount) {
     return (
-      <MerchantLayout>
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </MerchantLayout>
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
     );
   }
 
   return (
-    <MerchantLayout>
+    <div className="space-y-6">
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-display font-bold">Escrow Account</h1>
@@ -470,6 +468,6 @@ export default function MerchantEscrow() {
           onAddBankAccount={() => navigate('/merchant/settings?tab=bank')}
         />
       </div>
-    </MerchantLayout>
+    </div>
   );
 }
