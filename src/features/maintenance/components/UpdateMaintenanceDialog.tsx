@@ -1,4 +1,5 @@
 import { Button } from '@/shared/components/ui/button';
+import { MAINTENANCE_STATUS_TRANSITIONS } from '@/shared/constants/state-machines';
 import {
   Dialog,
   DialogContent,
@@ -37,12 +38,8 @@ interface UpdateMaintenanceDialogProps {
   loading: boolean;
 }
 
-const VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
-  pending: ['in_progress', 'cancelled'],
-  in_progress: ['completed', 'cancelled'],
-  completed: [],
-  cancelled: [],
-};
+// Use centralized state machine constants
+const VALID_STATUS_TRANSITIONS = MAINTENANCE_STATUS_TRANSITIONS;
 
 export function UpdateMaintenanceDialog({
   open,

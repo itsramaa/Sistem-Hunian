@@ -2,6 +2,16 @@
  * Centralized validation utilities for merchant features
  */
 import { z } from 'zod';
+import {
+  CONTRACT_STATUS_TRANSITIONS,
+  INVOICE_STATUS_TRANSITIONS,
+  MAINTENANCE_STATUS_TRANSITIONS,
+  isValidTransition,
+} from '@/shared/constants/state-machines';
+
+// Re-export centralized state machine constants for backward compatibility
+export { CONTRACT_STATUS_TRANSITIONS, INVOICE_STATUS_TRANSITIONS, MAINTENANCE_STATUS_TRANSITIONS };
+export { isValidTransition as isValidStatusTransition };
 
 // Contract validation schema
 export const contractSchema = z.object({
@@ -90,41 +100,6 @@ export const moveOutInspectionSchema = z.object({
     amount: z.number().min(0, 'Amount must be positive'),
   })).optional(),
 });
-
-// Status transition validations
-export const INVOICE_STATUS_TRANSITIONS: Record<string, string[]> = {
-  draft: ['pending', 'cancelled'],
-  pending: ['paid', 'overdue', 'cancelled'],
-  overdue: ['paid', 'cancelled'],
-  paid: [], // Terminal state
-  cancelled: [], // Terminal state
-};
-
-export const CONTRACT_STATUS_TRANSITIONS: Record<string, string[]> = {
-  pending: ['active', 'cancelled'],
-  active: ['terminated', 'expired'],
-  terminated: [],
-  expired: [],
-  cancelled: [],
-};
-
-export const MAINTENANCE_STATUS_TRANSITIONS: Record<string, string[]> = {
-  pending: ['acknowledged', 'in_progress', 'cancelled'],
-  acknowledged: ['in_progress', 'cancelled'],
-  in_progress: ['completed', 'cancelled'],
-  completed: [],
-  cancelled: [],
-};
-
-export const isValidStatusTransition = (
-  transitions: Record<string, string[]>,
-  currentStatus: string,
-  newStatus: string
-): boolean => {
-  const allowedTransitions = transitions[currentStatus];
-  if (!allowedTransitions) return false;
-  return allowedTransitions.includes(newStatus);
-};
 
 // Validation error helpers
 export const formatValidationErrors = (errors: z.ZodError): string => {
