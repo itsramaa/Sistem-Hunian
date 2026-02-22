@@ -1,12 +1,18 @@
+import { useState } from "react";
 import { AdminLayout } from "@/shared/components/layouts/AdminLayout";
 import { useDssHealthMetrics } from "@/features/dss/hooks/useDssHealthMetrics";
 import { useRlsMonitor } from "@/features/dss/hooks/useRlsMonitor";
+import { useRlsAlertSettings } from "@/features/dss/hooks/useRlsAlertSettings";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Badge } from "@/shared/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/components/ui/table";
 import { Progress } from "@/shared/components/ui/progress";
-import { Loader2, Activity, ShieldAlert, CheckCircle2, XCircle, AlertTriangle, Brain, ScanText, BarChart3, Clock } from "lucide-react";
+import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
+import { Switch } from "@/shared/components/ui/switch";
+import { Loader2, Activity, ShieldAlert, CheckCircle2, XCircle, AlertTriangle, Brain, ScanText, BarChart3, Clock, Bell, Settings2 } from "lucide-react";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/shared/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { format } from "date-fns";
@@ -26,6 +32,9 @@ const chartConfig: ChartConfig = {
 function DssHealth() {
   const { data: metrics, isLoading: metricsLoading } = useDssHealthMetrics();
   const { data: rlsData, isLoading: rlsLoading } = useRlsMonitor(7);
+  const { data: alertSettings, isLoading: alertLoading, updateSetting } = useRlsAlertSettings();
+  const [editingAlert, setEditingAlert] = useState(false);
+  const [alertForm, setAlertForm] = useState({ denial_threshold: 10, window_minutes: 60, alert_cooldown_minutes: 30 });
 
   if (metricsLoading || rlsLoading) {
     return (
@@ -324,6 +333,108 @@ function DssHealth() {
 
         {/* ── RLS Monitor ─────────────────────────────────────── */}
         <TabsContent value="rls" className="space-y-4">
+          {/* Alert Settings Card */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Bell className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-base">Pengaturan Alert RLS</CardTitle>
+                </div>
+                {alertSettings?.[0] && (
+                  <Badge variant={alertSettings[0].is_active ? "default" : "secondary"}>
+                    {alertSettings[0].is_active ? "Aktif" : "Nonaktif"}
+                  </Badge>
+                )}
+              </div>
+              <CardDescription>Konfigurasi threshold dan cooldown untuk alert denial RLS</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {alertLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : alertSettings?.[0] ? (
+                <div className="space-y-4">
+                  {!editingAlert ? (
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Threshold Denial</p>
+                        <p className="text-lg font-semibold">{alertSettings[0].denial_threshold}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Window (menit)</p>
+                        <p className="text-lg font-semibold">{alertSettings[0].window_minutes}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Cooldown (menit)</p>
+                        <p className="text-lg font-semibold">{alertSettings[0].alert_cooldown_minutes}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Alert Terakhir</p>
+                        <p className="text-sm font-medium">
+                          {alertSettings[0].last_alert_at
+                            ? format(new Date(alertSettings[0].last_alert_at), "dd/MM/yy HH:mm")
+                            : "Belum pernah"}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-1">
+                        <Label htmlFor="threshold">Threshold Denial</Label>
+                        <Input id="threshold" type="number" min={1} value={alertForm.denial_threshold}
+                          onChange={(e) => setAlertForm(p => ({ ...p, denial_threshold: +e.target.value }))} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="window">Window (menit)</Label>
+                        <Input id="window" type="number" min={1} value={alertForm.window_minutes}
+                          onChange={(e) => setAlertForm(p => ({ ...p, window_minutes: +e.target.value }))} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="cooldown">Cooldown (menit)</Label>
+                        <Input id="cooldown" type="number" min={1} value={alertForm.alert_cooldown_minutes}
+                          onChange={(e) => setAlertForm(p => ({ ...p, alert_cooldown_minutes: +e.target.value }))} />
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={alertSettings[0].is_active}
+                        onCheckedChange={(checked) =>
+                          updateSetting.mutate({ id: alertSettings[0].id, is_active: checked })
+                        }
+                      />
+                      <span className="text-sm">{alertSettings[0].is_active ? "Alert Aktif" : "Alert Nonaktif"}</span>
+                    </div>
+                    <div className="flex-1" />
+                    {editingAlert ? (
+                      <>
+                        <Button variant="outline" size="sm" onClick={() => setEditingAlert(false)}>Batal</Button>
+                        <Button size="sm" onClick={() => {
+                          updateSetting.mutate({ id: alertSettings[0].id, ...alertForm });
+                          setEditingAlert(false);
+                        }}>Simpan</Button>
+                      </>
+                    ) : (
+                      <Button variant="outline" size="sm" className="gap-1" onClick={() => {
+                        setAlertForm({
+                          denial_threshold: alertSettings[0].denial_threshold,
+                          window_minutes: alertSettings[0].window_minutes,
+                          alert_cooldown_minutes: alertSettings[0].alert_cooldown_minutes,
+                        });
+                        setEditingAlert(true);
+                      }}>
+                        <Settings2 className="h-3 w-3" /> Edit
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Tidak ada pengaturan alert</p>
+              )}
+            </CardContent>
+          </Card>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Denials by Table */}
             <Card>
