@@ -18,6 +18,7 @@ import { UserRole, navigationConfig, getAllNavItems } from "@/shared/components/
 import { FloatingActionButton } from "@/shared/components/layouts/FloatingActionButton";
 import { ChatbotDialog } from "@/features/chatbot/components/ChatbotDialog";
 import { useChatbotTracking } from "@/features/analytics/hooks/useAnalytics";
+import { Meta } from "@/shared/components/meta";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -106,6 +107,10 @@ export function DashboardLayout({
   // Desktop: Use sidebar layout with inset variant (sidebar-08 pattern)
   return (
     <SidebarProvider>
+      <Meta noindex />
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:p-4 focus:bg-background focus:text-foreground">
+        Langsung ke konten utama
+      </a>
       <AppSidebar role={role} />
       <SidebarInset>
         {/* Header with breadcrumb */}
@@ -147,7 +152,7 @@ export function DashboardLayout({
         </header>
 
         {/* Main Content */}
-        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+        <div id="main-content" className="flex flex-1 flex-col gap-4 p-4 pt-0">
           {/* Page Toolbar - description and actions */}
           {(description || actions) && (
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

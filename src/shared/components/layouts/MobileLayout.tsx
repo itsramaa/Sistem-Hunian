@@ -8,6 +8,7 @@ import { ChatbotDialog } from "@/features/chatbot/components/ChatbotDialog";
 import { useChatbotTracking } from "@/features/analytics/hooks/useAnalytics";
 import { cn } from "@/shared/utils/utils";
 import { UserRole, navigationConfig } from "@/shared/components/layouts/navigation-config";
+import { Meta } from "@/shared/components/meta";
 
 interface MobileLayoutProps {
   role: UserRole;
@@ -57,6 +58,10 @@ export function MobileLayout({
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <Meta noindex />
+      <a href="#mobile-main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:p-4 focus:bg-background focus:text-foreground">
+        Langsung ke konten utama
+      </a>
       <MobileHeader
         role={role}
         title={title}
@@ -66,6 +71,7 @@ export function MobileLayout({
       />
 
       <main
+        id="mobile-main-content"
         className={cn(
           "flex-1 px-4 pt-4 overflow-auto",
           config.hasBottomNav ? "pb-20" : "pb-4"

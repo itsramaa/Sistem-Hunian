@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AuthForm } from '@/features/auth/components/AuthForm';
 import { AuthLoadingSkeleton } from '@/features/auth/components/AuthLoadingSkeleton';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { Meta } from '@/shared/components/meta';
 
 const roleDestinations: Record<string, { path: string; name: string }> = {
   admin: { path: '/admin', name: 'Dashboard Admin' },
@@ -32,5 +33,10 @@ export default function Auth() {
     return <AuthLoadingSkeleton destination={destination.name} />;
   }
 
-  return <AuthForm />;
+  return (
+    <>
+      <Meta noindex title="Login" description="Masuk ke akun SiHuni Anda" />
+      <AuthForm />
+    </>
+  );
 }
