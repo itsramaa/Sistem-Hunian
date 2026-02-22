@@ -1,145 +1,86 @@
 
-# FASE 1 — FOUNDATION: Implementasi State Machine & Audit Trail
+# FASE 1 — FOUNDATION (Lanjutan): Remaining State Machine & Audit Gaps
 
-## Masalah yang Ditemukan
+## Status Implementasi Sebelumnya
 
-Setelah audit menyeluruh terhadap codebase vs dokumentasi (PRD, business-process.md, domain-state-machines.md), ditemukan **gap signifikan** antara apa yang didokumentasikan dan apa yang diimplementasikan:
+Sudah selesai (round sebelumnya):
+- Centralized `state-machines.ts` dengan 20 transition maps + helpers
+- `auditLog.ts` expanded (29 actions, 28 entity types)
+- `contractService.ts` — transition validation + audit
+- `ContractStatusBadge.tsx` — 8 states
+- `merchantInvoiceService.ts` — transition validation + audit
+- `merchant-validations.ts` + `vendor-validations.ts` — centralized imports
+- `UpdateMaintenanceDialog.tsx` — centralized imports
 
-### 1. Contract State Machine — INCOMPLETE
+## Remaining Gaps (5 Services)
 
-| Aspek | Dokumentasi (domain-state-machines.md) | Implementasi Aktual |
-|-------|---------------------------------------|---------------------|
-| States | 8 states: draft, pending_signature, active, notice, terminated, expired, completed, cancelled | `CONTRACT_STATUS_TRANSITIONS` hanya punya 3 non-terminal states (pending, active) — MISSING draft, pending_signature, notice, completed |
-| Transition validation | Wajib di service layer | `contractService.updateContractStatus()` TIDAK ada validasi — menerima status apapun |
-| Audit logging | Wajib via `logStatusChange()` | TIDAK ada audit log di contract service |
-| UI Badge | Harus cover semua 8 states | `ContractStatusBadge` hanya cover 4 states (active, notice, expired, terminated) — MISSING draft, pending_signature, completed, cancelled |
+| # | Service | Gap | Fix |
+|---|---------|-----|-----|
+| 1 | `paymentPlanService.ts` | No transition validation, no audit logging. `acceptPaymentPlan` hardcodes `'active'` (should be `pending_acceptance` -> `accepted` -> `active`). `declinePaymentPlan` hardcodes `'cancelled'`. | Add validation + audit |
+| 2 | `adminTenantService.ts` | `updateTenantStatus()` updates contracts with NO validation, NO audit. `getTenantStats()` references `'evicted'` (not a valid contract state). | Add validation + audit, remove `'evicted'` |
+| 3 | `merchantTenantService.ts` | `terminateContract()` — no transition validation (hardcodes `'terminated'`), no audit. `cancelInvitation()` — no audit. | Add validation + audit |
+| 4 | `maintenanceService.ts` | `updateStatus()` — no centralized transition validation (accepts any status), no audit_logs (only timeline). `cancelRequest()` — no audit_logs. | Add `isValidTransition` + audit |
+| 5 | `disputesService.ts` | Has `logStatusChange` but no `isValidTransition` check against `DISPUTE_STATUS_TRANSITIONS`. | Add validation |
 
-### 2. Invoice State Machine — INCONSISTENT
+## Implementation Plan (5 Edits)
 
-| Aspek | Dokumentasi | Implementasi |
-|-------|-------------|--------------|
-| Transitions dari draft | draft -> sent, cancelled | `merchant-validations.ts`: draft -> pending, cancelled (KONFLIK) |
-| Transitions dari sent | sent -> paid, overdue, cancelled, partially_paid | `merchantInvoiceService.ts`: sent -> paid, overdue, cancelled (MISSING partially_paid) |
-| `partially_paid` state | Didokumentasikan di state machine | Ada di type definition tapi TIDAK ada di transition maps |
+### Edit 1: `src/features/payments/services/paymentPlanService.ts`
 
-### 3. Maintenance State Machine — MISSING STATES
+- Import `PAYMENT_PLAN_STATUS_TRANSITIONS`, `isValidTransition` from centralized constants
+- Import `logStatusChange`, `createAuditLog` from auditLog
+- `acceptPaymentPlan()`: Fetch current status, validate `pending_acceptance` -> `active` transition, add audit log
+- `declinePaymentPlan()`: Fetch current status, validate transition to `cancelled`, add audit log
+- `createPaymentPlan()`: Add `createAuditLog` for creation
 
-| Aspek | Dokumentasi | Implementasi |
-|-------|-------------|--------------|
-| States | pending, acknowledged, in_progress, completed, cancelled | `UpdateMaintenanceDialog`: MISSING `acknowledged` state |
-| `MAINTENANCE_STATUS_TRANSITIONS` | Termasuk acknowledged | Dialog component SKIP acknowledged |
+### Edit 2: `src/features/users/services/adminTenantService.ts`
 
-### 4. Audit Trail — INCONSISTENT COVERAGE
+- Import `CONTRACT_STATUS_TRANSITIONS`, `isValidTransition` from centralized constants
+- Import `logStatusChange` from auditLog
+- `updateTenantStatus()`: Fetch current contract status, validate transition, add audit log
+- `getTenantStats()`: Remove `'evicted'` from status filter (not a valid state) -- replace with `['terminated', 'expired', 'cancelled']`
 
-| Service | Audit Log? | Notes |
-|---------|-----------|-------|
-| `contractService` | NO | Tidak ada `createAuditLog` atau `logStatusChange` |
-| `merchantInvoiceService` | NO | Tidak ada audit log untuk status changes |
-| `escrowService` | YES | Properly audited |
-| `disputesService` | YES | Uses `logStatusChange` |
-| `subscriptionService` | YES | Uses `createAuditLog` |
+### Edit 3: `src/features/users/services/merchantTenantService.ts`
 
-### 5. `AuditEntityType` — MISSING TYPES
+- Import `CONTRACT_STATUS_TRANSITIONS`, `isValidTransition` from centralized constants
+- Import `logStatusChange`, `createAuditLog` from auditLog
+- `terminateContract()`: Validate current status allows transition to `'terminated'`, add audit log
+- `cancelInvitation()`: Add `createAuditLog` call
 
-Current `AuditEntityType` TIDAK include: `contract`, `invoice`, `payment`, `maintenance`, `property`, `unit`, `tenant`, `order` — hanya 16 types yang ada.
+### Edit 4: `src/features/maintenance/services/maintenanceService.ts`
 
----
+- Import `MAINTENANCE_STATUS_TRANSITIONS`, `isValidTransition` from centralized constants
+- Import `logStatusChange` from auditLog
+- `updateStatus()`: Add `isValidTransition` check before updating, add `logStatusChange` after update
+- `cancelRequest()`: Add `logStatusChange` after cancel
 
-## Rencana Implementasi (7 Tasks)
+### Edit 5: `src/features/disputes/services/disputesService.ts`
 
-### Task 1: Centralized State Machine Constants
+- Import `DISPUTE_STATUS_TRANSITIONS`, `isValidTransition` from centralized constants
+- `resolveDispute()`: Add `isValidTransition` check before updating
 
-Buat satu file `src/shared/constants/state-machines.ts` yang menjadi **single source of truth** untuk semua transition maps, aligned 100% dengan `domain-state-machines.md`.
+## Post-Implementation Verification
 
-**File baru:** `src/shared/constants/state-machines.ts`
+After these 5 edits, every service that performs a status change will:
+1. Validate the transition against centralized `state-machines.ts`
+2. Log the change via `createAuditLog` or `logStatusChange`
 
-```
-- CONTRACT_STATUS_TRANSITIONS (8 states, sesuai docs)
-- CONTRACT_SIGNATURE_TRANSITIONS (5 states)
-- INVOICE_STATUS_TRANSITIONS (7 states, termasuk partially_paid)
-- PAYMENT_STATUS_TRANSITIONS (5 states)
-- PAYMENT_PLAN_STATUS_TRANSITIONS (6 states)
-- MAINTENANCE_STATUS_TRANSITIONS (5 states, termasuk acknowledged)
-- SUBSCRIPTION_STATUS_TRANSITIONS (5 states)
-- ORDER_STATUS_TRANSITIONS (5 states)
-- DISBURSEMENT_STATUS_TRANSITIONS (6 states)
-- MOVE_OUT_NOTICE_TRANSITIONS (5 states)
-- DISPUTE_STATUS_TRANSITIONS (4 states)
-- DEPOSIT_REFUND_TRANSITIONS (5 states)
-- REFERRAL_STATUS_TRANSITIONS (4 states)
-- UNIT_STATUS_TRANSITIONS (3 states)
-```
+Full alignment matrix:
 
-Plus helper function `isValidTransition(map, currentStatus, newStatus)` yang reusable.
-
-### Task 2: Expand AuditEntityType & AuditAction
-
-Update `src/shared/utils/auditLog.ts`:
-- Add entity types: `contract`, `invoice`, `payment`, `maintenance`, `property`, `unit`, `tenant`, `order`, `payment_plan`, `move_out_notice`, `deposit_refund`, `notification`
-- Add actions: `sign`, `send`, `cancel`, `complete`, `acknowledge`, `assign`, `escalate`
-
-### Task 3: Fix Contract Service — Add Transition Validation & Audit
-
-Update `src/features/contracts/services/contractService.ts`:
-- Import centralized `CONTRACT_STATUS_TRANSITIONS`
-- Add validation to `updateContractStatus()` — reject invalid transitions
-- Add `logStatusChange()` calls to: `updateContractStatus`, `merchantSignContract`, `deleteContract`
-- Add side-effect documentation (unit status update is handled by DB trigger, so no code change needed there)
-
-### Task 4: Fix Contract UI — Badge & Transition Map
-
-- Update `ContractStatusBadge.tsx` — add missing states: `draft` (gray), `pending_signature` (blue), `completed` (green variant), `cancelled` (red)
-- Update `CONTRACT_STATUS_TRANSITIONS` in `merchant-validations.ts` to import from centralized constants
-- Align with domain-state-machines.md states
-
-### Task 5: Fix Invoice State Machine — Reconcile Inconsistencies
-
-- Update `INVOICE_STATUS_TRANSITIONS` in `merchant-validations.ts` to match docs:
-  - `draft` -> `['sent', 'cancelled']` (NOT `['pending', 'cancelled']`)
-  - `sent` -> `['paid', 'overdue', 'cancelled', 'partially_paid']`
-  - Add `partially_paid` -> `['paid', 'cancelled']`
-- Update `merchantInvoiceService.ts` `markAsPaid` to use centralized transitions
-- Add `logStatusChange()` to `sendInvoice`, `markAsPaid`, `createInvoice`
-
-### Task 6: Fix Maintenance State Machine — Add Acknowledged State
-
-- Update `MAINTENANCE_STATUS_TRANSITIONS` in `merchant-validations.ts` to import from centralized constants
-- Update `UpdateMaintenanceDialog.tsx` transition map: add `acknowledged` state between `pending` and `in_progress`
-- Ensure `pending` -> `['acknowledged', 'cancelled']`, `acknowledged` -> `['in_progress', 'cancelled']`
-
-### Task 7: Remove Duplicate Transition Maps & Wire Centralized Constants
-
-- Remove inline `VALID_STATUS_TRANSITIONS` from `merchantInvoiceService.ts` (use import)
-- Remove inline `VALID_STATUS_TRANSITIONS` from `UpdateMaintenanceDialog.tsx` (use import)
-- Remove duplicate maps from `merchant-validations.ts` and `vendor-validations.ts` (re-export from centralized)
-- Ensure all 4 files import from `src/shared/constants/state-machines.ts`
-
----
-
-## File Changes Summary
-
-| File | Action | Description |
-|------|--------|-------------|
-| `src/shared/constants/state-machines.ts` | CREATE | Centralized state machine constants (14 transition maps + helper) |
-| `src/shared/utils/auditLog.ts` | EDIT | Expand AuditEntityType (+12 types) and AuditAction (+7 actions) |
-| `src/features/contracts/services/contractService.ts` | EDIT | Add transition validation + audit logging |
-| `src/features/contracts/components/ContractStatusBadge.tsx` | EDIT | Add 4 missing states |
-| `src/features/users/utils/merchant-validations.ts` | EDIT | Replace inline transitions with centralized imports |
-| `src/features/users/utils/vendor-validations.ts` | EDIT | Replace inline transitions with centralized imports |
-| `src/features/payments/services/merchantInvoiceService.ts` | EDIT | Use centralized transitions + add audit logging |
-| `src/features/maintenance/components/UpdateMaintenanceDialog.tsx` | EDIT | Use centralized transitions, add acknowledged state |
+| Domain | Centralized Constants | Transition Validation | Audit Log |
+|--------|----------------------|----------------------|-----------|
+| Contract | Done | Done | Done |
+| Invoice | Done | Done | Done |
+| Payment Plan | Done (constants exist) | **Edit 1** | **Edit 1** |
+| Maintenance | Done | **Edit 4** | **Edit 4** |
+| Dispute | Done | **Edit 5** | Already done |
+| Subscription | Done | N/A (tier changes, not status transitions) | Already done |
+| Escrow/Disbursement | Done | N/A (edge function driven) | Already done |
+| Admin Contract Updates | Done (constants exist) | **Edit 2** | **Edit 2** |
+| Merchant Contract Terminate | Done (constants exist) | **Edit 3** | **Edit 3** |
 
 ## Technical Notes
 
-- **No DB migration needed** — semua status columns sudah `text` type (bukan enum), jadi penambahan states di application layer cukup
-- **DB trigger `update_unit_status_on_contract_sign()`** sudah handle side-effect unit status pada contract signing — tidak perlu diubah
-- **DB trigger `generate_invoice_number()`** sudah handle auto-generation — tidak perlu diubah
-- **Backward compatible** — semua perubahan additive, tidak mengubah existing valid transitions
-- **`isValidTransition()` helper** akan throw descriptive error saat invalid transition terjadi, membantu debugging
-
-## Alignment Verification
-
-Setelah implementasi, setiap state machine di codebase akan 1:1 match dengan:
-- `docs/domain-state-machines.md` Section 2-19
-- `docs/business-process.md` Section 3.x state diagrams
-- `docs/PRD_DSS_Manajemen_Kosan_v2_Professional.md` business process references
+- No database changes needed
+- All edits are additive (backward compatible)
+- `'evicted'` is not a valid contract state per `domain-state-machines.md` -- removing from `adminTenantService`
+- `paymentPlanService.acceptPaymentPlan` currently goes directly to `'active'`, but per state machine it should be `pending_acceptance` -> `accepted` -> `active`. Since the UI combines accept+activate in one action, we validate against `PAYMENT_PLAN_STATUS_TRANSITIONS` allowing the current status to transition to `'active'` (via `accepted` as intermediate if needed, or we accept that the UI flow does `pending_acceptance -> active` as a shortcut and add `active` to allowed transitions from `pending_acceptance`)
