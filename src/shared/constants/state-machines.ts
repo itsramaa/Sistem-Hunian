@@ -203,6 +203,15 @@ export const COLLECTIONS_CASE_TRANSITIONS: Record<string, string[]> = {
   resolved: [],    // terminal — resolution_type: paid_in_full | payment_plan | write_off | eviction
 };
 
+// ─── Section 20: Forum Report Moderation ───────────────────────────────────
+export const FORUM_REPORT_TRANSITIONS: Record<string, string[]> = {
+  pending: ['reviewed'],
+  reviewed: ['resolved', 'action_taken', 'dismissed'],
+  resolved: [],      // terminal
+  action_taken: [],   // terminal
+  dismissed: [],      // terminal
+};
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Helper Functions
 // ═══════════════════════════════════════════════════════════════════════════

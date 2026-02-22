@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/integrations/supabase/client";
 import { logStatusChange } from "@/shared/utils/auditLog";
+import { MERCHANT_VERIFICATION_TRANSITIONS, isValidTransition } from "@/shared/constants/state-machines";
 import { UpdateVendorStatusParams, Vendor, VendorFilters } from "../types/admin-vendor";
 
 export const vendorService = {
@@ -32,6 +33,11 @@ export const vendorService = {
   },
 
   async updateVendorStatus({ id, status, reason }: UpdateVendorStatusParams, oldStatus: string): Promise<void> {
+    // Validate state transition
+    if (!isValidTransition(MERCHANT_VERIFICATION_TRANSITIONS, oldStatus, status)) {
+      throw new Error(`Invalid vendor status transition: ${oldStatus} → ${status}`);
+    }
+
     const updateData: { verification_status: string; rejection_reason?: string | null } = {
       verification_status: status,
     };
