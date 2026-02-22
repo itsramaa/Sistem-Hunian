@@ -11,3 +11,15 @@ verify_jwt = false
 
 [functions.subscription-payment]
 verify_jwt = false
+
+[functions.ocr-ktp-extract]
+verify_jwt = false
+
+[functions.ocr-payment-proof]
+verify_jwt = false
+
+[functions.ocr-business-document]
+verify_jwt = false
+
+[functions.ocr-maintenance-receipt]
+verify_jwt = false

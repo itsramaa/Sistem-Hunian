@@ -815,6 +815,81 @@ export type Database = {
           },
         ]
       }
+      dss_recommendations: {
+        Row: {
+          accepted_at: string | null
+          confidence_score: number | null
+          created_at: string
+          description: string | null
+          expires_at: string | null
+          id: string
+          impact_estimate: Json | null
+          measured_impact: Json | null
+          merchant_id: string
+          ml_model_run_id: string | null
+          recommendation_data: Json | null
+          rejected_at: string | null
+          rejection_reason: string | null
+          status: string
+          title: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          impact_estimate?: Json | null
+          measured_impact?: Json | null
+          merchant_id: string
+          ml_model_run_id?: string | null
+          recommendation_data?: Json | null
+          rejected_at?: string | null
+          rejection_reason?: string | null
+          status?: string
+          title: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          impact_estimate?: Json | null
+          measured_impact?: Json | null
+          merchant_id?: string
+          ml_model_run_id?: string | null
+          recommendation_data?: Json | null
+          rejected_at?: string | null
+          rejection_reason?: string | null
+          status?: string
+          title?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dss_recommendations_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dss_recommendations_ml_model_run_id_fkey"
+            columns: ["ml_model_run_id"]
+            isOneToOne: false
+            referencedRelation: "ml_model_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       early_termination_requests: {
         Row: {
           approved_at: string | null
@@ -1312,6 +1387,82 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maintenance_expenses: {
+        Row: {
+          created_at: string
+          currency: string
+          id: string
+          line_items: Json | null
+          maintenance_request_id: string
+          merchant_id: string
+          notes: string | null
+          ocr_result_id: string | null
+          receipt_date: string | null
+          receipt_number: string | null
+          subtotal: number
+          tax_amount: number | null
+          total_amount: number
+          updated_at: string
+          vendor_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          id?: string
+          line_items?: Json | null
+          maintenance_request_id: string
+          merchant_id: string
+          notes?: string | null
+          ocr_result_id?: string | null
+          receipt_date?: string | null
+          receipt_number?: string | null
+          subtotal?: number
+          tax_amount?: number | null
+          total_amount?: number
+          updated_at?: string
+          vendor_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          id?: string
+          line_items?: Json | null
+          maintenance_request_id?: string
+          merchant_id?: string
+          notes?: string | null
+          ocr_result_id?: string | null
+          receipt_date?: string | null
+          receipt_number?: string | null
+          subtotal?: number
+          tax_amount?: number | null
+          total_amount?: number
+          updated_at?: string
+          vendor_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_expenses_maintenance_request_id_fkey"
+            columns: ["maintenance_request_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_expenses_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_expenses_ocr_result_id_fkey"
+            columns: ["ocr_result_id"]
+            isOneToOne: false
+            referencedRelation: "ocr_results"
             referencedColumns: ["id"]
           },
         ]
@@ -1814,6 +1965,65 @@ export type Database = {
         }
         Relationships: []
       }
+      ml_model_runs: {
+        Row: {
+          confidence_score: number | null
+          cost_estimate: number | null
+          created_at: string
+          error_message: string | null
+          execution_time_ms: number | null
+          function_name: string
+          id: string
+          input_summary: string | null
+          merchant_id: string | null
+          metadata: Json | null
+          model_name: string
+          output_summary: string | null
+          tokens_used: number | null
+          user_id: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          cost_estimate?: number | null
+          created_at?: string
+          error_message?: string | null
+          execution_time_ms?: number | null
+          function_name: string
+          id?: string
+          input_summary?: string | null
+          merchant_id?: string | null
+          metadata?: Json | null
+          model_name?: string
+          output_summary?: string | null
+          tokens_used?: number | null
+          user_id: string
+        }
+        Update: {
+          confidence_score?: number | null
+          cost_estimate?: number | null
+          created_at?: string
+          error_message?: string | null
+          execution_time_ms?: number | null
+          function_name?: string
+          id?: string
+          input_summary?: string | null
+          merchant_id?: string | null
+          metadata?: Json | null
+          model_name?: string
+          output_summary?: string | null
+          tokens_used?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ml_model_runs_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       move_out_inspections: {
         Row: {
           completed_at: string | null
@@ -2046,6 +2256,81 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      ocr_results: {
+        Row: {
+          confidence_score: number | null
+          created_at: string
+          document_type: string
+          document_url: string
+          error_message: string | null
+          extracted_data: Json | null
+          id: string
+          merchant_id: string | null
+          ml_model_run_id: string | null
+          processing_time_ms: number | null
+          requires_review: boolean
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string
+          document_type: string
+          document_url: string
+          error_message?: string | null
+          extracted_data?: Json | null
+          id?: string
+          merchant_id?: string | null
+          ml_model_run_id?: string | null
+          processing_time_ms?: number | null
+          requires_review?: boolean
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string
+          document_type?: string
+          document_url?: string
+          error_message?: string | null
+          extracted_data?: Json | null
+          id?: string
+          merchant_id?: string | null
+          ml_model_run_id?: string | null
+          processing_time_ms?: number | null
+          requires_review?: boolean
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ocr_results_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ocr_results_ml_model_run_id_fkey"
+            columns: ["ml_model_run_id"]
+            isOneToOne: false
+            referencedRelation: "ml_model_runs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       order_reviews: {
         Row: {
@@ -2326,6 +2611,97 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_verifications: {
+        Row: {
+          amount_difference: number | null
+          bank_name: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          declared_amount: number | null
+          id: string
+          invoice_id: string | null
+          match_confidence: number | null
+          matched_amount: number | null
+          merchant_id: string
+          ocr_result_id: string
+          recipient_name: string | null
+          reference_number: string | null
+          rejection_reason: string | null
+          sender_name: string | null
+          status: string
+          tenant_user_id: string
+          transfer_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount_difference?: number | null
+          bank_name?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          declared_amount?: number | null
+          id?: string
+          invoice_id?: string | null
+          match_confidence?: number | null
+          matched_amount?: number | null
+          merchant_id: string
+          ocr_result_id: string
+          recipient_name?: string | null
+          reference_number?: string | null
+          rejection_reason?: string | null
+          sender_name?: string | null
+          status?: string
+          tenant_user_id: string
+          transfer_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount_difference?: number | null
+          bank_name?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          declared_amount?: number | null
+          id?: string
+          invoice_id?: string | null
+          match_confidence?: number | null
+          matched_amount?: number | null
+          merchant_id?: string
+          ocr_result_id?: string
+          recipient_name?: string | null
+          reference_number?: string | null
+          rejection_reason?: string | null
+          sender_name?: string | null
+          status?: string
+          tenant_user_id?: string
+          transfer_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_verifications_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_verifications_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_verifications_ocr_result_id_fkey"
+            columns: ["ocr_result_id"]
+            isOneToOne: false
+            referencedRelation: "ocr_results"
             referencedColumns: ["id"]
           },
         ]
@@ -3107,6 +3483,75 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_risk_scores: {
+        Row: {
+          average_days_late: number | null
+          contract_compliance_score: number | null
+          created_at: string
+          factors: Json | null
+          id: string
+          late_payment_count: number | null
+          merchant_id: string
+          ml_model_run_id: string | null
+          payment_history_score: number | null
+          risk_level: string
+          risk_score: number
+          tenant_user_id: string
+          total_outstanding: number | null
+          updated_at: string
+          valid_until: string | null
+        }
+        Insert: {
+          average_days_late?: number | null
+          contract_compliance_score?: number | null
+          created_at?: string
+          factors?: Json | null
+          id?: string
+          late_payment_count?: number | null
+          merchant_id: string
+          ml_model_run_id?: string | null
+          payment_history_score?: number | null
+          risk_level?: string
+          risk_score?: number
+          tenant_user_id: string
+          total_outstanding?: number | null
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Update: {
+          average_days_late?: number | null
+          contract_compliance_score?: number | null
+          created_at?: string
+          factors?: Json | null
+          id?: string
+          late_payment_count?: number | null
+          merchant_id?: string
+          ml_model_run_id?: string | null
+          payment_history_score?: number | null
+          risk_level?: string
+          risk_score?: number
+          tenant_user_id?: string
+          total_outstanding?: number | null
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_risk_scores_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_risk_scores_ml_model_run_id_fkey"
+            columns: ["ml_model_run_id"]
+            isOneToOne: false
+            referencedRelation: "ml_model_runs"
             referencedColumns: ["id"]
           },
         ]
