@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/components/ui/card";
 import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
+import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { EarlyTerminationRequest } from "../types";
 import { formatCurrency } from "@/shared/utils/currency";
 
@@ -14,13 +15,11 @@ interface EarlyTerminationsListProps {
 export const EarlyTerminationsList = ({ requests, onReview }: EarlyTerminationsListProps) => {
   if (requests.length === 0) {
     return (
-      <Card>
-        <CardContent className="py-12 text-center">
-          <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <h3 className="text-lg font-medium mb-2">No Pending Requests</h3>
-          <p className="text-muted-foreground">All early termination requests have been processed.</p>
-        </CardContent>
-      </Card>
+      <EmptyState
+        icon={CheckCircle2}
+        title="No Pending Requests"
+        description="All early termination requests have been processed."
+      />
     );
   }
 
@@ -43,7 +42,7 @@ export const EarlyTerminationsList = ({ requests, onReview }: EarlyTerminationsL
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
               <div className="p-3 rounded-lg bg-muted/50">
                 <p className="text-sm text-muted-foreground">Requested Date</p>
                 <p className="font-semibold">{format(new Date(request.requested_date), "MMM dd, yyyy")}</p>

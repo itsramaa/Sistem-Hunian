@@ -1,4 +1,3 @@
-
 import { Button } from '@/shared/components/ui/button';
 import {
   DropdownMenu,
@@ -15,9 +14,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/shared/components/ui/table';
+import { EmptyState } from '@/shared/components/ui/EmptyState';
+import { TablePagination } from '@/shared/components/ui/TablePagination';
 import { formatCurrency } from '@/shared/utils/currency';
 import { differenceInDays, format } from 'date-fns';
-import { AlertTriangle, Calendar, ChevronLeft, ChevronRight, ClipboardCheck, Eye, MoreHorizontal, Wallet } from 'lucide-react';
+import { AlertTriangle, Calendar, ClipboardCheck, Eye, MoreHorizontal, Wallet } from 'lucide-react';
 import { MoveOutInspection, MoveOutNotice, TenantProfile } from '../types';
 import { MoveOutStatusBadge } from './MoveOutStatusBadge';
 
@@ -50,17 +51,15 @@ export function MoveOutsTable({
 }: MoveOutsTableProps) {
   if (notices.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center border rounded-md bg-card text-card-foreground shadow-sm">
-        <div className="p-4 rounded-full bg-muted mb-4">
-          <ClipboardCheck className="h-8 w-8 text-muted-foreground" />
-        </div>
-        <h3 className="text-lg font-medium">No move-outs found</h3>
-        <p className="text-muted-foreground mt-1">
-          {type === 'upcoming'
+      <EmptyState
+        icon={ClipboardCheck}
+        title="No move-outs found"
+        description={
+          type === 'upcoming'
             ? 'No upcoming move-outs scheduled.'
-            : 'No completed move-outs found.'}
-        </p>
-      </div>
+            : 'No completed move-outs found.'
+        }
+      />
     );
   }
 
@@ -103,7 +102,7 @@ export function MoveOutsTable({
                 <TableCell>
                   {format(new Date(notice.intended_move_out_date), 'MMM dd, yyyy')}
                   {notice.is_early_termination && (
-                    <span className="flex items-center text-xs text-yellow-600 mt-1">
+                    <span className="flex items-center text-xs text-warning mt-1">
                       <AlertTriangle className="h-3 w-3 mr-1" />
                       Early Termination
                     </span>
@@ -128,7 +127,7 @@ export function MoveOutsTable({
                       {format(new Date(inspection.scheduled_date!), 'MMM dd')}
                     </span>
                   ) : inspection?.status === 'completed' ? (
-                    <span className="text-sm text-green-600 font-medium">Completed</span>
+                    <span className="text-sm text-success font-medium">Completed</span>
                   ) : (
                     <span className="text-sm text-muted-foreground italic">Not scheduled</span>
                   )}
@@ -171,36 +170,14 @@ export function MoveOutsTable({
         </TableBody>
       </Table>
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between border-t px-4 py-3">
-          <div className="text-sm text-muted-foreground">
-            Showing {((page - 1) * itemsPerPage) + 1} to {Math.min(page * itemsPerPage, totalNotices)} of {totalNotices} move-outs
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(page - 1)}
-              disabled={page <= 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Previous
-            </Button>
-            <div className="text-sm font-medium">
-              Page {page} of {totalPages}
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(page + 1)}
-              disabled={page >= totalPages}
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
+      <TablePagination
+        page={page}
+        totalPages={totalPages}
+        totalItems={totalNotices}
+        itemsPerPage={itemsPerPage}
+        onPageChange={onPageChange}
+        itemLabel="move-outs"
+      />
     </div>
   );
 }
