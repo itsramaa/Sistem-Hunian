@@ -1,144 +1,114 @@
 
 
-# Deep Dive: DSS Layer Implementation (Database + Edge Functions)
+# RLS Denial Alerting + UIUX Doc Continuation
 
-## Audit Summary
+## What This Covers
 
-Cross-referencing `business-process.md` (Sections 3.22-3.24), `api-specification.md` (Sections 4.10-4.12), `database-schema.md` (Section 12), and `system-architecture.md` (Section 9) against the codebase reveals a **complete absence of the DSS layer**:
-
-- **0 of 6 DSS database tables** exist
-- **0 of 12 DSS edge functions** exist
-- **0 of 2 DSS cron jobs** exist
-- Frontend DSS UI components were created in the previous round but have no backend to connect to
-
-This is too large for a single implementation. This plan covers the **foundational layer**: all 6 database tables + the 4 OCR edge functions (the most critical P0 functions per the PRD).
+1. **RLS Denial Alerting System** -- real-time alerts when denial thresholds are exceeded, with configurable settings and admin notifications
+2. **UIUX Doc Section 24.4 "In Progress" items** -- the remaining gaps from the implementation checklist
 
 ---
 
-## Phase A: Database Tables (6 tables, 24 RLS policies, 15 indexes)
+## Part 1: RLS Denial Alerting
 
-All 6 DSS tables from `database-schema.md` Section 12 will be created in a single migration.
+### 1.1 Database: `rls_alert_settings` table
 
-### Table 1: `ocr_results`
-Stores all OCR extraction results (KTP, payment proof, business docs, maintenance receipts).
-- 16 columns per schema spec
-- Indexes: user_id, document_type, status
-- RLS: Users view own; Merchants view via merchant_id; Admins full; System insert/update
+New table to store admin-configurable alert thresholds:
 
-### Table 2: `payment_verifications`
-OCR-matched payment proofs linked to invoices.
-- 16 columns, FK to ocr_results + invoices
-- Indexes: invoice_id, status
-- RLS: Merchants manage (via merchant_id); Tenants view own; Admins full
+| Column | Type | Default | Purpose |
+|--------|------|---------|---------|
+| id | uuid PK | gen_random_uuid() | |
+| merchant_id | uuid FK nullable | null | null = platform-wide |
+| denial_threshold | int | 10 | Denials per window to trigger alert |
+| window_minutes | int | 60 | Time window for threshold |
+| alert_cooldown_minutes | int | 30 | Min time between alerts |
+| last_alert_at | timestamptz | null | Prevents spam |
+| is_active | boolean | true | Enable/disable |
+| created_at / updated_at | timestamptz | now() | |
 
-### Table 3: `maintenance_expenses`
-Cost tracking from receipt OCR, linked to maintenance requests.
-- 14 columns, FK to maintenance_requests + ocr_results
-- Indexes: request_id, merchant_id
-- RLS: Merchants manage (via merchant_id); Admins full
+RLS: Admin-only CRUD.
 
-### Table 4: `tenant_risk_scores`
-Cached risk scores per tenant, updated daily via cron or on-demand.
-- 14 columns, unique constraint on (tenant_user_id, merchant_id)
-- Indexes: merchant_id, risk_level, valid_until
-- RLS: Merchants view own; Admins full; System insert/update
+### 1.2 Edge Function: Update `log-rls-access`
 
-### Table 5: `dss_recommendations`
-AI recommendations with lifecycle tracking (generated, accepted, rejected, measured).
-- 16 columns, FK to merchants + ml_model_runs
-- Indexes: merchant_id, type, status
-- RLS: Merchants manage own; Admins full
+After inserting a denial, the edge function will:
+1. Query `rls_alert_settings` for active configs
+2. Count denials in the configured window
+3. If threshold exceeded AND cooldown passed:
+   - Insert a notification into `notifications` for all admin users
+   - Update `last_alert_at`
+   - Notification type = `"rls_alert"`, title = "RLS Denial Spike", message includes table name + count + window
 
-### Table 6: `ml_model_runs`
-Immutable audit log for all ML/AI predictions. Insert + read only, no updates/deletes.
-- 13 columns
-- Indexes: function_name, merchant_id, created_at DESC
-- RLS: System insert (service role); Merchants view own; Admins full. No update/delete.
+### 1.3 Frontend: Alert Settings UI in DSS Health Dashboard
 
----
+Add a new "Alert Settings" section in the RLS Monitor tab:
+- Card with current threshold config
+- Edit form (denial threshold, window, cooldown, active toggle)
+- Badge showing "Active" / "Paused"
+- Last alert timestamp display
 
-## Phase B: OCR Edge Functions (4 functions)
+### 1.4 Frontend: RLS Alert Type in NotificationsDropdown
 
-These are the highest-impact DSS functions -- they enable document digitization (PRD BG-1: "OCR <3s/document").
-
-### Function 1: `ocr-ktp-extract`
-- Downloads KTP image from Supabase Storage `verification-documents` bucket
-- Converts to base64, sends to Gemini 2.5 Pro Vision via Lovable AI Gateway
-- Uses tool calling for structured output extraction (NIK, name, DOB, gender, address, etc.)
-- Stores result in `ocr_results` table
-- If confidence >= 80%: auto-populates tenant fields
-- If confidence < 80%: flags `requires_review = true`
-- Creates `ml_model_runs` audit record
-- Tier gate: Professional (10/month), Enterprise (unlimited)
-
-### Function 2: `ocr-payment-proof`
-- Downloads payment proof image from Storage
-- Gemini extracts: amount, bank name, sender, recipient, date, reference number
-- Auto-matches with pending/overdue invoices (amount tolerance +/- Rp 1,000, date within 7 days)
-- Creates `ocr_results` + `payment_verifications` records
-- If confidence >= 90%: auto-suggest confirmation to merchant
-- Tier gate: Basic (5/month), Professional (50/month), Enterprise (unlimited)
-
-### Function 3: `ocr-business-document`
-- Supports 4 document types: NIB, SIUP, Akta Pendirian, NPWP
-- Downloads from `verification-documents` bucket
-- Extracts type-specific fields via Gemini Vision
-- Stores in `ocr_results`, auto-populates `merchant_verifications`
-- If confidence >= 85%: updates merchant business_name if different
-- Tier gate: Professional, Enterprise
-
-### Function 4: `ocr-maintenance-receipt`
-- Downloads receipt/nota image from `maintenance-photos` bucket
-- Extracts: vendor name, line items, totals, receipt date, receipt number
-- Creates `maintenance_expenses` record linked to maintenance_request_id
-- Updates maintenance request with actual_cost
-- Tier gate: Professional, Enterprise
-
-### Common Pattern (all 4 functions)
-```text
-1. CORS handling
-2. JWT auth -> get user
-3. Tier check (query merchant subscription)
-4. Download image from Storage -> base64
-5. Call Lovable AI Gateway (Gemini 2.5 Pro Vision, tool calling)
-6. Parse structured output
-7. Insert ocr_results record
-8. Insert ml_model_runs audit record
-9. Domain-specific side effects (auto-fill, create verification, etc.)
-10. Return structured response per API spec
-```
+Add `rls_alert` case to `getNotificationIcon()` -- renders with `ShieldAlert` icon in red.
 
 ---
 
-## Implementation Plan (7 steps)
+## Part 2: UIUX Section 24.4 Remaining Items
 
-| # | Action | Type | Details |
-|---|--------|------|---------|
-| 1 | Create DSS tables migration | DB Migration | 6 tables, 24 RLS policies, 15 indexes, updated_at triggers |
-| 2 | Create shared DSS utilities | New file | `supabase/functions/_shared/dss-utils.ts` -- tier checking, ml_model_runs logging, ocr_results creation, Lovable AI call helper |
-| 3 | Create `ocr-ktp-extract` | New edge function | Per api-specification.md Section 4.10 |
-| 4 | Create `ocr-payment-proof` | New edge function | Per api-specification.md Section 4.10 |
-| 5 | Create `ocr-business-document` | New edge function | Per api-specification.md Section 4.10 |
-| 6 | Create `ocr-maintenance-receipt` | New edge function | Per api-specification.md Section 4.10 |
-| 7 | Add DSS state machine constants | Edit existing | Add `OCR_RESULT_TRANSITIONS`, `PAYMENT_VERIFICATION_TRANSITIONS`, `DSS_RECOMMENDATION_TRANSITIONS` to `state-machines.ts` |
+Per the implementation checklist, these are marked as "In Progress":
+
+### 2.1 OCR Interface Polish (Section 15)
+
+Create `src/features/dss/components/OcrUploadCard.tsx`:
+- Drag-and-drop upload zone matching Section 15.1 spec
+- Processing state animation (Section 15.2)
+- Side-by-side result display using `ExtractedField` + `ConfidenceBadge` (Section 15.3)
+- Payment proof match/mismatch indicators (Section 15.5)
+
+### 2.2 Risk Score Dashboard Widgets (Section 16)
+
+Create `src/features/dss/components/RiskDashboardWidgets.tsx`:
+- KPI metric cards with trend indicators (Section 16.2) using `TrendingUp`/`TrendingDown`
+- Revenue forecast placeholder chart (Section 16.3) -- LineChart with dashed prediction line + confidence area
+- Uses `RiskScoreIndicator` component already created
+
+### 2.3 AI Advisor Recommendation List (Section 17)
+
+Create `src/features/dss/components/RecommendationList.tsx`:
+- Fetches from `dss_recommendations` table
+- Renders `RecommendationCard` for each
+- Lifecycle status badges (Section 17.2): generated, viewed, accepted, rejected, measured
+- Accept/reject mutations that update status + log via `validateDssStateTransition`
+- Advisor type icons (Section 17.3)
+
+### 2.4 Tier-Gated Feature Integration (Section 19)
+
+Create `src/features/dss/hooks/useMerchantTier.ts`:
+- Hook that fetches current merchant subscription tier
+- Returns `{ tier, canAccess(feature), isLoading }`
+- Feature gating matrix from Section 19.4
 
 ---
 
-## What This Does NOT Cover (Next Rounds)
+## Implementation Plan (10 Steps)
 
-- ML edge functions (4): `ml-revenue-forecast`, `ml-tenant-risk-score`, `ml-churn-prediction`, `ml-optimal-pricing`
-- AI Advisor edge functions (4): `dss-pricing-advisor`, `dss-collection-strategy`, `dss-maintenance-priority`, `dss-investment-insight`
-- DSS cron jobs (2): `ml-daily-risk-scoring`, `ml-weekly-forecast`
-- Frontend DSS pages and service integration
-
-These will be implemented in subsequent rounds after the database + OCR foundation is in place.
+| # | File | Action |
+|---|------|--------|
+| 1 | DB Migration | Create `rls_alert_settings` table + RLS + seed default row |
+| 2 | `supabase/functions/log-rls-access/index.ts` | Add denial threshold check + admin notification insertion |
+| 3 | `src/features/dss/hooks/useRlsAlertSettings.ts` | CRUD hook for alert settings |
+| 4 | `src/pages/admin/DssHealth.tsx` | Add Alert Settings section in RLS tab + `rls_alert` icon in notification dropdown |
+| 5 | `src/features/notifications/components/NotificationsDropdown.tsx` | Add `rls_alert` icon case |
+| 6 | `src/features/dss/components/OcrUploadCard.tsx` | OCR upload + processing + result display component |
+| 7 | `src/features/dss/components/RiskDashboardWidgets.tsx` | KPI cards + trend indicators + forecast chart placeholder |
+| 8 | `src/features/dss/components/RecommendationList.tsx` | AI recommendations list with accept/reject/defer |
+| 9 | `src/features/dss/hooks/useMerchantTier.ts` | Merchant tier check hook + feature gating |
+| 10 | `src/features/dss/components/index.ts` | Barrel export for all new DSS components |
 
 ## Technical Notes
 
-- `LOVABLE_API_KEY` is already configured (confirmed via secrets check)
-- All edge functions use the same Lovable AI Gateway pattern already proven in `merchant-ai-assistant`
-- Gemini 2.5 Pro (multimodal vision) supports image+text input with tool calling for structured extraction
-- No new secrets needed
-- Database migration creates all 6 tables even though only OCR functions are built now -- ML/AI advisor functions will use these tables when built in the next round
-- RLS policies use `has_role()` function already present in the database
-
+- The alerting logic runs server-side in the edge function (not client-side) to prevent bypass
+- Notifications use the existing `notifications` table + realtime subscription, so alerts appear instantly in the NotificationsDropdown
+- All new DSS components follow the exact patterns from the UIUX doc (Sections 15-19)
+- No new secrets or external dependencies needed
+- The `useMerchantTier` hook queries `merchant_subscriptions` + `subscription_tiers` (already exist)
+- OCR components are reusable -- they'll be consumed by future OCR workflow pages
