@@ -1,240 +1,234 @@
 
-# Comprehensive Frontend Audit & Refactor - Merchant Pages
-
-## Audit Summary
-
-After reviewing all 21 merchant pages, shared components, design documentation (UIUX_Design_Documentation_SiHuni.md, development-standards.md), and relevant skills (ui-ux-designer, frontend-design, interaction-design, accessibility-compliance, responsive-design, tailwind-css-patterns, shadcn-ui), here are the findings and fixes.
-
----
+# Frontend Audit & Refactor: Contracts, Invoices, Payments
 
 ## Audit Findings
 
 ### A. Design System Violations (HIGH)
 
-**1. Hardcoded Colors (Forbidden per dev-standards Section 4.5)**
+**1. Hardcoded Colors (Forbidden per development-standards Section 4.5)**
 
-Multiple pages use raw Tailwind color classes instead of semantic tokens:
+| File | Line | Violation | Fix |
+|------|------|-----------|-----|
+| `InvoicesStats.tsx` | 32 | `text-green-600` | `text-success` |
+| `InvoicesStats.tsx` | 40 | `text-yellow-600` | `text-warning` |
+| `PaymentsStats.tsx` | 36 | `text-green-600` | `text-success` |
+| `PaymentsStats.tsx` | 44 | `text-yellow-600` | `text-warning` |
+| `PaymentsStats.tsx` | 52 | `text-red-600` | `text-destructive` |
+| `InvoiceDetailsDialog.tsx` | 93 | `text-red-500` | `text-destructive` |
+| `OverdueInvoicesTable.tsx` | 34 | `text-green-500` | `text-success` |
 
-- `Escrow.tsx` line 327: `text-green-600` (should be `text-success`)
-- `Reports.tsx` lines 464-501: `bg-green-500/10`, `text-green-600`, `bg-blue-500/10`, `text-blue-600`, `bg-yellow-500/10`, `text-yellow-600`, `text-red-600`
-- `DssAdvisor.tsx` lines 16-21: `bg-yellow-100 text-yellow-800`, `bg-green-100 text-green-800`, `bg-red-100 text-red-800`
-- `MlAnalytics.tsx` lines 87-92: Same pattern as DssAdvisor
-- `Settings.tsx` lines 166-167: `bg-zinc-900`, `border-zinc-800`, `bg-zinc-800` (acceptable as dark mode preview thumbnails, but should use token equivalents)
+**2. Forbidden `transition-all`**
 
-**2. Forbidden Animation Property**
+| File | Line | Fix |
+|------|------|-----|
+| `DocumentLightbox.tsx` | 136 | `transition-[border-color,box-shadow]` |
 
-- `Dashboard.tsx` lines 84, 98, 121, 158: Uses `transition-all` (forbidden per dev-standards Section 4.5 -- must use specific properties like `transition-transform`, `transition-shadow`)
-- `OcrTutorial.tsx` line 138: Same `transition-all` violation
-- `PropertyDetail.tsx` line 161: `transition-all`
-- `StatCard.tsx` line 66: `transition-all`
+### B. Stats Components Not Using Shared StatCard (HIGH)
 
-### B. Structural Issues (MEDIUM)
+Both `InvoicesStats.tsx` and `PaymentsStats.tsx` use raw `Card/CardHeader/CardContent` with inconsistent styling (no icons, no border-left accent, no hover effects, no count-up animation). The project already has a polished `StatCard` component with all these features. These stats should be refactored to use `StatCard`.
 
-**3. Redundant Wrapper Divs**
+**Current InvoicesStats:** Plain cards, no icons, no accents, no hover
+**Current PaymentsStats:** Same issues
+**Current ContractStats:** Has icons but still uses raw Card (not StatCard), missing border-left accent and hover
 
-Several pages have double-nested `space-y-6` wrappers that serve no purpose:
-- `Contracts.tsx`: `<div className="space-y-6"><div className="space-y-6">...`
-- `Invoices.tsx`: Same pattern
-- `Payments.tsx`: Same pattern
-- `Escrow.tsx`: Same pattern
-- `Billing.tsx`: Same pattern
-- `Referrals.tsx`: Same pattern
+### C. Structural Issues (MEDIUM)
 
-**4. Inconsistent Root Element Pattern**
+**3. Inconsistent Empty States**
 
-- `Dashboard.tsx`: Uses `<>` (Fragment) as root
-- `Maintenance.tsx`: Uses `<>` as root
-- `MoveOuts.tsx`: Uses `<>` as root with content OUTSIDE the `space-y-6` wrapper
-- Others: Uses `<div className="space-y-6">`
+- `ContractsTable.tsx` line 64-69: Basic `<div>` with plain text -- should use shared `EmptyState`
+- `InvoicesTable.tsx` line 68-79: Custom empty state (close but not using shared component)
+- `PaymentsTable.tsx` line 81-86: Inline empty row in table body
+- `OverdueInvoicesTable.tsx` line 30-38: Custom card empty state
 
-This inconsistency means some pages have content gaps because the outer Fragment doesn't apply spacing consistently. MoveOuts specifically has filters rendered in a separate `<div className="mt-6 mb-6">` outside the main flow.
+All should use the shared `EmptyState` component for consistency.
 
-### C. Component Bloat / SRP Violations (MEDIUM)
+**4. Inconsistent Loading States**
 
-**5. Escrow.tsx (468 lines) -- Too much inline logic**
+- `ContractsTable.tsx` line 56-61: `Loader2` spinner (bad)
+- `InvoicesTable.tsx` line 58-65: Animated pulse rows (ok but custom)
+- `PaymentsTable.tsx` line 53-61: `Loader2` in card with "Loading payments..." text (bad)
 
-This page has:
-- 4 separate `useQuery` calls directly in the page component
-- 1 `useMutation` for `updateSchedule`
-- 1 `useMutation` for `requestDisbursement` (~100 lines of logic)
-- Interface definition (`BankAccount`) in the page file
-- Complex business logic (fee calculations, verification checks) mixed with UI
+All should use skeleton rows consistent with `PageSkeleton` patterns.
 
-Should be extracted to a custom hook like `useMerchantEscrow()`.
+**5. Duplicated Pagination Pattern**
 
-**6. Profile.tsx (500 lines) -- Logic-heavy page**
+All 4 tables (`ContractsTable`, `InvoicesTable`, `PaymentsTable`, `OverdueInvoicesTable`) have identical pagination markup (30+ lines each). This should be extracted to a shared `TablePagination` component.
 
-Contains:
-- 3 `useQuery` calls directly in page
-- 2 `useMutation` calls directly in page
-- Form state management with `useState` + `useEffect` sync
-- File upload handlers
-- Verification logic
+### D. SRP Violations (MEDIUM)
 
-Should use React Hook Form + Zod and extract queries to a hook.
+**6. Invoices.tsx: Inline Handler Logic**
 
-**7. DssAdvisor.tsx -- Inline TierGate component**
+The page has 5 handler functions (`handleCreateInvoice`, `handleSendInvoice`, `handleMarkAsPaid`, `handleSendReminder`, `downloadInvoicePdf`) with try/catch/toast patterns that should be encapsulated. Unlike Contracts.tsx which properly delegates to `useContractActions()`, Invoices.tsx puts all action logic inline.
 
-Defines a `TierGate` component inside the page function, causing it to re-create on every render. Should be extracted to a separate component or use `useMemo`.
+**7. Duplicated `getStatusColor` function**
 
-**8. MlAnalytics.tsx -- Same TierGate pattern as DssAdvisor**
+`InvoicesTable.tsx` and `InvoiceDetailsDialog.tsx` both define identical `getStatusColor` functions. Should be extracted to a shared utility.
 
-Duplicate `TierGate` implementation. Should be a shared component.
+### E. Accessibility Issues (MEDIUM)
 
-### D. Accessibility Issues (MEDIUM)
+**8. Missing aria-labels**
 
-**9. Missing ARIA Labels**
+- `ContractsTable.tsx` line 122: icon-only MoreHorizontal button -- has `sr-only` text (good)
+- `PaymentsTable.tsx` line 119-128: Bell icon button has `title` but no `aria-label`
+- `InvoicesTable.tsx` line 112: icon-only button -- has `sr-only` text (good)
 
-- `Dashboard.tsx`: Icon-only refresh button lacks descriptive aria-label
-- `MoveOuts.tsx` line 114: `StatCard` items are not semantically grouped with a heading
-- Multiple pages with icon-only buttons in headers need `aria-label`
+**9. InvoicesFilters.tsx line 33**
 
-**10. Heading Hierarchy**
+SelectTrigger missing `w-full sm:w-[180px]` responsive class (inconsistent with ContractsFilters and PaymentsFilters which have it).
 
-- `Billing.tsx` line 23: Uses `<h2>` for "Payout Settings" without a visible `<h1>` (PageHeader renders h1 but BillingDashboard also renders its own h1)
-- `MoveOuts.tsx`: Stats cards and tabs are not wrapped under a section with proper heading
+### F. Mixed Language (LOW)
 
-### E. Performance Concerns (LOW)
-
-**11. StatsRowSkeleton dynamic grid class**
-
-`PageSkeleton.tsx` line 6: `` grid-cols-${count} `` -- Tailwind cannot detect dynamic classes. This will fail for `count` values that aren't pre-generated. Should use a lookup map.
-
-**12. No memoization on expensive filter computations**
-
-Most pages correctly use `useMemo` for filtered data. However, `MoveOuts.tsx` has well-structured memoization already.
+`PaymentPlanDialog.tsx` uses Indonesian for UI text ("Buat Rencana Cicilan", "Hapus Denda Keterlambatan") while all other components use English. Should be consistent.
 
 ---
 
 ## Refactoring Plan
 
-### Phase 1: Fix Design System Violations
+### Phase 1: Create Shared Utilities
 
-**1.1 Replace all hardcoded colors with semantic tokens**
+**1.1 Create `src/shared/components/ui/TablePagination.tsx`**
 
-Files affected:
-- `Escrow.tsx`: `text-green-600` -> `text-success`
-- `Reports.tsx`: Replace `bg-green-500/10 text-green-600` with `bg-success/10 text-success`, `bg-blue-500/10 text-blue-600` with `bg-info/10 text-info`, `bg-yellow-500/10 text-yellow-600` with `bg-warning/10 text-warning`, `text-red-600` with `text-destructive`
-- `DssAdvisor.tsx`: Replace STATUS_COLORS map with semantic tokens:
-  - pending: `bg-warning/10 text-warning`
-  - accepted: `bg-success/10 text-success`
-  - expired: `bg-destructive/10 text-destructive`
-- `MlAnalytics.tsx`: Replace riskLevelColor function similarly
+Extract the duplicated pagination block from all 4 tables into a reusable component:
+- Props: `page`, `totalPages`, `totalItems`, `itemsPerPage`, `onPageChange`, `itemLabel` (e.g., "contracts", "invoices")
+- Includes Previous/Next buttons with ChevronLeft/ChevronRight icons
+- Shows "Showing X to Y of Z {itemLabel}" text
 
-**1.2 Replace `transition-all` with specific properties**
+**1.2 Create `src/features/payments/utils/statusColors.ts`**
 
-Files affected:
-- `Dashboard.tsx` (4 occurrences): `transition-all` -> `transition-[transform,box-shadow]`
-- `OcrTutorial.tsx`: Same fix
-- `PropertyDetail.tsx`: Same fix
-- `StatCard.tsx`: Same fix (affects ALL stat cards globally)
+Extract shared status color logic:
+- `getInvoiceStatusVariant(status)` -- returns Badge variant
+- `getPaymentStatusVariant(status)` -- returns Badge variant
+- `getPaymentStatusIcon(status)` -- returns icon component
 
-### Phase 2: Fix Structural Issues
+### Phase 2: Refactor Stats Components to Use StatCard
 
-**2.1 Remove redundant wrapper divs**
+**2.1 Rewrite `InvoicesStats.tsx`**
 
-In these files, remove the unnecessary inner `<div className="space-y-6">`:
-- `Contracts.tsx`
-- `Invoices.tsx`
-- `Payments.tsx`
-- `Escrow.tsx`
-- `Billing.tsx`
-- `Referrals.tsx`
+Replace raw Card grid with `StatCard` components:
+- Total Invoiced: FileText icon, primary accent
+- Paid: CheckCircle icon, success accent (`hsl(var(--success))`)
+- Pending: Clock icon, warning accent
+- Drafts: FileText icon, muted accent
 
-**2.2 Normalize root elements**
+**2.2 Rewrite `PaymentsStats.tsx`**
 
-Convert Fragment roots to consistent `<div className="space-y-6">`:
-- `Dashboard.tsx`: Replace `<>...</>` with `<div className="space-y-6">`
-- `Maintenance.tsx`: Replace `<>` with single wrapper, move dialog inside
-- `MoveOuts.tsx`: Consolidate scattered sections into single `<div className="space-y-6">`, remove the orphaned `<div className="mt-6 mb-6">` for filters
+Replace raw Card grid with `StatCard` components:
+- Total Collected: DollarSign icon, success accent
+- Pending: Clock icon, warning accent
+- Overdue: AlertTriangle icon, destructive accent
+- This Month: Calendar icon, primary accent
 
-### Phase 3: Extract Shared Components & Hooks
+**2.3 Rewrite `ContractStats.tsx`**
 
-**3.1 Create `src/features/dss/components/TierGate.tsx`**
+Replace raw Card implementation with `StatCard` components (it already has icons but doesn't use the shared component, missing hover effects and border-left accents):
+- Total Contracts: FileText icon, primary accent
+- Active: CheckCircle icon, success accent
+- Awaiting Signature: PenLine icon, warning accent
+- Past Contracts: Users icon, muted accent
 
-Extract the duplicated `TierGate` component from DssAdvisor.tsx and MlAnalytics.tsx into a shared feature component:
-```
-interface TierGateProps {
-  feature?: string;
-  children: React.ReactNode;
-}
-```
-- Uses `useMerchantTier()` internally
-- Renders lock card when access denied
-- Renders children when granted
+### Phase 3: Fix Table Components
 
-Update DssAdvisor.tsx and MlAnalytics.tsx to import from shared location.
+**3.1 Update `ContractsTable.tsx`**
 
-**3.2 Create `src/features/escrow/hooks/useMerchantEscrow.ts`**
+- Replace Loader2 spinner with skeleton rows (Skeleton cells matching column layout)
+- Replace plain text empty state with shared `EmptyState` component
+- Replace inline pagination with `TablePagination`
+- Add `aria-label` where missing
 
-Extract from Escrow.tsx:
-- All 4 useQuery calls (escrowAccount, allTransactions, merchantData, bankAccount)
-- updateSchedule mutation
-- requestDisbursement mutation
-- Client-side filtering logic
-- BankAccount interface
+**3.2 Update `InvoicesTable.tsx`**
 
-Escrow.tsx becomes a thin UI shell (~150 lines instead of 468).
+- Replace custom empty state with shared `EmptyState` (with action CTA)
+- Replace inline pagination with `TablePagination`
+- Remove inline `getStatusColor`, import from shared utility
 
-**3.3 Fix `PageSkeleton.tsx` dynamic grid class**
+**3.3 Update `PaymentsTable.tsx`**
 
-Replace dynamic Tailwind class with a lookup:
-```typescript
-const gridCols: Record<number, string> = {
-  2: 'lg:grid-cols-2',
-  3: 'lg:grid-cols-3',
-  4: 'lg:grid-cols-4',
-};
-```
+- Replace Loader2+text loading with skeleton rows
+- Replace inline empty state with shared `EmptyState`
+- Replace inline pagination with `TablePagination`
+- Add `aria-label="Send payment reminder"` to Bell icon button
+- Remove inline `getStatusColor` and `getStatusIcon`, import from shared utility
 
-### Phase 4: Accessibility Fixes
+**3.4 Update `OverdueInvoicesTable.tsx`**
 
-**4.1 Add aria-labels to icon-only buttons**
+- Replace `text-green-500` with `text-success` in empty state
+- Replace inline pagination with `TablePagination`
 
-- `Dashboard.tsx` refresh button: add `aria-label="Refresh dashboard data"`
-- Ensure all pages with icon-only action buttons have descriptive labels
+### Phase 4: Fix Design System Violations
 
-**4.2 Fix heading hierarchy**
+**4.1 Fix hardcoded colors**
 
-- `Billing.tsx`: Change inner `<h2>` to use CardTitle or consistent heading level
+All changes listed in Audit Finding A.1 above.
 
-### Phase 5: Minor Polish
+**4.2 Fix `InvoiceDetailsDialog.tsx`**
 
-**5.1 MoveOuts.tsx layout consolidation**
+- Replace `text-red-500` on late fee with `text-destructive`
+- Remove duplicate `getStatusColor`, import from shared utility
 
-Move all content into a single `<div className="space-y-6">` flow, including stats, filters, tabs, and dialogs.
+**4.3 Fix `DocumentLightbox.tsx`**
+
+- Replace `transition-all` with `transition-[border-color,box-shadow]`
+
+### Phase 5: Extract Invoice Actions Hook
+
+**5.1 Create `src/features/payments/hooks/useInvoiceActions.ts`**
+
+Extract from `Invoices.tsx`:
+- `handleCreateInvoice` (with toast)
+- `handleSendInvoice` (with toast)
+- `handleMarkAsPaid` (with toast + close dialog)
+- `handleSendReminder` (with toast)
+- `downloadInvoicePdf` (with toast + print window)
+- All dialog state management (`isCreateOpen`, `viewInvoice`)
+
+This follows the same pattern as `useContractActions.ts` for consistency.
+
+**5.2 Simplify `Invoices.tsx`**
+
+Page becomes a thin UI shell importing from `useInvoiceActions()`, similar to how `Contracts.tsx` imports from `useContractActions()`.
+
+### Phase 6: Minor Fixes
+
+**6.1 Fix `InvoicesFilters.tsx`**
+
+Add `w-full sm:w-[180px]` to SelectTrigger for responsive consistency with other filter components.
+
+**6.2 Normalize `PaymentPlanDialog.tsx` language**
+
+Translate Indonesian UI text to English for consistency with the rest of the codebase (or keep as-is if bilingual is intended -- will check with existing patterns).
 
 ---
 
-## Files Changed
+## Files Summary
 
-| File | Action | Changes |
-|------|--------|---------|
-| `src/shared/components/ui/StatCard.tsx` | Edit | `transition-all` -> `transition-[transform,box-shadow]` |
-| `src/shared/components/ui/PageSkeleton.tsx` | Edit | Fix dynamic grid class with lookup map |
-| `src/features/dss/components/TierGate.tsx` | New | Shared tier gate component |
-| `src/features/escrow/hooks/useMerchantEscrow.ts` | New | Extracted escrow logic hook |
-| `src/pages/merchant/Dashboard.tsx` | Edit | Fix Fragment root, `transition-all`, aria-label |
-| `src/pages/merchant/Contracts.tsx` | Edit | Remove redundant wrapper div |
-| `src/pages/merchant/Invoices.tsx` | Edit | Remove redundant wrapper div |
-| `src/pages/merchant/Payments.tsx` | Edit | Remove redundant wrapper div |
-| `src/pages/merchant/Escrow.tsx` | Edit | Remove redundant wrapper, fix hardcoded colors, use new hook |
-| `src/pages/merchant/Billing.tsx` | Edit | Remove redundant wrapper, fix heading hierarchy |
-| `src/pages/merchant/Referrals.tsx` | Edit | Remove redundant wrapper div |
-| `src/pages/merchant/Maintenance.tsx` | Edit | Normalize root element |
-| `src/pages/merchant/MoveOuts.tsx` | Edit | Consolidate layout into single flow |
-| `src/pages/merchant/Reports.tsx` | Edit | Replace hardcoded colors with semantic tokens |
-| `src/pages/merchant/DssAdvisor.tsx` | Edit | Replace hardcoded colors, use shared TierGate |
-| `src/pages/merchant/MlAnalytics.tsx` | Edit | Replace hardcoded colors, use shared TierGate |
-| `src/pages/merchant/OcrTutorial.tsx` | Edit | Fix `transition-all` |
-| `src/pages/merchant/PropertyDetail.tsx` | Edit | Fix `transition-all` |
+### New Files (3)
+| File | Description |
+|------|-------------|
+| `src/shared/components/ui/TablePagination.tsx` | Reusable pagination for all tables |
+| `src/features/payments/utils/statusColors.ts` | Shared invoice/payment status utilities |
+| `src/features/payments/hooks/useInvoiceActions.ts` | Extracted invoice action handlers + dialog state |
+
+### Updated Files (12)
+| File | Changes |
+|------|---------|
+| `ContractStats.tsx` | Use shared `StatCard` component |
+| `InvoicesStats.tsx` | Use shared `StatCard`, fix hardcoded colors |
+| `PaymentsStats.tsx` | Use shared `StatCard`, fix hardcoded colors |
+| `ContractsTable.tsx` | Skeleton loading, `EmptyState`, `TablePagination` |
+| `InvoicesTable.tsx` | `EmptyState`, `TablePagination`, remove duplicate util |
+| `PaymentsTable.tsx` | Skeleton loading, `EmptyState`, `TablePagination`, aria-label, remove duplicate util |
+| `OverdueInvoicesTable.tsx` | Fix `text-green-500`, `TablePagination` |
+| `InvoiceDetailsDialog.tsx` | Fix `text-red-500`, remove duplicate `getStatusColor` |
+| `InvoicesFilters.tsx` | Fix responsive SelectTrigger width |
+| `DocumentLightbox.tsx` | Fix `transition-all` |
+| `Invoices.tsx` | Slim down, use `useInvoiceActions` hook |
+| `PaymentPlanDialog.tsx` | Normalize to English language |
 
 ## Implementation Order
 
-1. Shared fixes: StatCard, PageSkeleton, create TierGate
-2. Create useMerchantEscrow hook
-3. Batch fix: Remove redundant wrappers (Contracts, Invoices, Payments, Billing, Referrals)
-4. Batch fix: Normalize roots (Dashboard, Maintenance, MoveOuts)
-5. Batch fix: Hardcoded colors (Escrow, Reports, DssAdvisor, MlAnalytics)
-6. Batch fix: transition-all violations (Dashboard, OcrTutorial, PropertyDetail)
-7. Accessibility pass (aria-labels, heading hierarchy)
+1. Create `TablePagination` + `statusColors` utility (foundational)
+2. Create `useInvoiceActions` hook
+3. Rewrite 3 Stats components to use `StatCard`
+4. Update 4 table components (loading, empty, pagination, a11y)
+5. Fix remaining design system violations (colors, transition, language)
+6. Slim down `Invoices.tsx`
