@@ -212,6 +212,31 @@ export const FORUM_REPORT_TRANSITIONS: Record<string, string[]> = {
   dismissed: [],      // terminal
 };
 
+// ─── Section 21: OCR Result Lifecycle ──────────────────────────────────────
+export const OCR_RESULT_TRANSITIONS: Record<string, string[]> = {
+  processing: ['completed', 'failed', 'requires_review'],
+  requires_review: ['completed', 'failed'],
+  completed: [],   // terminal
+  failed: [],      // terminal
+};
+
+// ─── Section 22: Payment Verification Lifecycle ───────────────────────────
+export const PAYMENT_VERIFICATION_TRANSITIONS: Record<string, string[]> = {
+  pending: ['auto_matched', 'confirmed', 'rejected'],
+  auto_matched: ['confirmed', 'rejected'],
+  confirmed: [],   // terminal
+  rejected: [],    // terminal
+};
+
+// ─── Section 23: DSS Recommendation Lifecycle ─────────────────────────────
+export const DSS_RECOMMENDATION_TRANSITIONS: Record<string, string[]> = {
+  generated: ['viewed', 'accepted', 'rejected'],
+  viewed: ['accepted', 'rejected'],
+  accepted: ['measured'],
+  rejected: [],    // terminal
+  measured: [],    // terminal
+};
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Helper Functions
 // ═══════════════════════════════════════════════════════════════════════════
