@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/integrations/supabase/client';
+import { FORUM_REPORT_TRANSITIONS, isValidTransition } from '@/shared/constants/state-machines';
 import { ForumComment, ForumPost, ForumReport, ForumReportStats, ForumReportStatus } from '../types/forum-moderation';
 
 export const forumModerationService = {
@@ -50,13 +51,21 @@ export const forumModerationService = {
   },
 
   async updateReportStatus(id: string, status: ForumReportStatus, notes?: string): Promise<void> {
+    // Fetch current status and validate transition
+    const { data: current, error: fetchErr } = await supabase
+      .from('forum_reports').select('status').eq('id', id).single();
+    if (fetchErr) throw fetchErr;
+
+    const currentStatus = current.status || 'pending';
+    if (!isValidTransition(FORUM_REPORT_TRANSITIONS, currentStatus, status)) {
+      throw new Error(`Invalid forum report transition: ${currentStatus} → ${status}`);
+    }
+
     const { error } = await supabase
       .from('forum_reports')
       .update({
         status,
         reviewed_at: new Date().toISOString(),
-        // Note: reviewed_by should be set by RLS or trigger, but we can try setting it if the schema allows
-        // otherwise we assume the backend handles it. Ideally we pass the current user ID if needed.
       })
       .eq('id', id);
 

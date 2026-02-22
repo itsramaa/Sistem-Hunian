@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/integrations/supabase/client";
 import { createAuditLog } from "@/shared/utils/auditLog";
+import { DISBURSEMENT_STATUS_TRANSITIONS, isValidTransition } from "@/shared/constants/state-machines";
 import {
   DisbursementParams,
   EscrowAccount,
@@ -182,6 +183,15 @@ export const escrowService = {
   approveDisbursement: async (params: ReviewDisbursementParams, adminId: string): Promise<void> => {
     const { id, amount, escrow_account_id, bank_account_id, notes, user_id, business_name } = params;
 
+    // Fetch current status and validate transition
+    const { data: current, error: fetchErr } = await supabase
+      .from('disbursements').select('status').eq('id', id).single();
+    if (fetchErr) throw fetchErr;
+    const currentStatus = current.status === 'pending_review' ? 'pending' : current.status;
+    if (!isValidTransition(DISBURSEMENT_STATUS_TRANSITIONS, currentStatus, 'approved')) {
+      throw new Error(`Invalid disbursement transition: ${current.status} → approved`);
+    }
+
     // Call edge function
     const { data, error } = await supabase.functions.invoke('xendit-disbursement', {
       body: {
@@ -230,6 +240,15 @@ export const escrowService = {
 
   rejectDisbursement: async (params: ReviewDisbursementParams, adminId: string): Promise<void> => {
     const { id, notes, user_id, business_name } = params;
+
+    // Fetch current status and validate transition
+    const { data: current, error: fetchErr } = await supabase
+      .from('disbursements').select('status').eq('id', id).single();
+    if (fetchErr) throw fetchErr;
+    const currentStatus = current.status === 'pending_review' ? 'pending' : current.status;
+    if (!isValidTransition(DISBURSEMENT_STATUS_TRANSITIONS, currentStatus, 'rejected')) {
+      throw new Error(`Invalid disbursement transition: ${current.status} → rejected`);
+    }
 
     // Update status
     await supabase
