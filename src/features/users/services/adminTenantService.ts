@@ -1,6 +1,8 @@
 
 import { supabase } from '@/lib/integrations/supabase/client';
 import { AdminTenant } from '../types/tenant';
+import { CONTRACT_STATUS_TRANSITIONS, isValidTransition } from '@/shared/constants/state-machines';
+import { logStatusChange } from '@/shared/utils/auditLog';
 
 export const adminTenantService = {
   async getAllActiveTenants(page = 1, limit = 10, search = '', status = 'all', merchantId = 'all', propertyId = 'all', minRent = '', maxRent = ''): Promise<{ data: AdminTenant[]; count: number }> {
@@ -17,7 +19,6 @@ export const adminTenantService = {
         matchingUserIds = users.map(u => u.user_id);
       }
       
-      // If no users found matching search, return empty result
       if (matchingUserIds && matchingUserIds.length === 0) {
         return { data: [], count: 0 };
       }
@@ -38,7 +39,6 @@ export const adminTenantService = {
         unit:units!inner(id, unit_number, property:properties!inner(id, name))
       `, { count: 'exact' });
 
-    // 3. Apply filters
     if (status !== 'all') {
       query = query.eq('status', status);
     }
@@ -63,7 +63,6 @@ export const adminTenantService = {
       query = query.in('tenant_user_id', matchingUserIds);
     }
 
-    // Pagination
     const from = (page - 1) * limit;
     const to = from + limit - 1;
     query = query.range(from, to).order('created_at', { ascending: false });
@@ -73,12 +72,10 @@ export const adminTenantService = {
     if (error) throw error;
     if (!contracts || contracts.length === 0) return { data: [], count: 0 };
 
-    // 3. Collect IDs for manual joins
     const tenantUserIds = contracts.map(c => c.tenant_user_id);
     const merchantIds = contracts.map(c => c.merchant_id);
     const allUserIds = [...new Set([...tenantUserIds, ...merchantIds])];
 
-    // 4. Fetch all relevant profiles (tenants and merchants)
     const { data: profiles, error: profileError } = await supabase
       .from('profiles')
       .select('user_id, full_name, email, phone')
@@ -88,7 +85,6 @@ export const adminTenantService = {
 
     const profileMap = new Map((profiles || []).map(p => [p.user_id, p]));
 
-    // 5. Assemble the data
     const enrichedData = contracts.map((contract: any) => {
       const tenantProfile = profileMap.get(contract.tenant_user_id);
       const merchantProfile = profileMap.get(contract.merchant_id);
@@ -107,7 +103,7 @@ export const adminTenantService = {
     const { count: total } = await supabase.from('contracts').select('*', { count: 'exact', head: true });
     const { count: active } = await supabase.from('contracts').select('*', { count: 'exact', head: true }).eq('status', 'active');
     const { count: pending } = await supabase.from('contracts').select('*', { count: 'exact', head: true }).eq('status', 'pending_signature');
-    const { count: terminated } = await supabase.from('contracts').select('*', { count: 'exact', head: true }).in('status', ['terminated', 'evicted', 'expired']);
+    const { count: terminated } = await supabase.from('contracts').select('*', { count: 'exact', head: true }).in('status', ['terminated', 'expired', 'cancelled']);
 
     return {
       total: total || 0,
@@ -118,12 +114,27 @@ export const adminTenantService = {
   },
 
   async updateTenantStatus(tenantId: string, newStatus: string): Promise<void> {
+    // Fetch current contract status for validation
+    const { data: current, error: fetchError } = await supabase
+      .from('contracts')
+      .select('status')
+      .eq('id', tenantId)
+      .single();
+
+    if (fetchError) throw fetchError;
+    const currentStatus = current?.status || '';
+
+    if (!isValidTransition(CONTRACT_STATUS_TRANSITIONS, currentStatus, newStatus)) {
+      throw new Error(`Invalid contract transition: ${currentStatus} → ${newStatus}`);
+    }
+
     const { error } = await supabase
       .from('contracts')
       .update({ status: newStatus })
       .eq('id', tenantId);
 
     if (error) throw error;
+
+    await logStatusChange('contract', tenantId, currentStatus, newStatus);
   }
 };
-

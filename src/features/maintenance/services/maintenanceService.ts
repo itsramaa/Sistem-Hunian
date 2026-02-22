@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/integrations/supabase/client';
 import { Vendor } from '../../users/types/admin-vendor';
 import { CreateMaintenanceRequestPayload, MaintenanceRequest, MaintenanceReview, MaintenanceTimeline, UpdateMaintenanceStatusPayload } from '../types';
+import { MAINTENANCE_STATUS_TRANSITIONS, isValidTransition } from '@/shared/constants/state-machines';
+import { logStatusChange } from '@/shared/utils/auditLog';
 
 export const maintenanceService = {
   async getMerchantRequests(merchantId: string): Promise<MaintenanceRequest[]> {
@@ -162,6 +164,8 @@ export const maintenanceService = {
       actor_id: userId,
       actor_role: 'tenant',
     });
+
+    await logStatusChange('maintenance', requestId, 'pending', 'cancelled');
   },
 
   async updateRequest(id: string, payload: Partial<MaintenanceRequest>): Promise<MaintenanceRequest> {
@@ -177,6 +181,20 @@ export const maintenanceService = {
   },
 
   async updateStatus(payload: UpdateMaintenanceStatusPayload & { actor_id?: string, actor_role?: string }): Promise<MaintenanceRequest> {
+    // Validate transition against centralized state machine
+    const { data: currentData, error: currentError } = await supabase
+      .from('maintenance_requests')
+      .select('status')
+      .eq('id', payload.id)
+      .single();
+
+    if (currentError) throw currentError;
+    const currentStatus = currentData?.status || '';
+
+    if (!isValidTransition(MAINTENANCE_STATUS_TRANSITIONS, currentStatus, payload.status)) {
+      throw new Error(`Invalid maintenance transition: ${currentStatus} → ${payload.status}`);
+    }
+
     // 0. Pre-check: Verify contract status if assigning a vendor
     if (payload.assigned_vendor_id) {
       const { data: requestData, error: requestError } = await supabase
@@ -355,6 +373,9 @@ export const maintenanceService = {
         });
       }
     }
+
+    // Audit log for status change
+    await logStatusChange('maintenance', payload.id, currentStatus, payload.status);
 
     return (request as unknown) as MaintenanceRequest;
   },

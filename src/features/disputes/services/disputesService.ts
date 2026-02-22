@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/integrations/supabase/client";
 import { Dispute, DisputesResponse, ResolveDisputeParams } from "../types/disputes";
 import { logStatusChange } from "@/shared/utils/auditLog";
+import { DISPUTE_STATUS_TRANSITIONS, isValidTransition } from "@/shared/constants/state-machines";
 
 export const disputesService = {
   fetchDisputes: async (page: number, pageSize: number): Promise<DisputesResponse> => {
@@ -27,6 +28,10 @@ export const disputesService = {
 
   resolveDispute: async (params: ResolveDisputeParams, currentStatus: string): Promise<void> => {
     const { id, status, resolution, resolved_by } = params;
+
+    if (!isValidTransition(DISPUTE_STATUS_TRANSITIONS, currentStatus, status)) {
+      throw new Error(`Invalid dispute transition: ${currentStatus} → ${status}`);
+    }
 
     const { error } = await supabase
       .from('disputes')
