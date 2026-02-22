@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const propertySchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(100),
-  property_type: z.enum(['kost', 'apartment', 'house', 'kontrakan', 'ruko']),
+  property_type: z.enum(['kost', 'kontrakan']),
   address: z.string().min(5, 'Address is required').max(255),
   city: z.string().min(2, 'City is required').max(100),
   province: z.string().min(2, 'Province is required').max(100),
@@ -15,10 +15,7 @@ export type PropertyFormData = z.infer<typeof propertySchema>;
 
 export const propertyTypes = [
   { value: 'kost', label: 'Kost' },
-  { value: 'apartment', label: 'Apartment' },
-  { value: 'house', label: 'House' },
-  { value: 'kontrakan', label: 'Kontrakan' },
-  { value: 'ruko', label: 'Ruko' },
+  { value: 'kontrakan', label: 'Kontrakan / Ruko' },
 ] as const;
 
 export const unitSchema = z.object({

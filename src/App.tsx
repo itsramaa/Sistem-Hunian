@@ -68,6 +68,7 @@ const MerchantReports = lazy(() => import("@/pages/merchant/Reports"));
 const MerchantSettings = lazy(() => import("@/pages/merchant/Settings"));
 const MerchantTenants = lazy(() => import("@/pages/merchant/Tenants"));
 const MerchantUnits = lazy(() => import("@/pages/merchant/Units"));
+const MerchantUnitDetail = lazy(() => import("@/pages/merchant/UnitDetail"));
 const MerchantOcrTutorial = lazy(() => import("@/pages/merchant/OcrTutorial"));
 const MerchantMlAnalytics = lazy(() => import("@/pages/merchant/MlAnalytics"));
 const MerchantDssAdvisor = lazy(() => import("@/pages/merchant/DssAdvisor"));
@@ -172,6 +173,7 @@ const App = () => (
                     <Route path="invoices" element={<MerchantInvoices />} />
                     <Route path="settings" element={<MerchantSettings />} />
                     <Route path="units" element={<MerchantUnits />} />
+                    <Route path="units/:id" element={<MerchantUnitDetail />} />
                     <Route path="escrow" element={<MerchantEscrow />} />
                     <Route path="referrals" element={<MerchantReferrals />} />
                     <Route path="contracts" element={<MerchantContracts />} />

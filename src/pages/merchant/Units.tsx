@@ -6,22 +6,20 @@ import { UnitsTable } from "@/features/properties/components/UnitsTable";
 import { useMerchantProperties } from "@/features/properties/hooks/useMerchantProperties";
 import { useMerchantUnits } from "@/features/properties/hooks/useMerchantUnits";
 import { Unit, UnitFormData } from "@/features/properties/types";
-import { SubscriptionLimitWarning } from "@/features/subscriptions/components/SubscriptionLimitWarning";
-import { useSubscriptionLimits } from "@/features/subscriptions/hooks/useSubscriptionLimits";
 
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/shared/components/ui/alert-dialog";
 import { Button } from "@/shared/components/ui/button";
 import { useDebounce } from "@/shared/hooks/useDebounce";
-import { Plus } from "lucide-react";
+import { DoorOpen, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -29,7 +27,6 @@ const ITEMS_PER_PAGE = 10;
 
 export default function MerchantUnits() {
   const { merchant } = useAuth();
-  const { data: subscriptionLimits } = useSubscriptionLimits();
   
   // State
   const [search, setSearch] = useState("");
@@ -73,14 +70,18 @@ export default function MerchantUnits() {
     return filteredUnits.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredUnits, page]);
 
-  const stats = useMemo(() => ({
-    totalUnits: units.length,
-    occupiedUnits: units.filter(u => u.status === 'occupied').length,
-    availableUnits: units.filter(u => u.status === 'available').length,
-    totalMonthlyRent: units.filter(u => u.status === 'occupied').reduce((sum, u) => sum + u.rent_amount, 0),
-  }), [units]);
-
-  const canAddUnit = !subscriptionLimits || subscriptionLimits.canAddUnit;
+  const stats = useMemo(() => {
+    const occupiedUnits = units.filter(u => u.status === 'occupied').length;
+    const totalUnits = units.length;
+    return {
+      totalUnits,
+      occupiedUnits,
+      availableUnits: units.filter(u => u.status === 'available').length,
+      maintenanceUnits: units.filter(u => u.status === 'maintenance').length,
+      totalMonthlyRent: units.filter(u => u.status === 'occupied').reduce((sum, u) => sum + u.rent_amount, 0),
+      occupancyRate: totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0,
+    };
+  }, [units]);
 
   // Handlers
   const handleCreate = () => {
@@ -109,16 +110,10 @@ export default function MerchantUnits() {
 
   const handleFormSubmit = async (data: UnitFormData) => {
     try {
-      if (!editingUnit && subscriptionLimits && !subscriptionLimits.canAddUnit) {
-        toast.error(`Unit limit reached (${subscriptionLimits.currentUnits}/${subscriptionLimits.maxUnits}). Please upgrade your subscription.`);
-        return;
-      }
-
-      // Convert form data to payload format (omit amenities if not in form)
       const payload = {
         ...data,
-        amenities: [], // Default to empty array as it's not in the form yet
-        property_id: editingUnit?.property_id || '',
+        amenities: [],
+        property_id: data.property_id || editingUnit?.property_id || '',
       };
 
       if (editingUnit) {
@@ -134,18 +129,26 @@ export default function MerchantUnits() {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-muted-foreground">View and manage all your rental units</p>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-primary/10">
+            <DoorOpen className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold">Unit Saya</h1>
+            <p className="text-sm text-muted-foreground">Kelola semua unit di properti Anda</p>
+          </div>
+        </div>
         <Button 
-          disabled={properties.length === 0 || !canAddUnit}
+          disabled={properties.length === 0}
           onClick={handleCreate}
+          className="gap-2"
         >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Unit
+          <Plus className="h-4 w-4" />
+          Tambah Unit
         </Button>
       </div>
-      {/* Subscription Warning */}
-      <SubscriptionLimitWarning />
 
       {/* Statistics */}
       <UnitsStats stats={stats} />
@@ -193,20 +196,19 @@ export default function MerchantUnits() {
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Hapus Unit?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the unit
-              and all associated data.
+              Tindakan ini tidak dapat dibatalkan. Unit dan semua data terkait akan dihapus permanen.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleConfirmDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={isDeleting}
             >
-              {isDeleting ? "Deleting..." : "Delete"}
+              {isDeleting ? "Menghapus..." : "Hapus"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

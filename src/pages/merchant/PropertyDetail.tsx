@@ -28,10 +28,7 @@ const statusColors: Record<string, string> = {
 
 const typeLabels: Record<string, string> = {
   kost: 'Kost',
-  apartment: 'Apartemen',
-  house: 'Rumah',
-  kontrakan: 'Kontrakan',
-  ruko: 'Ruko',
+  kontrakan: 'Kontrakan / Ruko',
 };
 
 function getOccupancyColor(rate: number): string {
