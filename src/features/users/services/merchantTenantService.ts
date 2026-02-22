@@ -1,6 +1,8 @@
 import { Property } from '@/features/properties/types';
 import { ActiveTenant, TenantInvitation } from '@/features/users/types/tenant';
 import { supabase } from '@/lib/integrations/supabase/client';
+import { CONTRACT_STATUS_TRANSITIONS, isValidTransition } from '@/shared/constants/state-machines';
+import { logStatusChange, createAuditLog } from '@/shared/utils/auditLog';
 
 export const merchantTenantService = {
   async getPropertiesWithUnits(merchantId: string): Promise<Property[]> {
@@ -22,7 +24,6 @@ export const merchantTenantService = {
 
     if (error) throw error;
 
-    // Transform invitations data
     return (data || []).map((inv: any) => ({
       ...inv,
       unit: inv.units ? {
@@ -52,7 +53,6 @@ export const merchantTenantService = {
 
     if (!data || data.length === 0) return [];
 
-    // Fetch profiles for all tenant_user_ids
     const tenantUserIds = data.map(c => c.tenant_user_id);
     const { data: profiles } = await supabase
       .from('profiles')
@@ -79,7 +79,6 @@ export const merchantTenantService = {
   },
 
   async getAllMerchantTenants(merchantId: string) {
-    // Get all unique tenant_user_ids from contracts
     const { data: contracts, error } = await supabase
       .from('contracts')
       .select('tenant_user_id')
@@ -91,7 +90,6 @@ export const merchantTenantService = {
 
     const userIds = [...new Set(contracts.map(c => c.tenant_user_id))];
     
-    // Fetch profiles
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('user_id, full_name, email, phone')
@@ -113,7 +111,6 @@ export const merchantTenantService = {
   },
 
   async sendInvitation(merchantId: string, data: { unit_id: string; email: string; phone?: string | null }) {
-    // Check for existing pending invitation to same email
     const { data: existingEmail } = await supabase
       .from('tenant_invitations')
       .select('id')
@@ -126,7 +123,6 @@ export const merchantTenantService = {
       throw new Error('A pending invitation already exists for this email address');
     }
 
-    // Check for existing pending invitation for this unit
     const { data: existingUnit } = await supabase
       .from('tenant_invitations')
       .select('id')
@@ -157,9 +153,22 @@ export const merchantTenantService = {
       .eq('id', id);
 
     if (error) throw error;
+
+    await createAuditLog({
+      action: 'cancel',
+      entityType: 'tenant',
+      entityId: id,
+      newData: { status: 'cancelled' },
+    });
   },
 
   async terminateContract(contract: ActiveTenant) {
+    // Validate transition
+    const currentStatus = contract.status || '';
+    if (!isValidTransition(CONTRACT_STATUS_TRANSITIONS, currentStatus, 'terminated')) {
+      throw new Error(`Invalid contract transition: ${currentStatus} → terminated`);
+    }
+
     // Update contract status to terminated
     const { error: contractError } = await supabase
       .from('contracts')
@@ -188,5 +197,7 @@ export const merchantTenantService = {
       .eq('user_id', contract.tenant_user_id);
 
     if (tenantError) throw tenantError;
+
+    await logStatusChange('contract', contract.id, currentStatus, 'terminated');
   }
 };

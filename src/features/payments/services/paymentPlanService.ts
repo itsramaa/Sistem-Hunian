@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/integrations/supabase/client';
 import { CreatePaymentPlanPayload, PaymentPlan } from '../types';
+import { PAYMENT_PLAN_STATUS_TRANSITIONS, isValidTransition } from '@/shared/constants/state-machines';
+import { logStatusChange, createAuditLog } from '@/shared/utils/auditLog';
 
 export const paymentPlanService = {
   async getTenantPaymentPlans(tenantId: string, statuses?: string[]): Promise<PaymentPlan[]> {
@@ -66,24 +68,64 @@ export const paymentPlanService = {
       is_read: false
     });
 
+    // Audit log for creation
+    await createAuditLog({
+      action: 'create',
+      entityType: 'payment_plan',
+      entityId: plan.id,
+      newData: { invoice_id: payload.invoice_id, installment_count: installments.length },
+    });
+
     return plan as unknown as PaymentPlan;
   },
 
   async acceptPaymentPlan(planId: string, invoiceId: string): Promise<void> {
+    // Fetch current status
+    const { data: current, error: fetchError } = await supabase
+      .from('payment_plans')
+      .select('status')
+      .eq('id', planId)
+      .single();
+
+    if (fetchError) throw fetchError;
+    const currentStatus = current?.status || 'pending_acceptance';
+
+    if (!isValidTransition(PAYMENT_PLAN_STATUS_TRANSITIONS, currentStatus, 'active')) {
+      throw new Error(`Invalid payment plan transition: ${currentStatus} → active`);
+    }
+
     const { error } = await supabase
       .from('payment_plans')
       .update({ status: 'active' })
       .eq('id', planId);
 
     if (error) throw error;
+
+    await logStatusChange('payment_plan', planId, currentStatus, 'active');
   },
 
   async declinePaymentPlan(planId: string): Promise<void> {
+    // Fetch current status
+    const { data: current, error: fetchError } = await supabase
+      .from('payment_plans')
+      .select('status')
+      .eq('id', planId)
+      .single();
+
+    if (fetchError) throw fetchError;
+    const currentStatus = current?.status || 'pending_acceptance';
+
+    if (!isValidTransition(PAYMENT_PLAN_STATUS_TRANSITIONS, currentStatus, 'cancelled')) {
+      throw new Error(`Invalid payment plan transition: ${currentStatus} → cancelled`);
+    }
+
     const { error } = await supabase
       .from('payment_plans')
       .update({ status: 'cancelled' })
       .eq('id', planId);
 
     if (error) throw error;
+
+    await logStatusChange('payment_plan', planId, currentStatus, 'cancelled');
   }
 };
