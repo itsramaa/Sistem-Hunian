@@ -1,185 +1,120 @@
 
 
-# 3.1.2 Data Quality & Validation + 3.1.3 Data Versioning & History
+# 3.2 OCR & Document Processing -- Gap Analysis & Implementation
 
-## Ringkasan
+## Status Existing
 
-Membuat sistem **Data Quality & Validation** dan **Data Versioning & History** untuk properti dan unit, mencakup automated validation rules, quality scoring, data versioning dengan restore capability, dan audit trail terintegrasi. Implementasi membutuhkan 2 tabel database baru, 1 edge function AI baru, 1 halaman dashboard baru, dan modifikasi beberapa file existing.
+| FR | Deskripsi | Status |
+|----|-----------|--------|
+| FR-401 | Upload PDF, JPG, PNG | Sudah ada (`FileUpload`, `OcrUploadCard`) |
+| FR-402 | Drag-drop upload | Sudah ada (`OcrUploadCard` drag-drop) |
+| FR-403 | Organized folder structure | Sudah ada (`verification-documents` bucket, path: `userId/folder/timestamp.ext`) |
+| FR-404 | Preview dokumen sebelum processing | Sudah ada untuk image (`FileUpload` preview). PDF preview belum ada |
+| FR-405 | Track metadata | Sudah ada (`ocr_results` table: document_type, document_url, created_at, user_id) |
+| FR-501 | OCR extract text | Sudah ada (5 edge functions: ktp, payment-proof, business-doc, compliance-doc, maintenance-receipt) |
+| FR-502 | Multiple document types | Sudah ada (KTP, bukti bayar, IMB, sertifikat, invoice/nota) |
+| FR-503 | Confidence score | Sudah ada (semua OCR functions return confidence) |
+| FR-504 | Highlight extracted text di original dokumen | **Belum ada** |
+| FR-505 | Manual review dan correction | **Belum ada** (database columns ada, tapi UI belum) |
+
+---
+
+## Yang Perlu Diimplementasi
+
+Hanya 3 hal yang perlu dibuat:
+
+1. **Halaman Document Center** -- Pusat manajemen semua dokumen OCR (menggabungkan FR-504 dan FR-505)
+2. **OCR Review & Correction UI** -- Komponen untuk edit field OCR result secara manual
+3. **PDF Preview** -- Tambahan preview untuk file PDF (melengkapi FR-404)
+
+Tidak ada perubahan database -- `ocr_results` sudah memiliki semua kolom yang diperlukan (`requires_review`, `review_notes`, `reviewed_by`, `reviewed_at`, `extracted_data`, `status`).
 
 ---
 
 ## Arsitektur
 
 ```text
-[Frontend]                           [Edge Functions]            [AI Gateway]
-DataQualityHistory.tsx  -------->  ml-data-quality-check  --->  Gemini 2.5 Flash
-                        -------->  (Supabase client CRUD for versioning)
-
-[Database]
-property_data_versions  -- snapshot + restore
-data_quality_checks     -- validation results + quality scores
-audit_logs              -- existing, untuk FR-303
+[Frontend]
+DocumentCenter.tsx  ---->  Supabase client (ocr_results CRUD)
+  |-- OcrDocumentViewer.tsx   (preview dokumen + highlight fields)
+  |-- OcrResultEditor.tsx     (manual review & correction form)
 ```
 
 ---
 
-## 1. Database: 2 Tabel Baru
+## 1. Halaman: Document Center
 
-### Tabel `data_quality_checks`
-Menyimpan hasil validasi per properti/unit.
+**File baru**: `src/pages/merchant/DocumentCenter.tsx`
 
-| Kolom | Tipe | Keterangan |
-|-------|------|------------|
-| id | uuid PK | gen_random_uuid() |
-| merchant_id | uuid FK merchants | NOT NULL |
-| entity_type | text | 'property' atau 'unit' |
-| entity_id | uuid | ID properti/unit |
-| quality_score | numeric | 0-100 |
-| validation_results | jsonb | Array of { rule, status, message, severity } |
-| overrides | jsonb | Array of { rule, reason, overridden_by, overridden_at } |
-| is_final_validated | boolean | default false (FR-304) |
-| validated_by | uuid | user yang mark final |
-| validated_at | timestamptz | kapan di-mark final |
-| created_at | timestamptz | default now() |
-
-RLS: merchant hanya bisa akses miliknya sendiri (via merchant_id).
-
-### Tabel `property_data_versions`
-Menyimpan snapshot data untuk versioning dan restore.
-
-| Kolom | Tipe | Keterangan |
-|-------|------|------------|
-| id | uuid PK | gen_random_uuid() |
-| entity_type | text | 'property' atau 'unit' |
-| entity_id | uuid | ID properti/unit |
-| version_number | integer | auto-increment per entity |
-| snapshot_data | jsonb | full row snapshot |
-| change_summary | text | ringkasan perubahan |
-| changed_by | uuid | user_id |
-| change_reason | text | nullable, alasan perubahan |
-| created_at | timestamptz | default now() |
-
-RLS: merchant bisa akses via join ke properties/units yang miliknya.
-
----
-
-## 2. Edge Function: `ml-data-quality-check`
-
-**File baru**: `supabase/functions/ml-data-quality-check/index.ts`
-
-Mengcover FR-201 (automated validation) dan FR-202 (error + suggestion).
-
-### Input:
-- `property_id` (wajib) -- validasi properti + semua unitnya
-- `include_suggestions` (boolean, default true)
-
-### Validasi Rules yang Dijalankan:
-
-**Deterministic (tanpa AI):**
-1. Range validation: rent_amount > 0, occupancy 0-100%, floor valid, size_sqm reasonable
-2. Logical consistency: occupied_units <= total_units, unit floor <= property floor_count
-3. Duplicate check: unit_number unik per properti
-4. Completeness check: field wajib terisi (address, city, province)
-
-**AI-enhanced (dengan Gemini 2.5 Flash):**
-5. Outlier detection: harga sewa anomali vs unit lain di properti/kota yang sama
-6. Suggestion generation: saran perbaikan per error
-
-### Tier limits: `{ free: 1, starter: 5, professional: -1, enterprise: -1 }`
-
-### Output:
-```text
-{
-  property_score: number,  // 0-100
-  unit_scores: [{ unit_id, score }],
-  aggregate_score: number,
-  validations: [
-    { entity_type, entity_id, rule, status: "pass"|"warning"|"error",
-      message, suggestion?, severity: "low"|"medium"|"high"|"critical" }
-  ],
-  outliers: [{ entity_id, field, value, expected_range, anomaly_type }],
-  summary: string
-}
-```
-
-Hasil disimpan ke tabel `data_quality_checks`.
-
----
-
-## 3. Frontend Service & Hooks
-
-### `src/features/properties/services/dataQualityService.ts`
-- `invokeDataQualityCheck(propertyId)` -- invoke edge function
-- `fetchQualityChecks(merchantId)` -- fetch dari `data_quality_checks`
-- `overrideValidation(checkId, rule, reason)` -- update override di check (FR-203)
-- `markFinalValidated(checkId)` -- set `is_final_validated = true` (FR-304)
-- `fetchDataVersions(entityType, entityId)` -- fetch dari `property_data_versions`
-- `restoreVersion(versionId)` -- restore data ke versi sebelumnya (FR-302)
-- `createVersion(entityType, entityId, snapshotData, changeSummary, changeReason?)` -- manual snapshot
-
-### `src/features/properties/hooks/useDataQuality.ts`
-- `useDataQualityCheck()` -- mutation hook untuk invoke
-- `useQualityChecks(merchantId)` -- query hook untuk list
-- `useOverrideValidation()` -- mutation
-- `useMarkFinalValidated()` -- mutation
-- `useDataVersions(entityType, entityId)` -- query hook
-- `useRestoreVersion()` -- mutation hook
-
----
-
-## 4. Auto-Versioning pada Property/Unit Update
-
-Modifikasi `propertyService.ts`:
-- Pada `updateProperty()`: sebelum update, fetch current data, simpan snapshot ke `property_data_versions`, lalu lakukan update.
-- Catat change_summary otomatis (diff fields yang berubah).
-
-Modifikasi `unitService.ts`:
-- Sama: pada update unit, simpan snapshot sebelumnya.
-
-Ini memenuhi FR-301 (changelog) secara otomatis.
-
----
-
-## 5. Halaman: Data Quality & History Dashboard
-
-**File baru**: `src/pages/merchant/DataQualityHistory.tsx`
+Halaman terpusat untuk melihat semua hasil OCR, melakukan review, dan correction.
 
 ### Layout:
-- PageHeader dengan icon Shield dan badge "Data Governance"
-- Property selector (wajib pilih 1 properti)
+- PageHeader dengan icon FileSearch dan judul "Pusat Dokumen"
+- Filter bar: document_type, status (completed/requires_review/error), date range
+- Tabel hasil OCR dari `ocr_results`:
+  - Kolom: Document Type, Status, Confidence Score, Upload Date, Requires Review badge, Actions
+  - Klik baris -> buka detail view (side panel atau dialog)
 
-### 3 Tab:
-
-**Tab 1: Validasi & Kualitas (FR-201, FR-202, FR-204)**
-- Tombol "Jalankan Validasi" -> memanggil `ml-data-quality-check`
-- Quality Score gauge (0-100) per properti + aggregate
-- Tabel hasil validasi: entity, rule, status (pass/warning/error), message, suggestion
-- Badge severity color-coded
-- Tombol "Override" per baris error -> dialog input alasan (FR-203)
-- Tombol "Mark as Final Validated" (FR-304) -- hanya bisa jika tidak ada error critical
-- Filter: severity, status, entity_type
-
-**Tab 2: Riwayat Perubahan (FR-301, FR-303)**
-- Timeline changelog: siapa, apa yang berubah, kapan, ringkasan perubahan
-- Data diambil dari `property_data_versions` + `audit_logs`
-- Expand row untuk lihat detail diff (old vs new snapshot)
-- Filter by entity (properti atau unit tertentu)
-
-**Tab 3: Restore Data (FR-302)**
-- Pilih entity (properti/unit) -> tampilkan daftar versi
-- Preview snapshot data per versi
-- Tombol "Restore ke Versi Ini" -> konfirmasi dialog -> restore data + catat audit log
-- Badge "Final Validated" pada versi yang sudah di-mark (FR-304)
+### Detail View (Dialog/Sheet):
+- **Kiri**: Preview dokumen original (image viewer atau PDF viewer via iframe/embed)
+- **Kanan**: Extracted data fields yang bisa di-edit
+- Confidence badge per field (dari `extracted_data.field_confidences`)
+- Low-confidence fields di-highlight kuning
+- Tombol "Approve" -> update status ke "completed", set reviewed_by dan reviewed_at
+- Tombol "Reject" -> update status ke "rejected" dengan review_notes
+- Tombol "Save Corrections" -> update `extracted_data` di `ocr_results`
 
 ---
 
-## 6. Navigasi
+## 2. Komponen: OcrDocumentViewer
+
+**File baru**: `src/features/dss/components/OcrDocumentViewer.tsx`
+
+Preview dokumen original dengan visual highlighting:
+- Untuk image (JPG/PNG): tampilkan dengan `<img>` tag, overlay colored badges pada posisi field yang di-extract (menggunakan relative positioning berdasarkan field name, bukan exact coordinates karena OCR tidak return bounding boxes)
+- Untuk PDF: tampilkan via `<iframe>` atau `<embed>` tag
+- Zoom in/out controls
+- Fit-to-width toggle
+
+---
+
+## 3. Komponen: OcrResultEditor
+
+**File baru**: `src/features/dss/components/OcrResultEditor.tsx`
+
+Form untuk review dan correction:
+- Render semua fields dari `extracted_data` sebagai editable input
+- Per-field confidence badge (color coded: hijau >= 80, kuning >= 60, merah < 60)
+- Tombol "Reset" per field (kembalikan ke nilai original)
+- Text area untuk review notes
+- Status selector: "Approve" / "Reject"
+- Save button -> update `ocr_results` row
+
+---
+
+## 4. Service & Hooks
+
+### `src/features/dss/services/ocrDocumentService.ts`
+- `fetchOcrResults(merchantId, filters?)` -- query `ocr_results` with filters
+- `fetchOcrResultById(id)` -- single result detail
+- `updateOcrResult(id, updates)` -- update extracted_data, status, review_notes, reviewed_by, reviewed_at
+- `getDocumentPreviewUrl(documentUrl)` -- generate signed URL for private bucket documents
+
+### `src/features/dss/hooks/useOcrDocuments.ts`
+- `useOcrResults(merchantId, filters)` -- query hook
+- `useOcrResultDetail(id)` -- single query hook
+- `useUpdateOcrResult()` -- mutation hook
+
+---
+
+## 5. Navigasi
 
 Update `navigation-config.ts`:
-- Tambah item di grup "Manajemen Properti" (bukan Analitik): `{ path: "/merchant/data-quality", icon: Shield, label: "Kualitas Data" }`
+- Tambah item di grup "Bantuan" (sebelum Tutorial OCR) atau buat grup baru "Dokumen":
+  `{ path: "/merchant/documents", icon: FileSearch, label: "Pusat Dokumen" }`
 
 Update `App.tsx`:
-- Lazy import + route `data-quality`
+- Lazy import + route `documents`
 
 ---
 
@@ -189,33 +124,38 @@ Update `App.tsx`:
 
 | File | Deskripsi |
 |------|-----------|
-| `supabase/functions/ml-data-quality-check/index.ts` | Validation + outlier detection edge function |
-| `src/features/properties/services/dataQualityService.ts` | Service CRUD + invoke |
-| `src/features/properties/hooks/useDataQuality.ts` | React Query hooks |
-| `src/pages/merchant/DataQualityHistory.tsx` | Dashboard page |
+| `src/pages/merchant/DocumentCenter.tsx` | Halaman pusat dokumen OCR |
+| `src/features/dss/components/OcrDocumentViewer.tsx` | Preview dokumen + field highlight |
+| `src/features/dss/components/OcrResultEditor.tsx` | Form review & correction |
+| `src/features/dss/services/ocrDocumentService.ts` | Service CRUD ocr_results |
+| `src/features/dss/hooks/useOcrDocuments.ts` | React Query hooks |
 
 ### File yang Dimodifikasi
 
 | File | Perubahan |
 |------|-----------|
-| `src/features/properties/services/propertyService.ts` | Tambah auto-versioning di updateProperty |
-| `src/features/properties/services/unitService.ts` | Tambah auto-versioning di unit update |
-| `src/shared/components/layouts/navigation-config.ts` | Tambah menu Kualitas Data |
+| `src/shared/components/layouts/navigation-config.ts` | Tambah menu "Pusat Dokumen" + import FileSearch |
 | `src/App.tsx` | Tambah lazy import + route |
 
-### Database Migration
+### Tidak Ada Perubahan Database
 
-1 migration file dengan:
-- CREATE TABLE `data_quality_checks` + RLS policies
-- CREATE TABLE `property_data_versions` + RLS policies
-- Index pada `entity_id` dan `merchant_id` untuk kedua tabel
+Tabel `ocr_results` sudah memiliki semua kolom yang diperlukan:
+- `requires_review` (boolean)
+- `review_notes` (text)
+- `reviewed_by` (uuid)
+- `reviewed_at` (timestamptz)
+- `extracted_data` (jsonb -- bisa di-update untuk correction)
+- `status` (text -- completed/requires_review/error)
+
+### Tidak Ada Edge Function Baru
+
+Semua 5 OCR edge functions sudah ada. Yang ditambahkan hanya frontend CRUD untuk mengelola hasil OCR.
 
 ### Urutan Implementasi
-1. Database migration (2 tabel baru + RLS)
-2. Edge function `ml-data-quality-check`
-3. Service `dataQualityService.ts`
-4. Hooks `useDataQuality.ts`
-5. Auto-versioning di `propertyService.ts` dan `unitService.ts`
-6. Halaman `DataQualityHistory.tsx`
-7. Update navigasi + routes
+1. Service `ocrDocumentService.ts`
+2. Hooks `useOcrDocuments.ts`
+3. Komponen `OcrDocumentViewer.tsx`
+4. Komponen `OcrResultEditor.tsx`
+5. Halaman `DocumentCenter.tsx`
+6. Update navigasi + routes
 
