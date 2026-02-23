@@ -17,6 +17,7 @@ import { AlertTriangle, Banknote, Calendar, CreditCard, Eye, EyeOff, Loader2, Ph
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { strongPasswordSchema } from "@/shared/utils/validations/auth";
 
 // Validation schemas
 const profileSchema = z.object({
@@ -27,7 +28,7 @@ const profileSchema = z.object({
 const ktpSchema = z.string().regex(/^[0-9]{16}$/, "NIK harus 16 digit angka").or(z.literal(""));
 
 const passwordSchema = z.object({
-  newPassword: z.string().min(8, "Password minimal 8 karakter"),
+  newPassword: strongPasswordSchema,
   confirmPassword: z.string(),
 }).refine(data => data.newPassword === data.confirmPassword, {
   message: "Password tidak cocok",

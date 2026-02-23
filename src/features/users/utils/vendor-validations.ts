@@ -21,8 +21,8 @@ export const validatePhoneNumber = (phone: string): { isValid: boolean; error?: 
 
 // Password validation
 export const validatePassword = (password: string): { isValid: boolean; error?: string } => {
-  if (password.length < 8) {
-    return { isValid: false, error: 'Password must be at least 8 characters' };
+  if (password.length < 12) {
+    return { isValid: false, error: 'Password must be at least 12 characters' };
   }
   if (!/[a-z]/.test(password)) {
     return { isValid: false, error: 'Password must contain a lowercase letter' };
@@ -102,10 +102,11 @@ export const bankAccountSchema = z.object({
 export const passwordSchema = z.object({
   current_password: z.string().min(1, 'Current password is required').optional(),
   new_password: z.string()
-    .min(8, 'Password must be at least 8 characters')
+    .min(12, 'Password must be at least 12 characters')
     .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
     .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
-    .regex(/[0-9]/, 'Password must contain at least one number'),
+    .regex(/[0-9]/, 'Password must contain at least one number')
+    .regex(/[^A-Za-z0-9]/, 'Password must contain at least one special character'),
   confirm_password: z.string(),
 }).refine((data) => data.new_password === data.confirm_password, {
   message: 'Passwords do not match',
