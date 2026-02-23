@@ -25,7 +25,7 @@ export const UnitsStats = ({ stats }: UnitsStatsProps) => {
     <div className="space-y-4 mb-6">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map(({ key, label, icon: Icon, iconColor }) => (
-          <div key={key} className="glass-stat-card p-4">
+          <div key={key} className="glass-stat-card p-4 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
             <div className="flex items-center gap-3">
               <div className="gradient-icon-box w-10 h-10">
                 <Icon className={cn("h-5 w-5", iconColor)} />
@@ -41,7 +41,7 @@ export const UnitsStats = ({ stats }: UnitsStatsProps) => {
 
       {/* Revenue + Occupancy row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="glass-stat-card p-4">
+        <div className="glass-stat-card p-4 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
           <div className="flex items-center gap-3">
             <div className="gradient-icon-box w-10 h-10">
               <Wallet className="h-5 w-5 text-accent-foreground" />
@@ -53,7 +53,7 @@ export const UnitsStats = ({ stats }: UnitsStatsProps) => {
             </div>
           </div>
         </div>
-        <div className="glass-stat-card p-4">
+        <div className="glass-stat-card p-4 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
           <div className="flex items-center gap-3">
             <div className="gradient-icon-box w-10 h-10">
               <TrendingUp className="h-5 w-5 text-primary" />

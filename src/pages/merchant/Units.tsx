@@ -20,6 +20,7 @@ import {
 } from "@/shared/components/ui/alert-dialog";
 import { Button } from "@/shared/components/ui/button";
 import { useDebounce } from "@/shared/hooks/useDebounce";
+import { PageHeader } from "@/shared/components/ui/PageHeader";
 import { ChevronLeft, ChevronRight, DoorOpen, LayoutGrid, List, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -91,21 +92,12 @@ export default function MerchantUnits() {
 
   return (
     <>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="gradient-icon-box w-11 h-11">
-            <DoorOpen className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold">Unit Saya</h1>
-            <p className="text-sm text-muted-foreground">Kelola semua unit di properti Anda</p>
-          </div>
-        </div>
-        <Button disabled={properties.length === 0} onClick={handleCreate} className="gap-2 gradient-cta text-primary-foreground hover:opacity-90">
+      <PageHeader icon={DoorOpen} title="Unit Saya" description="Kelola semua unit di properti Anda">
+        <Button disabled={properties.length === 0} onClick={handleCreate} className="gap-2 gradient-cta text-primary-foreground hover:opacity-90 rounded-xl">
           <Plus className="h-4 w-4" />Tambah Unit
         </Button>
-      </div>
+      </PageHeader>
+      <div className="mb-6" />
 
       <UnitsStats stats={stats} />
 
@@ -198,7 +190,7 @@ export default function MerchantUnits() {
       <UnitFormDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} unit={editingUnit} properties={properties} onSubmit={handleFormSubmit} isLoading={isCreating || isUpdating} />
 
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
-        <AlertDialogContent className="rounded-2xl">
+        <AlertDialogContent className="rounded-2xl bg-card/95 backdrop-blur-xl border border-border/40">
           <AlertDialogHeader>
             <AlertDialogTitle>Hapus Unit?</AlertDialogTitle>
             <AlertDialogDescription>Tindakan ini tidak dapat dibatalkan. Unit dan semua data terkait akan dihapus permanen.</AlertDialogDescription>

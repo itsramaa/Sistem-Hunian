@@ -145,7 +145,7 @@ export default function PropertyDetail() {
           { icon: DollarSign, iconColor: 'text-success', label: 'Revenue', value: formatCurrency(revenuePotential), sub: 'from occupied units' },
           { icon: Users, iconColor: 'text-warning', label: 'Avg Rent', value: formatCurrency(avgRent), sub: 'per unit' },
         ].map((stat, i) => (
-          <div key={i} className="glass-stat-card p-4">
+          <div key={i} className="glass-stat-card p-4 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
               <stat.icon className={`h-4 w-4 ${stat.iconColor}`} />{stat.label}
             </div>
@@ -174,7 +174,7 @@ export default function PropertyDetail() {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4 mt-4 animate-fade-in">
-            <Card className="rounded-2xl">
+            <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
               <CardHeader><CardTitle className="text-base">Address</CardTitle></CardHeader>
               <CardContent>
                 <p className="text-sm">{property.address}</p>
@@ -182,13 +182,13 @@ export default function PropertyDetail() {
               </CardContent>
             </Card>
             {property.description && (
-              <Card className="rounded-2xl">
+              <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
                 <CardHeader><CardTitle className="text-base">Description</CardTitle></CardHeader>
                 <CardContent><p className="text-sm text-muted-foreground">{property.description}</p></CardContent>
               </Card>
             )}
             {property.amenities && property.amenities.length > 0 && (
-              <Card className="rounded-2xl">
+              <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
                 <CardHeader><CardTitle className="text-base">Amenities</CardTitle></CardHeader>
                 <CardContent>
                   <div className="flex flex-wrap gap-2">
@@ -226,7 +226,7 @@ export default function PropertyDetail() {
                 </TableHeader>
                 <TableBody>
                   {filteredUnits.map((unit: any) => (
-                    <TableRow key={unit.id} className="hover:bg-primary/5 transition-colors">
+                    <TableRow key={unit.id} className="hover:bg-primary/5 transition-colors cursor-pointer" onClick={() => navigate(`/merchant/units/${unit.id}`)}>
                       <TableCell className="font-medium">{unit.unit_number}</TableCell>
                       <TableCell className="capitalize">{unit.unit_type || '—'}</TableCell>
                       <TableCell>{unit.floor ?? '—'}</TableCell>
@@ -249,9 +249,11 @@ export default function PropertyDetail() {
           </TabsContent>
 
           <TabsContent value="activity" className="mt-4 animate-fade-in">
-            <Card className="rounded-2xl">
+            <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
               <CardContent className="py-12 text-center">
-                <Clock className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+                <div className="gradient-icon-box w-16 h-16 mx-auto mb-4">
+                  <Clock className="h-8 w-8 text-muted-foreground/40" />
+                </div>
                 <h3 className="font-medium mb-1">Activity Log</h3>
                 <p className="text-sm text-muted-foreground">Coming soon — track all changes and events for this property.</p>
               </CardContent>
@@ -261,7 +263,7 @@ export default function PropertyDetail() {
 
         {/* Sidebar */}
         <div className="space-y-4">
-          <div className="glass-sidebar-card">
+          <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader><CardTitle className="text-base">Property Info</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div className="flex items-center gap-2 text-muted-foreground">
@@ -279,7 +281,7 @@ export default function PropertyDetail() {
               </div>
             </CardContent>
           </div>
-          <div className="glass-sidebar-card">
+          <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader><CardTitle className="text-base">Quick Stats</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">Total Units</span><span className="font-medium">{totalUnits}</span></div>

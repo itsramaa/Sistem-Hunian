@@ -163,7 +163,7 @@ export function TenantsTable({ tenants, mode = "merchant", isLoading = false, on
                         {onTerminate && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" className="rounded-xl">
                               <DropdownMenuLabel>Aksi</DropdownMenuLabel>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => onTerminate(tenant)} className="text-destructive focus:text-destructive">

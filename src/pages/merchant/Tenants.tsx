@@ -27,6 +27,7 @@ import { Card, CardContent } from '@/shared/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { useToast } from '@/shared/hooks/use-toast';
 import { useDebounce } from '@/shared/hooks/useDebounce';
+import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { AlertTriangle, Plus, RefreshCw, Send, Users } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -156,17 +157,14 @@ export default function MerchantTenants() {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-4">
-        <div />
-        <div className="flex items-center gap-2">
-          <Button onClick={() => setShowInviteDialog(true)} disabled={properties.length === 0} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 shadow-md">
-            <Send className="h-4 w-4 mr-2" />Kirim Undangan
-          </Button>
-          <Button variant="outline" onClick={() => setShowAddDialog(true)} title="Untuk tenant yang sudah terdaftar di sistem" className="rounded-xl">
-            <Plus className="h-4 w-4 mr-2" />Tambah Langsung
-          </Button>
-        </div>
-      </div>
+      <PageHeader icon={Users} title="Manajemen Tenant" description="Kelola tenant aktif dan undangan">
+        <Button onClick={() => setShowInviteDialog(true)} disabled={properties.length === 0} className="rounded-xl gradient-cta text-primary-foreground hover:opacity-90 gap-2">
+          <Send className="h-4 w-4" />Kirim Undangan
+        </Button>
+        <Button variant="outline" onClick={() => setShowAddDialog(true)} title="Untuk tenant yang sudah terdaftar di sistem" className="rounded-xl gap-2">
+          <Plus className="h-4 w-4" />Tambah Langsung
+        </Button>
+      </PageHeader>
 
       <div className="space-y-6">
         <TenantStats
@@ -177,14 +175,14 @@ export default function MerchantTenants() {
         />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-2 bg-muted/50 backdrop-blur-sm rounded-full p-1 border border-border/40">
-            <TabsTrigger value="active" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">
+          <TabsList className="pill-tab-list w-full max-w-md sm:w-auto">
+            <TabsTrigger value="active" className="pill-tab-trigger">
               Tenant Aktif
               {activeTenants.length > 0 && (
                 <Badge variant="secondary" className="ml-2 rounded-full">{activeTenants.length}</Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="invitations" className="relative rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <TabsTrigger value="invitations" className="pill-tab-trigger relative">
               Undangan
               {pendingCount > 0 && (
                 <Badge variant="secondary" className="ml-2 animate-pulse bg-warning/20 text-warning border-warning/30 rounded-full">
@@ -296,7 +294,7 @@ export default function MerchantTenants() {
       />
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent className="rounded-2xl">
+        <AlertDialogContent className="rounded-2xl bg-card/95 backdrop-blur-xl border border-border/40">
           <AlertDialogHeader>
             <AlertDialogTitle>{tenantToDelete?.status === 'linked' ? 'Lepas Tenant' : 'Hapus Tenant'}</AlertDialogTitle>
             <AlertDialogDescription>

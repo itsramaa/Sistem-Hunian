@@ -109,7 +109,7 @@ export default function UnitDetail() {
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-sm text-muted-foreground px-3 py-1.5 rounded-full bg-card/80 backdrop-blur-sm border border-border/40 w-fit">
         <Link to="/merchant" className="hover:text-foreground transition-colors">Dashboard</Link>
         <ChevronRight className="h-3.5 w-3.5" />
         <Link to="/merchant/units" className="hover:text-foreground transition-colors">Units</Link>
@@ -189,7 +189,7 @@ export default function UnitDetail() {
           { icon: Ruler, color: 'text-info', label: 'Ukuran', value: unit.size_sqm ? `${unit.size_sqm} m²` : '—', sub: unit.floor != null ? `Lantai ${unit.floor}` : undefined },
           { icon: FileText, color: 'text-warning', label: 'Kontrak', value: `${unit.contracts?.length || 0}`, sub: activeContract ? 'aktif' : 'tidak aktif' },
         ].map((stat, i) => (
-          <div key={i} className="glass-stat-card p-4">
+          <div key={i} className="glass-stat-card p-4 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
               <stat.icon className={`h-4 w-4 ${stat.color}`} />{stat.label}
             </div>
@@ -210,11 +210,11 @@ export default function UnitDetail() {
 
           <TabsContent value="overview" className="space-y-4 mt-4 animate-fade-in">
             {activeTenant && (
-              <Card className="rounded-2xl border-l-4 border-l-success">
+              <Card className="rounded-2xl border-l-4 border-l-success bg-card/90 backdrop-blur-sm border-border/40">
                 <CardHeader><CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" />Penghuni Aktif</CardTitle></CardHeader>
                 <CardContent>
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-bold ring-2 ring-primary/20">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-bold ring-2 ring-success/20">
                       {(activeTenant.full_name || 'U')[0].toUpperCase()}
                     </div>
                     <div>
@@ -232,13 +232,13 @@ export default function UnitDetail() {
               </Card>
             )}
             {unit.description && (
-              <Card className="rounded-2xl">
+              <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
                 <CardHeader><CardTitle className="text-base">Deskripsi</CardTitle></CardHeader>
                 <CardContent><p className="text-sm text-muted-foreground">{unit.description}</p></CardContent>
               </Card>
             )}
             {unit.amenities && unit.amenities.length > 0 && (
-              <Card className="rounded-2xl">
+              <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
                 <CardHeader><CardTitle className="text-base">Fasilitas</CardTitle></CardHeader>
                 <CardContent>
                   <div className="flex flex-wrap gap-2">
@@ -252,9 +252,11 @@ export default function UnitDetail() {
               </Card>
             )}
             {!activeTenant && !unit.description && (!unit.amenities || unit.amenities.length === 0) && (
-              <Card className="rounded-2xl">
+              <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
                 <CardContent className="py-8 text-center">
-                  <DoorOpen className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                  <div className="gradient-icon-box w-12 h-12 mx-auto mb-3">
+                    <DoorOpen className="h-6 w-6 text-muted-foreground/40" />
+                  </div>
                   <p className="text-sm text-muted-foreground">Unit kosong. Tidak ada informasi tambahan.</p>
                 </CardContent>
               </Card>
@@ -265,7 +267,7 @@ export default function UnitDetail() {
             {unit.contracts?.length > 0 ? unit.contracts.map((contract: any) => {
               const tenant = unit.tenantProfiles?.[contract.tenant_user_id];
               return (
-                <Card key={contract.id} className={cn("rounded-2xl", contract.status === 'active' && 'border-l-4 border-l-success shadow-[0_0_0_1px_hsl(var(--success)/0.2)]')}>
+                <Card key={contract.id} className={cn("rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40 hover:border-primary/20 hover:shadow-sm transition-all cursor-pointer", contract.status === 'active' && 'border-l-4 border-l-success shadow-[0_0_0_1px_hsl(var(--success)/0.2)]')} onClick={() => navigate(`/merchant/contracts/${contract.id}`)}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
@@ -282,9 +284,11 @@ export default function UnitDetail() {
                 </Card>
               );
             }) : (
-              <Card className="rounded-2xl">
+              <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
                 <CardContent className="py-8 text-center">
-                  <FileText className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                  <div className="gradient-icon-box w-12 h-12 mx-auto mb-3">
+                    <FileText className="h-6 w-6 text-muted-foreground/40" />
+                  </div>
                   <p className="text-sm text-muted-foreground">Belum ada kontrak untuk unit ini.</p>
                 </CardContent>
               </Card>
@@ -293,7 +297,7 @@ export default function UnitDetail() {
 
           <TabsContent value="maintenance" className="space-y-3 mt-4 animate-fade-in">
             {unit.maintenanceRequests?.length > 0 ? unit.maintenanceRequests.map((req: any) => (
-              <Card key={req.id} className="rounded-2xl">
+              <Card key={req.id} className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40 hover:border-primary/20 transition-all cursor-pointer" onClick={() => navigate(`/merchant/maintenance/${req.id}`)}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -309,9 +313,11 @@ export default function UnitDetail() {
                 </CardContent>
               </Card>
             )) : (
-              <Card className="rounded-2xl">
+              <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
                 <CardContent className="py-8 text-center">
-                  <Wrench className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                  <div className="gradient-icon-box w-12 h-12 mx-auto mb-3">
+                    <Wrench className="h-6 w-6 text-muted-foreground/40" />
+                  </div>
                   <p className="text-sm text-muted-foreground">Tidak ada permintaan maintenance.</p>
                 </CardContent>
               </Card>
@@ -321,7 +327,7 @@ export default function UnitDetail() {
 
         {/* Sidebar */}
         <div className="space-y-4">
-          <div className="glass-sidebar-card">
+          <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader><CardTitle className="text-base">Info Unit</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div className="flex items-center gap-2 text-muted-foreground">
@@ -353,7 +359,7 @@ export default function UnitDetail() {
             </CardContent>
           </div>
 
-          <div className="glass-sidebar-card">
+          <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader><CardTitle className="text-base">Properti</CardTitle></CardHeader>
             <CardContent className="text-sm">
               <Link to={`/merchant/properties/${unit.property?.id}`} className="font-medium hover:underline text-primary">
