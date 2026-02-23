@@ -1,5 +1,9 @@
 import { useSubscriptionLimits } from '@/features/subscriptions/hooks/useSubscriptionLimits';
 import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/shared/components/ui/alert-dialog';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent } from '@/shared/components/ui/card';
@@ -33,6 +37,7 @@ const statusColors: Record<string, string> = {
 export function UnitsManager({ propertyId, propertyName, propertyType, open, onOpenChange, onUnitsChanged }: UnitsManagerProps) {
   const [showUnitDialog, setShowUnitDialog] = useState(false);
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
+  const [deleteUnit_target, setDeleteUnit_target] = useState<Unit | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
   const { data: limits } = useSubscriptionLimits();
@@ -100,11 +105,16 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
     setShowUnitDialog(true);
   };
 
-  const handleDelete = async (unit: Unit) => {
-    if (!confirm(`Apakah Anda yakin ingin menghapus unit "${unit.unit_number}"?`)) return;
+  const handleDelete = (unit: Unit) => {
+    setDeleteUnit_target(unit);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteUnit_target) return;
     try {
-      await deleteUnit(unit.id);
+      await deleteUnit(deleteUnit_target.id);
       onUnitsChanged();
+      setDeleteUnit_target(null);
     } catch (error) {
       console.error('Error deleting unit:', error);
     }
@@ -141,7 +151,7 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
         <div className="space-y-4 mt-4">
           {/* Subscription Limit Warning */}
           {limits && !limits.canAddUnit && (
-            <Alert variant="destructive" className="rounded-xl">
+            <Alert variant="destructive" className="rounded-xl bg-destructive/5 backdrop-blur-sm border border-destructive/30">
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Batas Unit Tercapai</AlertTitle>
               <AlertDescription>
@@ -238,14 +248,14 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
                       )}
                     </div>
                     <div className="mt-3 flex gap-2" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="outline" size="sm" onClick={() => handleEdit(unit)} className="rounded-lg">
+                      <Button variant="outline" size="sm" onClick={() => handleEdit(unit)} className="rounded-xl">
                         <Edit className="h-3 w-3 mr-1" />
                         Edit
                       </Button>
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        className="text-destructive hover:text-destructive rounded-lg"
+                        className="text-destructive hover:text-destructive rounded-xl"
                         onClick={() => handleDelete(unit)}
                       >
                         <Trash2 className="h-3 w-3 mr-1" />
@@ -267,6 +277,23 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
           onSubmit={handleUnitSubmit}
           isLoading={actionLoading}
         />
+
+        <AlertDialog open={!!deleteUnit_target} onOpenChange={(open) => !open && setDeleteUnit_target(null)}>
+          <AlertDialogContent className="rounded-2xl bg-card/95 backdrop-blur-xl border border-border/40">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Hapus Unit?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Apakah Anda yakin ingin menghapus unit "{deleteUnit_target?.unit_number}"? Tindakan ini tidak dapat dibatalkan.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="rounded-xl">Batal</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl" disabled={isDeleting}>
+                {isDeleting ? "Menghapus..." : "Hapus"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );

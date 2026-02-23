@@ -114,7 +114,7 @@ export function PropertyTable({
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                    <DropdownMenuContent align="end" className="rounded-xl">
                       <DropdownMenuItem onClick={() => onManageUnits(property)}><DoorOpen className="h-4 w-4 mr-2" />Manage Units</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => onManagePhotos(property)}><ImageIcon className="h-4 w-4 mr-2" />Manage Photos</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => onEdit(property)}><Edit className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>

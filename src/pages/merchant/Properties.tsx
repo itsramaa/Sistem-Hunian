@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { useToast } from '@/shared/hooks/use-toast';
 import { useDebounce } from '@/shared/hooks/useDebounce';
+import { PageHeader } from '@/shared/components/ui/PageHeader';
 import {
   AlertTriangle,
   Building2,
@@ -281,16 +282,16 @@ export default function MerchantProperties() {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-muted-foreground">Manage your rental properties</p>
+      <PageHeader icon={Building2} title="Properti Saya" description="Kelola properti dan unit Anda">
         <Button 
           onClick={() => setShowAddDialog(true)}
           disabled={limits && !limits.canAddProperty}
+          className="gradient-cta text-primary-foreground hover:opacity-90 rounded-xl gap-2"
         >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Property
+          <Plus className="h-4 w-4" />
+          Tambah Properti
         </Button>
-      </div>
+      </PageHeader>
       <div className="space-y-6">
         {/* Subscription limit warning */}
         <SubscriptionLimitWarning />
@@ -319,7 +320,7 @@ export default function MerchantProperties() {
             {/* Stats */}
             <TooltipProvider delayDuration={200}>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="glass-stat-card p-5">
+                <div className="glass-stat-card p-5 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Total Properties</p>
@@ -335,7 +336,7 @@ export default function MerchantProperties() {
                     </Tooltip>
                   </div>
                 </div>
-                <div className="glass-stat-card p-5">
+                <div className="glass-stat-card p-5 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Total Units</p>
@@ -354,7 +355,7 @@ export default function MerchantProperties() {
                     </Tooltip>
                   </div>
                 </div>
-                <div className="glass-stat-card p-5">
+                <div className="glass-stat-card p-5 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm text-muted-foreground">Occupancy Rate</p>
@@ -403,7 +404,7 @@ export default function MerchantProperties() {
 
             {/* Error State */}
             {error && (
-              <Alert variant="destructive" className="mb-4">
+              <Alert variant="destructive" className="mb-4 rounded-xl">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Error</AlertTitle>
                 <AlertDescription className="flex items-center justify-between">
@@ -439,15 +440,15 @@ export default function MerchantProperties() {
                       </Button>
                       <div className="flex items-center gap-6 text-xs text-muted-foreground">
                         <div className="flex items-center gap-1.5">
-                          <span className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-[10px]">1</span>
+                          <span className="gradient-icon-box w-6 h-6 text-[10px] font-bold text-primary">1</span>
                           Add property
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <span className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-[10px]">2</span>
+                          <span className="gradient-icon-box w-6 h-6 text-[10px] font-bold text-primary">2</span>
                           Create units
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <span className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-[10px]">3</span>
+                          <span className="gradient-icon-box w-6 h-6 text-[10px] font-bold text-primary">3</span>
                           Invite tenants
                         </div>
                       </div>
@@ -501,7 +502,7 @@ export default function MerchantProperties() {
                           </Select>
                         </div>
                         <div className="flex items-center gap-1">
-                          <Button variant="outline" size="sm" onClick={() => setPage(page - 1)} disabled={page <= 1} className="h-8">
+                          <Button variant="ghost" size="sm" onClick={() => setPage(page - 1)} disabled={page <= 1} className="h-8 rounded-full">
                             <ChevronLeft className="h-4 w-4" />
                           </Button>
                           {pageNumbers.map((p, i) =>
@@ -510,16 +511,16 @@ export default function MerchantProperties() {
                             ) : (
                               <Button
                                 key={p}
-                                variant={p === page ? 'default' : 'outline'}
+                                variant={p === page ? 'default' : 'ghost'}
                                 size="sm"
-                                className="h-8 w-8 p-0"
+                                className={`h-8 w-8 p-0 rounded-full ${p === page ? 'gradient-cta text-primary-foreground' : ''}`}
                                 onClick={() => setPage(p)}
                               >
                                 {p}
                               </Button>
                             )
                           )}
-                          <Button variant="outline" size="sm" onClick={() => setPage(page + 1)} disabled={page >= totalPages} className="h-8">
+                          <Button variant="ghost" size="sm" onClick={() => setPage(page + 1)} disabled={page >= totalPages} className="h-8 rounded-full">
                             <ChevronRight className="h-4 w-4" />
                           </Button>
                         </div>
@@ -560,7 +561,7 @@ export default function MerchantProperties() {
 
         {/* Images Manager Dialog */}
         <Dialog open={!!imagesProperty} onOpenChange={(open) => !open && setImagesProperty(null)}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl rounded-2xl">
             <DialogHeader>
               <DialogTitle>Property Photos - {imagesProperty?.name}</DialogTitle>
               <DialogDescription>
@@ -577,10 +578,10 @@ export default function MerchantProperties() {
               />
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setImagesProperty(null)}>
+              <Button variant="outline" onClick={() => setImagesProperty(null)} className="rounded-xl">
                 Cancel
               </Button>
-              <Button onClick={handleSaveImages}>
+              <Button onClick={handleSaveImages} className="gradient-cta text-primary-foreground rounded-xl">
                 Save Photos
               </Button>
             </DialogFooter>

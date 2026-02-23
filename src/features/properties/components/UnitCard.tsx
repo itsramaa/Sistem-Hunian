@@ -99,7 +99,7 @@ export function UnitCard({ unit, properties, onEdit, onDelete, style }: UnitCard
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="rounded-xl">
                 <DropdownMenuItem onClick={() => navigate(`/merchant/units/${unit.id}`)}>
                   <Eye className="h-4 w-4 mr-2" />Lihat Detail
                 </DropdownMenuItem>
