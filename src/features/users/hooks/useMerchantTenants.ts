@@ -50,6 +50,13 @@ export function useMerchantTenants(merchantId: string | undefined) {
   });
 }
 
+export function useAllTenantsInSystem() {
+  return useQuery({
+    queryKey: ['all-tenants-system'],
+    queryFn: () => merchantTenantService.getAllTenantsInSystem(),
+  });
+}
+
 export function useMerchantTenantMutations(merchantId: string | undefined) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
