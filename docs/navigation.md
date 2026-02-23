@@ -2,34 +2,40 @@
 
 This document maps the **Merchant (Pemilik Properti)** sidebar navigation to the codebase structure.
 
-> **Architecture:** Hub-and-Spoke pattern — sidebar shows 10 main items across 6 groups.
-> Related modules are consolidated into **Hub Pages** using Shadcn `Tabs`.
-> All original standalone routes remain for backward compatibility and deep-linking.
+> **Architecture:** Flat sidebar with direct links to standalone pages.
+> High-frequency features (Properties, Tenants, Invoices, Payments, Contracts, Maintenance) each have their own sidebar item and standalone page.
+> Low-frequency features (Compliance, Data Quality, OCR, Guardians) are accessible contextually from parent pages or secondary nav.
+> InsightsHub is the only "hub" page — it uses a card-based landing that links to standalone analytical pages.
 
 ---
 
-## Sidebar Structure (10 Items)
+## Sidebar Structure (9 Items, 5 Groups)
 
 ```text
 Merchant Portal/
-├── 1. Utama
+├── Utama
 │   └── Dashboard
-├── 2. Manajemen Aset
-│   ├── Properti & Unit          (Hub: Properties + Units)
-│   ├── Penyewa & Okupansi       (Hub: Tenants + Move-Outs + Tenant Analytics)
-│   └── Staf Operasional         (Guardians)
-├── 3. Keuangan
-│   ├── Transaksi & Tagihan      (Hub: Invoices + Payments)
-│   └── Kontrak Sewa             (Contracts)
-├── 4. Operasional
-│   ├── Laporan Kerusakan        (Maintenance)
-│   └── Kepatuhan & Legalitas    (Hub: Compliance + Data Quality)
-├── 5. Wawasan Bisnis
-│   ├── Analitik Performa        (Hub: Analytics Dashboard + Reports + Templates + Portfolio)
-│   └── Intelijen AI             (Hub: ML Analytics + DSS Advisor + Market Intel + Risk + Tenant Quality)
-└── 6. Bantuan
-    └── Pusat Bantuan            (Hub: Documents + OCR Tutorial + Support)
+├── Aset
+│   ├── Properti              (standalone list page)
+│   └── Penyewa               (standalone list page)
+├── Keuangan
+│   ├── Tagihan               (standalone list page)
+│   ├── Pembayaran            (standalone list page)
+│   └── Kontrak               (standalone list page)
+├── Operasional
+│   └── Maintenance           (standalone list page)
+└── Wawasan
+    └── Analitik              (card-based landing → sub-pages)
 ```
+
+### Secondary Nav (sidebar footer)
+- Support (`/merchant/support`)
+- Feedback (`mailto:support@sihuni.com`)
+
+### User Menu (NavUser dropdown)
+- Profile (`/merchant/profile`)
+- Billing (`/merchant/billing`)
+- Settings (`/merchant/settings`)
 
 ---
 
@@ -37,22 +43,22 @@ Merchant Portal/
 
 **File:** `src/shared/components/layouts/navigation-config.ts`
 
-Each hub item has an `activePatterns` array so the sidebar highlights correctly on sub-routes:
+Each nav item supports `activePatterns` for sidebar highlighting on related sub-routes:
 
 ```typescript
 interface NavItem {
   path: string;
   icon: LucideIcon;
   label: string;
-  activePatterns?: string[];  // sub-routes that activate this item
+  activePatterns?: string[];
 }
 ```
 
-**Active path logic:** `isPathActive()` in the same file + `nav-main.tsx` checks both `path` prefix and `activePatterns`.
+**Active path logic:** `isPathActive()` in the same file + `nav-main.tsx`.
 
 ---
 
-## Hub Pages & Embedded Modules
+## Page Inventory
 
 ### 1. Dashboard (standalone)
 
@@ -61,300 +67,129 @@ interface NavItem {
 | **Path** | `/merchant` |
 | **Page** | `pages/merchant/Dashboard.tsx` |
 | **Components** | `InteractiveDashboardCharts`, `VacancyDashboard`, `SubscriptionWidget`, `TrialCountdownWidget` |
-| **Hooks** | `useMerchantDashboardStats`, `useAnalytics`, `useAuth` |
 
 ---
 
-### 2. Properti & Unit — AssetsHub
+### 2. Properti (standalone)
 
 | | |
 |---|---|
-| **Path** | `/merchant/assets` |
-| **Hub Page** | `pages/merchant/AssetsHub.tsx` |
-| **Tabs** | `#properties` · `#units` |
-
-**Tab: Properti** — lazy-loads `pages/merchant/Properties.tsx`
-
-| Feature Components | Location |
-|---|---|
-| PropertyCard, PropertyFilters, PropertyFormDialog | `features/properties/components/` |
-| PropertyImportDialog, PropertyTable, UnitsManager | `features/properties/components/` |
-| DeletePropertyDialog, PropertiesPageSkeleton | `features/properties/components/` |
-| SubscriptionLimitWarning | `features/subscriptions/components/` |
-| useMerchantProperties | `features/properties/hooks/` |
-| useSubscriptionLimits | `features/subscriptions/hooks/` |
-
-Sub-page: **Property Detail** (`/merchant/properties/:id`) — `pages/merchant/PropertyDetail.tsx`
-
-**Tab: Unit** — lazy-loads `pages/merchant/Units.tsx`
-
-| Feature Components | Location |
-|---|---|
-| UnitCard, UnitFilters, UnitFormDialog | `features/properties/components/` |
-| UnitImportDialog, UnitsStats, UnitsTable | `features/properties/components/` |
-| useMerchantProperties, useMerchantUnits | `features/properties/hooks/` |
+| **Path** | `/merchant/properties` |
+| **Page** | `pages/merchant/Properties.tsx` |
+| **Detail** | `/merchant/properties/:id` → `pages/merchant/PropertyDetail.tsx` |
+| **Related** | Units (`/merchant/units`), Guardians (`/merchant/guardians`) — accessible from Property Detail |
 
 ---
 
-### 3. Penyewa & Okupansi — OccupancyHub
+### 3. Penyewa (standalone)
 
 | | |
 |---|---|
-| **Path** | `/merchant/occupancy` |
-| **Hub Page** | `pages/merchant/OccupancyHub.tsx` |
-| **Tabs** | `#tenants` · `#move-outs` · `#analytics` |
-
-**Tab: Penyewa** — lazy-loads `pages/merchant/Tenants.tsx`
-
-| Feature Components | Location |
-|---|---|
-| TenantsTable | `features/users/components/tables/` |
-| InvitationsTable, InviteTenantDialog, AddTenantDialog | `features/users/components/tenant/` |
-| TenantDetailsDialog, TenantsFilters, TenantStats | `features/users/components/tenant/` |
-
-**Tab: Pindah Keluar** — lazy-loads `pages/merchant/MoveOuts.tsx`
-
-| Feature Components | Location |
-|---|---|
-| EarlyTerminationReviewDialog, EarlyTerminationsList | `features/contracts/components/` |
-| MoveOutInspectionForm, ScheduleInspectionDialog | `features/properties/components/` |
-| MoveOutsTable, MoveOutsFilters | `features/contracts/components/` |
-| VacancyDashboard | `features/dashboard/components/` |
-| useMerchantMoveOuts | `features/contracts/hooks/` |
-
-Sub-page: **Move Out Detail** (`/merchant/move-outs/:id`) — `pages/merchant/MoveOutDetail.tsx`
-
-**Tab: Analitik Penyewa** — lazy-loads `pages/merchant/TenantAnalytics.tsx`
+| **Path** | `/merchant/tenants` |
+| **Page** | `pages/merchant/Tenants.tsx` |
+| **Related** | Move-Outs (`/merchant/move-outs`), Tenant Analytics (`/merchant/tenant-analytics`) |
 
 ---
 
-### 4. Staf Operasional (standalone)
+### 4. Tagihan (standalone)
 
 | | |
 |---|---|
-| **Path** | `/merchant/guardians` |
-| **Page** | `pages/merchant/Guardians.tsx` |
-| **Components** | `GuardianFormDialog` |
-| **Hooks** | `useGuardians`, `useMerchantProperties` |
+| **Path** | `/merchant/invoices` |
+| **Page** | `pages/merchant/Invoices.tsx` |
+| **Detail** | `/merchant/invoices/:id` → `pages/merchant/InvoiceDetail.tsx` |
 
 ---
 
-### 5. Transaksi & Tagihan — TransactionsHub
+### 5. Pembayaran (standalone)
 
 | | |
 |---|---|
-| **Path** | `/merchant/transactions` |
-| **Hub Page** | `pages/merchant/TransactionsHub.tsx` |
-| **Tabs** | `#invoices` · `#payments` |
-
-**Tab: Tagihan** — lazy-loads `pages/merchant/Invoices.tsx`
-
-| Feature Components | Location |
-|---|---|
-| CreateInvoiceDialog, InvoiceDetailsDialog | `features/payments/components/` |
-| InvoicesFilters, InvoicesStats, InvoicesTable | `features/payments/components/` |
-| useInvoiceActions | `features/payments/hooks/` |
-
-Sub-page: **Invoice Detail** (`/merchant/invoices/:id`) — `pages/merchant/InvoiceDetail.tsx`
-
-**Tab: Pembayaran** — lazy-loads `pages/merchant/Payments.tsx`
-
-| Feature Components | Location |
-|---|---|
-| MarkPaidDialog, OverdueInvoicesTable, PaymentPlanDialog | `features/payments/components/` |
-| PaymentsFilters, PaymentsStats, PaymentsTable | `features/payments/components/` |
-| useMerchantPayments | `features/payments/hooks/` |
-
-Sub-pages: **Payment Detail** (`/merchant/payments/:id`), **Escrow** (`/merchant/escrow`)
+| **Path** | `/merchant/payments` |
+| **Page** | `pages/merchant/Payments.tsx` |
+| **Detail** | `/merchant/payments/:id` → `pages/merchant/PaymentDetail.tsx` |
+| **Related** | Escrow (`/merchant/escrow`) |
 
 ---
 
-### 6. Kontrak Sewa (standalone)
+### 6. Kontrak (standalone)
 
 | | |
 |---|---|
 | **Path** | `/merchant/contracts` |
 | **Page** | `pages/merchant/Contracts.tsx` |
-| **Components** | `ContractsTable`, `ContractsFilters`, `ContractStats`, `CreateContractDialog`, `DeleteContractDialog`, `SignContractDialog` |
-| **Hooks** | `useContractActions`, `usePropertiesWithUnits`, `useMerchantTenants` |
-
-Sub-page: **Contract Detail** (`/merchant/contracts/:id`) — `pages/merchant/ContractDetail.tsx`
+| **Detail** | `/merchant/contracts/:id` → `pages/merchant/ContractDetail.tsx` |
 
 ---
 
-### 7. Laporan Kerusakan (standalone)
+### 7. Maintenance (standalone)
 
 | | |
 |---|---|
 | **Path** | `/merchant/maintenance` |
 | **Page** | `pages/merchant/Maintenance.tsx` |
-| **Components** | `MaintenanceRequestTable`, `MaintenanceStats`, `UpdateMaintenanceDialog`, `MaintenanceFilters` |
-| **Hooks** | `useMerchantMaintenanceRequests`, `useVerifiedVendors` |
-
-Sub-page: **Maintenance Detail** (`/merchant/maintenance/:id`) — `pages/merchant/MaintenanceDetail.tsx`
+| **Detail** | `/merchant/maintenance/:id` → `pages/merchant/MaintenanceDetail.tsx` |
 
 ---
 
-### 8. Kepatuhan & Legalitas — LegalHub
+### 8. Analitik — InsightsHub (card-based landing)
 
 | | |
 |---|---|
-| **Path** | `/merchant/legal` |
-| **Hub Page** | `pages/merchant/LegalHub.tsx` |
-| **Tabs** | `#compliance` · `#data-quality` |
+| **Path** | `/merchant/insights` |
+| **Page** | `pages/merchant/InsightsHub.tsx` |
+| **Pattern** | Card grid with 2 sections (Performa + Intelijen AI), each card links to a standalone page |
 
-**Tab: Kepatuhan** — lazy-loads `pages/merchant/PropertyCompliance.tsx`
+**Performa cards:**
+- Ringkasan Analitik → `/merchant/analytics-dashboard`
+- Laporan → `/merchant/reports`
+- Template Laporan → `/merchant/report-templates`
+- Portofolio Komparatif → `/merchant/comparative-portfolio`
 
-| Feature Components | Location |
-|---|---|
-| useComplianceSummary, useOcrCompliance | `features/compliance/hooks/` |
-| complianceService | `features/compliance/services/` |
-| useMerchantProperties | `features/properties/hooks/` |
-
-**Tab: Validasi Data** — lazy-loads `pages/merchant/DataQualityHistory.tsx`
-
-| Feature Components | Location |
-|---|---|
-| useDataQualityCheck, useLatestQualityCheck | `features/properties/hooks/` |
-| propertyService | `features/properties/services/` |
+**Intelijen AI cards:**
+- Prediksi ML → `/merchant/ml-analytics`
+- Strategi DSS → `/merchant/dss-advisor`
+- Tren Pasar → `/merchant/market-intelligence`
+- Risiko Keuangan → `/merchant/financial-risk`
+- Skor Penyewa → `/merchant/tenant-quality`
 
 ---
 
-### 9. Analitik Performa — AnalyticsHub
+## Contextual / Secondary Pages (no sidebar item)
 
-| | |
-|---|---|
-| **Path** | `/merchant/analytics` |
-| **Hub Page** | `pages/merchant/AnalyticsHub.tsx` |
-| **Tabs** | `#summary` · `#reports` · `#templates` · `#portfolio` |
-
-**Tab: Ringkasan** — lazy-loads `pages/merchant/AnalyticsDashboard.tsx`
-
-| Hooks | Location |
-|---|---|
-| useAnalyticsProperties, useAnalyticsUnits | `features/analytics/hooks/` |
-| useAnalyticsContracts, useAnalyticsTenantRiskScores | `features/analytics/hooks/` |
-| useAnalyticsDisasterRisk | `features/analytics/hooks/` |
-
-**Tab: Laporan** — lazy-loads `pages/merchant/Reports.tsx`
-
-| Feature Components | Location |
-|---|---|
-| TenantChurnAnalytics, OnTimePaymentRate, RevenueForecast | `features/analytics/components/` |
-| ContractNoticePeriod | `features/contracts/components/` |
-| useReportsData, useReportExports | `features/analytics/hooks/` |
-
-**Tab: Template** — lazy-loads `pages/merchant/ReportTemplates.tsx`
-
-| Hooks | Location |
-|---|---|
-| useExecutiveSummary, usePropertyAnalysis | `features/analytics/hooks/` |
-| useFinancialPerformance, useRiskAssessment | `features/analytics/hooks/` |
-| useInvestmentOpportunity | `features/analytics/hooks/` |
-
-**Tab: Portfolio** — lazy-loads `pages/merchant/ComparativePortfolio.tsx`
-
-| Hooks | Location |
-|---|---|
-| useComparativePortfolio | `features/analytics/hooks/` |
+| Page | Path | Access Point |
+|---|---|---|
+| Units | `/merchant/units` | Properties page / Property Detail |
+| Unit Detail | `/merchant/units/:id` | Units list |
+| Guardians | `/merchant/guardians` | Properties page / Property Detail |
+| Move-Outs | `/merchant/move-outs` | Tenants page |
+| Move-Out Detail | `/merchant/move-outs/:id` | Move-Outs list |
+| Tenant Analytics | `/merchant/tenant-analytics` | InsightsHub or Tenants page |
+| Compliance | `/merchant/compliance` | Property Detail |
+| Data Quality | `/merchant/data-quality` | Property Detail |
+| Documents | `/merchant/documents` | Secondary nav or Dashboard |
+| OCR Tutorial | `/merchant/ocr-tutorial` | Documents page |
+| Escrow | `/merchant/escrow` | Payments page or Dashboard |
+| Referrals | `/merchant/referrals` | User menu or Dashboard |
+| Profile | `/merchant/profile` | User menu |
+| Billing | `/merchant/billing` | User menu |
+| Settings | `/merchant/settings` | User menu |
 
 ---
 
-### 10. Intelijen AI — AiInsightsHub
+## Legacy Redirects (backward compatibility)
 
-| | |
+| Old Path | Redirects To |
 |---|---|
-| **Path** | `/merchant/ai-insights` |
-| **Hub Page** | `pages/merchant/AiInsightsHub.tsx` |
-| **Tabs** | `#predictions` · `#strategy` · `#market` · `#risk` · `#tenant-score` |
-
-**Tab: Prediksi** — lazy-loads `pages/merchant/MlAnalytics.tsx`
-
-| Feature Components | Location |
-|---|---|
-| TierGate | `features/dss/components/` |
-| useRevenueForecast, useTenantRiskScores | `features/dss/hooks/` |
-| useChurnPrediction, useOptimalPricing | `features/dss/hooks/` |
-| useModelRunHistory | `features/dss/hooks/` |
-
-**Tab: Strategi** — lazy-loads `pages/merchant/DssAdvisor.tsx`
-
-| Feature Components | Location |
-|---|---|
-| DssReadinessCard, TierGate | `features/dss/components/` |
-| useDssReadiness, usePricingAdvisor | `features/dss/hooks/` |
-| useCollectionStrategy, useMaintenancePriority | `features/dss/hooks/` |
-| useInvestmentInsight, useDssRecommendations | `features/dss/hooks/` |
-
-**Tab: Tren Pasar** — lazy-loads `pages/merchant/MarketIntelligence.tsx`
-
-| Feature Components | Location |
-|---|---|
-| TierGate | `features/dss/components/` |
-| usePriceIntelligence, useOccupancyForecast | `features/dss/hooks/` |
-
-**Tab: Risiko** — lazy-loads `pages/merchant/FinancialRiskAnalytics.tsx`
-
-| Feature Components | Location |
-|---|---|
-| TierGate | `features/dss/components/` |
-| useFinancialAnalytics, useRiskAssessment | `features/dss/hooks/` |
-
-**Tab: Skor Penyewa** — lazy-loads `pages/merchant/TenantQualityScoring.tsx`
-
-| Feature Components | Location |
-|---|---|
-| TierGate | `features/subscriptions/components/` |
-| useMerchantTier, useTenantQualityScoring | `features/dss/hooks/` |
-
----
-
-### 11. Pusat Bantuan — HelpHub
-
-| | |
-|---|---|
-| **Path** | `/merchant/help` |
-| **Hub Page** | `pages/merchant/HelpHub.tsx` |
-| **Tabs** | `#documents` · `#ocr` · `#support` |
-
-**Tab: Dokumen** — lazy-loads `pages/merchant/DocumentCenter.tsx`
-
-| Feature Components | Location |
-|---|---|
-| OcrDocumentViewer, OcrResultEditor | `features/dss/components/` |
-| useOcrResults, useUpdateOcrResult | `features/dss/hooks/` |
-
-**Tab: Panduan OCR** — lazy-loads `pages/merchant/OcrTutorial.tsx`
-
-**Tab: Dukungan** — lazy-loads `pages/merchant/Support.tsx`
-
----
-
-## Secondary / User Menu (Not in Sidebar mainNav)
-
-### Profile
-
-| | |
-|---|---|
-| **Path** | `/merchant/profile` |
-| **Page** | `pages/merchant/Profile.tsx` |
-| **Components** | `BankAccountManager` (`features/payments/components/`) |
-
-### Settings
-
-| | |
-|---|---|
-| **Path** | `/merchant/settings` |
-| **Page** | `pages/merchant/Settings.tsx` |
-| **Components** | `MerchantNotificationSettings`, `BankAccountManager`, `DisbursementScheduleSettings` |
-
-### Billing
-
-| | |
-|---|---|
-| **Path** | `/merchant/billing` |
-| **Page** | `pages/merchant/Billing.tsx` |
-| **Components** | `BillingDashboard`, `DisbursementScheduleSettings`, `SuspensionWarningBanner` |
+| `/merchant/assets` | `/merchant/properties` |
+| `/merchant/occupancy` | `/merchant/tenants` |
+| `/merchant/finance` | `/merchant/invoices` |
+| `/merchant/transactions` | `/merchant/invoices` |
+| `/merchant/operations` | `/merchant/maintenance` |
+| `/merchant/legal` | `/merchant/compliance` |
+| `/merchant/analytics` | `/merchant/insights` |
+| `/merchant/ai-insights` | `/merchant/insights` |
+| `/merchant/help` | `/merchant/documents` |
 
 ---
 
@@ -364,6 +199,6 @@ Sub-page: **Maintenance Detail** (`/merchant/maintenance/:id`) — `pages/mercha
 |---|---|
 | `src/shared/components/layouts/navigation-config.ts` | Sidebar items, groups, `activePatterns`, `isPathActive()` |
 | `src/shared/components/layouts/sidebar/nav-main.tsx` | Renders sidebar, uses `activePatterns` for highlight |
-| `src/shared/components/ui/PageSkeleton.tsx` | `ContentSkeleton` used as Suspense fallback in hubs |
-| `src/shared/components/ui/PageHeader.tsx` | Consistent header for all hub & standalone pages |
-| `src/App.tsx` | All routes (hub + standalone + detail sub-pages) |
+| `src/shared/components/ui/PageSkeleton.tsx` | `ContentSkeleton` used as Suspense fallback |
+| `src/shared/components/ui/PageHeader.tsx` | Consistent header for all pages |
+| `src/App.tsx` | All routes (standalone + detail + legacy redirects) |

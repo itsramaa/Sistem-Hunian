@@ -88,13 +88,8 @@ const MerchantDocumentCenter = lazy(() => import("@/pages/merchant/DocumentCente
 const MerchantAnalyticsDashboard = lazy(() => import("@/pages/merchant/AnalyticsDashboard"));
 const MerchantReportTemplates = lazy(() => import("@/pages/merchant/ReportTemplates"));
 const MerchantComparativePortfolio = lazy(() => import("@/pages/merchant/ComparativePortfolio"));
-// Hub Pages
-const MerchantAssetsHub = lazy(() => import("@/pages/merchant/AssetsHub"));
-const MerchantOccupancyHub = lazy(() => import("@/pages/merchant/OccupancyHub"));
-const MerchantFinanceHub = lazy(() => import("@/pages/merchant/FinanceHub"));
-const MerchantOperationsHub = lazy(() => import("@/pages/merchant/OperationsHub"));
+// Hub Pages (only InsightsHub remains as a hub)
 const MerchantInsightsHub = lazy(() => import("@/pages/merchant/InsightsHub"));
-const MerchantHelpHub = lazy(() => import("@/pages/merchant/HelpHub"));
 // Tenant Pages
 const TenantContractDetail = lazy(() => import("@/pages/tenant/ContractDetail"));
 const TenantContracts = lazy(() => import("@/pages/tenant/Contracts"));
@@ -187,54 +182,55 @@ const App = () => (
                   {/* Merchant Routes - Nested with layout */}
                   <Route path="/merchant" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantLayoutRoute /></ProtectedRoute>}>
                     <Route index element={<MerchantDashboard />} />
-                    {/* Hub Pages */}
-                    <Route path="assets" element={<MerchantAssetsHub />} />
-                    <Route path="occupancy" element={<MerchantOccupancyHub />} />
-                    <Route path="finance" element={<MerchantFinanceHub />} />
-                    <Route path="transactions" element={<Navigate to="/merchant/finance" replace />} />
-                    <Route path="operations" element={<MerchantOperationsHub />} />
-                    <Route path="legal" element={<Navigate to="/merchant/operations#compliance" replace />} />
-                    <Route path="insights" element={<MerchantInsightsHub />} />
-                    <Route path="analytics" element={<Navigate to="/merchant/insights#dashboard" replace />} />
-                    <Route path="ai-insights" element={<Navigate to="/merchant/insights#predictions" replace />} />
-                    <Route path="help" element={<MerchantHelpHub />} />
-                    {/* Individual pages (backward compat) */}
+                    {/* Standalone pages */}
                     <Route path="profile" element={<MerchantProfile />} />
                     <Route path="properties" element={<MerchantProperties />} />
                     <Route path="properties/:id" element={<MerchantPropertyDetail />} />
                     <Route path="tenants" element={<MerchantTenants />} />
-                    <Route path="maintenance" element={<Navigate to="/merchant/operations#maintenance" replace />} />
-                    <Route path="maintenance/:id" element={<MerchantMaintenanceDetail />} />
-                    <Route path="payments" element={<Navigate to="/merchant/finance#payments" replace />} />
-                    <Route path="payments/:paymentId" element={<MerchantPaymentDetail />} />
-                    <Route path="reports" element={<MerchantReports />} />
-                    <Route path="invoices" element={<Navigate to="/merchant/finance#invoices" replace />} />
+                    <Route path="invoices" element={<MerchantInvoices />} />
                     <Route path="invoices/:invoiceId" element={<MerchantInvoiceDetail />} />
+                    <Route path="payments" element={<MerchantPayments />} />
+                    <Route path="payments/:paymentId" element={<MerchantPaymentDetail />} />
+                    <Route path="contracts" element={<MerchantContracts />} />
+                    <Route path="contracts/:contractId" element={<MerchantContractDetail />} />
+                    <Route path="maintenance" element={<MerchantMaintenance />} />
+                    <Route path="maintenance/:id" element={<MerchantMaintenanceDetail />} />
+                    <Route path="insights" element={<MerchantInsightsHub />} />
                     <Route path="settings" element={<MerchantSettings />} />
                     <Route path="units" element={<MerchantUnits />} />
                     <Route path="units/:id" element={<MerchantUnitDetail />} />
-                    <Route path="guardians" element={<Navigate to="/merchant/assets#guardians" replace />} />
+                    <Route path="guardians" element={<MerchantGuardians />} />
                     <Route path="escrow" element={<MerchantEscrow />} />
                     <Route path="referrals" element={<MerchantReferrals />} />
-                    <Route path="contracts" element={<Navigate to="/merchant/finance#contracts" replace />} />
-                    <Route path="contracts/:contractId" element={<MerchantContractDetail />} />
                     <Route path="billing" element={<MerchantBilling />} />
                     <Route path="move-outs" element={<MerchantMoveOuts />} />
                     <Route path="move-outs/:noticeId" element={<MerchantMoveOutDetail />} />
-                    <Route path="ocr-tutorial" element={<MerchantOcrTutorial />} />
-                    <Route path="ml-analytics" element={<MerchantMlAnalytics />} />
-                    <Route path="dss-advisor" element={<MerchantDssAdvisor />} />
-                    <Route path="market-intelligence" element={<MerchantMarketIntelligence />} />
+                    <Route path="reports" element={<MerchantReports />} />
+                    <Route path="documents" element={<MerchantDocumentCenter />} />
                     <Route path="support" element={<MerchantSupport />} />
+                    <Route path="ocr-tutorial" element={<MerchantOcrTutorial />} />
                     <Route path="tenant-analytics" element={<MerchantTenantAnalytics />} />
                     <Route path="compliance" element={<MerchantCompliance />} />
-                    <Route path="financial-risk" element={<MerchantFinancialRisk />} />
-                    <Route path="tenant-quality" element={<MerchantTenantQuality />} />
                     <Route path="data-quality" element={<MerchantDataQuality />} />
-                    <Route path="documents" element={<MerchantDocumentCenter />} />
+                    {/* Insights sub-pages */}
                     <Route path="analytics-dashboard" element={<MerchantAnalyticsDashboard />} />
                     <Route path="report-templates" element={<MerchantReportTemplates />} />
                     <Route path="comparative-portfolio" element={<MerchantComparativePortfolio />} />
+                    <Route path="ml-analytics" element={<MerchantMlAnalytics />} />
+                    <Route path="dss-advisor" element={<MerchantDssAdvisor />} />
+                    <Route path="market-intelligence" element={<MerchantMarketIntelligence />} />
+                    <Route path="financial-risk" element={<MerchantFinancialRisk />} />
+                    <Route path="tenant-quality" element={<MerchantTenantQuality />} />
+                    {/* Legacy redirects */}
+                    <Route path="assets" element={<Navigate to="/merchant/properties" replace />} />
+                    <Route path="occupancy" element={<Navigate to="/merchant/tenants" replace />} />
+                    <Route path="finance" element={<Navigate to="/merchant/invoices" replace />} />
+                    <Route path="transactions" element={<Navigate to="/merchant/invoices" replace />} />
+                    <Route path="operations" element={<Navigate to="/merchant/maintenance" replace />} />
+                    <Route path="legal" element={<Navigate to="/merchant/compliance" replace />} />
+                    <Route path="analytics" element={<Navigate to="/merchant/insights" replace />} />
+                    <Route path="ai-insights" element={<Navigate to="/merchant/insights" replace />} />
+                    <Route path="help" element={<Navigate to="/merchant/documents" replace />} />
                   </Route>
 
                   {/* Tenant Routes */}
