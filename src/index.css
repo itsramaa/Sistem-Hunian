@@ -162,6 +162,10 @@
   .glass {
     @apply bg-background/80 backdrop-blur-sm;
   }
+
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-xl border border-border/50 shadow-[0_8px_32px_rgba(0,0,0,0.12)] rounded-2xl;
+  }
   
   .gradient-primary {
     background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(187 73% 35%) 100%);
@@ -169,6 +173,10 @@
   
   .gradient-accent {
     background: linear-gradient(135deg, hsl(var(--accent)) 0%, hsl(25 95% 45%) 100%);
+  }
+
+  .gradient-cta {
+    @apply bg-gradient-to-r from-primary to-secondary;
   }
 
   /* Mobile App Safe Areas */
@@ -183,6 +191,54 @@
   .pb-safe {
     padding-bottom: max(env(safe-area-inset-bottom, 0px), 1rem);
   }
+}
+
+/* Floating orb animation */
+@keyframes float-slow {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -30px) scale(1.05); }
+  66% { transform: translate(-20px, 20px) scale(0.95); }
+}
+
+@keyframes float-slow-reverse {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-25px, 25px) scale(0.95); }
+  66% { transform: translate(15px, -20px) scale(1.05); }
+}
+
+@keyframes float-slow-alt {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(20px, -15px) scale(1.03); }
+}
+
+.gradient-orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.gradient-orb-1 {
+  width: 18rem;
+  height: 18rem;
+  background: hsl(var(--primary) / 0.15);
+  filter: blur(80px);
+  animation: float-slow 12s ease-in-out infinite;
+}
+
+.gradient-orb-2 {
+  width: 24rem;
+  height: 24rem;
+  background: hsl(var(--accent) / 0.12);
+  filter: blur(100px);
+  animation: float-slow-reverse 15s ease-in-out infinite;
+}
+
+.gradient-orb-3 {
+  width: 16rem;
+  height: 16rem;
+  background: hsl(var(--secondary) / 0.15);
+  filter: blur(60px);
+  animation: float-slow-alt 10s ease-in-out infinite;
 }
 
 /* Mobile App Optimizations */
