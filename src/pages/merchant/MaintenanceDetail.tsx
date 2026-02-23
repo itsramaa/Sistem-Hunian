@@ -12,14 +12,11 @@ import {
 } from '@/features/maintenance/hooks/useMaintenance';
 import { UpdateMaintenanceStatusPayload } from '@/features/maintenance/types';
 
-import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert';
 import { Button } from '@/shared/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
-import { Label } from '@/shared/components/ui/label';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { useToast } from '@/shared/hooks/use-toast';
 import { format } from 'date-fns';
-import { AlertTriangle, ArrowLeft, Calendar, CheckCircle, FileText, MapPin, Phone, User, XCircle } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Calendar, CheckCircle, FileText, MapPin, Phone, User, Wrench, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
@@ -68,13 +65,14 @@ export default function MerchantMaintenanceDetail() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-10 w-48" />
+        <Skeleton className="h-10 w-48 rounded-xl" />
+        <Skeleton className="h-20 rounded-2xl" />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-            <Skeleton className="h-64" />
-            <Skeleton className="h-96" />
+            <Skeleton className="h-64 rounded-2xl" />
+            <Skeleton className="h-96 rounded-2xl" />
           </div>
-          <Skeleton className="h-64" />
+          <Skeleton className="h-64 rounded-2xl" />
         </div>
       </div>
     );
@@ -82,11 +80,14 @@ export default function MerchantMaintenanceDetail() {
 
   if (!request) {
     return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground">Maintenance request not found</p>
-        <Button asChild className="mt-4">
-          <Link to="/merchant/maintenance">Back to Maintenance</Link>
+      <div className="space-y-6">
+        <Button variant="ghost" asChild className="gap-2 rounded-xl">
+          <Link to="/merchant/maintenance"><ArrowLeft className="h-4 w-4" /> Back</Link>
         </Button>
+        <div className="text-center py-16">
+          <Wrench className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <h2 className="text-xl font-semibold">Maintenance request not found</h2>
+        </div>
       </div>
     );
   }
@@ -95,18 +96,20 @@ export default function MerchantMaintenanceDetail() {
     <>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
-            <Link to="/merchant/maintenance">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-          </Button>
-          <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-display font-bold">{request.title}</h1>
-              <MaintenancePriorityBadge priority={request.priority} />
+        <Button variant="ghost" asChild className="gap-2 rounded-xl">
+          <Link to="/merchant/maintenance"><ArrowLeft className="h-4 w-4" /> Back to Maintenance</Link>
+        </Button>
+
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-3">
+            <div className="gradient-icon-box w-12 h-12"><Wrench className="h-6 w-6 text-primary" /></div>
+            <div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="text-2xl font-display font-bold">{request.title}</h1>
+                <MaintenancePriorityBadge priority={request.priority} />
+              </div>
+              <p className="text-sm text-muted-foreground">#{id?.slice(0, 8)} • SLA: {getSLAText(request.priority)}</p>
             </div>
-            <p className="text-muted-foreground">#{id?.slice(0, 8)} • SLA: {getSLAText(request.priority)}</p>
           </div>
           <div className="flex items-center gap-2">
             <SLABadge slaDeadline={request.sla_deadline} status={request.status} />
@@ -118,194 +121,175 @@ export default function MerchantMaintenanceDetail() {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Request Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Request Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-4">
+              <h3 className="font-semibold text-lg">Request Details</h3>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Description</p>
+                <p className="text-sm">{request.description || 'No description provided'}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-muted/20 rounded-xl p-4">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Category</p>
+                  <p className="font-semibold capitalize">{request.category}</p>
+                </div>
+                <div className="bg-muted/20 rounded-xl p-4">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Priority</p>
+                  <p className="font-semibold capitalize">{request.priority}</p>
+                </div>
+              </div>
+
+              {request.images && request.images.length > 0 && (
                 <div>
-                  <Label className="text-muted-foreground">Description</Label>
-                  <p className="mt-1">{request.description || 'No description provided'}</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Attached Photos</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {request.images.map((img, idx) => (
+                      <a key={idx} href={img} target="_blank" rel="noopener noreferrer">
+                        <img
+                          src={img}
+                          alt={`Attachment ${idx + 1}`}
+                          className="w-full h-24 object-cover rounded-xl border border-border/40 hover:opacity-80 transition-opacity"
+                        />
+                      </a>
+                    ))}
+                  </div>
                 </div>
+              )}
+            </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-muted-foreground">Category</Label>
-                    <p className="mt-1 capitalize">{request.category}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Priority</Label>
-                    <p className="mt-1 capitalize">{request.priority}</p>
-                  </div>
-                </div>
-
-                {request.images && request.images.length > 0 && (
-                  <div>
-                    <Label className="text-muted-foreground">Attached Photos</Label>
-                    <div className="grid grid-cols-3 gap-2 mt-2">
-                      {request.images.map((img, idx) => (
-                        <a key={idx} href={img} target="_blank" rel="noopener noreferrer">
-                          <img
-                            src={img}
-                            alt={`Attachment ${idx + 1}`}
-                            className="w-full h-24 object-cover rounded-lg border hover:opacity-80 transition-opacity"
-                          />
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Activity Timeline</CardTitle>
-                <CardDescription>Communication and status updates</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <UpdateTimeline
-                  maintenanceRequestId={request.id}
-                  authorRole="merchant"
-                  canAddUpdate={request.status !== 'completed' && request.status !== 'cancelled'}
-                />
-              </CardContent>
-            </Card>
+            {/* Activity Timeline */}
+            <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-4">
+              <h3 className="font-semibold text-lg">Activity Timeline</h3>
+              <p className="text-sm text-muted-foreground">Communication and status updates</p>
+              <UpdateTimeline
+                maintenanceRequestId={request.id}
+                authorRole="merchant"
+                canAddUpdate={request.status !== 'completed' && request.status !== 'cancelled'}
+              />
+            </div>
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Tenant Info */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Tenant Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <User className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-medium">{request.tenant?.full_name || 'Unknown'}</p>
-                    <p className="text-sm text-muted-foreground">{request.tenant?.email}</p>
-                  </div>
+            <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-4">
+              <h3 className="font-semibold flex items-center gap-2"><User className="h-4 w-4 text-primary" /> Tenant</h3>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <User className="h-5 w-5 text-primary" />
                 </div>
-                {request.tenant?.phone_number && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span>{request.tenant.phone_number}</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                <div>
+                  <p className="font-medium">{request.tenant?.full_name || 'Unknown'}</p>
+                  <p className="text-sm text-muted-foreground">{request.tenant?.email}</p>
+                </div>
+              </div>
+              {request.tenant?.phone_number && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Phone className="h-4 w-4" />
+                  <span>{request.tenant.phone_number}</span>
+                </div>
+              )}
+            </div>
 
             {/* Unit Info */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Unit Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium">{request.unit?.property?.name}</p>
-                    <p className="text-sm text-muted-foreground">Unit {request.unit?.unit_number}</p>
-                  </div>
-                </div>
+            <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-4">
+              <h3 className="font-semibold flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> Unit</h3>
+              <div className="space-y-2">
+                <p className="font-medium">{request.unit?.property?.name}</p>
+                <p className="text-sm text-muted-foreground">Unit {request.unit?.unit_number}</p>
                 <p className="text-sm text-muted-foreground">{request.unit?.property?.address}</p>
-                {contract && (
-                  <div className={`mt-2 p-2 rounded text-sm flex items-center gap-2 ${
-                    contract.status === 'active' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'
-                  }`}>
-                    <FileText className="h-4 w-4" />
-                    <span className="capitalize">Contract: {contract.status.replace('_', ' ')}</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+              </div>
+              {contract && (
+                <div className={`p-3 rounded-xl text-sm flex items-center gap-2 ${
+                  contract.status === 'active' ? 'bg-success/10 text-success border border-success/20' : 'bg-warning/10 text-warning border border-warning/20'
+                }`}>
+                  <FileText className="h-4 w-4" />
+                  <span className="capitalize font-medium">Contract: {contract.status.replace('_', ' ')}</span>
+                </div>
+              )}
+            </div>
 
             {/* Status Update */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Update Status</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Calendar className="h-4 w-4" />
-                  <span>Created {format(new Date(request.created_at), 'MMM d, yyyy')}</span>
+            <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-4">
+              <h3 className="font-semibold">Update Status</h3>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Calendar className="h-4 w-4" />
+                <span>Created {format(new Date(request.created_at), 'MMM d, yyyy')}</span>
+              </div>
+
+              {!isContractActive && contract && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20">
+                  <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-destructive">Contract Warning</p>
+                    <p className="text-muted-foreground">
+                      Contract is currently <strong>{contract.status}</strong>. Proceed with caution.
+                    </p>
+                  </div>
                 </div>
+              )}
 
-                {!isContractActive && contract && (
-                  <Alert variant="destructive">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Contract Warning</AlertTitle>
-                    <AlertDescription>
-                      The contract for this unit is currently <strong>{contract.status}</strong>. 
-                      Proceed with caution when assigning vendors.
-                    </AlertDescription>
-                  </Alert>
-                )}
+              {contract && !isContractValidDate && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20">
+                  <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-destructive">Date Mismatch</p>
+                    <p className="text-muted-foreground">
+                      Request created outside contract period ({format(new Date(contract.start_date), 'MMM d, yyyy')} - {contract.end_date ? format(new Date(contract.end_date), 'MMM d, yyyy') : 'Indefinite'}).
+                    </p>
+                  </div>
+                </div>
+              )}
 
-                {contract && !isContractValidDate && (
-                  <Alert variant="destructive">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Date Mismatch</AlertTitle>
-                    <AlertDescription>
-                      This request was created outside the active contract period ({format(new Date(contract.start_date), 'MMM d, yyyy')} - {contract.end_date ? format(new Date(contract.end_date), 'MMM d, yyyy') : 'Indefinite'}).
-                    </AlertDescription>
-                  </Alert>
-                )}
+              {!contract && request.tenant && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20">
+                  <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-destructive">No Active Contract</p>
+                    <p className="text-muted-foreground">Please verify tenant status.</p>
+                  </div>
+                </div>
+              )}
 
-                {!contract && request.tenant && (
-                  <Alert variant="destructive">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>No Active Contract</AlertTitle>
-                    <AlertDescription>
-                      There is no active contract found for this unit. Please verify tenant status.
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {request.status !== 'completed' && request.status !== 'cancelled' && (
+              {request.status !== 'completed' && request.status !== 'cancelled' && (
+                <Button 
+                  className="w-full gradient-cta rounded-xl" 
+                  onClick={() => setIsUpdateDialogOpen(true)}
+                >
+                  Update Status / Assign Vendor
+                </Button>
+              )}
+              
+              {request.status === 'completed' && (
+                <div className="p-4 bg-success/10 rounded-xl border border-success/20 text-center">
+                  <p className="text-success font-medium flex items-center justify-center gap-2">
+                    <CheckCircle className="h-5 w-5" />
+                    Completed
+                  </p>
+                  {request.resolved_at && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      on {format(new Date(request.resolved_at), 'MMM d, yyyy')}
+                    </p>
+                  )}
                   <Button 
-                    className="w-full" 
+                    variant="outline" 
+                    className="mt-4 w-full rounded-xl"
                     onClick={() => setIsUpdateDialogOpen(true)}
                   >
-                    Update Status / Assign Vendor
+                    Update Details
                   </Button>
-                )}
-                
-                {request.status === 'completed' && (
-                  <div className="p-4 bg-success/10 rounded-lg text-center">
-                    <p className="text-success font-medium flex items-center justify-center gap-2">
-                      <CheckCircle className="h-5 w-5" />
-                      Completed
-                    </p>
-                    {request.resolved_at && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        on {format(new Date(request.resolved_at), 'MMM d, yyyy')}
-                      </p>
-                    )}
-                    <Button 
-                      variant="outline" 
-                      className="mt-4 w-full"
-                      onClick={() => setIsUpdateDialogOpen(true)}
-                    >
-                      Update Details
-                    </Button>
-                  </div>
-                )}
+                </div>
+              )}
 
-                {request.status === 'cancelled' && (
-                  <div className="p-4 bg-destructive/10 rounded-lg text-center">
-                    <p className="text-destructive font-medium flex items-center justify-center gap-2">
-                      <XCircle className="h-5 w-5" />
-                      Cancelled
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+              {request.status === 'cancelled' && (
+                <div className="p-4 bg-destructive/10 rounded-xl border border-destructive/20 text-center">
+                  <p className="text-destructive font-medium flex items-center justify-center gap-2">
+                    <XCircle className="h-5 w-5" />
+                    Cancelled
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

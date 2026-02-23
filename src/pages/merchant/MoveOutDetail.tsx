@@ -6,7 +6,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { formatCurrency } from '@/shared/utils/currency';
 import { differenceInDays, format } from 'date-fns';
-import { ArrowLeft, AlertTriangle, Calendar, CheckCircle, ClipboardCheck, DoorOpen, Home, MapPin, User, Wallet } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Calendar, CheckCircle, ClipboardCheck, DoorOpen, Home, User, Wallet } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 export default function MerchantMoveOutDetail() {
@@ -76,6 +76,15 @@ export default function MerchantMoveOutDetail() {
   const property = unit?.property;
   const daysUntil = differenceInDays(new Date(notice.intended_move_out_date), new Date());
 
+  // Build a simplified inspection object for the badge
+  const inspectionForBadge = inspection ? {
+    id: inspection.id,
+    move_out_notice_id: inspection.move_out_notice_id,
+    status: inspection.status as 'scheduled' | 'completed' | 'pending',
+    scheduled_date: inspection.scheduled_date,
+    notes: null as string | null,
+  } : undefined;
+
   return (
     <div className="space-y-6">
       <Button variant="ghost" onClick={() => navigate('/merchant/move-outs')} className="gap-2 rounded-xl">
@@ -90,7 +99,7 @@ export default function MerchantMoveOutDetail() {
             <p className="text-sm text-muted-foreground">{property?.name} - Unit {unit?.unit_number}</p>
           </div>
         </div>
-        <MoveOutStatusBadge notice={notice} inspection={inspection} />
+        <MoveOutStatusBadge notice={notice as any} inspection={inspectionForBadge} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
