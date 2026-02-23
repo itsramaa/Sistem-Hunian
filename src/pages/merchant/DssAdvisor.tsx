@@ -5,7 +5,7 @@ import { Badge } from "@/shared/components/ui/badge";
 import { PageHeader } from "@/shared/components/ui/PageHeader";
 import { Progress } from "@/shared/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
-import { Loader2, DollarSign, FileWarning, Wrench, TrendingUp, Check, X, Brain } from "lucide-react";
+import { Loader2, DollarSign, FileWarning, Wrench, TrendingUp, Check, X, Brain, Sparkles } from "lucide-react";
 import { TierGate } from "@/features/dss/components/TierGate";
 import { toast } from "sonner";
 import { usePricingAdvisor, useCollectionStrategy, useMaintenancePriority, useInvestmentInsight, useDssRecommendations, useUpdateRecommendation } from "@/features/dss/hooks/useDssAdvisors";
@@ -15,10 +15,10 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-warning/10 text-warning dark:bg-warning/20",
-  accepted: "bg-success/10 text-success dark:bg-success/20",
+  pending: "bg-warning/15 text-warning border-warning/30",
+  accepted: "bg-success/15 text-success border-success/30",
   dismissed: "bg-muted text-muted-foreground",
-  expired: "bg-destructive/10 text-destructive dark:bg-destructive/20",
+  expired: "bg-destructive/15 text-destructive border-destructive/30",
 };
 
 export default function DssAdvisor() {
@@ -87,13 +87,11 @@ export default function DssAdvisor() {
     }
   };
 
-  // TierGate is now imported from shared component
-
   const tabIcons: Record<string, React.ReactNode> = {
-    pricing: <DollarSign className="h-4 w-4 mr-1" />,
-    collection: <FileWarning className="h-4 w-4 mr-1" />,
-    maintenance: <Wrench className="h-4 w-4 mr-1" />,
-    investment: <TrendingUp className="h-4 w-4 mr-1" />,
+    pricing: <DollarSign className="h-3.5 w-3.5" />,
+    collection: <FileWarning className="h-3.5 w-3.5" />,
+    maintenance: <Wrench className="h-3.5 w-3.5" />,
+    investment: <TrendingUp className="h-3.5 w-3.5" />,
   };
 
   return (
@@ -102,24 +100,24 @@ export default function DssAdvisor() {
 
       <TierGate>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="inline-flex h-auto p-1 rounded-full bg-card/80 backdrop-blur-sm border border-border/40">
             {["pricing", "collection", "maintenance", "investment"].map((tab) => (
-              <TabsTrigger key={tab} value={tab} className="capitalize">
+              <TabsTrigger key={tab} value={tab} className="rounded-full px-4 py-2 capitalize data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm gap-1.5">
                 {tabIcons[tab]}{tab}
               </TabsTrigger>
             ))}
           </TabsList>
 
           {["pricing", "collection", "maintenance", "investment"].map((tab) => (
-            <TabsContent key={tab} value={tab} className="space-y-4">
-              <Card>
+            <TabsContent key={tab} value={tab} className="space-y-4 mt-6">
+              <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
                     <CardTitle className="capitalize">{tab} Advisor</CardTitle>
                     <CardDescription>Generate AI-powered {tab} recommendations</CardDescription>
                   </div>
-                  <Button onClick={handleGenerate} disabled={isGenerating}>
-                    {isGenerating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  <Button onClick={handleGenerate} disabled={isGenerating} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-sm gap-2">
+                    {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                     Generate
                   </Button>
                 </CardHeader>
@@ -127,36 +125,41 @@ export default function DssAdvisor() {
                   {recsLoading ? (
                     <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                   ) : (recommendations || []).length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      No recommendations yet. Click "Generate" to create one.
-                    </p>
+                    <div className="text-center py-10">
+                      <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/20 flex items-center justify-center mx-auto mb-3">
+                        <Brain className="h-7 w-7 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        No recommendations yet. Click "Generate" to create one.
+                      </p>
+                    </div>
                   ) : (
                     <div className="space-y-3">
                       {(recommendations || []).map((rec: any) => (
-                        <div key={rec.id} className="rounded-lg border p-4 space-y-2">
+                        <div key={rec.id} className="rounded-xl bg-card/80 backdrop-blur-sm border border-border/40 p-4 space-y-3 hover:border-primary/20 transition-colors">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
-                              <h4 className="font-medium">{rec.title}</h4>
-                              <p className="text-sm text-muted-foreground mt-1">{rec.description}</p>
+                              <h4 className="font-semibold">{rec.title}</h4>
+                              <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{rec.description}</p>
                             </div>
-                            <Badge className={STATUS_COLORS[rec.status] || ""}>{rec.status}</Badge>
+                            <Badge className={`rounded-full border ${STATUS_COLORS[rec.status] || ""}`}>{rec.status}</Badge>
                           </div>
                           {rec.confidence_score && (
-                            <div className="space-y-1">
+                            <div className="space-y-1.5">
                               <div className="flex items-center justify-between text-xs text-muted-foreground">
                                 <span>Confidence</span>
-                                <span>{Math.round(rec.confidence_score * 100)}%</span>
+                                <span className="font-medium">{Math.round(rec.confidence_score * 100)}%</span>
                               </div>
-                              <Progress value={rec.confidence_score * 100} className="h-1.5" />
+                              <Progress value={rec.confidence_score * 100} className="h-1.5 rounded-full [&>div]:bg-gradient-to-r [&>div]:from-primary [&>div]:to-primary/70" />
                             </div>
                           )}
                           {rec.status === "pending" && (
                             <div className="flex gap-2 pt-1">
-                              <Button size="sm" variant="outline" onClick={() => handleAction(rec.id, "accept")} disabled={updateRec.isPending}>
-                                <Check className="h-3 w-3 mr-1" />Accept
+                              <Button size="sm" onClick={() => handleAction(rec.id, "accept")} disabled={updateRec.isPending} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-sm gap-1.5">
+                                <Check className="h-3 w-3" />Accept
                               </Button>
-                              <Button size="sm" variant="ghost" onClick={() => handleAction(rec.id, "dismiss")} disabled={updateRec.isPending}>
-                                <X className="h-3 w-3 mr-1" />Dismiss
+                              <Button size="sm" variant="ghost" onClick={() => handleAction(rec.id, "dismiss")} disabled={updateRec.isPending} className="rounded-xl gap-1.5 text-muted-foreground">
+                                <X className="h-3 w-3" />Dismiss
                               </Button>
                             </div>
                           )}

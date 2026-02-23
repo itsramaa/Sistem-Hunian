@@ -57,7 +57,6 @@ export function OcrUploadCard({
         const res = await onUpload(file);
         setResult(res);
       } else {
-        // Demo mode
         await new Promise((r) => setTimeout(r, 2000));
         setResult({
           fields: [
@@ -104,13 +103,13 @@ export function OcrUploadCard({
   };
 
   const matchConfig = {
-    match: { label: "Cocok", className: "bg-success text-success-foreground" },
-    mismatch: { label: "Tidak Cocok", className: "bg-destructive text-destructive-foreground" },
-    partial: { label: "Sebagian Cocok", className: "bg-warning text-warning-foreground" },
+    match: { label: "Cocok", className: "bg-success/15 text-success border-success/30 rounded-full" },
+    mismatch: { label: "Tidak Cocok", className: "bg-destructive/15 text-destructive border-destructive/30 rounded-full" },
+    partial: { label: "Sebagian Cocok", className: "bg-warning/15 text-warning border-warning/30 rounded-full" },
   };
 
   return (
-    <Card className={cn("overflow-hidden", className)}>
+    <Card className={cn("overflow-hidden rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40", className)}>
       <CardHeader>
         <CardTitle className="text-base">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
@@ -118,10 +117,9 @@ export function OcrUploadCard({
       <CardContent>
         {state === "completed" && result ? (
           <div className="space-y-4">
-            {/* Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Badge variant="outline">{result.documentType}</Badge>
+                <Badge variant="outline" className="rounded-full">{result.documentType}</Badge>
                 <ConfidenceBadge confidence={result.overallConfidence} size="sm" />
               </div>
               {result.matchStatus && (
@@ -131,7 +129,6 @@ export function OcrUploadCard({
               )}
             </div>
 
-            {/* Extracted fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {result.fields.map((field) => (
                 <ExtractedField key={field.label} {...field} />
@@ -139,8 +136,8 @@ export function OcrUploadCard({
             </div>
 
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={reset}>Upload Lagi</Button>
-              <Button size="sm" className="gap-1">
+              <Button variant="outline" size="sm" onClick={reset} className="rounded-xl">Upload Lagi</Button>
+              <Button size="sm" className="gap-1.5 rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-sm">
                 Lanjutkan <ArrowRight className="h-3 w-3" />
               </Button>
             </div>
@@ -151,8 +148,8 @@ export function OcrUploadCard({
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
             className={cn(
-              "border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer",
-              state === "dragging" ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-primary/50",
+              "border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer",
+              state === "dragging" ? "border-primary bg-primary/5 backdrop-blur-sm scale-[1.01]" : "border-border/40 hover:border-primary/50 bg-background/40 backdrop-blur-sm",
               state === "error" && "border-destructive/50 bg-destructive/5"
             )}
             onClick={() => {
@@ -169,24 +166,29 @@ export function OcrUploadCard({
             {state === "processing" ? (
               <div className="flex flex-col items-center gap-3">
                 <div className="relative">
-                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                  <FileImage className="h-5 w-5 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-primary" />
+                  <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
                 </div>
                 <div>
-                  <p className="text-sm font-medium">Memproses {fileName}...</p>
+                  <p className="text-sm font-semibold">Memproses {fileName}...</p>
                   <p className="text-xs text-muted-foreground mt-1">Mengekstrak data dengan OCR</p>
                 </div>
               </div>
             ) : state === "error" ? (
               <div className="flex flex-col items-center gap-2">
-                <XCircle className="h-10 w-10 text-destructive" />
-                <p className="text-sm text-destructive">{error}</p>
-                <Button variant="outline" size="sm" onClick={reset}>Coba Lagi</Button>
+                <div className="h-14 w-14 rounded-2xl bg-destructive/10 flex items-center justify-center">
+                  <XCircle className="h-7 w-7 text-destructive" />
+                </div>
+                <p className="text-sm text-destructive font-medium">{error}</p>
+                <Button variant="outline" size="sm" onClick={reset} className="rounded-xl">Coba Lagi</Button>
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-2">
-                <Upload className="h-10 w-10 text-muted-foreground" />
-                <p className="text-sm font-medium">Drag & drop file di sini</p>
+              <div className="flex flex-col items-center gap-3">
+                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-muted/80 to-muted/30 flex items-center justify-center">
+                  <Upload className="h-7 w-7 text-muted-foreground" />
+                </div>
+                <p className="text-sm font-semibold">Drag & drop file di sini</p>
                 <p className="text-xs text-muted-foreground">PNG, JPG, atau PDF (maks 10MB)</p>
               </div>
             )}
