@@ -1,153 +1,147 @@
 
 
-# Responsive Fixes, UnitsManager Navigation, dan Tenant Flow Audit
+# Maksimalkan Login, Register & Onboarding Pages
 
-## 1. Responsive Component Fixes
-
-Berdasarkan skill `responsive-design` (mobile-first breakpoints, fluid spacing) dan `ui-ux-designer` (cognitive load reduction, accessibility):
-
-### A. Base UI Components -- Input, Textarea, Select
-
-**Input** (`src/shared/components/ui/input.tsx`):
-- Sudah punya `h-12 md:h-10` -- ini bagus untuk mobile touch targets
-- Tidak ada masalah mayor
-
-**Textarea** (`src/shared/components/ui/textarea.tsx`):
-- Kurang touch-friendly di mobile -- tambah padding dan min-height yang lebih besar di mobile
-- Ubah: `min-h-[80px]` ke `min-h-[100px] md:min-h-[80px]`, tambah `text-base md:text-sm` (prevent iOS zoom)
-
-**SelectTrigger** (`src/shared/components/ui/select.tsx`):
-- Tingginya `h-10` fixed, di mobile seharusnya lebih besar untuk touch target (44px minimum)
-- Ubah: `h-10` ke `h-12 md:h-10`, tambah `text-base md:text-sm`
-
-### B. Dialog Forms -- Consistent Spacing & Padding
-
-**PropertyFormDialog**, **UnitFormDialog**, **AddTenantDialog**, **InviteTenantDialog**:
-- Form scroll area: tambah `px-1` padding agar content tidak mentok ke edge di mobile
-- Step indicator separators: tambah `hidden sm:block` pada separator agar di mobile hanya tampil circles
-- DialogFooter: sudah ada `gap-2`, tambah `flex-col-reverse sm:flex-row` agar di mobile buttons stack
-
-### C. Tables -- Mobile Card View
-
-**InvitationsTable** (`src/features/users/components/tenant/InvitationsTable.tsx`):
-- Table columns "Properti", "Tanggal Kirim" tidak visible di mobile -- terlalu banyak kolom
-- Tambah `hidden sm:table-cell` pada kolom non-essential
-- Tambah mobile info di bawah email (property name, date sebagai inline text)
-
-**TenantsTable** (`src/features/users/components/tables/TenantsTable.tsx`):
-- Pagination controls: `flex-col sm:flex-row` agar di mobile text dan buttons tidak terlalu cramped
-- Sudah ada responsive hiding -- OK
-
-### D. TenantStats -- Grid Responsive
-
-**TenantStats** (`src/features/users/components/tenant/TenantStats.tsx`):
-- `grid-cols-1 md:grid-cols-3` sudah OK, tapi card padding bisa lebih compact di mobile
-- Angka `text-3xl` terlalu besar di mobile kecil -- ubah ke `text-2xl sm:text-3xl`
-
-### E. TenantDetailsDialog -- Mobile Spacing
-
-- Financial summary `grid-cols-2` tanpa responsive -- OK karena hanya 2 item
-- Avatar header: `w-14 h-14` bisa dikecilkan di mobile kecil -- `w-12 h-12 sm:w-14 sm:h-14`
+Berdasarkan audit menyeluruh menggunakan skills: `signup-flow-cro`, `onboarding-cro`, `form-cro`, `responsive-design`, `accessibility-compliance`, `interaction-design`, `visual-design-foundations`, `ui-ux-designer`, `frontend-security-coder`, dan `auth-implementation-patterns`.
 
 ---
 
-## 2. UnitsManager Card Navigation ke Detail
+## 1. AuthForm (Login & Register) -- `src/features/auth/components/AuthForm.tsx`
 
-Saat ini card unit di UnitsManager navigate ke `/merchant/units` (list page). Route detail unit sudah ada di `/merchant/units/:unitId`. 
+### A. Signup Flow CRO -- Kurangi Friction
+
+**Masalah**: Form register punya 6 field (nama, phone, email, password, confirm password, merchant code). Ini terlalu banyak -- setiap field mengurangi conversion rate 10-25%.
 
 **Perbaikan**:
-- Ubah `onClick={() => navigate('/merchant/units')}` ke `onClick={() => navigate('/merchant/units/${unit.id}')}`
-- Ini konsisten dengan behavior di `UnitsTable.tsx` yang sudah navigate ke detail
+- **Pindahkan field "Nama Lengkap" ke atas email** -- field termudah duluan (progressive commitment pattern)
+- Urutan baru: Nama > Email > Phone > Password > Confirm Password
+- **Tambah trust element** di bawah form: "Data Anda aman dan terenkripsi" dengan ikon Lock
+- **Ubah CTA "Daftar"** menjadi lebih action-oriented: **"Mulai Sekarang"** (bukan generic "Daftar")
+- **Tambah social proof** di bawah card: jumlah user atau tagline singkat
 
-File: `src/features/properties/components/UnitsManager.tsx` line 195
+### B. Form CRO -- Error Handling & Microcopy
+
+**Masalah**: Placeholder "John Doe" tidak sesuai target market Indonesia.
+
+**Perbaikan**:
+- Ubah placeholder nama: `"John Doe"` menjadi `"Budi Santoso"`
+- Tambah **inline email typo detection**: jika user ketik `@gmial.com`, tampilkan suggestion `"Mungkin maksud Anda @gmail.com?"`
+- Error message pada submit harus **focus ke field pertama yang error** (auto-scroll + focus)
+- Tambah **"Sudah punya akun? Masuk"** link di bawah form register (dan sebaliknya di login)
+
+### C. Responsive Design -- Mobile-First Fixes
+
+**Masalah**: Card `max-w-md` tanpa `w-[95vw]` bisa terlalu lebar/sempit di beberapa device.
+
+**Perbaikan**:
+- Ubah container: `max-w-md` ke `max-w-md w-[95vw] sm:w-full`
+- Tambah `safe-area-inset` padding untuk notch devices: `pb-safe`
+- Password strength meter grid: pastikan tidak overflow di mobile kecil
+- Tab triggers: tambah `text-sm sm:text-base` untuk readability di mobile
+
+### D. Accessibility Compliance
+
+**Yang sudah bagus**: skip links, aria-describedby, aria-invalid, role="alert", live region -- sudah sangat baik.
+
+**Tambahan**:
+- Tambah `aria-required="true"` pada semua required fields di register
+- Password requirements checklist: tambah `role="list"` pada container dan `role="listitem"` pada setiap item
+- Form error summary: saat submit gagal, tampilkan **error summary di atas form** dengan link ke field yang error (pattern dari accessibility-compliance skill)
+- Tambah `autocomplete="tel-national"` pada phone field (lebih spesifik dari `tel`)
+
+### E. Interaction Design -- Micro-interactions
+
+**Perbaikan**:
+- Tambah **smooth transition** saat switch tab login/register: `transition-all duration-200`
+- Button submit: tambah **success animation** (checkmark) setelah berhasil, sebelum redirect
+- Password visibility toggle: tambah subtle transition pada icon change
+- Tambah **loading skeleton** pada tab content saat switching (prevent layout shift)
+
+### F. Frontend Security
+
+**Yang sudah bagus**: password toggle, merchantCode sanitization, error message mapping.
+
+**Tambahan**:
+- Tambah **rate limiting indicator**: setelah 3 failed login attempts, tampilkan countdown timer dan pesan "Terlalu banyak percobaan. Coba lagi dalam X detik"
+- Pastikan `autocomplete="current-password"` (login) dan `autocomplete="new-password"` (register) sudah benar -- sudah OK
+- Tambah `rel="noopener noreferrer"` jika ada external links
+
+### G. Visual Design -- Polish
+
+**Perbaikan**:
+- Tambah **divider** antara social/biometric login dan form: "atau masuk dengan email"
+- Tambah subtle **gradient background** yang lebih menarik daripada plain `bg-muted/30`
+- Card shadow: tambah `hover:shadow-lg transition-shadow` untuk depth perception
+- Logo icon container: tambah subtle pulse animation saat loading
 
 ---
 
-## 3. Tenant Flow Audit -- Business Logic Issues
+## 2. PasswordStrengthMeter -- `src/features/auth/components/PasswordStrengthMeter.tsx`
 
-Setelah audit menyeluruh terhadap semua file tenant di merchant, berikut temuan dan perbaikan:
+### Masalah
+- Requirements menampilkan "Minimal 8 karakter" tapi schema requires 12 -- **inkonsistensi**
+- Grid `grid-cols-1` OK tapi bisa lebih compact
 
-### A. Bahasa Campuran (ID + EN) -- Konsistensi
+### Perbaikan
+- **Fix requirement mismatch**: ubah regex dari `/.{8,}/` ke `/.{12,}/` dan label ke "Minimal 12 karakter"
+- Tambah **aria-label** pada strength bar untuk screen reader: `"Kekuatan password: {strength}"`
+- Tambah `role="progressbar"` dengan `aria-valuenow` dan `aria-valuemax` pada bar
+- Requirements: ubah ke `grid-cols-2 sm:grid-cols-1` agar di desktop lebih compact (2 kolom)
 
-Seluruh UI mencampur bahasa Indonesia dan Inggris secara acak:
-- "Kirim Undangan" (ID) vs "Add Tenant" (EN) di satu baris
-- "Active Tenants" (EN) di tab vs "Hari Tagihan" (ID) di form
-- "Showing 1 to 10 of 20" (EN) vs "Tidak ada undangan" (ID)
+---
 
-**Perbaikan**: Konsistenkan ke Bahasa Indonesia (sesuai target market kost/kontrakan Indonesia):
-- Tab: "Undangan" dan "Tenant Aktif"
-- Buttons: "Tambah Tenant" dan "Kirim Undangan" 
-- Empty states, pagination, error messages -- semua ke ID
-- Stats labels: "Undangan Pending", "Tenant Aktif", "Unit Tersedia"
+## 3. Onboarding Page -- `src/pages/Onboarding.tsx`
 
-### B. "Add Tenant" vs "Kirim Undangan" -- Membingungkan
+### A. Onboarding CRO -- Time-to-Value
 
-Dua action button yang mirip di header:
-1. **Add Tenant** -- bypass invitation, langsung buat kontrak
-2. **Kirim Undangan** -- kirim invitation email
-
-User bingung kapan pakai yang mana. Best practice:
-- **Undangan** = flow normal (tenant belum ada di sistem atau belum terhubung)
-- **Tambah Langsung** = shortcut untuk tenant yang sudah ada di sistem
+**Masalah**: Onboarding hanya 2 step (pilih role + nama bisnis), tapi UX bisa lebih engaging.
 
 **Perbaikan**:
-- Rename "Add Tenant" ke "Tambah Langsung" dengan subtitle/tooltip "Untuk tenant yang sudah terdaftar di sistem"
-- Jadikan "Kirim Undangan" sebagai primary button (action utama)
-- "Tambah Langsung" sebagai secondary/outline
-- Urutan: Primary dulu (Kirim Undangan), lalu secondary (Tambah Langsung)
+- **Tambah welcome message personalized**: "Hai, {full_name}! Mari setup akun Anda"
+- Step 1 role cards: tambah **ilustrasi/emoji** yang lebih besar dan deskripsi benefit yang lebih jelas:
+  - Merchant: "Kelola properti, tenant, tagihan, dan laporan dalam satu platform"
+  - Vendor: "Terima order jasa dari pemilik properti dan kelola penghasilan"
+- **Tambah "Memakan waktu kurang dari 30 detik"** di bawah judul (reduce perceived effort)
+- Success state setelah submit: tambah **celebration animation** (confetti atau checkmark animation) sebelum redirect
 
-### C. InvitationsTable -- Kurang Responsive & Info
+### B. Responsive Design
 
-- Kolom "Properti" dan "Tanggal Kirim" harus hidden di mobile
-- Tampilkan info properti di bawah email pada mobile view
-- Cancel button hanya untuk status "pending" -- saat ini semua invitation bisa di-cancel
-
-**Perbaikan**:
-- Tambah `hidden sm:table-cell` pada kolom Properti dan Tanggal Kirim  
-- Tambah mobile inline info di cell Email
-- Disable cancel button jika status bukan "pending"
-
-### D. TenantsTable -- Linked Tenant Display Issues
-
-Untuk linked tenants (tanpa kontrak):
-- Property & Unit kolom menampilkan "Unknown Property" / "Unit N/A" -- membingungkan
-- Rent kolom menampilkan "Rp0" -- salah, harusnya "-" atau "Belum ada kontrak"
-- Dates kolom: `format(new Date(''), ...)` bisa error
+**Masalah**: 
+- Back button `absolute left-4 top-4` bisa overlap dengan card content di mobile kecil
+- Role selection `grid-cols-2` terlalu sempit di mobile kecil (< 360px width)
+- Step indicator `gap-4` dengan separator `w-12 mx-4` terlalu lebar di mobile
 
 **Perbaikan**:
-- Jika `tenant.status === 'linked'`: tampilkan "Belum ada unit" di kolom Property
-- Jika `rent_amount === 0` dan status linked: tampilkan "-" bukan "Rp0"
-- Guard date formatting: jika `start_date` kosong, tampilkan "-"
+- Back button: ubah dari `absolute` ke relative positioning di dalam CardHeader flow
+- Role selection: `grid-cols-1 sm:grid-cols-2` -- di mobile stack vertically agar deskripsi terbaca
+- Step indicator: separator `w-8 sm:w-12 mx-2 sm:mx-4`, label `hidden sm:inline`
+- Container: tambah `w-[95vw] sm:w-full` pada `max-w-md`
+- AlertDialogFooter: tambah `flex-col-reverse sm:flex-row` untuk mobile button stacking
 
-### E. AddTenantDialog -- Mengambil SEMUA Tenant di Sistem
-
-`useAllTenantsInSystem()` mengambil semua record dari tabel `tenants` -- ini masalah:
-1. **Security**: Merchant bisa melihat semua tenant di platform, termasuk yang bukan miliknya
-2. **Performance**: Jika ada ribuan tenant, list akan sangat panjang
-3. **Business logic**: Seharusnya hanya menampilkan tenant yang sudah pernah terhubung atau yang belum punya merchant
+### C. Accessibility
 
 **Perbaikan**:
-- Filter `getAllTenantsInSystem` di service: hanya tampilkan tenant yang `linked_merchant_id IS NULL` (belum terhubung ke merchant manapun) atau `linked_merchant_id = merchantId` (sudah terhubung ke merchant ini tapi belum punya kontrak)
-- Tambah `merchantId` parameter ke query
-- Ubah hook menjadi `useAvailableTenants(merchantId)`
+- Tambah `aria-required="true"` pada business name input
+- Role selection: keyboard navigation sudah ada (ArrowLeft/Right) -- bagus
+- Confirmation dialog: tambah `autoFocus` pada cancel button (safer default)
+- Step indicator: tambah `aria-label="Langkah {n} dari 2: {label}"` pada setiap step circle
 
-### F. addTenantDirectly -- Unit Status Tidak Diupdate
+### D. Interaction Design
 
-Ketika kontrak dibuat langsung via AddTenantDialog:
-- Unit status tetap "available" padahal sudah ada kontrak aktif
-- Ini menyebabkan unit masih muncul di daftar available units
+**Perbaikan**:
+- Role card hover: tambah `scale-[1.02] transition-transform` untuk tactile feedback
+- Step transition: tambah slide animation saat pindah step 1 ke 2 (slide-left)
+- Business name input: tambah character counter "X/100 karakter"
+- Submit button: tambah loading state yang lebih descriptive "Membuat akun..." bukan hanya spinner
 
-**Perbaikan** di `merchantTenantService.addTenantDirectly`:
-- Setelah insert contract, update unit status ke "occupied":
-  ```
-  await supabase.from('units').update({ status: 'occupied' }).eq('id', data.unit_id)
-  ```
+---
 
-### G. sendInvitation -- Fallback ke tenant_invitations insert tanpa property_id FK guard
+## 4. AuthLoadingSkeleton -- `src/features/auth/components/AuthLoadingSkeleton.tsx`
 
-Sudah di-fix di migration sebelumnya (property_id nullable, unit_id nullable). Tapi di `addTenantDirectly` fallback path (line 276-291), masih insert `unit_id` tanpa `property_id`. Ini inkonsisten.
-
-**Perbaikan**: Tambah `property_id: data.property_id` ke fallback invitation insert.
+### Perbaikan
+- Tambah `aria-live="polite"` dan `role="status"` pada loading container
+- Tambah `aria-label="Memuat halaman autentikasi"` pada root div
+- Pulse animation pada skeleton: pastikan `prefers-reduced-motion` dihormati
 
 ---
 
@@ -155,26 +149,15 @@ Sudah di-fix di migration sebelumnya (property_id nullable, unit_id nullable). T
 
 | File | Perubahan |
 |------|-----------|
-| `src/shared/components/ui/textarea.tsx` | Mobile-friendly height & font size |
-| `src/shared/components/ui/select.tsx` | Mobile touch target height (h-12 md:h-10) & font |
-| `src/features/properties/components/UnitsManager.tsx` | Card navigate ke `/merchant/units/${unit.id}` |
-| `src/features/users/components/tenant/InvitationsTable.tsx` | Responsive columns, cancel guard, bahasa ID |
-| `src/features/users/components/tables/TenantsTable.tsx` | Linked tenant display fixes, bahasa ID, date guard |
-| `src/features/users/components/tenant/TenantStats.tsx` | Responsive font size, bahasa ID labels |
-| `src/features/users/components/tenant/TenantDetailsDialog.tsx` | Mobile avatar sizing |
-| `src/features/users/components/tenant/AddTenantDialog.tsx` | Bahasa ID, responsive improvements |
-| `src/features/users/components/tenant/TenantsFilters.tsx` | Bahasa ID placeholder |
-| `src/features/users/services/merchantTenantService.ts` | getAllTenantsInSystem filter by merchant, addTenantDirectly update unit status, fallback property_id |
-| `src/features/users/hooks/useMerchantTenants.ts` | useAvailableTenants(merchantId) |
-| `src/pages/merchant/Tenants.tsx` | Button labels & order, bahasa ID |
-| `src/features/properties/components/PropertyFormDialog.tsx` | DialogFooter responsive stack |
-| `src/features/properties/components/UnitFormDialog.tsx` | DialogFooter responsive stack |
+| `AuthForm.tsx` | Field order, CTA copy, trust elements, error summary, responsive width, email typo detection, rate limit indicator, divider, placeholder Indonesia, cross-link login/register |
+| `PasswordStrengthMeter.tsx` | Fix 8 vs 12 char mismatch, aria progressbar, responsive grid |
+| `Onboarding.tsx` | Welcome personalization, role card improvements, responsive fixes (grid, back button, step indicator), celebration animation, character counter, time estimate copy |
+| `AuthLoadingSkeleton.tsx` | Accessibility: aria-live, role="status", aria-label |
 
 ## Urutan Implementasi
 
-1. Base UI components (textarea, select) -- fondasi
-2. UnitsManager card navigation -- quick fix
-3. Tenant service logic fixes (security filter, unit status update)
-4. Responsive fixes di semua dialog/table components
-5. Bahasa konsistensi (ID) di semua tenant components
+1. PasswordStrengthMeter fix (requirement mismatch -- critical bug)
+2. AuthForm improvements (responsive, CRO, accessibility)
+3. Onboarding improvements (responsive, CRO, interaction)
+4. AuthLoadingSkeleton accessibility
 
