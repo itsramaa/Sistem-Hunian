@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Building2, Wrench, Loader2, ArrowLeft, Check } from 'lucide-react';
+import { Building2, Wrench, Loader2, ArrowLeft, Check, Clock } from 'lucide-react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -33,9 +33,21 @@ const onboardingSchema = z.object({
 
 type OnboardingFormData = z.infer<typeof onboardingSchema>;
 
-const roleOptions: { value: SelectableRole; label: string; icon: typeof Building2; description: string }[] = [
-  { value: 'merchant', label: 'Pemilik Properti', icon: Building2, description: 'Kelola properti dan tenant' },
-  { value: 'vendor', label: 'Vendor Jasa', icon: Wrench, description: 'Penyedia jasa/layanan' },
+const roleOptions: { value: SelectableRole; label: string; icon: typeof Building2; description: string; emoji: string }[] = [
+  { 
+    value: 'merchant', 
+    label: 'Pemilik Properti', 
+    icon: Building2, 
+    description: 'Kelola properti, tenant, tagihan, dan laporan dalam satu platform',
+    emoji: '🏠',
+  },
+  { 
+    value: 'vendor', 
+    label: 'Vendor Jasa', 
+    icon: Wrench, 
+    description: 'Terima order jasa dari pemilik properti dan kelola penghasilan',
+    emoji: '🔧',
+  },
 ];
 
 // Step indicator component
@@ -46,10 +58,10 @@ function StepIndicator({ currentStep }: { currentStep: 1 | 2 }) {
   ];
 
   return (
-    <div className="flex items-center justify-center gap-4 mb-8" role="navigation" aria-label="Langkah onboarding">
+    <div className="flex items-center justify-center gap-2 sm:gap-4 mb-8" role="navigation" aria-label="Langkah onboarding">
       {steps.map((step, index) => (
         <div key={step.number} className="flex items-center">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <div
               className={cn(
                 'h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors',
@@ -60,6 +72,7 @@ function StepIndicator({ currentStep }: { currentStep: 1 | 2 }) {
                   : 'bg-muted text-muted-foreground'
               )}
               aria-current={currentStep === step.number ? 'step' : undefined}
+              aria-label={`Langkah ${step.number} dari 2: ${step.label}`}
             >
               {currentStep > step.number ? (
                 <Check className="h-4 w-4" aria-hidden="true" />
@@ -69,7 +82,7 @@ function StepIndicator({ currentStep }: { currentStep: 1 | 2 }) {
             </div>
             <span
               className={cn(
-                'text-sm font-medium',
+                'text-sm font-medium hidden sm:inline',
                 currentStep >= step.number ? 'text-foreground' : 'text-muted-foreground'
               )}
             >
@@ -79,7 +92,7 @@ function StepIndicator({ currentStep }: { currentStep: 1 | 2 }) {
           {index < steps.length - 1 && (
             <div
               className={cn(
-                'w-12 h-px mx-4',
+                'w-8 sm:w-12 h-px mx-2 sm:mx-4',
                 currentStep > step.number ? 'bg-primary' : 'bg-muted-foreground/30'
               )}
               aria-hidden="true"
@@ -110,10 +123,26 @@ export default function Onboarding() {
     defaultValues: { businessName: '' },
   });
 
+  const businessNameValue = form.watch('businessName');
+
+  // Get user's full name for personalized greeting
+  const [fullName, setFullName] = useState('');
+  useEffect(() => {
+    if (user) {
+      supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', user.id)
+        .single()
+        .then(({ data }) => {
+          if (data?.full_name) setFullName(data.full_name);
+        });
+    }
+  }, [user]);
+
   // Redirect if already has role (but only after initial load)
   useEffect(() => {
     if (!isLoading && user && role) {
-      // User already has role, redirect to their dashboard
       if (role === 'admin') {
         navigate('/admin', { replace: true });
       } else if (role === 'merchant') {
@@ -135,7 +164,7 @@ export default function Onboarding() {
     }
   }, [user, isLoading, navigate]);
 
-  // Check if user already has a role in database (double-check to prevent duplicate)
+  // Check if user already has a role in database
   useEffect(() => {
     const checkExistingRole = async () => {
       if (!user || role) return;
@@ -147,7 +176,6 @@ export default function Onboarding() {
         .single();
       
       if (existingRole) {
-        // User already has role, refresh and redirect
         await refreshProfile();
       }
     };
@@ -161,7 +189,6 @@ export default function Onboarding() {
     if (currentStep === 2) {
       setCurrentStep(1);
     } else {
-      // Go back to auth or home
       navigate('/auth', { replace: true });
     }
   };
@@ -175,7 +202,6 @@ export default function Onboarding() {
   };
 
   const handleFormSubmit = (data: OnboardingFormData) => {
-    // Show confirmation dialog before final submit
     setShowConfirmDialog(true);
   };
 
@@ -195,7 +221,6 @@ export default function Onboarding() {
     setIsSubmitting(true);
 
     try {
-      // Double-check if user already has role to prevent duplicate
       const { data: existingRole } = await supabase
         .from('user_roles')
         .select('role')
@@ -212,14 +237,12 @@ export default function Onboarding() {
         return;
       }
 
-      // Get user profile
       const { data: profile } = await supabase
         .from('profiles')
         .select('full_name, email, phone')
         .eq('user_id', user.id)
         .single();
 
-      // Call auth-webhook to complete setup
       const { error: webhookError } = await supabase.functions.invoke('auth-webhook', {
         body: {
           user_id: user.id,
@@ -236,18 +259,14 @@ export default function Onboarding() {
         throw webhookError;
       }
 
-      // Clear referral code from session
       sessionStorage.removeItem('referral_code');
-
-      // Refresh profile to get new role
       await refreshProfile();
 
       toast({
-        title: 'Selamat datang!',
+        title: '🎉 Selamat datang!',
         description: `Akun ${selectedRole === 'merchant' ? 'Pemilik Properti' : 'Vendor'} Anda berhasil dibuat.`,
       });
 
-      // Navigate to appropriate dashboard
       navigate(selectedRole === 'merchant' ? '/merchant' : '/vendor', { replace: true });
 
     } catch (error) {
@@ -272,7 +291,6 @@ export default function Onboarding() {
     );
   }
 
-  // Don't render form if user already has role (they will be redirected)
   if (role) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
@@ -286,20 +304,19 @@ export default function Onboarding() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4 py-8">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md w-[95vw] sm:w-full">
         {/* Progress Indicator */}
         <StepIndicator currentStep={currentStep} />
 
         <Card className="shadow-elevated animate-fade-in">
-          <CardHeader className="text-center space-y-2">
-            {/* Back Button */}
-            <div className="flex items-start">
+          <CardHeader className="text-center space-y-2 relative">
+            {/* Back Button - relative positioning */}
+            <div className="flex justify-start -mb-2">
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 onClick={handleBack}
-                className="absolute left-4 top-4"
                 aria-label="Kembali ke langkah sebelumnya"
               >
                 <ArrowLeft className="h-4 w-4 mr-1" aria-hidden="true" />
@@ -311,13 +328,20 @@ export default function Onboarding() {
               <Building2 className="w-6 h-6 text-primary-foreground" aria-hidden="true" />
             </div>
             <CardTitle className="text-2xl font-display">
-              {currentStep === 1 ? 'Pilih Jenis Akun' : 'Lengkapi Profil Anda'}
+              {currentStep === 1 
+                ? (fullName ? `Hai, ${fullName.split(' ')[0]}! 👋` : 'Pilih Jenis Akun')
+                : 'Lengkapi Profil Anda'}
             </CardTitle>
             <CardDescription>
               {currentStep === 1 
                 ? 'Pilih jenis akun yang sesuai dengan kebutuhan Anda'
                 : 'Lengkapi informasi bisnis Anda'}
             </CardDescription>
+            {/* Time estimate */}
+            <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+              <Clock className="h-3 w-3" />
+              <span>Memakan waktu kurang dari 30 detik</span>
+            </div>
           </CardHeader>
           <CardContent>
             {currentStep === 1 ? (
@@ -326,7 +350,7 @@ export default function Onboarding() {
                 <div className="space-y-3">
                   <Label id="role-selection-label">Saya adalah...</Label>
                   <div 
-                    className="grid grid-cols-2 gap-3" 
+                    className="grid grid-cols-1 sm:grid-cols-2 gap-3" 
                     role="radiogroup" 
                     aria-labelledby="role-selection-label"
                   >
@@ -339,7 +363,6 @@ export default function Onboarding() {
                         tabIndex={selectedRole === option.value ? 0 : -1}
                         onClick={() => handleRoleSelect(option.value)}
                         onKeyDown={(e) => {
-                          // Keyboard navigation for radio group
                           if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
                             e.preventDefault();
                             const nextIndex = (index + 1) % roleOptions.length;
@@ -351,16 +374,17 @@ export default function Onboarding() {
                           }
                         }}
                         className={cn(
-                          'flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2',
+                          'flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 hover:scale-[1.02]',
                           selectedRole === option.value
                             ? 'border-primary bg-primary/5'
                             : 'border-border hover:border-primary/50'
                         )}
                         aria-label={`${option.label}: ${option.description}`}
                       >
+                        <span className="text-3xl" aria-hidden="true">{option.emoji}</span>
                         <option.icon 
                           className={cn(
-                            'h-8 w-8',
+                            'h-6 w-6',
                             selectedRole === option.value ? 'text-primary' : 'text-muted-foreground'
                           )} 
                           aria-hidden="true"
@@ -372,7 +396,7 @@ export default function Onboarding() {
                           {option.label}
                         </span>
                         <span className={cn(
-                          'text-xs text-center',
+                          'text-xs text-center leading-relaxed',
                           selectedRole === option.value ? 'text-primary/80' : 'text-muted-foreground'
                         )}>
                           {option.description}
@@ -403,21 +427,33 @@ export default function Onboarding() {
                     maxLength={100}
                     disabled={isSubmitting}
                     autoComplete="organization"
+                    aria-required="true"
                     {...form.register('businessName')}
                   />
                   {form.formState.errors.businessName && (
                     <p className="text-sm text-destructive">{form.formState.errors.businessName.message}</p>
                   )}
-                  <p className="text-xs text-muted-foreground">
-                    {selectedRole === 'merchant' 
-                      ? 'Nama ini akan tampil di profil properti Anda'
-                      : 'Nama ini akan tampil di profil bisnis Anda'}
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">
+                      {selectedRole === 'merchant' 
+                        ? 'Nama ini akan tampil di profil properti Anda'
+                        : 'Nama ini akan tampil di profil bisnis Anda'}
+                    </p>
+                    <span className="text-xs text-muted-foreground">
+                      {businessNameValue.length}/100
+                    </span>
+                  </div>
                 </div>
 
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Mulai Sekarang
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Membuat akun...
+                    </>
+                  ) : (
+                    'Mulai Sekarang'
+                  )}
                 </Button>
               </form>
             )}
@@ -436,8 +472,8 @@ export default function Onboarding() {
               Jenis akun tidak dapat diubah setelah pendaftaran. Apakah Anda yakin?
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>Batal</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col-reverse sm:flex-row">
+            <AlertDialogCancel disabled={isSubmitting} autoFocus>Batal</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmedSubmit} disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Ya, Daftarkan

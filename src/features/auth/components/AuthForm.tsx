@@ -19,8 +19,8 @@ import {
   strongPasswordSchema
 } from '@/shared/utils/validations/auth';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Building2, Eye, EyeOff, Fingerprint, Loader2, Phone } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Building2, Eye, EyeOff, Fingerprint, Lock, Loader2, Phone, Shield } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
@@ -65,6 +65,9 @@ export function AuthForm() {
   const [referrerInfo, setReferrerInfo] = useState<{ name: string; role: string } | null>(null);
   const [supportsBiometric, setSupportsBiometric] = useState(false);
   const [errorAnnouncement, setErrorAnnouncement] = useState('');
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
+  const [lockoutRemaining, setLockoutRemaining] = useState(0);
   const { toast } = useToast();
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
@@ -133,6 +136,47 @@ export function AuthForm() {
   });
 
   const passwordValue = signupForm.watch('password');
+  const emailValue = signupForm.watch('email');
+
+  // Email typo detection
+  const emailSuggestion = useMemo(() => {
+    if (!emailValue) return null;
+    const typoMap: Record<string, string> = {
+      '@gmial.com': '@gmail.com',
+      '@gmal.com': '@gmail.com',
+      '@gmaill.com': '@gmail.com',
+      '@gamil.com': '@gmail.com',
+      '@yaho.com': '@yahoo.com',
+      '@yahooo.com': '@yahoo.com',
+      '@yhaoo.com': '@yahoo.com',
+      '@hotmal.com': '@hotmail.com',
+      '@hotmial.com': '@hotmail.com',
+      '@outlok.com': '@outlook.com',
+    };
+    const atIndex = emailValue.indexOf('@');
+    if (atIndex === -1) return null;
+    const domain = emailValue.substring(atIndex).toLowerCase();
+    if (typoMap[domain]) {
+      return emailValue.substring(0, atIndex) + typoMap[domain];
+    }
+    return null;
+  }, [emailValue]);
+
+  // Lockout countdown timer
+  useEffect(() => {
+    if (!lockoutUntil) return;
+    const interval = setInterval(() => {
+      const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+      if (remaining <= 0) {
+        setLockoutUntil(null);
+        setLockoutRemaining(0);
+        setFailedAttempts(0);
+      } else {
+        setLockoutRemaining(remaining);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutUntil]);
 
   // Announce errors for screen readers
   const announceError = (message: string) => {
@@ -141,11 +185,26 @@ export function AuthForm() {
   };
 
   const handleLogin = async (data: LoginFormData) => {
+    // Rate limiting check
+    if (lockoutUntil && Date.now() < lockoutUntil) {
+      return;
+    }
+
     setIsLoading(true);
     const { error } = await signIn(data.email, data.password);
     setIsLoading(false);
 
     if (error) {
+      const newAttempts = failedAttempts + 1;
+      setFailedAttempts(newAttempts);
+      
+      // Lock out after 3 failed attempts for 30 seconds
+      if (newAttempts >= 3) {
+        const lockoutTime = Date.now() + 30000;
+        setLockoutUntil(lockoutTime);
+        setLockoutRemaining(30);
+      }
+
       const errorMessage = getAuthErrorMessage(error);
       announceError(errorMessage);
       triggerHaptic('error');
@@ -156,6 +215,9 @@ export function AuthForm() {
       });
       return;
     }
+
+    setFailedAttempts(0);
+    setLockoutUntil(null);
 
     // Save remember me preference
     localStorage.setItem('sihuni_remember_me', rememberMe.toString());
@@ -369,7 +431,7 @@ export function AuthForm() {
         {errorAnnouncement}
       </div>
 
-      <Card className="w-full max-w-md shadow-elevated animate-fade-in">
+      <Card className="w-full max-w-md w-[95vw] sm:w-full shadow-elevated animate-fade-in hover:shadow-lg transition-shadow">
         <CardHeader className="text-center space-y-2">
           <div className="mx-auto w-12 h-12 rounded-xl gradient-primary flex items-center justify-center mb-2">
             <Building2 className="w-6 h-6 text-primary-foreground" />
@@ -395,8 +457,8 @@ export function AuthForm() {
           
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'login' | 'signup')}>
             <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="login">Masuk</TabsTrigger>
-              <TabsTrigger value="signup">Daftar</TabsTrigger>
+              <TabsTrigger value="login" className="text-sm sm:text-base">Masuk</TabsTrigger>
+              <TabsTrigger value="signup" className="text-sm sm:text-base">Daftar</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login" className="space-y-4">
@@ -488,7 +550,17 @@ export function AuthForm() {
                   </Label>
                 </div>
 
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                {/* Rate limit warning */}
+                {lockoutRemaining > 0 && (
+                  <div className="flex items-center gap-2 p-3 rounded-lg border border-destructive/20 bg-destructive/5 text-sm" role="alert">
+                    <Shield className="h-4 w-4 text-destructive shrink-0" />
+                    <p className="text-destructive">
+                      Terlalu banyak percobaan. Coba lagi dalam <strong>{lockoutRemaining} detik</strong>
+                    </p>
+                  </div>
+                )}
+
+                <Button type="submit" className="w-full" disabled={isLoading || lockoutRemaining > 0}>
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -498,7 +570,7 @@ export function AuthForm() {
                     'Masuk'
                   )}
                 </Button>
-                <div className="text-center">
+                <div className="text-center space-y-2">
                   <button
                     type="button"
                     onClick={() => navigate('/reset-password')}
@@ -506,6 +578,16 @@ export function AuthForm() {
                   >
                     Lupa password?
                   </button>
+                  <p className="text-sm text-muted-foreground">
+                    Belum punya akun?{' '}
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('signup')}
+                      className="text-primary hover:underline font-medium"
+                    >
+                      Daftar sekarang
+                    </button>
+                  </p>
                 </div>
               </form>
             </TabsContent>
@@ -516,14 +598,16 @@ export function AuthForm() {
                 onSubmit={signupForm.handleSubmit(handleSignup)} 
                 className="space-y-4"
               >
+                {/* Progressive commitment: easiest field first */}
                 <div className="space-y-2">
                   <Label htmlFor="signup-name">Nama Lengkap</Label>
                   <Input
                     id="signup-name"
-                    placeholder="John Doe"
+                    placeholder="Budi Santoso"
                     autoComplete="name"
                     enterKeyHint="next"
                     disabled={isLoading}
+                    aria-required="true"
                     aria-describedby={signupForm.formState.errors.fullName ? 'signup-name-error' : undefined}
                     aria-invalid={!!signupForm.formState.errors.fullName}
                     {...signupForm.register('fullName')}
@@ -531,6 +615,41 @@ export function AuthForm() {
                   {signupForm.formState.errors.fullName && (
                     <p id="signup-name-error" className="text-sm text-destructive" role="alert">
                       {signupForm.formState.errors.fullName.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="signup-email">Email</Label>
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    inputMode="email"
+                    enterKeyHint="next"
+                    placeholder="anda@contoh.com"
+                    autoComplete="email"
+                    disabled={isLoading}
+                    aria-required="true"
+                    aria-describedby={signupForm.formState.errors.email ? 'signup-email-error' : emailSuggestion ? 'email-suggestion' : undefined}
+                    aria-invalid={!!signupForm.formState.errors.email}
+                    {...signupForm.register('email')}
+                  />
+                  {signupForm.formState.errors.email && (
+                    <p id="signup-email-error" className="text-sm text-destructive" role="alert">
+                      {signupForm.formState.errors.email.message}
+                    </p>
+                  )}
+                  {emailSuggestion && !signupForm.formState.errors.email && (
+                    <p id="email-suggestion" className="text-sm text-warning">
+                      Mungkin maksud Anda{' '}
+                      <button
+                        type="button"
+                        className="font-medium underline hover:text-warning/80"
+                        onClick={() => signupForm.setValue('email', emailSuggestion)}
+                      >
+                        {emailSuggestion}
+                      </button>
+                      ?
                     </p>
                   )}
                 </div>
@@ -546,7 +665,7 @@ export function AuthForm() {
                     inputMode="tel"
                     enterKeyHint="next"
                     placeholder="08123456789"
-                    autoComplete="tel"
+                    autoComplete="tel-national"
                     disabled={isLoading}
                     aria-describedby="signup-phone-hint"
                     {...signupForm.register('phone')}
@@ -572,6 +691,7 @@ export function AuthForm() {
                       maxLength={6}
                       enterKeyHint="next"
                       disabled={isLoading || !!initialMerchantCode}
+                      aria-required="true"
                       aria-describedby="merchant-code-hint"
                       {...signupForm.register('merchantCode')}
                       onChange={(e) => {
@@ -587,27 +707,6 @@ export function AuthForm() {
                     </p>
                   </div>
                 )}
-
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    inputMode="email"
-                    enterKeyHint="next"
-                    placeholder="anda@contoh.com"
-                    autoComplete="email"
-                    disabled={isLoading}
-                    aria-describedby={signupForm.formState.errors.email ? 'signup-email-error' : undefined}
-                    aria-invalid={!!signupForm.formState.errors.email}
-                    {...signupForm.register('email')}
-                  />
-                  {signupForm.formState.errors.email && (
-                    <p id="signup-email-error" className="text-sm text-destructive" role="alert">
-                      {signupForm.formState.errors.email.message}
-                    </p>
-                  )}
-                </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="signup-password">Password</Label>
@@ -674,9 +773,27 @@ export function AuthForm() {
                       <span>Memproses...</span>
                     </>
                   ) : (
-                    isTenantSignup ? 'Daftar sebagai Tenant' : 'Daftar'
+                    isTenantSignup ? 'Daftar sebagai Tenant' : 'Mulai Sekarang'
                   )}
                 </Button>
+
+                {/* Trust element */}
+                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-1">
+                  <Lock className="h-3 w-3" />
+                  <span>Data Anda aman dan terenkripsi</span>
+                </div>
+
+                {/* Cross-link to login */}
+                <p className="text-sm text-muted-foreground text-center">
+                  Sudah punya akun?{' '}
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('login')}
+                    className="text-primary hover:underline font-medium"
+                  >
+                    Masuk
+                  </button>
+                </p>
               </form>
             </TabsContent>
           </Tabs>
