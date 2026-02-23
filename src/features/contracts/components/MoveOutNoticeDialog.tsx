@@ -6,13 +6,12 @@ import { Label } from "@/shared/components/ui/label";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/shared/components/ui/radio-group";
 import { Checkbox } from "@/shared/components/ui/checkbox";
-import { Badge } from "@/shared/components/ui/badge";
 import { Calendar } from "@/shared/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
 import { supabase } from "@/lib/integrations/supabase/client";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { toast } from "sonner";
-import { format, addDays, differenceInDays, isAfter, isBefore } from "date-fns";
+import { format, addDays, differenceInDays, isBefore } from "date-fns";
 import { CalendarIcon, AlertTriangle, CheckCircle2, Info } from "lucide-react";
 import { cn } from "@/shared/utils/utils";
 
@@ -46,7 +45,6 @@ export function MoveOutNoticeDialog({ open, onOpenChange, contract, isEarlyTermi
   const [moveOutDate, setMoveOutDate] = useState<Date | undefined>();
   const [reason, setReason] = useState<string>("");
   const [notes, setNotes] = useState("");
-  const [isEarlyTermination, setIsEarlyTermination] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -55,7 +53,6 @@ export function MoveOutNoticeDialog({ open, onOpenChange, contract, isEarlyTermi
   const minMoveOutDate = addDays(new Date(), noticePeriodDays);
   const earlyTerminationRate = contract.early_termination_penalty_rate || 2;
 
-  // Calculate if selected date is early termination
   const isEarly = moveOutDate && isBefore(moveOutDate, contractEndDate);
   const daysEarly = moveOutDate && isEarly ? differenceInDays(contractEndDate, moveOutDate) : 0;
   const penaltyAmount = isEarly ? earlyTerminationRate * contract.rent_amount : 0;
@@ -73,7 +70,6 @@ export function MoveOutNoticeDialog({ open, onOpenChange, contract, isEarlyTermi
 
     setIsSubmitting(true);
     try {
-      // Create move-out notice
       const { data: notice, error: noticeError } = await supabase
         .from("move_out_notices")
         .insert({
@@ -90,7 +86,6 @@ export function MoveOutNoticeDialog({ open, onOpenChange, contract, isEarlyTermi
 
       if (noticeError) throw noticeError;
 
-      // Update contract with move-out notice info
       await supabase
         .from("contracts")
         .update({
@@ -100,7 +95,6 @@ export function MoveOutNoticeDialog({ open, onOpenChange, contract, isEarlyTermi
         })
         .eq("id", contract.id);
 
-      // Create timeline entries
       const timelineSteps = [
         { step: "notice_submitted", completed: true, completed_at: new Date().toISOString() },
         { step: "inspection_scheduled", completed: false },
@@ -116,7 +110,6 @@ export function MoveOutNoticeDialog({ open, onOpenChange, contract, isEarlyTermi
         }))
       );
 
-      // Create default move-out tasks
       const defaultTasks = [
         { task_name: "Schedule final inspection", description: "Coordinate with landlord for inspection", order_index: 1 },
         { task_name: "Deep clean the unit", description: "Ensure unit is thoroughly cleaned", order_index: 2 },
@@ -135,7 +128,6 @@ export function MoveOutNoticeDialog({ open, onOpenChange, contract, isEarlyTermi
         }))
       );
 
-      // If early termination, create penalty request
       if (isEarly && penaltyAmount > 0) {
         await supabase.from("early_termination_requests").insert({
           tenant_user_id: user.id,
@@ -163,7 +155,7 @@ export function MoveOutNoticeDialog({ open, onOpenChange, contract, isEarlyTermi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl">
         <DialogHeader>
           <DialogTitle>Give Move-Out Notice</DialogTitle>
           <DialogDescription>
@@ -173,7 +165,7 @@ export function MoveOutNoticeDialog({ open, onOpenChange, contract, isEarlyTermi
 
         <div className="space-y-6 py-4">
           {/* Contract Info */}
-          <div className="p-4 rounded-lg bg-muted/50 space-y-2">
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/40 space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Contract ends:</span>
               <span className="font-medium">{format(contractEndDate, "MMMM dd, yyyy")}</span>
@@ -196,7 +188,7 @@ export function MoveOutNoticeDialog({ open, onOpenChange, contract, isEarlyTermi
                 <Button
                   variant="outline"
                   className={cn(
-                    "w-full justify-start text-left font-normal",
+                    "w-full justify-start text-left font-normal rounded-xl bg-background/60 border-border/50",
                     !moveOutDate && "text-muted-foreground"
                   )}
                 >
@@ -204,7 +196,7 @@ export function MoveOutNoticeDialog({ open, onOpenChange, contract, isEarlyTermi
                   {moveOutDate ? format(moveOutDate, "MMMM dd, yyyy") : "Select date"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+              <PopoverContent className="w-auto p-0 rounded-xl" align="start">
                 <Calendar
                   mode="single"
                   selected={moveOutDate}
@@ -221,7 +213,7 @@ export function MoveOutNoticeDialog({ open, onOpenChange, contract, isEarlyTermi
 
           {/* Early Termination Warning */}
           {isEarly && (
-            <div className="p-4 rounded-lg border border-warning bg-warning/10 space-y-3">
+            <div className="p-4 rounded-2xl border border-warning bg-warning/10 space-y-3">
               <div className="flex items-center gap-2 text-warning">
                 <AlertTriangle className="h-5 w-5" />
                 <span className="font-semibold">Early Termination</span>
@@ -229,7 +221,7 @@ export function MoveOutNoticeDialog({ open, onOpenChange, contract, isEarlyTermi
               <p className="text-sm">
                 You're requesting to move out <strong>{daysEarly} days</strong> before your contract ends.
               </p>
-              <div className="p-3 rounded bg-background">
+              <div className="p-3 rounded-xl bg-background/80 backdrop-blur-sm">
                 <div className="flex justify-between text-sm mb-1">
                   <span>Penalty Rate:</span>
                   <span>{earlyTerminationRate} month(s) rent</span>
@@ -247,7 +239,7 @@ export function MoveOutNoticeDialog({ open, onOpenChange, contract, isEarlyTermi
 
           {/* Normal Move-out Confirmation */}
           {moveOutDate && !isEarly && (
-            <div className="p-4 rounded-lg border border-success bg-success/10">
+            <div className="p-4 rounded-2xl border border-success bg-success/10">
               <div className="flex items-center gap-2 text-success">
                 <CheckCircle2 className="h-5 w-5" />
                 <span className="font-semibold">Valid Notice Period</span>
@@ -263,9 +255,9 @@ export function MoveOutNoticeDialog({ open, onOpenChange, contract, isEarlyTermi
             <Label>Reason for Moving (Optional)</Label>
             <RadioGroup value={reason} onValueChange={setReason}>
               {MOVE_OUT_REASONS.map((r) => (
-                <div key={r.value} className="flex items-center space-x-2">
+                <div key={r.value} className="flex items-center space-x-2 p-3 rounded-xl border border-border/40 hover:bg-primary/5 transition-colors">
                   <RadioGroupItem value={r.value} id={r.value} />
-                  <Label htmlFor={r.value} className="font-normal cursor-pointer">
+                  <Label htmlFor={r.value} className="font-normal cursor-pointer flex-1">
                     {r.label}
                   </Label>
                 </div>
@@ -282,11 +274,12 @@ export function MoveOutNoticeDialog({ open, onOpenChange, contract, isEarlyTermi
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Any additional information..."
               rows={3}
+              className="rounded-xl bg-background/60 border-border/50"
             />
           </div>
 
           {/* Move-Out Checklist Preview */}
-          <div className="p-4 rounded-lg border space-y-3">
+          <div className="p-4 rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm space-y-3">
             <div className="flex items-center gap-2">
               <Info className="h-4 w-4 text-primary" />
               <span className="font-medium">Move-Out Checklist Preview</span>
@@ -316,13 +309,13 @@ export function MoveOutNoticeDialog({ open, onOpenChange, contract, isEarlyTermi
 
           {/* Submit Button */}
           <div className="flex gap-3 pt-4">
-            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 rounded-xl">
               Cancel
             </Button>
             <Button 
               onClick={handleSubmit} 
               disabled={!moveOutDate || !agreedToTerms || isSubmitting}
-              className="flex-1"
+              className="flex-1 gradient-cta rounded-xl"
             >
               {isSubmitting ? "Submitting..." : "Submit Notice"}
             </Button>

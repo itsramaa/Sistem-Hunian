@@ -1,12 +1,6 @@
 import { format, differenceInDays } from "date-fns";
 import { 
-  Home, 
-  Calendar, 
-  Clock, 
-  Wallet, 
-  ClipboardCheck, 
-  AlertTriangle,
-  Eye 
+  Home, Calendar, Clock, Wallet, ClipboardCheck, AlertTriangle, Eye 
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/components/ui/card";
 import { Button } from "@/shared/components/ui/button";
@@ -24,23 +18,20 @@ interface MoveOutsListProps {
 }
 
 export const MoveOutsList = ({ 
-  notices, 
-  inspections, 
-  tenantProfiles, 
-  onScheduleInspection, 
-  onConductInspection,
-  type
+  notices, inspections, tenantProfiles, onScheduleInspection, onConductInspection, type
 }: MoveOutsListProps) => {
   if (notices.length === 0) {
     return (
-      <Card>
+      <Card className="bg-card/90 backdrop-blur-sm border border-border/40 rounded-2xl">
         <CardContent className="py-12 text-center">
-          {type === "upcoming" ? (
-            <Home className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          ) : (
-            <ClipboardCheck className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          )}
-          <h3 className="text-lg font-medium mb-2">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/10 to-accent/5 flex items-center justify-center mx-auto mb-4">
+            {type === "upcoming" ? (
+              <Home className="h-8 w-8 text-primary" />
+            ) : (
+              <ClipboardCheck className="h-8 w-8 text-primary" />
+            )}
+          </div>
+          <h3 className="text-lg font-semibold mb-2">
             {type === "upcoming" ? "No Upcoming Move-Outs" : "No Completed Move-Outs"}
           </h3>
           <p className="text-muted-foreground">
@@ -61,13 +52,13 @@ export const MoveOutsList = ({
         const daysUntil = differenceInDays(new Date(notice.intended_move_out_date), new Date());
         
         if (type === "completed") {
-           return (
-            <Card key={notice.id}>
+          return (
+            <Card key={notice.id} className="bg-card/90 backdrop-blur-sm border border-border/40 rounded-2xl hover:border-primary/30 transition-all duration-300">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-muted">
-                      <Home className="h-5 w-5 text-muted-foreground" />
+                    <div className="gradient-icon-box">
+                      <Home className="h-5 w-5 text-primary" />
                     </div>
                     <div>
                       <p className="font-medium">
@@ -86,11 +77,11 @@ export const MoveOutsList = ({
         }
 
         return (
-          <Card key={notice.id} className={daysUntil <= 7 ? "border-destructive" : ""}>
+          <Card key={notice.id} className={`bg-card/90 backdrop-blur-sm rounded-2xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${daysUntil <= 7 ? "border-destructive/50" : "border-border/40 hover:border-primary/30"}`}>
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-lg bg-primary/10">
+                  <div className="gradient-icon-box">
                     <Home className="h-6 w-6 text-primary" />
                   </div>
                   <div>
@@ -107,50 +98,26 @@ export const MoveOutsList = ({
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                    <Calendar className="h-4 w-4" />
-                    <span className="text-sm">Move-Out Date</span>
+                {[
+                  { icon: Calendar, label: "Move-Out Date", value: format(new Date(notice.intended_move_out_date), "MMM dd, yyyy") },
+                  { icon: Clock, label: "Days Left", value: `${daysUntil} days`, urgent: daysUntil <= 7 },
+                  { icon: Wallet, label: "Deposit", value: formatCurrency(notice.contract?.deposit_amount || 0) },
+                  { icon: ClipboardCheck, label: "Inspection", value: inspection?.status === "scheduled" ? format(new Date(inspection.scheduled_date!), "MMM dd") : inspection?.status === "completed" ? "Done" : "Not scheduled" },
+                ].map((item, i) => (
+                  <div key={i} className="p-3 rounded-xl bg-card/80 backdrop-blur-sm border border-border/30">
+                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                      <item.icon className="h-4 w-4" />
+                      <span className="text-sm">{item.label}</span>
+                    </div>
+                    <p className={`font-semibold ${item.urgent ? "text-destructive" : ""}`}>
+                      {item.value}
+                    </p>
                   </div>
-                  <p className="font-semibold">
-                    {format(new Date(notice.intended_move_out_date), "MMM dd, yyyy")}
-                  </p>
-                </div>
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                    <Clock className="h-4 w-4" />
-                    <span className="text-sm">Days Left</span>
-                  </div>
-                  <p className={`font-semibold ${daysUntil <= 7 ? "text-destructive" : ""}`}>
-                    {daysUntil} days
-                  </p>
-                </div>
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                    <Wallet className="h-4 w-4" />
-                    <span className="text-sm">Deposit</span>
-                  </div>
-                  <p className="font-semibold">
-                    {formatCurrency(notice.contract?.deposit_amount || 0)}
-                  </p>
-                </div>
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                    <ClipboardCheck className="h-4 w-4" />
-                    <span className="text-sm">Inspection</span>
-                  </div>
-                  <p className="font-semibold">
-                    {inspection?.status === "scheduled" 
-                      ? format(new Date(inspection.scheduled_date!), "MMM dd")
-                      : inspection?.status === "completed"
-                      ? "Done"
-                      : "Not scheduled"}
-                  </p>
-                </div>
+                ))}
               </div>
 
               {notice.is_early_termination && (
-                <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 mb-4">
+                <div className="p-3 rounded-xl bg-warning/10 border border-warning/20 mb-4">
                   <div className="flex items-center gap-2 text-warning">
                     <AlertTriangle className="h-4 w-4" />
                     <span className="font-medium">Early Termination</span>
@@ -163,23 +130,19 @@ export const MoveOutsList = ({
 
               <div className="flex gap-3">
                 {!inspection && (
-                  <Button 
-                    onClick={() => onScheduleInspection(notice)}
-                  >
+                  <Button onClick={() => onScheduleInspection(notice)} className="gradient-cta rounded-xl">
                     <Calendar className="h-4 w-4 mr-2" />
                     Schedule Inspection
                   </Button>
                 )}
                 {inspection?.status === "scheduled" && (
-                  <Button 
-                    onClick={() => onConductInspection(notice)}
-                  >
+                  <Button onClick={() => onConductInspection(notice)} className="gradient-cta rounded-xl">
                     <ClipboardCheck className="h-4 w-4 mr-2" />
                     Conduct Inspection
                   </Button>
                 )}
                 {inspection?.status === "completed" && (
-                  <Button variant="outline">
+                  <Button variant="outline" className="rounded-xl">
                     <Eye className="h-4 w-4 mr-2" />
                     View Report
                   </Button>

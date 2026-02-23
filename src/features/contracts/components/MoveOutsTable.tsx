@@ -64,18 +64,18 @@ export function MoveOutsTable({
   }
 
   return (
-    <div className="rounded-md border">
+    <div className="glass-table">
       <Table>
         <TableHeader>
-          <TableRow>
-            <TableHead>Unit</TableHead>
-            <TableHead>Tenant</TableHead>
-            <TableHead>Move-Out Date</TableHead>
-            {type === 'upcoming' && <TableHead>Days Left</TableHead>}
-            <TableHead>Deposit</TableHead>
-            <TableHead>Inspection</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+          <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b border-border/40">
+            <TableHead className="text-xs uppercase tracking-wider font-semibold">Unit</TableHead>
+            <TableHead className="text-xs uppercase tracking-wider font-semibold">Tenant</TableHead>
+            <TableHead className="text-xs uppercase tracking-wider font-semibold">Move-Out Date</TableHead>
+            {type === 'upcoming' && <TableHead className="text-xs uppercase tracking-wider font-semibold">Days Left</TableHead>}
+            <TableHead className="text-xs uppercase tracking-wider font-semibold">Deposit</TableHead>
+            <TableHead className="text-xs uppercase tracking-wider font-semibold">Inspection</TableHead>
+            <TableHead className="text-xs uppercase tracking-wider font-semibold">Status</TableHead>
+            <TableHead className="text-xs uppercase tracking-wider font-semibold text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -86,7 +86,7 @@ export function MoveOutsTable({
             const isUrgent = daysUntil <= 7 && type === 'upcoming';
 
             return (
-              <TableRow key={notice.id}>
+              <TableRow key={notice.id} className="hover:bg-primary/5 transition-colors">
                 <TableCell className="font-medium">
                   {notice.contract?.unit?.unit_number}
                   <span className="block text-xs text-muted-foreground">
@@ -138,12 +138,12 @@ export function MoveOutsTable({
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
+                      <Button variant="ghost" className="h-8 w-8 p-0 rounded-xl">
                         <span className="sr-only">Open menu</span>
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                    <DropdownMenuContent align="end" className="rounded-xl">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
                       {!inspection && type === 'upcoming' && (
                         <DropdownMenuItem onClick={() => onScheduleInspection(notice)}>
