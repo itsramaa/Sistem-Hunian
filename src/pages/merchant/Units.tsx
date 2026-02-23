@@ -9,19 +9,14 @@ import { useMerchantUnits } from "@/features/properties/hooks/useMerchantUnits";
 import { Unit, UnitFormData } from "@/features/properties/types";
 
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/shared/components/ui/alert-dialog";
 import { Button } from "@/shared/components/ui/button";
+import { Badge } from "@/shared/components/ui/badge";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 import { PageHeader } from "@/shared/components/ui/PageHeader";
-import { ChevronLeft, ChevronRight, DoorOpen, LayoutGrid, List, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, DoorOpen, LayoutGrid, List, Plus, CalendarClock } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 const ITEMS_PER_PAGE = 10;
@@ -105,31 +100,16 @@ export default function MerchantUnits() {
       <div className="flex items-center gap-3 mb-1">
         <div className="flex-1">
           <UnitFilters
-            search={search}
-            onSearchChange={setSearch}
-            statusFilter={statusFilter}
-            onStatusFilterChange={setStatusFilter}
-            propertyFilter={propertyFilter}
-            onPropertyFilterChange={setPropertyFilter}
-            properties={properties}
+            search={search} onSearchChange={setSearch} statusFilter={statusFilter} onStatusFilterChange={setStatusFilter}
+            propertyFilter={propertyFilter} onPropertyFilterChange={setPropertyFilter} properties={properties}
             onReset={() => { setSearch(""); setStatusFilter("all"); setPropertyFilter("all"); }}
           />
         </div>
         <div className="flex items-center bg-muted/60 rounded-xl p-1 gap-0.5 shrink-0 self-start mt-0">
-          <Button
-            variant={viewMode === 'gallery' ? 'default' : 'ghost'}
-            size="icon"
-            className={`h-8 w-8 rounded-lg ${viewMode === 'gallery' ? 'bg-primary text-primary-foreground shadow-sm' : ''}`}
-            onClick={() => setViewMode('gallery')}
-          >
+          <Button variant={viewMode === 'gallery' ? 'default' : 'ghost'} size="icon" className={`h-8 w-8 rounded-lg ${viewMode === 'gallery' ? 'bg-primary text-primary-foreground shadow-sm' : ''}`} onClick={() => setViewMode('gallery')}>
             <LayoutGrid className="h-4 w-4" />
           </Button>
-          <Button
-            variant={viewMode === 'list' ? 'default' : 'ghost'}
-            size="icon"
-            className={`h-8 w-8 rounded-lg ${viewMode === 'list' ? 'bg-primary text-primary-foreground shadow-sm' : ''}`}
-            onClick={() => setViewMode('list')}
-          >
+          <Button variant={viewMode === 'list' ? 'default' : 'ghost'} size="icon" className={`h-8 w-8 rounded-lg ${viewMode === 'list' ? 'bg-primary text-primary-foreground shadow-sm' : ''}`} onClick={() => setViewMode('list')}>
             <List className="h-4 w-4" />
           </Button>
         </div>
@@ -146,45 +126,25 @@ export default function MerchantUnits() {
           {paginatedUnits.length === 0 && (
             <div className="glass-table">
               <div className="flex flex-col items-center justify-center py-16 px-4">
-                <div className="gradient-icon-box w-16 h-16 mb-4">
-                  <DoorOpen className="h-8 w-8 text-muted-foreground" />
-                </div>
+                <div className="gradient-icon-box w-16 h-16 mb-4"><DoorOpen className="h-8 w-8 text-muted-foreground" /></div>
                 <h3 className="font-medium text-lg mb-1">Belum ada unit</h3>
-                <p className="text-sm text-muted-foreground text-center max-w-sm">
-                  Tambahkan unit pertama Anda dengan tombol "Tambah Unit" di atas.
-                </p>
+                <p className="text-sm text-muted-foreground text-center max-w-sm">Tambahkan unit pertama Anda dengan tombol "Tambah Unit" di atas.</p>
               </div>
             </div>
           )}
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-1 py-2">
-              <div className="text-sm text-muted-foreground">
-                Menampilkan {((page - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(page * ITEMS_PER_PAGE, filteredUnits.length)} dari {filteredUnits.length} unit
-              </div>
+              <div className="text-sm text-muted-foreground">Menampilkan {((page - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(page * ITEMS_PER_PAGE, filteredUnits.length)} dari {filteredUnits.length} unit</div>
               <div className="flex items-center gap-1">
-                <Button variant="ghost" size="sm" onClick={() => setPage(page - 1)} disabled={page === 1} className="h-8 rounded-full">
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setPage(page - 1)} disabled={page === 1} className="h-8 rounded-full"><ChevronLeft className="h-4 w-4" /></Button>
                 <span className="text-sm font-medium px-3 py-1 rounded-full bg-primary/10 text-primary">{page}/{totalPages}</span>
-                <Button variant="ghost" size="sm" onClick={() => setPage(page + 1)} disabled={page === totalPages} className="h-8 rounded-full">
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setPage(page + 1)} disabled={page === totalPages} className="h-8 rounded-full"><ChevronRight className="h-4 w-4" /></Button>
               </div>
             </div>
           )}
         </div>
       ) : (
-        <UnitsTable
-          units={paginatedUnits}
-          properties={properties}
-          onEdit={handleEdit}
-          onDelete={handleDeleteClick}
-          page={page}
-          totalPages={totalPages}
-          totalUnits={filteredUnits.length}
-          onPageChange={setPage}
-          itemsPerPage={ITEMS_PER_PAGE}
-        />
+        <UnitsTable units={paginatedUnits} properties={properties} onEdit={handleEdit} onDelete={handleDeleteClick} page={page} totalPages={totalPages} totalUnits={filteredUnits.length} onPageChange={setPage} itemsPerPage={ITEMS_PER_PAGE} />
       )}
 
       <UnitFormDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} unit={editingUnit} properties={properties} onSubmit={handleFormSubmit} isLoading={isCreating || isUpdating} />
