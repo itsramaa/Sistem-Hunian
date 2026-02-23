@@ -1,11 +1,9 @@
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { ContractDetailsDialog } from '@/features/contracts/components/ContractDetailsDialog';
 import { ContractsFilters } from '@/features/contracts/components/ContractsFilters';
 import { ContractsTable } from '@/features/contracts/components/ContractsTable';
 import { ContractStats } from '@/features/contracts/components/ContractStats';
 import { CreateContractDialog } from '@/features/contracts/components/CreateContractDialog';
 import { DeleteContractDialog } from '@/features/contracts/components/DeleteContractDialog';
-import { EditTermsDialog } from '@/features/contracts/components/EditTermsDialog';
 import { SignContractDialog } from '@/features/contracts/components/SignContractDialog';
 import { useContractActions } from '@/features/contracts/hooks/useContractActions';
 import { Contract } from '@/features/contracts/types';
@@ -135,8 +133,6 @@ export default function MerchantContracts() {
 
       <CreateContractDialog open={showCreateDialog} onOpenChange={setShowCreateDialog} availableUnits={availableUnits} merchantTenants={merchantTenants as any} onSubmit={createContractAction} loading={createContractMutation.isPending} />
       <SignContractDialog open={signDialogOpen} onOpenChange={setSignDialogOpen} contract={selectedContract} tenantName={selectedContract ? profileMap.get(selectedContract.tenant_user_id)?.full_name || 'Unknown' : ''} onSign={handleSignContract} loading={signContractMutation.isPending} signatureDataUrl={signatureDataUrl || ''} onSaveSignature={handleSaveSignature} />
-      <ContractDetailsDialog open={viewDialogOpen} onOpenChange={setViewDialogOpen} contract={selectedContract} tenantName={selectedContract ? profileMap.get(selectedContract.tenant_user_id)?.full_name || 'Unknown' : ''} onEditTerms={() => selectedContract && handleEditTerms(selectedContract)} onUploadComplete={() => { queryClient.invalidateQueries({ queryKey: ['merchant-contracts'] }); }} />
-      <EditTermsDialog open={editTermsDialogOpen} onOpenChange={setEditTermsDialogOpen} contract={selectedContract} tenantName={selectedContract ? profileMap.get(selectedContract.tenant_user_id)?.full_name || 'Unknown' : ''} terms={editingTerms} onTermsChange={setEditingTerms} onSave={handleSaveTerms} loading={updateTermsMutation.isPending} />
       <DeleteContractDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen} contract={selectedContract} onConfirm={handleConfirmDelete} loading={deleteContractMutation.isPending} />
     </div>
   );

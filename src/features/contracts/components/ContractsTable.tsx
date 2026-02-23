@@ -7,6 +7,7 @@ import { TablePagination } from "@/shared/components/ui/TablePagination";
 import { formatCurrency } from "@/shared/utils/currency";
 import { format } from "date-fns";
 import { Eye, FileText, MoreHorizontal, PenLine, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Contract, TenantProfile } from "../types";
 import { ContractStatusBadge } from "./ContractStatusBadge";
 import { SignatureStatusBadge } from "./SignatureStatusBadge";
@@ -28,6 +29,7 @@ interface ContractsTableProps {
 }
 
 export function ContractsTable({ contracts, isLoading, tenantProfiles, onView, onSign, onDelete, onMarkNotice, canDelete, page, totalPages, totalContracts, onPageChange, itemsPerPage }: ContractsTableProps) {
+  const navigate = useNavigate();
   if (isLoading) {
     return (
       <div className="glass-table">
@@ -88,7 +90,7 @@ export function ContractsTable({ contracts, isLoading, tenantProfiles, onView, o
             const tenant = tenantProfiles.get(contract.tenant_user_id);
             const isPast = ['terminated', 'expired', 'completed'].includes(contract.status);
             return (
-              <TableRow key={contract.id} className="hover:bg-primary/5 transition-colors">
+              <TableRow key={contract.id} className="hover:bg-primary/5 transition-colors cursor-pointer" onClick={() => navigate(`/merchant/contracts/${contract.id}`)}>
                 <TableCell>
                   <div className="font-medium">{tenant?.full_name || 'Unknown'}</div>
                   <div className="text-sm text-muted-foreground">{tenant?.email}</div>
@@ -112,7 +114,7 @@ export function ContractsTable({ contracts, isLoading, tenantProfiles, onView, o
                     <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem onClick={() => onView(contract)}><Eye className="mr-2 h-4 w-4" />View Details</DropdownMenuItem>
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/merchant/contracts/${contract.id}`); }}><Eye className="mr-2 h-4 w-4" />View Details</DropdownMenuItem>
                       {!isPast && !contract.merchant_signature_url && contract.tenant_signature_url && (
                         <DropdownMenuItem onClick={() => onSign(contract)}><PenLine className="mr-2 h-4 w-4" />Sign Contract</DropdownMenuItem>
                       )}
