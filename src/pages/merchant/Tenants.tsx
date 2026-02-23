@@ -28,13 +28,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui
 import { useToast } from '@/shared/hooks/use-toast';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
-import { AlertTriangle, CalendarClock, Plus, RefreshCw, Send, Users, CircleDollarSign } from 'lucide-react';
+import { AlertTriangle, CalendarClock, Plus, RefreshCw, Send, Users, CircleDollarSign, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { differenceInDays } from 'date-fns';
 
 const ITEMS_PER_PAGE = 10;
 
 export default function MerchantTenants() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 500);
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -148,6 +150,9 @@ export default function MerchantTenants() {
   return (
     <>
       <PageHeader icon={Users} title="Manajemen Tenant" description="Kelola tenant aktif dan undangan">
+        <Button variant="outline" onClick={() => navigate('/merchant/move-outs')} className="rounded-xl gap-2">
+          <LogOut className="h-4 w-4" />Pindah Keluar
+        </Button>
         <Button onClick={() => setShowInviteDialog(true)} disabled={properties.length === 0} className="rounded-xl gradient-cta text-primary-foreground hover:opacity-90 gap-2">
           <Send className="h-4 w-4" />Kirim Undangan
         </Button>
