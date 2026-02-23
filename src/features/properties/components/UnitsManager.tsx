@@ -192,7 +192,7 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
                 <Card 
                   key={unit.id} 
                   className="hover:shadow-sm transition-shadow cursor-pointer"
-                  onClick={() => navigate(`/merchant/units`)}
+                  onClick={() => navigate(`/merchant/units/${unit.id}`)}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">

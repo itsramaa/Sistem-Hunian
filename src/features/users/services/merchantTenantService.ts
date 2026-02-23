@@ -235,10 +235,12 @@ export const merchantTenantService = {
     await logStatusChange('contract', contract.id, currentStatus, 'terminated');
   },
 
-  async getAllTenantsInSystem(): Promise<{ user_id: string; full_name: string | null; email: string | null; phone: string | null }[]> {
+  async getAvailableTenants(merchantId: string): Promise<{ user_id: string; full_name: string | null; email: string | null; phone: string | null }[]> {
+    // Only fetch tenants not linked to any merchant, or already linked to this merchant
     const { data, error } = await supabase
       .from('tenants')
       .select('user_id')
+      .or(`linked_merchant_id.is.null,linked_merchant_id.eq.${merchantId}`)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -276,10 +278,10 @@ export const merchantTenantService = {
           .from('tenant_invitations')
           .insert({
             merchant_id: merchantId,
-            unit_id: data.unit_id,
+            property_id: (data as any).property_id || null,
             email: data.email.toLowerCase().trim(),
             phone: data.phone || null,
-          });
+          } as any);
         if (invError) throw invError;
 
         await createAuditLog({
@@ -309,6 +311,12 @@ export const merchantTenantService = {
       });
 
     if (contractError) throw contractError;
+
+    // Update unit status to occupied
+    await supabase
+      .from('units')
+      .update({ status: 'occupied' })
+      .eq('id', data.unit_id);
 
     // Link tenant to merchant
     await supabase

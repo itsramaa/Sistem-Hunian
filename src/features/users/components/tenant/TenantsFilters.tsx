@@ -25,8 +25,8 @@ export function TenantsFilters({
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder={activeTab === 'invitations' 
-            ? "Search by email, property, or unit..." 
-            : "Search by name, email, property, or unit..."}
+            ? "Cari email, properti, atau unit..." 
+            : "Cari nama, email, properti, atau unit..."}
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           className="pl-10"
@@ -35,14 +35,14 @@ export function TenantsFilters({
       {activeTab === 'invitations' && (
         <Select value={statusFilter} onValueChange={onStatusFilterChange}>
           <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Filter by status" />
+            <SelectValue placeholder="Filter status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="accepted">Accepted</SelectItem>
-            <SelectItem value="expired">Expired</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
+            <SelectItem value="all">Semua Status</SelectItem>
+            <SelectItem value="pending">Menunggu</SelectItem>
+            <SelectItem value="accepted">Diterima</SelectItem>
+            <SelectItem value="expired">Kedaluwarsa</SelectItem>
+            <SelectItem value="cancelled">Dibatalkan</SelectItem>
           </SelectContent>
         </Select>
       )}

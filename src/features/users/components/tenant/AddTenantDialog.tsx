@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/shared/components/ui/badge';
 import { Separator } from '@/shared/components/ui/separator';
 import { addTenantSchema, AddTenantFormData } from '@/features/users/types/addTenantSchema';
-import { useAllTenantsInSystem } from '@/features/users/hooks/useMerchantTenants';
+import { useAvailableTenants } from '@/features/users/hooks/useMerchantTenants';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { Property } from '@/features/properties/types';
 import { ArrowLeft, ArrowRight, Building2, Check, Home, Loader2, User, Users } from 'lucide-react';
 import { cn } from '@/shared/utils/utils';
@@ -33,7 +34,8 @@ export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLo
   const [selectedTenantUserId, setSelectedTenantUserId] = useState<string>('');
   const [searchTenant, setSearchTenant] = useState('');
 
-  const { data: allTenants = [], isLoading: tenantsLoading } = useAllTenantsInSystem();
+  const { merchant } = useAuth();
+  const { data: allTenants = [], isLoading: tenantsLoading } = useAvailableTenants(merchant?.id);
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors }, trigger } = useForm<AddTenantFormData>({
     resolver: zodResolver(addTenantSchema),
@@ -286,7 +288,7 @@ export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLo
             </div>
           )}
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 flex-col-reverse sm:flex-row">
             {step > 0 && (
               <Button type="button" variant="outline" onClick={handleBack}>
                 <ArrowLeft className="h-4 w-4 mr-1" />Kembali
