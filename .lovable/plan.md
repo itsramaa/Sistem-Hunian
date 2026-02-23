@@ -1,103 +1,79 @@
 
 
-# 3.4 Comparative Analysis -- Benchmarking & Portfolio Analysis
+# 3.5 Machine Learning Models -- Price Prediction & Occupancy Forecasting
 
 ## Gap Analysis
 
 | FR | Deskripsi | Status |
 |----|-----------|--------|
-| FR-1101 | Bandingkan kosan dengan competitor | Sebagian ada (Benchmark tab di FinancialRiskAnalytics -- tapi hanya peer internal, bukan competitor eksternal) |
-| FR-1102 | Generate competitor analysis report | **Belum ada** |
-| FR-1103 | Price positioning (above/at/below market) | **Belum ada** |
-| FR-1104 | Occupancy positioning | **Belum ada** |
-| FR-1201 | Analyze portfolio multi-kosan | **Belum ada** |
-| FR-1202 | Portfolio-level ROI dan cash flow | **Belum ada** |
-| FR-1203 | Identify top/underperformer | **Belum ada** |
-| FR-1204 | Recommend portfolio optimization | **Belum ada** |
+| FR-1301 | ML model untuk predict optimal rental price | Sudah ada (`ml-optimal-pricing` + `ml-price-intelligence`) |
+| FR-1302 | Input: lokasi, fasilitas, luas, kondisi bangunan, kompetitor | Sebagian -- lokasi, fasilitas, unit_type sudah dikirim. **`building_condition` belum** dimasukkan ke context. Kolom `luas` (floor area) tidak ada di database. |
+| FR-1303 | Output: recommended price range + confidence | Sudah ada (kedua function return `price_range` + `confidence`) |
+| FR-1304 | Model retrain berkala dengan data baru | **Belum ada** -- perlu UI "Refresh Model" dengan tracking kapan terakhir dijalankan |
+| FR-1401 | ML model untuk forecast occupancy | Sudah ada (`ml-occupancy-forecast`) |
+| FR-1402 | Input: historical, seasonal, location, segment | Sudah ada (snapshots, contracts, units, properties) |
+| FR-1403 | Output: forecast per bulan + confidence interval | Sudah ada (monthly_predictions dengan confidence per bulan) |
+| FR-1404 | Detect anomali (unusual pattern) | Sebagian -- price outlier sudah ada di `ml-price-intelligence`. **Occupancy anomaly detection belum ada** di output `ml-occupancy-forecast` |
 
 ## Yang Perlu Diimplementasi
 
-### 1. Halaman: Comparative & Portfolio Analysis
+Karena sebagian besar sudah ada, hanya perlu 3 enhancement minor:
 
-Satu halaman baru `ComparativePortfolio.tsx` dengan 2 tab utama:
+### 1. FR-1302: Tambah `building_condition` ke Input Pricing Models
 
-**Tab 1: Benchmarking & Positioning (FR-1101 s/d FR-1104)**
+Update `ml-optimal-pricing/index.ts` -- tambah `building_condition` dari tabel `properties` ke context yang dikirim ke AI. Kolom ini sudah ada di database tapi belum di-select.
 
-Menggunakan data internal merchant (properties + units) untuk:
-- **Price Positioning**: Setiap properti dibandingkan terhadap rata-rata harga seluruh properti merchant. Tampilkan badge: "Di Atas Pasar" / "Sesuai Pasar" / "Di Bawah Pasar" (threshold +/- 10%)
-- **Occupancy Positioning**: Sama -- bandingkan occupancy rate per properti vs rata-rata keseluruhan
-- **Competitor Analysis Table**: Tabel semua properti dengan kolom: Nama, Avg Rent, Occupancy, Price Position, Occupancy Position, Overall Rating
-- **Export**: Tombol "Export Laporan Kompetitor" yang generate PDF via existing `exportToPDF`
+Update `ml-price-intelligence/index.ts` -- tambah `building_condition` ke property select query.
 
-Catatan: Karena tidak ada database kompetitor eksternal, "competitor" didefinisikan sebagai properti lain di kota/segmen yang sama milik merchant (peer group internal). Ini konsisten dengan Benchmark tab yang sudah ada.
+Catatan: Kolom `luas` (floor area) tidak ada di database schema saat ini. Sebagai pengganti, `unit_type` dan `amenities` sudah mencakup informasi serupa. Tidak perlu database migration.
 
-**Tab 2: Portfolio Analysis (FR-1201 s/d FR-1204)**
+### 2. FR-1304: Model Refresh Tracking UI
 
-Analisis seluruh portofolio properti merchant:
-- **Portfolio Summary Cards**: Total properti, total unit, total revenue bulanan, rata-rata occupancy, portfolio ROI
-- **Portfolio Cash Flow Chart**: BarChart stacked -- revenue vs expenses per properti
-- **Performance Ranking Table**: Tabel semua properti diurutkan berdasarkan skor komposit (occupancy * 0.4 + ROI * 0.3 + avg_rent_percentile * 0.3). Badge: "Top Performer" (hijau), "Average" (kuning), "Underperformer" (merah)
-- **Optimization Recommendations**: Card list rekomendasi otomatis berdasarkan data:
-  - Properti dengan occupancy < 50%: "Pertimbangkan penurunan harga atau renovasi"
-  - Properti dengan rent di bawah 20% rata-rata: "Potensi kenaikan harga"
-  - Properti dengan occupancy > 90% dan rent di bawah rata-rata: "Naikkan harga -- demand tinggi"
-  - ROI negatif atau sangat rendah: "Evaluasi kelayakan investasi"
+Tambahkan section "Model Status" di halaman `MlAnalytics.tsx` yang menampilkan:
+- Kapan terakhir setiap model dijalankan (dari `ml_model_runs` table)
+- Tombol "Refresh" per model
+- Badge status: "Terkini" (< 24 jam), "Perlu Update" (> 7 hari), "Kadaluarsa" (> 30 hari)
 
-### 2. Service & Hooks
+Tambah hook `useModelRunHistory` yang query `ml_model_runs` grouped by `function_name` untuk mendapatkan latest run per model.
 
-**Service**: `src/features/analytics/services/comparativePortfolioService.ts`
-- `fetchPortfolioData(merchantId)` -- query properties, units, payments, maintenance_expenses
-- Mengembalikan data terstruktur untuk kedua tab
+### 3. FR-1404: Occupancy Anomaly Detection
 
-**Hook**: `src/features/analytics/hooks/useComparativePortfolio.ts`
-- `usePortfolioData(merchantId)` -- React Query wrapper
+Update `ml-occupancy-forecast/index.ts` -- tambahkan field `anomalies` ke AI tool schema agar model juga mendeteksi pola anomali (lonjakan/penurunan drastis, occupancy tidak sesuai musim). Ini hanya perubahan pada tool definition dan system prompt.
 
-### 3. Navigasi
+Update `MarketIntelligence.tsx` -- tampilkan anomali yang terdeteksi di Tab Forecast Okupansi sebagai alert cards.
 
-Tambah menu "Komparatif & Portfolio" di grup "Analitik" di `navigation-config.ts` dengan icon `Briefcase`.
-
----
-
-## Arsitektur
-
-```text
-[Frontend]
-ComparativePortfolio.tsx  ---->  Supabase client (properties, units, payments, maintenance_expenses)
-  |-- Tab Benchmarking (price/occupancy positioning + competitor table)
-  |-- Tab Portfolio (summary, cash flow chart, ranking, recommendations)
-```
-
-Tidak ada edge function baru. Tidak ada database migration. Semua data sudah tersedia di tabel existing.
+Update `marketIntelligenceService.ts` -- tambah type `OccupancyAnomaly` dan update `OccupancyForecastResult`.
 
 ---
 
 ## Detail Teknis
 
-### File Baru
-
-| File | Deskripsi |
-|------|-----------|
-| `src/pages/merchant/ComparativePortfolio.tsx` | Halaman utama dengan 2 tab |
-| `src/features/analytics/services/comparativePortfolioService.ts` | Service fetch data portfolio |
-| `src/features/analytics/hooks/useComparativePortfolio.ts` | React Query hook |
-
 ### File yang Dimodifikasi
 
 | File | Perubahan |
 |------|-----------|
-| `src/shared/components/layouts/navigation-config.ts` | Tambah menu "Komparatif & Portfolio" |
-| `src/App.tsx` | Tambah lazy import + route `comparative-portfolio` |
+| `supabase/functions/ml-optimal-pricing/index.ts` | Tambah `building_condition` ke property select |
+| `supabase/functions/ml-price-intelligence/index.ts` | Tambah `building_condition` ke property select |
+| `supabase/functions/ml-occupancy-forecast/index.ts` | Tambah `anomalies` field ke tool schema + system prompt |
+| `src/features/dss/services/marketIntelligenceService.ts` | Tambah `OccupancyAnomaly` type + update `OccupancyForecastResult` |
+| `src/pages/merchant/MarketIntelligence.tsx` | Tampilkan anomali di Tab Forecast Okupansi |
+| `src/pages/merchant/MlAnalytics.tsx` | Tambah section "Status Model" dengan last run + refresh |
+| `src/features/dss/hooks/useMlAnalytics.ts` | Tambah `useModelRunHistory` hook |
 
-### Komponen yang Digunakan
+### File Baru
 
-- recharts: `BarChart` (stacked cash flow), `RadarChart` (positioning visual)
-- Existing UI: `Card`, `Tabs`, `Badge`, `Table`, `PageHeader`, `Button`
-- Existing utils: `formatRupiah`, `exportToPDF`
+Tidak ada file baru. Semua perubahan adalah enhancement pada file existing.
+
+### Tidak Ada Database Migration
+
+Semua kolom yang dibutuhkan (`building_condition`, `ml_model_runs`) sudah ada.
 
 ### Urutan Implementasi
 
-1. Service `comparativePortfolioService.ts`
-2. Hook `useComparativePortfolio.ts`
-3. Halaman `ComparativePortfolio.tsx` (kedua tab)
-4. Update navigasi + routes
+1. Update `ml-optimal-pricing` dan `ml-price-intelligence` (tambah `building_condition`)
+2. Update `ml-occupancy-forecast` (tambah anomaly detection ke schema)
+3. Update `marketIntelligenceService.ts` (tambah types)
+4. Update `MarketIntelligence.tsx` (tampilkan anomali)
+5. Tambah `useModelRunHistory` hook di `useMlAnalytics.ts`
+6. Update `MlAnalytics.tsx` (section status model + refresh tracking)
 
