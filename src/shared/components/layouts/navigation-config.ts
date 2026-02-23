@@ -117,6 +117,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
         items: [
           { path: "/merchant/properties", icon: Building2, label: "Properti" },
           { path: "/merchant/units", icon: Home, label: "Unit" },
+          { path: "/merchant/guardians", icon: User, label: "Penjaga" },
           { path: "/merchant/tenants", icon: Users, label: "Penyewa" },
         ],
       },

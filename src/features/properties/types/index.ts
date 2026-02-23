@@ -66,6 +66,13 @@ export interface Property {
   latitude?: number | null;
   longitude?: number | null;
   nearby_facilities?: NearbyFacility[];
+  // Financial fields
+  construction_cost?: number | null;
+  renovation_cost?: number | null;
+  funding_source?: string | null;
+  monthly_amortization?: number | null;
+  monthly_maintenance_cost?: number | null;
+  avg_annual_unexpected_cost?: number | null;
 }
 
 export interface NearbyFacility {

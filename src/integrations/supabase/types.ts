@@ -3032,12 +3032,15 @@ export type Database = {
         Row: {
           address: string
           amenities: string[] | null
+          avg_annual_unexpected_cost: number | null
           building_condition: string | null
           city: string
+          construction_cost: number | null
           construction_year: number | null
           created_at: string
           description: string | null
           floor_count: number | null
+          funding_source: string | null
           guardian_name: string | null
           guardian_phone: string | null
           id: string
@@ -3047,12 +3050,15 @@ export type Database = {
           longitude: number | null
           marketing_cost: number | null
           merchant_id: string
+          monthly_amortization: number | null
+          monthly_maintenance_cost: number | null
           name: string
           nearby_facilities: Json | null
           occupied_units: number | null
           postal_code: string | null
           property_type: string
           province: string
+          renovation_cost: number | null
           status: string | null
           total_units: number | null
           updated_at: string
@@ -3060,12 +3066,15 @@ export type Database = {
         Insert: {
           address: string
           amenities?: string[] | null
+          avg_annual_unexpected_cost?: number | null
           building_condition?: string | null
           city: string
+          construction_cost?: number | null
           construction_year?: number | null
           created_at?: string
           description?: string | null
           floor_count?: number | null
+          funding_source?: string | null
           guardian_name?: string | null
           guardian_phone?: string | null
           id?: string
@@ -3075,12 +3084,15 @@ export type Database = {
           longitude?: number | null
           marketing_cost?: number | null
           merchant_id: string
+          monthly_amortization?: number | null
+          monthly_maintenance_cost?: number | null
           name: string
           nearby_facilities?: Json | null
           occupied_units?: number | null
           postal_code?: string | null
           property_type: string
           province: string
+          renovation_cost?: number | null
           status?: string | null
           total_units?: number | null
           updated_at?: string
@@ -3088,12 +3100,15 @@ export type Database = {
         Update: {
           address?: string
           amenities?: string[] | null
+          avg_annual_unexpected_cost?: number | null
           building_condition?: string | null
           city?: string
+          construction_cost?: number | null
           construction_year?: number | null
           created_at?: string
           description?: string | null
           floor_count?: number | null
+          funding_source?: string | null
           guardian_name?: string | null
           guardian_phone?: string | null
           id?: string
@@ -3103,12 +3118,15 @@ export type Database = {
           longitude?: number | null
           marketing_cost?: number | null
           merchant_id?: string
+          monthly_amortization?: number | null
+          monthly_maintenance_cost?: number | null
           name?: string
           nearby_facilities?: Json | null
           occupied_units?: number | null
           postal_code?: string | null
           property_type?: string
           province?: string
+          renovation_cost?: number | null
           status?: string | null
           total_units?: number | null
           updated_at?: string
