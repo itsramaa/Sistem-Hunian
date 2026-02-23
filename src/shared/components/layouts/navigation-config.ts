@@ -26,6 +26,7 @@ import {
     Store,
     TrendingUp,
     User,
+    UserCheck,
     Users,
     Wallet,
     Wrench,
@@ -148,6 +149,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/merchant/ml-analytics", icon: Brain, label: "Analitik ML" },
           { path: "/merchant/dss-advisor", icon: Lightbulb, label: "Advisor DSS" },
           { path: "/merchant/financial-risk", icon: Calculator, label: "Financial & Risk" },
+          { path: "/merchant/tenant-quality", icon: UserCheck, label: "Kualitas Tenant" },
         ],
       },
       {
