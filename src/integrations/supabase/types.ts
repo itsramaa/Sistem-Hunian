@@ -415,6 +415,66 @@ export type Database = {
           },
         ]
       }
+      compliance_documents: {
+        Row: {
+          created_at: string
+          document_name: string
+          document_type: string
+          document_url: string | null
+          expiry_date: string | null
+          id: string
+          issue_date: string | null
+          merchant_id: string
+          notes: string | null
+          property_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          document_name: string
+          document_type: string
+          document_url?: string | null
+          expiry_date?: string | null
+          id?: string
+          issue_date?: string | null
+          merchant_id: string
+          notes?: string | null
+          property_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          document_name?: string
+          document_type?: string
+          document_url?: string | null
+          expiry_date?: string | null
+          id?: string
+          issue_date?: string | null
+          merchant_id?: string
+          notes?: string | null
+          property_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_documents_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_documents_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contracts: {
         Row: {
           actual_end_date: string | null
@@ -671,6 +731,75 @@ export type Database = {
             columns: ["inspection_id"]
             isOneToOne: false
             referencedRelation: "move_out_inspections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      disaster_risk_profiles: {
+        Row: {
+          created_at: string
+          disaster_history: Json | null
+          earthquake_risk: string | null
+          fire_risk: string | null
+          flood_risk: string | null
+          id: string
+          landslide_risk: string | null
+          last_assessed_at: string | null
+          merchant_id: string
+          mitigation_systems: Json | null
+          notes: string | null
+          overall_risk_score: number | null
+          property_id: string
+          risk_zone: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          disaster_history?: Json | null
+          earthquake_risk?: string | null
+          fire_risk?: string | null
+          flood_risk?: string | null
+          id?: string
+          landslide_risk?: string | null
+          last_assessed_at?: string | null
+          merchant_id: string
+          mitigation_systems?: Json | null
+          notes?: string | null
+          overall_risk_score?: number | null
+          property_id: string
+          risk_zone?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          disaster_history?: Json | null
+          earthquake_risk?: string | null
+          fire_risk?: string | null
+          flood_risk?: string | null
+          id?: string
+          landslide_risk?: string | null
+          last_assessed_at?: string | null
+          merchant_id?: string
+          mitigation_systems?: Json | null
+          notes?: string | null
+          overall_risk_score?: number | null
+          property_id?: string
+          risk_zone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "disaster_risk_profiles_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disaster_risk_profiles_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
             referencedColumns: ["id"]
           },
         ]
@@ -1291,6 +1420,144 @@ export type Database = {
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "forum_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurance_claims: {
+        Row: {
+          approved_amount: number | null
+          claim_amount: number
+          claim_date: string
+          created_at: string
+          description: string | null
+          documents: Json | null
+          id: string
+          incident_date: string
+          incident_type: string
+          merchant_id: string
+          policy_id: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approved_amount?: number | null
+          claim_amount?: number
+          claim_date: string
+          created_at?: string
+          description?: string | null
+          documents?: Json | null
+          id?: string
+          incident_date: string
+          incident_type: string
+          merchant_id: string
+          policy_id: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approved_amount?: number | null
+          claim_amount?: number
+          claim_date?: string
+          created_at?: string
+          description?: string | null
+          documents?: Json | null
+          id?: string
+          incident_date?: string
+          incident_type?: string
+          merchant_id?: string
+          policy_id?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_claims_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_claims_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_policies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurance_policies: {
+        Row: {
+          coverage_amount: number
+          coverage_details: Json | null
+          created_at: string
+          end_date: string
+          id: string
+          merchant_id: string
+          policy_number: string
+          policy_type: string
+          premium_amount: number
+          premium_frequency: string | null
+          property_id: string
+          provider: string
+          start_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          coverage_amount?: number
+          coverage_details?: Json | null
+          created_at?: string
+          end_date: string
+          id?: string
+          merchant_id: string
+          policy_number: string
+          policy_type: string
+          premium_amount?: number
+          premium_frequency?: string | null
+          property_id: string
+          provider: string
+          start_date: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          coverage_amount?: number
+          coverage_details?: Json | null
+          created_at?: string
+          end_date?: string
+          id?: string
+          merchant_id?: string
+          policy_number?: string
+          policy_type?: string
+          premium_amount?: number
+          premium_frequency?: string | null
+          property_id?: string
+          provider?: string
+          start_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_policies_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_policies_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
             referencedColumns: ["id"]
           },
         ]
@@ -3105,6 +3372,7 @@ export type Database = {
           construction_year: number | null
           created_at: string
           description: string | null
+          disaster_risk_level: string | null
           floor_count: number | null
           funding_source: string | null
           guardian_name: string | null
@@ -3125,6 +3393,7 @@ export type Database = {
           property_type: string
           province: string
           renovation_cost: number | null
+          security_score: number | null
           status: string | null
           total_units: number | null
           updated_at: string
@@ -3139,6 +3408,7 @@ export type Database = {
           construction_year?: number | null
           created_at?: string
           description?: string | null
+          disaster_risk_level?: string | null
           floor_count?: number | null
           funding_source?: string | null
           guardian_name?: string | null
@@ -3159,6 +3429,7 @@ export type Database = {
           property_type: string
           province: string
           renovation_cost?: number | null
+          security_score?: number | null
           status?: string | null
           total_units?: number | null
           updated_at?: string
@@ -3173,6 +3444,7 @@ export type Database = {
           construction_year?: number | null
           created_at?: string
           description?: string | null
+          disaster_risk_level?: string | null
           floor_count?: number | null
           funding_source?: string | null
           guardian_name?: string | null
@@ -3193,6 +3465,7 @@ export type Database = {
           property_type?: string
           province?: string
           renovation_cost?: number | null
+          security_score?: number | null
           status?: string | null
           total_units?: number | null
           updated_at?: string
@@ -3598,6 +3871,78 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      security_incidents: {
+        Row: {
+          created_at: string
+          damage_cost: number | null
+          description: string | null
+          id: string
+          incident_date: string
+          incident_type: string
+          location_detail: string | null
+          merchant_id: string
+          police_report_number: string | null
+          property_id: string
+          reported_by: string | null
+          resolution: string | null
+          resolved_at: string | null
+          severity: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          damage_cost?: number | null
+          description?: string | null
+          id?: string
+          incident_date: string
+          incident_type: string
+          location_detail?: string | null
+          merchant_id: string
+          police_report_number?: string | null
+          property_id: string
+          reported_by?: string | null
+          resolution?: string | null
+          resolved_at?: string | null
+          severity?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          damage_cost?: number | null
+          description?: string | null
+          id?: string
+          incident_date?: string
+          incident_type?: string
+          location_detail?: string | null
+          merchant_id?: string
+          police_report_number?: string | null
+          property_id?: string
+          reported_by?: string | null
+          resolution?: string | null
+          resolved_at?: string | null
+          severity?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_incidents_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "security_incidents_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
             referencedColumns: ["id"]
           },
         ]
