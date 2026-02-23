@@ -55,3 +55,41 @@ export function useOptimalPricing() {
       invokeOptimalPricing(propertyId),
   });
 }
+
+export interface ModelRunStatus {
+  function_name: string;
+  last_run_at: string;
+  execution_time_ms: number | null;
+  output_summary: string | null;
+}
+
+export function useModelRunHistory(merchantId?: string) {
+  return useQuery({
+    queryKey: ["model-run-history", merchantId],
+    queryFn: async () => {
+      if (!merchantId) return [];
+      // Get latest run per function_name
+      const { data, error } = await supabase
+        .from("ml_model_runs")
+        .select("function_name, created_at, execution_time_ms, output_summary")
+        .eq("merchant_id", merchantId)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      // Group by function_name, keep only latest
+      const map = new Map<string, ModelRunStatus>();
+      for (const row of data || []) {
+        if (!map.has(row.function_name)) {
+          map.set(row.function_name, {
+            function_name: row.function_name,
+            last_run_at: row.created_at,
+            execution_time_ms: row.execution_time_ms,
+            output_summary: row.output_summary,
+          });
+        }
+      }
+      return Array.from(map.values());
+    },
+    enabled: !!merchantId,
+  });
+}

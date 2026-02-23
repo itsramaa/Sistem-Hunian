@@ -37,7 +37,7 @@ serve(async (req) => {
     // Fetch merchant's properties to get city info
     let propQuery = serviceClient
       .from("properties")
-      .select("id, name, property_type, address, city, total_units, occupied_units")
+      .select("id, name, property_type, address, city, total_units, occupied_units, building_condition")
       .eq("merchant_id", merchantId);
     if (property_id) propQuery = propQuery.eq("id", property_id);
     const { data: properties } = await propQuery;
