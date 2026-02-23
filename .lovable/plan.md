@@ -1,142 +1,172 @@
 
 
-# 2.1.1 Price Intelligence + 2.1.2 Occupancy & Demand Forecasting
+# 2.1.3 Financial Analytics + 2.1.4 Risk Assessment
 
 ## Ringkasan
 
-Membuat halaman dashboard baru **"Market Intelligence"** yang menggabungkan Price Intelligence dan Occupancy Forecasting menjadi satu halaman analitik terintegrasi, plus 2 edge function AI baru untuk generate insight.
+Membuat 2 edge function AI baru dan 1 halaman dashboard baru **"Financial & Risk Analytics"** yang menggabungkan Financial Analytics (BR-301 s/d BR-304) dan Risk Assessment (BR-401 s/d BR-404).
 
 ---
 
 ## Arsitektur
 
 ```text
-[Frontend]                     [Edge Functions]              [AI Gateway]
-MarketIntelligence.tsx  --->  ml-price-intelligence  --->  Gemini 2.5 Pro
-                        --->  ml-occupancy-forecast  --->  Gemini 2.5 Pro
+[Frontend]                          [Edge Functions]               [AI Gateway]
+FinancialRiskAnalytics.tsx  --->  ml-financial-analytics  --->  Gemini 2.5 Pro
+                            --->  ml-risk-assessment      --->  Gemini 2.5 Pro
 ```
 
-Tidak ada perubahan database -- semua data diambil dari tabel yang sudah ada (`units`, `contracts`, `invoices`, `occupancy_snapshots`, `properties`, `tenant_payment_metrics`). Hasil AI di-log ke `ml_model_runs`.
+Tidak ada perubahan database. Semua data diambil dari tabel existing (`properties`, `units`, `contracts`, `invoices`, `maintenance_expenses`, `occupancy_snapshots`, `disaster_risk_profiles`, `insurance_policies`, `compliance_documents`, `security_incidents`). Hasil AI di-log ke `ml_model_runs` dan `dss_recommendations`.
 
 ---
 
-## 1. Edge Function: `ml-price-intelligence`
+## 1. Edge Function: `ml-financial-analytics`
 
-**File baru**: `supabase/functions/ml-price-intelligence/index.ts`
+**File baru**: `supabase/functions/ml-financial-analytics/index.ts`
 
-Mengcover BR-101 s/d BR-104:
-- Input: `merchant_id` (dari auth), optional `property_id`
-- Mengumpulkan data: semua unit merchant + unit di kota yang sama (via properties), contracts historis (harga sewa 12 bulan), occupancy rates
-- AI menganalisis lalu return structured output via tool calling:
-
-```text
-Tool: analyze_pricing
-Output:
-{
-  segments: [{ segment_name, avg_price, unit_count, occupancy_rate, price_range }],
-  recommendations: [{ unit_id, current_price, optimal_price, reason, confidence }],
-  price_trends: [{ month, avg_price, median_price, sample_count }],
-  outliers: [{ unit_id, current_price, expected_range, anomaly_type, severity }],
-  summary, market_context
-}
-```
-
+Mengcover BR-301 s/d BR-304:
+- Input: `property_id` (wajib), optional `discount_rate` (default 12%)
+- Pattern: sama persis dengan `ml-price-intelligence` dan `dss-investment-insight`
 - Tier limits: `{ free: 0, starter: 0, professional: 3, enterprise: -1 }`
 
 ### Data yang Di-fetch:
-1. Semua `units` milik merchant (harga, tipe, amenities, status)
-2. Semua `contracts` merchant 12 bulan terakhir (rent_amount historis)
-3. `properties` merchant (lokasi, tipe, jumlah unit)
-4. `occupancy_snapshots` untuk tren seasonal
+1. `properties` -- detail properti termasuk construction_cost, renovation_cost, monthly_amortization, monthly_maintenance_cost, avg_annual_unexpected_cost
+2. `units` -- semua unit properti (rent_amount, status)
+3. `contracts` -- historis 24 bulan (rent_amount, start_date, end_date)
+4. `invoices` -- 24 bulan (amount, status, paid_at, due_date, late_fee)
+5. `maintenance_expenses` -- 24 bulan (total_amount)
+6. `occupancy_snapshots` -- historis (occupancy_rate)
 
----
-
-## 2. Edge Function: `ml-occupancy-forecast`
-
-**File baru**: `supabase/functions/ml-occupancy-forecast/index.ts`
-
-Mengcover BR-201 s/d BR-204:
-- Input: `merchant_id`, optional `property_id`, `forecast_months` (default 6)
-- Mengumpulkan: occupancy_snapshots historis, contracts aktif/expired, move-in/move-out patterns, tenant_payment_metrics
-- AI return:
-
+### AI Tool Output:
 ```text
-Tool: forecast_occupancy
+Tool: financial_analysis
 Output:
 {
-  monthly_predictions: [{ month, predicted_occupancy_rate, confidence, move_ins, move_outs }],
-  seasonal_patterns: [{ period, pattern_type, description, months_affected }],
-  turnover_metrics: { current_rate, predicted_rate, avg_vacancy_days, trend },
-  warnings: [{ type, severity, message, recommended_action }],
-  summary
+  roi_analysis: {
+    total_investment, annual_revenue, annual_expenses,
+    net_annual_income, roi_percentage, payback_period_years
+  },
+  npv_irr: {
+    npv, irr, discount_rate_used, cash_flows: [{ year, revenue, expenses, net }],
+    recommendation  // "invest" | "hold" | "divest"
+  },
+  sensitivity: [
+    { scenario_name, variable_changed, change_percentage,
+      resulting_roi, resulting_npv, impact_level }
+  ],
+  break_even: {
+    monthly_fixed_costs, variable_cost_per_unit,
+    avg_revenue_per_unit, break_even_units,
+    break_even_occupancy_rate, months_to_break_even
+  },
+  summary, confidence
 }
 ```
 
-- Tier limits: `{ free: 0, starter: 0, professional: 5, enterprise: -1 }`
+---
+
+## 2. Edge Function: `ml-risk-assessment`
+
+**File baru**: `supabase/functions/ml-risk-assessment/index.ts`
+
+Mengcover BR-401 s/d BR-404:
+- Input: `property_id` (wajib)
+- Tier limits: `{ free: 0, starter: 0, professional: 3, enterprise: -1 }`
 
 ### Data yang Di-fetch:
-1. `occupancy_snapshots` 12-24 bulan terakhir
-2. `contracts` historis (start_date, end_date, actual_end_date)
-3. `units` (status, tipe)
-4. `tenant_payment_metrics` (untuk korelasi churn risk)
+1. `properties` -- detail properti (lokasi, tipe, construction_year, building_condition)
+2. `disaster_risk_profiles` -- profil risiko existing
+3. `insurance_policies` -- polis aktif
+4. `compliance_documents` -- status dokumen
+5. `security_incidents` -- riwayat insiden
+6. `maintenance_requests` -- riwayat maintenance (untuk preventive patterns)
+7. `maintenance_expenses` -- biaya historis
+8. `units` -- jumlah unit, status, rent_amount (untuk loss estimation)
+
+### AI Tool Output:
+```text
+Tool: risk_assessment
+Output:
+{
+  disaster_risk_score: {
+    overall_score, risk_level,  // "low" | "medium" | "high" | "critical"
+    factors: [{ factor, score, description, weight }]
+  },
+  preventive_maintenance: [
+    { strategy, priority, estimated_cost, frequency,
+      risk_reduction_percentage, description }
+  ],
+  potential_loss_estimate: {
+    scenarios: [{ disaster_type, probability, estimated_damage_cost,
+      estimated_revenue_loss_months, total_potential_loss }],
+    annual_expected_loss, worst_case_loss
+  },
+  insurance_recommendations: [
+    { coverage_type, recommended_coverage_amount,
+      estimated_premium, reason, priority, gap_identified }
+  ],
+  summary, confidence
+}
+```
 
 ---
 
 ## 3. Frontend Service & Hooks
 
-### `src/features/dss/services/marketIntelligenceService.ts`
-```text
-invokePriceIntelligence(propertyId?: string) -> supabase.functions.invoke("ml-price-intelligence")
-invokeOccupancyForecast(forecastMonths?, propertyId?) -> supabase.functions.invoke("ml-occupancy-forecast")
-```
+### `src/features/dss/services/financialRiskService.ts`
+- `invokeFinancialAnalytics(propertyId, discountRate?)` -- invoke `ml-financial-analytics`
+- `invokeRiskAssessment(propertyId)` -- invoke `ml-risk-assessment`
+- Type interfaces untuk kedua result
 
-### `src/features/dss/hooks/useMarketIntelligence.ts`
-- `usePriceIntelligence()` -- mutation hook
-- `useOccupancyForecast()` -- mutation hook
+### `src/features/dss/hooks/useFinancialRisk.ts`
+- `useFinancialAnalytics()` -- mutation hook
+- `useRiskAssessment()` -- mutation hook
 
 ---
 
-## 4. Halaman: Market Intelligence Dashboard
+## 4. Halaman: Financial & Risk Analytics Dashboard
 
-**File baru**: `src/pages/merchant/MarketIntelligence.tsx`
+**File baru**: `src/pages/merchant/FinancialRiskAnalytics.tsx`
 
 ### Layout:
-- PageHeader dengan icon TrendingUp dan badge "AI-Powered"
-- Property selector (pilih properti atau "Semua")
-- DSS Readiness Card (readiness check)
+- PageHeader dengan icon Calculator dan badge "AI-Powered"
+- Property selector (wajib pilih 1 properti, bukan "Semua")
 - TierGate wrapper
 
 ### 4 Tab:
 
-**Tab 1: Price Comparison (BR-101)**
-- Tabel segmen harga: nama segmen, avg harga, range, occupancy rate, jumlah unit
-- Bar chart perbandingan harga per segmen
+**Tab 1: ROI & Payback (BR-301)**
+- Generate button -> memanggil `ml-financial-analytics`
+- KPI cards: Total Investment, Annual Revenue, Annual Expenses, Net Income, ROI %, Payback Period
+- Summary card
 
-**Tab 2: Optimal Pricing (BR-102)**
-- Generate button -> memanggil `ml-price-intelligence`
-- Kartu per unit: harga saat ini vs harga optimal, alasan, confidence
-- Summary + market context strip
+**Tab 2: NPV & IRR (BR-302)**
+- Cash flow table per tahun (revenue, expenses, net)
+- KPI strip: NPV, IRR, Discount Rate, Recommendation badge
+- Area chart cash flow projection
 
-**Tab 3: Price Trends (BR-103)**
-- Line chart tren harga 6-12 bulan (avg + median)
-- Data dari hasil AI atau langsung dari contracts historis
+**Tab 3: Sensitivity Analysis (BR-303)**
+- Tabel skenario: nama, variabel, % perubahan, resulting ROI, resulting NPV, impact level
+- Color-coded impact badges (low/medium/high)
 
-**Tab 4: Occupancy Forecast (BR-201 s/d BR-204)**
-- Generate button -> memanggil `ml-occupancy-forecast`
-- Line chart prediksi occupancy 3-6 bulan ke depan dengan confidence band
-- Seasonal pattern cards (peak/low season identification - BR-202)
-- Turnover metrics KPI strip (BR-203)
-- Warning alerts jika occupancy trend menurun (BR-204), ditampilkan sebagai alert card dengan severity color
+**Tab 4: Risk Assessment (BR-401 s/d BR-404)**
+- Generate button -> memanggil `ml-risk-assessment`
+- **Risk Score Card**: overall score gauge, risk level badge, factor breakdown
+- **Preventive Maintenance**: cards per strategi dengan priority, cost, frequency
+- **Potential Loss**: tabel skenario bencana (tipe, probability, estimated damage, revenue loss)
+- **Insurance Recommendations**: cards per coverage type dengan gap identified badge
+- Break-even info card (BR-304) ditampilkan di bawah tab ROI atau sebagai section terpisah
 
 ---
 
 ## 5. Navigasi
 
 Update `navigation-config.ts`:
-- Tambah item di grup "Analitik": `{ path: "/merchant/market-intelligence", icon: TrendingUp, label: "Market Intelligence" }`
+- Tambah item di grup "Analitik": `{ path: "/merchant/financial-risk", icon: Calculator, label: "Financial & Risk" }`
 
 Update `App.tsx`:
-- Tambah route `/merchant/market-intelligence` -> lazy load `MarketIntelligence.tsx`
+- Import lazy: `const MerchantFinancialRisk = lazy(() => import("@/pages/merchant/FinancialRiskAnalytics"))`
+- Tambah route: `<Route path="financial-risk" element={<MerchantFinancialRisk />} />`
 
 ---
 
@@ -146,27 +176,27 @@ Update `App.tsx`:
 
 | File | Deskripsi |
 |------|-----------|
-| `supabase/functions/ml-price-intelligence/index.ts` | AI price analysis edge function |
-| `supabase/functions/ml-occupancy-forecast/index.ts` | AI occupancy forecasting edge function |
-| `src/features/dss/services/marketIntelligenceService.ts` | Service invoke functions |
-| `src/features/dss/hooks/useMarketIntelligence.ts` | React Query mutation hooks |
-| `src/pages/merchant/MarketIntelligence.tsx` | Dashboard page |
+| `supabase/functions/ml-financial-analytics/index.ts` | AI financial analysis edge function |
+| `supabase/functions/ml-risk-assessment/index.ts` | AI risk assessment edge function |
+| `src/features/dss/services/financialRiskService.ts` | Service invoke functions + types |
+| `src/features/dss/hooks/useFinancialRisk.ts` | React Query mutation hooks |
+| `src/pages/merchant/FinancialRiskAnalytics.tsx` | Dashboard page |
 
 ### File yang Dimodifikasi
 
 | File | Perubahan |
 |------|-----------|
-| `src/shared/components/layouts/navigation-config.ts` | Tambah menu Market Intelligence |
-| `src/App.tsx` | Tambah route |
+| `src/shared/components/layouts/navigation-config.ts` | Tambah menu + import Calculator icon |
+| `src/App.tsx` | Tambah lazy import + route |
 
 ### Tidak Ada Perubahan Database
 
-Semua data sudah tersedia di tabel existing. Edge functions hanya read data dan AI generates insight.
+Semua data sudah tersedia di tabel existing.
 
 ### Urutan Implementasi
-1. Edge function `ml-price-intelligence`
-2. Edge function `ml-occupancy-forecast`
+1. Edge function `ml-financial-analytics`
+2. Edge function `ml-risk-assessment`
 3. Service + hooks frontend
-4. Halaman `MarketIntelligence.tsx`
+4. Halaman `FinancialRiskAnalytics.tsx`
 5. Update navigasi + routes
 
