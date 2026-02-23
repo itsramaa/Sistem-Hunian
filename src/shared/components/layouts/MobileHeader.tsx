@@ -4,6 +4,7 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Button } from "@/shared/components/ui/button";
 import { NotificationsDropdown } from "@/features/notifications/components/NotificationsDropdown";
 import { UserRole, navigationConfig, getAllNavItems } from "@/shared/components/layouts/navigation-config";
+import { ThemeToggle } from "@/shared/components/ui/ThemeToggle";
 
 interface MobileHeaderProps {
   role: UserRole;
@@ -94,8 +95,9 @@ export function MobileHeader({
           )}
         </div>
 
-        {/* Actions - only notifications, no action buttons */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Actions */}
+        <div className="flex items-center gap-1 shrink-0">
+          <ThemeToggle />
           {isProfilePage ? (
             <Button
               variant="ghost"

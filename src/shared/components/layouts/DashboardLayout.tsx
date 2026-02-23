@@ -19,6 +19,8 @@ import { FloatingActionButton } from "@/shared/components/layouts/FloatingAction
 import { ChatbotDialog } from "@/features/chatbot/components/ChatbotDialog";
 import { useChatbotTracking } from "@/features/analytics/hooks/useAnalytics";
 import { Meta } from "@/shared/components/meta";
+import { ThemeToggle } from "@/shared/components/ui/ThemeToggle";
+import { SearchCommand } from "@/shared/components/layouts/SearchCommand";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -114,7 +116,7 @@ export function DashboardLayout({
       <AppSidebar role={role} />
       <SidebarInset>
         {/* Header with breadcrumb */}
-        <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+        <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12 bg-background/80 backdrop-blur-sm border-b border-border/30">
           <div className="flex items-center gap-2 px-4">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
@@ -147,6 +149,8 @@ export function DashboardLayout({
             </Breadcrumb>
           </div>
           <div className="ml-auto flex items-center gap-2 px-4">
+            <SearchCommand role={role} />
+            <ThemeToggle />
             <NotificationsDropdown />
           </div>
         </header>

@@ -1,6 +1,5 @@
 import {
   BadgeCheck,
-  Bell,
   ChevronsUpDown,
   CreditCard,
   LogOut,
@@ -62,7 +61,7 @@ export function NavUser({
     if (!subscriptionTier) return null;
     if (subscriptionTier === "enterprise") {
       return (
-        <Badge className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white border-0 text-[10px] px-1.5">
+        <Badge className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white border-0 text-[10px] px-1.5 rounded-full">
           <Crown className="h-3 w-3 mr-0.5" />
           Enterprise
         </Badge>
@@ -70,7 +69,7 @@ export function NavUser({
     }
     if (subscriptionTier === "pro") {
       return (
-        <Badge className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground border-0 text-[10px] px-1.5">
+        <Badge className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground border-0 text-[10px] px-1.5 rounded-full">
           <Sparkles className="h-3 w-3 mr-0.5" />
           Pro
         </Badge>
@@ -78,13 +77,13 @@ export function NavUser({
     }
     if (subscriptionTier === "basic") {
       return (
-        <Badge variant="outline" className="text-[10px] px-1.5">
+        <Badge variant="outline" className="text-[10px] px-1.5 rounded-full">
           Basic
         </Badge>
       );
     }
     return (
-      <Badge variant="secondary" className="text-[10px] px-1.5">
+      <Badge variant="secondary" className="text-[10px] px-1.5 rounded-full">
         Free
       </Badge>
     );
@@ -95,7 +94,7 @@ export function NavUser({
       return (
         <Badge
           variant="outline"
-          className="bg-success/10 text-success border-success/30 text-[10px] px-1.5"
+          className="bg-success/10 text-success border-success/30 text-[10px] px-1.5 rounded-full"
         >
           <BadgeCheck className="h-3 w-3 mr-0.5" />
           Verified
@@ -112,11 +111,13 @@ export function NavUser({
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground hover:bg-sidebar-accent/60 transition-all duration-150"
             >
-              <Avatar className="h-8 w-8 rounded-lg">
+              <Avatar className="h-8 w-8 rounded-xl ring-2 ring-primary/20">
                 <AvatarImage src={user.avatar || ""} alt={user.name} />
-                <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
+                <AvatarFallback className="rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary font-semibold">
+                  {initials}
+                </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <div className="flex items-center gap-1.5">
@@ -134,16 +135,18 @@ export function NavUser({
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-2xl backdrop-blur-xl bg-popover/95 border border-border/40 shadow-xl"
             side={isMobile ? "bottom" : "right"}
             align="end"
             sideOffset={4}
           >
             <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="h-8 w-8 rounded-lg">
+              <div className="flex items-center gap-2 px-2 py-2 text-left text-sm">
+                <Avatar className="h-8 w-8 rounded-xl ring-2 ring-primary/20">
                   <AvatarImage src={user.avatar || ""} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
+                  <AvatarFallback className="rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary font-semibold">
+                    {initials}
+                  </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">{user.name}</span>
@@ -159,37 +162,52 @@ export function NavUser({
                 </div>
               )}
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator className="bg-border/30" />
             {role === "merchant" && subscriptionTier !== "enterprise" && (
               <>
                 <DropdownMenuGroup>
-                  <DropdownMenuItem onClick={() => navigate(`/${role}/billing`)}>
-                    <Sparkles />
+                  <DropdownMenuItem
+                    onClick={() => navigate(`/${role}/billing`)}
+                    className="rounded-xl gap-2 bg-gradient-to-r from-primary/10 to-primary/5 hover:from-primary/20 hover:to-primary/10 text-primary font-medium cursor-pointer"
+                  >
+                    <Sparkles className="h-4 w-4" />
                     Upgrade to Pro
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
-                <DropdownMenuSeparator />
+                <DropdownMenuSeparator className="bg-border/30" />
               </>
             )}
             <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => navigate(`/${role}/profile`)}>
-                <User />
+              <DropdownMenuItem
+                onClick={() => navigate(`/${role}/profile`)}
+                className="rounded-xl gap-2 cursor-pointer"
+              >
+                <User className="h-4 w-4 text-muted-foreground" />
                 Profile
               </DropdownMenuItem>
               {role === "merchant" && (
-                <DropdownMenuItem onClick={() => navigate(`/${role}/billing`)}>
-                  <CreditCard />
+                <DropdownMenuItem
+                  onClick={() => navigate(`/${role}/billing`)}
+                  className="rounded-xl gap-2 cursor-pointer"
+                >
+                  <CreditCard className="h-4 w-4 text-muted-foreground" />
                   Billing
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={() => navigate(`/${role}/settings`)}>
-                <Settings />
+              <DropdownMenuItem
+                onClick={() => navigate(`/${role}/settings`)}
+                className="rounded-xl gap-2 cursor-pointer"
+              >
+                <Settings className="h-4 w-4 text-muted-foreground" />
                 Settings
               </DropdownMenuItem>
             </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onLogout}>
-              <LogOut />
+            <DropdownMenuSeparator className="bg-border/30" />
+            <DropdownMenuItem
+              onClick={onLogout}
+              className="rounded-xl gap-2 text-destructive hover:bg-destructive/10 cursor-pointer"
+            >
+              <LogOut className="h-4 w-4" />
               Log out
             </DropdownMenuItem>
           </DropdownMenuContent>
