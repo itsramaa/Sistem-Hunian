@@ -5,10 +5,11 @@ import { SignatureStatusBadge } from '@/features/contracts/components/SignatureS
 import { ContractDocumentUpload } from '@/features/contracts/components/ContractDocumentUpload';
 import { Button } from '@/shared/components/ui/button';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
+import { Progress } from '@/shared/components/ui/progress';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { formatCurrency } from '@/shared/utils/currency';
-import { format } from 'date-fns';
-import { ArrowLeft, Calendar, Download, Edit, FileText, Home, User } from 'lucide-react';
+import { format, differenceInDays, differenceInMonths } from 'date-fns';
+import { ArrowLeft, Calendar, DollarSign, Download, Edit, FileText, Home, Timer, TrendingUp, User } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMemo } from 'react';
 import { supabase } from '@/lib/integrations/supabase/client';
@@ -22,7 +23,6 @@ export default function MerchantContractDetail() {
 
   const contract = useMemo(() => contracts.find(c => c.id === contractId), [contracts, contractId]);
 
-  // Fetch tenant profile
   const { data: tenantProfile } = useQuery({
     queryKey: ['tenant-profile', contract?.tenant_user_id],
     queryFn: async () => {
@@ -32,6 +32,18 @@ export default function MerchantContractDetail() {
     },
     enabled: !!contract?.tenant_user_id,
   });
+
+  // KPI calculations
+  const kpis = useMemo(() => {
+    if (!contract) return null;
+    const totalMonths = differenceInMonths(new Date(contract.end_date), new Date(contract.start_date)) || 1;
+    const totalValue = contract.rent_amount * totalMonths;
+    const totalDays = differenceInDays(new Date(contract.end_date), new Date(contract.start_date)) || 1;
+    const elapsed = differenceInDays(new Date(), new Date(contract.start_date));
+    const daysRemaining = differenceInDays(new Date(contract.end_date), new Date());
+    const progress = Math.min(100, Math.max(0, (elapsed / totalDays) * 100));
+    return { totalValue, totalMonths, daysRemaining, progress };
+  }, [contract]);
 
   if (isLoading) {
     return (
@@ -57,7 +69,7 @@ export default function MerchantContractDetail() {
 
   return (
     <div className="space-y-6">
-      <Button variant="ghost" onClick={() => navigate('/merchant/contracts')} className="gap-2 rounded-xl">
+      <Button variant="ghost" onClick={() => navigate('/merchant/contracts')} className="gap-2 px-3 py-1.5 rounded-full bg-card/80 backdrop-blur-sm border border-border/40 hover:bg-card">
         <ArrowLeft className="h-4 w-4" /> Back to Contracts
       </Button>
 
@@ -65,6 +77,26 @@ export default function MerchantContractDetail() {
         <PageHeader icon={FileText} title="Contract Details" description={`${contract.unit?.property?.name || 'Property'} - Unit ${contract.unit?.unit_number}`} />
         <ContractStatusBadge status={contract.status} />
       </div>
+
+      {/* KPI Strip */}
+      {kpis && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { label: 'Contract Value', value: formatCurrency(kpis.totalValue), icon: DollarSign },
+            { label: 'Monthly Rent', value: formatCurrency(contract.rent_amount), icon: TrendingUp },
+            { label: 'Duration', value: `${kpis.totalMonths} months`, icon: Calendar },
+            { label: 'Days Remaining', value: kpis.daysRemaining > 0 ? `${kpis.daysRemaining} days` : 'Expired', icon: Timer },
+          ].map((kpi, i) => (
+            <div key={i} className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-4 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="gradient-icon-box w-8 h-8"><kpi.icon className="h-4 w-4 text-primary" /></div>
+                <span className="text-xs text-muted-foreground uppercase tracking-wider">{kpi.label}</span>
+              </div>
+              <p className="text-xl font-bold">{kpi.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
@@ -100,13 +132,13 @@ export default function MerchantContractDetail() {
           {/* Contract Details Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {[
-              { label: 'Start Date', value: format(new Date(contract.start_date), 'MMM dd, yyyy'), icon: Calendar },
-              { label: 'End Date', value: format(new Date(contract.end_date), 'MMM dd, yyyy'), icon: Calendar },
-              { label: 'Monthly Rent', value: formatCurrency(contract.rent_amount), icon: FileText },
-              { label: 'Deposit', value: formatCurrency(contract.deposit_amount || 0), icon: FileText },
-              { label: 'Signatures', value: <SignatureStatusBadge contract={contract} />, icon: Edit },
+              { label: 'Start Date', value: format(new Date(contract.start_date), 'MMM dd, yyyy') },
+              { label: 'End Date', value: format(new Date(contract.end_date), 'MMM dd, yyyy') },
+              { label: 'Monthly Rent', value: formatCurrency(contract.rent_amount) },
+              { label: 'Deposit', value: formatCurrency(contract.deposit_amount || 0) },
+              { label: 'Signatures', value: <SignatureStatusBadge contract={contract} /> },
             ].map((item, i) => (
-              <div key={i} className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-4">
+              <div key={i} className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-4 hover:bg-primary/5 transition-all">
                 <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">{item.label}</p>
                 {typeof item.value === 'string' ? <p className="font-semibold">{item.value}</p> : item.value}
               </div>
@@ -121,7 +153,7 @@ export default function MerchantContractDetail() {
                 { label: 'Tenant Signature', url: contract.tenant_signature_url, date: contract.tenant_signed_at },
                 { label: 'Merchant Signature', url: contract.merchant_signature_url, date: contract.merchant_signed_at },
               ].map((sig, i) => (
-                <div key={i} className="rounded-xl border border-border/40 p-4 bg-muted/20">
+                <div key={i} className={`rounded-xl border p-4 ${sig.url ? 'border-green-500/30 bg-green-500/5' : 'border-border/40 bg-muted/20'}`}>
                   <p className="text-sm text-muted-foreground mb-2">{sig.label}</p>
                   {sig.url ? (
                     <>
@@ -140,7 +172,9 @@ export default function MerchantContractDetail() {
           <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6">
             <h3 className="font-semibold text-lg mb-3">Terms & Conditions</h3>
             {contract.terms ? (
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{contract.terms}</p>
+              <div className="prose prose-sm max-w-none text-muted-foreground">
+                <p className="whitespace-pre-wrap">{contract.terms}</p>
+              </div>
             ) : (
               <p className="text-sm text-muted-foreground italic">No terms specified.</p>
             )}
@@ -149,10 +183,18 @@ export default function MerchantContractDetail() {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Document Upload */}
-          <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6">
-            <ContractDocumentUpload contractId={contract.id} currentDocumentUrl={contract.contract_document_url} onUploadComplete={() => {}} />
-          </div>
+          {/* Contract Progress */}
+          {kpis && (
+            <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-4">
+              <h3 className="font-semibold text-lg">Contract Progress</h3>
+              <Progress value={kpis.progress} className="h-2" />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>{format(new Date(contract.start_date), 'MMM yyyy')}</span>
+                <span>{Math.round(kpis.progress)}%</span>
+                <span>{format(new Date(contract.end_date), 'MMM yyyy')}</span>
+              </div>
+            </div>
+          )}
 
           {/* Quick Actions */}
           <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-3">
@@ -164,6 +206,11 @@ export default function MerchantContractDetail() {
                 </a>
               </Button>
             )}
+          </div>
+
+          {/* Document Upload */}
+          <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6">
+            <ContractDocumentUpload contractId={contract.id} currentDocumentUrl={contract.contract_document_url} onUploadComplete={() => {}} />
           </div>
         </div>
       </div>

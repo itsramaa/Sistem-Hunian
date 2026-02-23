@@ -10,6 +10,7 @@ import { Contract } from '@/features/contracts/types';
 import { usePropertiesWithUnits } from '@/features/properties/hooks/useMerchantProperties';
 import { useMerchantTenants, useTenantProfiles } from '@/features/users/hooks/useMerchantTenants';
 
+import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
@@ -17,6 +18,7 @@ import { TabsPageSkeleton } from '@/shared/components/ui/PageSkeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useQueryClient } from '@tanstack/react-query';
+import { differenceInDays } from 'date-fns';
 import { FileText, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -90,6 +92,13 @@ export default function MerchantContracts() {
   const draftContracts = useMemo(() => filteredContracts.filter(c => c.status === 'draft'), [filteredContracts]);
   const pendingSignature = useMemo(() => filteredContracts.filter(c => (c.status === 'pending' || c.status === 'active') && (c.tenant_signature_url && !c.merchant_signature_url)), [filteredContracts]);
   const pastContracts = useMemo(() => filteredContracts.filter(c => c.status === 'terminated' || c.status === 'expired' || c.status === 'completed'), [filteredContracts]);
+  const expiringContracts = useMemo(() => filteredContracts.filter(c => {
+    if (c.status !== 'active') return false;
+    const daysLeft = differenceInDays(new Date(c.end_date), new Date());
+    return daysLeft >= 0 && daysLeft <= 30;
+  }), [filteredContracts]);
+
+  const totalActiveRevenue = useMemo(() => activeContracts.reduce((sum, c) => sum + (c.rent_amount || 0), 0), [activeContracts]);
 
   const getPaginatedData = (data: Contract[], currentPage: number) => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -100,8 +109,8 @@ export default function MerchantContracts() {
 
   return (
     <div className="space-y-6">
-      <PageHeader icon={FileText} title="Contracts" description="Manage rental agreements with your tenants">
-        <Button onClick={() => setShowCreateDialog(true)} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-md">
+      <PageHeader icon={FileText} title="Contracts" description={`Manage rental agreements · ${activeContracts.length} active contracts`}>
+        <Button onClick={() => setShowCreateDialog(true)} className="gradient-cta rounded-xl shadow-md">
           <Plus className="h-4 w-4 mr-2" />Create Contract
         </Button>
       </PageHeader>
@@ -110,11 +119,17 @@ export default function MerchantContracts() {
       <ContractsFilters searchTerm={searchTerm} onSearchChange={setSearchTerm} statusFilter={statusFilter} onStatusFilterChange={setStatusFilter} />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-muted/50 backdrop-blur-sm rounded-full p-1 border border-border/40">
-          <TabsTrigger value="draft" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">Draft ({draftContracts.length})</TabsTrigger>
-          <TabsTrigger value="active" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">Active ({activeContracts.length})</TabsTrigger>
-          <TabsTrigger value="pending" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">Awaiting Signature ({pendingSignature.length})</TabsTrigger>
-          <TabsTrigger value="past" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">Past ({pastContracts.length})</TabsTrigger>
+        <TabsList className="pill-tab-list">
+          <TabsTrigger value="draft" className="pill-tab-trigger">Draft ({draftContracts.length})</TabsTrigger>
+          <TabsTrigger value="active" className="pill-tab-trigger">Active ({activeContracts.length})</TabsTrigger>
+          <TabsTrigger value="expiring" className="pill-tab-trigger">
+            Expiring Soon
+            {expiringContracts.length > 0 && (
+              <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs rounded-full">{expiringContracts.length}</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="pending" className="pill-tab-trigger">Awaiting Signature ({pendingSignature.length})</TabsTrigger>
+          <TabsTrigger value="past" className="pill-tab-trigger">Past ({pastContracts.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="draft" className="mt-4">
@@ -122,6 +137,9 @@ export default function MerchantContracts() {
         </TabsContent>
         <TabsContent value="active" className="mt-4">
           <ContractsTable contracts={getPaginatedData(activeContracts, activePage)} isLoading={isLoading} tenantProfiles={profileMap} onView={openViewDialog} onSign={openSignDialog} onDelete={handleDeleteContract} onMarkNotice={handleMarkNotice} canDelete={() => true} page={activePage} totalPages={Math.ceil(activeContracts.length / ITEMS_PER_PAGE)} totalContracts={activeContracts.length} onPageChange={setActivePage} itemsPerPage={ITEMS_PER_PAGE} />
+        </TabsContent>
+        <TabsContent value="expiring" className="mt-4">
+          <ContractsTable contracts={getPaginatedData(expiringContracts, activePage)} isLoading={isLoading} tenantProfiles={profileMap} onView={openViewDialog} onSign={openSignDialog} onDelete={handleDeleteContract} onMarkNotice={handleMarkNotice} canDelete={() => true} page={activePage} totalPages={Math.ceil(expiringContracts.length / ITEMS_PER_PAGE)} totalContracts={expiringContracts.length} onPageChange={setActivePage} itemsPerPage={ITEMS_PER_PAGE} />
         </TabsContent>
         <TabsContent value="pending" className="mt-4">
           <ContractsTable contracts={getPaginatedData(pendingSignature, pendingPage)} isLoading={isLoading} tenantProfiles={profileMap} onView={openViewDialog} onSign={openSignDialog} onDelete={handleDeleteContract} canDelete={() => true} page={pendingPage} totalPages={Math.ceil(pendingSignature.length / ITEMS_PER_PAGE)} totalContracts={pendingSignature.length} onPageChange={setPendingPage} itemsPerPage={ITEMS_PER_PAGE} />

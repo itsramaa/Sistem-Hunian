@@ -61,7 +61,7 @@ export default function MerchantPaymentDetail() {
 
   return (
     <div className="space-y-6">
-      <Button variant="ghost" onClick={() => navigate('/merchant/payments')} className="gap-2 rounded-xl">
+      <Button variant="ghost" onClick={() => navigate('/merchant/payments')} className="gap-2 px-3 py-1.5 rounded-full bg-card/80 backdrop-blur-sm border border-border/40 hover:bg-card">
         <ArrowLeft className="h-4 w-4" /> Back to Payments
       </Button>
 
@@ -92,7 +92,7 @@ export default function MerchantPaymentDetail() {
               { label: 'Reference', value: payment.reference || '-' },
               ...(payment.paid_at ? [{ label: 'Paid At', value: format(new Date(payment.paid_at), 'MMMM dd, yyyy'), capitalize: false }] : []),
             ].map((item, i) => (
-              <div key={i} className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-4">
+              <div key={i} className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-4 hover:bg-primary/5 transition-all">
                 <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">{item.label}</p>
                 <p className={`font-medium ${item.capitalize ? 'capitalize' : ''}`}>{item.value}</p>
               </div>

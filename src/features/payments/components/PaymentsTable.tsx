@@ -140,6 +140,7 @@ export function PaymentsTable({
                           <Button
                             variant="outline"
                             size="sm"
+                            className="rounded-xl"
                             onClick={() => onMarkPaid(payment)}
                           >
                             Mark Paid
@@ -147,6 +148,7 @@ export function PaymentsTable({
                           <Button
                             variant="ghost"
                             size="icon"
+                            className="rounded-xl"
                             onClick={() => onSendReminder(payment.id)}
                             disabled={sendingReminderId === payment.id}
                             aria-label="Send payment reminder"
