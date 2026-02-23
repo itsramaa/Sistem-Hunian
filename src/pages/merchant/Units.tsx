@@ -132,7 +132,7 @@ export default function MerchantUnits() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-primary/10">
+          <div className="gradient-icon-box w-11 h-11">
             <DoorOpen className="h-6 w-6 text-primary" />
           </div>
           <div>
@@ -143,7 +143,7 @@ export default function MerchantUnits() {
         <Button 
           disabled={properties.length === 0}
           onClick={handleCreate}
-          className="gap-2"
+          className="gap-2 gradient-cta text-primary-foreground hover:opacity-90"
         >
           <Plus className="h-4 w-4" />
           Tambah Unit

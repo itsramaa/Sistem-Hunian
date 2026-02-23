@@ -319,67 +319,69 @@ export default function MerchantProperties() {
             {/* Stats */}
             <TooltipProvider delayDuration={200}>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="border-l-4 border-l-primary">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Total Properties</p>
-                        <p className="text-3xl font-bold">{properties.length}</p>
-                      </div>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="p-3 rounded-lg bg-primary/10">
-                            <Building2 className="h-6 w-6 text-primary" />
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>Total properties you manage</TooltipContent>
-                      </Tooltip>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border-l-4 border-l-info">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Total Units</p>
-                        <p className="text-3xl font-bold">{totalUnits}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          <span className="text-success font-medium">{occupiedUnits}</span> occupied • <span className="text-muted-foreground">{totalUnits - occupiedUnits}</span> available
-                        </p>
-                      </div>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="p-3 rounded-lg bg-info/10">
-                            <Home className="h-6 w-6 text-info" />
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>Total units across all properties</TooltipContent>
-                      </Tooltip>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className={`border-l-4 ${occupancyRate >= 80 ? 'border-l-success' : occupancyRate >= 50 ? 'border-l-warning' : 'border-l-destructive'}`}>
-                  <CardContent className="pt-6">
+                <div className="glass-stat-card p-5">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-sm text-muted-foreground">Occupancy Rate</p>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className={`flex items-center gap-1 text-xs font-medium ${occupancyRate >= 80 ? 'text-success' : occupancyRate >= 50 ? 'text-warning' : 'text-destructive'}`}>
-                              <TrendingUp className="h-3.5 w-3.5" />
-                              {occupancyRate >= 80 ? 'Great' : occupancyRate >= 50 ? 'Average' : 'Low'}
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            {occupancyRate >= 80 ? 'Excellent occupancy!' : occupancyRate >= 50 ? 'Room for improvement' : 'Consider adjusting pricing or marketing'}
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                      <p className="text-3xl font-bold mb-2">{occupancyRate}%</p>
-                      <Progress value={occupancyRate} className="h-2" />
+                      <p className="text-sm text-muted-foreground">Total Properties</p>
+                      <p className="text-3xl font-bold font-display">{properties.length}</p>
                     </div>
-                  </CardContent>
-                </Card>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="gradient-icon-box w-12 h-12">
+                          <Building2 className="h-6 w-6 text-primary" />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>Total properties you manage</TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
+                <div className="glass-stat-card p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Units</p>
+                      <p className="text-3xl font-bold font-display">{totalUnits}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        <span className="text-success font-medium">{occupiedUnits}</span> occupied • <span className="text-muted-foreground">{totalUnits - occupiedUnits}</span> available
+                      </p>
+                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="gradient-icon-box w-12 h-12">
+                          <Home className="h-6 w-6 text-info" />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>Total units across all properties</TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
+                <div className="glass-stat-card p-5">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm text-muted-foreground">Occupancy Rate</p>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className={`flex items-center gap-1 text-xs font-medium ${occupancyRate >= 80 ? 'text-success' : occupancyRate >= 50 ? 'text-warning' : 'text-destructive'}`}>
+                            <TrendingUp className="h-3.5 w-3.5" />
+                            {occupancyRate >= 80 ? 'Great' : occupancyRate >= 50 ? 'Average' : 'Low'}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {occupancyRate >= 80 ? 'Excellent occupancy!' : occupancyRate >= 50 ? 'Room for improvement' : 'Consider adjusting pricing or marketing'}
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <p className="text-3xl font-bold font-display mb-2">{occupancyRate}%</p>
+                    <div className="flex gap-1">
+                      {Array.from({ length: 4 }, (_, i) => (
+                        <div key={i} className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${
+                          i < Math.round(occupancyRate / 25)
+                            ? occupancyRate >= 80 ? 'bg-success' : occupancyRate >= 50 ? 'bg-warning' : 'bg-destructive'
+                            : 'bg-muted/60'
+                        }`} />
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             </TooltipProvider>
 
@@ -416,10 +418,10 @@ export default function MerchantProperties() {
 
             {/* Properties */}
             {filteredProperties.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-16">
-                  <div className="w-20 h-20 rounded-full bg-primary/5 flex items-center justify-center mb-6">
-                    <Building2 className="h-10 w-10 text-muted-foreground/50" />
+              <div className="glass-stat-card">
+                <div className="flex flex-col items-center justify-center py-16 bg-gradient-to-br from-primary/5 via-muted/30 to-accent/5 rounded-2xl">
+                  <div className="gradient-icon-box w-24 h-24 mb-6">
+                    <Building2 className="h-12 w-12 text-muted-foreground/50" />
                   </div>
                   <h3 className="text-lg font-medium mb-2">
                     {properties.length === 0 ? 'Start Building Your Portfolio' : 'No properties match'}
@@ -431,7 +433,7 @@ export default function MerchantProperties() {
                   </p>
                   {properties.length === 0 ? (
                     <div className="space-y-4">
-                      <Button onClick={() => setShowAddDialog(true)} size="lg">
+                      <Button onClick={() => setShowAddDialog(true)} size="lg" className="gradient-cta text-primary-foreground">
                         <Plus className="h-4 w-4 mr-2" />
                         Add Your First Property
                       </Button>
@@ -451,22 +453,22 @@ export default function MerchantProperties() {
                       </div>
                     </div>
                   ) : (
-                    <Button variant="outline" onClick={handleResetFilters}>
+                    <Button variant="outline" onClick={handleResetFilters} className="rounded-xl">
                       Reset Filters
                     </Button>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ) : (
               <>
                 {viewMode === 'grid' ? (
                   <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {paginatedProperties.map((property, index) => (
                         <div
                           key={property.id}
-                          className="animate-in fade-in-0 slide-in-from-bottom-2"
-                          style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' }}
+                          className="animate-in fade-in-0 slide-in-from-bottom-4"
+                          style={{ animationDelay: `${index * 60}ms`, animationFillMode: 'both' }}
                         >
                           <PropertyCard
                             property={property}

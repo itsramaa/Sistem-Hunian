@@ -179,6 +179,45 @@
     @apply bg-gradient-to-r from-primary to-secondary;
   }
 
+  .glass-stat-card {
+    @apply bg-card/80 backdrop-blur-sm border border-border/40 rounded-2xl shadow-sm
+           hover:-translate-y-1 hover:shadow-lg transition-all duration-300;
+  }
+
+  .glass-table {
+    @apply rounded-2xl border border-border/50 bg-card/90 backdrop-blur-sm overflow-hidden;
+  }
+
+  .glass-filter-bar {
+    @apply bg-card/80 backdrop-blur-sm border border-border/40 rounded-2xl p-4;
+  }
+
+  .section-header {
+    @apply relative pb-2;
+  }
+
+  .section-header::after {
+    content: '';
+    @apply absolute bottom-0 left-0 w-12 h-0.5 rounded-full;
+    background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)));
+  }
+
+  .gradient-icon-box {
+    @apply bg-gradient-to-br from-primary/15 to-accent/10 rounded-xl flex items-center justify-center;
+  }
+
+  .pill-tab-list {
+    @apply bg-muted/30 rounded-full p-1;
+  }
+
+  .pill-tab-trigger {
+    @apply rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm;
+  }
+
+  .glass-sidebar-card {
+    @apply bg-card/80 backdrop-blur-sm rounded-2xl border border-border/40;
+  }
+
   /* Mobile App Safe Areas */
   .safe-area-top {
     padding-top: env(safe-area-inset-top, 0px);
