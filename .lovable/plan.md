@@ -1,225 +1,180 @@
 
-# Audit & Refactor: Property Forms, Units, Tenant Flows
 
-## Ringkasan Temuan
+# Responsive Fixes, UnitsManager Navigation, dan Tenant Flow Audit
 
-Setelah audit menyeluruh terhadap 20+ file terkait, ditemukan **6 area masalah utama** yang saling terkait. Berikut rencana perbaikan lengkap.
+## 1. Responsive Component Fixes
 
----
+Berdasarkan skill `responsive-design` (mobile-first breakpoints, fluid spacing) dan `ui-ux-designer` (cognitive load reduction, accessibility):
 
-## 1. PropertyFormDialog -- Responsive Gap & Validasi
+### A. Base UI Components -- Input, Textarea, Select
 
-### Masalah
-- `DialogContent` hanya `max-w-lg`, pada mobile kecil konten terlalu rapat
-- Step indicator tidak responsif di layar kecil (label tersembunyi tapi separator tetap mengambil ruang)
-- Tidak ada `trim()` pada input name/address sehingga user bisa submit whitespace
-- Form area `max-h-[60vh]` bisa terlalu pendek di landscape mobile
+**Input** (`src/shared/components/ui/input.tsx`):
+- Sudah punya `h-12 md:h-10` -- ini bagus untuk mobile touch targets
+- Tidak ada masalah mayor
 
-### Perbaikan
-- Ubah `DialogContent` ke `max-w-lg w-[95vw]` agar di mobile tidak mentok
-- Tambah responsive step indicator: sembunyikan separator di mobile (`hidden sm:block`)
-- Tambah `.trim()` pada schema validasi name dan address
-- Ubah `max-h-[60vh]` ke `max-h-[55vh] sm:max-h-[60vh]`
+**Textarea** (`src/shared/components/ui/textarea.tsx`):
+- Kurang touch-friendly di mobile -- tambah padding dan min-height yang lebih besar di mobile
+- Ubah: `min-h-[80px]` ke `min-h-[100px] md:min-h-[80px]`, tambah `text-base md:text-sm` (prevent iOS zoom)
 
-### File: `src/features/properties/components/PropertyFormDialog.tsx`
+**SelectTrigger** (`src/shared/components/ui/select.tsx`):
+- Tingginya `h-10` fixed, di mobile seharusnya lebih besar untuk touch target (44px minimum)
+- Ubah: `h-10` ke `h-12 md:h-10`, tambah `text-base md:text-sm`
 
----
+### B. Dialog Forms -- Consistent Spacing & Padding
 
-## 2. UnitsManager Dialog -- Deprecate atau Konsistenkan
+**PropertyFormDialog**, **UnitFormDialog**, **AddTenantDialog**, **InviteTenantDialog**:
+- Form scroll area: tambah `px-1` padding agar content tidak mentok ke edge di mobile
+- Step indicator separators: tambah `hidden sm:block` pada separator agar di mobile hanya tampil circles
+- DialogFooter: sudah ada `gap-2`, tambah `flex-col-reverse sm:flex-row` agar di mobile buttons stack
 
-### Keputusan: Tetap sebagai Quick Action, tapi konsistenkan
+### C. Tables -- Mobile Card View
 
-UnitsManager berguna sebagai quick-action dari Property Card/Detail tanpa navigasi ke halaman Units. Namun masalahnya:
-- Form unit di dalamnya pakai schema BERBEDA dari UnitFormDialog (wizard di halaman Units)
-- Unit types hardcoded (`standard, deluxe, studio, suite, penthouse`) vs dynamic berdasarkan property_type (`kamar_standard, ruko_full`, dll)
-- Card unit tidak bisa diklik ke detail
-- Tidak ada photo upload
+**InvitationsTable** (`src/features/users/components/tenant/InvitationsTable.tsx`):
+- Table columns "Properti", "Tanggal Kirim" tidak visible di mobile -- terlalu banyak kolom
+- Tambah `hidden sm:table-cell` pada kolom non-essential
+- Tambah mobile info di bawah email (property name, date sebagai inline text)
 
-### Perbaikan
-- **Ganti form internal** UnitsManager agar menggunakan `UnitFormDialog` yang sudah ada (wizard), bukan form sederhana sendiri. Ini menghilangkan duplikasi schema dan menjamin konsistensi
-- **Hapus schema & unitTypes lokal** di UnitsManager (30 baris kode)
-- **Tambah navigasi** dari card unit ke `/merchant/units` (atau detail unit jika ada)
-- Property ID otomatis di-pass ke UnitFormDialog, sehingga user tidak perlu pilih ulang properti
+**TenantsTable** (`src/features/users/components/tables/TenantsTable.tsx`):
+- Pagination controls: `flex-col sm:flex-row` agar di mobile text dan buttons tidak terlalu cramped
+- Sudah ada responsive hiding -- OK
 
-### File: `src/features/properties/components/UnitsManager.tsx`
+### D. TenantStats -- Grid Responsive
 
----
+**TenantStats** (`src/features/users/components/tenant/TenantStats.tsx`):
+- `grid-cols-1 md:grid-cols-3` sudah OK, tapi card padding bisa lebih compact di mobile
+- Angka `text-3xl` terlalu besar di mobile kecil -- ubah ke `text-2xl sm:text-3xl`
 
-## 3. UnitFormDialog Wizard -- Validasi, Responsive, Error Handling
+### E. TenantDetailsDialog -- Mobile Spacing
 
-### Masalah Validasi
-- `rent_amount` schema: `min(0)` membolehkan 0 -- seharusnya `min(1)` (sewa harus > 0)
-- `unit_number` hanya `min(1)` tanpa `.trim()` -- whitespace lolos
-- `register("rent_amount")` tanpa `valueAsNumber` -- menghasilkan string, bukan number
-- Tidak ada validasi end_date > start_date pada AddTenantDialog
-- `grid-cols-2` di step 1 dan 2 tanpa responsive breakpoint -- di mobile 2 kolom terlalu sempit
-
-### Masalah Responsive
-- `grid grid-cols-2 gap-4` di line 186, 250, 279 tidak responsive -- harus `grid-cols-1 sm:grid-cols-2`
-- `max-h-[55vh]` bisa terlalu pendek pada mobile landscape
-
-### Masalah Unique Constraint Error
-- Ketika user membuat unit dengan nomor yang sudah ada di properti yang sama, Supabase melempar: `"duplicated key violates unique constraint 'units_property_id_unit_number_key'"`
-- Error ini ditampilkan apa adanya ke user -- sangat teknis dan membingungkan
-- Perlu ditangkap di `unitService.createUnit` dan di-translate ke pesan yang user-friendly
-
-### Perbaikan
-
-**Schema** (`src/features/properties/types/schema.ts`):
-- `unit_number`: tambah `.trim()`
-- `rent_amount`: ubah `min(0)` ke `min(1, 'Harga sewa harus lebih dari 0')`
-
-**UnitFormDialog** (`src/features/properties/components/UnitFormDialog.tsx`):
-- Semua `grid-cols-2` ubah ke `grid-cols-1 sm:grid-cols-2`
-- Tambah `valueAsNumber` pada register rent_amount dan deposit_amount
-
-**unitService** (`src/features/properties/services/unitService.ts`):
-- Wrap createUnit error: jika error.message mengandung `units_property_id_unit_number_key`, throw `"Nomor unit sudah digunakan di properti ini. Silakan gunakan nomor unit yang berbeda."`
-- Wrap updateUnit error serupa
-
-### File yang diubah:
-- `src/features/properties/types/schema.ts`
-- `src/features/properties/components/UnitFormDialog.tsx`
-- `src/features/properties/services/unitService.ts`
+- Financial summary `grid-cols-2` tanpa responsive -- OK karena hanya 2 item
+- Avatar header: `w-14 h-14` bisa dikecilkan di mobile kecil -- `w-12 h-12 sm:w-14 sm:h-14`
 
 ---
 
-## 4. Invite Tenant -- Ubah dari Unit ke Property
+## 2. UnitsManager Card Navigation ke Detail
 
-### Masalah Bisnis
-Saat ini InviteTenantDialog meminta merchant memilih **unit** untuk invitation. Tapi menurut business rule, invitation seharusnya ke **property** (tenant di-link ke merchant/property dulu), dan unit baru dipilih saat **contract** dibuat. Ini karena:
-- Invitation = "ayo bergabung ke properti saya"
-- Contract = "kamu tinggal di unit X dengan harga Y"
+Saat ini card unit di UnitsManager navigate ke `/merchant/units` (list page). Route detail unit sudah ada di `/merchant/units/:unitId`. 
 
-### Perbaikan
+**Perbaikan**:
+- Ubah `onClick={() => navigate('/merchant/units')}` ke `onClick={() => navigate('/merchant/units/${unit.id}')}`
+- Ini konsisten dengan behavior di `UnitsTable.tsx` yang sudah navigate ke detail
 
-**Database**: Kolom `unit_id` di `tenant_invitations` sudah NOT NULL. Perlu migration untuk menjadikannya nullable (karena invitation bisa tanpa unit).
-
-Namun, pendekatan yang lebih aman tanpa mengubah schema DB:
-- **Ubah UI**: Ganti selector dari unit ke **property** di InviteTenantDialog
-- **Di backend**: Simpan property_id terpisah di flow -- tapi DB requires unit_id...
-
-**Keputusan pragmatis**: Karena DB sudah ada `unit_id NOT NULL`, dan mengubahnya butuh migration + banyak refactor di acceptance flow, pendekatan terbaik:
-
-1. **Migrasi DB**: ALTER `tenant_invitations` -- tambah kolom `property_id` (nullable, FK ke properties), jadikan `unit_id` nullable
-2. **Update InviteTenantDialog**: Ganti dari pilih unit ke pilih property + email
-3. **Update service**: `sendInvitation` kirim `property_id` bukan `unit_id`
-4. **Update InvitationsTable**: Tampilkan property name (bukan unit)
-
-### File yang diubah:
-- DB Migration (ALTER TABLE)
-- `src/features/users/types/schema.ts` -- ubah schema invitation
-- `src/features/users/components/tenant/InviteTenantDialog.tsx`
-- `src/features/users/services/merchantTenantService.ts`
-- `src/features/users/components/tenant/InvitationsTable.tsx`
-- `src/pages/merchant/Tenants.tsx` (availableUnits logic berubah)
+File: `src/features/properties/components/UnitsManager.tsx` line 195
 
 ---
 
-## 5. AddTenantDialog -- Validasi Kurang
+## 3. Tenant Flow Audit -- Business Logic Issues
 
-### Masalah
-- `addTenantSchema`: `rent_amount` `min(1)` tapi `register` tanpa `valueAsNumber` -- bisa submit string "0"
-- Tidak ada validasi `end_date > start_date`
-- `billing_day` boleh kosong tapi schema requires number
-- Step 1 validasi hanya cek `selectedTenantUserId` ada, tapi tidak validate via schema
-- `grid-cols-2` tanpa responsive breakpoint di step 3 (line 259, 276)
+Setelah audit menyeluruh terhadap semua file tenant di merchant, berikut temuan dan perbaikan:
 
-### Perbaikan
+### A. Bahasa Campuran (ID + EN) -- Konsistensi
 
-**Schema** (`src/features/users/types/addTenantSchema.ts`):
-- Tambah `.refine()` untuk `end_date > start_date`
-- `rent_amount`: pastikan `min(1)` bukan `min(0)`
-- `billing_day`: jadikan `.default(1)` agar tidak error saat kosong
-- `deposit_amount`: jadikan `.default(0)`
+Seluruh UI mencampur bahasa Indonesia dan Inggris secara acak:
+- "Kirim Undangan" (ID) vs "Add Tenant" (EN) di satu baris
+- "Active Tenants" (EN) di tab vs "Hari Tagihan" (ID) di form
+- "Showing 1 to 10 of 20" (EN) vs "Tidak ada undangan" (ID)
 
-**AddTenantDialog** (`src/features/users/components/tenant/AddTenantDialog.tsx`):
-- Semua `grid-cols-2` ubah ke `grid-cols-1 sm:grid-cols-2`
-- Tambah min date pada input start_date (hari ini)
-- Tambah validasi visual jika end_date <= start_date
+**Perbaikan**: Konsistenkan ke Bahasa Indonesia (sesuai target market kost/kontrakan Indonesia):
+- Tab: "Undangan" dan "Tenant Aktif"
+- Buttons: "Tambah Tenant" dan "Kirim Undangan" 
+- Empty states, pagination, error messages -- semua ke ID
+- Stats labels: "Undangan Pending", "Tenant Aktif", "Unit Tersedia"
 
-### File yang diubah:
-- `src/features/users/types/addTenantSchema.ts`
-- `src/features/users/components/tenant/AddTenantDialog.tsx`
+### B. "Add Tenant" vs "Kirim Undangan" -- Membingungkan
+
+Dua action button yang mirip di header:
+1. **Add Tenant** -- bypass invitation, langsung buat kontrak
+2. **Kirim Undangan** -- kirim invitation email
+
+User bingung kapan pakai yang mana. Best practice:
+- **Undangan** = flow normal (tenant belum ada di sistem atau belum terhubung)
+- **Tambah Langsung** = shortcut untuk tenant yang sudah ada di sistem
+
+**Perbaikan**:
+- Rename "Add Tenant" ke "Tambah Langsung" dengan subtitle/tooltip "Untuk tenant yang sudah terdaftar di sistem"
+- Jadikan "Kirim Undangan" sebagai primary button (action utama)
+- "Tambah Langsung" sebagai secondary/outline
+- Urutan: Primary dulu (Kirim Undangan), lalu secondary (Tambah Langsung)
+
+### C. InvitationsTable -- Kurang Responsive & Info
+
+- Kolom "Properti" dan "Tanggal Kirim" harus hidden di mobile
+- Tampilkan info properti di bawah email pada mobile view
+- Cancel button hanya untuk status "pending" -- saat ini semua invitation bisa di-cancel
+
+**Perbaikan**:
+- Tambah `hidden sm:table-cell` pada kolom Properti dan Tanggal Kirim  
+- Tambah mobile inline info di cell Email
+- Disable cancel button jika status bukan "pending"
+
+### D. TenantsTable -- Linked Tenant Display Issues
+
+Untuk linked tenants (tanpa kontrak):
+- Property & Unit kolom menampilkan "Unknown Property" / "Unit N/A" -- membingungkan
+- Rent kolom menampilkan "Rp0" -- salah, harusnya "-" atau "Belum ada kontrak"
+- Dates kolom: `format(new Date(''), ...)` bisa error
+
+**Perbaikan**:
+- Jika `tenant.status === 'linked'`: tampilkan "Belum ada unit" di kolom Property
+- Jika `rent_amount === 0` dan status linked: tampilkan "-" bukan "Rp0"
+- Guard date formatting: jika `start_date` kosong, tampilkan "-"
+
+### E. AddTenantDialog -- Mengambil SEMUA Tenant di Sistem
+
+`useAllTenantsInSystem()` mengambil semua record dari tabel `tenants` -- ini masalah:
+1. **Security**: Merchant bisa melihat semua tenant di platform, termasuk yang bukan miliknya
+2. **Performance**: Jika ada ribuan tenant, list akan sangat panjang
+3. **Business logic**: Seharusnya hanya menampilkan tenant yang sudah pernah terhubung atau yang belum punya merchant
+
+**Perbaikan**:
+- Filter `getAllTenantsInSystem` di service: hanya tampilkan tenant yang `linked_merchant_id IS NULL` (belum terhubung ke merchant manapun) atau `linked_merchant_id = merchantId` (sudah terhubung ke merchant ini tapi belum punya kontrak)
+- Tambah `merchantId` parameter ke query
+- Ubah hook menjadi `useAvailableTenants(merchantId)`
+
+### F. addTenantDirectly -- Unit Status Tidak Diupdate
+
+Ketika kontrak dibuat langsung via AddTenantDialog:
+- Unit status tetap "available" padahal sudah ada kontrak aktif
+- Ini menyebabkan unit masih muncul di daftar available units
+
+**Perbaikan** di `merchantTenantService.addTenantDirectly`:
+- Setelah insert contract, update unit status ke "occupied":
+  ```
+  await supabase.from('units').update({ status: 'occupied' }).eq('id', data.unit_id)
+  ```
+
+### G. sendInvitation -- Fallback ke tenant_invitations insert tanpa property_id FK guard
+
+Sudah di-fix di migration sebelumnya (property_id nullable, unit_id nullable). Tapi di `addTenantDirectly` fallback path (line 276-291), masih insert `unit_id` tanpa `property_id`. Ini inkonsisten.
+
+**Perbaikan**: Tambah `property_id: data.property_id` ke fallback invitation insert.
 
 ---
 
-## 6. Tenant Page Flow Audit -- Inkonsistensi & Masalah UX
+## Ringkasan File yang Diubah
 
-### Temuan Audit
-
-**A. Tab default = "invitations" padahal "active" lebih penting**
-- Merchant buka halaman tenant, yang pertama dilihat adalah invitations (yang mungkin kosong)
-- Seharusnya default tab = "active" karena itu data utama
-
-**B. TenantDetailsDialog crash untuk linked tenants**
-- Linked tenants punya `start_date: ''` dan `end_date: ''`
-- `TenantDetailsDialog` langsung `new Date(tenant.start_date)` tanpa guard -- menghasilkan Invalid Date
-- `differenceInDays(endDate, startDate)` = NaN
-- `format(startDate, ...)` = crash/error
-
-**C. "Remove Tenant" pada linked tenant memanggil `terminateContract`**
-- Linked tenants punya `id: 'linked-{userId}'` -- bukan UUID kontrak
-- `terminateContract` akan gagal karena `.eq('id', contract.id)` dengan ID palsu
-- Seharusnya untuk linked tenant, action = "unlink" (hapus `linked_merchant_id`), bukan terminate contract
-
-**D. InviteTenantDialog disabled saat `availableUnits.length === 0`**
-- Setelah refactor invitation ke property-based, kondisi ini tidak relevan lagi
-- Invitation harusnya selalu bisa dikirim selama ada property
-
-**E. TenantStats `activeTenantsCount` pakai `activeContractsCount`**
-- Tapi active tenants list juga menampilkan linked tenants (tanpa kontrak)
-- Angka di stats tidak match dengan jumlah baris di tabel
-
-### Perbaikan
-
-1. **Default tab**: Ubah dari `'invitations'` ke `'active'`
-2. **TenantDetailsDialog**: Tambah guard untuk linked tenants -- sembunyikan Contract Timeline dan Financial Summary jika `status === 'linked'`
-3. **Tenants.tsx**: Tambah handler terpisah `handleUnlinkTenant` untuk linked tenants vs `handleDeleteTenant` untuk contract tenants
-4. **Service**: Tambah `unlinkTenant(userId, merchantId)` yang hanya update `tenants.linked_merchant_id = null`
-5. **TenantStats**: Ubah `activeTenantsCount` ke jumlah aktual dari `activeTenants.length`
-6. **InviteTenantDialog**: Disable condition ubah ke berdasarkan ada/tidaknya properties (bukan units)
-
-### File yang diubah:
-- `src/pages/merchant/Tenants.tsx`
-- `src/features/users/components/tenant/TenantDetailsDialog.tsx`
-- `src/features/users/services/merchantTenantService.ts`
-- `src/features/users/hooks/useMerchantTenants.ts`
-
----
-
-## Ringkasan File
-
-### Database Migration (1)
-| Perubahan | Detail |
-|-----------|--------|
-| ALTER `tenant_invitations` | Tambah `property_id` (uuid, nullable, FK), jadikan `unit_id` nullable |
-
-### File Baru (0)
-
-### File Diubah (12)
 | File | Perubahan |
 |------|-----------|
-| `PropertyFormDialog.tsx` | Responsive fixes, trim validation |
-| `UnitsManager.tsx` | Gunakan UnitFormDialog, hapus form lokal, navigasi card |
-| `UnitFormDialog.tsx` | Responsive grid, valueAsNumber |
-| `schema.ts` (properties) | trim, rent_amount min(1) |
-| `unitService.ts` | User-friendly unique constraint error |
-| `InviteTenantDialog.tsx` | Ubah dari unit-based ke property-based |
-| `schema.ts` (users) | Ubah invitation schema ke property_id |
-| `addTenantSchema.ts` | end_date > start_date refine, defaults |
-| `AddTenantDialog.tsx` | Responsive grid, date validation |
-| `Tenants.tsx` | Default tab, unlink vs terminate, stats fix |
-| `TenantDetailsDialog.tsx` | Guard linked tenants |
-| `merchantTenantService.ts` | sendInvitation property-based, unlinkTenant |
+| `src/shared/components/ui/textarea.tsx` | Mobile-friendly height & font size |
+| `src/shared/components/ui/select.tsx` | Mobile touch target height (h-12 md:h-10) & font |
+| `src/features/properties/components/UnitsManager.tsx` | Card navigate ke `/merchant/units/${unit.id}` |
+| `src/features/users/components/tenant/InvitationsTable.tsx` | Responsive columns, cancel guard, bahasa ID |
+| `src/features/users/components/tables/TenantsTable.tsx` | Linked tenant display fixes, bahasa ID, date guard |
+| `src/features/users/components/tenant/TenantStats.tsx` | Responsive font size, bahasa ID labels |
+| `src/features/users/components/tenant/TenantDetailsDialog.tsx` | Mobile avatar sizing |
+| `src/features/users/components/tenant/AddTenantDialog.tsx` | Bahasa ID, responsive improvements |
+| `src/features/users/components/tenant/TenantsFilters.tsx` | Bahasa ID placeholder |
+| `src/features/users/services/merchantTenantService.ts` | getAllTenantsInSystem filter by merchant, addTenantDirectly update unit status, fallback property_id |
+| `src/features/users/hooks/useMerchantTenants.ts` | useAvailableTenants(merchantId) |
+| `src/pages/merchant/Tenants.tsx` | Button labels & order, bahasa ID |
+| `src/features/properties/components/PropertyFormDialog.tsx` | DialogFooter responsive stack |
+| `src/features/properties/components/UnitFormDialog.tsx` | DialogFooter responsive stack |
 
 ## Urutan Implementasi
 
-1. DB Migration (tenant_invitations)
-2. Schema fixes (properti & tenant validation)
-3. unitService error handling
-4. PropertyFormDialog & UnitFormDialog responsive
-5. UnitsManager refactor (use UnitFormDialog)
-6. InviteTenantDialog property-based
-7. AddTenantDialog validation & responsive
-8. Tenant page flow fixes (default tab, details guard, unlink)
+1. Base UI components (textarea, select) -- fondasi
+2. UnitsManager card navigation -- quick fix
+3. Tenant service logic fixes (security filter, unit status update)
+4. Responsive fixes di semua dialog/table components
+5. Bahasa konsistensi (ID) di semua tenant components
+
