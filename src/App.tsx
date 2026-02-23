@@ -91,7 +91,7 @@ const MerchantComparativePortfolio = lazy(() => import("@/pages/merchant/Compara
 // Hub Pages
 const MerchantAssetsHub = lazy(() => import("@/pages/merchant/AssetsHub"));
 const MerchantOccupancyHub = lazy(() => import("@/pages/merchant/OccupancyHub"));
-const MerchantTransactionsHub = lazy(() => import("@/pages/merchant/TransactionsHub"));
+const MerchantFinanceHub = lazy(() => import("@/pages/merchant/FinanceHub"));
 const MerchantLegalHub = lazy(() => import("@/pages/merchant/LegalHub"));
 const MerchantAnalyticsHub = lazy(() => import("@/pages/merchant/AnalyticsHub"));
 const MerchantAiInsightsHub = lazy(() => import("@/pages/merchant/AiInsightsHub"));
@@ -191,7 +191,8 @@ const App = () => (
                     {/* Hub Pages */}
                     <Route path="assets" element={<MerchantAssetsHub />} />
                     <Route path="occupancy" element={<MerchantOccupancyHub />} />
-                    <Route path="transactions" element={<MerchantTransactionsHub />} />
+                    <Route path="finance" element={<MerchantFinanceHub />} />
+                    <Route path="transactions" element={<Navigate to="/merchant/finance" replace />} />
                     <Route path="legal" element={<MerchantLegalHub />} />
                     <Route path="analytics" element={<MerchantAnalyticsHub />} />
                     <Route path="ai-insights" element={<MerchantAiInsightsHub />} />
@@ -203,10 +204,10 @@ const App = () => (
                     <Route path="tenants" element={<MerchantTenants />} />
                     <Route path="maintenance" element={<MerchantMaintenance />} />
                     <Route path="maintenance/:id" element={<MerchantMaintenanceDetail />} />
-                    <Route path="payments" element={<MerchantPayments />} />
+                    <Route path="payments" element={<Navigate to="/merchant/finance#payments" replace />} />
                     <Route path="payments/:paymentId" element={<MerchantPaymentDetail />} />
                     <Route path="reports" element={<MerchantReports />} />
-                    <Route path="invoices" element={<MerchantInvoices />} />
+                    <Route path="invoices" element={<Navigate to="/merchant/finance#invoices" replace />} />
                     <Route path="invoices/:invoiceId" element={<MerchantInvoiceDetail />} />
                     <Route path="settings" element={<MerchantSettings />} />
                     <Route path="units" element={<MerchantUnits />} />
@@ -214,7 +215,7 @@ const App = () => (
                     <Route path="guardians" element={<Navigate to="/merchant/assets#guardians" replace />} />
                     <Route path="escrow" element={<MerchantEscrow />} />
                     <Route path="referrals" element={<MerchantReferrals />} />
-                    <Route path="contracts" element={<MerchantContracts />} />
+                    <Route path="contracts" element={<Navigate to="/merchant/finance#contracts" replace />} />
                     <Route path="contracts/:contractId" element={<MerchantContractDetail />} />
                     <Route path="billing" element={<MerchantBilling />} />
                     <Route path="move-outs" element={<MerchantMoveOuts />} />
