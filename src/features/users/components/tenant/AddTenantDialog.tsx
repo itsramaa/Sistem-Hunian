@@ -7,7 +7,6 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Badge } from '@/shared/components/ui/badge';
-import { Separator } from '@/shared/components/ui/separator';
 import { addTenantSchema, AddTenantFormData } from '@/features/users/types/addTenantSchema';
 import { useAvailableTenants } from '@/features/users/hooks/useMerchantTenants';
 import { useAuth } from '@/features/auth/hooks/useAuth';
@@ -109,29 +108,29 @@ export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLo
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-lg w-[95vw]">
+      <DialogContent className="max-w-lg w-[95vw] rounded-2xl">
         <DialogHeader>
           <DialogTitle>Tambah Tenant</DialogTitle>
           <DialogDescription>Pilih tenant dari daftar dan buat kontrak langsung</DialogDescription>
         </DialogHeader>
 
-        {/* Step Indicator */}
-        <div className="flex items-center justify-between px-2">
+        {/* Connected Dots Stepper */}
+        <div className="flex items-center justify-between px-4">
           {STEPS.map((s, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <div className={cn(
-                'flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold transition-colors',
-                i < step ? 'bg-success text-success-foreground' :
-                i === step ? 'bg-primary text-primary-foreground' :
-                'bg-muted text-muted-foreground'
-              )}>
-                {i < step ? <Check className="h-4 w-4" /> : i + 1}
-              </div>
-              <div className="hidden sm:block">
-                <p className={cn('text-xs font-medium', i === step ? 'text-foreground' : 'text-muted-foreground')}>{s.label}</p>
+            <div key={i} className="flex items-center">
+              <div className="flex flex-col items-center gap-1.5">
+                <div className={cn(
+                  'flex items-center justify-center w-9 h-9 rounded-full text-xs font-bold transition-all duration-300 border-2',
+                  i < step ? 'bg-success border-success text-success-foreground shadow-[0_0_12px_rgba(var(--success),0.3)]' :
+                  i === step ? 'bg-primary border-primary text-primary-foreground shadow-[0_0_12px_rgba(var(--primary),0.3)]' :
+                  'bg-muted/50 border-border/50 text-muted-foreground'
+                )}>
+                  {i < step ? <Check className="h-4 w-4" /> : <s.icon className="h-4 w-4" />}
+                </div>
+                <p className={cn('text-[10px] font-medium', i === step ? 'text-foreground' : 'text-muted-foreground')}>{s.label}</p>
               </div>
               {i < STEPS.length - 1 && (
-                <Separator className={cn('w-8 mx-2', i < step ? 'bg-success' : 'bg-muted')} />
+                <div className={cn('w-12 h-0.5 mx-1 mb-5 rounded-full transition-colors', i < step ? 'bg-success' : 'bg-border/50')} />
               )}
             </div>
           ))}
@@ -147,9 +146,10 @@ export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLo
                   placeholder="Ketik nama, email, atau telepon..."
                   value={searchTenant}
                   onChange={(e) => setSearchTenant(e.target.value)}
+                  className="rounded-xl bg-background/60 border-border/50"
                 />
               </div>
-              <div className="max-h-60 overflow-y-auto border rounded-md divide-y">
+              <div className="max-h-60 overflow-y-auto rounded-xl border border-border/40 divide-y divide-border/30">
                 {tenantsLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -165,12 +165,12 @@ export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLo
                       key={tenant.user_id}
                       onClick={() => handleSelectTenant(tenant.user_id)}
                       className={cn(
-                        'w-full text-left px-3 py-2.5 flex items-center gap-3 hover:bg-accent transition-colors',
+                        'w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-primary/5 transition-all duration-200',
                         selectedTenantUserId === tenant.user_id && 'bg-primary/10 border-l-2 border-l-primary'
                       )}
                     >
                       <div className={cn(
-                        'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold',
+                        'w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold transition-colors',
                         selectedTenantUserId === tenant.user_id ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                       )}>
                         {selectedTenantUserId === tenant.user_id ? (
@@ -199,8 +199,10 @@ export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLo
           {/* Step 2: Unit Selection */}
           {step === 1 && (
             <div className="space-y-4">
-              <div className="p-3 rounded-md bg-muted/50 flex items-center gap-3">
-                <User className="h-5 w-5 text-primary" />
+              <div className="p-3 rounded-xl bg-card/80 backdrop-blur-sm border border-border/40 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <User className="h-5 w-5 text-primary" />
+                </div>
                 <div>
                   <p className="text-sm font-medium">{watch('full_name')}</p>
                   <p className="text-xs text-muted-foreground">{watch('email')}</p>
@@ -209,14 +211,14 @@ export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLo
               <div>
                 <Label>Property *</Label>
                 <Select value={selectedPropertyId} onValueChange={(v) => { setValue('property_id', v, { shouldValidate: true }); setValue('unit_id', ''); }}>
-                  <SelectTrigger><SelectValue placeholder="Pilih property" /></SelectTrigger>
+                  <SelectTrigger className="rounded-xl bg-background/60 border-border/50"><SelectValue placeholder="Pilih property" /></SelectTrigger>
                   <SelectContent>
                     {properties.map(p => (
                       <SelectItem key={p.id} value={p.id}>
                         <div className="flex items-center gap-2">
                           <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
                           {p.name}
-                          <Badge variant="secondary" className="text-[10px] ml-1">{p.property_type}</Badge>
+                          <Badge variant="secondary" className="text-[10px] ml-1 rounded-full">{p.property_type}</Badge>
                         </div>
                       </SelectItem>
                     ))}
@@ -234,7 +236,7 @@ export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLo
                     setValue('deposit_amount', unit.deposit_amount || 0);
                   }
                 }} disabled={!selectedPropertyId}>
-                  <SelectTrigger><SelectValue placeholder={selectedPropertyId ? "Pilih unit" : "Pilih property dulu"} /></SelectTrigger>
+                  <SelectTrigger className="rounded-xl bg-background/60 border-border/50"><SelectValue placeholder={selectedPropertyId ? "Pilih unit" : "Pilih property dulu"} /></SelectTrigger>
                   <SelectContent>
                     {availableUnits.length === 0 ? (
                       <div className="px-3 py-2 text-sm text-muted-foreground">Tidak ada unit tersedia</div>
@@ -261,28 +263,28 @@ export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLo
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="start_date">Tanggal Mulai *</Label>
-                  <Input id="start_date" type="date" {...register('start_date')} />
+                  <Input id="start_date" type="date" {...register('start_date')} className="rounded-xl bg-background/60 border-border/50" />
                   {errors.start_date && <p className="text-sm text-destructive mt-1">{errors.start_date.message}</p>}
                 </div>
                 <div>
                   <Label htmlFor="end_date">Tanggal Selesai *</Label>
-                  <Input id="end_date" type="date" {...register('end_date')} />
+                  <Input id="end_date" type="date" {...register('end_date')} className="rounded-xl bg-background/60 border-border/50" />
                   {errors.end_date && <p className="text-sm text-destructive mt-1">{errors.end_date.message}</p>}
                 </div>
               </div>
               <div>
                 <Label htmlFor="rent_amount">Sewa Bulanan (Rp) *</Label>
-                <Input id="rent_amount" type="number" {...register('rent_amount', { valueAsNumber: true })} />
+                <Input id="rent_amount" type="number" {...register('rent_amount', { valueAsNumber: true })} className="rounded-xl bg-background/60 border-border/50" />
                 {errors.rent_amount && <p className="text-sm text-destructive mt-1">{errors.rent_amount.message}</p>}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="deposit_amount">Deposit (Rp)</Label>
-                  <Input id="deposit_amount" type="number" {...register('deposit_amount', { valueAsNumber: true })} />
+                  <Input id="deposit_amount" type="number" {...register('deposit_amount', { valueAsNumber: true })} className="rounded-xl bg-background/60 border-border/50" />
                 </div>
                 <div>
                   <Label htmlFor="billing_day">Hari Tagihan (1-28)</Label>
-                  <Input id="billing_day" type="number" min={1} max={28} {...register('billing_day', { valueAsNumber: true })} />
+                  <Input id="billing_day" type="number" min={1} max={28} {...register('billing_day', { valueAsNumber: true })} className="rounded-xl bg-background/60 border-border/50" />
                 </div>
               </div>
             </div>
@@ -290,16 +292,16 @@ export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLo
 
           <DialogFooter className="gap-2 flex-col-reverse sm:flex-row">
             {step > 0 && (
-              <Button type="button" variant="outline" onClick={handleBack}>
+              <Button type="button" variant="outline" onClick={handleBack} className="rounded-xl">
                 <ArrowLeft className="h-4 w-4 mr-1" />Kembali
               </Button>
             )}
             {step < 2 ? (
-              <Button type="button" onClick={handleNext} disabled={step === 0 && !selectedTenantUserId}>
+              <Button type="button" onClick={handleNext} disabled={step === 0 && !selectedTenantUserId} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-md">
                 Lanjut<ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             ) : (
-              <Button type="submit" disabled={isLoading}>
+              <Button type="submit" disabled={isLoading} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-md">
                 {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Tambah Tenant
               </Button>
