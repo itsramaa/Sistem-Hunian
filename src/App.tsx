@@ -92,7 +92,7 @@ const MerchantComparativePortfolio = lazy(() => import("@/pages/merchant/Compara
 const MerchantAssetsHub = lazy(() => import("@/pages/merchant/AssetsHub"));
 const MerchantOccupancyHub = lazy(() => import("@/pages/merchant/OccupancyHub"));
 const MerchantFinanceHub = lazy(() => import("@/pages/merchant/FinanceHub"));
-const MerchantLegalHub = lazy(() => import("@/pages/merchant/LegalHub"));
+const MerchantOperationsHub = lazy(() => import("@/pages/merchant/OperationsHub"));
 const MerchantAnalyticsHub = lazy(() => import("@/pages/merchant/AnalyticsHub"));
 const MerchantAiInsightsHub = lazy(() => import("@/pages/merchant/AiInsightsHub"));
 const MerchantHelpHub = lazy(() => import("@/pages/merchant/HelpHub"));
@@ -193,7 +193,8 @@ const App = () => (
                     <Route path="occupancy" element={<MerchantOccupancyHub />} />
                     <Route path="finance" element={<MerchantFinanceHub />} />
                     <Route path="transactions" element={<Navigate to="/merchant/finance" replace />} />
-                    <Route path="legal" element={<MerchantLegalHub />} />
+                    <Route path="operations" element={<MerchantOperationsHub />} />
+                    <Route path="legal" element={<Navigate to="/merchant/operations#compliance" replace />} />
                     <Route path="analytics" element={<MerchantAnalyticsHub />} />
                     <Route path="ai-insights" element={<MerchantAiInsightsHub />} />
                     <Route path="help" element={<MerchantHelpHub />} />
@@ -202,7 +203,7 @@ const App = () => (
                     <Route path="properties" element={<MerchantProperties />} />
                     <Route path="properties/:id" element={<MerchantPropertyDetail />} />
                     <Route path="tenants" element={<MerchantTenants />} />
-                    <Route path="maintenance" element={<MerchantMaintenance />} />
+                    <Route path="maintenance" element={<Navigate to="/merchant/operations#maintenance" replace />} />
                     <Route path="maintenance/:id" element={<MerchantMaintenanceDetail />} />
                     <Route path="payments" element={<Navigate to="/merchant/finance#payments" replace />} />
                     <Route path="payments/:paymentId" element={<MerchantPaymentDetail />} />
