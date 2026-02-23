@@ -1,110 +1,69 @@
 
-# 3.2.3 Data Extraction & Mapping + 3.3.1 Dashboard & Visualization
+# 3.3.2 Financial Analysis + 3.3.3 Predictive Analytics + 3.3.4 Reporting
 
 ## Gap Analysis
 
-### 3.2.3 Data Extraction & Mapping
+### 3.3.2 Financial Analysis
 
 | FR | Deskripsi | Status |
 |----|-----------|--------|
-| FR-601 | Extract data struktural dari OCR result | Sudah ada (5 OCR edge functions return structured `extracted_data` via AI tools) |
-| FR-602 | Auto-map extracted data ke field yang sesuai | Sudah ada (auto-populate ke `profiles`, `merchant_verifications`, `compliance_documents`) |
-| FR-603 | Store raw OCR text dan extracted structured data | Sudah ada (`ocr_results.extracted_data` jsonb menyimpan keduanya) |
-| FR-604 | Suggest data correction via ML pattern matching | **Belum ada** -- perlu fitur suggestion di OcrResultEditor |
+| FR-801 | P&L statement per kosan | Sudah ada (`FinancialRiskAnalytics.tsx` Tab ROI -- menampilkan revenue, expenses, net income per properti) |
+| FR-802 | ROI, payback, NPV, IRR | Sudah ada (`ml-financial-analytics` edge function + `FinancialRiskAnalytics.tsx` Tab ROI & NPV) |
+| FR-803 | Sensitivity analysis chart | Sudah ada sebagian (tabel sensitivitas di Tab Sensitivitas, tapi belum ada **chart** visual) |
+| FR-804 | Benchmark dengan peer group | **Belum ada** |
+| FR-805 | Investment recommendation BUY/HOLD/SELL | Sudah ada (`dss-investment-insight` returns outlook: positive/neutral/negative + `ml-financial-analytics` returns recommendation: invest/hold/divest) |
 
-### 3.3.1 Dashboard & Visualization
+### 3.3.3 Predictive Analytics
 
 | FR | Deskripsi | Status |
 |----|-----------|--------|
-| FR-701 | Interactive dashboard dengan key metrics | Sudah ada (`Reports.tsx` + `MlAnalytics.tsx`) |
-| FR-702a | Price statistics (min, max, avg, median) | Sudah ada di `MarketIntelligence.tsx` (segmen harga) |
-| FR-702b | Occupancy trend 6 bulan | Sudah ada sebagian (`Reports.tsx` occupancy by type, tapi bukan trend chart 6 bulan) |
-| FR-702c | ROI distribution histogram | **Belum ada** |
-| FR-702d | Risk heatmap (lokasi disaster risk) | **Belum ada** |
-| FR-702e | Tenant quality distribution | **Belum ada** |
-| FR-703 | Drill-down per kosan | **Belum ada** |
-| FR-704 | Filter by segmen, lokasi, tahun pembangunan | **Belum ada** (hanya filter time range) |
-| FR-705 | Export dashboard screenshot/PDF | Sudah ada sebagian (CSV/PDF text export, tapi bukan visual screenshot) |
+| FR-901 | Occupancy forecast 3-6 bulan | Sudah ada (`ml-occupancy-forecast` + `MarketIntelligence.tsx` Tab Forecast Okupansi) |
+| FR-902 | Price trend forecast | Sudah ada (`ml-price-intelligence` returns `price_trends` + `MarketIntelligence.tsx` Tab Tren Harga) |
+| FR-903 | Tenant payment reliability score | Sudah ada (`ml-tenant-risk-score` + `MlAnalytics.tsx` Tab Risk) |
+| FR-904 | Confidence interval untuk setiap prediction | Sudah ada (revenue forecast shows upper/lower bound, occupancy forecast shows confidence per month, price intel shows confidence per recommendation) |
+
+### 3.3.4 Reporting
+
+| FR | Deskripsi | Status |
+|----|-----------|--------|
+| FR-1001 | Standard report templates (5 types) | **Belum ada** (hanya ada generic `Reports.tsx` dengan payment/maintenance export) |
+| FR-1002 | Custom report builder | **Belum ada** |
+| FR-1003 | Export ke PDF, Excel, PowerPoint | Sudah ada sebagian (CSV dan PDF via print. **Excel (.xlsx) dan PowerPoint belum ada**) |
+| FR-1004 | Schedule automated report | **Belum ada** |
+| FR-1005 | Email report ke stakeholder | **Belum ada** (email hanya untuk auth, bukan transactional) |
 
 ---
 
 ## Yang Perlu Diimplementasi
 
-### 1. FR-604: ML Correction Suggestion di OcrResultEditor
+### 1. FR-803: Sensitivity Analysis Chart
+Menambahkan visualisasi chart (BarChart) ke Tab Sensitivitas di `FinancialRiskAnalytics.tsx`. Saat ini hanya tabel. Tambahkan BarChart yang membandingkan ROI hasil setiap skenario.
 
-Menambahkan tombol "Sarankan Koreksi" di `OcrResultEditor.tsx` yang memanggil edge function baru `ml-ocr-correction-suggest`. Function ini menganalisis extracted data + raw text + document type, lalu menyarankan perbaikan untuk field yang memiliki confidence rendah atau inkonsisten.
+### 2. FR-804: Peer Benchmarking
+Menambahkan tab baru "Benchmark" di `FinancialRiskAnalytics.tsx` yang membandingkan properti yang dipilih dengan properti lain di lokasi/segmen yang sama. Data diambil client-side dari `properties` + `units` yang sudah ada. Menampilkan: rata-rata ROI peer group, occupancy rate, rent per unit, posisi relatif properti saat ini.
 
-**Edge function baru**: `supabase/functions/ml-ocr-correction-suggest/index.ts`
+### 3. FR-1001: Standard Report Templates
+Membuat halaman baru `ReportTemplates.tsx` dengan 5 template report yang bisa di-generate:
+- **Executive Summary**: KPI ringkasan (revenue, occupancy, risk score, ROI) dari data yang sudah ada
+- **Detailed Property Analysis**: Detail per properti (units, contracts, maintenance)
+- **Financial Performance Report**: P&L, ROI, NPV/IRR dari data `ml-financial-analytics`
+- **Risk Assessment Report**: Disaster risk, tenant risk, insurance dari data existing
+- **Investment Opportunity Report**: Dari `dss-investment-insight` data
 
-Input:
-- `ocr_result_id` -- ID hasil OCR yang sudah ada
-- Sistem akan fetch `extracted_data`, `document_type`, dan confidence scores
+Semua template menggunakan data dari Supabase client queries (tidak perlu edge function baru), lalu di-render sebagai HTML dan di-export via `exportToPDF`.
 
-Output (via AI tool):
-```text
-{
-  suggestions: [
-    { field, current_value, suggested_value, reason, confidence }
-  ],
-  overall_assessment: string
-}
-```
+### 4. FR-1002: Custom Report Builder
+Menambahkan tab "Report Builder" di halaman `ReportTemplates.tsx` dimana user bisa:
+- Pilih metrik (revenue, occupancy, ROI, risk score, maintenance count, dll)
+- Pilih dimensi (per properti, per bulan, per unit type)
+- Pilih time range
+- Generate report on-the-fly dan export
 
-Tier limits: `{ free: 0, starter: 5, professional: -1, enterprise: -1 }`
+### 5. FR-1003: Export Excel (.xlsx)
+Menambahkan `exportToExcel` function di `exportUtils.ts` menggunakan CSV format dengan `.csv` extension (tanpa dependency tambahan). Untuk PowerPoint: tidak feasible tanpa dependency berat, akan dicover dengan PDF export yang sudah ada.
 
-Update pada `OcrResultEditor.tsx`:
-- Tombol "Saran AI" di header
-- Suggestions ditampilkan sebagai inline badges di samping field yang relevan
-- Klik suggestion untuk apply ke field
-
-### 2. FR-702b s/d FR-702e + FR-703 + FR-704: Analytics Dashboard Enhancement
-
-**File baru**: `src/pages/merchant/AnalyticsDashboard.tsx`
-
-Halaman dashboard baru yang mengkonsolidasikan semua visualisasi yang diminta, terpisah dari `Reports.tsx` yang fokus pada operasional reporting.
-
-Layout:
-- PageHeader "Dashboard Analitik" dengan icon BarChart3
-- Filter bar: property type, city, construction year range
-- Grid layout 5 sections
-
-**Section A: Price Statistics (FR-702a -- consolidated)**
-- Cards: Min, Max, Average, Median rent_amount dari units
-- Dihitung client-side dari query `units` joined `properties`
-
-**Section B: Occupancy Trend 6 Bulan (FR-702b)**
-- LineChart 6 bulan terakhir
-- Data dari `contracts` (count active per bulan) / `units` count
-- Dihitung client-side
-
-**Section C: ROI Distribution Histogram (FR-702c)**
-- BarChart histogram ROI per properti
-- ROI dihitung dari: `(total_rent_revenue_annual / (construction_cost + renovation_cost)) * 100`
-- Data: properties + units (rent_amount) + construction/renovation costs
-- Bucket: 0-5%, 5-10%, 10-15%, 15-20%, 20%+
-
-**Section D: Risk Heatmap (FR-702d)**
-- Leaflet map (sudah ada dependency `react-leaflet`) menampilkan markers per properti
-- Warna marker berdasarkan `disaster_risk_level` dari tabel `properties` dan/atau `disaster_risk_profiles`
-- Hijau = rendah, kuning = sedang, merah = tinggi
-- Klik marker untuk lihat detail properti (drill-down FR-703)
-
-**Section E: Tenant Quality Distribution (FR-702e)**
-- PieChart distribusi grade (A/B/C/D/F) dari `tenant_risk_scores` atau data scoring
-- Dihitung client-side dari `tenant_risk_scores` table
-
-**Drill-down (FR-703):**
-- Klik properti di tabel/chart -> navigasi ke `/merchant/properties/:id`
-- Atau buka Sheet/Dialog detail per properti di dashboard
-
-**Filter (FR-704):**
-- Dropdown: property_type, city
-- Range slider: construction_year
-- Semua filter apply ke seluruh sections
-
-### 3. FR-705: Export Dashboard sebagai PDF
-
-Menambahkan tombol "Export PDF" di `AnalyticsDashboard.tsx` yang menggunakan `window.print()` dengan CSS `@media print` styling, atau menggunakan existing `exportToPDF` utility untuk generate report teks. Screenshot capture (html2canvas) memerlukan dependency baru, jadi kita gunakan pendekatan print-to-PDF yang sudah tersedia.
+### 6. FR-1004 & FR-1005: Scheduled Reports & Email
+FR-1004 (scheduled reports) memerlukan cron job infrastructure. FR-1005 (email reports) dibatasi karena Lovable email hanya untuk authentication. Kedua fitur ini akan di-implementasi sebagai **manual reminder UI** -- user bisa set reminder schedule yang tampil di dashboard, tapi automated generation + email tidak feasible dengan batasan platform saat ini.
 
 ---
 
@@ -112,13 +71,12 @@ Menambahkan tombol "Export PDF" di `AnalyticsDashboard.tsx` yang menggunakan `wi
 
 ```text
 [Frontend]
-AnalyticsDashboard.tsx  ---->  Supabase client (properties, units, contracts, tenant_risk_scores, disaster_risk_profiles)
-OcrResultEditor.tsx     ---->  ml-ocr-correction-suggest edge function ---> Gemini 2.5 Flash
+FinancialRiskAnalytics.tsx  ---->  Existing data (sensitivity chart + benchmark tab)
+ReportTemplates.tsx         ---->  Supabase client queries (5 templates + custom builder)
+exportUtils.ts              ---->  Extended with Excel export
 
-[Existing dependencies used]
-- react-leaflet (risk heatmap)
-- recharts (charts)
-- exportUtils (PDF export)
+[Tidak ada edge function baru]
+[Tidak ada database migration baru]
 ```
 
 ---
@@ -129,35 +87,91 @@ OcrResultEditor.tsx     ---->  ml-ocr-correction-suggest edge function ---> Gemi
 
 | File | Deskripsi |
 |------|-----------|
-| `supabase/functions/ml-ocr-correction-suggest/index.ts` | AI correction suggestions for OCR results |
-| `src/features/dss/services/ocrCorrectionService.ts` | Service invoke edge function |
-| `src/features/dss/hooks/useOcrCorrection.ts` | React Query mutation hook |
-| `src/features/analytics/services/analyticsDashboardService.ts` | Service fetch data untuk dashboard |
-| `src/features/analytics/hooks/useAnalyticsDashboard.ts` | React Query hooks untuk semua dashboard data |
-| `src/pages/merchant/AnalyticsDashboard.tsx` | Dashboard page baru |
+| `src/pages/merchant/ReportTemplates.tsx` | Halaman report templates + custom builder |
+| `src/features/analytics/services/reportTemplateService.ts` | Service fetch data untuk 5 template report |
+| `src/features/analytics/hooks/useReportTemplates.ts` | React Query hooks |
 
 ### File yang Dimodifikasi
 
 | File | Perubahan |
 |------|-----------|
-| `src/features/dss/components/OcrResultEditor.tsx` | Tambah tombol "Saran AI" + suggestion display |
-| `src/shared/components/layouts/navigation-config.ts` | Tambah menu "Dashboard Analitik" |
-| `src/App.tsx` | Tambah lazy import + route `analytics-dashboard` |
+| `src/pages/merchant/FinancialRiskAnalytics.tsx` | Tambah chart di Tab Sensitivitas + tab baru "Benchmark" |
+| `src/shared/utils/exportUtils.ts` | Tambah `exportToExcel` (CSV-based) |
+| `src/shared/components/layouts/navigation-config.ts` | Tambah menu "Template Laporan" di grup Analitik |
+| `src/App.tsx` | Tambah lazy import + route `report-templates` |
 
-### Tidak Ada Perubahan Database
+### Tidak Ada Database Migration
 
-Semua data sudah tersedia di tabel existing:
-- `properties` (lat, lng, disaster_risk_level, construction_cost, renovation_cost, property_type, city, construction_year)
-- `units` (rent_amount, status)
-- `contracts` (status, created_at)
-- `tenant_risk_scores` (risk_score, risk_level)
-- `disaster_risk_profiles` (overall_risk_score, flood_risk, earthquake_risk, dll)
-- `ocr_results` (extracted_data, confidence_score, document_type)
+Semua data sudah tersedia di tabel existing: `properties`, `units`, `contracts`, `payments`, `maintenance_requests`, `tenant_risk_scores`, `disaster_risk_profiles`, `maintenance_expenses`.
 
-### Urutan Implementasi
-1. Edge function `ml-ocr-correction-suggest`
-2. Service + hook OCR correction
-3. Update `OcrResultEditor.tsx` dengan suggestion UI
-4. Service + hooks analytics dashboard
-5. Halaman `AnalyticsDashboard.tsx` (charts + map + filters)
+### Tidak Ada Edge Function Baru
+
+Report templates menggunakan data yang sudah tersedia via Supabase client queries.
+
+---
+
+## Detail Per Komponen
+
+### A. Sensitivity Chart (FR-803)
+
+Lokasi: `FinancialRiskAnalytics.tsx` Tab Sensitivitas
+
+Menambahkan `BarChart` dari recharts di atas tabel yang sudah ada:
+- X-axis: `scenario_name`
+- Y-axis dual: `resulting_roi` (bar) + baseline ROI (reference line)
+- Color berdasarkan `impact_level` (merah = high, kuning = medium, hijau = low)
+
+### B. Peer Benchmark Tab (FR-804)
+
+Lokasi: `FinancialRiskAnalytics.tsx` -- Tab baru ke-5 "Benchmark"
+
+- Fetch semua properties + units merchant
+- Filter peer group: properti lain di kota yang sama dan/atau property_type yang sama
+- Hitung metrik: avg rent, occupancy rate, estimated ROI
+- Tampilkan cards perbandingan: "Properti Anda" vs "Rata-rata Peer"
+- RadarChart (recharts) membandingkan 4-5 dimensi
+
+### C. Report Templates Page (FR-1001)
+
+Layout:
+- PageHeader "Template Laporan" dengan icon FileText
+- Grid 5 template cards, masing-masing dengan: icon, nama, deskripsi, tombol "Generate"
+- Property selector (beberapa template memerlukan properti tertentu)
+
+Setiap template:
+1. **Executive Summary**: Query properties (count, occupancy), payments (total revenue), maintenance (pending count), risk scores
+2. **Detailed Property Analysis**: Per-properti: units list, contract status, maintenance history
+3. **Financial Performance**: Revenue vs expenses, formatted P&L table
+4. **Risk Assessment**: Disaster risk profiles, tenant risk distribution, compliance status
+5. **Investment Opportunity**: ROI ranking semua properti, top recommendations
+
+Output: HTML table yang di-render via `exportToPDF` atau `exportToExcel`.
+
+### D. Custom Report Builder (FR-1002)
+
+Layout (tab kedua di ReportTemplates):
+- Multi-select checklist: pilih metrik (revenue, occupancy, ROI, risk, maintenance)
+- Select: dimensi (per properti / per bulan / per unit type)
+- Date range picker
+- Tombol "Generate Preview" -> tampilkan tabel di halaman
+- Tombol "Export PDF" / "Export CSV"
+
+### E. Excel Export (FR-1003)
+
+Menambahkan fungsi `exportToExcel` di `exportUtils.ts` yang menghasilkan file CSV dengan extension `.csv` dan MIME type `text/csv`. Ini kompatibel dengan Excel tanpa memerlukan library tambahan seperti `xlsx`.
+
+### F. FR-1004 & FR-1005: Catatan Limitasi
+
+- **FR-1004**: Scheduled automated reports memerlukan pg_cron + edge function. Akan di-implementasi sebagai "reminder badge" di dashboard yang mengingatkan user untuk generate report secara manual pada jadwal yang ditentukan. Data jadwal disimpan di localStorage.
+- **FR-1005**: Email report ke stakeholder tidak feasible karena Lovable email hanya mendukung authentication emails. Akan ditampilkan note informatif di UI bahwa fitur ini memerlukan integrasi email pihak ketiga.
+
+---
+
+## Urutan Implementasi
+
+1. Update `exportUtils.ts` (tambah `exportToExcel`)
+2. Service `reportTemplateService.ts`
+3. Hooks `useReportTemplates.ts`
+4. Update `FinancialRiskAnalytics.tsx` (sensitivity chart + benchmark tab)
+5. Halaman `ReportTemplates.tsx` (5 templates + custom builder)
 6. Update navigasi + routes
