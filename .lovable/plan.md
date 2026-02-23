@@ -1,79 +1,105 @@
 
 
-# 3.5 Machine Learning Models -- Price Prediction & Occupancy Forecasting
+# Data Import/Export Requirements Implementation
 
-## Gap Analysis
+## Current Status Summary
 
-| FR | Deskripsi | Status |
-|----|-----------|--------|
-| FR-1301 | ML model untuk predict optimal rental price | Sudah ada (`ml-optimal-pricing` + `ml-price-intelligence`) |
-| FR-1302 | Input: lokasi, fasilitas, luas, kondisi bangunan, kompetitor | Sebagian -- lokasi, fasilitas, unit_type sudah dikirim. **`building_condition` belum** dimasukkan ke context. Kolom `luas` (floor area) tidak ada di database. |
-| FR-1303 | Output: recommended price range + confidence | Sudah ada (kedua function return `price_range` + `confidence`) |
-| FR-1304 | Model retrain berkala dengan data baru | **Belum ada** -- perlu UI "Refresh Model" dengan tracking kapan terakhir dijalankan |
-| FR-1401 | ML model untuk forecast occupancy | Sudah ada (`ml-occupancy-forecast`) |
-| FR-1402 | Input: historical, seasonal, location, segment | Sudah ada (snapshots, contracts, units, properties) |
-| FR-1403 | Output: forecast per bulan + confidence interval | Sudah ada (monthly_predictions dengan confidence per bulan) |
-| FR-1404 | Detect anomali (unusual pattern) | Sebagian -- price outlier sudah ada di `ml-price-intelligence`. **Occupancy anomaly detection belum ada** di output `ml-occupancy-forecast` |
+| Requirement | Status | Detail |
+|---|---|---|
+| IR-501: CSV/Excel bulk import | Partial | CSV import exists for properties only; no Excel support; no unit import |
+| IR-502: Column mapping | Not implemented | Headers must match template exactly |
+| IR-503: Validation rules on import | Implemented | Zod schema validation per row |
+| IR-504: Error report with row numbers | Implemented | Errors shown per row with details |
+| IR-601: Export filtered data to CSV/Excel | Implemented | `exportToCSV`, `exportToExcel` utilities used across multiple pages |
+| IR-602: Export metadata | Not implemented | Exports lack timestamp, user info, and filter context |
+| IR-603: Proper Excel formatting | Partial | Tab-separated with BOM; not true .xlsx |
+| IR-701: JSON API export | Not implemented | No dedicated endpoint |
+| IR-702: Schema matches internal model | Not implemented | No endpoint exists |
+| IR-703: Pagination for large datasets | Not implemented | No endpoint exists |
 
-## Yang Perlu Diimplementasi
+## Implementation Plan
 
-Karena sebagian besar sudah ada, hanya perlu 3 enhancement minor:
+### Task 1: Add Column Mapping to CSV Import (IR-502)
 
-### 1. FR-1302: Tambah `building_condition` ke Input Pricing Models
+Enhance `PropertyImportDialog.tsx` with an intermediate "Map Columns" step between upload and preview:
 
-Update `ml-optimal-pricing/index.ts` -- tambah `building_condition` dari tabel `properties` ke context yang dikirim ke AI. Kolom ini sudah ada di database tapi belum di-select.
+- After parsing CSV headers, show a UI where each required field (name, property_type, address, etc.) can be mapped to any detected CSV column via dropdown selects
+- Auto-detect matches (e.g., "nama" maps to "name", "alamat" maps to "address")
+- Apply mapping before Zod validation runs
 
-Update `ml-price-intelligence/index.ts` -- tambah `building_condition` ke property select query.
+### Task 2: Add Export Metadata (IR-602)
 
-Catatan: Kolom `luas` (floor area) tidak ada di database schema saat ini. Sebagai pengganti, `unit_type` dan `amenities` sudah mencakup informasi serupa. Tidak perlu database migration.
+Update `exportToCSV` and `exportToExcel` in `src/shared/utils/exportUtils.ts`:
 
-### 2. FR-1304: Model Refresh Tracking UI
+- Prepend metadata rows to CSV/Excel output: export timestamp, exported by (current user email), and active filters description
+- Add optional `metadata` parameter to export functions: `{ exportedBy?: string; filters?: Record<string, string> }`
+- Update `exportToPDF` to include metadata in the header section
 
-Tambahkan section "Model Status" di halaman `MlAnalytics.tsx` yang menampilkan:
-- Kapan terakhir setiap model dijalankan (dari `ml_model_runs` table)
-- Tombol "Refresh" per model
-- Badge status: "Terkini" (< 24 jam), "Perlu Update" (> 7 hari), "Kadaluarsa" (> 30 hari)
+### Task 3: JSON API Export Endpoint (IR-701, IR-702, IR-703)
 
-Tambah hook `useModelRunHistory` yang query `ml_model_runs` grouped by `function_name` untuk mendapatkan latest run per model.
+Create a new Edge Function `supabase/functions/data-export/index.ts`:
 
-### 3. FR-1404: Occupancy Anomaly Detection
+- Accepts query parameters: `entity` (properties, units, payments, contracts), `page`, `page_size`, `filters`
+- Authenticates via JWT and scopes data to the merchant
+- Returns paginated JSON matching the internal data model schema
+- Response format:
+```text
+{
+  "data": [...],
+  "meta": {
+    "page": 1,
+    "page_size": 50,
+    "total": 234,
+    "exported_at": "2026-02-23T...",
+    "exported_by": "user@email.com"
+  }
+}
+```
 
-Update `ml-occupancy-forecast/index.ts` -- tambahkan field `anomalies` ke AI tool schema agar model juga mendeteksi pola anomali (lonjakan/penurunan drastis, occupancy tidak sesuai musim). Ini hanya perubahan pada tool definition dan system prompt.
+### Task 4: Extend Bulk Import to Units (IR-501 enhancement)
 
-Update `MarketIntelligence.tsx` -- tampilkan anomali yang terdeteksi di Tab Forecast Okupansi sebagai alert cards.
+Create `UnitImportDialog.tsx` following the same pattern as `PropertyImportDialog`:
 
-Update `marketIntelligenceService.ts` -- tambah type `OccupancyAnomaly` dan update `OccupancyForecastResult`.
+- CSV template with unit fields (unit_number, unit_type, floor, size_sqm, rent_amount, status, etc.)
+- Zod validation using existing `unitSchema`
+- Column mapping step (from Task 1 pattern)
+- Error report with row-level details (IR-504)
+- Add import button to the Units management page
 
----
+## Technical Details
 
-## Detail Teknis
+### Column Mapping Component
 
-### File yang Dimodifikasi
+New shared component `src/shared/components/ColumnMapper.tsx`:
+- Props: `csvHeaders: string[]`, `requiredFields: { key: string; label: string; required: boolean }[]`
+- Uses fuzzy matching (Levenshtein or simple includes) for auto-suggestions
+- Returns a `Record<string, string>` mapping
 
-| File | Perubahan |
-|------|-----------|
-| `supabase/functions/ml-optimal-pricing/index.ts` | Tambah `building_condition` ke property select |
-| `supabase/functions/ml-price-intelligence/index.ts` | Tambah `building_condition` ke property select |
-| `supabase/functions/ml-occupancy-forecast/index.ts` | Tambah `anomalies` field ke tool schema + system prompt |
-| `src/features/dss/services/marketIntelligenceService.ts` | Tambah `OccupancyAnomaly` type + update `OccupancyForecastResult` |
-| `src/pages/merchant/MarketIntelligence.tsx` | Tampilkan anomali di Tab Forecast Okupansi |
-| `src/pages/merchant/MlAnalytics.tsx` | Tambah section "Status Model" dengan last run + refresh |
-| `src/features/dss/hooks/useMlAnalytics.ts` | Tambah `useModelRunHistory` hook |
+### Export Metadata Format (CSV)
 
-### File Baru
+```text
+# Exported: 2026-02-23 14:30:00
+# Exported By: user@example.com  
+# Filters: Status=active, City=Jakarta
+# ---
+Date,Amount,Status,...
+```
 
-Tidak ada file baru. Semua perubahan adalah enhancement pada file existing.
+### Edge Function: data-export
 
-### Tidak Ada Database Migration
+- Validates auth token and resolves merchant_id
+- Whitelist of allowed entities prevents arbitrary table access
+- Uses Supabase client with `.range()` for pagination
+- Caps `page_size` at 100 to prevent abuse
 
-Semua kolom yang dibutuhkan (`building_condition`, `ml_model_runs`) sudah ada.
+### File Changes Summary
 
-### Urutan Implementasi
-
-1. Update `ml-optimal-pricing` dan `ml-price-intelligence` (tambah `building_condition`)
-2. Update `ml-occupancy-forecast` (tambah anomaly detection ke schema)
-3. Update `marketIntelligenceService.ts` (tambah types)
-4. Update `MarketIntelligence.tsx` (tampilkan anomali)
-5. Tambah `useModelRunHistory` hook di `useMlAnalytics.ts`
-6. Update `MlAnalytics.tsx` (section status model + refresh tracking)
+| File | Action |
+|---|---|
+| `src/shared/components/ColumnMapper.tsx` | Create - reusable column mapping UI |
+| `src/shared/utils/exportUtils.ts` | Modify - add metadata support to CSV/Excel/PDF exports |
+| `src/features/properties/components/PropertyImportDialog.tsx` | Modify - add column mapping step |
+| `src/features/properties/components/UnitImportDialog.tsx` | Create - bulk unit import with validation |
+| `supabase/functions/data-export/index.ts` | Create - paginated JSON API export |
+| `src/pages/merchant/Properties.tsx` | Modify - wire unit import dialog |
 
