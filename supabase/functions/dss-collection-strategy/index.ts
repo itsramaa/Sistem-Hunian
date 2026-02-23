@@ -38,11 +38,15 @@ serve(async (req) => {
     if (!tierCheck.allowed) return tierCheck.error!;
 
     // Gather tenant data
-    const [invoicesRes, collectionsRes, riskRes, contractRes] = await Promise.all([
+    const [invoicesRes, collectionsRes, riskRes, contractRes, paymentMetricsRes, tenantProfileRes] = await Promise.all([
       serviceClient.from("invoices").select("*").eq("tenant_user_id", tenant_user_id).eq("merchant_id", merchantId).order("due_date", { ascending: false }).limit(30),
       serviceClient.from("collections_cases").select("*").eq("tenant_user_id", tenant_user_id).eq("merchant_id", merchantId),
       serviceClient.from("tenant_risk_scores").select("*").eq("tenant_user_id", tenant_user_id).eq("merchant_id", merchantId).maybeSingle(),
       serviceClient.from("contracts").select("*").eq("tenant_user_id", tenant_user_id).eq("merchant_id", merchantId).eq("status", "active").maybeSingle(),
+      // Phase 6: Payment metrics
+      serviceClient.from("tenant_payment_metrics").select("payment_score, avg_days_late, total_paid, total_unpaid, on_time_count, late_count").eq("tenant_user_id", tenant_user_id).eq("merchant_id", merchantId).maybeSingle(),
+      // Phase 6: Tenant demographics
+      serviceClient.from("tenants").select("age_group, occupation, income_range, gender, institution").eq("user_id", tenant_user_id).maybeSingle(),
     ]);
 
     const context = JSON.stringify({
@@ -50,6 +54,8 @@ serve(async (req) => {
       collections: collectionsRes.data || [],
       riskScore: riskRes.data,
       contract: contractRes.data,
+      tenantPaymentMetrics: paymentMetricsRes.data || null,
+      tenantDemographics: tenantProfileRes.data || null,
       currentDate: new Date().toISOString(),
     });
 

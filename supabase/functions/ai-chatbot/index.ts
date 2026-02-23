@@ -184,7 +184,38 @@ serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(3);
 
-      const unit = activeContract?.unit as { unit_number: string; property: { name: string; address: string } } | null;
+      // Phase 6: Get property security & compliance info
+      const contractUnit = activeContract?.unit as { unit_number: string; property: { name: string; address: string } } | null;
+      let securityContext = "";
+      let insuranceContext = "";
+
+      if (activeContract) {
+        // Find property_id from unit
+        const { data: unitData } = await supabase
+          .from("contracts")
+          .select("unit:units(property_id)")
+          .eq("id", activeContract.id)
+          .single();
+
+        const propertyId = (unitData?.unit as any)?.property_id;
+
+        if (propertyId) {
+          const [secIncidents, insPolicies] = await Promise.all([
+            supabase.from("security_incidents").select("incident_type, severity, status, created_at").eq("property_id", propertyId).eq("status", "open").limit(5),
+            supabase.from("insurance_policies").select("provider, policy_type, coverage_amount, status").eq("property_id", propertyId).eq("status", "active"),
+          ]);
+
+          if (secIncidents.data && secIncidents.data.length > 0) {
+            securityContext = `\n\n⚠️ INSIDEN KEAMANAN TERBUKA:\n${secIncidents.data.map(i => `- ${i.incident_type} (${i.severity})`).join('\n')}`;
+          }
+
+          if (insPolicies.data && insPolicies.data.length > 0) {
+            insuranceContext = `\n\n🛡️ ASURANSI PROPERTI:\n${insPolicies.data.map(p => `- ${p.provider}: ${p.policy_type} (Rp${p.coverage_amount.toLocaleString('id-ID')})`).join('\n')}`;
+          }
+        }
+      }
+
+      const unit = contractUnit;
       const unpaidTotal = invoices?.reduce((sum, inv) => sum + Number(inv.amount), 0) || 0;
 
       userContext = `
@@ -202,6 +233,7 @@ Total belum dibayar: Rp${unpaidTotal.toLocaleString("id-ID")}
 
 REQUEST MAINTENANCE TERBARU:
 ${maintenance?.map(m => `- ${m.title} (${m.status})`).join("\n") || "Tidak ada"}
+${securityContext}${insuranceContext}
 `;
     }
 

@@ -46,6 +46,21 @@ serve(async (req) => {
         .select("*")
         .eq("vendor_id", vendorId);
 
+      // Fetch maintenance requests that match vendor categories
+      const { data: maintenanceOpportunities } = await supabase
+        .from("maintenance_requests")
+        .select("id, title, category, priority, status, created_at, unit_id")
+        .in("status", ["pending", "open"])
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      // Fetch assigned property vendor services
+      const { data: assignedServices } = await supabase
+        .from("property_vendor_services")
+        .select("id, service_type, status, monthly_fee, property:properties(name)")
+        .eq("vendor_id", vendorId)
+        .eq("status", "active");
+
       // Fetch all orders for this vendor
       const { data: orders } = await supabase
         .from("orders")
@@ -157,6 +172,12 @@ ${recentReviews}
 📈 TOTAL (ALL TIME):
 - Total Pesanan: ${orders?.length || 0}
 - Total Revenue: Rp${totalRevenue.toLocaleString()}
+
+🔧 PELUANG MAINTENANCE:
+${(maintenanceOpportunities || []).map((m, i) => `${i + 1}. ${m.title} (${m.category}, ${m.priority})`).join('\n') || 'Tidak ada peluang saat ini'}
+
+🏠 PROPERTI ASSIGNED:
+${(assignedServices || []).map((s, i) => `${i + 1}. ${(s.property as any)?.name || 'N/A'} - ${s.service_type} (Rp${(s.monthly_fee || 0).toLocaleString()}/bulan)`).join('\n') || 'Belum ada'}
 `;
     }
 

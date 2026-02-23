@@ -1,5 +1,6 @@
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useComplianceSummary } from '@/features/compliance/hooks/useCompliance';
+import { useOcrCompliance } from '@/features/compliance/hooks/useOcrCompliance';
 import { useMerchantProperties } from '@/features/properties/hooks/useMerchantProperties';
 import { DISASTER_TYPES, DOC_TYPE_LABELS, DOC_TYPES, INCIDENT_TYPES, POLICY_TYPES, RISK_LABEL, RISK_LEVELS, SEVERITY_LEVELS } from '@/features/compliance/types';
 import type { ComplianceDocument, DisasterRiskProfile, InsurancePolicy, SecurityIncident } from '@/features/compliance/types';
@@ -14,10 +15,11 @@ import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { Textarea } from '@/shared/components/ui/textarea';
-import { AlertTriangle, FileText, Loader2, Plus, Shield, ShieldAlert, Umbrella } from 'lucide-react';
-import { useState } from 'react';
+import { AlertTriangle, FileText, Loader2, Plus, ScanText, Shield, ShieldAlert, Umbrella, Upload } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function PropertyCompliance() {
   const { merchant } = useAuth();
@@ -308,8 +310,10 @@ function ComplianceDocsTab({ propertyId, merchantId, docs }: { propertyId: strin
           <CardTitle className="text-lg">Dokumen Kepatuhan</CardTitle>
           <CardDescription>IMB, PBB, sertifikat, polis</CardDescription>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button size="sm" className="rounded-xl"><Plus className="h-4 w-4 mr-1" />Tambah</Button></DialogTrigger>
+        <div className="flex gap-2">
+          <OcrScanButton propertyId={propertyId} />
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild><Button size="sm" className="rounded-xl"><Plus className="h-4 w-4 mr-1" />Tambah</Button></DialogTrigger>
           <DialogContent className="rounded-2xl">
             <DialogHeader><DialogTitle>Tambah Dokumen</DialogTitle></DialogHeader>
             <div className="grid gap-3">
@@ -330,6 +334,7 @@ function ComplianceDocsTab({ propertyId, merchantId, docs }: { propertyId: strin
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </CardHeader>
       <CardContent>
         {docs.length === 0 ? (
@@ -448,5 +453,41 @@ function SecurityTab({ propertyId, merchantId, incidents }: { propertyId: string
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// ====== OCR Scan Button ======
+function OcrScanButton({ propertyId }: { propertyId: string }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const ocrMutation = useOcrCompliance(propertyId);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const path = `compliance/${propertyId}/${Date.now()}_${file.name}`;
+      const { error } = await supabase.storage.from('verification-documents').upload(path, file);
+      if (error) throw error;
+      await ocrMutation.mutateAsync({ document_path: path, property_id: propertyId });
+    } catch (err: any) {
+      toast.error(`Upload gagal: ${err.message}`);
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  const busy = uploading || ocrMutation.isPending;
+
+  return (
+    <>
+      <input ref={fileRef} type="file" accept="image/*,.pdf" className="hidden" onChange={handleFile} />
+      <Button size="sm" variant="outline" className="rounded-xl gap-1.5" disabled={busy} onClick={() => fileRef.current?.click()}>
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanText className="h-4 w-4" />}
+        Scan Dokumen
+      </Button>
+    </>
   );
 }

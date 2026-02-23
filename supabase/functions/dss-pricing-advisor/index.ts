@@ -55,10 +55,35 @@ serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
+    // Phase 6: Fetch property financial data
+    const { data: propertyFinancials } = await serviceClient
+      .from("properties")
+      .select("name, construction_cost, renovation_cost, monthly_amortization, total_units, occupied_units")
+      .eq("id", property_id)
+      .single();
+
+    // Phase 6: Fetch tenant payment metrics
+    const { data: tenantMetrics } = await serviceClient
+      .from("tenant_payment_metrics")
+      .select("tenant_user_id, payment_score, avg_days_late, total_paid, total_unpaid")
+      .eq("merchant_id", merchantId)
+      .limit(50);
+
+    // Phase 6: Fetch occupancy snapshots for seasonal data
+    const { data: occupancySnapshots } = await serviceClient
+      .from("occupancy_snapshots")
+      .select("month, occupancy_rate, move_ins, move_outs")
+      .eq("merchant_id", merchantId)
+      .order("month", { ascending: false })
+      .limit(12);
+
     const dataContext = JSON.stringify({
       occupancy,
       paymentHistory,
       latestPricingAnalysis: latestPricing,
+      propertyFinancials: propertyFinancials || null,
+      tenantPaymentMetrics: tenantMetrics || [],
+      seasonalOccupancy: occupancySnapshots || [],
       additionalContext,
       currentDate: new Date().toISOString(),
     });

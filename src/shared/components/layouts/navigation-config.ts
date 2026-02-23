@@ -172,6 +172,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/vendor/products", icon: Package, label: "Produk" },
           { path: "/vendor/orders", icon: ShoppingCart, label: "Pesanan" },
           { path: "/vendor/jobs", icon: Briefcase, label: "Pekerjaan" },
+          { path: "/vendor/assigned-properties", icon: Building2, label: "Properti Assigned" },
           { path: "/vendor/earnings", icon: Wallet, label: "Pendapatan" },
           { path: "/vendor/analytics", icon: BarChart3, label: "Analitik" },
           { path: "/vendor/referrals", icon: Gift, label: "Referral" },
