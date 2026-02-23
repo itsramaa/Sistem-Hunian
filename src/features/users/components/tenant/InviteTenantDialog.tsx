@@ -32,7 +32,7 @@ import { useForm } from 'react-hook-form';
 interface InviteTenantDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  availableUnits: Array<{ id: string; propertyName: string; unit_number: string }>;
+  properties: Array<{ id: string; name: string }>;
   onSubmit: (data: InvitationFormData) => void;
   isLoading: boolean;
 }
@@ -40,20 +40,19 @@ interface InviteTenantDialogProps {
 export function InviteTenantDialog({
   open,
   onOpenChange,
-  availableUnits,
+  properties,
   onSubmit,
   isLoading,
 }: InviteTenantDialogProps) {
   const form = useForm<InvitationFormData>({
     resolver: zodResolver(invitationSchema),
     defaultValues: {
-      unit_id: '',
+      property_id: '',
       email: '',
       phone: '',
     },
   });
 
-  // Reset form when dialog closes
   useEffect(() => {
     if (!open) {
       form.reset();
@@ -66,11 +65,11 @@ export function InviteTenantDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] w-[95vw]">
         <DialogHeader>
-          <DialogTitle>Invite Tenant</DialogTitle>
+          <DialogTitle>Undang Tenant</DialogTitle>
           <DialogDescription>
-            Send an invitation link to a new tenant. They will receive an email to join your property.
+            Kirim undangan ke tenant baru. Mereka akan menerima link untuk bergabung ke properti Anda.
           </DialogDescription>
         </DialogHeader>
         
@@ -78,24 +77,24 @@ export function InviteTenantDialog({
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="unit_id"
+              name="property_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Unit</FormLabel>
+                  <FormLabel>Properti</FormLabel>
                   <Select 
                     onValueChange={field.onChange} 
                     defaultValue={field.value}
-                    disabled={availableUnits.length === 0}
+                    disabled={properties.length === 0}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a unit" />
+                        <SelectValue placeholder="Pilih properti" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {availableUnits.map((unit) => (
-                        <SelectItem key={unit.id} value={unit.id}>
-                          {unit.propertyName} - Unit {unit.unit_number}
+                      {properties.map((property) => (
+                        <SelectItem key={property.id} value={property.id}>
+                          {property.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -124,7 +123,7 @@ export function InviteTenantDialog({
               name="phone"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Phone (Optional)</FormLabel>
+                  <FormLabel>Telepon (Opsional)</FormLabel>
                   <FormControl>
                     <Input placeholder="08123456789" {...field} />
                   </FormControl>
@@ -135,18 +134,18 @@ export function InviteTenantDialog({
             
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
+                Batal
               </Button>
               <Button type="submit" disabled={isLoading}>
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Sending...
+                    Mengirim...
                   </>
                 ) : (
                   <>
                     <Send className="mr-2 h-4 w-4" />
-                    Send Invitation
+                    Kirim Undangan
                   </>
                 )}
               </Button>

@@ -19,9 +19,9 @@ import { CustomAmenities } from "./CustomAmenities";
 import { cn } from "@/shared/utils/utils";
 
 const propertySchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters').max(100),
+  name: z.string().min(2, 'Name must be at least 2 characters').max(100).transform(v => v.trim()),
   property_type: z.enum(['kost', 'kontrakan']),
-  address: z.string().min(5, 'Address is required').max(255),
+  address: z.string().min(5, 'Address is required').max(255).transform(v => v.trim()),
   city: z.string().min(2, 'City is required').max(100),
   province: z.string().min(2, 'Province is required').max(100),
   postal_code: z.string().max(10).optional(),
@@ -125,7 +125,7 @@ export function PropertyFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg w-[95vw]">
         <DialogHeader>
           <DialogTitle>{property ? 'Edit Property' : 'Add New Property'}</DialogTitle>
           <DialogDescription>
@@ -155,7 +155,7 @@ export function PropertyFormDialog({
           ))}
         </div>
 
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4 mt-2 max-h-[60vh] overflow-y-auto pr-1">
+        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4 mt-2 max-h-[55vh] sm:max-h-[60vh] overflow-y-auto pr-1">
           {/* Step 1: Basic Info */}
           {step === 0 && (
             <div className="space-y-4">

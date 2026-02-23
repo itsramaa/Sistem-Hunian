@@ -19,7 +19,7 @@ export const merchantTenantService = {
   async getInvitations(merchantId: string): Promise<TenantInvitation[]> {
     const { data, error } = await supabase
       .from('tenant_invitations')
-      .select('*, units:unit_id(unit_number, properties:property_id(name))')
+      .select('*, units:unit_id(unit_number, properties:property_id(name)), inv_property:property_id(name)')
       .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false });
 
@@ -30,7 +30,8 @@ export const merchantTenantService = {
       unit: inv.units ? {
         unit_number: inv.units.unit_number,
         property: inv.units.properties ? { name: inv.units.properties.name } : undefined
-      } : undefined
+      } : undefined,
+      property_name: inv.inv_property?.name || inv.units?.properties?.name || null,
     })) as TenantInvitation[];
   },
 
@@ -143,7 +144,7 @@ export const merchantTenantService = {
     return count || 0;
   },
 
-  async sendInvitation(merchantId: string, data: { unit_id: string; email: string; phone?: string | null }) {
+  async sendInvitation(merchantId: string, data: { property_id: string; email: string; phone?: string | null }) {
     const { data: existingEmail } = await supabase
       .from('tenant_invitations')
       .select('id')
@@ -153,28 +154,17 @@ export const merchantTenantService = {
       .maybeSingle();
 
     if (existingEmail) {
-      throw new Error('A pending invitation already exists for this email address');
-    }
-
-    const { data: existingUnit } = await supabase
-      .from('tenant_invitations')
-      .select('id')
-      .eq('unit_id', data.unit_id)
-      .eq('status', 'pending')
-      .maybeSingle();
-
-    if (existingUnit) {
-      throw new Error('A pending invitation already exists for this unit');
+      throw new Error('Undangan pending sudah ada untuk email ini');
     }
 
     const { error } = await supabase
       .from('tenant_invitations')
       .insert({
         merchant_id: merchantId,
-        unit_id: data.unit_id,
+        property_id: data.property_id,
         email: data.email.toLowerCase().trim(),
         phone: data.phone || null,
-      });
+      } as any);
 
     if (error) throw error;
   },
@@ -331,6 +321,23 @@ export const merchantTenantService = {
       entityType: 'tenant',
       entityId: userId,
       newData: { unit_id: data.unit_id, tenant_user_id: userId, status: 'active' },
+    });
+  },
+
+  async unlinkTenant(userId: string, merchantId: string) {
+    const { error } = await supabase
+      .from('tenants')
+      .update({ linked_merchant_id: null })
+      .eq('user_id', userId)
+      .eq('linked_merchant_id', merchantId);
+
+    if (error) throw error;
+
+    await createAuditLog({
+      action: 'delete',
+      entityType: 'tenant',
+      entityId: userId,
+      newData: { linked_merchant_id: null },
     });
   }
 };

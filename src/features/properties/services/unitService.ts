@@ -34,7 +34,12 @@ export const unitService = {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.message?.includes('units_property_id_unit_number_key')) {
+        throw new Error('Nomor unit sudah digunakan di properti ini. Silakan gunakan nomor unit yang berbeda.');
+      }
+      throw error;
+    }
     return data as Unit;
   },
 
@@ -46,7 +51,12 @@ export const unitService = {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.message?.includes('units_property_id_unit_number_key')) {
+        throw new Error('Nomor unit sudah digunakan di properti ini. Silakan gunakan nomor unit yang berbeda.');
+      }
+      throw error;
+    }
     return data as Unit;
   },
 

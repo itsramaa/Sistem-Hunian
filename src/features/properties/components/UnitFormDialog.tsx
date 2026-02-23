@@ -127,7 +127,7 @@ export const UnitFormDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg w-[95vw]">
         <DialogHeader>
           <DialogTitle>{unit ? 'Edit Unit' : 'Tambah Unit Baru'}</DialogTitle>
           <DialogDescription>
@@ -183,7 +183,7 @@ export const UnitFormDialog = ({
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Nomor Unit *</Label>
                   <Input
@@ -247,7 +247,7 @@ export const UnitFormDialog = ({
           {/* Step 2: Details (pricing & size) */}
           {step === 1 && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Harga Sewa / Bulan *</Label>
                   <Input
@@ -276,7 +276,7 @@ export const UnitFormDialog = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Lantai</Label>
                   <Input

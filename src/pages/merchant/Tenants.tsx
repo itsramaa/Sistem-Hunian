@@ -13,7 +13,8 @@ import {
   useMerchantPropertiesWithUnits,
   useMerchantTenantMutations,
 } from '@/features/users/hooks/useMerchantTenants';
-import { ActiveTenant, InvitationFormData } from '@/features/users/types/tenant';
+import { ActiveTenant } from '@/features/users/types/tenant';
+import { InvitationFormData } from '@/features/users/types/schema';
 import { AddTenantFormData } from '@/features/users/types/addTenantSchema';
 
 import {
@@ -47,7 +48,7 @@ export default function MerchantTenants() {
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [tenantToDelete, setTenantToDelete] = useState<ActiveTenant | null>(null);
-  const [activeTab, setActiveTab] = useState('invitations');
+  const [activeTab, setActiveTab] = useState('active');
   
   const [invitationPage, setInvitationPage] = useState(1);
   const [activeTenantPage, setActiveTenantPage] = useState(1);
@@ -65,7 +66,7 @@ export default function MerchantTenants() {
   const { data: activeTenants = [], isLoading: tenantsLoading, error: tenantsError, refetch: refetchTenants } = useMerchantActiveTenants(merchant?.id);
   const { data: activeContractsCount = 0 } = useMerchantActiveContractsCount(merchant?.id);
 
-  const { sendInvitation, cancelInvitation, terminateContract, addTenantDirectly } = useMerchantTenantMutations(merchant?.id);
+  const { sendInvitation, cancelInvitation, terminateContract, addTenantDirectly, unlinkTenant } = useMerchantTenantMutations(merchant?.id);
 
   const loading = propertiesLoading || invitationsLoading || tenantsLoading;
   const hasError = propertiesError || invitationsError || tenantsError;
@@ -110,7 +111,7 @@ export default function MerchantTenants() {
   }, [filteredActiveTenants, activeTenantPage]);
 
   const handleInviteSubmit = (data: InvitationFormData) => {
-    sendInvitation.mutate(data, { onSuccess: () => setShowInviteDialog(false) });
+    sendInvitation.mutate(data as { property_id: string; email: string; phone?: string }, { onSuccess: () => setShowInviteDialog(false) });
   };
 
   const handleAddTenantSubmit = (data: AddTenantFormData) => {
@@ -130,7 +131,15 @@ export default function MerchantTenants() {
   };
 
   const confirmDeleteTenant = () => {
-    if (tenantToDelete) {
+    if (!tenantToDelete) return;
+    
+    if (tenantToDelete.status === 'linked') {
+      // Unlink tenant (no contract to terminate)
+      unlinkTenant.mutate(tenantToDelete.tenant_user_id, {
+        onSuccess: () => { setShowDeleteDialog(false); setTenantToDelete(null); }
+      });
+    } else {
+      // Terminate contract
       terminateContract.mutate(tenantToDelete, {
         onSuccess: () => { setShowDeleteDialog(false); setTenantToDelete(null); }
       });
@@ -162,8 +171,8 @@ export default function MerchantTenants() {
           <Button variant="outline" onClick={() => setShowAddDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />Add Tenant
           </Button>
-          <Button onClick={() => setShowInviteDialog(true)} disabled={availableUnits.length === 0}>
-            <Send className="h-4 w-4 mr-2" />Send Invitation
+          <Button onClick={() => setShowInviteDialog(true)} disabled={properties.length === 0}>
+            <Send className="h-4 w-4 mr-2" />Kirim Undangan
           </Button>
         </div>
       </div>
@@ -171,7 +180,7 @@ export default function MerchantTenants() {
       <div className="space-y-6">
         <TenantStats
           pendingInvitationsCount={pendingCount}
-          activeTenantsCount={activeContractsCount}
+          activeTenantsCount={activeTenants.length}
           availableUnitsCount={availableUnits.length}
           loading={loading}
         />
@@ -214,8 +223,8 @@ export default function MerchantTenants() {
                   <p className="text-sm text-muted-foreground text-center mb-4 max-w-sm">
                     Send invitations to your tenants to get them onboarded to the platform.
                   </p>
-                  <Button onClick={() => setShowInviteDialog(true)} disabled={availableUnits.length === 0}>
-                    <Send className="h-4 w-4 mr-2" />Send First Invitation
+                  <Button onClick={() => setShowInviteDialog(true)} disabled={properties.length === 0}>
+                    <Send className="h-4 w-4 mr-2" />Kirim Undangan
                   </Button>
                 </CardContent>
               </Card>
@@ -249,8 +258,8 @@ export default function MerchantTenants() {
                     <Button variant="outline" onClick={() => setShowAddDialog(true)}>
                       <Plus className="h-4 w-4 mr-2" />Add Tenant
                     </Button>
-                    <Button onClick={() => setShowInviteDialog(true)} disabled={availableUnits.length === 0}>
-                      <Send className="h-4 w-4 mr-2" />Send Invitation
+                    <Button onClick={() => setShowInviteDialog(true)} disabled={properties.length === 0}>
+                      <Send className="h-4 w-4 mr-2" />Kirim Undangan
                     </Button>
                   </div>
                 </CardContent>
@@ -276,7 +285,7 @@ export default function MerchantTenants() {
       <InviteTenantDialog
         open={showInviteDialog}
         onOpenChange={setShowInviteDialog}
-        availableUnits={availableUnits}
+        properties={properties.map((p: any) => ({ id: p.id, name: p.name }))}
         onSubmit={handleInviteSubmit}
         isLoading={sendInvitation.isPending}
       />
@@ -298,28 +307,38 @@ export default function MerchantTenants() {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove Tenant</AlertDialogTitle>
+            <AlertDialogTitle>{tenantToDelete?.status === 'linked' ? 'Lepas Tenant' : 'Hapus Tenant'}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove <strong>{tenantToDelete?.profile?.full_name || 'this tenant'}</strong> from <strong>Unit {tenantToDelete?.unit?.unit_number}</strong>?
-              <br /><br />
-              This will:
-              <ul className="list-disc pl-4 mt-2 space-y-1">
-                <li>Terminate the current contract</li>
-                <li>Mark the unit as available</li>
-                <li>Remove the tenant's access to this unit</li>
-              </ul>
+              {tenantToDelete?.status === 'linked' ? (
+                <>
+                  Apakah Anda yakin ingin melepas <strong>{tenantToDelete?.profile?.full_name || 'tenant ini'}</strong> dari merchant Anda?
+                  <br /><br />
+                  Tenant hanya akan dilepas dari daftar Anda, akun mereka tetap ada.
+                </>
+              ) : (
+                <>
+                  Apakah Anda yakin ingin menghapus <strong>{tenantToDelete?.profile?.full_name || 'tenant ini'}</strong> dari <strong>Unit {tenantToDelete?.unit?.unit_number}</strong>?
+                  <br /><br />
+                  Ini akan:
+                  <ul className="list-disc pl-4 mt-2 space-y-1">
+                    <li>Mengakhiri kontrak saat ini</li>
+                    <li>Menandai unit sebagai tersedia</li>
+                    <li>Mencabut akses tenant ke unit ini</li>
+                  </ul>
+                </>
+              )}
               <br />
-              <span className="text-destructive font-medium">This action cannot be undone.</span>
+              <span className="text-destructive font-medium">Tindakan ini tidak dapat dibatalkan.</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={confirmDeleteTenant}
-              disabled={terminateContract.isPending}
+              disabled={terminateContract.isPending || unlinkTenant.isPending}
             >
-              {terminateContract.isPending ? 'Removing...' : 'Remove Tenant'}
+              {(terminateContract.isPending || unlinkTenant.isPending) ? 'Memproses...' : tenantToDelete?.status === 'linked' ? 'Lepas Tenant' : 'Hapus Tenant'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
