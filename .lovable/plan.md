@@ -1,33 +1,110 @@
 
+# 3.2.3 Data Extraction & Mapping + 3.3.1 Dashboard & Visualization
 
-# 3.2 OCR & Document Processing -- Gap Analysis & Implementation
+## Gap Analysis
 
-## Status Existing
+### 3.2.3 Data Extraction & Mapping
 
 | FR | Deskripsi | Status |
 |----|-----------|--------|
-| FR-401 | Upload PDF, JPG, PNG | Sudah ada (`FileUpload`, `OcrUploadCard`) |
-| FR-402 | Drag-drop upload | Sudah ada (`OcrUploadCard` drag-drop) |
-| FR-403 | Organized folder structure | Sudah ada (`verification-documents` bucket, path: `userId/folder/timestamp.ext`) |
-| FR-404 | Preview dokumen sebelum processing | Sudah ada untuk image (`FileUpload` preview). PDF preview belum ada |
-| FR-405 | Track metadata | Sudah ada (`ocr_results` table: document_type, document_url, created_at, user_id) |
-| FR-501 | OCR extract text | Sudah ada (5 edge functions: ktp, payment-proof, business-doc, compliance-doc, maintenance-receipt) |
-| FR-502 | Multiple document types | Sudah ada (KTP, bukti bayar, IMB, sertifikat, invoice/nota) |
-| FR-503 | Confidence score | Sudah ada (semua OCR functions return confidence) |
-| FR-504 | Highlight extracted text di original dokumen | **Belum ada** |
-| FR-505 | Manual review dan correction | **Belum ada** (database columns ada, tapi UI belum) |
+| FR-601 | Extract data struktural dari OCR result | Sudah ada (5 OCR edge functions return structured `extracted_data` via AI tools) |
+| FR-602 | Auto-map extracted data ke field yang sesuai | Sudah ada (auto-populate ke `profiles`, `merchant_verifications`, `compliance_documents`) |
+| FR-603 | Store raw OCR text dan extracted structured data | Sudah ada (`ocr_results.extracted_data` jsonb menyimpan keduanya) |
+| FR-604 | Suggest data correction via ML pattern matching | **Belum ada** -- perlu fitur suggestion di OcrResultEditor |
+
+### 3.3.1 Dashboard & Visualization
+
+| FR | Deskripsi | Status |
+|----|-----------|--------|
+| FR-701 | Interactive dashboard dengan key metrics | Sudah ada (`Reports.tsx` + `MlAnalytics.tsx`) |
+| FR-702a | Price statistics (min, max, avg, median) | Sudah ada di `MarketIntelligence.tsx` (segmen harga) |
+| FR-702b | Occupancy trend 6 bulan | Sudah ada sebagian (`Reports.tsx` occupancy by type, tapi bukan trend chart 6 bulan) |
+| FR-702c | ROI distribution histogram | **Belum ada** |
+| FR-702d | Risk heatmap (lokasi disaster risk) | **Belum ada** |
+| FR-702e | Tenant quality distribution | **Belum ada** |
+| FR-703 | Drill-down per kosan | **Belum ada** |
+| FR-704 | Filter by segmen, lokasi, tahun pembangunan | **Belum ada** (hanya filter time range) |
+| FR-705 | Export dashboard screenshot/PDF | Sudah ada sebagian (CSV/PDF text export, tapi bukan visual screenshot) |
 
 ---
 
 ## Yang Perlu Diimplementasi
 
-Hanya 3 hal yang perlu dibuat:
+### 1. FR-604: ML Correction Suggestion di OcrResultEditor
 
-1. **Halaman Document Center** -- Pusat manajemen semua dokumen OCR (menggabungkan FR-504 dan FR-505)
-2. **OCR Review & Correction UI** -- Komponen untuk edit field OCR result secara manual
-3. **PDF Preview** -- Tambahan preview untuk file PDF (melengkapi FR-404)
+Menambahkan tombol "Sarankan Koreksi" di `OcrResultEditor.tsx` yang memanggil edge function baru `ml-ocr-correction-suggest`. Function ini menganalisis extracted data + raw text + document type, lalu menyarankan perbaikan untuk field yang memiliki confidence rendah atau inkonsisten.
 
-Tidak ada perubahan database -- `ocr_results` sudah memiliki semua kolom yang diperlukan (`requires_review`, `review_notes`, `reviewed_by`, `reviewed_at`, `extracted_data`, `status`).
+**Edge function baru**: `supabase/functions/ml-ocr-correction-suggest/index.ts`
+
+Input:
+- `ocr_result_id` -- ID hasil OCR yang sudah ada
+- Sistem akan fetch `extracted_data`, `document_type`, dan confidence scores
+
+Output (via AI tool):
+```text
+{
+  suggestions: [
+    { field, current_value, suggested_value, reason, confidence }
+  ],
+  overall_assessment: string
+}
+```
+
+Tier limits: `{ free: 0, starter: 5, professional: -1, enterprise: -1 }`
+
+Update pada `OcrResultEditor.tsx`:
+- Tombol "Saran AI" di header
+- Suggestions ditampilkan sebagai inline badges di samping field yang relevan
+- Klik suggestion untuk apply ke field
+
+### 2. FR-702b s/d FR-702e + FR-703 + FR-704: Analytics Dashboard Enhancement
+
+**File baru**: `src/pages/merchant/AnalyticsDashboard.tsx`
+
+Halaman dashboard baru yang mengkonsolidasikan semua visualisasi yang diminta, terpisah dari `Reports.tsx` yang fokus pada operasional reporting.
+
+Layout:
+- PageHeader "Dashboard Analitik" dengan icon BarChart3
+- Filter bar: property type, city, construction year range
+- Grid layout 5 sections
+
+**Section A: Price Statistics (FR-702a -- consolidated)**
+- Cards: Min, Max, Average, Median rent_amount dari units
+- Dihitung client-side dari query `units` joined `properties`
+
+**Section B: Occupancy Trend 6 Bulan (FR-702b)**
+- LineChart 6 bulan terakhir
+- Data dari `contracts` (count active per bulan) / `units` count
+- Dihitung client-side
+
+**Section C: ROI Distribution Histogram (FR-702c)**
+- BarChart histogram ROI per properti
+- ROI dihitung dari: `(total_rent_revenue_annual / (construction_cost + renovation_cost)) * 100`
+- Data: properties + units (rent_amount) + construction/renovation costs
+- Bucket: 0-5%, 5-10%, 10-15%, 15-20%, 20%+
+
+**Section D: Risk Heatmap (FR-702d)**
+- Leaflet map (sudah ada dependency `react-leaflet`) menampilkan markers per properti
+- Warna marker berdasarkan `disaster_risk_level` dari tabel `properties` dan/atau `disaster_risk_profiles`
+- Hijau = rendah, kuning = sedang, merah = tinggi
+- Klik marker untuk lihat detail properti (drill-down FR-703)
+
+**Section E: Tenant Quality Distribution (FR-702e)**
+- PieChart distribusi grade (A/B/C/D/F) dari `tenant_risk_scores` atau data scoring
+- Dihitung client-side dari `tenant_risk_scores` table
+
+**Drill-down (FR-703):**
+- Klik properti di tabel/chart -> navigasi ke `/merchant/properties/:id`
+- Atau buka Sheet/Dialog detail per properti di dashboard
+
+**Filter (FR-704):**
+- Dropdown: property_type, city
+- Range slider: construction_year
+- Semua filter apply ke seluruh sections
+
+### 3. FR-705: Export Dashboard sebagai PDF
+
+Menambahkan tombol "Export PDF" di `AnalyticsDashboard.tsx` yang menggunakan `window.print()` dengan CSS `@media print` styling, atau menggunakan existing `exportToPDF` utility untuk generate report teks. Screenshot capture (html2canvas) memerlukan dependency baru, jadi kita gunakan pendekatan print-to-PDF yang sudah tersedia.
 
 ---
 
@@ -35,86 +112,14 @@ Tidak ada perubahan database -- `ocr_results` sudah memiliki semua kolom yang di
 
 ```text
 [Frontend]
-DocumentCenter.tsx  ---->  Supabase client (ocr_results CRUD)
-  |-- OcrDocumentViewer.tsx   (preview dokumen + highlight fields)
-  |-- OcrResultEditor.tsx     (manual review & correction form)
+AnalyticsDashboard.tsx  ---->  Supabase client (properties, units, contracts, tenant_risk_scores, disaster_risk_profiles)
+OcrResultEditor.tsx     ---->  ml-ocr-correction-suggest edge function ---> Gemini 2.5 Flash
+
+[Existing dependencies used]
+- react-leaflet (risk heatmap)
+- recharts (charts)
+- exportUtils (PDF export)
 ```
-
----
-
-## 1. Halaman: Document Center
-
-**File baru**: `src/pages/merchant/DocumentCenter.tsx`
-
-Halaman terpusat untuk melihat semua hasil OCR, melakukan review, dan correction.
-
-### Layout:
-- PageHeader dengan icon FileSearch dan judul "Pusat Dokumen"
-- Filter bar: document_type, status (completed/requires_review/error), date range
-- Tabel hasil OCR dari `ocr_results`:
-  - Kolom: Document Type, Status, Confidence Score, Upload Date, Requires Review badge, Actions
-  - Klik baris -> buka detail view (side panel atau dialog)
-
-### Detail View (Dialog/Sheet):
-- **Kiri**: Preview dokumen original (image viewer atau PDF viewer via iframe/embed)
-- **Kanan**: Extracted data fields yang bisa di-edit
-- Confidence badge per field (dari `extracted_data.field_confidences`)
-- Low-confidence fields di-highlight kuning
-- Tombol "Approve" -> update status ke "completed", set reviewed_by dan reviewed_at
-- Tombol "Reject" -> update status ke "rejected" dengan review_notes
-- Tombol "Save Corrections" -> update `extracted_data` di `ocr_results`
-
----
-
-## 2. Komponen: OcrDocumentViewer
-
-**File baru**: `src/features/dss/components/OcrDocumentViewer.tsx`
-
-Preview dokumen original dengan visual highlighting:
-- Untuk image (JPG/PNG): tampilkan dengan `<img>` tag, overlay colored badges pada posisi field yang di-extract (menggunakan relative positioning berdasarkan field name, bukan exact coordinates karena OCR tidak return bounding boxes)
-- Untuk PDF: tampilkan via `<iframe>` atau `<embed>` tag
-- Zoom in/out controls
-- Fit-to-width toggle
-
----
-
-## 3. Komponen: OcrResultEditor
-
-**File baru**: `src/features/dss/components/OcrResultEditor.tsx`
-
-Form untuk review dan correction:
-- Render semua fields dari `extracted_data` sebagai editable input
-- Per-field confidence badge (color coded: hijau >= 80, kuning >= 60, merah < 60)
-- Tombol "Reset" per field (kembalikan ke nilai original)
-- Text area untuk review notes
-- Status selector: "Approve" / "Reject"
-- Save button -> update `ocr_results` row
-
----
-
-## 4. Service & Hooks
-
-### `src/features/dss/services/ocrDocumentService.ts`
-- `fetchOcrResults(merchantId, filters?)` -- query `ocr_results` with filters
-- `fetchOcrResultById(id)` -- single result detail
-- `updateOcrResult(id, updates)` -- update extracted_data, status, review_notes, reviewed_by, reviewed_at
-- `getDocumentPreviewUrl(documentUrl)` -- generate signed URL for private bucket documents
-
-### `src/features/dss/hooks/useOcrDocuments.ts`
-- `useOcrResults(merchantId, filters)` -- query hook
-- `useOcrResultDetail(id)` -- single query hook
-- `useUpdateOcrResult()` -- mutation hook
-
----
-
-## 5. Navigasi
-
-Update `navigation-config.ts`:
-- Tambah item di grup "Bantuan" (sebelum Tutorial OCR) atau buat grup baru "Dokumen":
-  `{ path: "/merchant/documents", icon: FileSearch, label: "Pusat Dokumen" }`
-
-Update `App.tsx`:
-- Lazy import + route `documents`
 
 ---
 
@@ -124,38 +129,35 @@ Update `App.tsx`:
 
 | File | Deskripsi |
 |------|-----------|
-| `src/pages/merchant/DocumentCenter.tsx` | Halaman pusat dokumen OCR |
-| `src/features/dss/components/OcrDocumentViewer.tsx` | Preview dokumen + field highlight |
-| `src/features/dss/components/OcrResultEditor.tsx` | Form review & correction |
-| `src/features/dss/services/ocrDocumentService.ts` | Service CRUD ocr_results |
-| `src/features/dss/hooks/useOcrDocuments.ts` | React Query hooks |
+| `supabase/functions/ml-ocr-correction-suggest/index.ts` | AI correction suggestions for OCR results |
+| `src/features/dss/services/ocrCorrectionService.ts` | Service invoke edge function |
+| `src/features/dss/hooks/useOcrCorrection.ts` | React Query mutation hook |
+| `src/features/analytics/services/analyticsDashboardService.ts` | Service fetch data untuk dashboard |
+| `src/features/analytics/hooks/useAnalyticsDashboard.ts` | React Query hooks untuk semua dashboard data |
+| `src/pages/merchant/AnalyticsDashboard.tsx` | Dashboard page baru |
 
 ### File yang Dimodifikasi
 
 | File | Perubahan |
 |------|-----------|
-| `src/shared/components/layouts/navigation-config.ts` | Tambah menu "Pusat Dokumen" + import FileSearch |
-| `src/App.tsx` | Tambah lazy import + route |
+| `src/features/dss/components/OcrResultEditor.tsx` | Tambah tombol "Saran AI" + suggestion display |
+| `src/shared/components/layouts/navigation-config.ts` | Tambah menu "Dashboard Analitik" |
+| `src/App.tsx` | Tambah lazy import + route `analytics-dashboard` |
 
 ### Tidak Ada Perubahan Database
 
-Tabel `ocr_results` sudah memiliki semua kolom yang diperlukan:
-- `requires_review` (boolean)
-- `review_notes` (text)
-- `reviewed_by` (uuid)
-- `reviewed_at` (timestamptz)
-- `extracted_data` (jsonb -- bisa di-update untuk correction)
-- `status` (text -- completed/requires_review/error)
-
-### Tidak Ada Edge Function Baru
-
-Semua 5 OCR edge functions sudah ada. Yang ditambahkan hanya frontend CRUD untuk mengelola hasil OCR.
+Semua data sudah tersedia di tabel existing:
+- `properties` (lat, lng, disaster_risk_level, construction_cost, renovation_cost, property_type, city, construction_year)
+- `units` (rent_amount, status)
+- `contracts` (status, created_at)
+- `tenant_risk_scores` (risk_score, risk_level)
+- `disaster_risk_profiles` (overall_risk_score, flood_risk, earthquake_risk, dll)
+- `ocr_results` (extracted_data, confidence_score, document_type)
 
 ### Urutan Implementasi
-1. Service `ocrDocumentService.ts`
-2. Hooks `useOcrDocuments.ts`
-3. Komponen `OcrDocumentViewer.tsx`
-4. Komponen `OcrResultEditor.tsx`
-5. Halaman `DocumentCenter.tsx`
+1. Edge function `ml-ocr-correction-suggest`
+2. Service + hook OCR correction
+3. Update `OcrResultEditor.tsx` dengan suggestion UI
+4. Service + hooks analytics dashboard
+5. Halaman `AnalyticsDashboard.tsx` (charts + map + filters)
 6. Update navigasi + routes
-
