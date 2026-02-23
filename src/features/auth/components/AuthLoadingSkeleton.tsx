@@ -8,7 +8,12 @@ interface AuthLoadingSkeletonProps {
 
 export function AuthLoadingSkeleton({ destination }: AuthLoadingSkeletonProps) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4 py-8">
+    <div 
+      className="min-h-screen flex items-center justify-center bg-muted/30 px-4 py-8"
+      role="status"
+      aria-live="polite"
+      aria-label="Memuat halaman autentikasi"
+    >
       <Card className="w-full max-w-md shadow-elevated animate-fade-in">
         <CardHeader className="text-center space-y-2">
           <div className="mx-auto w-12 h-12 rounded-xl gradient-primary flex items-center justify-center mb-2">

@@ -16,7 +16,7 @@ const strengthConfig: Record<PasswordStrength, { label: string; color: string; b
 };
 
 const requirements = [
-  { regex: /.{8,}/, label: 'Minimal 8 karakter' },
+  { regex: /.{12,}/, label: 'Minimal 12 karakter' },
   { regex: /[A-Z]/, label: 'Huruf besar (A-Z)' },
   { regex: /[a-z]/, label: 'Huruf kecil (a-z)' },
   { regex: /[0-9]/, label: 'Angka (0-9)' },
@@ -41,7 +41,14 @@ export function PasswordStrengthMeter({ password, className }: PasswordStrengthM
           <span className="text-muted-foreground">Kekuatan password:</span>
           <span className={cn('font-medium', config.color)}>{config.label}</span>
         </div>
-        <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+        <div 
+          className="h-2 w-full bg-muted rounded-full overflow-hidden"
+          role="progressbar"
+          aria-valuenow={score}
+          aria-valuemin={0}
+          aria-valuemax={5}
+          aria-label={`Kekuatan password: ${config.label}`}
+        >
           <div 
             className={cn('h-full transition-all duration-300', config.bgColor)}
             style={{ width: `${(score / 5) * 100}%` }}
@@ -50,12 +57,13 @@ export function PasswordStrengthMeter({ password, className }: PasswordStrengthM
       </div>
 
       {/* Requirements checklist */}
-      <div className="grid grid-cols-1 gap-1">
+      <div className="grid grid-cols-2 sm:grid-cols-1 gap-1" role="list" aria-label="Persyaratan password">
         {requirements.map((req, index) => {
           const isMet = req.regex.test(password);
           return (
             <div 
-              key={index} 
+              key={index}
+              role="listitem"
               className={cn(
                 'flex items-center gap-2 text-xs transition-colors',
                 isMet ? 'text-success' : 'text-muted-foreground'
