@@ -16,8 +16,12 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import { formatCurrency } from '@/shared/utils/currency';
 import { format } from 'date-fns';
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/integrations/supabase/client';
+import { PropertyFinancialForm, FinancialFormData } from '@/features/properties/components/PropertyFinancialForm';
+import { PropertyFinancialMetrics } from '@/features/properties/components/PropertyFinancialMetrics';
+import { propertyService } from '@/features/properties/services/propertyService';
+import { toast } from 'sonner';
 
 const statusColors: Record<string, string> = {
   active: 'bg-success/10 text-success border-success/30',
@@ -206,6 +210,7 @@ export default function PropertyDetail() {
             <TabsTrigger value="overview" className="pill-tab-trigger">Overview</TabsTrigger>
             <TabsTrigger value="units" className="pill-tab-trigger">Unit ({totalUnits})</TabsTrigger>
             <TabsTrigger value="tenants" className="pill-tab-trigger">Tenant ({activeContracts.length})</TabsTrigger>
+            <TabsTrigger value="financial" className="pill-tab-trigger">Keuangan</TabsTrigger>
             <TabsTrigger value="maintenance" className="pill-tab-trigger">
               Maintenance
               {pendingMaintenance.length > 0 && <Badge variant="secondary" className="ml-1.5 rounded-full text-xs">{pendingMaintenance.length}</Badge>}
@@ -239,6 +244,11 @@ export default function PropertyDetail() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          {/* Financial Tab */}
+          <TabsContent value="financial" className="space-y-4 mt-4 animate-fade-in">
+            <FinancialTabContent property={property} revenuePotential={revenuePotential} occupancyRate={occupancyRate / 100} />
           </TabsContent>
 
           {/* Units Tab */}
@@ -374,6 +384,40 @@ export default function PropertyDetail() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function FinancialTabContent({ property, revenuePotential, occupancyRate }: { property: any; revenuePotential: number; occupancyRate: number }) {
+  const queryClient = useQueryClient();
+  const updateMutation = useMutation({
+    mutationFn: (data: FinancialFormData) => propertyService.updateProperty(property.id, data as any),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['property-detail', property.id] });
+      toast.success('Data keuangan berhasil disimpan');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="space-y-4">
+      <PropertyFinancialMetrics
+        property={property}
+        monthlyRevenue={revenuePotential}
+        occupancyRate={occupancyRate}
+      />
+      <PropertyFinancialForm
+        initialData={{
+          construction_cost: property.construction_cost || 0,
+          renovation_cost: property.renovation_cost || 0,
+          funding_source: property.funding_source || 'modal_sendiri',
+          monthly_amortization: property.monthly_amortization || 0,
+          monthly_maintenance_cost: property.monthly_maintenance_cost || 0,
+          avg_annual_unexpected_cost: property.avg_annual_unexpected_cost || 0,
+        }}
+        onSubmit={async (data) => { await updateMutation.mutateAsync(data); }}
+        isLoading={updateMutation.isPending}
+      />
     </div>
   );
 }
