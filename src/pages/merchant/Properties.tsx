@@ -88,11 +88,29 @@ export default function MerchantProperties() {
     if (!merchant) return;
     try {
       if (editingProperty) {
-        const payload: UpdatePropertyPayload = { name: data.name, property_type: data.property_type, address: data.address, city: data.city, province: data.province, postal_code: data.postal_code || null, description: data.description || null, amenities: data.amenities, images: data.images };
+        const payload: UpdatePropertyPayload = {
+          name: data.name, property_type: data.property_type, address: data.address,
+          city: data.city, province: data.province, postal_code: data.postal_code || null,
+          description: data.description || null, amenities: data.amenities, images: data.images,
+          guardian_name: data.guardian_name || null, guardian_phone: data.guardian_phone || null,
+          marketing_cost: data.marketing_cost || null, construction_year: data.construction_year || null,
+          floor_count: data.floor_count || 1, building_condition: data.building_condition || null,
+          land_ownership: data.land_ownership || null,
+          latitude: data.latitude || null, longitude: data.longitude || null,
+        };
         await updateProperty({ id: editingProperty.id, payload });
-        toast({ title: 'Property Updated', description: 'Property has been updated successfully' });
+        toast({ title: 'Properti Diperbarui', description: 'Properti berhasil diperbarui' });
       } else {
-        const payload: CreatePropertyPayload = { name: data.name, property_type: data.property_type, address: data.address, city: data.city, province: data.province, postal_code: data.postal_code || null, description: data.description || null, amenities: data.amenities || [], images: data.images || [] };
+        const payload: CreatePropertyPayload = {
+          name: data.name, property_type: data.property_type, address: data.address,
+          city: data.city, province: data.province, postal_code: data.postal_code || null,
+          description: data.description || null, amenities: data.amenities || [], images: data.images || [],
+          guardian_name: data.guardian_name || null, guardian_phone: data.guardian_phone || null,
+          marketing_cost: data.marketing_cost || null, construction_year: data.construction_year || null,
+          floor_count: data.floor_count || 1, building_condition: data.building_condition || null,
+          land_ownership: data.land_ownership || null,
+          latitude: data.latitude || null, longitude: data.longitude || null,
+        };
         await createProperty(payload);
         toast({ title: 'Property Created', description: 'New property has been added successfully' });
       }

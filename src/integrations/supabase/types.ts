@@ -3032,13 +3032,23 @@ export type Database = {
         Row: {
           address: string
           amenities: string[] | null
+          building_condition: string | null
           city: string
+          construction_year: number | null
           created_at: string
           description: string | null
+          floor_count: number | null
+          guardian_name: string | null
+          guardian_phone: string | null
           id: string
           images: string[] | null
+          land_ownership: string | null
+          latitude: number | null
+          longitude: number | null
+          marketing_cost: number | null
           merchant_id: string
           name: string
+          nearby_facilities: Json | null
           occupied_units: number | null
           postal_code: string | null
           property_type: string
@@ -3050,13 +3060,23 @@ export type Database = {
         Insert: {
           address: string
           amenities?: string[] | null
+          building_condition?: string | null
           city: string
+          construction_year?: number | null
           created_at?: string
           description?: string | null
+          floor_count?: number | null
+          guardian_name?: string | null
+          guardian_phone?: string | null
           id?: string
           images?: string[] | null
+          land_ownership?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          marketing_cost?: number | null
           merchant_id: string
           name: string
+          nearby_facilities?: Json | null
           occupied_units?: number | null
           postal_code?: string | null
           property_type: string
@@ -3068,13 +3088,23 @@ export type Database = {
         Update: {
           address?: string
           amenities?: string[] | null
+          building_condition?: string | null
           city?: string
+          construction_year?: number | null
           created_at?: string
           description?: string | null
+          floor_count?: number | null
+          guardian_name?: string | null
+          guardian_phone?: string | null
           id?: string
           images?: string[] | null
+          land_ownership?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          marketing_cost?: number | null
           merchant_id?: string
           name?: string
+          nearby_facilities?: Json | null
           occupied_units?: number | null
           postal_code?: string | null
           property_type?: string
@@ -3089,6 +3119,119 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_guardians: {
+        Row: {
+          address: string | null
+          created_at: string
+          end_date: string | null
+          id: string
+          id_number: string | null
+          merchant_id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          photo_url: string | null
+          property_id: string
+          salary: number | null
+          salary_frequency: string | null
+          start_date: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          id_number?: string | null
+          merchant_id: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          photo_url?: string | null
+          property_id: string
+          salary?: number | null
+          salary_frequency?: string | null
+          start_date?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          id_number?: string | null
+          merchant_id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          photo_url?: string | null
+          property_id?: string
+          salary?: number | null
+          salary_frequency?: string | null
+          start_date?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_guardians_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_guardians_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_nearby_facilities: {
+        Row: {
+          created_at: string
+          distance_meters: number | null
+          facility_name: string
+          facility_type: string
+          id: string
+          latitude: number | null
+          longitude: number | null
+          property_id: string
+        }
+        Insert: {
+          created_at?: string
+          distance_meters?: number | null
+          facility_name: string
+          facility_type: string
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          property_id: string
+        }
+        Update: {
+          created_at?: string
+          distance_meters?: number | null
+          facility_name?: string
+          facility_type?: string
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          property_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_nearby_facilities_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
             referencedColumns: ["id"]
           },
         ]
@@ -3852,14 +3995,19 @@ export type Database = {
       }
       units: {
         Row: {
+          additional_costs: Json | null
           amenities: string[] | null
           available_from: string | null
           created_at: string
           deposit_amount: number | null
           description: string | null
+          electricity_cost: number | null
+          electricity_cost_type: string | null
+          electricity_included: boolean | null
           floor: number | null
           id: string
           is_listed: boolean | null
+          occupancy_type: string | null
           photos: string[] | null
           property_id: string
           rent_amount: number
@@ -3869,16 +4017,27 @@ export type Database = {
           unit_type: string | null
           updated_at: string
           vacant_since: string | null
+          water_cost: number | null
+          water_cost_type: string | null
+          water_included: boolean | null
+          wifi_cost_sharing: string | null
+          wifi_included: boolean | null
+          wifi_speed_mbps: number | null
         }
         Insert: {
+          additional_costs?: Json | null
           amenities?: string[] | null
           available_from?: string | null
           created_at?: string
           deposit_amount?: number | null
           description?: string | null
+          electricity_cost?: number | null
+          electricity_cost_type?: string | null
+          electricity_included?: boolean | null
           floor?: number | null
           id?: string
           is_listed?: boolean | null
+          occupancy_type?: string | null
           photos?: string[] | null
           property_id: string
           rent_amount: number
@@ -3888,16 +4047,27 @@ export type Database = {
           unit_type?: string | null
           updated_at?: string
           vacant_since?: string | null
+          water_cost?: number | null
+          water_cost_type?: string | null
+          water_included?: boolean | null
+          wifi_cost_sharing?: string | null
+          wifi_included?: boolean | null
+          wifi_speed_mbps?: number | null
         }
         Update: {
+          additional_costs?: Json | null
           amenities?: string[] | null
           available_from?: string | null
           created_at?: string
           deposit_amount?: number | null
           description?: string | null
+          electricity_cost?: number | null
+          electricity_cost_type?: string | null
+          electricity_included?: boolean | null
           floor?: number | null
           id?: string
           is_listed?: boolean | null
+          occupancy_type?: string | null
           photos?: string[] | null
           property_id?: string
           rent_amount?: number
@@ -3907,6 +4077,12 @@ export type Database = {
           unit_type?: string | null
           updated_at?: string
           vacant_since?: string | null
+          water_cost?: number | null
+          water_cost_type?: string | null
+          water_included?: boolean | null
+          wifi_cost_sharing?: string | null
+          wifi_included?: boolean | null
+          wifi_speed_mbps?: number | null
         }
         Relationships: [
           {

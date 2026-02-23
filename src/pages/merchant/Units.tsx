@@ -78,7 +78,12 @@ export default function MerchantUnits() {
 
   const handleFormSubmit = async (data: UnitFormData) => {
     try {
-      const payload = { ...data, amenities: [], property_id: data.property_id || editingUnit?.property_id || '' };
+      const payload = {
+        ...data,
+        amenities: data.amenities || [],
+        property_id: data.property_id || editingUnit?.property_id || '',
+        additional_costs: (data.additional_costs || []).map(c => ({ name: c.name || '', amount: c.amount || 0 })),
+      };
       if (editingUnit) { await updateUnit({ id: editingUnit.id, payload }); }
       else { await createUnit(payload as any); }
       setIsDialogOpen(false);

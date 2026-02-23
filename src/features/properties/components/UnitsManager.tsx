@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/shared/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { useToast } from '@/shared/hooks/use-toast';
-import { AlertTriangle, Edit, Home, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, Copy, Edit, Home, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUnits } from '../hooks/useUnits';
@@ -63,34 +63,34 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
 
   const handleUnitSubmit = async (data: UnitFormData) => {
     try {
-      if (editingUnit) {
-        await updateUnit({
-          id: editingUnit.id,
-          payload: {
-            unit_number: data.unit_number,
-            unit_type: data.unit_type,
-            floor: data.floor || null,
-            size_sqm: data.size_sqm || null,
-            rent_amount: data.rent_amount,
-            deposit_amount: data.deposit_amount || null,
-            status: data.status,
-            description: data.description || null,
-            photos: data.photos || [],
-          }
-        });
+      const unitPayload = {
+        unit_number: data.unit_number,
+        unit_type: data.unit_type,
+        floor: data.floor || null,
+        size_sqm: data.size_sqm || null,
+        rent_amount: data.rent_amount,
+        deposit_amount: data.deposit_amount || null,
+        status: data.status,
+        description: data.description || null,
+        photos: data.photos || [],
+        amenities: data.amenities || [],
+        occupancy_type: data.occupancy_type || 'single',
+        electricity_included: data.electricity_included || false,
+        electricity_cost: data.electricity_cost || 0,
+        electricity_cost_type: data.electricity_cost_type || 'flat',
+        water_included: data.water_included || false,
+        water_cost: data.water_cost || 0,
+        water_cost_type: data.water_cost_type || 'flat',
+        wifi_included: data.wifi_included || false,
+        wifi_speed_mbps: data.wifi_speed_mbps || null,
+        wifi_cost_sharing: data.wifi_cost_sharing || 'included',
+        additional_costs: (data.additional_costs || []).map(c => ({ name: c.name || '', amount: c.amount || 0 })),
+      };
+
+      if (editingUnit && editingUnit.id) {
+        await updateUnit({ id: editingUnit.id, payload: unitPayload });
       } else {
-        await createUnit({
-          property_id: propertyId,
-          unit_number: data.unit_number,
-          unit_type: data.unit_type,
-          floor: data.floor || null,
-          size_sqm: data.size_sqm || null,
-          rent_amount: data.rent_amount,
-          deposit_amount: data.deposit_amount || null,
-          status: data.status,
-          description: data.description || null,
-          photos: data.photos || [],
-        });
+        await createUnit({ property_id: propertyId, ...unitPayload } as any);
       }
       setShowUnitDialog(false);
       setEditingUnit(null);
@@ -98,6 +98,12 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
     } catch (error) {
       console.error('Error submitting unit form:', error);
     }
+  };
+
+  const handleDuplicate = (unit: Unit) => {
+    const duplicated = { ...unit, id: '', unit_number: `${unit.unit_number}-copy` };
+    setEditingUnit(duplicated as any);
+    setShowUnitDialog(true);
   };
 
   const handleEdit = (unit: Unit) => {
@@ -249,17 +255,13 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
                     </div>
                     <div className="mt-3 flex gap-2" onClick={(e) => e.stopPropagation()}>
                       <Button variant="outline" size="sm" onClick={() => handleEdit(unit)} className="rounded-xl">
-                        <Edit className="h-3 w-3 mr-1" />
-                        Edit
+                        <Edit className="h-3 w-3 mr-1" />Edit
                       </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="text-destructive hover:text-destructive rounded-xl"
-                        onClick={() => handleDelete(unit)}
-                      >
-                        <Trash2 className="h-3 w-3 mr-1" />
-                        Hapus
+                      <Button variant="outline" size="sm" onClick={() => handleDuplicate(unit)} className="rounded-xl">
+                        <Copy className="h-3 w-3 mr-1" />Duplikat
+                      </Button>
+                      <Button variant="outline" size="sm" className="text-destructive hover:text-destructive rounded-xl" onClick={() => handleDelete(unit)}>
+                        <Trash2 className="h-3 w-3 mr-1" />Hapus
                       </Button>
                     </div>
                   </CardContent>
