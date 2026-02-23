@@ -57,10 +57,12 @@ export function DisbursementScheduleSettings() {
   });
 
   return (
-    <Card>
+    <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <CalendarDays className="h-5 w-5" />
+          <div className="p-2 rounded-xl bg-primary/10">
+            <CalendarDays className="h-5 w-5 text-primary" />
+          </div>
           Payment Schedule
         </CardTitle>
         <CardDescription>
@@ -71,7 +73,7 @@ export function DisbursementScheduleSettings() {
         <div className="space-y-2">
           <Label>Disbursement Frequency</Label>
           <Select value={schedule} onValueChange={setSchedule}>
-            <SelectTrigger>
+            <SelectTrigger className="rounded-xl bg-background/60 border-border/50">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -89,7 +91,7 @@ export function DisbursementScheduleSettings() {
         <div className="space-y-2">
           <Label>Invoice Generation Day</Label>
           <Select value={billingDay} onValueChange={setBillingDay}>
-            <SelectTrigger>
+            <SelectTrigger className="rounded-xl bg-background/60 border-border/50">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -116,7 +118,7 @@ export function DisbursementScheduleSettings() {
               type="text"
               value={formatCurrency(minAmount)}
               onChange={handleMinAmountChange}
-              className="pl-10"
+              className="pl-10 rounded-xl bg-background/60 border-border/50"
               placeholder={MINIMUM_PAYOUT_AMOUNT.toLocaleString('id-ID')}
             />
           </div>
@@ -128,7 +130,7 @@ export function DisbursementScheduleSettings() {
         <Button
           onClick={() => updateSchedule.mutate()}
           disabled={updateSchedule.isPending}
-          className="w-full"
+          className="w-full gradient-cta rounded-xl"
         >
           {updateSchedule.isPending ? (
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />

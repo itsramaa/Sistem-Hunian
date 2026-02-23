@@ -46,10 +46,12 @@ export function PaymentConfirmationDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="max-w-md">
+      <AlertDialogContent className="max-w-md rounded-2xl">
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5 text-primary" />
+            <div className="p-2 rounded-xl bg-primary/10">
+              <CreditCard className="h-5 w-5 text-primary" />
+            </div>
             Konfirmasi Pembayaran
           </AlertDialogTitle>
           <AlertDialogDescription>
@@ -58,31 +60,31 @@ export function PaymentConfirmationDialog({
         </AlertDialogHeader>
 
         <div className="space-y-4 py-4">
-          <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
+          <div className="rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm p-4 space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">No. Invoice</span>
               <span className="font-medium">{paymentDetails.invoiceNumber}</span>
             </div>
-            <Separator />
+            <Separator className="bg-border/30" />
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Jumlah</span>
               <span className="text-lg font-bold text-primary">
                 {formatCurrency(paymentDetails.amount)}
               </span>
             </div>
-            <Separator />
+            <Separator className="bg-border/30" />
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Metode Pembayaran</span>
-              <Badge variant="secondary">{paymentDetails.paymentMethod}</Badge>
+              <Badge variant="secondary" className="rounded-full">{paymentDetails.paymentMethod}</Badge>
             </div>
-            <Separator />
+            <Separator className="bg-border/30" />
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Jatuh Tempo</span>
               <span className="font-medium">{paymentDetails.dueDate}</span>
             </div>
             {paymentDetails.description && (
               <>
-                <Separator />
+                <Separator className="bg-border/30" />
                 <div className="flex justify-between items-start">
                   <span className="text-sm text-muted-foreground">Deskripsi</span>
                   <span className="text-sm text-right max-w-[200px]">
@@ -93,7 +95,7 @@ export function PaymentConfirmationDialog({
             )}
           </div>
 
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/10 text-sm">
+          <div className="flex items-start gap-2 p-3 rounded-xl bg-primary/10 border border-primary/20 text-sm">
             <CheckCircle className="h-4 w-4 text-primary mt-0.5 shrink-0" />
             <p className="text-muted-foreground">
               Dengan mengklik "Bayar Sekarang", Anda menyetujui untuk melakukan pembayaran sesuai detail di atas.
@@ -102,8 +104,8 @@ export function PaymentConfirmationDialog({
         </div>
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isProcessing}>Batal</AlertDialogCancel>
-          <AlertDialogAction onClick={handleConfirm} disabled={isProcessing}>
+          <AlertDialogCancel disabled={isProcessing} className="rounded-xl">Batal</AlertDialogCancel>
+          <AlertDialogAction onClick={handleConfirm} disabled={isProcessing} className="gradient-cta rounded-xl">
             {isProcessing ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

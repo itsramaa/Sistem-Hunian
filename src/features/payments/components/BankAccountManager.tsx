@@ -28,39 +28,24 @@ export function BankAccountManager() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    bank_name: '',
-    account_name: '',
-    account_number: '',
-    branch_code: '',
-  });
+  const [formData, setFormData] = useState({ bank_name: '', account_name: '', account_number: '', branch_code: '' });
 
-  // Fetch bank accounts
   const { data: accounts = [], isLoading } = useQuery({
     queryKey: ['bank-accounts', merchant?.id],
     queryFn: async () => {
       if (!merchant?.id) return [];
-      const { data, error } = await supabase
-        .from('bank_accounts')
-        .select('*')
-        .eq('merchant_id', merchant.id)
-        .order('is_primary', { ascending: false });
+      const { data, error } = await supabase.from('bank_accounts').select('*').eq('merchant_id', merchant.id).order('is_primary', { ascending: false });
       if (error) throw error;
       return data as BankAccount[];
     },
     enabled: !!merchant?.id,
   });
 
-  // Add bank account
   const addAccount = useMutation({
     mutationFn: async (data: typeof formData) => {
       const { error } = await supabase.from('bank_accounts').insert({
-        merchant_id: merchant?.id,
-        bank_name: data.bank_name,
-        account_name: data.account_name,
-        account_number: data.account_number,
-        branch_code: data.branch_code || null,
-        is_primary: accounts.length === 0,
+        merchant_id: merchant?.id, bank_name: data.bank_name, account_name: data.account_name,
+        account_number: data.account_number, branch_code: data.branch_code || null, is_primary: accounts.length === 0,
       });
       if (error) throw error;
     },
@@ -70,12 +55,9 @@ export function BankAccountManager() {
       setIsDialogOpen(false);
       setFormData({ bank_name: '', account_name: '', account_number: '', branch_code: '' });
     },
-    onError: () => {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to add bank account.' });
-    },
+    onError: () => toast({ variant: 'destructive', title: 'Error', description: 'Failed to add bank account.' }),
   });
 
-  // Delete bank account
   const deleteAccount = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('bank_accounts').delete().eq('id', id);
@@ -85,34 +67,20 @@ export function BankAccountManager() {
       queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
       toast({ title: 'Account deleted', description: 'Bank account has been removed.' });
     },
-    onError: () => {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete bank account.' });
-    },
+    onError: () => toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete bank account.' }),
   });
 
-  // Set as primary
   const setPrimary = useMutation({
     mutationFn: async (id: string) => {
-      // First, unset all primary
-      await supabase
-        .from('bank_accounts')
-        .update({ is_primary: false })
-        .eq('merchant_id', merchant?.id);
-      
-      // Then set the selected one as primary
-      const { error } = await supabase
-        .from('bank_accounts')
-        .update({ is_primary: true })
-        .eq('id', id);
+      await supabase.from('bank_accounts').update({ is_primary: false }).eq('merchant_id', merchant?.id);
+      const { error } = await supabase.from('bank_accounts').update({ is_primary: true }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
       toast({ title: 'Primary account updated' });
     },
-    onError: () => {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update primary account.' });
-    },
+    onError: () => toast({ variant: 'destructive', title: 'Error', description: 'Failed to update primary account.' }),
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -125,74 +93,51 @@ export function BankAccountManager() {
   };
 
   return (
-    <Card>
+    <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
+              <div className="p-2 rounded-xl bg-primary/10">
+                <Building2 className="h-5 w-5 text-primary" />
+              </div>
               Bank Accounts
             </CardTitle>
             <CardDescription>Manage your bank accounts for disbursements</CardDescription>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Account
+              <Button size="sm" className="gradient-cta rounded-xl">
+                <Plus className="h-4 w-4 mr-2" />Add Account
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="rounded-2xl">
               <DialogHeader>
                 <DialogTitle>Add Bank Account</DialogTitle>
-                <DialogDescription>
-                  Add a new bank account for receiving disbursements
-                </DialogDescription>
+                <DialogDescription>Add a new bank account for receiving disbursements</DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="bank_name">Bank Name *</Label>
-                  <Input
-                    id="bank_name"
-                    placeholder="e.g., BCA, Mandiri, BNI"
-                    value={formData.bank_name}
-                    onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="account_name">Account Holder Name *</Label>
-                  <Input
-                    id="account_name"
-                    placeholder="Name as it appears on the account"
-                    value={formData.account_name}
-                    onChange={(e) => setFormData({ ...formData, account_name: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="account_number">Account Number *</Label>
-                  <Input
-                    id="account_number"
-                    placeholder="Enter account number"
-                    value={formData.account_number}
-                    onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="branch_code">Branch Code (Optional)</Label>
-                  <Input
-                    id="branch_code"
-                    placeholder="Enter branch code"
-                    value={formData.branch_code}
-                    onChange={(e) => setFormData({ ...formData, branch_code: e.target.value })}
-                  />
-                </div>
+                {[
+                  { id: 'bank_name', label: 'Bank Name *', placeholder: 'e.g., BCA, Mandiri, BNI' },
+                  { id: 'account_name', label: 'Account Holder Name *', placeholder: 'Name as it appears on the account' },
+                  { id: 'account_number', label: 'Account Number *', placeholder: 'Enter account number' },
+                  { id: 'branch_code', label: 'Branch Code (Optional)', placeholder: 'Enter branch code' },
+                ].map(field => (
+                  <div key={field.id} className="space-y-2">
+                    <Label htmlFor={field.id}>{field.label}</Label>
+                    <Input
+                      id={field.id}
+                      placeholder={field.placeholder}
+                      value={formData[field.id as keyof typeof formData]}
+                      onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
+                      className="rounded-xl bg-background/60 border-border/50"
+                    />
+                  </div>
+                ))}
                 <div className="flex gap-2 justify-end">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={addAccount.isPending}>
-                    {addAccount.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Add Account
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="rounded-xl">Cancel</Button>
+                  <Button type="submit" disabled={addAccount.isPending} className="gradient-cta rounded-xl">
+                    {addAccount.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Add Account
                   </Button>
                 </div>
               </form>
@@ -202,9 +147,7 @@ export function BankAccountManager() {
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="flex items-center justify-center h-32">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </div>
+          <div className="flex items-center justify-center h-32"><Loader2 className="h-6 w-6 animate-spin" /></div>
         ) : accounts.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Building2 className="h-12 w-12 mx-auto mb-2 opacity-50" />
@@ -216,58 +159,45 @@ export function BankAccountManager() {
             {accounts.map((account) => (
               <div
                 key={account.id}
-                className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                className="flex items-center justify-between p-4 rounded-xl border border-border/40 bg-card/80 backdrop-blur-sm hover:border-primary/30 transition-all"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                     <Building2 className="h-5 w-5 text-primary" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{account.bank_name}</span>
                       {account.is_primary && (
-                        <Badge variant="secondary" className="text-xs">
-                          <Star className="h-3 w-3 mr-1" />
-                          Primary
+                        <Badge variant="secondary" className="text-xs rounded-full">
+                          <Star className="h-3 w-3 mr-1" />Primary
                         </Badge>
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground">{account.account_name}</p>
-                    <p className="text-sm font-mono text-muted-foreground">
-                      •••• {account.account_number.slice(-4)}
-                    </p>
+                    <p className="text-sm font-mono text-muted-foreground">•••• {account.account_number.slice(-4)}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   {!account.is_primary && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setPrimary.mutate(account.id)}
-                      disabled={setPrimary.isPending}
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => setPrimary.mutate(account.id)} disabled={setPrimary.isPending} className="rounded-xl">
                       Set as Primary
                     </Button>
                   )}
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive rounded-xl">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </AlertDialogTrigger>
-                    <AlertDialogContent>
+                    <AlertDialogContent className="rounded-2xl">
                       <AlertDialogHeader>
                         <AlertDialogTitle>Delete Bank Account</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete this bank account? This action cannot be undone.
-                        </AlertDialogDescription>
+                        <AlertDialogDescription>Are you sure? This action cannot be undone.</AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => deleteAccount.mutate(account.id)}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
+                        <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => deleteAccount.mutate(account.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl">
                           Delete
                         </AlertDialogAction>
                       </AlertDialogFooter>

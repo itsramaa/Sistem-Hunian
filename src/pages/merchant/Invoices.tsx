@@ -64,7 +64,7 @@ export default function MerchantInvoices() {
   return (
     <div className="space-y-6">
       <PageHeader icon={FileText} title="Invoices" description="Manage and track your invoices">
-        <Button onClick={() => setIsCreateOpen(true)}>
+        <Button onClick={() => setIsCreateOpen(true)} className="gradient-cta rounded-xl">
           <Plus className="h-4 w-4 mr-2" />
           Create Invoice
         </Button>

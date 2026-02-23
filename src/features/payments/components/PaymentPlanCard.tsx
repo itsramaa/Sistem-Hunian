@@ -53,17 +53,17 @@ export function PaymentPlanCard({ plan }: PaymentPlanCardProps) {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending_acceptance':
-        return <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />Menunggu Persetujuan</Badge>;
+        return <Badge variant="secondary" className="rounded-full"><Clock className="h-3 w-3 mr-1" />Menunggu Persetujuan</Badge>;
       case 'accepted':
-        return <Badge variant="default"><CheckCircle className="h-3 w-3 mr-1" />Aktif</Badge>;
+        return <Badge variant="default" className="rounded-full"><CheckCircle className="h-3 w-3 mr-1" />Aktif</Badge>;
       case 'completed':
-        return <Badge className="bg-green-500"><CheckCircle className="h-3 w-3 mr-1" />Selesai</Badge>;
+        return <Badge className="bg-success text-success-foreground rounded-full"><CheckCircle className="h-3 w-3 mr-1" />Selesai</Badge>;
       case 'defaulted':
-        return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Gagal</Badge>;
+        return <Badge variant="destructive" className="rounded-full"><XCircle className="h-3 w-3 mr-1" />Gagal</Badge>;
       case 'declined':
-        return <Badge variant="outline"><XCircle className="h-3 w-3 mr-1" />Ditolak</Badge>;
+        return <Badge variant="outline" className="rounded-full"><XCircle className="h-3 w-3 mr-1" />Ditolak</Badge>;
       default:
-        return <Badge variant="secondary">{status}</Badge>;
+        return <Badge variant="secondary" className="rounded-full">{status}</Badge>;
     }
   };
 
@@ -79,7 +79,7 @@ export function PaymentPlanCard({ plan }: PaymentPlanCardProps) {
   const totalInstallments = plan.installment_count;
 
   return (
-    <Card className="border-primary/20">
+    <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-primary/20 hover:shadow-lg transition-all duration-300">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div>
@@ -93,34 +93,30 @@ export function PaymentPlanCard({ plan }: PaymentPlanCardProps) {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <p className="text-muted-foreground">Total Tagihan</p>
-            <p className="font-semibold">{formatCurrency(plan.original_amount)}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Per Cicilan</p>
-            <p className="font-semibold">{formatCurrency(plan.installment_amount)}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Jumlah Cicilan</p>
-            <p className="font-semibold">{plan.installment_count}x {getFrequencyLabel(plan.frequency)}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Progress</p>
-            <p className="font-semibold">{paidInstallments}/{totalInstallments} Lunas</p>
-          </div>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { label: 'Total Tagihan', value: formatCurrency(plan.original_amount) },
+            { label: 'Per Cicilan', value: formatCurrency(plan.installment_amount) },
+            { label: 'Jumlah Cicilan', value: `${plan.installment_count}x ${getFrequencyLabel(plan.frequency)}` },
+            { label: 'Progress', value: `${paidInstallments}/${totalInstallments} Lunas` },
+          ].map((item, i) => (
+            <div key={i} className="p-3 rounded-xl bg-card/80 border border-border/30">
+              <p className="text-xs text-muted-foreground">{item.label}</p>
+              <p className="font-semibold text-sm">{item.value}</p>
+            </div>
+          ))}
         </div>
 
         {plan.late_fee_waived && plan.waived_amount > 0 && (
-          <div className="p-2 bg-green-50 dark:bg-green-950 rounded text-sm text-green-700 dark:text-green-300">
-            ✓ Denda {formatCurrency(plan.waived_amount)} dihapuskan
+          <div className="p-3 rounded-xl bg-success/10 border border-success/20 text-sm text-success flex items-center gap-2">
+            <CheckCircle className="h-4 w-4" />
+            Denda {formatCurrency(plan.waived_amount)} dihapuskan
           </div>
         )}
 
         {plan.terms && (
-          <div className="p-2 bg-muted rounded text-sm">
-            <p className="text-muted-foreground">Syarat:</p>
+          <div className="p-3 rounded-xl bg-muted/50 border border-border/30 text-sm">
+            <p className="text-xs text-muted-foreground mb-1">Syarat:</p>
             <p>{plan.terms}</p>
           </div>
         )}
@@ -132,14 +128,14 @@ export function PaymentPlanCard({ plan }: PaymentPlanCardProps) {
               <Calendar className="h-4 w-4" />
               Jadwal Cicilan
             </p>
-            <div className="border rounded-lg divide-y max-h-48 overflow-y-auto">
+            <div className="border border-border/40 rounded-xl divide-y divide-border/30 max-h-48 overflow-y-auto">
               {plan.installments
                 .sort((a, b) => a.installment_number - b.installment_number)
                 .map((installment) => (
                 <div 
                   key={installment.id} 
-                  className={`flex justify-between items-center p-2 text-sm ${
-                    installment.status === 'paid' ? 'bg-green-50 dark:bg-green-950' : ''
+                  className={`flex justify-between items-center p-3 text-sm transition-colors ${
+                    installment.status === 'paid' ? 'bg-success/5' : 'hover:bg-primary/5'
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -148,7 +144,7 @@ export function PaymentPlanCard({ plan }: PaymentPlanCardProps) {
                   </div>
                   <div className="flex items-center gap-2">
                     {installment.status === 'paid' ? (
-                      <span className="text-xs text-green-600 flex items-center">
+                      <span className="text-xs text-success flex items-center">
                         <CheckCircle className="h-3 w-3 mr-1" /> Lunas
                       </span>
                     ) : (
@@ -170,12 +166,14 @@ export function PaymentPlanCard({ plan }: PaymentPlanCardProps) {
             variant="outline" 
             onClick={handleDecline}
             disabled={isDeclining || isAccepting}
+            className="rounded-xl"
           >
             {isDeclining ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Tolak'}
           </Button>
           <Button 
             onClick={handleAccept}
             disabled={isAccepting || isDeclining}
+            className="gradient-cta rounded-xl"
           >
             {isAccepting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Terima Tawaran'}
           </Button>

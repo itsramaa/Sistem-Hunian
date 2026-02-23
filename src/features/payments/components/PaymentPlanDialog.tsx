@@ -70,9 +70,7 @@ export function PaymentPlanDialog({ open, onOpenChange, invoice }: PaymentPlanDi
         currentDate = addMonths(new Date(), i + 1);
       }
       
-      // Add remainder to the last installment
       const amount = (i === count - 1) ? baseAmount + remainder : baseAmount;
-      
       schedule.push({ date: currentDate, amount });
     }
     
@@ -125,10 +123,12 @@ export function PaymentPlanDialog({ open, onOpenChange, invoice }: PaymentPlanDi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg rounded-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
+            <div className="p-2 rounded-xl bg-primary/10">
+              <CreditCard className="h-5 w-5 text-primary" />
+            </div>
             Create Payment Plan
           </DialogTitle>
           <DialogDescription>
@@ -139,7 +139,7 @@ export function PaymentPlanDialog({ open, onOpenChange, invoice }: PaymentPlanDi
         {invoice && (
           <div className="space-y-6">
             {/* Invoice Summary */}
-            <div className="p-4 bg-muted rounded-lg space-y-2">
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/40 space-y-2">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Total Amount:</span>
                 <span className="font-semibold">{formatCurrency(invoice.total_amount)}</span>
@@ -157,7 +157,7 @@ export function PaymentPlanDialog({ open, onOpenChange, invoice }: PaymentPlanDi
               <div className="space-y-2">
                 <Label>Number of Installments</Label>
                 <Select value={installmentCount} onValueChange={setInstallmentCount}>
-                  <SelectTrigger>
+                  <SelectTrigger className="rounded-xl bg-background/60 border-border/50">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -172,7 +172,7 @@ export function PaymentPlanDialog({ open, onOpenChange, invoice }: PaymentPlanDi
               <div className="space-y-2">
                 <Label>Payment Frequency</Label>
                 <Select value={frequency} onValueChange={(v: any) => setFrequency(v)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="rounded-xl bg-background/60 border-border/50">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -183,7 +183,7 @@ export function PaymentPlanDialog({ open, onOpenChange, invoice }: PaymentPlanDi
                 </Select>
               </div>
 
-              <div className="flex items-center justify-between space-x-2">
+              <div className="flex items-center justify-between space-x-2 p-3 rounded-xl bg-card/80 border border-border/40">
                 <Label htmlFor="waive-fee" className="flex flex-col space-y-1">
                   <span>Waive Late Fee</span>
                   <span className="font-normal text-xs text-muted-foreground">
@@ -204,6 +204,7 @@ export function PaymentPlanDialog({ open, onOpenChange, invoice }: PaymentPlanDi
                   placeholder="Enter notes for the tenant..."
                   value={terms}
                   onChange={(e) => setTerms(e.target.value)}
+                  className="rounded-xl bg-background/60 border-border/50"
                 />
               </div>
             </div>
@@ -211,9 +212,9 @@ export function PaymentPlanDialog({ open, onOpenChange, invoice }: PaymentPlanDi
             {/* Schedule Preview */}
             <div className="space-y-2">
               <Label>Estimated Payment Schedule</Label>
-              <div className="border rounded-md divide-y max-h-40 overflow-y-auto">
+              <div className="border border-border/40 rounded-xl divide-y divide-border/30 max-h-40 overflow-y-auto">
                 {schedule.map((item, index) => (
-                  <div key={index} className="p-3 text-sm flex justify-between items-center">
+                  <div key={index} className="p-3 text-sm flex justify-between items-center hover:bg-primary/5 transition-colors">
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
                       <span>Installment {index + 1}</span>
@@ -234,10 +235,10 @@ export function PaymentPlanDialog({ open, onOpenChange, invoice }: PaymentPlanDi
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isCreating}>
+          <Button onClick={handleSubmit} disabled={isCreating} className="gradient-cta rounded-xl">
             {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Create Offer
           </Button>
