@@ -484,7 +484,7 @@ export function AuthForm() {
       <BrandPanel />
 
       {/* Right: Form Panel */}
-      <div className="relative flex items-center justify-center px-4 py-8 overflow-hidden bg-muted/30">
+      <div className="relative flex items-center justify-center px-4 py-8 overflow-hidden bg-gradient-to-br from-background to-muted">
         <FloatingOrbs />
 
         {/* Mobile brand header */}
@@ -499,7 +499,7 @@ export function AuthForm() {
           <div className="glass-card p-6 sm:p-8 animate-fade-in">
             {/* Header */}
             <div className="text-center space-y-2 mb-6">
-              <div className="hidden md:block mx-auto w-12 h-12 rounded-xl gradient-primary flex items-center justify-center mb-3">
+              <div className="hidden md:flex mx-auto w-12 h-12 rounded-xl gradient-primary items-center justify-center mb-3">
                 <Building2 className="w-6 h-6 text-primary-foreground" />
               </div>
               <h2 className="text-2xl font-display font-bold text-foreground">
