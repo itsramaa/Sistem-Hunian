@@ -112,7 +112,7 @@ export function ContractsTable({ contracts, isLoading, tenantProfiles, onView, o
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                    <DropdownMenuContent align="end" className="rounded-xl">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
                       <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/merchant/contracts/${contract.id}`); }}><Eye className="mr-2 h-4 w-4" />View Details</DropdownMenuItem>
                       {!isPast && !contract.merchant_signature_url && contract.tenant_signature_url && (

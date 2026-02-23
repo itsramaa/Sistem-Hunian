@@ -71,7 +71,7 @@ export function MarkPaidDialog({
           <div className="grid gap-2">
             <Label htmlFor="method">Payment Method</Label>
             <Select value={method} onValueChange={setMethod}>
-              <SelectTrigger id="method">
+              <SelectTrigger id="method" className="rounded-xl bg-background/60 border-border/50">
                 <SelectValue placeholder="Select method" />
               </SelectTrigger>
               <SelectContent>
@@ -90,10 +90,11 @@ export function MarkPaidDialog({
               value={reference}
               onChange={(e) => setReference(e.target.value)}
               placeholder="e.g., Transaction ID"
+              className="rounded-xl bg-background/60 border-border/50"
             />
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex-col-reverse sm:flex-row">
           <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">
             Cancel
           </Button>

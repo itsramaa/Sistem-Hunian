@@ -79,7 +79,7 @@ export default function MerchantInvoiceDetail() {
 
   return (
     <div className="space-y-6">
-      <Button variant="ghost" onClick={() => navigate('/merchant/invoices')} className="gap-2 rounded-xl">
+      <Button variant="ghost" onClick={() => navigate('/merchant/invoices')} className="gap-2 px-3 py-1.5 rounded-full bg-card/80 backdrop-blur-sm border border-border/40 hover:bg-card">
         <ArrowLeft className="h-4 w-4" /> Back to Invoices
       </Button>
 

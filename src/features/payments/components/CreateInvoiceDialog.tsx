@@ -177,7 +177,7 @@ export const CreateInvoiceDialog = ({
             />
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse sm:flex-row">
             <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">
               Cancel
             </Button>

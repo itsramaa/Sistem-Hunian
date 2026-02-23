@@ -93,7 +93,7 @@ export function CreateContractDialog({
             <Textarea placeholder="Contract terms..." {...form.register('terms')} rows={3} className="rounded-xl bg-background/60 border-border/50" />
             {form.formState.errors.terms && <p className="text-sm text-destructive mt-1">{form.formState.errors.terms.message}</p>}
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse sm:flex-row">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">Cancel</Button>
             <Button type="submit" disabled={loading} className="gradient-cta rounded-xl">{loading ? 'Creating...' : 'Create Contract'}</Button>
           </DialogFooter>

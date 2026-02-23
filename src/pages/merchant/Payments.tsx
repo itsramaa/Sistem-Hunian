@@ -103,19 +103,20 @@ export default function MerchantPayments() {
   return (
     <div className="space-y-6">
       <PageHeader icon={CreditCard} title="Payments" description="Track rent payments and payment history">
-          <Button 
+        <Button 
             variant="outline" 
             onClick={() => refetchPayments()} 
             title="Refresh Data"
+            className="rounded-xl"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
           {overdueInvoices.length > 0 && (
             <Button 
-              variant="secondary" 
               onClick={() => sendBulkReminder()} 
               disabled={isSendingBulkReminder}
+              className="gradient-cta rounded-xl"
             >
               {isSendingBulkReminder ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -137,9 +138,16 @@ export default function MerchantPayments() {
         />
 
         <Tabs defaultValue="history" className="space-y-4">
-          <TabsList className="bg-muted/50 backdrop-blur-sm rounded-full p-1">
-            <TabsTrigger value="history" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">Payment History</TabsTrigger>
-            <TabsTrigger value="overdue" className="relative rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">
+          <TabsList className="pill-tab-list">
+            <TabsTrigger value="history" className="pill-tab-trigger">
+              Payment History
+              {filteredPayments.filter(p => p.status === 'pending').length > 0 && (
+                <Badge variant="secondary" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs rounded-full">
+                  {filteredPayments.filter(p => p.status === 'pending').length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="overdue" className="pill-tab-trigger relative">
               Overdue Invoices
               {overdueInvoices.length > 0 && (
                 <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs rounded-full">

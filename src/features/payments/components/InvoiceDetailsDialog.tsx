@@ -32,12 +32,11 @@ export const InvoiceDetailsDialog = ({
 }: InvoiceDetailsDialogProps) => {
   if (!invoice) return null;
 
-
   const isCurrentReminding = isReminding && remindingId === invoice.id;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg rounded-2xl">
         <DialogHeader>
           <DialogTitle>Invoice Details</DialogTitle>
         </DialogHeader>
@@ -47,7 +46,7 @@ export const InvoiceDetailsDialog = ({
               <p className="text-sm text-muted-foreground">Invoice Number</p>
               <p className="text-xl font-bold">{invoice.invoice_number}</p>
             </div>
-            <Badge variant={getInvoiceStatusColor(invoice.status)}>
+            <Badge variant={getInvoiceStatusColor(invoice.status)} className="rounded-full">
               {invoice.status}
             </Badge>
           </div>
@@ -72,7 +71,7 @@ export const InvoiceDetailsDialog = ({
             </div>
           )}
 
-          <div className="border-t pt-4 space-y-2">
+          <div className="bg-card/90 backdrop-blur-sm rounded-xl border border-border/40 p-4 space-y-2">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Subtotal</span>
               <span>{formatCurrency(Number(invoice.amount))}</span>
@@ -87,9 +86,11 @@ export const InvoiceDetailsDialog = ({
                 <span>{formatCurrency(invoice.late_fee)}</span>
               </div>
             )}
-            <div className="flex justify-between text-lg font-bold border-t pt-2">
+            <div className="flex justify-between text-lg font-bold border-t border-border/40 pt-2">
               <span>Total</span>
-              <span>{formatCurrency(Number(invoice.total_amount))}</span>
+              <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                {formatCurrency(Number(invoice.total_amount))}
+              </span>
             </div>
           </div>
 
@@ -98,6 +99,7 @@ export const InvoiceDetailsDialog = ({
               <Button 
                 onClick={() => onSend(invoice.id)}
                 disabled={isSending}
+                className="gradient-cta rounded-xl"
               >
                 {isSending ? (
                   <>
@@ -117,6 +119,7 @@ export const InvoiceDetailsDialog = ({
               <>
                 <Button 
                   variant="outline"
+                  className="rounded-xl"
                   onClick={() => onRemind(invoice.id, invoice.tenant_user_id)}
                   disabled={isCurrentReminding}
                 >
@@ -132,7 +135,7 @@ export const InvoiceDetailsDialog = ({
                     </>
                   )}
                 </Button>
-                <Button onClick={() => onMarkPaid(invoice.id, invoice.status)}>
+                <Button onClick={() => onMarkPaid(invoice.id, invoice.status)} className="gradient-cta rounded-xl">
                   Mark as Paid
                 </Button>
               </>
