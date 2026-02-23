@@ -9,7 +9,6 @@ import { supabase } from "@/lib/integrations/supabase/client";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { toast } from "sonner";
 import { Home, TrendingUp, Camera } from "lucide-react";
-
 import { Unit } from "../types";
 
 interface RelistUnitData extends Partial<Unit> {
@@ -28,12 +27,7 @@ interface RelistUnitDialogProps {
   onListed: () => void;
 }
 
-export function RelistUnitDialog({ 
-  open, 
-  onOpenChange, 
-  unit, 
-  onListed 
-}: RelistUnitDialogProps) {
+export function RelistUnitDialog({ open, onOpenChange, unit, onListed }: RelistUnitDialogProps) {
   const { merchant } = useAuth();
   const [monthlyRent, setMonthlyRent] = useState<number>(0);
   const [description, setDescription] = useState("");
@@ -61,7 +55,6 @@ export function RelistUnitDialog({
     if (unit.has_ac) features.push("AC");
     if (unit.has_wifi) features.push("WiFi");
     if (unit.has_water_heater) features.push("Water Heater");
-    
     return `${unit.type || "Unit"} available at ${unit.property?.name}. ${unit.size_sqm}m². ${features.join(", ")}.`;
   }
 
@@ -70,10 +63,8 @@ export function RelistUnitDialog({
       toast.error("Please enter monthly rent");
       return;
     }
-
     setIsSubmitting(true);
     try {
-      // Check if listing exists
       const { data: existingListing } = await supabase
         .from("unit_listings")
         .select("id")
@@ -81,7 +72,6 @@ export function RelistUnitDialog({
         .maybeSingle();
 
       if (existingListing) {
-        // Update existing listing
         await supabase
           .from("unit_listings")
           .update({
@@ -94,7 +84,6 @@ export function RelistUnitDialog({
           })
           .eq("id", existingListing.id);
       } else {
-        // Create new listing
         await supabase
           .from("unit_listings")
           .insert({
@@ -108,7 +97,6 @@ export function RelistUnitDialog({
           });
       }
 
-      // Update unit
       await supabase
         .from("units")
         .update({
@@ -131,10 +119,12 @@ export function RelistUnitDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg rounded-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Home className="h-5 w-5" />
+            <div className="gradient-icon-box">
+              <Home className="h-5 w-5 text-primary" />
+            </div>
             Re-List Unit
           </DialogTitle>
           <DialogDescription>
@@ -144,7 +134,7 @@ export function RelistUnitDialog({
 
         <div className="space-y-6 py-4">
           {/* Unit Details */}
-          <div className="p-4 rounded-lg bg-muted/50 space-y-2">
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/40 space-y-2">
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-muted-foreground">Type:</span>
@@ -178,11 +168,13 @@ export function RelistUnitDialog({
                 value={monthlyRent}
                 onChange={(e) => setMonthlyRent(Number(e.target.value))}
                 placeholder="0"
+                className="rounded-xl bg-background/60 border-border/50"
               />
               <Button 
                 variant="outline" 
                 size="sm"
                 onClick={() => setMonthlyRent(suggestedRent)}
+                className="rounded-xl"
               >
                 <TrendingUp className="h-4 w-4 mr-1" />
                 +5%
@@ -203,6 +195,7 @@ export function RelistUnitDialog({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe the unit..."
               rows={4}
+              className="rounded-xl bg-background/60 border-border/50"
             />
           </div>
 
@@ -224,7 +217,7 @@ export function RelistUnitDialog({
           </div>
 
           {/* Promotion */}
-          <div className="flex items-start space-x-2 p-3 rounded-lg border">
+          <div className="flex items-start space-x-2 p-4 rounded-xl border border-border/40 bg-card/80 backdrop-blur-sm">
             <Checkbox
               id="promote"
               checked={promoteUnit}
@@ -242,13 +235,13 @@ export function RelistUnitDialog({
 
           {/* Actions */}
           <div className="flex gap-3 pt-4">
-            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 rounded-xl">
               Cancel
             </Button>
             <Button 
               onClick={handleSubmit} 
               disabled={!monthlyRent || isSubmitting}
-              className="flex-1"
+              className="flex-1 rounded-xl gradient-cta"
             >
               {isSubmitting ? "Publishing..." : "Publish Listing"}
             </Button>

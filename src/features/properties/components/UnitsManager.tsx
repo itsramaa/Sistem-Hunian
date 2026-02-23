@@ -4,6 +4,7 @@ import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent } from '@/shared/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { Skeleton } from '@/shared/components/ui/skeleton';
 import { useToast } from '@/shared/hooks/use-toast';
 import { AlertTriangle, Edit, Home, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
@@ -49,7 +50,6 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
 
   const actionLoading = isCreating || isUpdating || isDeleting;
 
-  // Create a minimal property object for the wizard
   const currentProperty: Property[] = [{
     id: propertyId,
     name: propertyName,
@@ -87,7 +87,6 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
           photos: data.photos || [],
         });
       }
-
       setShowUnitDialog(false);
       setEditingUnit(null);
       onUnitsChanged();
@@ -103,7 +102,6 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
 
   const handleDelete = async (unit: Unit) => {
     if (!confirm(`Apakah Anda yakin ingin menghapus unit "${unit.unit_number}"?`)) return;
-
     try {
       await deleteUnit(unit.id);
       onUnitsChanged();
@@ -127,10 +125,12 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw]">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] rounded-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Home className="h-5 w-5" />
+            <div className="gradient-icon-box">
+              <Home className="h-5 w-5 text-primary" />
+            </div>
             Units - {propertyName}
           </DialogTitle>
           <DialogDescription>
@@ -141,7 +141,7 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
         <div className="space-y-4 mt-4">
           {/* Subscription Limit Warning */}
           {limits && !limits.canAddUnit && (
-            <Alert variant="destructive">
+            <Alert variant="destructive" className="rounded-xl">
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Batas Unit Tercapai</AlertTitle>
               <AlertDescription>
@@ -169,6 +169,7 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
               }} 
               size="sm"
               disabled={limits && !limits.canAddUnit}
+              className="rounded-xl gradient-cta"
             >
               <Plus className="h-4 w-4 mr-2" />
               Tambah Unit
@@ -176,13 +177,26 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="rounded-2xl bg-card/60 border border-border/30 p-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="w-10 h-10 rounded-xl" />
+                    <div className="space-y-1.5">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-3 w-32" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-8 w-full" />
+                </div>
+              ))}
             </div>
           ) : units.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-8">
-                <Home className="h-10 w-10 text-muted-foreground mb-3" />
+            <Card className="rounded-2xl bg-gradient-to-br from-primary/5 via-muted/50 to-accent/5 border border-border/30">
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/10 to-accent/5 flex items-center justify-center mb-4">
+                  <Home className="h-8 w-8 text-muted-foreground" />
+                </div>
                 <p className="text-muted-foreground text-center">Belum ada unit. Tambahkan unit pertama Anda.</p>
               </CardContent>
             </Card>
@@ -191,13 +205,13 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
               {units.map((unit) => (
                 <Card 
                   key={unit.id} 
-                  className="hover:shadow-sm transition-shadow cursor-pointer"
+                  className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40 hover:-translate-y-1 hover:shadow-lg hover:border-primary/30 transition-all duration-300 cursor-pointer"
                   onClick={() => navigate(`/merchant/units/${unit.id}`)}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <div className="gradient-icon-box">
                           <Home className="h-5 w-5 text-primary" />
                         </div>
                         <div>
@@ -207,7 +221,7 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
                           </p>
                         </div>
                       </div>
-                      <Badge variant="outline" className={statusColors[unit.status || 'available']}>
+                      <Badge variant="outline" className={`rounded-full ${statusColors[unit.status || 'available']}`}>
                         {unit.status}
                       </Badge>
                     </div>
@@ -224,14 +238,14 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
                       )}
                     </div>
                     <div className="mt-3 flex gap-2" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="outline" size="sm" onClick={() => handleEdit(unit)}>
+                      <Button variant="outline" size="sm" onClick={() => handleEdit(unit)} className="rounded-lg">
                         <Edit className="h-3 w-3 mr-1" />
                         Edit
                       </Button>
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        className="text-destructive hover:text-destructive"
+                        className="text-destructive hover:text-destructive rounded-lg"
                         onClick={() => handleDelete(unit)}
                       >
                         <Trash2 className="h-3 w-3 mr-1" />
@@ -245,7 +259,6 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
           )}
         </div>
 
-        {/* Use the same UnitFormDialog wizard */}
         <UnitFormDialog
           open={showUnitDialog}
           onOpenChange={handleDialogClose}

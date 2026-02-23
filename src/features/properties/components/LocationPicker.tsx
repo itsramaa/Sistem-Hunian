@@ -14,7 +14,6 @@ interface LocationPickerProps {
   city?: string;
 }
 
-// Fix for default marker icon
 const defaultIcon = new L.Icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -41,7 +40,6 @@ export function LocationPicker({
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
 
-  // Default center: Jakarta
   const defaultCenter: [number, number] = [-6.2088, 106.8456];
 
   // Initialize map when showMap becomes true
@@ -192,7 +190,7 @@ export function LocationPicker({
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder={placeholder}
-            className="pl-9"
+            className="pl-9 rounded-xl bg-background/60 border-border/50"
           />
         </div>
         <Button 
@@ -200,6 +198,7 @@ export function LocationPicker({
           variant="outline" 
           onClick={handleSearch}
           disabled={isSearching}
+          className="rounded-xl"
         >
           {isSearching ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -211,6 +210,7 @@ export function LocationPicker({
           type="button" 
           variant="outline" 
           onClick={() => setShowMap(!showMap)}
+          className="rounded-xl"
         >
           <MapPin className="h-4 w-4" />
         </Button>
@@ -220,7 +220,7 @@ export function LocationPicker({
         <div className="space-y-1">
           <div 
             ref={mapContainerRef}
-            className="h-64 rounded-lg overflow-hidden border"
+            className="h-64 rounded-2xl overflow-hidden border border-border/40 shadow-sm"
             style={{ zIndex: 0 }}
           />
           <p className="text-xs text-muted-foreground px-1">

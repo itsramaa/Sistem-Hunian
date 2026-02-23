@@ -43,17 +43,14 @@ export function DragDropPhotoReorder({
 
   const handleDrop = useCallback((e: React.DragEvent, targetIndex: number) => {
     e.preventDefault();
-    
     if (draggedIndex === null || draggedIndex === targetIndex) {
       setDraggedIndex(null);
       setDragOverIndex(null);
       return;
     }
-
     const newPhotos = [...photos];
     const [draggedPhoto] = newPhotos.splice(draggedIndex, 1);
     newPhotos.splice(targetIndex, 0, draggedPhoto);
-    
     onPhotosChange(newPhotos);
     setDraggedIndex(null);
     setDragOverIndex(null);
@@ -72,19 +69,15 @@ export function DragDropPhotoReorder({
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0 || !onUpload) return;
-
     const remainingSlots = maxPhotos - photos.length;
     const filesToUpload = files.slice(0, remainingSlots);
-
     if (filesToUpload.length === 0) return;
-
     setUploading(true);
     try {
       const uploadedUrls = await onUpload(filesToUpload);
       onPhotosChange([...photos, ...uploadedUrls]);
     } finally {
       setUploading(false);
-      // Reset input
       e.target.value = '';
     }
   }, [photos, onPhotosChange, onUpload, maxPhotos]);
@@ -113,8 +106,8 @@ export function DragDropPhotoReorder({
             onDrop={(e) => handleDrop(e, index)}
             onDragEnd={handleDragEnd}
             className={cn(
-              "relative aspect-square rounded-lg overflow-hidden border-2 transition-all cursor-grab active:cursor-grabbing group",
-              index === 0 && "ring-2 ring-primary ring-offset-2",
+              "relative aspect-square rounded-xl overflow-hidden border-2 transition-all cursor-grab active:cursor-grabbing group border-border/40",
+              index === 0 && "ring-2 ring-primary/50 ring-offset-2",
               draggedIndex === index && "opacity-50 scale-95",
               dragOverIndex === index && "border-primary border-dashed scale-105",
               disabled && "cursor-default"
@@ -129,19 +122,19 @@ export function DragDropPhotoReorder({
             
             {/* Cover label */}
             {index === 0 && (
-              <div className="absolute top-1 left-1 bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded">
+              <div className="absolute top-1.5 left-1.5 bg-primary/90 backdrop-blur-sm text-primary-foreground text-xs px-2.5 py-0.5 rounded-full font-medium">
                 Cover
               </div>
             )}
 
             {/* Order number */}
-            <div className="absolute bottom-1 left-1 bg-background/80 text-xs px-1.5 py-0.5 rounded">
+            <div className="absolute bottom-1.5 left-1.5 bg-background/80 backdrop-blur-sm text-xs px-2 py-0.5 rounded-full font-medium">
               {index + 1}
             </div>
 
             {/* Actions overlay */}
             {!disabled && (
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+              <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                 <div className="flex flex-col items-center">
                   <GripVertical className="h-6 w-6 text-white" />
                   <span className="text-xs text-white">Drag</span>
@@ -149,7 +142,7 @@ export function DragDropPhotoReorder({
                 <Button
                   variant="destructive"
                   size="icon"
-                  className="h-8 w-8"
+                  className="h-8 w-8 rounded-full"
                   onClick={() => handleRemove(index)}
                 >
                   <X className="h-4 w-4" />
@@ -163,7 +156,7 @@ export function DragDropPhotoReorder({
         {canAddMore && onUpload && !disabled && (
           <label
             className={cn(
-              "aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary hover:bg-muted/50 transition-colors",
+              "aspect-square rounded-xl border-2 border-dashed border-border/40 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all duration-200",
               uploading && "pointer-events-none"
             )}
           >
@@ -193,12 +186,14 @@ export function DragDropPhotoReorder({
       </div>
 
       {photos.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed rounded-lg">
-          <ImageIcon className="h-12 w-12 text-muted-foreground mb-4" />
+        <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-border/30 rounded-2xl bg-gradient-to-br from-primary/5 via-muted/50 to-accent/5">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/10 to-accent/5 flex items-center justify-center mb-4">
+            <ImageIcon className="h-8 w-8 text-muted-foreground" />
+          </div>
           <p className="text-muted-foreground mb-2">No photos added yet</p>
           {onUpload && (
             <label className="cursor-pointer">
-              <Button variant="outline" asChild>
+              <Button variant="outline" asChild className="rounded-xl">
                 <span>
                   <Upload className="h-4 w-4 mr-2" />
                   Upload Photos

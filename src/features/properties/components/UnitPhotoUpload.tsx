@@ -52,7 +52,6 @@ export const UnitPhotoUpload = ({
 
         const fileExt = file.name.split('.').pop();
         const fileName = `unit-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-        // Include user.id in path for RLS compliance
         const filePath = `${user.id}/units/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
@@ -94,7 +93,7 @@ export const UnitPhotoUpload = ({
     <div className="space-y-3">
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
         {photos.map((photo, index) => (
-          <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-border">
+          <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-border/40">
             <img
               src={photo}
               alt={`Unit photo ${index + 1}`}
@@ -103,7 +102,7 @@ export const UnitPhotoUpload = ({
             <button
               type="button"
               onClick={() => removePhoto(index)}
-              className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90"
+              className="absolute top-1 right-1 p-1 bg-destructive/90 backdrop-blur-sm text-destructive-foreground rounded-full hover:bg-destructive transition-colors"
             >
               <X className="h-3 w-3" />
             </button>
@@ -111,7 +110,7 @@ export const UnitPhotoUpload = ({
         ))}
         
         {photos.length < maxPhotos && (
-          <label className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/25 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors">
+          <label className="aspect-square rounded-xl border-2 border-dashed border-border/40 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all duration-200">
             <input
               type="file"
               accept="image/*"

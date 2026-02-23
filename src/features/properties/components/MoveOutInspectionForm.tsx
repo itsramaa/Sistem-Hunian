@@ -41,12 +41,7 @@ const INITIAL_CHECKLIST: ChecklistItem[] = [
   { id: "keys", label: "Keys Returned", condition: "good", notes: "", deduction: 0 },
 ];
 
-export function MoveOutInspectionForm({ 
-  open, 
-  onOpenChange, 
-  notice, 
-  onCompleted 
-}: MoveOutInspectionFormProps) {
+export function MoveOutInspectionForm({ open, onOpenChange, notice, onCompleted }: MoveOutInspectionFormProps) {
   const { user } = useAuth();
   const [checklist, setChecklist] = useState<ChecklistItem[]>(INITIAL_CHECKLIST);
   const [tenantPresent, setTenantPresent] = useState(true);
@@ -66,7 +61,6 @@ export function MoveOutInspectionForm({
       prev.map((item) => {
         if (item.id === id) {
           const updated = { ...item, ...updates };
-          // Validate deduction is non-negative
           if (updates.deduction !== undefined && updates.deduction < 0) {
             updated.deduction = 0;
           }
@@ -82,15 +76,12 @@ export function MoveOutInspectionForm({
       toast.error("Please provide your signature");
       return;
     }
-
     if (deductionsExceedDeposit) {
       toast.error("Total deductions cannot exceed the deposit amount");
       return;
     }
-
     setIsSubmitting(true);
     try {
-      // Get or create inspection record
       const { data: existingInspection } = await supabase
         .from("move_out_inspections")
         .select("id")
@@ -119,7 +110,6 @@ export function MoveOutInspectionForm({
           notes: item.notes,
         }));
 
-      // Update inspection
       const { error: inspectionError } = await supabase
         .from("move_out_inspections")
         .update({
@@ -136,7 +126,6 @@ export function MoveOutInspectionForm({
 
       if (inspectionError) throw inspectionError;
 
-      // Update timeline
       await supabase
         .from("move_out_timeline")
         .update({ 
@@ -147,7 +136,6 @@ export function MoveOutInspectionForm({
         .eq("move_out_notice_id", notice.id)
         .eq("step", "inspection_completed");
 
-      // Create deposit refund record
       const { error: refundError } = await supabase
         .from("deposit_refunds")
         .insert({
@@ -177,7 +165,7 @@ export function MoveOutInspectionForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl">
         <DialogHeader>
           <DialogTitle>Move-Out Inspection Report</DialogTitle>
           <DialogDescription>
@@ -203,7 +191,7 @@ export function MoveOutInspectionForm({
             <h3 className="font-semibold">Inspection Checklist</h3>
             
             {checklist.map((item) => (
-              <div key={item.id} className="p-4 rounded-lg border space-y-3">
+              <div key={item.id} className="p-4 rounded-xl border border-border/40 bg-card/80 backdrop-blur-sm space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className="font-medium">{item.label}</Label>
                   <RadioGroup
@@ -213,21 +201,24 @@ export function MoveOutInspectionForm({
                     }
                     className="flex gap-4"
                   >
-                    <div className="flex items-center space-x-1">
+                    <div className="flex items-center space-x-1.5">
                       <RadioGroupItem value="good" id={`${item.id}-good`} />
-                      <Label htmlFor={`${item.id}-good`} className="text-sm text-success cursor-pointer">
+                      <Label htmlFor={`${item.id}-good`} className="text-sm text-success cursor-pointer flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-success" />
                         Good
                       </Label>
                     </div>
-                    <div className="flex items-center space-x-1">
+                    <div className="flex items-center space-x-1.5">
                       <RadioGroupItem value="minor" id={`${item.id}-minor`} />
-                      <Label htmlFor={`${item.id}-minor`} className="text-sm text-warning cursor-pointer">
+                      <Label htmlFor={`${item.id}-minor`} className="text-sm text-warning cursor-pointer flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-warning" />
                         Minor
                       </Label>
                     </div>
-                    <div className="flex items-center space-x-1">
+                    <div className="flex items-center space-x-1.5">
                       <RadioGroupItem value="major" id={`${item.id}-major`} />
-                      <Label htmlFor={`${item.id}-major`} className="text-sm text-destructive cursor-pointer">
+                      <Label htmlFor={`${item.id}-major`} className="text-sm text-destructive cursor-pointer flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-destructive" />
                         Major
                       </Label>
                     </div>
@@ -242,6 +233,7 @@ export function MoveOutInspectionForm({
                         value={item.notes}
                         onChange={(e) => updateChecklistItem(item.id, { notes: e.target.value })}
                         placeholder="Describe the issue..."
+                        className="rounded-xl bg-background/60 border-border/50"
                       />
                     </div>
                     <div>
@@ -251,6 +243,7 @@ export function MoveOutInspectionForm({
                         value={item.deduction || ""}
                         onChange={(e) => updateChecklistItem(item.id, { deduction: Number(e.target.value) || 0 })}
                         placeholder="0"
+                        className="rounded-xl bg-background/60 border-border/50"
                       />
                     </div>
                   </div>
@@ -262,7 +255,7 @@ export function MoveOutInspectionForm({
           <Separator />
 
           {/* Deposit Calculation */}
-          <div className="p-4 rounded-lg bg-muted/50 space-y-3">
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/40 space-y-3">
             <h3 className="font-semibold flex items-center gap-2">
               <Wallet className="h-5 w-5" />
               Deposit Calculation
@@ -302,7 +295,7 @@ export function MoveOutInspectionForm({
             
             <div className="space-y-2">
               <Label>Inspector Signature *</Label>
-              <div className="border rounded-lg p-2">
+              <div className="border border-border/40 rounded-xl p-2">
                 <SignaturePad
                   onSave={setInspectorSignature}
                   width={400}
@@ -319,7 +312,7 @@ export function MoveOutInspectionForm({
             {tenantPresent && (
               <div className="space-y-2">
                 <Label>Tenant Signature</Label>
-                <div className="border rounded-lg p-2">
+                <div className="border border-border/40 rounded-xl p-2">
                   <SignaturePad
                     onSave={setTenantSignature}
                     width={400}
@@ -337,13 +330,13 @@ export function MoveOutInspectionForm({
 
           {/* Submit */}
           <div className="flex gap-3 pt-4">
-            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 rounded-xl">
               Cancel
             </Button>
             <Button 
               onClick={handleSubmit} 
               disabled={!inspectorSignature || isSubmitting || deductionsExceedDeposit}
-              className="flex-1"
+              className="flex-1 rounded-xl gradient-cta"
             >
               {isSubmitting ? "Submitting..." : "Complete Inspection"}
             </Button>
