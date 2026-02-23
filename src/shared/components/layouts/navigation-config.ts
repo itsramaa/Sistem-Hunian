@@ -120,9 +120,8 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
       {
         label: "Manajemen Aset",
         items: [
-          { path: "/merchant/assets", icon: Building2, label: "Properti & Unit", activePatterns: ["/merchant/properties", "/merchant/units"] },
+          { path: "/merchant/assets", icon: Building2, label: "Manajemen Aset", activePatterns: ["/merchant/properties", "/merchant/units", "/merchant/guardians"] },
           { path: "/merchant/occupancy", icon: Users, label: "Penyewa & Okupansi", activePatterns: ["/merchant/tenants", "/merchant/move-outs", "/merchant/tenant-analytics"] },
-          { path: "/merchant/guardians", icon: User, label: "Staf Operasional" },
         ],
       },
       {
