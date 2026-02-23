@@ -2299,6 +2299,72 @@ export type Database = {
         }
         Relationships: []
       }
+      occupancy_snapshots: {
+        Row: {
+          available_units: number
+          avg_rent_amount: number
+          avg_vacancy_days: number | null
+          created_at: string
+          id: string
+          maintenance_units: number
+          merchant_id: string
+          move_outs: number
+          new_move_ins: number
+          occupancy_rate: number
+          occupied_units: number
+          property_id: string | null
+          snapshot_month: string
+          total_units: number
+        }
+        Insert: {
+          available_units?: number
+          avg_rent_amount?: number
+          avg_vacancy_days?: number | null
+          created_at?: string
+          id?: string
+          maintenance_units?: number
+          merchant_id: string
+          move_outs?: number
+          new_move_ins?: number
+          occupancy_rate?: number
+          occupied_units?: number
+          property_id?: string | null
+          snapshot_month: string
+          total_units?: number
+        }
+        Update: {
+          available_units?: number
+          avg_rent_amount?: number
+          avg_vacancy_days?: number | null
+          created_at?: string
+          id?: string
+          maintenance_units?: number
+          merchant_id?: string
+          move_outs?: number
+          new_move_ins?: number
+          occupancy_rate?: number
+          occupied_units?: number
+          property_id?: string | null
+          snapshot_month?: string
+          total_units?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "occupancy_snapshots_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "occupancy_snapshots_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ocr_results: {
         Row: {
           confidence_score: number | null
@@ -3789,6 +3855,80 @@ export type Database = {
           },
         ]
       }
+      tenant_payment_metrics: {
+        Row: {
+          avg_days_late: number | null
+          calculated_at: string
+          created_at: string
+          current_streak_on_time: number | null
+          first_invoice_date: string | null
+          id: string
+          last_invoice_date: string | null
+          longest_streak_on_time: number | null
+          merchant_id: string
+          paid_late: number
+          paid_on_time: number
+          payment_score: number | null
+          renewal_count: number
+          tenant_user_id: string
+          total_invoices: number
+          total_late_fees: number | null
+          total_tenure_months: number
+          unpaid: number
+          updated_at: string
+        }
+        Insert: {
+          avg_days_late?: number | null
+          calculated_at?: string
+          created_at?: string
+          current_streak_on_time?: number | null
+          first_invoice_date?: string | null
+          id?: string
+          last_invoice_date?: string | null
+          longest_streak_on_time?: number | null
+          merchant_id: string
+          paid_late?: number
+          paid_on_time?: number
+          payment_score?: number | null
+          renewal_count?: number
+          tenant_user_id: string
+          total_invoices?: number
+          total_late_fees?: number | null
+          total_tenure_months?: number
+          unpaid?: number
+          updated_at?: string
+        }
+        Update: {
+          avg_days_late?: number | null
+          calculated_at?: string
+          created_at?: string
+          current_streak_on_time?: number | null
+          first_invoice_date?: string | null
+          id?: string
+          last_invoice_date?: string | null
+          longest_streak_on_time?: number | null
+          merchant_id?: string
+          paid_late?: number
+          paid_on_time?: number
+          payment_score?: number | null
+          renewal_count?: number
+          tenant_user_id?: string
+          total_invoices?: number
+          total_late_fees?: number | null
+          total_tenure_months?: number
+          unpaid?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_payment_metrics_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_risk_scores: {
         Row: {
           average_days_late: number | null
@@ -3860,6 +4000,7 @@ export type Database = {
       }
       tenants: {
         Row: {
+          age_group: string | null
           auto_pay_day: number | null
           auto_pay_enabled: boolean | null
           created_at: string
@@ -3871,6 +4012,7 @@ export type Database = {
           gender: string | null
           id: string
           income_range: string | null
+          institution: string | null
           ktp_number: string | null
           ktp_photo_url: string | null
           linked_merchant_id: string | null
@@ -3884,6 +4026,7 @@ export type Database = {
           verified_by: string | null
         }
         Insert: {
+          age_group?: string | null
           auto_pay_day?: number | null
           auto_pay_enabled?: boolean | null
           created_at?: string
@@ -3895,6 +4038,7 @@ export type Database = {
           gender?: string | null
           id?: string
           income_range?: string | null
+          institution?: string | null
           ktp_number?: string | null
           ktp_photo_url?: string | null
           linked_merchant_id?: string | null
@@ -3908,6 +4052,7 @@ export type Database = {
           verified_by?: string | null
         }
         Update: {
+          age_group?: string | null
           auto_pay_day?: number | null
           auto_pay_enabled?: boolean | null
           created_at?: string
@@ -3919,6 +4064,7 @@ export type Database = {
           gender?: string | null
           id?: string
           income_range?: string | null
+          institution?: string | null
           ktp_number?: string | null
           ktp_photo_url?: string | null
           linked_merchant_id?: string | null
