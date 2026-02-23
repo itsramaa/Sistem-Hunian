@@ -1,62 +1,73 @@
 
-# Phase 1: Asset Management Consolidation
+# Phase 2: Financial & Contract Consolidation
 
-Merge "Staf Operasional" (Guardians) into the existing AssetsHub as a third tab, and redirect the standalone route.
+Merge "Kontrak Sewa" into TransactionsHub, rename to FinanceHub, and redirect legacy routes.
 
 ## Changes
 
-### 1. Update `src/pages/merchant/AssetsHub.tsx`
-- Add `Guardians` as a third lazy-loaded tab alongside Properti and Unit
-- Add `guardians` to `TAB_MAP`
-- Add a third `TabsTrigger` labeled "Staf"
-- Update `PageHeader` title to "Manajemen Aset" and description to "Kelola properti, unit, dan staf operasional Anda"
+### 1. Rename & Update `src/pages/merchant/TransactionsHub.tsx` to `FinanceHub.tsx`
+
+Create new file `src/pages/merchant/FinanceHub.tsx` (replacing TransactionsHub):
+- Add `MerchantContracts` as a third lazy-loaded tab
+- Update `TAB_MAP` to `{ invoices, payments, contracts }`
+- Add "Kontrak" `TabsTrigger`
+- Update `PageHeader` title to "Keuangan" and description to "Kelola tagihan, pembayaran, dan kontrak sewa"
 
 ### 2. Update `src/shared/components/layouts/navigation-config.ts`
-- Remove the standalone `{ path: "/merchant/guardians", icon: User, label: "Staf Operasional" }` item from "Manajemen Aset" group
-- Rename the AssetsHub item label from "Properti & Unit" to "Manajemen Aset"
-- Add `/merchant/guardians` to the `activePatterns` array of the assets item
+
+- Remove standalone `{ path: "/merchant/contracts", icon: ClipboardList, label: "Kontrak Sewa" }` item
+- Rename "Transaksi & Tagihan" to "Keuangan"
+- Change path from `/merchant/transactions` to `/merchant/finance`
+- Update `activePatterns` to include `/merchant/contracts`
 
 ### 3. Update `src/App.tsx`
-- Replace `<Route path="guardians" element={<MerchantGuardians />} />` with a redirect: `<Route path="guardians" element={<Navigate to="/merchant/assets#guardians" replace />} />`
-- Import `Navigate` from `react-router-dom` (likely already imported)
+
+- Replace `MerchantTransactionsHub` import with new `MerchantFinanceHub` import
+- Change hub route: `path="transactions"` becomes `path="finance"` using `MerchantFinanceHub`
+- Add redirects for legacy routes:
+  - `path="transactions"` redirects to `/merchant/finance`
+  - `path="contracts"` redirects to `/merchant/finance#contracts`
+  - `path="invoices"` redirects to `/merchant/finance#invoices`
+  - `path="payments"` redirects to `/merchant/finance#payments`
+- Keep detail routes intact (`contracts/:contractId`, `invoices/:invoiceId`, `payments/:paymentId`) since those are standalone detail pages
 
 ## Technical Details
 
-### AssetsHub.tsx changes
+### FinanceHub.tsx structure
 
 ```text
-Before:
-  TAB_MAP = { properties, units }
-  Tabs: Properti | Unit
-
-After:
-  TAB_MAP = { properties, units, guardians }
-  Tabs: Properti | Unit | Staf
-```
-
-The Guardians component is lazy-loaded identically to the existing Properties and Units imports:
-```text
-const MerchantGuardians = lazy(() => import("@/pages/merchant/Guardians"));
+TAB_MAP = { invoices, payments, contracts }
+Tabs: Tagihan | Pembayaran | Kontrak
+Lazy imports: Invoices, Payments, Contracts
 ```
 
 ### Navigation Config changes
 
-The "Manajemen Aset" group goes from 3 items to 2 items:
+The "Keuangan" group goes from 2 items to 1:
 
 | Before | After |
 |--------|-------|
-| Properti & Unit | Manajemen Aset (with guardians in activePatterns) |
-| Penyewa & Okupansi | Penyewa & Okupansi (unchanged) |
-| Staf Operasional | (removed - merged into Manajemen Aset tab) |
+| Transaksi & Tagihan (path: /merchant/transactions) | Keuangan (path: /merchant/finance, activePatterns includes /merchant/contracts) |
+| Kontrak Sewa (standalone) | (removed - merged as tab) |
 
 ### Route changes in App.tsx
 
-The standalone `/merchant/guardians` route becomes a redirect to `/merchant/assets#guardians`, so bookmarks and any existing links still work.
+| Route | Before | After |
+|-------|--------|-------|
+| `finance` | (new) | `FinanceHub` component |
+| `transactions` | `TransactionsHub` | Redirect to `/merchant/finance` |
+| `contracts` | `MerchantContracts` | Redirect to `/merchant/finance#contracts` |
+| `invoices` | `MerchantInvoices` | Redirect to `/merchant/finance#invoices` |
+| `payments` | `MerchantPayments` | Redirect to `/merchant/finance#payments` |
+| `contracts/:contractId` | `MerchantContractDetail` | Unchanged (detail page) |
+| `invoices/:invoiceId` | `MerchantInvoiceDetail` | Unchanged (detail page) |
+| `payments/:paymentId` | `MerchantPaymentDetail` | Unchanged (detail page) |
 
 ### File Summary
 
 | File | Action |
 |------|--------|
-| `src/pages/merchant/AssetsHub.tsx` | Modify - add Guardians as 3rd tab, update header |
-| `src/shared/components/layouts/navigation-config.ts` | Modify - remove Guardians item, rename assets label, update activePatterns |
-| `src/App.tsx` | Modify - replace guardians route with redirect |
+| `src/pages/merchant/FinanceHub.tsx` | Create - 3-tab hub (Tagihan, Pembayaran, Kontrak) |
+| `src/pages/merchant/TransactionsHub.tsx` | Delete (replaced by FinanceHub) |
+| `src/shared/components/layouts/navigation-config.ts` | Modify - remove Contracts item, rename to Keuangan, update path and activePatterns |
+| `src/App.tsx` | Modify - add finance route, redirect transactions/contracts/invoices/payments to finance hub |
