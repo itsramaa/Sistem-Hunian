@@ -8,6 +8,7 @@ import {
     ClipboardList,
     Command,
     CreditCard,
+    FileSearch,
     FileText,
     Gift,
     Home,
@@ -156,6 +157,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
       {
         label: "Bantuan",
         items: [
+          { path: "/merchant/documents", icon: FileSearch, label: "Pusat Dokumen" },
           { path: "/merchant/ocr-tutorial", icon: ScanText, label: "Tutorial OCR" },
         ],
       },
