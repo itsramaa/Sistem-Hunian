@@ -30,12 +30,7 @@ const TIME_SLOTS = [
   { value: "16:00", label: "04:00 PM" },
 ];
 
-export function ScheduleInspectionDialog({ 
-  open, 
-  onOpenChange, 
-  notice, 
-  onScheduled 
-}: ScheduleInspectionDialogProps) {
+export function ScheduleInspectionDialog({ open, onOpenChange, notice, onScheduled }: ScheduleInspectionDialogProps) {
   const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = useState<string>("");
@@ -53,25 +48,19 @@ export function ScheduleInspectionDialog({
       toast.error("Please select date and time");
       return;
     }
-
-    // Validate inspection date is before move-out date
     if (selectedDate > moveOutDate) {
       toast.error("Inspection must be scheduled before the move-out date");
       return;
     }
-
-    // Validate inspection date is not in the past
     if (selectedDate < today) {
       toast.error("Inspection date cannot be in the past");
       return;
     }
-
     const [hours, minutes] = selectedTime.split(":").map(Number);
     const scheduledDateTime = setMinutes(setHours(selectedDate, hours), minutes);
 
     setIsSubmitting(true);
     try {
-      // Create inspection record
       const { error: inspectionError } = await supabase
         .from("move_out_inspections")
         .insert({
@@ -80,10 +69,8 @@ export function ScheduleInspectionDialog({
           inspector_id: user?.id,
           status: "scheduled",
         });
-
       if (inspectionError) throw inspectionError;
 
-      // Update timeline
       await supabase
         .from("move_out_timeline")
         .update({ 
@@ -94,7 +81,6 @@ export function ScheduleInspectionDialog({
         .eq("move_out_notice_id", notice.id)
         .eq("step", "inspection_scheduled");
 
-      // Update notice status
       await supabase
         .from("move_out_notices")
         .update({ status: "in_progress" })
@@ -113,7 +99,7 @@ export function ScheduleInspectionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md rounded-2xl">
         <DialogHeader>
           <DialogTitle>Schedule Move-Out Inspection</DialogTitle>
           <DialogDescription>
@@ -123,7 +109,7 @@ export function ScheduleInspectionDialog({
 
         <div className="space-y-6 py-4">
           {/* Info */}
-          <div className="p-4 rounded-lg bg-muted/50 space-y-2">
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/40 space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Move-out date:</span>
               <span className="font-medium">{format(moveOutDate, "MMMM dd, yyyy")}</span>
@@ -142,7 +128,7 @@ export function ScheduleInspectionDialog({
                 <Button
                   variant="outline"
                   className={cn(
-                    "w-full justify-start text-left font-normal",
+                    "w-full justify-start text-left font-normal rounded-xl",
                     !selectedDate && "text-muted-foreground"
                   )}
                 >
@@ -166,7 +152,7 @@ export function ScheduleInspectionDialog({
           <div className="space-y-2">
             <Label>Inspection Time</Label>
             <Select value={selectedTime} onValueChange={setSelectedTime}>
-              <SelectTrigger>
+              <SelectTrigger className="rounded-xl bg-background/60 border-border/50">
                 <Clock className="mr-2 h-4 w-4" />
                 <SelectValue placeholder="Select time" />
               </SelectTrigger>
@@ -181,7 +167,7 @@ export function ScheduleInspectionDialog({
           </div>
 
           {/* Checklist Preview */}
-          <div className="p-4 rounded-lg border space-y-2">
+          <div className="p-4 rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm space-y-2">
             <p className="font-medium text-sm">Inspection will cover:</p>
             <ul className="text-sm text-muted-foreground space-y-1">
               <li>• Walls & ceiling condition</li>
@@ -195,13 +181,13 @@ export function ScheduleInspectionDialog({
 
           {/* Actions */}
           <div className="flex gap-3 pt-4">
-            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 rounded-xl">
               Cancel
             </Button>
             <Button 
               onClick={handleSchedule} 
               disabled={!selectedDate || !selectedTime || isSubmitting}
-              className="flex-1"
+              className="flex-1 rounded-xl gradient-cta"
             >
               {isSubmitting ? "Scheduling..." : "Send Invitation"}
             </Button>

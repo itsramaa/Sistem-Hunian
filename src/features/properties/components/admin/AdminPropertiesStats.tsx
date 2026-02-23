@@ -1,4 +1,3 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { AlertTriangle, Building2, CheckCircle, Home } from "lucide-react";
 import { AdminProperty } from "../../types/admin";
 
@@ -11,58 +10,52 @@ export function AdminPropertiesStats({ properties }: AdminPropertiesStatsProps) 
   const totalOccupied = properties.reduce((acc, curr) => acc + curr.occupiedUnits, 0);
   const occupancyRate = totalUnits > 0 ? Math.round((totalOccupied / totalUnits) * 100) : 0;
 
+  const stats = [
+    {
+      title: "Total Properties",
+      value: properties.length,
+      subtitle: "+12% from last month",
+      icon: Building2,
+    },
+    {
+      title: "Active Listings",
+      value: properties.filter(p => p.status === 'active').length,
+      subtitle: `${properties.filter(p => p.status === 'maintenance').length} in maintenance`,
+      icon: CheckCircle,
+    },
+    {
+      title: "Total Units",
+      value: totalUnits,
+      subtitle: "Across all properties",
+      icon: Home,
+    },
+    {
+      title: "Occupancy Rate",
+      value: `${occupancyRate}%`,
+      subtitle: "Global average",
+      icon: AlertTriangle,
+    },
+  ];
+
   return (
     <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Properties</CardTitle>
-          <Building2 className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{properties.length}</div>
-          <p className="text-xs text-muted-foreground">
-            +12% from last month
-          </p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Active Listings</CardTitle>
-          <CheckCircle className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            {properties.filter(p => p.status === 'active').length}
+      {stats.map((stat) => (
+        <div
+          key={stat.title}
+          className="glass-stat-card group"
+        >
+          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
+            <div className="gradient-icon-box">
+              <stat.icon className="h-4 w-4 text-primary" />
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            {properties.filter(p => p.status === 'maintenance').length} in maintenance
-          </p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Units</CardTitle>
-          <Home className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{totalUnits}</div>
-          <p className="text-xs text-muted-foreground">
-            Across all properties
-          </p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Occupancy Rate</CardTitle>
-          <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{occupancyRate}%</div>
-          <p className="text-xs text-muted-foreground">
-            Global average
-          </p>
-        </CardContent>
-      </Card>
+          <div>
+            <div className="text-3xl font-bold font-display">{stat.value}</div>
+            <p className="text-xs text-muted-foreground mt-1">{stat.subtitle}</p>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

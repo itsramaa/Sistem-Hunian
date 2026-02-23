@@ -15,7 +15,7 @@ interface DeletedItem {
 interface SoftDeleteManagerProps {
   onPermanentDelete: (id: string, type: string) => Promise<void>;
   onRestore: (data: any, type: string) => Promise<void>;
-  undoDuration?: number; // in seconds
+  undoDuration?: number;
 }
 
 export function useSoftDelete({
@@ -27,7 +27,6 @@ export function useSoftDelete({
   const [restoringId, setRestoringId] = useState<string | null>(null);
 
   const handleSoftDelete = useCallback((id: string, type: string, name: string, data: any) => {
-    // Set timeout for permanent deletion
     const timeoutId = setTimeout(async () => {
       try {
         await onPermanentDelete(id, type);
@@ -38,33 +37,19 @@ export function useSoftDelete({
     }, undoDuration * 1000);
 
     const deletedItem: DeletedItem = {
-      id,
-      type,
-      name,
-      data,
-      deletedAt: Date.now(),
-      timeoutId,
+      id, type, name, data, deletedAt: Date.now(), timeoutId,
     };
-
     setDeletedItems(prev => [...prev, deletedItem]);
-
     return true;
   }, [onPermanentDelete, undoDuration]);
 
   const handleUndo = useCallback(async (id: string) => {
     const item = deletedItems.find(i => i.id === id);
     if (!item) return;
-
     setRestoringId(id);
-    
     try {
-      // Clear the permanent delete timeout
       clearTimeout(item.timeoutId);
-      
-      // Restore the item
       await onRestore(item.data, item.type);
-      
-      // Remove from deleted items
       setDeletedItems(prev => prev.filter(i => i.id !== id));
     } catch (error) {
       console.error('Restore failed:', error);
@@ -76,12 +61,10 @@ export function useSoftDelete({
   const dismissItem = useCallback((id: string) => {
     const item = deletedItems.find(i => i.id === id);
     if (item) {
-      // Don't clear timeout - let it complete
       setDeletedItems(prev => prev.filter(i => i.id !== id));
     }
   }, [deletedItems]);
 
-  // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
       deletedItems.forEach(item => clearTimeout(item.timeoutId));
@@ -145,28 +128,30 @@ function UndoToast({
       const elapsed = Date.now() - startTimeRef.current;
       const remaining = Math.max(0, 100 - (elapsed / (duration * 1000)) * 100);
       setProgress(remaining);
-      
       if (remaining <= 0) {
         clearInterval(interval);
       }
     }, 100);
-
     return () => clearInterval(interval);
   }, [duration]);
 
   return (
     <div
       className={cn(
-        "bg-card border shadow-lg rounded-lg p-4 min-w-[300px] max-w-[400px]",
+        "bg-card/95 backdrop-blur-xl border border-border/40 shadow-[0_8px_32px_rgba(0,0,0,0.15)] rounded-2xl p-4 min-w-[300px] max-w-[400px]",
         "animate-in slide-in-from-right-5 duration-200"
       )}
     >
       <div className="flex items-start gap-3">
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 mt-0.5">
           {isRestoring ? (
-            <CheckCircle className="h-5 w-5 text-success animate-pulse" />
+            <div className="w-8 h-8 rounded-full bg-success/10 flex items-center justify-center">
+              <CheckCircle className="h-4 w-4 text-success animate-pulse" />
+            </div>
           ) : (
-            <Trash2 className="h-5 w-5 text-destructive" />
+            <div className="w-8 h-8 rounded-full bg-destructive/10 flex items-center justify-center">
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </div>
           )}
         </div>
         <div className="flex-1 min-w-0">
@@ -183,7 +168,7 @@ function UndoToast({
             size="sm"
             onClick={() => onUndo(item.id)}
             disabled={isRestoring}
-            className="gap-1"
+            className="gap-1 rounded-full"
           >
             <Undo2 className="h-4 w-4" />
             Undo
@@ -193,7 +178,7 @@ function UndoToast({
             size="icon"
             onClick={() => onDismiss(item.id)}
             disabled={isRestoring}
-            className="h-8 w-8"
+            className="h-8 w-8 rounded-full"
           >
             <X className="h-4 w-4" />
           </Button>
@@ -201,9 +186,9 @@ function UndoToast({
       </div>
       
       {/* Progress bar */}
-      <div className="mt-2 h-1 bg-muted rounded-full overflow-hidden">
+      <div className="mt-3 h-1.5 bg-muted rounded-full overflow-hidden">
         <div
-          className="h-full bg-primary transition-all duration-100"
+          className="h-full bg-gradient-to-r from-primary to-accent rounded-full transition-all duration-100"
           style={{ width: `${progress}%` }}
         />
       </div>

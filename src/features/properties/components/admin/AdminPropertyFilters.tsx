@@ -25,19 +25,19 @@ export function AdminPropertyFilters({
   const hasActiveFilters = searchQuery || statusFilter !== "all" || typeFilter !== "all";
 
   return (
-    <div className="flex flex-col space-y-4">
+    <div className="glass-filter-bar">
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search properties, merchants, or cities..."
-            className="pl-8"
+            className="pl-10 rounded-xl bg-background/60 border-border/50"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
           />
         </div>
         {hasActiveFilters && (
-          <Button variant="ghost" onClick={onResetFilters} className="px-3">
+          <Button variant="ghost" onClick={onResetFilters} className="px-3 rounded-full">
             <X className="mr-2 h-4 w-4" />
             Reset
           </Button>
@@ -45,7 +45,7 @@ export function AdminPropertyFilters({
       </div>
       <div className="flex flex-wrap gap-4">
         <Select value={typeFilter} onValueChange={onTypeFilterChange}>
-          <SelectTrigger className="w-full sm:w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px] rounded-xl bg-background/60">
             <SelectValue placeholder="All Types" />
           </SelectTrigger>
           <SelectContent>
@@ -58,7 +58,7 @@ export function AdminPropertyFilters({
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-          <SelectTrigger className="w-full sm:w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px] rounded-xl bg-background/60">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4" />
               <SelectValue placeholder="All Status" />

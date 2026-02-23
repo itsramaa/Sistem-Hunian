@@ -65,23 +65,17 @@ export function PropertySetupWizard({ onComplete, onCancel, initialData }: Prope
 
   const validateStep = (step: number): boolean => {
     const newErrors: Record<string, string> = {};
-    
     switch (step) {
-      case 0: // Basic Info
+      case 0:
         if (!formData.name.trim()) newErrors.name = 'Property name is required';
         if (formData.name.length > 100) newErrors.name = 'Name must be less than 100 characters';
         break;
-      case 1: // Location
+      case 1:
         if (!formData.province) newErrors.province = 'Province is required';
         if (!formData.city) newErrors.city = 'City is required';
         if (!formData.address.trim()) newErrors.address = 'Address is required';
         break;
-      case 2: // Photos - optional
-        break;
-      case 3: // Amenities - optional
-        break;
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -117,10 +111,17 @@ export function PropertySetupWizard({ onComplete, onCancel, initialData }: Prope
           <span className="font-medium">Step {currentStep + 1} of {STEPS.length}</span>
           <span className="text-muted-foreground">{Math.round(progress)}% complete</span>
         </div>
-        <Progress value={progress} className="h-2" />
+        <Progress value={progress} className="h-2.5 rounded-full" />
         
-        {/* Step indicators */}
-        <div className="flex justify-between">
+        {/* Step indicators - connected dots */}
+        <div className="flex justify-between relative">
+          {/* Connector line */}
+          <div className="absolute top-5 left-[10%] right-[10%] h-0.5 bg-border/50" />
+          <div 
+            className="absolute top-5 left-[10%] h-0.5 bg-primary transition-all duration-500" 
+            style={{ width: `${(currentStep / (STEPS.length - 1)) * 80}%` }}
+          />
+          
           {STEPS.map((step, index) => {
             const StepIcon = step.icon;
             const isCompleted = index < currentStep;
@@ -130,16 +131,16 @@ export function PropertySetupWizard({ onComplete, onCancel, initialData }: Prope
               <div
                 key={step.id}
                 className={cn(
-                  "flex flex-col items-center gap-2",
+                  "flex flex-col items-center gap-2 relative z-10",
                   isCurrent ? "text-primary" : isCompleted ? "text-success" : "text-muted-foreground"
                 )}
               >
                 <div
                   className={cn(
-                    "flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all",
-                    isCompleted && "bg-success border-success text-success-foreground",
-                    isCurrent && "border-primary bg-primary/10",
-                    !isCompleted && !isCurrent && "border-muted"
+                    "flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-300",
+                    isCompleted && "bg-success border-success text-success-foreground shadow-sm",
+                    isCurrent && "border-primary bg-primary/10 shadow-[0_0_12px_hsl(var(--primary)/0.3)]",
+                    !isCompleted && !isCurrent && "border-muted bg-muted/30"
                   )}
                 >
                   {isCompleted ? (
@@ -159,7 +160,7 @@ export function PropertySetupWizard({ onComplete, onCancel, initialData }: Prope
       </div>
 
       {/* Step Content */}
-      <Card>
+      <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
         <CardHeader>
           <CardTitle>{STEPS[currentStep].title}</CardTitle>
           <CardDescription>{STEPS[currentStep].description}</CardDescription>
@@ -174,7 +175,7 @@ export function PropertySetupWizard({ onComplete, onCancel, initialData }: Prope
                   placeholder="e.g., Kost Harmoni"
                   value={formData.name}
                   onChange={(e) => updateField('name', e.target.value)}
-                  className={errors.name ? 'border-destructive' : ''}
+                  className={cn("rounded-xl bg-background/60 border-border/50", errors.name && 'border-destructive')}
                 />
                 {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
               </div>
@@ -184,7 +185,7 @@ export function PropertySetupWizard({ onComplete, onCancel, initialData }: Prope
                   value={formData.property_type}
                   onValueChange={(v) => updateField('property_type', v)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="rounded-xl bg-background/60 border-border/50">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -202,6 +203,7 @@ export function PropertySetupWizard({ onComplete, onCancel, initialData }: Prope
                   value={formData.description}
                   onChange={(e) => updateField('description', e.target.value)}
                   rows={3}
+                  className="rounded-xl bg-background/60 border-border/50"
                 />
               </div>
             </>
@@ -236,6 +238,7 @@ export function PropertySetupWizard({ onComplete, onCancel, initialData }: Prope
                   value={formData.postal_code}
                   onChange={(e) => updateField('postal_code', e.target.value)}
                   maxLength={10}
+                  className="rounded-xl bg-background/60 border-border/50"
                 />
               </div>
             </>
@@ -267,11 +270,12 @@ export function PropertySetupWizard({ onComplete, onCancel, initialData }: Prope
         <Button
           variant="outline"
           onClick={currentStep === 0 ? onCancel : handlePrev}
+          className="rounded-xl"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           {currentStep === 0 ? 'Cancel' : 'Previous'}
         </Button>
-        <Button onClick={handleNext}>
+        <Button onClick={handleNext} className="rounded-xl gradient-cta">
           {currentStep === STEPS.length - 1 ? 'Create Property' : 'Next'}
           {currentStep < STEPS.length - 1 && <ArrowRight className="h-4 w-4 ml-2" />}
         </Button>

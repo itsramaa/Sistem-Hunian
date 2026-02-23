@@ -36,7 +36,7 @@ export function AdminPropertiesTable({ properties, onStatusChange }: AdminProper
     return (
       <Badge 
         variant="outline" 
-        className={cn("capitalize", statusStyles[status] || statusStyles.inactive)}
+        className={cn("capitalize rounded-full", statusStyles[status] || statusStyles.inactive)}
       >
         {status}
       </Badge>
@@ -51,7 +51,7 @@ export function AdminPropertiesTable({ properties, onStatusChange }: AdminProper
     return (
       <Badge 
         variant="outline" 
-        className={cn("capitalize", typeStyles[type] || "")}
+        className={cn("capitalize rounded-full", typeStyles[type] || "")}
       >
         {type}
       </Badge>
@@ -59,29 +59,31 @@ export function AdminPropertiesTable({ properties, onStatusChange }: AdminProper
   };
 
   return (
-    <div className="rounded-md border bg-card">
+    <div className="glass-table">
       <Table>
         <TableHeader>
-          <TableRow>
-            <TableHead>Property Name</TableHead>
-            <TableHead className="hidden md:table-cell">Merchant</TableHead>
-            <TableHead className="hidden lg:table-cell">Type</TableHead>
-            <TableHead className="hidden md:table-cell">Location</TableHead>
-            <TableHead className="hidden sm:table-cell">Occupancy</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+          <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 hover:from-muted/80 hover:to-muted/40">
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Property Name</TableHead>
+            <TableHead className="hidden md:table-cell font-semibold text-xs uppercase tracking-wider">Merchant</TableHead>
+            <TableHead className="hidden lg:table-cell font-semibold text-xs uppercase tracking-wider">Type</TableHead>
+            <TableHead className="hidden md:table-cell font-semibold text-xs uppercase tracking-wider">Location</TableHead>
+            <TableHead className="hidden sm:table-cell font-semibold text-xs uppercase tracking-wider">Occupancy</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Status</TableHead>
+            <TableHead className="text-right font-semibold text-xs uppercase tracking-wider">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {properties.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                No properties found matching your filters.
+              <TableCell colSpan={7} className="text-center py-12">
+                <div className="bg-gradient-to-br from-primary/5 via-muted/30 to-accent/5 rounded-xl p-6 mx-auto max-w-sm">
+                  <p className="text-muted-foreground">No properties found matching your filters.</p>
+                </div>
               </TableCell>
             </TableRow>
           ) : (
             properties.map((property) => (
-              <TableRow key={property.id}>
+              <TableRow key={property.id} className="hover:bg-primary/5 transition-colors">
                 <TableCell className="font-medium">
                   <div className="flex flex-col">
                     <span>{property.name}</span>
@@ -110,12 +112,12 @@ export function AdminPropertiesTable({ properties, onStatusChange }: AdminProper
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
+                      <Button variant="ghost" className="h-8 w-8 p-0 rounded-full">
                         <span className="sr-only">Open menu</span>
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                    <DropdownMenuContent align="end" className="rounded-xl">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
                       <DropdownMenuItem onClick={() => toast.info(`Viewing details for ${property.name}`)}>
                         <Eye className="mr-2 h-4 w-4" />

@@ -25,7 +25,6 @@ export function ProvincesCitiesSelect({
   const { data: provinces = [], isLoading: loadingProvinces } = useProvinces();
   const { data: cities = [], isLoading: loadingCities } = useCities(selectedProvinceId);
 
-  // Set initial province ID from value
   useEffect(() => {
     if (provinceValue && provinces.length > 0) {
       const province = provinces.find(p => p.name === provinceValue);
@@ -40,7 +39,7 @@ export function ProvincesCitiesSelect({
     if (province) {
       setSelectedProvinceId(value);
       onProvinceChange(province.name);
-      onCityChange(''); // Reset city when province changes
+      onCityChange('');
     }
   };
 
@@ -62,7 +61,7 @@ export function ProvincesCitiesSelect({
           onValueChange={handleProvinceChange}
           disabled={loadingProvinces}
         >
-          <SelectTrigger>
+          <SelectTrigger className="rounded-xl bg-background/60 border-border/50">
             <SelectValue placeholder={loadingProvinces ? "Memuat..." : "Pilih provinsi"} />
           </SelectTrigger>
           <SelectContent>
@@ -85,7 +84,7 @@ export function ProvincesCitiesSelect({
           onValueChange={handleCityChange}
           disabled={!selectedProvinceId || loadingCities}
         >
-          <SelectTrigger>
+          <SelectTrigger className="rounded-xl bg-background/60 border-border/50">
             <SelectValue placeholder={
               loadingCities ? "Memuat..." : 
               !selectedProvinceId ? "Pilih provinsi dulu" : 
