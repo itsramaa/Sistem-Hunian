@@ -10,23 +10,27 @@ import { Upload, Download, FileText, CheckCircle2, XCircle, Loader2 } from "luci
 import { toast } from "sonner";
 import { ColumnMapper, MappingField } from "@/shared/components/ColumnMapper";
 
-const propertySchema = z.object({
-  name: z.string().min(1, "Nama wajib diisi"),
-  property_type: z.enum(["kost", "kontrakan", "apartemen", "rumah", "lainnya"]).default("kost"),
-  address: z.string().min(1, "Alamat wajib diisi"),
-  city: z.string().min(1, "Kota wajib diisi"),
-  province: z.string().min(1, "Provinsi wajib diisi"),
-  postal_code: z.string().optional(),
-  description: z.string().optional(),
+const unitImportSchema = z.object({
+  property_id: z.string().min(1, "Property ID wajib diisi"),
+  unit_number: z.string().min(1, "Nomor unit wajib diisi"),
+  unit_type: z.string().min(1, "Tipe unit wajib diisi"),
+  floor: z.coerce.number().int().min(0).nullable().optional(),
+  size_sqm: z.coerce.number().min(0).nullable().optional(),
+  rent_amount: z.coerce.number().min(1, "Harga sewa harus lebih dari 0"),
+  deposit_amount: z.coerce.number().min(0).nullable().optional(),
+  status: z.enum(["available", "occupied", "maintenance", "reserved"]).default("available"),
+  description: z.string().optional().nullable(),
 });
 
-const PROPERTY_FIELDS: MappingField[] = [
-  { key: 'name', label: 'Nama Properti', required: true },
-  { key: 'property_type', label: 'Tipe Properti', required: false },
-  { key: 'address', label: 'Alamat', required: true },
-  { key: 'city', label: 'Kota', required: true },
-  { key: 'province', label: 'Provinsi', required: true },
-  { key: 'postal_code', label: 'Kode Pos', required: false },
+const UNIT_FIELDS: MappingField[] = [
+  { key: 'property_id', label: 'Property ID', required: true },
+  { key: 'unit_number', label: 'Nomor Unit', required: true },
+  { key: 'unit_type', label: 'Tipe Unit', required: true },
+  { key: 'rent_amount', label: 'Harga Sewa', required: true },
+  { key: 'status', label: 'Status', required: false },
+  { key: 'floor', label: 'Lantai', required: false },
+  { key: 'size_sqm', label: 'Luas (m²)', required: false },
+  { key: 'deposit_amount', label: 'Deposit', required: false },
   { key: 'description', label: 'Deskripsi', required: false },
 ];
 
@@ -37,10 +41,11 @@ type ParsedRow = {
   index: number;
 };
 
-interface PropertyImportDialogProps {
+interface UnitImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  properties: { id: string; name: string }[];
 }
 
 function parseCSV(text: string): { headers: string[]; rows: Record<string, string>[] } {
@@ -74,7 +79,7 @@ function applyMapping(rows: Record<string, string>[], mapping: Record<string, st
   });
 }
 
-export function PropertyImportDialog({ open, onOpenChange, onSuccess }: PropertyImportDialogProps) {
+export function UnitImportDialog({ open, onOpenChange, onSuccess, properties }: UnitImportDialogProps) {
   const { merchant } = useAuth();
   const [step, setStep] = useState<"upload" | "mapping" | "preview" | "importing" | "done">("upload");
   const [rawRows, setRawRows] = useState<Record<string, string>[]>([]);
@@ -103,7 +108,7 @@ export function PropertyImportDialog({ open, onOpenChange, onSuccess }: Property
   const handleMappingConfirm = (mapping: Record<string, string>) => {
     const mappedRows = applyMapping(rawRows, mapping);
     const validated = mappedRows.map((data, index) => {
-      const result = propertySchema.safeParse(data);
+      const result = unitImportSchema.safeParse(data);
       return { data, valid: result.success, errors: result.success ? [] : result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`), index };
     });
     setParsedRows(validated);
@@ -123,15 +128,16 @@ export function PropertyImportDialog({ open, onOpenChange, onSuccess }: Property
     for (let i = 0; i < validRows.length; i++) {
       const row = validRows[i];
       try {
-        const parsed = propertySchema.parse(row.data);
-        const { error } = await supabase.from("properties").insert({
-          merchant_id: merchant.id,
-          name: parsed.name,
-          property_type: parsed.property_type,
-          address: parsed.address,
-          city: parsed.city,
-          province: parsed.province,
-          postal_code: parsed.postal_code || null,
+        const parsed = unitImportSchema.parse(row.data);
+        const { error } = await supabase.from("units").insert({
+          property_id: parsed.property_id,
+          unit_number: parsed.unit_number,
+          unit_type: parsed.unit_type,
+          floor: parsed.floor || null,
+          size_sqm: parsed.size_sqm || null,
+          rent_amount: parsed.rent_amount,
+          deposit_amount: parsed.deposit_amount || null,
+          status: parsed.status,
           description: parsed.description || null,
         });
         if (error) { failed++; errors.push(`Baris ${row.index + 2}: ${error.message}`); }
@@ -146,12 +152,13 @@ export function PropertyImportDialog({ open, onOpenChange, onSuccess }: Property
   };
 
   const downloadTemplate = () => {
-    const template = "name,property_type,address,city,province,postal_code,description\nKosan ABC,kost,Jl. Sudirman 123,Jakarta Selatan,DKI Jakarta,12345,Kosan nyaman dekat kampus\nKontrakan XYZ,kontrakan,Jl. Gatot Subroto 45,Bandung,Jawa Barat,40123,Kontrakan 2 lantai";
+    const propIds = properties.slice(0, 2).map(p => p.id).join('\n');
+    const template = `property_id,unit_number,unit_type,rent_amount,status,floor,size_sqm,deposit_amount,description\n${properties[0]?.id || 'PROPERTY_ID_HERE'},A101,single,1500000,available,1,12,1500000,Unit nyaman\n${properties[0]?.id || 'PROPERTY_ID_HERE'},A102,double,2000000,available,1,16,2000000,Unit luas`;
     const blob = new Blob([template], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "template_import_properti.csv";
+    a.download = "template_import_unit.csv";
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -163,12 +170,21 @@ export function PropertyImportDialog({ open, onOpenChange, onSuccess }: Property
     <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><Upload className="h-5 w-5" /> Import Properti dari CSV</DialogTitle>
-          <DialogDescription>Upload file CSV untuk import data properti secara massal</DialogDescription>
+          <DialogTitle className="flex items-center gap-2"><Upload className="h-5 w-5" /> Import Unit dari CSV</DialogTitle>
+          <DialogDescription>Upload file CSV untuk import data unit secara massal. Pastikan property_id valid.</DialogDescription>
         </DialogHeader>
 
         {step === "upload" && (
           <div className="space-y-4">
+            {properties.length > 0 && (
+              <div className="bg-muted/50 rounded-lg p-3 text-xs space-y-1">
+                <p className="font-medium text-sm">Property ID Reference:</p>
+                {properties.slice(0, 5).map(p => (
+                  <p key={p.id} className="text-muted-foreground font-mono">{p.id} — {p.name}</p>
+                ))}
+                {properties.length > 5 && <p className="text-muted-foreground">...dan {properties.length - 5} lainnya</p>}
+              </div>
+            )}
             <div
               className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${dragOver ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-primary/50"}`}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -178,7 +194,7 @@ export function PropertyImportDialog({ open, onOpenChange, onSuccess }: Property
             >
               <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
               <p className="text-sm font-medium">Drag & drop file CSV atau klik untuk memilih</p>
-              <p className="text-xs text-muted-foreground mt-1">Format: name, property_type, address, city, province, postal_code, description</p>
+              <p className="text-xs text-muted-foreground mt-1">Kolom: property_id, unit_number, unit_type, rent_amount, status, floor, size_sqm</p>
             </div>
             <Button variant="outline" size="sm" onClick={downloadTemplate}><Download className="h-4 w-4 mr-2" /> Download Template CSV</Button>
           </div>
@@ -186,13 +202,8 @@ export function PropertyImportDialog({ open, onOpenChange, onSuccess }: Property
 
         {step === "mapping" && (
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">Petakan kolom CSV ke field yang sesuai. Kolom yang cocok otomatis terpilih.</p>
-            <ColumnMapper
-              csvHeaders={csvHeaders}
-              requiredFields={PROPERTY_FIELDS}
-              onConfirm={handleMappingConfirm}
-              onCancel={reset}
-            />
+            <p className="text-sm text-muted-foreground">Petakan kolom CSV ke field yang sesuai.</p>
+            <ColumnMapper csvHeaders={csvHeaders} requiredFields={UNIT_FIELDS} onConfirm={handleMappingConfirm} onCancel={reset} />
           </div>
         )}
 
@@ -207,9 +218,9 @@ export function PropertyImportDialog({ open, onOpenChange, onSuccess }: Property
                 <thead className="bg-muted/50 sticky top-0">
                   <tr>
                     <th className="p-2 text-left">#</th>
-                    <th className="p-2 text-left">Nama</th>
+                    <th className="p-2 text-left">Unit</th>
                     <th className="p-2 text-left">Tipe</th>
-                    <th className="p-2 text-left">Kota</th>
+                    <th className="p-2 text-left">Sewa</th>
                     <th className="p-2 text-left">Status</th>
                   </tr>
                 </thead>
@@ -217,9 +228,9 @@ export function PropertyImportDialog({ open, onOpenChange, onSuccess }: Property
                   {parsedRows.map((row) => (
                     <tr key={row.index} className={`border-t ${!row.valid ? "bg-destructive/5" : ""}`}>
                       <td className="p-2">{row.index + 2}</td>
-                      <td className="p-2">{row.data.name || "-"}</td>
-                      <td className="p-2">{row.data.property_type || "-"}</td>
-                      <td className="p-2">{row.data.city || "-"}</td>
+                      <td className="p-2">{row.data.unit_number || "-"}</td>
+                      <td className="p-2">{row.data.unit_type || "-"}</td>
+                      <td className="p-2">{row.data.rent_amount || "-"}</td>
                       <td className="p-2">
                         {row.valid ? <CheckCircle2 className="h-4 w-4 text-success" /> : (
                           <span className="text-destructive" title={row.errors.join(", ")}><XCircle className="h-4 w-4 inline" /> {row.errors[0]}</span>
@@ -232,7 +243,7 @@ export function PropertyImportDialog({ open, onOpenChange, onSuccess }: Property
             </div>
             <div className="flex gap-3 justify-end">
               <Button variant="outline" onClick={() => setStep("mapping")}>Kembali</Button>
-              <Button onClick={handleImport} disabled={validCount === 0}>Import {validCount} Properti</Button>
+              <Button onClick={handleImport} disabled={validCount === 0}>Import {validCount} Unit</Button>
             </div>
           </div>
         )}
@@ -240,7 +251,7 @@ export function PropertyImportDialog({ open, onOpenChange, onSuccess }: Property
         {step === "importing" && (
           <div className="space-y-4 py-6 text-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
-            <p className="text-sm text-muted-foreground">Mengimport properti...</p>
+            <p className="text-sm text-muted-foreground">Mengimport unit...</p>
             <Progress value={importProgress} />
             <p className="text-xs text-muted-foreground">{importProgress}%</p>
           </div>
