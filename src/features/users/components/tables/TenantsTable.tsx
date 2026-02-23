@@ -69,6 +69,7 @@ export function TenantsTable({
   const getStatusBadge = (status: string) => {
     const config: Record<string, { className: string; label: string }> = {
       active: { className: 'bg-success/10 text-success border-success/30', label: 'Active' },
+      linked: { className: 'bg-info/10 text-info border-info/30', label: 'Linked' },
       suspended: { className: 'bg-destructive/10 text-destructive border-destructive/30', label: 'Suspended' },
       pending: { className: 'bg-warning/10 text-warning border-warning/30', label: 'Pending' },
       pending_signature: { className: 'bg-warning/10 text-warning border-warning/30', label: 'Pending' },

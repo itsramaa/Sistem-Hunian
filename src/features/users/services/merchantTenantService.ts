@@ -35,7 +35,8 @@ export const merchantTenantService = {
   },
 
   async getActiveTenants(merchantId: string): Promise<ActiveTenant[]> {
-    const { data, error } = await supabase
+    // Fetch tenants with contracts
+    const { data: contractData, error: contractError } = await supabase
       .from('contracts')
       .select(`
         id, 
@@ -50,22 +51,53 @@ export const merchantTenantService = {
       .eq('merchant_id', merchantId)
       .in('status', ['active', 'pending_signature', 'notice']);
 
-    if (error) throw error;
+    if (contractError) throw contractError;
 
-    if (!data || data.length === 0) return [];
+    // Also fetch tenants linked to merchant (without contracts)
+    const { data: linkedTenants, error: linkedError } = await supabase
+      .from('tenants')
+      .select('user_id, current_unit_id')
+      .eq('linked_merchant_id', merchantId);
 
-    const tenantUserIds = data.map(c => c.tenant_user_id);
+    if (linkedError) throw linkedError;
+
+    // Collect all unique user IDs
+    const contractUserIds = (contractData || []).map(c => c.tenant_user_id);
+    const linkedUserIds = (linkedTenants || []).map(t => t.user_id);
+    const allUserIds = [...new Set([...contractUserIds, ...linkedUserIds])];
+
+    if (allUserIds.length === 0) return [];
+
     const { data: profiles } = await supabase
       .from('profiles')
       .select('user_id, full_name, email, phone')
-      .in('user_id', tenantUserIds);
+      .in('user_id', allUserIds);
 
     const profileMap = new Map((profiles || []).map(p => [p.user_id, p]));
 
-    return data.map((contract: any) => ({
+    // Build results from contracts
+    const contractTenants = (contractData || []).map((contract: any) => ({
       ...contract,
       profile: profileMap.get(contract.tenant_user_id) || null
-    })) as ActiveTenant[];
+    }));
+
+    // Add linked tenants that don't have contracts yet
+    const contractUserIdSet = new Set(contractUserIds);
+    const linkedOnlyTenants = (linkedTenants || [])
+      .filter(t => !contractUserIdSet.has(t.user_id))
+      .map(t => ({
+        id: `linked-${t.user_id}`,
+        status: 'linked',
+        start_date: '',
+        end_date: '',
+        rent_amount: 0,
+        deposit_amount: null,
+        tenant_user_id: t.user_id,
+        unit: null,
+        profile: profileMap.get(t.user_id) || null,
+      }));
+
+    return [...contractTenants, ...linkedOnlyTenants] as ActiveTenant[];
   },
 
   async getTenantProfiles(userIds: string[]) {
@@ -213,57 +245,92 @@ export const merchantTenantService = {
     await logStatusChange('contract', contract.id, currentStatus, 'terminated');
   },
 
-  async addTenantDirectly(merchantId: string, data: AddTenantFormData) {
-    // Check if user exists by email
-    const { data: existingProfile } = await supabase
-      .from('profiles')
+  async getAllTenantsInSystem(): Promise<{ user_id: string; full_name: string | null; email: string | null; phone: string | null }[]> {
+    const { data, error } = await supabase
+      .from('tenants')
       .select('user_id')
-      .eq('email', data.email.toLowerCase().trim())
-      .maybeSingle();
+      .order('created_at', { ascending: false });
 
-    if (existingProfile) {
-      // User exists - create contract directly
-      const { error: contractError } = await supabase
-        .from('contracts')
-        .insert({
-          merchant_id: merchantId,
-          unit_id: data.unit_id,
-          tenant_user_id: existingProfile.user_id,
-          start_date: data.start_date,
-          end_date: data.end_date,
-          rent_amount: data.rent_amount,
-          deposit_amount: data.deposit_amount || null,
-          billing_day: data.billing_day || 1,
-          status: 'pending_signature',
-        });
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
 
-      if (contractError) throw contractError;
+    const userIds = data.map(t => t.user_id);
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('user_id, full_name, email, phone')
+      .in('user_id', userIds);
 
-      // Link tenant to merchant
-      await supabase
-        .from('tenants')
-        .update({ linked_merchant_id: merchantId, current_unit_id: data.unit_id })
-        .eq('user_id', existingProfile.user_id);
+    if (profilesError) throw profilesError;
+    return profiles || [];
+  },
 
+  async addTenantDirectly(merchantId: string, data: AddTenantFormData) {
+    const tenantUserId = (data as any).tenant_user_id as string | undefined;
+    
+    let userId: string;
+
+    if (tenantUserId) {
+      // Existing tenant selected - use their user_id directly
+      userId = tenantUserId;
     } else {
-      // User doesn't exist - create invitation
-      const { error: invError } = await supabase
-        .from('tenant_invitations')
-        .insert({
-          merchant_id: merchantId,
-          unit_id: data.unit_id,
-          email: data.email.toLowerCase().trim(),
-          phone: data.phone || null,
-        });
+      // Fallback: Check if user exists by email
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('email', data.email.toLowerCase().trim())
+        .maybeSingle();
 
-      if (invError) throw invError;
+      if (!existingProfile) {
+        // User doesn't exist - create invitation instead
+        const { error: invError } = await supabase
+          .from('tenant_invitations')
+          .insert({
+            merchant_id: merchantId,
+            unit_id: data.unit_id,
+            email: data.email.toLowerCase().trim(),
+            phone: data.phone || null,
+          });
+        if (invError) throw invError;
+
+        await createAuditLog({
+          action: 'create',
+          entityType: 'tenant',
+          entityId: data.email,
+          newData: { unit_id: data.unit_id, email: data.email, existing_user: false },
+        });
+        return;
+      }
+      userId = existingProfile.user_id;
     }
+
+    // Create contract directly
+    const { error: contractError } = await supabase
+      .from('contracts')
+      .insert({
+        merchant_id: merchantId,
+        unit_id: data.unit_id,
+        tenant_user_id: userId,
+        start_date: data.start_date,
+        end_date: data.end_date,
+        rent_amount: data.rent_amount,
+        deposit_amount: data.deposit_amount || null,
+        billing_day: data.billing_day || 1,
+        status: 'active',
+      });
+
+    if (contractError) throw contractError;
+
+    // Link tenant to merchant
+    await supabase
+      .from('tenants')
+      .update({ linked_merchant_id: merchantId, current_unit_id: data.unit_id })
+      .eq('user_id', userId);
 
     await createAuditLog({
       action: 'create',
       entityType: 'tenant',
-      entityId: data.email,
-      newData: { unit_id: data.unit_id, email: data.email, existing_user: !!existingProfile },
+      entityId: userId,
+      newData: { unit_id: data.unit_id, tenant_user_id: userId, status: 'active' },
     });
   }
 };
