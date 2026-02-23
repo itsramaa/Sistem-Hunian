@@ -4,21 +4,20 @@ import { supabase } from '@/lib/integrations/supabase/client';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { format, addMonths } from 'date-fns';
 import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 import { TrendingUp } from 'lucide-react';
+
+const tooltipStyle = {
+  backgroundColor: 'hsl(var(--card))',
+  border: '1px solid hsl(var(--border) / 0.4)',
+  borderRadius: '16px',
+  backdropFilter: 'blur(8px)',
+};
 
 export function RevenueForecast() {
   const { merchant } = useAuth();
 
-  // Fetch active contracts
   const { data: contracts = [] } = useQuery({
     queryKey: ['active-contracts-forecast', merchant?.id],
     queryFn: async () => {
@@ -34,7 +33,6 @@ export function RevenueForecast() {
     enabled: !!merchant?.id,
   });
 
-  // Fetch historical payments for comparison
   const { data: payments = [] } = useQuery({
     queryKey: ['historical-payments-forecast', merchant?.id],
     queryFn: async () => {
@@ -51,12 +49,10 @@ export function RevenueForecast() {
     enabled: !!merchant?.id,
   });
 
-  // Calculate forecast data for next 6 months
   const generateForecastData = () => {
     const data = [];
     const today = new Date();
     
-    // Historical data (last 3 months)
     for (let i = 2; i >= 0; i--) {
       const monthDate = addMonths(today, -i);
       const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
@@ -70,20 +66,14 @@ export function RevenueForecast() {
         })
         .reduce((sum, p) => sum + Number(p.amount), 0);
 
-      data.push({
-        month: format(monthDate, 'MMM yyyy'),
-        actual: monthRevenue,
-        forecast: null,
-      });
+      data.push({ month: format(monthDate, 'MMM yyyy'), actual: monthRevenue, forecast: null });
     }
 
-    // Forecast data (next 6 months)
     for (let i = 1; i <= 6; i++) {
       const monthDate = addMonths(today, i);
       const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
       const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
       
-      // Calculate projected revenue based on active contracts
       const projectedRevenue = contracts
         .filter(c => {
           const startDate = new Date(c.start_date);
@@ -92,11 +82,7 @@ export function RevenueForecast() {
         })
         .reduce((sum, c) => sum + Number(c.rent_amount), 0);
 
-      data.push({
-        month: format(monthDate, 'MMM yyyy'),
-        actual: null,
-        forecast: projectedRevenue,
-      });
+      data.push({ month: format(monthDate, 'MMM yyyy'), actual: null, forecast: projectedRevenue });
     }
 
     return data;
@@ -104,30 +90,27 @@ export function RevenueForecast() {
 
   const forecastData = generateForecastData();
 
-  // Calculate total projected revenue for next 6 months
   const totalForecast = forecastData
     .filter(d => d.forecast !== null)
     .reduce((sum, d) => sum + (d.forecast || 0), 0);
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(value);
+  const formatCurrencyLocal = (value: number) => {
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
   };
 
   return (
-    <Card>
+    <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
+          <CardTitle className="flex items-center gap-2.5">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+              <TrendingUp className="h-4.5 w-4.5 text-primary" />
+            </div>
             Revenue Forecast
           </CardTitle>
-          <div className="text-right">
-            <p className="text-sm text-muted-foreground">Next 6 months projection</p>
-            <p className="text-lg font-bold text-primary">{formatCurrency(totalForecast)}</p>
+          <div className="text-right rounded-xl bg-primary/10 px-4 py-2.5">
+            <p className="text-xs text-muted-foreground">Next 6 months projection</p>
+            <p className="text-lg font-bold text-primary">{formatCurrencyLocal(totalForecast)}</p>
           </div>
         </div>
       </CardHeader>
@@ -137,48 +120,21 @@ export function RevenueForecast() {
             <AreaChart data={forecastData}>
               <defs>
                 <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.25} />
                   <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="colorForecast" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--accent))" stopOpacity={0.3} />
+                  <stop offset="5%" stopColor="hsl(var(--accent))" stopOpacity={0.25} />
                   <stop offset="95%" stopColor="hsl(var(--accent))" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted/50" />
               <XAxis dataKey="month" className="text-xs" />
-              <YAxis 
-                tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`} 
-                className="text-xs" 
-              />
-              <Tooltip
-                formatter={(value: number) => [formatCurrency(value), '']}
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px',
-                }}
-              />
+              <YAxis tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`} className="text-xs" />
+              <Tooltip formatter={(value: number) => [formatCurrencyLocal(value), '']} contentStyle={tooltipStyle} />
               <Legend />
-              <Area
-                type="monotone"
-                dataKey="actual"
-                name="Actual Revenue"
-                stroke="hsl(var(--primary))"
-                fill="url(#colorActual)"
-                strokeWidth={2}
-                connectNulls={false}
-              />
-              <Area
-                type="monotone"
-                dataKey="forecast"
-                name="Projected Revenue"
-                stroke="hsl(var(--accent))"
-                fill="url(#colorForecast)"
-                strokeWidth={2}
-                strokeDasharray="5 5"
-                connectNulls={false}
-              />
+              <Area type="monotone" dataKey="actual" name="Actual Revenue" stroke="hsl(var(--primary))" fill="url(#colorActual)" strokeWidth={2} connectNulls={false} />
+              <Area type="monotone" dataKey="forecast" name="Projected Revenue" stroke="hsl(var(--accent))" fill="url(#colorForecast)" strokeWidth={2} strokeDasharray="5 5" connectNulls={false} />
             </AreaChart>
           </ResponsiveContainer>
         </div>

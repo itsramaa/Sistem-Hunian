@@ -26,6 +26,14 @@ import { ContractNoticePeriod } from '@/features/contracts/components/ContractNo
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--muted))', 'hsl(var(--success))', 'hsl(var(--warning))'];
 
+const tooltipStyle = {
+  backgroundColor: 'hsl(var(--card))',
+  border: '1px solid hsl(var(--border) / 0.4)',
+  borderRadius: '16px',
+  backdropFilter: 'blur(8px)',
+  boxShadow: '0 8px 32px -8px hsl(var(--foreground) / 0.1)',
+};
+
 export default function MerchantReports() {
   const { merchant } = useAuth();
   const [timeRange, setTimeRange] = useState('6');
@@ -58,18 +66,54 @@ export default function MerchantReports() {
     setCustomDateRange({ from: undefined, to: undefined });
   };
 
+  const kpiCards = [
+    {
+      label: "Total Revenue",
+      value: formatCurrency(totalRevenue),
+      icon: DollarSign,
+      iconBg: "from-success/20 to-success/5",
+      iconColor: "text-success",
+      trend: revenueChange,
+      trendLabel: `${revenueChange >= 0 ? '+' : ''}${revenueChange}% from previous period`,
+    },
+    {
+      label: "Occupancy Rate",
+      value: `${occupancyRate}%`,
+      icon: Building2,
+      iconBg: "from-info/20 to-info/5",
+      iconColor: "text-info",
+      subtext: `${occupiedUnits} of ${totalUnits} units`,
+    },
+    {
+      label: "Pending Payments",
+      value: formatCurrency(pendingPayments),
+      icon: DollarSign,
+      iconBg: "from-warning/20 to-warning/5",
+      iconColor: "text-warning",
+      subtext: `${payments.filter(p => p.status === 'pending').length} invoices due`,
+    },
+    {
+      label: "Active Requests",
+      value: `${maintenanceRequests.filter(r => r.status !== 'completed').length}`,
+      icon: Wrench,
+      iconBg: "from-accent/20 to-accent/5",
+      iconColor: "text-accent-foreground",
+      subtext: `${maintenanceRequests.filter(r => r.status === 'completed').length} completed`,
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <PageHeader icon={BarChart3} title="Reports & Analytics" description="Track your property performance">
         <div className="flex items-center gap-2 flex-wrap">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" disabled={!!exportLoading}>
+              <Button variant="outline" disabled={!!exportLoading} className="rounded-xl">
                 {exportLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
                 Export
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="rounded-xl">
               <DropdownMenuItem onClick={handleExportPDF} disabled={!!exportLoading}>
                 <FileText className="h-4 w-4 mr-2" />
                 Export as PDF
@@ -89,16 +133,16 @@ export default function MerchantReports() {
             onChange={(range) => setCustomDateRange({ from: range?.from, to: range?.to })}
           />
           {customDateRange.from && (
-            <Button variant="ghost" size="sm" onClick={handleClearDateRange}>
+            <Button variant="ghost" size="sm" onClick={handleClearDateRange} className="rounded-xl">
               <RefreshCw className="h-4 w-4 mr-1" />
               Reset
             </Button>
           )}
           <Select value={timeRange} onValueChange={setTimeRange} disabled={!!customDateRange.from}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-[140px] rounded-xl bg-background/60 border-border/50">
               <SelectValue placeholder="Time range" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="rounded-xl">
               <SelectItem value="3">Last 3 months</SelectItem>
               <SelectItem value="6">Last 6 months</SelectItem>
               <SelectItem value="12">Last 12 months</SelectItem>
@@ -108,7 +152,7 @@ export default function MerchantReports() {
       </PageHeader>
 
       {hasError && (
-        <Alert variant="destructive" className="mb-4">
+        <Alert variant="destructive" className="mb-4 rounded-xl">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
             Failed to load some data. Please refresh the page to try again.
@@ -117,17 +161,17 @@ export default function MerchantReports() {
       )}
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="forecasting" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
+        <TabsList className="inline-flex h-auto p-1 rounded-full bg-card/80 backdrop-blur-sm border border-border/40">
+          <TabsTrigger value="overview" className="rounded-full px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">Overview</TabsTrigger>
+          <TabsTrigger value="forecasting" className="rounded-full px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm flex items-center gap-1.5">
+            <BarChart3 className="h-3.5 w-3.5" />
             Forecasting
           </TabsTrigger>
-          <TabsTrigger value="churn" className="flex items-center gap-2">
-            <UserMinus className="h-4 w-4" />
+          <TabsTrigger value="churn" className="rounded-full px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm flex items-center gap-1.5">
+            <UserMinus className="h-3.5 w-3.5" />
             Tenant Churn
           </TabsTrigger>
-          <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
+          <TabsTrigger value="maintenance" className="rounded-full px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">Maintenance</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -142,82 +186,36 @@ export default function MerchantReports() {
           ) : (
             <>
               <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Total Revenue</p>
-                        <p className="text-2xl font-bold">{formatCurrency(totalRevenue)}</p>
+                {kpiCards.map((kpi) => (
+                  <Card key={kpi.label} className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-muted-foreground">{kpi.label}</p>
+                          <p className="text-2xl font-bold">{kpi.value}</p>
+                        </div>
+                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${kpi.iconBg} flex items-center justify-center`}>
+                          <kpi.icon className={`h-5 w-5 ${kpi.iconColor}`} />
+                        </div>
                       </div>
-                      <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
-                        <DollarSign className="h-5 w-5 text-success" />
-                      </div>
-                    </div>
-                    <div className={`flex items-center gap-1 mt-2 text-sm ${revenueChange >= 0 ? 'text-success' : 'text-destructive'}`}>
-                      {revenueChange >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                      <span>{revenueChange >= 0 ? '+' : ''}{revenueChange}% from previous period</span>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Occupancy Rate</p>
-                        <p className="text-2xl font-bold">{occupancyRate}%</p>
-                      </div>
-                      <div className="w-10 h-10 rounded-full bg-info/10 flex items-center justify-center">
-                        <Building2 className="h-5 w-5 text-info" />
-                      </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      {occupiedUnits} of {totalUnits} units
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Pending Payments</p>
-                        <p className="text-2xl font-bold">{formatCurrency(pendingPayments)}</p>
-                      </div>
-                      <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
-                        <DollarSign className="h-5 w-5 text-warning" />
-                      </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      {payments.filter(p => p.status === 'pending').length} invoices due
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Active Requests</p>
-                        <p className="text-2xl font-bold">
-                          {maintenanceRequests.filter(r => r.status !== 'completed').length}
-                        </p>
-                      </div>
-                      <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
-                        <Wrench className="h-5 w-5 text-accent-foreground" />
-                      </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      {maintenanceRequests.filter(r => r.status === 'completed').length} completed
-                    </p>
-                  </CardContent>
-                </Card>
+                      {kpi.trend !== undefined && (
+                        <div className={`flex items-center gap-1 mt-2 text-sm ${kpi.trend >= 0 ? 'text-success' : 'text-destructive'}`}>
+                          {kpi.trend >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                          <span>{kpi.trendLabel}</span>
+                        </div>
+                      )}
+                      {kpi.subtext && (
+                        <p className="text-sm text-muted-foreground mt-2">{kpi.subtext}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
 
                 <OnTimePaymentRate timeRange={timeRange} />
               </div>
 
               <div className="grid lg:grid-cols-2 gap-6">
-                <Card>
+                <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
                   <CardHeader>
                     <CardTitle>Revenue Trend</CardTitle>
                   </CardHeader>
@@ -225,21 +223,21 @@ export default function MerchantReports() {
                     <div className="h-[300px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={revenueData}>
-                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted/50" />
                           <XAxis dataKey="month" className="text-xs" />
                           <YAxis tickFormatter={(value) => `Rp${(value / 1000000).toFixed(0)}jt`} className="text-xs" />
                           <Tooltip
                             formatter={(value: number) => [formatCurrency(value), 'Revenue']}
-                            contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
+                            contentStyle={tooltipStyle}
                           />
-                          <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.2)" strokeWidth={2} />
+                          <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.15)" strokeWidth={2} />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
                   <CardHeader>
                     <CardTitle>Occupancy by Property Type</CardTitle>
                   </CardHeader>
@@ -247,14 +245,14 @@ export default function MerchantReports() {
                     <div className="h-[300px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={occupancyByType} layout="vertical">
-                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted/50" />
                           <XAxis type="number" domain={[0, 100]} className="text-xs" />
                           <YAxis dataKey="name" type="category" width={100} className="text-xs capitalize" />
                           <Tooltip
                             formatter={(value: number) => [`${value}%`, 'Occupancy']}
-                            contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
+                            contentStyle={tooltipStyle}
                           />
-                          <Bar dataKey="occupancy" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                          <Bar dataKey="occupancy" fill="hsl(var(--primary))" radius={[0, 8, 8, 0]} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -276,7 +274,7 @@ export default function MerchantReports() {
 
         <TabsContent value="maintenance" className="space-y-6">
           <div className="grid lg:grid-cols-2 gap-6">
-            <Card>
+            <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
               <CardHeader>
                 <CardTitle>Maintenance by Category</CardTitle>
               </CardHeader>
@@ -298,14 +296,14 @@ export default function MerchantReports() {
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
+                      <Tooltip contentStyle={tooltipStyle} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
               <CardHeader>
                 <CardTitle>Maintenance Trend</CardTitle>
               </CardHeader>
@@ -313,13 +311,13 @@ export default function MerchantReports() {
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={maintenanceTrend}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted/50" />
                       <XAxis dataKey="month" className="text-xs" />
                       <YAxis className="text-xs" />
-                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
+                      <Tooltip contentStyle={tooltipStyle} />
                       <Legend />
-                      <Bar dataKey="pending" name="Pending" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="completed" name="Completed" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="pending" name="Pending" fill="hsl(var(--muted-foreground))" radius={[6, 6, 0, 0]} />
+                      <Bar dataKey="completed" name="Completed" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

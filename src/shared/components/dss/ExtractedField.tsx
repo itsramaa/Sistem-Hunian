@@ -17,15 +17,17 @@ export function ExtractedField({ label, value, confidence, isVerified, originalT
   return (
     <div
       className={cn(
-        "flex flex-col gap-1 p-3 rounded-lg border",
-        needsReview ? "border-warning/50 bg-warning/5" : "border-border bg-card",
+        "flex flex-col gap-1.5 p-3 rounded-xl border transition-colors",
+        needsReview
+          ? "border-warning/40 bg-warning/5 backdrop-blur-sm"
+          : "border-border/40 bg-card/80 backdrop-blur-sm",
         className
       )}
       role="group"
       aria-label={`${label}: ${value}`}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{label}</span>
         <div className="flex items-center gap-1.5">
           <ConfidenceBadge confidence={confidence} size="sm" showLabel={false} />
           {isVerified !== undefined && (
@@ -35,7 +37,7 @@ export function ExtractedField({ label, value, confidence, isVerified, originalT
           )}
         </div>
       </div>
-      <span className="text-sm font-medium text-foreground">{value}</span>
+      <span className="text-sm font-semibold text-foreground">{value}</span>
       {originalText && needsReview && (
         <span className="text-xs text-muted-foreground italic">Teks asli: "{originalText}"</span>
       )}

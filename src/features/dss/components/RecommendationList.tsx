@@ -9,12 +9,12 @@ import { cn } from "@/shared/utils/utils";
 
 type RecommendationStatus = "generated" | "viewed" | "accepted" | "rejected" | "measured";
 
-const statusConfig: Record<RecommendationStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  generated: { label: "Baru", variant: "secondary" },
-  viewed: { label: "Dilihat", variant: "outline" },
-  accepted: { label: "Diterima", variant: "default" },
-  rejected: { label: "Ditolak", variant: "destructive" },
-  measured: { label: "Terukur", variant: "default" },
+const statusConfig: Record<RecommendationStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; colorClass: string }> = {
+  generated: { label: "Baru", variant: "secondary", colorClass: "bg-info/15 text-info border-info/30" },
+  viewed: { label: "Dilihat", variant: "outline", colorClass: "" },
+  accepted: { label: "Diterima", variant: "default", colorClass: "bg-success/15 text-success border-success/30" },
+  rejected: { label: "Ditolak", variant: "destructive", colorClass: "bg-destructive/15 text-destructive border-destructive/30" },
+  measured: { label: "Terukur", variant: "default", colorClass: "bg-primary/15 text-primary border-primary/30" },
 };
 
 const typeIcons: Record<string, React.ReactNode> = {
@@ -63,7 +63,6 @@ export function RecommendationList({ merchantId, className }: RecommendationList
         updates.status = "rejected";
         updates.rejected_at = new Date().toISOString();
       } else {
-        // defer - no status change, just acknowledge
         return;
       }
 
@@ -73,7 +72,6 @@ export function RecommendationList({ merchantId, className }: RecommendationList
         .eq("id", id);
       if (error) throw error;
 
-      // Log to validation audit
       await supabase.from("dss_validation_logs").insert({
         entity_type: "dss_recommendation",
         entity_id: id,
@@ -103,9 +101,11 @@ export function RecommendationList({ merchantId, className }: RecommendationList
 
   if (!recommendations || recommendations.length === 0) {
     return (
-      <div className="text-center py-12 text-muted-foreground">
-        <Brain className="h-10 w-10 mx-auto mb-3 opacity-50" />
-        <p className="text-sm">Belum ada rekomendasi AI</p>
+      <div className="text-center py-12">
+        <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/20 flex items-center justify-center mx-auto mb-3">
+          <Brain className="h-7 w-7 text-muted-foreground" />
+        </div>
+        <p className="text-sm text-muted-foreground">Belum ada rekomendasi AI</p>
       </div>
     );
   }
@@ -126,7 +126,7 @@ export function RecommendationList({ merchantId, className }: RecommendationList
           <div key={rec.id} className="relative">
             <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
               <span className="text-muted-foreground">{typeIcons[rec.type] || typeIcons.default}</span>
-              <Badge variant={config.variant}>{config.label}</Badge>
+              <Badge className={cn("rounded-full border", config.colorClass)} variant={config.variant}>{config.label}</Badge>
             </div>
             <RecommendationCard
               title={rec.title}

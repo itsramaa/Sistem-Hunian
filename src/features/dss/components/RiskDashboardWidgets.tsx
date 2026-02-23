@@ -8,7 +8,7 @@ import { cn } from "@/shared/utils/utils";
 interface KpiMetric {
   label: string;
   value: string;
-  trend: number; // positive = up, negative = down
+  trend: number;
   trendLabel: string;
   icon: React.ReactNode;
 }
@@ -41,6 +41,13 @@ const chartConfig: ChartConfig = {
   predicted: { label: "Prediksi", color: "hsl(var(--info))" },
 };
 
+const iconBgs: Record<string, string> = {
+  "Pendapatan Bulanan": "from-success/20 to-success/5",
+  "Tingkat Hunian": "from-info/20 to-info/5",
+  "Penyewa Aktif": "from-primary/20 to-primary/5",
+  "Tunggakan": "from-warning/20 to-warning/5",
+};
+
 export function RiskDashboardWidgets({
   riskScore = 35,
   metrics = defaultMetrics,
@@ -49,13 +56,14 @@ export function RiskDashboardWidgets({
 }: RiskDashboardWidgetsProps) {
   return (
     <div className={cn("space-y-4", className)}>
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {metrics.map((m) => (
-          <Card key={m.label}>
+          <Card key={m.label} className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">{m.label}</CardTitle>
-              <span className="text-muted-foreground">{m.icon}</span>
+              <div className={`h-8 w-8 rounded-xl bg-gradient-to-br ${iconBgs[m.label] || "from-muted/20 to-muted/5"} flex items-center justify-center text-muted-foreground`}>
+                {m.icon}
+              </div>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{m.value}</div>
@@ -77,8 +85,7 @@ export function RiskDashboardWidgets({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Risk Score */}
-        <Card>
+        <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
           <CardHeader>
             <CardTitle className="text-base">Skor Risiko Keseluruhan</CardTitle>
           </CardHeader>
@@ -90,8 +97,7 @@ export function RiskDashboardWidgets({
           </CardContent>
         </Card>
 
-        {/* Revenue Forecast */}
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-2 rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
           <CardHeader>
             <CardTitle className="text-base">Proyeksi Pendapatan (Juta Rp)</CardTitle>
           </CardHeader>
@@ -101,12 +107,9 @@ export function RiskDashboardWidgets({
                 <XAxis dataKey="month" />
                 <YAxis />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                {/* Confidence area */}
                 <Area dataKey="upper" stroke="none" fill="hsl(var(--info))" fillOpacity={0.1} />
                 <Area dataKey="lower" stroke="none" fill="hsl(var(--background))" fillOpacity={1} />
-                {/* Actual line */}
                 <Line type="monotone" dataKey="actual" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
-                {/* Predicted line (dashed) */}
                 <Line type="monotone" dataKey="predicted" stroke="hsl(var(--info))" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3 }} />
               </ComposedChart>
             </ChartContainer>
