@@ -1,147 +1,200 @@
 
 
-# Maksimalkan Login, Register & Onboarding Pages
+# Redesign Total: Login, Register & Onboarding -- Modern Futuristik
 
-Berdasarkan audit menyeluruh menggunakan skills: `signup-flow-cro`, `onboarding-cro`, `form-cro`, `responsive-design`, `accessibility-compliance`, `interaction-design`, `visual-design-foundations`, `ui-ux-designer`, `frontend-security-coder`, dan `auth-implementation-patterns`.
+## Arah Desain
 
----
+**Aesthetic**: "Warm Luxury Futurism" -- perpaduan warna earthy SiHuni (cokelat/emas/krem) dengan elemen modern/futuristik: glassmorphism, gradient mesh halus, floating decorative shapes, dan depth layering.
 
-## 1. AuthForm (Login & Register) -- `src/features/auth/components/AuthForm.tsx`
+**Differentiation Anchor**: Split-screen layout (desktop) dengan panel kiri berisi brand storytelling/visual dan panel kanan berisi form -- bukan generic centered card. Di mobile, visual hero di atas lalu form di bawah.
 
-### A. Signup Flow CRO -- Kurangi Friction
-
-**Masalah**: Form register punya 6 field (nama, phone, email, password, confirm password, merchant code). Ini terlalu banyak -- setiap field mengurangi conversion rate 10-25%.
-
-**Perbaikan**:
-- **Pindahkan field "Nama Lengkap" ke atas email** -- field termudah duluan (progressive commitment pattern)
-- Urutan baru: Nama > Email > Phone > Password > Confirm Password
-- **Tambah trust element** di bawah form: "Data Anda aman dan terenkripsi" dengan ikon Lock
-- **Ubah CTA "Daftar"** menjadi lebih action-oriented: **"Mulai Sekarang"** (bukan generic "Daftar")
-- **Tambah social proof** di bawah card: jumlah user atau tagline singkat
-
-### B. Form CRO -- Error Handling & Microcopy
-
-**Masalah**: Placeholder "John Doe" tidak sesuai target market Indonesia.
-
-**Perbaikan**:
-- Ubah placeholder nama: `"John Doe"` menjadi `"Budi Santoso"`
-- Tambah **inline email typo detection**: jika user ketik `@gmial.com`, tampilkan suggestion `"Mungkin maksud Anda @gmail.com?"`
-- Error message pada submit harus **focus ke field pertama yang error** (auto-scroll + focus)
-- Tambah **"Sudah punya akun? Masuk"** link di bawah form register (dan sebaliknya di login)
-
-### C. Responsive Design -- Mobile-First Fixes
-
-**Masalah**: Card `max-w-md` tanpa `w-[95vw]` bisa terlalu lebar/sempit di beberapa device.
-
-**Perbaikan**:
-- Ubah container: `max-w-md` ke `max-w-md w-[95vw] sm:w-full`
-- Tambah `safe-area-inset` padding untuk notch devices: `pb-safe`
-- Password strength meter grid: pastikan tidak overflow di mobile kecil
-- Tab triggers: tambah `text-sm sm:text-base` untuk readability di mobile
-
-### D. Accessibility Compliance
-
-**Yang sudah bagus**: skip links, aria-describedby, aria-invalid, role="alert", live region -- sudah sangat baik.
-
-**Tambahan**:
-- Tambah `aria-required="true"` pada semua required fields di register
-- Password requirements checklist: tambah `role="list"` pada container dan `role="listitem"` pada setiap item
-- Form error summary: saat submit gagal, tampilkan **error summary di atas form** dengan link ke field yang error (pattern dari accessibility-compliance skill)
-- Tambah `autocomplete="tel-national"` pada phone field (lebih spesifik dari `tel`)
-
-### E. Interaction Design -- Micro-interactions
-
-**Perbaikan**:
-- Tambah **smooth transition** saat switch tab login/register: `transition-all duration-200`
-- Button submit: tambah **success animation** (checkmark) setelah berhasil, sebelum redirect
-- Password visibility toggle: tambah subtle transition pada icon change
-- Tambah **loading skeleton** pada tab content saat switching (prevent layout shift)
-
-### F. Frontend Security
-
-**Yang sudah bagus**: password toggle, merchantCode sanitization, error message mapping.
-
-**Tambahan**:
-- Tambah **rate limiting indicator**: setelah 3 failed login attempts, tampilkan countdown timer dan pesan "Terlalu banyak percobaan. Coba lagi dalam X detik"
-- Pastikan `autocomplete="current-password"` (login) dan `autocomplete="new-password"` (register) sudah benar -- sudah OK
-- Tambah `rel="noopener noreferrer"` jika ada external links
-
-### G. Visual Design -- Polish
-
-**Perbaikan**:
-- Tambah **divider** antara social/biometric login dan form: "atau masuk dengan email"
-- Tambah subtle **gradient background** yang lebih menarik daripada plain `bg-muted/30`
-- Card shadow: tambah `hover:shadow-lg transition-shadow` untuk depth perception
-- Logo icon container: tambah subtle pulse animation saat loading
+**Visual Memorability**: Animated gradient orbs/shapes di background yang bergerak perlahan, memberi kesan hidup dan premium.
 
 ---
 
-## 2. PasswordStrengthMeter -- `src/features/auth/components/PasswordStrengthMeter.tsx`
+## 1. Layout Baru -- Split Screen Auth
 
-### Masalah
-- Requirements menampilkan "Minimal 8 karakter" tapi schema requires 12 -- **inkonsistensi**
-- Grid `grid-cols-1` OK tapi bisa lebih compact
+### Desktop (md+)
+```text
++---------------------------+---------------------------+
+|                           |                           |
+|   BRAND PANEL             |   FORM PANEL              |
+|                           |                           |
+|   Logo + Tagline          |   Tabs: Masuk / Daftar    |
+|   Animated gradient orbs  |   Form fields              |
+|   Social proof stats      |   CTA button              |
+|   "500+ properti dikelola"|   Trust elements          |
+|                           |                           |
++---------------------------+---------------------------+
+```
 
-### Perbaikan
-- **Fix requirement mismatch**: ubah regex dari `/.{8,}/` ke `/.{12,}/` dan label ke "Minimal 12 karakter"
-- Tambah **aria-label** pada strength bar untuk screen reader: `"Kekuatan password: {strength}"`
-- Tambah `role="progressbar"` dengan `aria-valuenow` dan `aria-valuemax` pada bar
-- Requirements: ubah ke `grid-cols-2 sm:grid-cols-1` agar di desktop lebih compact (2 kolom)
+### Mobile
+```text
++---------------------------+
+|   Mini brand header       |
+|   Logo + tagline compact  |
++---------------------------+
+|   Form card (glassmorphic)|
+|   Full width              |
++---------------------------+
+```
 
----
+### Perubahan Utama di AuthForm.tsx
 
-## 3. Onboarding Page -- `src/pages/Onboarding.tsx`
+**Struktur baru**:
+- Outer container: `min-h-screen grid grid-cols-1 md:grid-cols-2`
+- Panel kiri (brand): hidden di mobile, tampil di desktop dengan background gradient mesh, animated floating orbs (pure CSS), logo besar, tagline, social proof stats
+- Panel kanan (form): form card dengan glassmorphic effect (`bg-card/80 backdrop-blur-xl border border-border/50`), shadow elevated
 
-### A. Onboarding CRO -- Time-to-Value
+**Background Elements** (CSS-only, no library):
+- 2-3 gradient orbs dengan `position: absolute`, `border-radius: 50%`, `filter: blur(80px)`, dan CSS animation `float` yang bergerak perlahan (10-15s duration)
+- Warna orbs: primary (cokelat), accent (emas), secondary (krem)
+- `overflow: hidden` pada container
 
-**Masalah**: Onboarding hanya 2 step (pilih role + nama bisnis), tapi UX bisa lebih engaging.
-
-**Perbaikan**:
-- **Tambah welcome message personalized**: "Hai, {full_name}! Mari setup akun Anda"
-- Step 1 role cards: tambah **ilustrasi/emoji** yang lebih besar dan deskripsi benefit yang lebih jelas:
-  - Merchant: "Kelola properti, tenant, tagihan, dan laporan dalam satu platform"
-  - Vendor: "Terima order jasa dari pemilik properti dan kelola penghasilan"
-- **Tambah "Memakan waktu kurang dari 30 detik"** di bawah judul (reduce perceived effort)
-- Success state setelah submit: tambah **celebration animation** (confetti atau checkmark animation) sebelum redirect
-
-### B. Responsive Design
-
-**Masalah**: 
-- Back button `absolute left-4 top-4` bisa overlap dengan card content di mobile kecil
-- Role selection `grid-cols-2` terlalu sempit di mobile kecil (< 360px width)
-- Step indicator `gap-4` dengan separator `w-12 mx-4` terlalu lebar di mobile
-
-**Perbaikan**:
-- Back button: ubah dari `absolute` ke relative positioning di dalam CardHeader flow
-- Role selection: `grid-cols-1 sm:grid-cols-2` -- di mobile stack vertically agar deskripsi terbaca
-- Step indicator: separator `w-8 sm:w-12 mx-2 sm:mx-4`, label `hidden sm:inline`
-- Container: tambah `w-[95vw] sm:w-full` pada `max-w-md`
-- AlertDialogFooter: tambah `flex-col-reverse sm:flex-row` untuk mobile button stacking
-
-### C. Accessibility
-
-**Perbaikan**:
-- Tambah `aria-required="true"` pada business name input
-- Role selection: keyboard navigation sudah ada (ArrowLeft/Right) -- bagus
-- Confirmation dialog: tambah `autoFocus` pada cancel button (safer default)
-- Step indicator: tambah `aria-label="Langkah {n} dari 2: {label}"` pada setiap step circle
-
-### D. Interaction Design
-
-**Perbaikan**:
-- Role card hover: tambah `scale-[1.02] transition-transform` untuk tactile feedback
-- Step transition: tambah slide animation saat pindah step 1 ke 2 (slide-left)
-- Business name input: tambah character counter "X/100 karakter"
-- Submit button: tambah loading state yang lebih descriptive "Membuat akun..." bukan hanya spinner
+**Brand Panel Content**:
+- Logo SiHuni besar (Building2 icon dalam container gradient 64x64)
+- Headline: "Kelola Properti Lebih Cerdas" dengan `text-4xl font-display font-bold`
+- Subtext: "Platform manajemen properti terpercaya di Indonesia"
+- Social proof stats: 3 mini-stats dalam row -- "500+ Properti", "1000+ Tenant", "99.9% Uptime"
+- Testimonial mini quote (opsional)
 
 ---
 
-## 4. AuthLoadingSkeleton -- `src/features/auth/components/AuthLoadingSkeleton.tsx`
+## 2. Form Card -- Glassmorphic Modern
 
-### Perbaikan
-- Tambah `aria-live="polite"` dan `role="status"` pada loading container
-- Tambah `aria-label="Memuat halaman autentikasi"` pada root div
-- Pulse animation pada skeleton: pastikan `prefers-reduced-motion` dihormati
+### Styling Baru
+
+Card form menggunakan glass effect:
+```
+bg-card/80 backdrop-blur-xl 
+border border-border/50 
+shadow-[0_8px_32px_rgba(0,0,0,0.12)] 
+rounded-2xl
+```
+
+### Input Fields -- Elevated Style
+
+Input fields mendapat update visual:
+- Border lebih halus: `border-border/60`  
+- Focus state: `focus:border-primary focus:ring-1 focus:ring-primary/30` (lebih halus dari ring-2)
+- Background: `bg-background/60` (sedikit transparan)
+- Rounded lebih besar: `rounded-xl` (bukan `rounded-md`)
+- Icon prefix terintegrasi (email icon, lock icon) di dalam input field -- bukan di label
+
+### Tab Triggers -- Pill Style
+
+Ubah tabs dari generic rectangle ke pill/capsule:
+- TabsList: `bg-muted/50 rounded-full p-1`
+- TabsTrigger active: `rounded-full bg-primary text-primary-foreground shadow-sm`
+- TabsTrigger inactive: `rounded-full text-muted-foreground hover:text-foreground`
+- Transition: `transition-all duration-300`
+
+### CTA Button -- Gradient + Glow
+
+Submit button mendapat treatment premium:
+- Background: `bg-gradient-to-r from-primary to-secondary` 
+- Hover: `hover:shadow-[0_4px_20px_rgba(139,111,71,0.4)]` (glow effect warna primary)
+- Active: `active:scale-[0.98]`
+- Rounded: `rounded-xl`
+- Height: `h-12` (lebih besar, lebih prominent)
+
+---
+
+## 3. Form Fields -- Integrated Icons
+
+Ubah input fields agar memiliki icon prefix terintegrasi (modern pattern):
+
+```text
++---------------------------------------+
+| [icon]  placeholder text              |
++---------------------------------------+
+```
+
+- Email field: Mail icon di kiri
+- Password field: Lock icon di kiri, Eye toggle di kanan
+- Name field: User icon di kiri
+- Phone field: Phone icon di kiri
+
+Implementasi: wrapper `relative` dengan icon `absolute left-3` dan input `pl-10`
+
+---
+
+## 4. Animasi & Micro-interactions
+
+### Background Orbs (CSS Keyframes -- tambah di index.css)
+
+```css
+@keyframes float-slow {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -30px) scale(1.05); }
+  66% { transform: translate(-20px, 20px) scale(0.95); }
+}
+```
+
+3 orb divs dengan:
+- Orb 1: `w-72 h-72 bg-primary/20 blur-[80px]` -- top-left
+- Orb 2: `w-96 h-96 bg-accent/15 blur-[100px]` -- bottom-right  
+- Orb 3: `w-64 h-64 bg-secondary/20 blur-[60px]` -- center
+
+### Tab Switch Animation
+- Content area: tambah `animate-fade-in` saat tab berubah menggunakan key prop
+
+### Form Field Focus
+- Label: saat focused, label mendapat `text-primary` transition
+
+### Success State
+- Setelah login/register berhasil: button berubah ke checkmark icon dengan `bg-success` selama 500ms sebelum redirect
+
+---
+
+## 5. Onboarding Page -- Redesign
+
+### Layout
+Sama seperti auth -- split screen di desktop:
+- Panel kiri: ilustrasi/branding dengan animated orbs
+- Panel kanan: onboarding steps
+
+### Role Selection Cards -- Premium Treatment
+- Ukuran lebih besar dengan icon/emoji prominent
+- Hover: `hover:shadow-card-hover hover:scale-[1.02] hover:-translate-y-1`
+- Selected: `border-primary bg-primary/10 shadow-[0_0_0_2px_hsl(var(--primary))]` -- double border effect
+- Transition smooth: `transition-all duration-300`
+
+### Step Indicator -- Modern Dots
+Ubah dari circles + text ke connected dots:
+- Active dot: `w-3 h-3 bg-primary rounded-full shadow-[0_0_8px_rgba(139,111,71,0.5)]` (glowing)
+- Completed: `w-3 h-3 bg-primary rounded-full`
+- Upcoming: `w-3 h-3 bg-muted rounded-full`
+- Connector: `h-0.5 w-12 bg-gradient-to-r from-primary to-muted` (gradient transition)
+
+### Business Name Input
+- Same glassmorphic + icon prefix style
+- Character counter dengan progress ring mini (bukan text counter)
+
+---
+
+## 6. AuthLoadingSkeleton -- Modern
+
+- Tambah animated gradient orbs di background
+- Card skeleton dengan glassmorphic effect
+- Pulse animation yang lebih halus: `animate-pulse-subtle`
+
+---
+
+## 7. Password Strength Meter -- Visual Upgrade
+
+### Strength Bar
+- Ubah dari single bar ke **segmented bar** (4 segments):
+  - Setiap segment mewakili level (weak/fair/good/strong)
+  - Segment active: filled dengan warna yang sesuai
+  - Segment inactive: `bg-muted/50`
+  - Gap antar segment: `gap-1`
+  - Rounded individual: `rounded-full`
+
+### Requirements
+- Tetap grid layout, tapi dengan subtle background saat terpenuhi:
+  - Met: `text-success bg-success/10 rounded-md px-2 py-0.5`
+  - Unmet: `text-muted-foreground`
 
 ---
 
@@ -149,15 +202,17 @@ Berdasarkan audit menyeluruh menggunakan skills: `signup-flow-cro`, `onboarding-
 
 | File | Perubahan |
 |------|-----------|
-| `AuthForm.tsx` | Field order, CTA copy, trust elements, error summary, responsive width, email typo detection, rate limit indicator, divider, placeholder Indonesia, cross-link login/register |
-| `PasswordStrengthMeter.tsx` | Fix 8 vs 12 char mismatch, aria progressbar, responsive grid |
-| `Onboarding.tsx` | Welcome personalization, role card improvements, responsive fixes (grid, back button, step indicator), celebration animation, character counter, time estimate copy |
-| `AuthLoadingSkeleton.tsx` | Accessibility: aria-live, role="status", aria-label |
+| `src/index.css` | Tambah keyframes float-slow, utility classes `.glass-card`, `.gradient-orb`, animasi background |
+| `src/features/auth/components/AuthForm.tsx` | Redesign total: split-screen layout, glassmorphic card, integrated icons, pill tabs, gradient CTA, animated orbs, success state |
+| `src/features/auth/components/PasswordStrengthMeter.tsx` | Segmented strength bar, visual requirement badges |
+| `src/features/auth/components/AuthLoadingSkeleton.tsx` | Glassmorphic card, animated orbs background |
+| `src/pages/Onboarding.tsx` | Split-screen layout, premium role cards, modern step indicator, glassmorphic styling |
 
 ## Urutan Implementasi
 
-1. PasswordStrengthMeter fix (requirement mismatch -- critical bug)
-2. AuthForm improvements (responsive, CRO, accessibility)
-3. Onboarding improvements (responsive, CRO, interaction)
-4. AuthLoadingSkeleton accessibility
+1. `index.css` -- CSS utilities dan keyframes baru
+2. `AuthForm.tsx` -- Redesign layout dan visual (file terbesar)
+3. `PasswordStrengthMeter.tsx` -- Visual upgrade
+4. `Onboarding.tsx` -- Redesign layout dan visual
+5. `AuthLoadingSkeleton.tsx` -- Update styling
 
