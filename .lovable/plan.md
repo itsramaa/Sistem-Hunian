@@ -1,172 +1,185 @@
 
 
-# 2.1.5 Tenant Quality Scoring + 3.1.1 Data Entry & Collection
+# 3.1.2 Data Quality & Validation + 3.1.3 Data Versioning & History
 
 ## Ringkasan
 
-Implementasi terbagi menjadi 2 bagian:
-
-1. **Tenant Quality Scoring (BR-501 s/d BR-504)**: Edge function AI baru `ml-tenant-quality-scoring` + halaman dashboard baru "Tenant Quality Scoring" yang menyediakan penilaian kualitas tenant, prediksi payment reliability, identifikasi high-risk profiles, dan screening recommendation.
-
-2. **Data Entry & Collection (FR-101 s/d FR-106)**: Sebagian besar sudah terimplementasi. Yang perlu ditambahkan hanya **FR-104 (CSV/Excel import)** -- fitur import data properti dan unit dari file CSV.
-
----
-
-## Status FR-101 s/d FR-106
-
-| FR | Deskripsi | Status |
-|----|-----------|--------|
-| FR-101 | Web form terstruktur untuk input data kosan | Sudah ada (`PropertyFormDialog`) |
-| FR-102 | Mobile-responsive design | Sudah ada (min-height 44px, text-base) |
-| FR-103 | Real-time validation | Sudah ada (Zod + react-hook-form) |
-| FR-104 | Import dari CSV/Excel | **Belum ada -- perlu dibuat** |
-| FR-105 | Generate unique ID otomatis | Sudah ada (UUID v4 via `gen_random_uuid()`) |
-| FR-106 | Track timestamp dan user | Sudah ada (`created_at`, `updated_at` triggers, audit log) |
+Membuat sistem **Data Quality & Validation** dan **Data Versioning & History** untuk properti dan unit, mencakup automated validation rules, quality scoring, data versioning dengan restore capability, dan audit trail terintegrasi. Implementasi membutuhkan 2 tabel database baru, 1 edge function AI baru, 1 halaman dashboard baru, dan modifikasi beberapa file existing.
 
 ---
 
 ## Arsitektur
 
 ```text
-[Frontend]                          [Edge Functions]               [AI Gateway]
-TenantQualityScoring.tsx  --->  ml-tenant-quality-scoring  --->  Gemini 2.5 Pro
+[Frontend]                           [Edge Functions]            [AI Gateway]
+DataQualityHistory.tsx  -------->  ml-data-quality-check  --->  Gemini 2.5 Flash
+                        -------->  (Supabase client CRUD for versioning)
 
-PropertyImportDialog.tsx  --->  (client-side CSV parse + Supabase insert)
+[Database]
+property_data_versions  -- snapshot + restore
+data_quality_checks     -- validation results + quality scores
+audit_logs              -- existing, untuk FR-303
 ```
 
 ---
 
-## 1. Edge Function: `ml-tenant-quality-scoring`
+## 1. Database: 2 Tabel Baru
 
-**File baru**: `supabase/functions/ml-tenant-quality-scoring/index.ts`
+### Tabel `data_quality_checks`
+Menyimpan hasil validasi per properti/unit.
 
-Mengcover BR-501 s/d BR-504. Berbeda dari `ml-tenant-risk-score` yang sudah ada:
-- `ml-tenant-risk-score`: fokus risk scoring (0-100, higher = riskier) untuk tenant yang sudah aktif
-- `ml-tenant-quality-scoring`: fokus quality assessment menyeluruh + screening recommendation untuk evaluasi calon tenant maupun tenant existing
+| Kolom | Tipe | Keterangan |
+|-------|------|------------|
+| id | uuid PK | gen_random_uuid() |
+| merchant_id | uuid FK merchants | NOT NULL |
+| entity_type | text | 'property' atau 'unit' |
+| entity_id | uuid | ID properti/unit |
+| quality_score | numeric | 0-100 |
+| validation_results | jsonb | Array of { rule, status, message, severity } |
+| overrides | jsonb | Array of { rule, reason, overridden_by, overridden_at } |
+| is_final_validated | boolean | default false (FR-304) |
+| validated_by | uuid | user yang mark final |
+| validated_at | timestamptz | kapan di-mark final |
+| created_at | timestamptz | default now() |
+
+RLS: merchant hanya bisa akses miliknya sendiri (via merchant_id).
+
+### Tabel `property_data_versions`
+Menyimpan snapshot data untuk versioning dan restore.
+
+| Kolom | Tipe | Keterangan |
+|-------|------|------------|
+| id | uuid PK | gen_random_uuid() |
+| entity_type | text | 'property' atau 'unit' |
+| entity_id | uuid | ID properti/unit |
+| version_number | integer | auto-increment per entity |
+| snapshot_data | jsonb | full row snapshot |
+| change_summary | text | ringkasan perubahan |
+| changed_by | uuid | user_id |
+| change_reason | text | nullable, alasan perubahan |
+| created_at | timestamptz | default now() |
+
+RLS: merchant bisa akses via join ke properties/units yang miliknya.
+
+---
+
+## 2. Edge Function: `ml-data-quality-check`
+
+**File baru**: `supabase/functions/ml-data-quality-check/index.ts`
+
+Mengcover FR-201 (automated validation) dan FR-202 (error + suggestion).
 
 ### Input:
-- `tenant_user_id` (opsional, untuk tenant existing)
-- `screening_data` (opsional, untuk calon tenant baru -- data manual: nama, pekerjaan, penghasilan, referensi)
-- `batch` (boolean, untuk scoring semua tenant aktif)
+- `property_id` (wajib) -- validasi properti + semua unitnya
+- `include_suggestions` (boolean, default true)
 
-### Data yang Di-fetch (untuk tenant existing):
-1. `invoices` -- riwayat pembayaran 24 bulan
-2. `contracts` -- semua kontrak (aktif + historis)
-3. `collections_cases` -- riwayat koleksi
-4. `maintenance_requests` -- pola maintenance
-5. `tenant_payment_metrics` -- metrik payment yang sudah dihitung
-6. `tenant_risk_scores` -- risk score existing (dari `ml-tenant-risk-score`)
-7. `profiles` -- data profil tenant
+### Validasi Rules yang Dijalankan:
 
-### Tier limits: `{ free: 0, starter: 3, professional: 15, enterprise: -1 }`
+**Deterministic (tanpa AI):**
+1. Range validation: rent_amount > 0, occupancy 0-100%, floor valid, size_sqm reasonable
+2. Logical consistency: occupied_units <= total_units, unit floor <= property floor_count
+3. Duplicate check: unit_number unik per properti
+4. Completeness check: field wajib terisi (address, city, province)
 
-### AI Tool Output:
+**AI-enhanced (dengan Gemini 2.5 Flash):**
+5. Outlier detection: harga sewa anomali vs unit lain di properti/kota yang sama
+6. Suggestion generation: saran perbaikan per error
+
+### Tier limits: `{ free: 1, starter: 5, professional: -1, enterprise: -1 }`
+
+### Output:
 ```text
-Tool: score_tenant_quality
-Output:
 {
-  quality_score: number,          // 0-100, higher = better quality
-  quality_grade: "A" | "B" | "C" | "D" | "F",
-  payment_reliability: {
-    score: number,                // 0-100
-    on_time_ratio: number,
-    avg_days_late: number,
-    trend: "improving" | "stable" | "declining",
-    prediction_next_6_months: "reliable" | "moderate_risk" | "high_risk"
-  },
-  risk_profile: {
-    level: "low" | "medium" | "high" | "critical",
-    flags: [{ flag, severity, description }],
-    churn_probability: number
-  },
-  screening_recommendation: {
-    decision: "approve" | "approve_with_conditions" | "review" | "reject",
-    conditions: string[],
-    reasoning: string,
-    suggested_deposit_multiplier: number
-  },
-  behavioral_insights: [{ category, observation, impact }],
+  property_score: number,  // 0-100
+  unit_scores: [{ unit_id, score }],
+  aggregate_score: number,
+  validations: [
+    { entity_type, entity_id, rule, status: "pass"|"warning"|"error",
+      message, suggestion?, severity: "low"|"medium"|"high"|"critical" }
+  ],
+  outliers: [{ entity_id, field, value, expected_range, anomaly_type }],
   summary: string
 }
 ```
 
+Hasil disimpan ke tabel `data_quality_checks`.
+
 ---
 
-## 2. Frontend: Tenant Quality Scoring Dashboard
+## 3. Frontend Service & Hooks
 
-**File baru**: `src/pages/merchant/TenantQualityScoring.tsx`
+### `src/features/properties/services/dataQualityService.ts`
+- `invokeDataQualityCheck(propertyId)` -- invoke edge function
+- `fetchQualityChecks(merchantId)` -- fetch dari `data_quality_checks`
+- `overrideValidation(checkId, rule, reason)` -- update override di check (FR-203)
+- `markFinalValidated(checkId)` -- set `is_final_validated = true` (FR-304)
+- `fetchDataVersions(entityType, entityId)` -- fetch dari `property_data_versions`
+- `restoreVersion(versionId)` -- restore data ke versi sebelumnya (FR-302)
+- `createVersion(entityType, entityId, snapshotData, changeSummary, changeReason?)` -- manual snapshot
+
+### `src/features/properties/hooks/useDataQuality.ts`
+- `useDataQualityCheck()` -- mutation hook untuk invoke
+- `useQualityChecks(merchantId)` -- query hook untuk list
+- `useOverrideValidation()` -- mutation
+- `useMarkFinalValidated()` -- mutation
+- `useDataVersions(entityType, entityId)` -- query hook
+- `useRestoreVersion()` -- mutation hook
+
+---
+
+## 4. Auto-Versioning pada Property/Unit Update
+
+Modifikasi `propertyService.ts`:
+- Pada `updateProperty()`: sebelum update, fetch current data, simpan snapshot ke `property_data_versions`, lalu lakukan update.
+- Catat change_summary otomatis (diff fields yang berubah).
+
+Modifikasi `unitService.ts`:
+- Sama: pada update unit, simpan snapshot sebelumnya.
+
+Ini memenuhi FR-301 (changelog) secara otomatis.
+
+---
+
+## 5. Halaman: Data Quality & History Dashboard
+
+**File baru**: `src/pages/merchant/DataQualityHistory.tsx`
 
 ### Layout:
-- PageHeader dengan icon UserCheck dan badge "AI-Powered"
-- Mode selector: "Tenant Existing" vs "Screening Calon Tenant"
-- TierGate wrapper
+- PageHeader dengan icon Shield dan badge "Data Governance"
+- Property selector (wajib pilih 1 properti)
 
-### Mode 1: Tenant Existing
-- Tenant selector (dropdown tenant aktif)
-- Generate button --> memanggil `ml-tenant-quality-scoring` dengan `tenant_user_id`
-- Batch scoring button (scoring semua tenant sekaligus)
-- Hasil ditampilkan:
-  - **Quality Score Card**: skor 0-100, grade (A-F), badge warna
-  - **Payment Reliability Section**: skor, on-time ratio, trend chart, prediksi 6 bulan (BR-502)
-  - **Risk Profile Card**: level, flags list, churn probability gauge (BR-503)
-  - **Screening Recommendation**: decision badge, conditions list, reasoning (BR-504)
-  - **Behavioral Insights**: cards per kategori
+### 3 Tab:
 
-### Mode 2: Screening Calon Tenant
-- Form input data calon tenant: nama, pekerjaan, penghasilan, riwayat sewa sebelumnya (opsional)
-- Generate button --> memanggil `ml-tenant-quality-scoring` dengan `screening_data`
-- Hasil screening recommendation ditampilkan (approve/reject/review)
+**Tab 1: Validasi & Kualitas (FR-201, FR-202, FR-204)**
+- Tombol "Jalankan Validasi" -> memanggil `ml-data-quality-check`
+- Quality Score gauge (0-100) per properti + aggregate
+- Tabel hasil validasi: entity, rule, status (pass/warning/error), message, suggestion
+- Badge severity color-coded
+- Tombol "Override" per baris error -> dialog input alasan (FR-203)
+- Tombol "Mark as Final Validated" (FR-304) -- hanya bisa jika tidak ada error critical
+- Filter: severity, status, entity_type
 
-### Batch Results View
-- Tabel semua tenant dengan kolom: nama, quality score, grade, payment reliability, risk level, decision
-- Sortable dan filterable
-- Export CSV button
+**Tab 2: Riwayat Perubahan (FR-301, FR-303)**
+- Timeline changelog: siapa, apa yang berubah, kapan, ringkasan perubahan
+- Data diambil dari `property_data_versions` + `audit_logs`
+- Expand row untuk lihat detail diff (old vs new snapshot)
+- Filter by entity (properti atau unit tertentu)
 
----
-
-## 3. CSV Import untuk Properties (FR-104)
-
-**File baru**: `src/features/properties/components/PropertyImportDialog.tsx`
-
-### Fitur:
-- Dialog modal dengan drag-and-drop area untuk file CSV
-- Template CSV yang bisa didownload (contoh format)
-- Client-side parsing menggunakan native `FileReader` + manual CSV parse (tidak perlu library tambahan)
-- Preview tabel data sebelum import
-- Validasi per baris (Zod schema) dengan error highlighting
-- Tombol "Import" untuk menyimpan ke database via Supabase client
-- Progress indicator selama import
-- Laporan hasil: berhasil, gagal, error detail
-
-### Format CSV yang Didukung:
-```text
-name,property_type,address,city,province,postal_code,description
-Kosan ABC,kost,Jl. Sudirman 123,Jakarta Selatan,DKI Jakarta,12345,Kosan nyaman
-```
-
-### Integrasi:
-- Tombol "Import CSV" ditambahkan di halaman `Properties.tsx` di samping tombol "Tambah Properti"
+**Tab 3: Restore Data (FR-302)**
+- Pilih entity (properti/unit) -> tampilkan daftar versi
+- Preview snapshot data per versi
+- Tombol "Restore ke Versi Ini" -> konfirmasi dialog -> restore data + catat audit log
+- Badge "Final Validated" pada versi yang sudah di-mark (FR-304)
 
 ---
 
-## 4. Service & Hooks
-
-### `src/features/dss/services/tenantQualityService.ts`
-- `invokeTenantQualityScoring(params)` -- invoke `ml-tenant-quality-scoring`
-- Type interfaces untuk result
-
-### `src/features/dss/hooks/useTenantQuality.ts`
-- `useTenantQualityScoring()` -- mutation hook
-
----
-
-## 5. Navigasi
+## 6. Navigasi
 
 Update `navigation-config.ts`:
-- Tambah item di grup "Analitik": `{ path: "/merchant/tenant-quality", icon: UserCheck, label: "Kualitas Tenant" }`
+- Tambah item di grup "Manajemen Properti" (bukan Analitik): `{ path: "/merchant/data-quality", icon: Shield, label: "Kualitas Data" }`
 
 Update `App.tsx`:
-- Lazy import + route `tenant-quality`
+- Lazy import + route `data-quality`
 
 ---
 
@@ -176,28 +189,33 @@ Update `App.tsx`:
 
 | File | Deskripsi |
 |------|-----------|
-| `supabase/functions/ml-tenant-quality-scoring/index.ts` | AI tenant quality scoring edge function |
-| `src/features/dss/services/tenantQualityService.ts` | Service invoke + types |
-| `src/features/dss/hooks/useTenantQuality.ts` | React Query mutation hook |
-| `src/pages/merchant/TenantQualityScoring.tsx` | Dashboard page |
-| `src/features/properties/components/PropertyImportDialog.tsx` | CSV import dialog |
+| `supabase/functions/ml-data-quality-check/index.ts` | Validation + outlier detection edge function |
+| `src/features/properties/services/dataQualityService.ts` | Service CRUD + invoke |
+| `src/features/properties/hooks/useDataQuality.ts` | React Query hooks |
+| `src/pages/merchant/DataQualityHistory.tsx` | Dashboard page |
 
 ### File yang Dimodifikasi
 
 | File | Perubahan |
 |------|-----------|
-| `src/shared/components/layouts/navigation-config.ts` | Tambah menu + import UserCheck |
+| `src/features/properties/services/propertyService.ts` | Tambah auto-versioning di updateProperty |
+| `src/features/properties/services/unitService.ts` | Tambah auto-versioning di unit update |
+| `src/shared/components/layouts/navigation-config.ts` | Tambah menu Kualitas Data |
 | `src/App.tsx` | Tambah lazy import + route |
-| `src/pages/merchant/Properties.tsx` | Tambah tombol "Import CSV" |
 
-### Tidak Ada Perubahan Database
+### Database Migration
 
-Semua data sudah tersedia di tabel existing. Import CSV menggunakan Supabase client insert biasa ke tabel `properties`.
+1 migration file dengan:
+- CREATE TABLE `data_quality_checks` + RLS policies
+- CREATE TABLE `property_data_versions` + RLS policies
+- Index pada `entity_id` dan `merchant_id` untuk kedua tabel
 
 ### Urutan Implementasi
-1. Edge function `ml-tenant-quality-scoring`
-2. Service + hooks tenant quality
-3. Halaman `TenantQualityScoring.tsx`
-4. `PropertyImportDialog.tsx` (CSV import)
-5. Update navigasi + routes + Properties page
+1. Database migration (2 tabel baru + RLS)
+2. Edge function `ml-data-quality-check`
+3. Service `dataQualityService.ts`
+4. Hooks `useDataQuality.ts`
+5. Auto-versioning di `propertyService.ts` dan `unitService.ts`
+6. Halaman `DataQualityHistory.tsx`
+7. Update navigasi + routes
 
