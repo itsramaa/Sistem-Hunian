@@ -1,21 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
-  BarChart, 
-  Bar, 
-  LineChart, 
-  Line, 
-  PieChart, 
-  Pie, 
-  Cell, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  Legend,
-  AreaChart,
-  Area
+  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, 
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
@@ -39,114 +26,68 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
   const [timeRange, setTimeRange] = useState<'6m' | '12m' | 'all'>('6m');
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
 
-  // Calculate date range
   const dateRange = useMemo(() => {
     const now = new Date();
     const months = timeRange === '6m' ? 6 : timeRange === '12m' ? 12 : 24;
-    return {
-      start: startOfMonth(subMonths(now, months - 1)),
-      end: endOfMonth(now),
-    };
+    return { start: startOfMonth(subMonths(now, months - 1)), end: endOfMonth(now) };
   }, [timeRange]);
 
-  // Fetch revenue data
   const { data: revenueData = [] } = useQuery({
     queryKey: ['revenue-chart', merchant?.id, timeRange],
     queryFn: async () => {
       if (!merchant?.id) return [];
-      
       const { data: payments } = await supabase
-        .from('payments')
-        .select('amount, paid_at, status')
-        .eq('merchant_id', merchant.id)
-        .eq('status', 'paid')
-        .gte('paid_at', dateRange.start.toISOString())
-        .lte('paid_at', dateRange.end.toISOString());
-
-      // Group by month
+        .from('payments').select('amount, paid_at, status')
+        .eq('merchant_id', merchant.id).eq('status', 'paid')
+        .gte('paid_at', dateRange.start.toISOString()).lte('paid_at', dateRange.end.toISOString());
       const months = eachMonthOfInterval({ start: dateRange.start, end: dateRange.end });
-      
       return months.map(month => {
         const monthPayments = payments?.filter(p => {
           const paidDate = new Date(p.paid_at!);
-          return paidDate.getMonth() === month.getMonth() && 
-                 paidDate.getFullYear() === month.getFullYear();
+          return paidDate.getMonth() === month.getMonth() && paidDate.getFullYear() === month.getFullYear();
         }) || [];
-        
-        return {
-          month: format(month, 'MMM yyyy'),
-          revenue: monthPayments.reduce((sum, p) => sum + Number(p.amount), 0),
-          count: monthPayments.length,
-        };
+        return { month: format(month, 'MMM yyyy'), revenue: monthPayments.reduce((sum, p) => sum + Number(p.amount), 0), count: monthPayments.length };
       });
     },
     enabled: !!merchant?.id,
   });
 
-  // Fetch occupancy data
   const { data: occupancyData = [] } = useQuery({
     queryKey: ['occupancy-chart', merchant?.id],
     queryFn: async () => {
       if (!merchant?.id) return [];
-      
-      const { data: properties } = await supabase
-        .from('properties')
-        .select('id, name, total_units, occupied_units')
-        .eq('merchant_id', merchant.id);
-
+      const { data: properties } = await supabase.from('properties').select('id, name, total_units, occupied_units').eq('merchant_id', merchant.id);
       return properties?.map(p => ({
         name: p.name.length > 15 ? p.name.substring(0, 15) + '...' : p.name,
-        fullName: p.name,
-        occupied: p.occupied_units || 0,
-        vacant: (p.total_units || 0) - (p.occupied_units || 0),
-        total: p.total_units || 0,
+        fullName: p.name, occupied: p.occupied_units || 0,
+        vacant: (p.total_units || 0) - (p.occupied_units || 0), total: p.total_units || 0,
         rate: p.total_units > 0 ? Math.round(((p.occupied_units || 0) / p.total_units) * 100) : 0,
       })) || [];
     },
     enabled: !!merchant?.id,
   });
 
-  // Payment status distribution
   const { data: paymentStatusData = [] } = useQuery({
     queryKey: ['payment-status-chart', merchant?.id],
     queryFn: async () => {
       if (!merchant?.id) return [];
-      
-      const { data: payments } = await supabase
-        .from('payments')
-        .select('status, amount')
-        .eq('merchant_id', merchant.id)
-        .gte('created_at', dateRange.start.toISOString());
-
+      const { data: payments } = await supabase.from('payments').select('status, amount').eq('merchant_id', merchant.id).gte('created_at', dateRange.start.toISOString());
       const statusMap = new Map<string, { count: number; amount: number }>();
-      
       payments?.forEach(p => {
         const existing = statusMap.get(p.status) || { count: 0, amount: 0 };
-        statusMap.set(p.status, {
-          count: existing.count + 1,
-          amount: existing.amount + Number(p.amount),
-        });
+        statusMap.set(p.status, { count: existing.count + 1, amount: existing.amount + Number(p.amount) });
       });
-
       return Array.from(statusMap.entries()).map(([status, data]) => ({
-        name: status.charAt(0).toUpperCase() + status.slice(1),
-        value: data.count,
-        amount: data.amount,
+        name: status.charAt(0).toUpperCase() + status.slice(1), value: data.count, amount: data.amount,
       }));
     },
     enabled: !!merchant?.id,
   });
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-      notation: 'compact',
-    }).format(value);
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, notation: 'compact' }).format(value);
   };
 
-  // Calculate trends
   const revenueTrend = useMemo(() => {
     if (revenueData.length < 2) return 0;
     const current = revenueData[revenueData.length - 1]?.revenue || 0;
@@ -155,15 +96,12 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
   }, [revenueData]);
 
   const totalRevenue = revenueData.reduce((sum, d) => sum + d.revenue, 0);
-  const avgOccupancy = occupancyData.length > 0 
-    ? Math.round(occupancyData.reduce((sum, d) => sum + d.rate, 0) / occupancyData.length)
-    : 0;
+  const avgOccupancy = occupancyData.length > 0 ? Math.round(occupancyData.reduce((sum, d) => sum + d.rate, 0) / occupancyData.length) : 0;
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
-
     return (
-      <div className="bg-popover border rounded-lg shadow-lg p-3">
+      <div className="bg-popover/95 backdrop-blur-sm border border-border/40 rounded-xl shadow-lg p-3">
         <p className="font-medium mb-1">{label}</p>
         {payload.map((entry: any, index: number) => (
           <p key={index} style={{ color: entry.color }} className="text-sm">
@@ -180,16 +118,18 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card 
           className={cn(
-            "cursor-pointer transition-all hover:shadow-md",
+            "bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 cursor-pointer transition-all hover:shadow-md",
             selectedMetric === 'revenue' && "ring-2 ring-primary"
           )}
           onClick={() => setSelectedMetric(selectedMetric === 'revenue' ? null : 'revenue')}
         >
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
-              <DollarSign className="h-8 w-8 text-primary" />
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                <DollarSign className="h-5 w-5 text-primary" />
+              </div>
               {revenueTrend !== 0 && (
-                <Badge variant={revenueTrend > 0 ? 'default' : 'destructive'} className="gap-1">
+                <Badge variant={revenueTrend > 0 ? 'default' : 'destructive'} className="rounded-full gap-1">
                   {revenueTrend > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                   {Math.abs(revenueTrend)}%
                 </Badge>
@@ -202,15 +142,17 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
 
         <Card 
           className={cn(
-            "cursor-pointer transition-all hover:shadow-md",
+            "bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 cursor-pointer transition-all hover:shadow-md",
             selectedMetric === 'occupancy' && "ring-2 ring-primary"
           )}
           onClick={() => setSelectedMetric(selectedMetric === 'occupancy' ? null : 'occupancy')}
         >
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
-              <Home className="h-8 w-8 text-success" />
-              <Badge variant="secondary">{occupancyData.length} properties</Badge>
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-success/20 to-success/5 flex items-center justify-center">
+                <Home className="h-5 w-5 text-success" />
+              </div>
+              <Badge variant="secondary" className="rounded-full">{occupancyData.length} properties</Badge>
             </div>
             <p className="text-2xl font-bold mt-2">{avgOccupancy}%</p>
             <p className="text-sm text-muted-foreground">Avg Occupancy</p>
@@ -219,13 +161,15 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
 
         <Card 
           className={cn(
-            "cursor-pointer transition-all hover:shadow-md",
+            "bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 cursor-pointer transition-all hover:shadow-md",
             selectedMetric === 'payments' && "ring-2 ring-primary"
           )}
           onClick={() => setSelectedMetric(selectedMetric === 'payments' ? null : 'payments')}
         >
           <CardContent className="pt-6">
-            <Users className="h-8 w-8 text-warning" />
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-warning/20 to-warning/5 flex items-center justify-center">
+              <Users className="h-5 w-5 text-warning" />
+            </div>
             <p className="text-2xl font-bold mt-2">
               {revenueData.reduce((sum, d) => sum + d.count, 0)}
             </p>
@@ -233,10 +177,10 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <ArrowUpRight className="h-8 w-8 text-muted-foreground" />
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-accent/20 to-accent/5 flex items-center justify-center">
+              <ArrowUpRight className="h-5 w-5 text-accent" />
             </div>
             <p className="text-2xl font-bold mt-2">
               {formatCurrency(revenueData[revenueData.length - 1]?.revenue || 0)}
@@ -249,13 +193,13 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
       {/* Charts */}
       <Tabs defaultValue="revenue" className="space-y-4">
         <div className="flex items-center justify-between">
-          <TabsList>
-            <TabsTrigger value="revenue">Revenue</TabsTrigger>
-            <TabsTrigger value="occupancy">Occupancy</TabsTrigger>
-            <TabsTrigger value="status">Payment Status</TabsTrigger>
+          <TabsList className="rounded-full bg-card/80 backdrop-blur-sm border border-border/40 p-1">
+            <TabsTrigger value="revenue" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Revenue</TabsTrigger>
+            <TabsTrigger value="occupancy" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Occupancy</TabsTrigger>
+            <TabsTrigger value="status" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Payment Status</TabsTrigger>
           </TabsList>
           <Select value={timeRange} onValueChange={(v: any) => setTimeRange(v)}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-32 rounded-xl bg-background/60 border-border/50">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -267,7 +211,7 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
         </div>
 
         <TabsContent value="revenue">
-          <Card>
+          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader>
               <CardTitle>Revenue Trend</CardTitle>
               <CardDescription>Monthly revenue over time</CardDescription>
@@ -286,14 +230,7 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
                     <XAxis dataKey="month" className="text-xs" />
                     <YAxis tickFormatter={formatCurrency} className="text-xs" />
                     <Tooltip content={<CustomTooltip />} />
-                    <Area
-                      type="monotone"
-                      dataKey="revenue"
-                      name="Revenue"
-                      stroke="hsl(var(--primary))"
-                      fill="url(#revenueGradient)"
-                      strokeWidth={2}
-                    />
+                    <Area type="monotone" dataKey="revenue" name="Revenue" stroke="hsl(var(--primary))" fill="url(#revenueGradient)" strokeWidth={2} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -302,7 +239,7 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
         </TabsContent>
 
         <TabsContent value="occupancy">
-          <Card>
+          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader>
               <CardTitle>Property Occupancy</CardTitle>
               <CardDescription>Occupied vs vacant units by property</CardDescription>
@@ -326,7 +263,7 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
         </TabsContent>
 
         <TabsContent value="status">
-          <Card>
+          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader>
               <CardTitle>Payment Status Distribution</CardTitle>
               <CardDescription>Breakdown of payment statuses</CardDescription>
@@ -335,16 +272,7 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
               <div className="h-[300px] flex items-center justify-center">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie
-                      data={paymentStatusData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={2}
-                      dataKey="value"
-                      label={({ name, value }) => `${name}: ${value}`}
-                    >
+                    <Pie data={paymentStatusData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
                       {paymentStatusData.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}

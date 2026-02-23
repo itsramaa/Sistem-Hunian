@@ -28,8 +28,8 @@ export const InvoiceList: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'paid': return 'default'; // default is usually primary/black
-      case 'open': return 'secondary'; // secondary usually gray
+      case 'paid': return 'default';
+      case 'open': return 'secondary';
       case 'void': return 'destructive';
       case 'uncollectible': return 'destructive';
       default: return 'outline';
@@ -38,15 +38,15 @@ export const InvoiceList: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border">
+      <div className="rounded-2xl border border-border/40 overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>Invoice ID</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+            <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40">
+              <TableHead className="uppercase text-xs tracking-wider">Invoice ID</TableHead>
+              <TableHead className="uppercase text-xs tracking-wider">Date</TableHead>
+              <TableHead className="uppercase text-xs tracking-wider">Amount</TableHead>
+              <TableHead className="uppercase text-xs tracking-wider">Status</TableHead>
+              <TableHead className="text-right uppercase text-xs tracking-wider">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -58,19 +58,19 @@ export const InvoiceList: React.FC = () => {
               </TableRow>
             ) : (
               paginatedInvoices.map((invoice) => (
-                <TableRow key={invoice.id}>
+                <TableRow key={invoice.id} className="hover:bg-primary/5 transition-colors">
                   <TableCell className="font-medium">{invoice.id}</TableCell>
                   <TableCell>{format(new Date(invoice.created_at), 'PPP')}</TableCell>
                   <TableCell>
                     {new Intl.NumberFormat('id-ID', { style: 'currency', currency: invoice.currency }).format(invoice.total)}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={getStatusColor(invoice.status) as any}>
+                    <Badge variant={getStatusColor(invoice.status) as any} className="rounded-full">
                       {invoice.status}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" className="rounded-xl">
                       <Download className="h-4 w-4 mr-2" />
                       PDF
                     </Button>
@@ -88,21 +88,11 @@ export const InvoiceList: React.FC = () => {
             Showing {((page - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(page * ITEMS_PER_PAGE, invoices.length)} of {invoices.length} invoices
           </div>
           <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-            >
+            <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
               <ChevronLeft className="h-4 w-4" />
               Previous
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-            >
+            <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
               Next
               <ChevronRight className="h-4 w-4" />
             </Button>

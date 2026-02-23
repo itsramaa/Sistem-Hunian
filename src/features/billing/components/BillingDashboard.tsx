@@ -31,22 +31,18 @@ export const BillingDashboard: React.FC<BillingDashboardProps> = ({ customerId }
   }
 
   return (
-    <div className="container mx-auto py-10 space-y-8">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">Billing & Subscription</h1>
-      </div>
-
+    <div className="space-y-8">
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="invoices">Invoices</TabsTrigger>
-          <TabsTrigger value="plans">Available Plans</TabsTrigger>
+        <TabsList className="inline-flex rounded-full bg-card/80 backdrop-blur-sm border border-border/40 p-1">
+          <TabsTrigger value="overview" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Overview</TabsTrigger>
+          <TabsTrigger value="invoices" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Invoices</TabsTrigger>
+          <TabsTrigger value="plans" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Available Plans</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
           <SubscriptionDetails />
           
-          <Card>
+          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader>
               <CardTitle>Plan Usage</CardTitle>
               <CardDescription>Overview of your resource usage for the current billing period.</CardDescription>
@@ -60,7 +56,7 @@ export const BillingDashboard: React.FC<BillingDashboardProps> = ({ customerId }
         </TabsContent>
 
         <TabsContent value="invoices">
-          <Card>
+          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader>
               <CardTitle>Billing History</CardTitle>
               <CardDescription>View and download your past invoices.</CardDescription>
@@ -72,7 +68,7 @@ export const BillingDashboard: React.FC<BillingDashboardProps> = ({ customerId }
         </TabsContent>
 
         <TabsContent value="plans">
-          <Card>
+          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader>
               <CardTitle>Change Plan</CardTitle>
               <CardDescription>Choose the plan that best fits your needs.</CardDescription>

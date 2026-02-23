@@ -99,66 +99,33 @@ const MerchantProfile = () => {
 
   const updateMerchant = useMutation({
     mutationFn: async (data: typeof businessForm) => {
-      const { error } = await supabase
-        .from('merchants')
-        .update(data)
-        .eq('user_id', user?.id);
+      const { error } = await supabase.from('merchants').update(data).eq('user_id', user?.id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['merchant-profile'] });
-      toast.success('Business profile updated');
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['merchant-profile'] }); toast.success('Business profile updated'); },
     onError: () => toast.error('Failed to update profile'),
   });
 
   const updateProfile = useMutation({
     mutationFn: async (data: typeof profileForm) => {
-      const { error } = await supabase
-        .from('profiles')
-        .update(data)
-        .eq('user_id', user?.id);
+      const { error } = await supabase.from('profiles').update(data).eq('user_id', user?.id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profile'] });
-      toast.success('Contact info updated');
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['profile'] }); toast.success('Contact info updated'); },
     onError: () => toast.error('Failed to update contact info'),
   });
 
   const uploadVerificationDocument = async (url: string, documentType: string) => {
     if (!merchant?.id) return;
-    
-    const { error } = await supabase
-      .from('merchant_verifications')
-      .insert({
-        merchant_id: merchant.id,
-        document_type: documentType,
-        document_url: url,
-        status: 'pending',
-      });
-    
-    if (error) {
-      toast.error('Failed to save document');
-      return;
-    }
-    
+    const { error } = await supabase.from('merchant_verifications').insert({ merchant_id: merchant.id, document_type: documentType, document_url: url, status: 'pending' });
+    if (error) { toast.error('Failed to save document'); return; }
     toast.success('Document uploaded successfully');
     refetchVerifications();
   };
 
   const deleteVerification = async (id: string) => {
-    const { error } = await supabase
-      .from('merchant_verifications')
-      .delete()
-      .eq('id', id);
-    
-    if (error) {
-      toast.error('Failed to delete document');
-      return;
-    }
-    
+    const { error } = await supabase.from('merchant_verifications').delete().eq('id', id);
+    if (error) { toast.error('Failed to delete document'); return; }
     toast.success('Document deleted');
     refetchVerifications();
   };
@@ -173,13 +140,13 @@ const MerchantProfile = () => {
   const getVerificationBadge = (status: string) => {
     switch (status) {
       case 'verified':
-        return <Badge className="bg-success text-success-foreground"><CheckCircle className="h-3 w-3 mr-1" /> Verified</Badge>;
+        return <Badge className="rounded-full bg-success text-success-foreground"><CheckCircle className="h-3 w-3 mr-1" /> Verified</Badge>;
       case 'pending':
-        return <Badge variant="secondary" className="bg-warning/10 text-warning"><Clock className="h-3 w-3 mr-1" /> Pending</Badge>;
+        return <Badge variant="secondary" className="rounded-full bg-warning/10 text-warning"><Clock className="h-3 w-3 mr-1" /> Pending</Badge>;
       case 'rejected':
-        return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" /> Rejected</Badge>;
+        return <Badge variant="destructive" className="rounded-full"><XCircle className="h-3 w-3 mr-1" /> Rejected</Badge>;
       default:
-        return <Badge variant="outline">Not Submitted</Badge>;
+        return <Badge variant="outline" className="rounded-full">Not Submitted</Badge>;
     }
   };
 
@@ -202,16 +169,16 @@ const MerchantProfile = () => {
     <div className="space-y-6">
       <PageHeader icon={Building2} title="Profile" description="Manage your business and verification details" />
       <Tabs defaultValue="business" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="business" className="flex items-center gap-2">
+        <TabsList className="inline-flex rounded-full bg-card/80 backdrop-blur-sm border border-border/40 p-1">
+          <TabsTrigger value="business" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
             <Building2 className="h-4 w-4" />
             Business
           </TabsTrigger>
-          <TabsTrigger value="verification" className="flex items-center gap-2">
+          <TabsTrigger value="verification" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
             <Shield className="h-4 w-4" />
             Verification
           </TabsTrigger>
-          <TabsTrigger value="banking" className="flex items-center gap-2">
+          <TabsTrigger value="banking" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
             <CreditCard className="h-4 w-4" />
             Banking
           </TabsTrigger>
@@ -219,17 +186,17 @@ const MerchantProfile = () => {
 
         <TabsContent value="business" className="space-y-6">
           {/* Merchant Code Card */}
-          <Card>
+          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader>
               <CardTitle>Merchant Code</CardTitle>
               <CardDescription>Share this code with tenants to link them to your property</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-3">
-                <div className="flex-1 p-4 bg-muted rounded-lg font-mono text-2xl font-bold tracking-widest text-center">
+                <div className="flex-1 p-4 bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 rounded-xl font-mono text-2xl font-bold tracking-widest text-center">
                   {merchant?.merchant_code || 'Loading...'}
                 </div>
-                <Button variant="outline" size="icon" onClick={copyMerchantCode}>
+                <Button variant="outline" size="icon" onClick={copyMerchantCode} className="rounded-xl">
                   <Copy className="h-4 w-4" />
                 </Button>
               </div>
@@ -240,10 +207,12 @@ const MerchantProfile = () => {
           </Card>
 
           {/* Business Profile */}
-          <Card>
+          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader>
               <div className="flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-primary" />
+                <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                  <Building2 className="h-4 w-4 text-primary" />
+                </div>
                 <CardTitle>Business Profile</CardTitle>
               </div>
               <CardDescription>Update your business information</CardDescription>
@@ -252,21 +221,12 @@ const MerchantProfile = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Business Name</Label>
-                  <Input
-                    value={businessForm.business_name}
-                    onChange={(e) => setBusinessForm({ ...businessForm, business_name: e.target.value })}
-                    placeholder="Your business name"
-                  />
+                  <Input value={businessForm.business_name} onChange={(e) => setBusinessForm({ ...businessForm, business_name: e.target.value })} placeholder="Your business name" className="rounded-xl bg-background/60 border-border/50" />
                 </div>
                 <div className="space-y-2">
                   <Label>Business Type</Label>
-                  <Select
-                    value={businessForm.business_type}
-                    onValueChange={(value) => setBusinessForm({ ...businessForm, business_type: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
+                  <Select value={businessForm.business_type} onValueChange={(value) => setBusinessForm({ ...businessForm, business_type: value })}>
+                    <SelectTrigger className="rounded-xl bg-background/60 border-border/50"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="individual">Individual</SelectItem>
                       <SelectItem value="company">Company</SelectItem>
@@ -276,41 +236,22 @@ const MerchantProfile = () => {
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label>Address</Label>
-                  <Input
-                    value={businessForm.address}
-                    onChange={(e) => setBusinessForm({ ...businessForm, address: e.target.value })}
-                    placeholder="Street address"
-                  />
+                  <Input value={businessForm.address} onChange={(e) => setBusinessForm({ ...businessForm, address: e.target.value })} placeholder="Street address" className="rounded-xl bg-background/60 border-border/50" />
                 </div>
                 <div className="space-y-2">
                   <Label>City</Label>
-                  <Input
-                    value={businessForm.city}
-                    onChange={(e) => setBusinessForm({ ...businessForm, city: e.target.value })}
-                    placeholder="City"
-                  />
+                  <Input value={businessForm.city} onChange={(e) => setBusinessForm({ ...businessForm, city: e.target.value })} placeholder="City" className="rounded-xl bg-background/60 border-border/50" />
                 </div>
                 <div className="space-y-2">
                   <Label>Province</Label>
-                  <Input
-                    value={businessForm.province}
-                    onChange={(e) => setBusinessForm({ ...businessForm, province: e.target.value })}
-                    placeholder="Province"
-                  />
+                  <Input value={businessForm.province} onChange={(e) => setBusinessForm({ ...businessForm, province: e.target.value })} placeholder="Province" className="rounded-xl bg-background/60 border-border/50" />
                 </div>
                 <div className="space-y-2">
                   <Label>Postal Code</Label>
-                  <Input
-                    value={businessForm.postal_code}
-                    onChange={(e) => setBusinessForm({ ...businessForm, postal_code: e.target.value })}
-                    placeholder="Postal code"
-                  />
+                  <Input value={businessForm.postal_code} onChange={(e) => setBusinessForm({ ...businessForm, postal_code: e.target.value })} placeholder="Postal code" className="rounded-xl bg-background/60 border-border/50" />
                 </div>
               </div>
-              <Button 
-                onClick={() => updateMerchant.mutate(businessForm)}
-                disabled={updateMerchant.isPending}
-              >
+              <Button onClick={() => updateMerchant.mutate(businessForm)} disabled={updateMerchant.isPending} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-md">
                 {updateMerchant.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                 Save Changes
               </Button>
@@ -318,7 +259,7 @@ const MerchantProfile = () => {
           </Card>
 
           {/* Contact Information */}
-          <Card>
+          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader>
               <CardTitle>Contact Information</CardTitle>
               <CardDescription>Update your personal contact details</CardDescription>
@@ -327,29 +268,18 @@ const MerchantProfile = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Full Name</Label>
-                  <Input
-                    value={profileForm.full_name}
-                    onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })}
-                    placeholder="Your full name"
-                  />
+                  <Input value={profileForm.full_name} onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} placeholder="Your full name" className="rounded-xl bg-background/60 border-border/50" />
                 </div>
                 <div className="space-y-2">
                   <Label>Phone</Label>
-                  <Input
-                    value={profileForm.phone}
-                    onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                    placeholder="Phone number"
-                  />
+                  <Input value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} placeholder="Phone number" className="rounded-xl bg-background/60 border-border/50" />
                 </div>
                 <div className="space-y-2">
                   <Label>Email</Label>
-                  <Input value={profile?.email || ''} disabled />
+                  <Input value={profile?.email || ''} disabled className="rounded-xl bg-background/60 border-border/50" />
                 </div>
               </div>
-              <Button 
-                onClick={() => updateProfile.mutate(profileForm)}
-                disabled={updateProfile.isPending}
-              >
+              <Button onClick={() => updateProfile.mutate(profileForm)} disabled={updateProfile.isPending} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-md">
                 {updateProfile.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                 Save Contact Info
               </Button>
@@ -358,11 +288,13 @@ const MerchantProfile = () => {
         </TabsContent>
 
         <TabsContent value="verification" className="space-y-6">
-          <Card>
+          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-primary" />
+                  <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                    <Shield className="h-4 w-4 text-primary" />
+                  </div>
                   <CardTitle>Verification Status</CardTitle>
                 </div>
                 {getVerificationBadge(merchant?.verification_status || 'pending')}
@@ -372,12 +304,12 @@ const MerchantProfile = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="p-4 rounded-lg bg-muted/50">
+              <div className="p-4 rounded-xl bg-card/80 backdrop-blur-sm border border-border/40">
                 <h4 className="font-medium mb-2">Required Documents</h4>
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   <li className="flex items-center gap-2">
                     {verifications.some(v => v.document_type === 'ktp') ? (
-                      <CheckCircle className="h-4 w-4 text-success" />
+                      <div className="h-5 w-5 rounded-full bg-gradient-to-br from-success/30 to-success/10 flex items-center justify-center"><CheckCircle className="h-3 w-3 text-success" /></div>
                     ) : (
                       <Clock className="h-4 w-4 text-muted-foreground" />
                     )}
@@ -385,7 +317,7 @@ const MerchantProfile = () => {
                   </li>
                   <li className="flex items-center gap-2">
                     {verifications.some(v => v.document_type === 'npwp') ? (
-                      <CheckCircle className="h-4 w-4 text-success" />
+                      <div className="h-5 w-5 rounded-full bg-gradient-to-br from-success/30 to-success/10 flex items-center justify-center"><CheckCircle className="h-3 w-3 text-success" /></div>
                     ) : (
                       <Clock className="h-4 w-4 text-muted-foreground" />
                     )}
@@ -393,7 +325,7 @@ const MerchantProfile = () => {
                   </li>
                   <li className="flex items-center gap-2">
                     {verifications.some(v => v.document_type === 'surat_kepemilikan') ? (
-                      <CheckCircle className="h-4 w-4 text-success" />
+                      <div className="h-5 w-5 rounded-full bg-gradient-to-br from-success/30 to-success/10 flex items-center justify-center"><CheckCircle className="h-3 w-3 text-success" /></div>
                     ) : (
                       <Clock className="h-4 w-4 text-muted-foreground" />
                     )}
@@ -403,7 +335,7 @@ const MerchantProfile = () => {
                     <>
                       <li className="flex items-center gap-2">
                         {verifications.some(v => v.document_type === 'siup') ? (
-                          <CheckCircle className="h-4 w-4 text-success" />
+                          <div className="h-5 w-5 rounded-full bg-gradient-to-br from-success/30 to-success/10 flex items-center justify-center"><CheckCircle className="h-3 w-3 text-success" /></div>
                         ) : (
                           <Clock className="h-4 w-4 text-muted-foreground" />
                         )}
@@ -411,7 +343,7 @@ const MerchantProfile = () => {
                       </li>
                       <li className="flex items-center gap-2">
                         {verifications.some(v => v.document_type === 'akta_perusahaan') ? (
-                          <CheckCircle className="h-4 w-4 text-success" />
+                          <div className="h-5 w-5 rounded-full bg-gradient-to-br from-success/30 to-success/10 flex items-center justify-center"><CheckCircle className="h-3 w-3 text-success" /></div>
                         ) : (
                           <Clock className="h-4 w-4 text-muted-foreground" />
                         )}
@@ -427,26 +359,16 @@ const MerchantProfile = () => {
                 <div className="space-y-2">
                   <Label>Document Type</Label>
                   <Select value={selectedDocType} onValueChange={setSelectedDocType}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger className="rounded-xl bg-background/60 border-border/50"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {documentTypes.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
+                        <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 
-                <FileUpload
-                  bucket="verification-documents"
-                  folder="verifications"
-                  accept="image/*,application/pdf"
-                  maxSize={10}
-                  onUploadComplete={(url) => uploadVerificationDocument(url, selectedDocType)}
-                />
+                <FileUpload bucket="verification-documents" folder="verifications" accept="image/*,application/pdf" maxSize={10} onUploadComplete={(url) => uploadVerificationDocument(url, selectedDocType)} />
               </div>
 
               {/* Uploaded Documents */}
@@ -454,29 +376,20 @@ const MerchantProfile = () => {
                 <div className="space-y-3">
                   <h4 className="font-medium">Uploaded Documents</h4>
                   {verifications.map((doc) => (
-                    <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg border">
+                    <div key={doc.id} className="flex items-center justify-between p-3 rounded-xl bg-card/80 backdrop-blur-sm border border-border/40">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-muted">
-                          <Shield className="h-4 w-4" />
+                        <div className="p-2 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5">
+                          <Shield className="h-4 w-4 text-primary" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium capitalize">
-                            {doc.document_type.replace(/_/g, ' ')}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(doc.created_at).toLocaleDateString()}
-                          </p>
+                          <p className="text-sm font-medium capitalize">{doc.document_type.replace(/_/g, ' ')}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(doc.created_at).toLocaleDateString()}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         {getVerificationBadge(doc.status || 'pending')}
                         {doc.status === 'pending' && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => deleteVerification(doc.id)}
-                          >
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-destructive" onClick={() => deleteVerification(doc.id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         )}

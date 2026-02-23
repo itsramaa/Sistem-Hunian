@@ -40,11 +40,7 @@ export function MerchantNotificationSettings() {
   const { data: profile } = useQuery({
     queryKey: ['profile', merchant?.user_id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('phone')
-        .eq('user_id', merchant?.user_id)
-        .single();
+      const { data, error } = await supabase.from('profiles').select('phone').eq('user_id', merchant?.user_id).single();
       if (error) throw error;
       return data;
     },
@@ -58,7 +54,6 @@ export function MerchantNotificationSettings() {
   }, [profile]);
 
   const isValidPhoneNumber = (phone: string) => {
-    // Indonesian phone number validation
     const cleaned = phone.replace(/\D/g, '');
     return cleaned.length >= 10 && cleaned.length <= 15;
   };
@@ -68,17 +63,18 @@ export function MerchantNotificationSettings() {
       toast.error('Please enter a valid phone number for WhatsApp');
       return;
     }
-    // In a real implementation, this would save to a notification_preferences table
     toast.success('Notification preferences saved');
   };
 
   return (
     <div className="space-y-6">
       {/* Channel Settings */}
-      <Card>
+      <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <MessageCircle className="h-5 w-5" />
+            <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+              <MessageCircle className="h-4 w-4 text-primary" />
+            </div>
             Notification Channels
           </CardTitle>
           <CardDescription>
@@ -87,9 +83,9 @@ export function MerchantNotificationSettings() {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Email Channel */}
-          <div className="flex items-center justify-between p-4 rounded-lg border">
+          <div className="flex items-center justify-between p-4 rounded-xl bg-card/80 backdrop-blur-sm border border-border/40">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-primary/10">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5">
                 <Mail className="h-5 w-5 text-primary" />
               </div>
               <div>
@@ -98,48 +94,37 @@ export function MerchantNotificationSettings() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="bg-success/10 text-success">
+              <Badge variant="secondary" className="rounded-full bg-success/10 text-success">
                 <CheckCircle className="h-3 w-3 mr-1" />
                 Active
               </Badge>
-              <Switch
-                checked={preferences.email_enabled}
-                onCheckedChange={(checked) => setPreferences({ ...preferences, email_enabled: checked })}
-              />
+              <Switch checked={preferences.email_enabled} onCheckedChange={(checked) => setPreferences({ ...preferences, email_enabled: checked })} />
             </div>
           </div>
 
           {/* WhatsApp Channel */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 rounded-lg border">
+            <div className="flex items-center justify-between p-4 rounded-xl bg-card/80 backdrop-blur-sm border border-border/40">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-green-500/10">
-                  <MessageCircle className="h-5 w-5 text-green-600" />
+                <div className="p-2 rounded-xl bg-gradient-to-br from-success/20 to-success/5">
+                  <MessageCircle className="h-5 w-5 text-success" />
                 </div>
                 <div>
                   <p className="font-medium">WhatsApp Notifications</p>
                   <p className="text-sm text-muted-foreground">Send reminders via WhatsApp</p>
                 </div>
               </div>
-              <Switch
-                checked={preferences.whatsapp_enabled}
-                onCheckedChange={(checked) => setPreferences({ ...preferences, whatsapp_enabled: checked })}
-              />
+              <Switch checked={preferences.whatsapp_enabled} onCheckedChange={(checked) => setPreferences({ ...preferences, whatsapp_enabled: checked })} />
             </div>
 
             {preferences.whatsapp_enabled && (
-              <div className="ml-4 p-4 rounded-lg border border-dashed space-y-3">
+              <div className="ml-4 p-4 rounded-xl border-dashed border border-border/50 bg-background/40 backdrop-blur-sm space-y-3">
                 <div className="space-y-2">
                   <Label>WhatsApp Business Number</Label>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="+62 812 3456 7890"
-                        value={preferences.whatsapp_number}
-                        onChange={(e) => setPreferences({ ...preferences, whatsapp_number: e.target.value })}
-                        className="pl-10"
-                      />
+                      <Input placeholder="+62 812 3456 7890" value={preferences.whatsapp_number} onChange={(e) => setPreferences({ ...preferences, whatsapp_number: e.target.value })} className="pl-10 rounded-xl bg-background/60 border-border/50" />
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -160,7 +145,7 @@ export function MerchantNotificationSettings() {
       </Card>
 
       {/* Reminder Schedule */}
-      <Card>
+      <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
         <CardHeader>
           <CardTitle>Payment Reminder Schedule</CardTitle>
           <CardDescription>Configure when to send automatic payment reminders</CardDescription>
@@ -173,22 +158,19 @@ export function MerchantNotificationSettings() {
             { key: 'reminder_due', label: 'On due date', description: 'Reminder on the exact due date' },
             { key: 'reminder_overdue', label: 'Overdue (daily)', description: 'Daily reminders for overdue payments' },
           ].map((item) => (
-            <div key={item.key} className="flex items-center justify-between p-4 rounded-lg border">
+            <div key={item.key} className="flex items-center justify-between p-4 rounded-xl bg-card/80 backdrop-blur-sm border border-border/40">
               <div>
                 <p className="font-medium">{item.label}</p>
                 <p className="text-sm text-muted-foreground">{item.description}</p>
               </div>
-              <Switch
-                checked={preferences[item.key as keyof NotificationPreferences] as boolean}
-                onCheckedChange={(checked) => setPreferences({ ...preferences, [item.key]: checked })}
-              />
+              <Switch checked={preferences[item.key as keyof NotificationPreferences] as boolean} onCheckedChange={(checked) => setPreferences({ ...preferences, [item.key]: checked })} />
             </div>
           ))}
         </CardContent>
       </Card>
 
       {/* Notification Events */}
-      <Card>
+      <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
         <CardHeader>
           <CardTitle>Event Notifications</CardTitle>
           <CardDescription>Get notified about important events</CardDescription>
@@ -200,7 +182,7 @@ export function MerchantNotificationSettings() {
             { label: 'Contract Expiry', description: 'Contracts expiring in 30 days' },
             { label: 'Weekly Reports', description: 'Weekly summary of your properties' },
           ].map((item, index) => (
-            <div key={index} className="flex items-center justify-between p-4 rounded-lg border">
+            <div key={index} className="flex items-center justify-between p-4 rounded-xl bg-card/80 backdrop-blur-sm border border-border/40">
               <div>
                 <p className="font-medium">{item.label}</p>
                 <p className="text-sm text-muted-foreground">{item.description}</p>
@@ -212,7 +194,7 @@ export function MerchantNotificationSettings() {
       </Card>
 
       <div className="flex justify-end">
-        <Button onClick={handleSave}>
+        <Button onClick={handleSave} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-md">
           <Save className="h-4 w-4 mr-2" />
           Save Preferences
         </Button>

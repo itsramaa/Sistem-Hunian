@@ -4,7 +4,7 @@ import { DisbursementScheduleSettings } from "@/features/payments/components/Dis
 import { SuspensionWarningBanner } from "@/features/users/components/SuspensionWarningBanner";
 import { PageHeader } from "@/shared/components/ui/PageHeader";
 import { TabsPageSkeleton } from "@/shared/components/ui/PageSkeleton";
-import { Receipt } from "lucide-react";
+import { Receipt, Wallet } from "lucide-react";
 
 const Billing = () => {
   const { merchant } = useAuth();
@@ -18,8 +18,13 @@ const Billing = () => {
       <PageHeader icon={Receipt} title="Billing & Subscription" description="Manage your subscription and payout settings" />
       <SuspensionWarningBanner />
       <BillingDashboard customerId={merchant.id} />
-      <div className="pt-8 border-t">
-        <h3 className="text-lg font-semibold mb-4">Payout Settings</h3>
+      <div className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+            <Wallet className="h-4 w-4 text-primary" />
+          </div>
+          <h3 className="text-lg font-semibold">Payout Settings</h3>
+        </div>
         <DisbursementScheduleSettings />
       </div>
     </div>
