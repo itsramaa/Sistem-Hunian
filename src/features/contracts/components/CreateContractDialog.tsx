@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/shared/components/ui/textarea';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { contractSchema, ContractFormData } from '../types/schema';
+import { contractSchema, ContractFormData, paymentFrequencyOptions } from '../types/schema';
 import { useEffect } from 'react';
 
 interface CreateContractDialogProps {
@@ -25,7 +25,7 @@ export function CreateContractDialog({
 }: CreateContractDialogProps) {
   const form = useForm<ContractFormData>({
     resolver: zodResolver(contractSchema),
-    defaultValues: { unit_id: '', tenant_user_id: '', start_date: '', end_date: '', rent_amount: 0, deposit_amount: 0, billing_day: undefined, terms: '' },
+    defaultValues: { unit_id: '', tenant_user_id: '', start_date: '', end_date: '', rent_amount: 0, deposit_amount: 0, payment_frequency: 'monthly', billing_day: undefined, terms: '' },
   });
 
   useEffect(() => { if (open) form.reset(); }, [open, form]);
@@ -36,14 +36,14 @@ export function CreateContractDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg rounded-2xl">
         <DialogHeader>
-          <DialogTitle>Create Contract</DialogTitle>
-          <DialogDescription>Create a new rental contract for a tenant</DialogDescription>
+          <DialogTitle>Buat Kontrak</DialogTitle>
+          <DialogDescription>Buat kontrak sewa baru untuk penyewa</DialogDescription>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
           <div>
-            <Label>Select Unit</Label>
+            <Label>Pilih Unit</Label>
             <Select value={form.watch('unit_id')} onValueChange={(v) => form.setValue('unit_id', v, { shouldValidate: true })}>
-              <SelectTrigger className="rounded-xl bg-background/60 border-border/50"><SelectValue placeholder="Choose a unit" /></SelectTrigger>
+              <SelectTrigger className="rounded-xl bg-background/60 border-border/50"><SelectValue placeholder="Pilih unit" /></SelectTrigger>
               <SelectContent className="rounded-xl">
                 {availableUnits.map((unit) => (
                   <SelectItem key={unit.id} value={unit.id}>{unit.propertyName} - Unit {unit.unit_number}</SelectItem>
@@ -53,9 +53,9 @@ export function CreateContractDialog({
             {form.formState.errors.unit_id && <p className="text-sm text-destructive mt-1">{form.formState.errors.unit_id.message}</p>}
           </div>
           <div>
-            <Label>Select Tenant</Label>
+            <Label>Pilih Penyewa</Label>
             <Select value={form.watch('tenant_user_id')} onValueChange={(v) => form.setValue('tenant_user_id', v, { shouldValidate: true })}>
-              <SelectTrigger className="rounded-xl bg-background/60 border-border/50"><SelectValue placeholder="Select tenant" /></SelectTrigger>
+              <SelectTrigger className="rounded-xl bg-background/60 border-border/50"><SelectValue placeholder="Pilih penyewa" /></SelectTrigger>
               <SelectContent className="rounded-xl">
                 {merchantTenants.map((tenant) => (
                   <SelectItem key={tenant.user_id} value={tenant.user_id}>{tenant.full_name} ({tenant.email})</SelectItem>
@@ -66,36 +66,47 @@ export function CreateContractDialog({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Start Date</Label>
+              <Label>Tanggal Mulai</Label>
               <Input type="date" {...form.register('start_date')} className="rounded-xl bg-background/60 border-border/50" />
               {form.formState.errors.start_date && <p className="text-sm text-destructive mt-1">{form.formState.errors.start_date.message}</p>}
             </div>
             <div>
-              <Label>End Date</Label>
+              <Label>Tanggal Berakhir</Label>
               <Input type="date" {...form.register('end_date')} className="rounded-xl bg-background/60 border-border/50" />
               {form.formState.errors.end_date && <p className="text-sm text-destructive mt-1">{form.formState.errors.end_date.message}</p>}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Monthly Rent (IDR)</Label>
+              <Label>Harga Sewa (Rp)</Label>
               <Input type="number" {...form.register('rent_amount')} className="rounded-xl bg-background/60 border-border/50" />
               {form.formState.errors.rent_amount && <p className="text-sm text-destructive mt-1">{form.formState.errors.rent_amount.message}</p>}
             </div>
             <div>
-              <Label>Deposit (IDR)</Label>
+              <Label>Deposit (Rp)</Label>
               <Input type="number" {...form.register('deposit_amount')} className="rounded-xl bg-background/60 border-border/50" />
               {form.formState.errors.deposit_amount && <p className="text-sm text-destructive mt-1">{form.formState.errors.deposit_amount.message}</p>}
             </div>
           </div>
           <div>
-            <Label>Terms & Conditions</Label>
-            <Textarea placeholder="Contract terms..." {...form.register('terms')} rows={3} className="rounded-xl bg-background/60 border-border/50" />
+            <Label>Frekuensi Pembayaran</Label>
+            <Select value={form.watch('payment_frequency')} onValueChange={(v) => form.setValue('payment_frequency', v as 'monthly' | 'semester' | 'annual', { shouldValidate: true })}>
+              <SelectTrigger className="rounded-xl bg-background/60 border-border/50"><SelectValue placeholder="Pilih frekuensi" /></SelectTrigger>
+              <SelectContent className="rounded-xl">
+                {paymentFrequencyOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Syarat & Ketentuan</Label>
+            <Textarea placeholder="Syarat & ketentuan kontrak..." {...form.register('terms')} rows={3} className="rounded-xl bg-background/60 border-border/50" />
             {form.formState.errors.terms && <p className="text-sm text-destructive mt-1">{form.formState.errors.terms.message}</p>}
           </div>
           <DialogFooter className="flex-col-reverse sm:flex-row">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">Cancel</Button>
-            <Button type="submit" disabled={loading} className="gradient-cta rounded-xl">{loading ? 'Creating...' : 'Create Contract'}</Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">Batal</Button>
+            <Button type="submit" disabled={loading} className="gradient-cta rounded-xl">{loading ? 'Membuat...' : 'Buat Kontrak'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

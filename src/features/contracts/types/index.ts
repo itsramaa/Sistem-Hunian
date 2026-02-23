@@ -40,6 +40,7 @@ export interface CreateContractPayload {
   end_date: string;
   rent_amount: number;
   deposit_amount: number;
+  payment_frequency?: 'monthly' | 'semester' | 'annual';
   billing_day?: number | null;
   terms?: string | null;
   status: 'draft' | 'active' | 'pending' | 'notice' | 'completed' | 'terminated' | 'expired';

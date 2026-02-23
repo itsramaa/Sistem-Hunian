@@ -436,6 +436,7 @@ export type Database = {
           move_out_notice_date: string | null
           move_out_notice_given: boolean | null
           notice_period_days: number | null
+          payment_frequency: string | null
           referral_bonus_amount: number | null
           referral_bonus_applied: boolean | null
           rent_amount: number
@@ -470,6 +471,7 @@ export type Database = {
           move_out_notice_date?: string | null
           move_out_notice_given?: boolean | null
           notice_period_days?: number | null
+          payment_frequency?: string | null
           referral_bonus_amount?: number | null
           referral_bonus_applied?: boolean | null
           rent_amount: number
@@ -504,6 +506,7 @@ export type Database = {
           move_out_notice_date?: string | null
           move_out_notice_given?: boolean | null
           notice_period_days?: number | null
+          payment_frequency?: string | null
           referral_bonus_amount?: number | null
           referral_bonus_applied?: boolean | null
           rent_amount?: number
