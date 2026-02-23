@@ -27,7 +27,7 @@ export function NavMain({ groups, basePath }: NavMainProps) {
           </SidebarGroupLabel>
           <SidebarMenu>
             {group.items.map((item) => {
-              const isActive = isPathActive(item.path, location.pathname, basePath);
+              const isActive = isPathActive(item.path, location.pathname, basePath, item.activePatterns);
 
               return (
                 <SidebarMenuItem key={item.path}>
