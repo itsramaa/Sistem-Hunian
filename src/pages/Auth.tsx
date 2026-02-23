@@ -18,7 +18,7 @@ export default function Auth() {
 
   useEffect(() => {
     if (!isLoading && user && role) {
-      const destination = roleDestinations[role] || roleDestinations.tenant;
+      const destination = roleDestinations[role] || roleDestinations.merchant;
       navigate(destination.path, { replace: true });
     }
   }, [user, role, isLoading, navigate]);
@@ -29,7 +29,7 @@ export default function Auth() {
 
   // Show loading skeleton when user is authenticated but redirecting
   if (user && role) {
-    const destination = roleDestinations[role] || roleDestinations.tenant;
+    const destination = roleDestinations[role] || roleDestinations.merchant;
     return <AuthLoadingSkeleton destination={destination.name} />;
   }
 
