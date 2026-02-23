@@ -10,7 +10,6 @@ import { useChatbotConversation } from "@/features/chatbot/hooks/useChatbotConve
 import { ChatMessageRenderer } from "@/features/chatbot/components/ChatMessageRenderer";
 import { toast } from "sonner";
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chatbot`;
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_RETRIES = 3;
 
@@ -61,6 +60,28 @@ const ROLE_QUICK_ACTIONS = {
   ],
 };
 
+// Role-specific assistant titles
+const ROLE_ASSISTANT_INFO: Record<string, { title: string; subtitle: string }> = {
+  tenant: { title: "Asisten Tenant", subtitle: "Siap membantu Anda" },
+  merchant: { title: "Asisten Bisnis", subtitle: "Siap membantu bisnis Anda" },
+  vendor: { title: "Asisten Vendor", subtitle: "Siap membantu bisnis Anda" },
+  default: { title: "Sihuni Assistant", subtitle: "Siap membantu Anda" },
+};
+
+// Get the correct edge function URL based on role
+function getChatUrl(role: string): string {
+  const base = import.meta.env.VITE_SUPABASE_URL;
+  switch (role) {
+    case 'merchant':
+      return `${base}/functions/v1/merchant-ai-assistant`;
+    case 'vendor':
+      return `${base}/functions/v1/vendor-ai-assistant`;
+    case 'tenant':
+    default:
+      return `${base}/functions/v1/ai-chatbot`;
+  }
+}
+
 interface Message {
   role: "user" | "assistant";
   content: string;
@@ -80,7 +101,7 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const conversationLoadedRef = useRef(false);
-  const { user } = useAuth();
+  const { user, role, merchant, vendor } = useAuth();
   const { trackChatbotMessage } = useChatbotTracking();
   const {
     messages: savedMessages,
@@ -90,8 +111,9 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
     clearConversation,
   } = useChatbotConversation({ autoLoad: isOpen });
 
-  const userRole = (user?.user_metadata?.role as keyof typeof ROLE_QUICK_ACTIONS) || 'default';
+  const userRole = (role as keyof typeof ROLE_QUICK_ACTIONS) || 'default';
   const quickActions = ROLE_QUICK_ACTIONS[userRole] || ROLE_QUICK_ACTIONS.default;
+  const assistantInfo = ROLE_ASSISTANT_INFO[userRole] || ROLE_ASSISTANT_INFO.default;
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || '';
 
   // Monitor online status
@@ -140,26 +162,38 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
     setLocalMessages(newMessages);
     setInput("");
 
-    // Save user message (prevent duplicate save)
+    // Save user message
     saveMessage(userMsg);
 
     abortControllerRef.current = new AbortController();
 
+    // Build role-specific request body
+    const chatUrl = getChatUrl(userRole);
+    const bodyPayload: Record<string, unknown> = {
+      messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
+      userId: user?.id,
+    };
+
+    // Add role-specific context
+    if (userRole === 'merchant' && merchant) {
+      bodyPayload.merchantId = merchant.id;
+    } else if (userRole === 'vendor' && vendor) {
+      bodyPayload.vendorId = vendor.id;
+    } else {
+      bodyPayload.context = {
+        role: userRole,
+        userName,
+      };
+    }
+
     try {
-      const resp = await fetch(CHAT_URL, {
+      const resp = await fetch(chatUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({
-          messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
-          userId: user?.id,
-          context: { 
-            role: userRole,
-            userName,
-          },
-        }),
+        body: JSON.stringify(bodyPayload),
         signal: abortControllerRef.current.signal,
       });
 
@@ -222,7 +256,7 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
         }
       }
 
-      // Save assistant message (only save once, not via addMessage)
+      // Save assistant message
       if (assistantContent) {
         saveMessage({ role: "assistant", content: assistantContent });
       }
@@ -272,7 +306,7 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
       setIsStreaming(false);
       abortControllerRef.current = null;
     }
-  }, [localMessages, user, userRole, userName, isOnline, trackChatbotMessage, saveMessage, trackAnalytics]);
+  }, [localMessages, user, userRole, userName, merchant, vendor, isOnline, trackChatbotMessage, saveMessage, trackAnalytics]);
 
   const detectQueryType = (message: string): string => {
     const lowerMsg = message.toLowerCase();
@@ -347,10 +381,10 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
           <Bot className="h-4 w-4" />
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-sm">Sihuni Assistant</h3>
+          <h3 className="font-semibold text-sm">{assistantInfo.title}</h3>
           <div className="flex items-center gap-1 text-xs opacity-80">
             {!isOnline && <WifiOff className="h-3 w-3" />}
-            <span>{isOnline ? "Siap membantu Anda" : "Offline"}</span>
+            <span>{isOnline ? assistantInfo.subtitle : "Offline"}</span>
           </div>
         </div>
         {localMessages.length > 0 && (
@@ -388,7 +422,7 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
         {localMessages.length === 0 ? (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-muted-foreground">
-              Hai{userName ? ` ${userName}` : ''}! 👋 Saya asisten Sihuni. Ada yang bisa saya bantu hari ini?
+              Hai{userName ? ` ${userName}` : ''}! 👋 Saya {assistantInfo.title.toLowerCase()} Sihuni. Ada yang bisa saya bantu hari ini?
             </p>
             <div className="flex flex-col gap-2">
               {quickActions.map((action) => (
