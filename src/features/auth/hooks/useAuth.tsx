@@ -148,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         data: {
           full_name: metadata?.full_name || '',
           phone: metadata?.phone || '',
-          role: metadata?.role || 'tenant',
+          role: metadata?.role || 'merchant',
           business_name: metadata?.business_name || '',
           merchant_code: metadata?.merchant_code || '',
         },
