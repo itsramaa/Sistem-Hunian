@@ -1,233 +1,167 @@
 
+# Lanjutan Redesign: Komponen Properties & Units yang Belum Tercoverage
 
-# Redesign Total: Properties, Units & Detail Pages -- "Warm Luxury Futurism"
-
-Menerapkan aesthetic yang sama dengan login/register page (glassmorphism, modern layout, animated backgrounds) ke seluruh modul Properties & Units.
-
----
-
-## Perubahan Global
-
-### index.css -- Tambah utility baru
-- `.glass-stat-card` -- card statistik dengan efek glass ringan, border halus, dan hover lift
-- `.glass-table` -- table wrapper dengan glass background dan rounded corners
-- `.section-header` -- header section dengan gradient underline accent
-- Pastikan reuse `.glass-card`, `.gradient-orb` yang sudah ada
+Menerapkan aesthetic "Warm Luxury Futurism" (glassmorphism, rounded-2xl, gradient accents, hover lift) ke 15 komponen yang belum diupdate.
 
 ---
 
-## 1. Properties Page (`src/pages/merchant/Properties.tsx`)
+## 1. CustomAmenities.tsx
 
-### Stats Cards -- Premium Glassmorphic
-- Ganti `Card` biasa dengan `glass-card` styling: `bg-card/80 backdrop-blur-sm border border-border/50 rounded-2xl`
-- Icon container: gradient background (`bg-gradient-to-br from-primary/20 to-primary/10`) dengan `rounded-xl`
-- Hover effect: `hover:-translate-y-1 hover:shadow-lg transition-all duration-300`
-- Angka statistik: tambah `font-display` untuk angka besar
+- Badge default amenities: `rounded-full` pill style, selected menggunakan `bg-primary text-primary-foreground`, unselected `bg-background/60 border-border/50 hover:border-primary/40`
+- Custom amenities section: border-t diganti subtle separator dengan `border-border/30`
+- Remove button: `hover:bg-destructive/20 rounded-full` (sudah ada, polish saja)
+- Input custom: `rounded-xl bg-background/60 border-border/50` -- konsisten dengan form style baru
+- Add button: `rounded-xl` bukan default
+- Helper text: tetap `text-xs text-muted-foreground`
 
-### Empty State -- Visual Premium
-- Background: gradient mesh halus (`from-primary/5 via-muted to-accent/5`)
-- Icon container: lebih besar (`w-24 h-24`) dengan subtle gradient border
-- Animasi icon: `animate-pulse` halus
+## 2. DragDropPhotoReorder.tsx
 
-### Grid/List Layout -- Spacing & Polish
-- Grid gap: `gap-6` (dari `gap-4`)
-- Card animation: `slide-in-from-bottom-4` (lebih dramatic dari `-2`)
+- Photo items: `rounded-xl` (dari `rounded-lg`), border `border-border/40`
+- Cover photo ring: `ring-primary/50 ring-offset-2`
+- Cover label badge: `rounded-full bg-primary/90 backdrop-blur-sm`
+- Order number badge: `bg-background/80 backdrop-blur-sm rounded-full`
+- Hover overlay: `bg-black/40 backdrop-blur-sm` (lebih halus)
+- Upload placeholder: `rounded-xl border-2 border-dashed border-border/40 hover:border-primary/50 hover:bg-primary/5`
+- Empty state: `rounded-2xl border-2 border-dashed border-border/30`, icon container `w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/10 to-accent/5`
 
----
+## 3. LocationPicker.tsx
 
-## 2. PropertyCard (`src/features/properties/components/PropertyCard.tsx`)
+- Search input: `rounded-xl bg-background/60 border-border/50 pl-10` (icon prefix terintegrasi)
+- Search/Map buttons: `rounded-xl`
+- Map container: `rounded-2xl border border-border/40 overflow-hidden shadow-sm`
+- Helper text: tetap sama
 
-### Card Redesign -- Glassmorphic Premium
-- Base: `bg-card/90 backdrop-blur-sm border border-border/40 rounded-2xl shadow-sm`
-- Hover: `hover:-translate-y-2 hover:shadow-[0_12px_40px_rgba(0,0,0,0.1)] hover:border-primary/30`
-- Image section: `rounded-xl` (dari `rounded-lg`), height `h-32` (dari `h-24`), overlay gradient di bawah untuk text readability
-- Icon container: gradient `bg-gradient-to-br from-primary/15 to-accent/10` dengan `rounded-xl`
-- Status badge: pill style dengan `rounded-full` dan subtle glow saat active
-- Occupancy bar: segmented bar (4 segments) seperti password strength meter, bukan single bar
-- Amenity badges: `rounded-full` dengan subtle background tinting
+## 4. MerchantPropertiesTab.tsx (Admin view)
 
----
+- Property items: `rounded-2xl bg-card/80 backdrop-blur-sm border border-border/40 hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-300`
+- Icon container: `rounded-xl bg-gradient-to-br from-primary/15 to-accent/10`
+- Status badge: `rounded-full`
+- Loading skeleton: `rounded-2xl bg-card/60`
+- Empty & error states: gradient mesh bg, larger icon container
+- Footer stats: `rounded-xl bg-muted/30 p-3`
 
-## 3. PropertyTable (`src/features/properties/components/PropertyTable.tsx`)
+## 5. MoveOutInspectionForm.tsx
 
-### Table Redesign
-- Wrapper: `rounded-2xl border border-border/50 bg-card/90 backdrop-blur-sm overflow-hidden`
-- Header row: `bg-gradient-to-r from-muted/80 to-muted/40` dengan text `font-semibold text-xs uppercase tracking-wider`
-- Row hover: `hover:bg-primary/5` (bukan `hover:bg-muted/50`)
-- Thumbnail: `rounded-xl` dengan shadow
-- Pagination: modern pill buttons, active page dengan gradient background
-
----
-
-## 4. PropertyFilters (`src/features/properties/components/PropertyFilters.tsx`)
-
-### Filter Bar -- Unified Glass Strip
-- Wrapper: `bg-card/80 backdrop-blur-sm border border-border/40 rounded-2xl p-4`
-- Search input: `bg-background/60 rounded-xl border-border/50` dengan icon prefix terintegrasi
-- Select triggers: `rounded-xl bg-background/60`
-- View toggle: pill style dengan `rounded-full bg-muted/30`, active `bg-primary text-primary-foreground`
-- Active filter badges: `rounded-full` dengan colored dot indicator
-
----
-
-## 5. PropertyDetail (`src/pages/merchant/PropertyDetail.tsx`)
-
-### Hero Section -- Immersive
-- Image carousel: height `h-64` (dari `h-48`), full-width dengan `rounded-2xl`
-- Overlay gradient di bawah image: `bg-gradient-to-t from-background to-transparent`
-- Header info overlaid pada image (di mobile, di bawah image)
-- Back button: glassmorphic `bg-card/80 backdrop-blur-sm rounded-full`
-
-### Stats Cards -- Grid Premium
-- Same glassmorphic treatment: `bg-card/80 backdrop-blur-sm rounded-2xl border border-border/40`
-- Icon: gradient circle background
-- Hover lift: `hover:-translate-y-1 transition-all duration-300`
-
-### Tabs -- Modern Pill Style
-- TabsList: `bg-muted/30 rounded-full p-1`
-- TabsTrigger active: `rounded-full bg-primary text-primary-foreground shadow-sm`
-- TabsContent: smooth `animate-fade-in` transition
-
-### Units Table (dalam tab)
-- Row: clickable dengan hover `bg-primary/5` dan left border indicator pada hover
-- Status badges: `rounded-full` pill style
-
-### Sidebar -- Glassmorphic
-- Cards: `bg-card/80 backdrop-blur-sm rounded-2xl border border-border/40`
-- Property info items: subtle separator dengan spacing yang lebih baik
-
----
-
-## 6. Units Page (`src/pages/merchant/Units.tsx`)
-
-### Header -- Premium
-- Icon container: gradient `bg-gradient-to-br from-primary/20 to-accent/10 rounded-2xl`
-- CTA button: gradient style seperti auth page `gradient-cta`
-
----
-
-## 7. UnitsStats (`src/features/properties/components/UnitsStats.tsx`)
-
-### Stats Grid -- Glassmorphic
-- Cards: `bg-card/80 backdrop-blur-sm rounded-2xl border border-border/40`
-- Border-left: gradient instead of solid (`border-image: linear-gradient(...)`)
-- Icon container: `rounded-xl` dengan gradient bg
-- Hover: `hover:-translate-y-1 hover:shadow-lg transition-all duration-300`
-- Occupancy bar: segmented 4-segment style
-
----
-
-## 8. UnitsTable (`src/features/properties/components/UnitsTable.tsx`)
-
-### Table Redesign
-- Same treatment as PropertyTable
-- Wrapper: `rounded-2xl border border-border/50 bg-card/90 backdrop-blur-sm`
-- Header: gradient background, uppercase tracking
-- Empty state: larger icon, gradient background mesh
-- Pagination: modern pill style
-
----
-
-## 9. UnitFilters (`src/features/properties/components/UnitFilters.tsx`)
-
-### Filter Bar -- Glass Strip
-- Same unified glass strip treatment as PropertyFilters
-- `bg-card/80 backdrop-blur-sm border border-border/40 rounded-2xl p-4`
-
----
-
-## 10. UnitDetail (`src/pages/merchant/UnitDetail.tsx`)
-
-### Breadcrumb -- Modern
-- Separator: chevron icon bukan "/"
-- Active item: `text-primary font-semibold`
-
-### Hero Photos -- Immersive
-- Carousel: `h-56` (dari `h-48`), `rounded-2xl`
-- Empty state: gradient mesh dengan animated subtle pulse
-
-### Stats Cards -- Premium
-- Glassmorphic with gradient left border
-- Same hover lift treatment
-
-### Tabs -- Pill Style
-- Same pill tab treatment as PropertyDetail
-
-### Contract Cards -- Enhanced
-- Active contract: subtle glow border `shadow-[0_0_0_1px_hsl(var(--success)/0.3)]`
-- Tenant avatar: gradient ring
-
-### Sidebar -- Glassmorphic
-- Same glass treatment
-
----
-
-## 11. Form Dialogs -- Premium Styling
-
-### PropertyFormDialog (`PropertyFormDialog.tsx`)
 - DialogContent: `rounded-2xl`
-- Step indicator: modern connected dots (like onboarding redesign)
+- Checklist items: `rounded-xl border border-border/40 bg-card/80 backdrop-blur-sm`
+- Radio group labels: colored dot before text for visual clarity
+- Deposit calculation box: `rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/40`
+- Refund amount: larger font, gradient text for positive refund
+- Signature pad container: `rounded-xl border border-border/40`
+- Submit button: gradient CTA style (`gradient-cta`)
+- Cancel button: `rounded-xl`
+
+## 6. PropertySetupWizard.tsx
+
+- Progress bar: `rounded-full h-2.5` with gradient fill
+- Step indicators: modern connected dots style (match onboarding redesign):
+  - Completed: `bg-success rounded-full w-10 h-10 shadow-sm`
+  - Current: `border-primary bg-primary/10 rounded-full shadow-[0_0_8px_rgba(139,111,71,0.3)]`
+  - Upcoming: `border-muted bg-muted/30 rounded-full`
+  - Connector lines between dots
+- Card: `rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40`
 - Input fields: `rounded-xl bg-background/60 border-border/50`
-- Labels: `font-medium text-sm` dengan transition saat focus
-- CTA: gradient button style
+- Navigation buttons: Previous `rounded-xl`, Next/Create `gradient-cta rounded-xl`
 
-### UnitFormDialog (`UnitFormDialog.tsx`)
-- Same treatment as PropertyFormDialog
-- Step indicator: connected dots style
-- Input fields: rounded-xl with integrated icons where relevant
+## 7. ProvincesCitiesSelect.tsx
 
----
+- SelectTrigger: `rounded-xl bg-background/60 border-border/50`
+- Consistent with other form elements styling
 
-## 12. DeletePropertyDialog (`DeletePropertyDialog.tsx`)
+## 8. RelistUnitDialog.tsx
 
-### Dialog Redesign
-- Content: `rounded-2xl`
-- Warning icon: larger, animated pulse
-- Property preview card: glassmorphic `bg-muted/30 backdrop-blur-sm rounded-xl`
-- Delete button: gradient destructive `bg-gradient-to-r from-destructive to-destructive/80`
+- DialogContent: `rounded-2xl`
+- Unit details box: `rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/40`
+- Input fields: `rounded-xl bg-background/60 border-border/50`
+- Suggested rent button: `rounded-xl`
+- Checkbox items: `rounded-xl border border-border/40 p-4` (promotion box)
+- Publish button: `gradient-cta rounded-xl`
 
----
+## 9. ScheduleInspectionDialog.tsx
 
-## 13. Skeletons -- Premium Loading
+- DialogContent: `rounded-2xl`
+- Info box: `rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/40`
+- Date picker button: `rounded-xl`
+- Time selector: `rounded-xl`
+- Checklist preview: `rounded-2xl border border-border/40 bg-card/80`
+- Submit button: `gradient-cta rounded-xl`
 
-### PropertySkeleton & PropertyDetailSkeleton
-- Skeleton items: `rounded-2xl` (dari `rounded-lg/md`)
-- Shimmer effect yang lebih halus
-- Layout match dengan redesigned components
+## 10. SoftDeleteManager.tsx (UndoToast)
+
+- Toast container: `rounded-2xl bg-card/95 backdrop-blur-xl border border-border/40 shadow-[0_8px_32px_rgba(0,0,0,0.15)]`
+- Progress bar: `rounded-full` dengan gradient fill `bg-gradient-to-r from-primary to-accent`
+- Undo button: `rounded-full`
+- Icon styling: lebih prominent
+
+## 11. UnitPhotoUpload.tsx
+
+- Photo items: `rounded-xl` (dari `rounded-lg`), `border border-border/40`
+- Remove button: `rounded-full bg-destructive/90 backdrop-blur-sm`
+- Upload placeholder: `rounded-xl border-2 border-dashed border-border/40 hover:border-primary/50 hover:bg-primary/5 transition-all`
+
+## 12. UnitsManager.tsx
+
+- DialogContent: `rounded-2xl`
+- Unit cards: `rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40 hover:-translate-y-1 hover:shadow-lg hover:border-primary/30 transition-all duration-300`
+- Icon container: `rounded-xl bg-gradient-to-br from-primary/15 to-accent/10`
+- Status badge: `rounded-full`
+- Empty state card: glassmorphic with gradient mesh
+- Add button: `gradient-cta rounded-xl`
+- Edit/Delete buttons: `rounded-lg`
+- Loading spinner area: smooth skeleton instead of raw spinner
+
+## 13. AdminPropertiesStats.tsx
+
+- Cards: `glass-stat-card` utility class (sudah dibuat di index.css)
+- Icon: `gradient-icon-box` treatment
+- Stats number: `font-display text-3xl`
+- Hover: `-translate-y-1 shadow-lg transition-all duration-300`
+
+## 14. AdminPropertiesTable.tsx
+
+- Table wrapper: `glass-table` utility (sudah ada di index.css)
+- Header row: `bg-gradient-to-r from-muted/80 to-muted/40 text-xs uppercase tracking-wider`
+- Row hover: `hover:bg-primary/5`
+- Status badges: `rounded-full`
+- Type badges: `rounded-full`
+- Empty row: gradient mesh background
+
+## 15. AdminPropertyFilters.tsx
+
+- Filter wrapper: `glass-filter-bar` utility (sudah ada di index.css)
+- Search input: `rounded-xl bg-background/60 border-border/50 pl-10` dengan icon terintegrasi
+- Select triggers: `rounded-xl bg-background/60`
+- Reset button: `rounded-full`
 
 ---
 
 ## Ringkasan File yang Diubah
 
-| File | Perubahan |
-|------|-----------|
-| `src/index.css` | Utility classes baru (glass-stat-card, glass-table) |
-| `src/pages/merchant/Properties.tsx` | Stats glassmorphic, empty state premium, spacing |
-| `src/pages/merchant/PropertyDetail.tsx` | Hero immersive, pill tabs, glass sidebar, stats premium |
-| `src/pages/merchant/Units.tsx` | Header premium, gradient CTA |
-| `src/pages/merchant/UnitDetail.tsx` | Breadcrumb modern, glass stats, pill tabs, enhanced contracts |
-| `src/features/properties/components/PropertyCard.tsx` | Glass card, taller image, segmented occupancy, premium hover |
-| `src/features/properties/components/PropertyTable.tsx` | Glass wrapper, gradient header, modern pagination |
-| `src/features/properties/components/PropertyFilters.tsx` | Unified glass strip, pill toggles |
-| `src/features/properties/components/UnitsStats.tsx` | Glass cards, gradient borders, hover lift |
-| `src/features/properties/components/UnitsTable.tsx` | Glass wrapper, gradient header, modern pagination |
-| `src/features/properties/components/UnitFilters.tsx` | Glass strip filter bar |
-| `src/features/properties/components/PropertyFormDialog.tsx` | Rounded-2xl, dot stepper, rounded inputs, gradient CTA |
-| `src/features/properties/components/UnitFormDialog.tsx` | Same form polish |
-| `src/features/properties/components/DeletePropertyDialog.tsx` | Glass preview, gradient delete button |
-| `src/features/properties/components/PropertySkeleton.tsx` | Rounded-2xl skeletons |
-| `src/features/properties/components/PropertyDetailSkeleton.tsx` | Match new layout |
+| No | File | Perubahan Utama |
+|----|------|----------------|
+| 1 | `CustomAmenities.tsx` | Pill badges, rounded-xl input |
+| 2 | `DragDropPhotoReorder.tsx` | Rounded-xl photos, glass overlay, premium empty state |
+| 3 | `LocationPicker.tsx` | Rounded-xl inputs, rounded-2xl map |
+| 4 | `MerchantPropertiesTab.tsx` | Glass cards, gradient icon, hover lift |
+| 5 | `MoveOutInspectionForm.tsx` | Rounded-2xl dialog, glass checklist items, gradient CTA |
+| 6 | `PropertySetupWizard.tsx` | Connected dots stepper, glass card, gradient CTA |
+| 7 | `ProvincesCitiesSelect.tsx` | Rounded-xl selects |
+| 8 | `RelistUnitDialog.tsx` | Rounded-2xl dialog, glass info box, gradient CTA |
+| 9 | `ScheduleInspectionDialog.tsx` | Rounded-2xl dialog, glass info, gradient CTA |
+| 10 | `SoftDeleteManager.tsx` | Glass toast, gradient progress bar |
+| 11 | `UnitPhotoUpload.tsx` | Rounded-xl photos, glass upload placeholder |
+| 12 | `UnitsManager.tsx` | Glass unit cards, gradient icon, hover lift, gradient CTA |
+| 13 | `admin/AdminPropertiesStats.tsx` | glass-stat-card, gradient icon, font-display |
+| 14 | `admin/AdminPropertiesTable.tsx` | glass-table, gradient header, rounded-full badges |
+| 15 | `admin/AdminPropertyFilters.tsx` | glass-filter-bar, rounded-xl inputs/selects |
 
 ## Urutan Implementasi
 
-1. `index.css` -- CSS utility tambahan
-2. `PropertyCard.tsx` + `PropertyTable.tsx` -- Core listing components
-3. `PropertyFilters.tsx` + `UnitFilters.tsx` -- Filter bars
-4. `Properties.tsx` -- Main page with stats
-5. `PropertyDetail.tsx` -- Detail page
-6. `UnitsStats.tsx` + `UnitsTable.tsx` -- Unit listing components
-7. `Units.tsx` + `UnitDetail.tsx` -- Unit pages
-8. `PropertyFormDialog.tsx` + `UnitFormDialog.tsx` -- Form dialogs
-9. `DeletePropertyDialog.tsx` -- Delete dialog
-10. Skeletons -- Loading states
-
+1. `CustomAmenities.tsx` + `ProvincesCitiesSelect.tsx` + `LocationPicker.tsx` -- Form sub-components
+2. `UnitPhotoUpload.tsx` + `DragDropPhotoReorder.tsx` -- Photo components
+3. `PropertySetupWizard.tsx` -- Wizard (depends on sub-components above)
+4. `UnitsManager.tsx` -- Unit management dialog
+5. `MerchantPropertiesTab.tsx` -- Admin property list
+6. `RelistUnitDialog.tsx` + `ScheduleInspectionDialog.tsx` + `MoveOutInspectionForm.tsx` -- Dialogs
+7. `SoftDeleteManager.tsx` -- Undo toast
+8. `admin/AdminPropertiesStats.tsx` + `AdminPropertiesTable.tsx` + `AdminPropertyFilters.tsx` -- Admin components
