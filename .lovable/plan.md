@@ -1,200 +1,199 @@
 
 
-# Redesign Total: Login, Register & Onboarding -- Modern Futuristik
+# Redesign Total: Properties, Units & Detail Pages -- "Warm Luxury Futurism"
 
-## Arah Desain
-
-**Aesthetic**: "Warm Luxury Futurism" -- perpaduan warna earthy SiHuni (cokelat/emas/krem) dengan elemen modern/futuristik: glassmorphism, gradient mesh halus, floating decorative shapes, dan depth layering.
-
-**Differentiation Anchor**: Split-screen layout (desktop) dengan panel kiri berisi brand storytelling/visual dan panel kanan berisi form -- bukan generic centered card. Di mobile, visual hero di atas lalu form di bawah.
-
-**Visual Memorability**: Animated gradient orbs/shapes di background yang bergerak perlahan, memberi kesan hidup dan premium.
+Menerapkan aesthetic yang sama dengan login/register page (glassmorphism, modern layout, animated backgrounds) ke seluruh modul Properties & Units.
 
 ---
 
-## 1. Layout Baru -- Split Screen Auth
+## Perubahan Global
 
-### Desktop (md+)
-```text
-+---------------------------+---------------------------+
-|                           |                           |
-|   BRAND PANEL             |   FORM PANEL              |
-|                           |                           |
-|   Logo + Tagline          |   Tabs: Masuk / Daftar    |
-|   Animated gradient orbs  |   Form fields              |
-|   Social proof stats      |   CTA button              |
-|   "500+ properti dikelola"|   Trust elements          |
-|                           |                           |
-+---------------------------+---------------------------+
-```
-
-### Mobile
-```text
-+---------------------------+
-|   Mini brand header       |
-|   Logo + tagline compact  |
-+---------------------------+
-|   Form card (glassmorphic)|
-|   Full width              |
-+---------------------------+
-```
-
-### Perubahan Utama di AuthForm.tsx
-
-**Struktur baru**:
-- Outer container: `min-h-screen grid grid-cols-1 md:grid-cols-2`
-- Panel kiri (brand): hidden di mobile, tampil di desktop dengan background gradient mesh, animated floating orbs (pure CSS), logo besar, tagline, social proof stats
-- Panel kanan (form): form card dengan glassmorphic effect (`bg-card/80 backdrop-blur-xl border border-border/50`), shadow elevated
-
-**Background Elements** (CSS-only, no library):
-- 2-3 gradient orbs dengan `position: absolute`, `border-radius: 50%`, `filter: blur(80px)`, dan CSS animation `float` yang bergerak perlahan (10-15s duration)
-- Warna orbs: primary (cokelat), accent (emas), secondary (krem)
-- `overflow: hidden` pada container
-
-**Brand Panel Content**:
-- Logo SiHuni besar (Building2 icon dalam container gradient 64x64)
-- Headline: "Kelola Properti Lebih Cerdas" dengan `text-4xl font-display font-bold`
-- Subtext: "Platform manajemen properti terpercaya di Indonesia"
-- Social proof stats: 3 mini-stats dalam row -- "500+ Properti", "1000+ Tenant", "99.9% Uptime"
-- Testimonial mini quote (opsional)
+### index.css -- Tambah utility baru
+- `.glass-stat-card` -- card statistik dengan efek glass ringan, border halus, dan hover lift
+- `.glass-table` -- table wrapper dengan glass background dan rounded corners
+- `.section-header` -- header section dengan gradient underline accent
+- Pastikan reuse `.glass-card`, `.gradient-orb` yang sudah ada
 
 ---
 
-## 2. Form Card -- Glassmorphic Modern
+## 1. Properties Page (`src/pages/merchant/Properties.tsx`)
 
-### Styling Baru
+### Stats Cards -- Premium Glassmorphic
+- Ganti `Card` biasa dengan `glass-card` styling: `bg-card/80 backdrop-blur-sm border border-border/50 rounded-2xl`
+- Icon container: gradient background (`bg-gradient-to-br from-primary/20 to-primary/10`) dengan `rounded-xl`
+- Hover effect: `hover:-translate-y-1 hover:shadow-lg transition-all duration-300`
+- Angka statistik: tambah `font-display` untuk angka besar
 
-Card form menggunakan glass effect:
-```
-bg-card/80 backdrop-blur-xl 
-border border-border/50 
-shadow-[0_8px_32px_rgba(0,0,0,0.12)] 
-rounded-2xl
-```
+### Empty State -- Visual Premium
+- Background: gradient mesh halus (`from-primary/5 via-muted to-accent/5`)
+- Icon container: lebih besar (`w-24 h-24`) dengan subtle gradient border
+- Animasi icon: `animate-pulse` halus
 
-### Input Fields -- Elevated Style
+### Grid/List Layout -- Spacing & Polish
+- Grid gap: `gap-6` (dari `gap-4`)
+- Card animation: `slide-in-from-bottom-4` (lebih dramatic dari `-2`)
 
-Input fields mendapat update visual:
-- Border lebih halus: `border-border/60`  
-- Focus state: `focus:border-primary focus:ring-1 focus:ring-primary/30` (lebih halus dari ring-2)
-- Background: `bg-background/60` (sedikit transparan)
-- Rounded lebih besar: `rounded-xl` (bukan `rounded-md`)
-- Icon prefix terintegrasi (email icon, lock icon) di dalam input field -- bukan di label
+---
 
-### Tab Triggers -- Pill Style
+## 2. PropertyCard (`src/features/properties/components/PropertyCard.tsx`)
 
-Ubah tabs dari generic rectangle ke pill/capsule:
-- TabsList: `bg-muted/50 rounded-full p-1`
+### Card Redesign -- Glassmorphic Premium
+- Base: `bg-card/90 backdrop-blur-sm border border-border/40 rounded-2xl shadow-sm`
+- Hover: `hover:-translate-y-2 hover:shadow-[0_12px_40px_rgba(0,0,0,0.1)] hover:border-primary/30`
+- Image section: `rounded-xl` (dari `rounded-lg`), height `h-32` (dari `h-24`), overlay gradient di bawah untuk text readability
+- Icon container: gradient `bg-gradient-to-br from-primary/15 to-accent/10` dengan `rounded-xl`
+- Status badge: pill style dengan `rounded-full` dan subtle glow saat active
+- Occupancy bar: segmented bar (4 segments) seperti password strength meter, bukan single bar
+- Amenity badges: `rounded-full` dengan subtle background tinting
+
+---
+
+## 3. PropertyTable (`src/features/properties/components/PropertyTable.tsx`)
+
+### Table Redesign
+- Wrapper: `rounded-2xl border border-border/50 bg-card/90 backdrop-blur-sm overflow-hidden`
+- Header row: `bg-gradient-to-r from-muted/80 to-muted/40` dengan text `font-semibold text-xs uppercase tracking-wider`
+- Row hover: `hover:bg-primary/5` (bukan `hover:bg-muted/50`)
+- Thumbnail: `rounded-xl` dengan shadow
+- Pagination: modern pill buttons, active page dengan gradient background
+
+---
+
+## 4. PropertyFilters (`src/features/properties/components/PropertyFilters.tsx`)
+
+### Filter Bar -- Unified Glass Strip
+- Wrapper: `bg-card/80 backdrop-blur-sm border border-border/40 rounded-2xl p-4`
+- Search input: `bg-background/60 rounded-xl border-border/50` dengan icon prefix terintegrasi
+- Select triggers: `rounded-xl bg-background/60`
+- View toggle: pill style dengan `rounded-full bg-muted/30`, active `bg-primary text-primary-foreground`
+- Active filter badges: `rounded-full` dengan colored dot indicator
+
+---
+
+## 5. PropertyDetail (`src/pages/merchant/PropertyDetail.tsx`)
+
+### Hero Section -- Immersive
+- Image carousel: height `h-64` (dari `h-48`), full-width dengan `rounded-2xl`
+- Overlay gradient di bawah image: `bg-gradient-to-t from-background to-transparent`
+- Header info overlaid pada image (di mobile, di bawah image)
+- Back button: glassmorphic `bg-card/80 backdrop-blur-sm rounded-full`
+
+### Stats Cards -- Grid Premium
+- Same glassmorphic treatment: `bg-card/80 backdrop-blur-sm rounded-2xl border border-border/40`
+- Icon: gradient circle background
+- Hover lift: `hover:-translate-y-1 transition-all duration-300`
+
+### Tabs -- Modern Pill Style
+- TabsList: `bg-muted/30 rounded-full p-1`
 - TabsTrigger active: `rounded-full bg-primary text-primary-foreground shadow-sm`
-- TabsTrigger inactive: `rounded-full text-muted-foreground hover:text-foreground`
-- Transition: `transition-all duration-300`
+- TabsContent: smooth `animate-fade-in` transition
 
-### CTA Button -- Gradient + Glow
+### Units Table (dalam tab)
+- Row: clickable dengan hover `bg-primary/5` dan left border indicator pada hover
+- Status badges: `rounded-full` pill style
 
-Submit button mendapat treatment premium:
-- Background: `bg-gradient-to-r from-primary to-secondary` 
-- Hover: `hover:shadow-[0_4px_20px_rgba(139,111,71,0.4)]` (glow effect warna primary)
-- Active: `active:scale-[0.98]`
-- Rounded: `rounded-xl`
-- Height: `h-12` (lebih besar, lebih prominent)
+### Sidebar -- Glassmorphic
+- Cards: `bg-card/80 backdrop-blur-sm rounded-2xl border border-border/40`
+- Property info items: subtle separator dengan spacing yang lebih baik
 
 ---
 
-## 3. Form Fields -- Integrated Icons
+## 6. Units Page (`src/pages/merchant/Units.tsx`)
 
-Ubah input fields agar memiliki icon prefix terintegrasi (modern pattern):
-
-```text
-+---------------------------------------+
-| [icon]  placeholder text              |
-+---------------------------------------+
-```
-
-- Email field: Mail icon di kiri
-- Password field: Lock icon di kiri, Eye toggle di kanan
-- Name field: User icon di kiri
-- Phone field: Phone icon di kiri
-
-Implementasi: wrapper `relative` dengan icon `absolute left-3` dan input `pl-10`
+### Header -- Premium
+- Icon container: gradient `bg-gradient-to-br from-primary/20 to-accent/10 rounded-2xl`
+- CTA button: gradient style seperti auth page `gradient-cta`
 
 ---
 
-## 4. Animasi & Micro-interactions
+## 7. UnitsStats (`src/features/properties/components/UnitsStats.tsx`)
 
-### Background Orbs (CSS Keyframes -- tambah di index.css)
-
-```css
-@keyframes float-slow {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(30px, -30px) scale(1.05); }
-  66% { transform: translate(-20px, 20px) scale(0.95); }
-}
-```
-
-3 orb divs dengan:
-- Orb 1: `w-72 h-72 bg-primary/20 blur-[80px]` -- top-left
-- Orb 2: `w-96 h-96 bg-accent/15 blur-[100px]` -- bottom-right  
-- Orb 3: `w-64 h-64 bg-secondary/20 blur-[60px]` -- center
-
-### Tab Switch Animation
-- Content area: tambah `animate-fade-in` saat tab berubah menggunakan key prop
-
-### Form Field Focus
-- Label: saat focused, label mendapat `text-primary` transition
-
-### Success State
-- Setelah login/register berhasil: button berubah ke checkmark icon dengan `bg-success` selama 500ms sebelum redirect
+### Stats Grid -- Glassmorphic
+- Cards: `bg-card/80 backdrop-blur-sm rounded-2xl border border-border/40`
+- Border-left: gradient instead of solid (`border-image: linear-gradient(...)`)
+- Icon container: `rounded-xl` dengan gradient bg
+- Hover: `hover:-translate-y-1 hover:shadow-lg transition-all duration-300`
+- Occupancy bar: segmented 4-segment style
 
 ---
 
-## 5. Onboarding Page -- Redesign
+## 8. UnitsTable (`src/features/properties/components/UnitsTable.tsx`)
 
-### Layout
-Sama seperti auth -- split screen di desktop:
-- Panel kiri: ilustrasi/branding dengan animated orbs
-- Panel kanan: onboarding steps
-
-### Role Selection Cards -- Premium Treatment
-- Ukuran lebih besar dengan icon/emoji prominent
-- Hover: `hover:shadow-card-hover hover:scale-[1.02] hover:-translate-y-1`
-- Selected: `border-primary bg-primary/10 shadow-[0_0_0_2px_hsl(var(--primary))]` -- double border effect
-- Transition smooth: `transition-all duration-300`
-
-### Step Indicator -- Modern Dots
-Ubah dari circles + text ke connected dots:
-- Active dot: `w-3 h-3 bg-primary rounded-full shadow-[0_0_8px_rgba(139,111,71,0.5)]` (glowing)
-- Completed: `w-3 h-3 bg-primary rounded-full`
-- Upcoming: `w-3 h-3 bg-muted rounded-full`
-- Connector: `h-0.5 w-12 bg-gradient-to-r from-primary to-muted` (gradient transition)
-
-### Business Name Input
-- Same glassmorphic + icon prefix style
-- Character counter dengan progress ring mini (bukan text counter)
+### Table Redesign
+- Same treatment as PropertyTable
+- Wrapper: `rounded-2xl border border-border/50 bg-card/90 backdrop-blur-sm`
+- Header: gradient background, uppercase tracking
+- Empty state: larger icon, gradient background mesh
+- Pagination: modern pill style
 
 ---
 
-## 6. AuthLoadingSkeleton -- Modern
+## 9. UnitFilters (`src/features/properties/components/UnitFilters.tsx`)
 
-- Tambah animated gradient orbs di background
-- Card skeleton dengan glassmorphic effect
-- Pulse animation yang lebih halus: `animate-pulse-subtle`
+### Filter Bar -- Glass Strip
+- Same unified glass strip treatment as PropertyFilters
+- `bg-card/80 backdrop-blur-sm border border-border/40 rounded-2xl p-4`
 
 ---
 
-## 7. Password Strength Meter -- Visual Upgrade
+## 10. UnitDetail (`src/pages/merchant/UnitDetail.tsx`)
 
-### Strength Bar
-- Ubah dari single bar ke **segmented bar** (4 segments):
-  - Setiap segment mewakili level (weak/fair/good/strong)
-  - Segment active: filled dengan warna yang sesuai
-  - Segment inactive: `bg-muted/50`
-  - Gap antar segment: `gap-1`
-  - Rounded individual: `rounded-full`
+### Breadcrumb -- Modern
+- Separator: chevron icon bukan "/"
+- Active item: `text-primary font-semibold`
 
-### Requirements
-- Tetap grid layout, tapi dengan subtle background saat terpenuhi:
-  - Met: `text-success bg-success/10 rounded-md px-2 py-0.5`
-  - Unmet: `text-muted-foreground`
+### Hero Photos -- Immersive
+- Carousel: `h-56` (dari `h-48`), `rounded-2xl`
+- Empty state: gradient mesh dengan animated subtle pulse
+
+### Stats Cards -- Premium
+- Glassmorphic with gradient left border
+- Same hover lift treatment
+
+### Tabs -- Pill Style
+- Same pill tab treatment as PropertyDetail
+
+### Contract Cards -- Enhanced
+- Active contract: subtle glow border `shadow-[0_0_0_1px_hsl(var(--success)/0.3)]`
+- Tenant avatar: gradient ring
+
+### Sidebar -- Glassmorphic
+- Same glass treatment
+
+---
+
+## 11. Form Dialogs -- Premium Styling
+
+### PropertyFormDialog (`PropertyFormDialog.tsx`)
+- DialogContent: `rounded-2xl`
+- Step indicator: modern connected dots (like onboarding redesign)
+- Input fields: `rounded-xl bg-background/60 border-border/50`
+- Labels: `font-medium text-sm` dengan transition saat focus
+- CTA: gradient button style
+
+### UnitFormDialog (`UnitFormDialog.tsx`)
+- Same treatment as PropertyFormDialog
+- Step indicator: connected dots style
+- Input fields: rounded-xl with integrated icons where relevant
+
+---
+
+## 12. DeletePropertyDialog (`DeletePropertyDialog.tsx`)
+
+### Dialog Redesign
+- Content: `rounded-2xl`
+- Warning icon: larger, animated pulse
+- Property preview card: glassmorphic `bg-muted/30 backdrop-blur-sm rounded-xl`
+- Delete button: gradient destructive `bg-gradient-to-r from-destructive to-destructive/80`
+
+---
+
+## 13. Skeletons -- Premium Loading
+
+### PropertySkeleton & PropertyDetailSkeleton
+- Skeleton items: `rounded-2xl` (dari `rounded-lg/md`)
+- Shimmer effect yang lebih halus
+- Layout match dengan redesigned components
 
 ---
 
@@ -202,17 +201,33 @@ Ubah dari circles + text ke connected dots:
 
 | File | Perubahan |
 |------|-----------|
-| `src/index.css` | Tambah keyframes float-slow, utility classes `.glass-card`, `.gradient-orb`, animasi background |
-| `src/features/auth/components/AuthForm.tsx` | Redesign total: split-screen layout, glassmorphic card, integrated icons, pill tabs, gradient CTA, animated orbs, success state |
-| `src/features/auth/components/PasswordStrengthMeter.tsx` | Segmented strength bar, visual requirement badges |
-| `src/features/auth/components/AuthLoadingSkeleton.tsx` | Glassmorphic card, animated orbs background |
-| `src/pages/Onboarding.tsx` | Split-screen layout, premium role cards, modern step indicator, glassmorphic styling |
+| `src/index.css` | Utility classes baru (glass-stat-card, glass-table) |
+| `src/pages/merchant/Properties.tsx` | Stats glassmorphic, empty state premium, spacing |
+| `src/pages/merchant/PropertyDetail.tsx` | Hero immersive, pill tabs, glass sidebar, stats premium |
+| `src/pages/merchant/Units.tsx` | Header premium, gradient CTA |
+| `src/pages/merchant/UnitDetail.tsx` | Breadcrumb modern, glass stats, pill tabs, enhanced contracts |
+| `src/features/properties/components/PropertyCard.tsx` | Glass card, taller image, segmented occupancy, premium hover |
+| `src/features/properties/components/PropertyTable.tsx` | Glass wrapper, gradient header, modern pagination |
+| `src/features/properties/components/PropertyFilters.tsx` | Unified glass strip, pill toggles |
+| `src/features/properties/components/UnitsStats.tsx` | Glass cards, gradient borders, hover lift |
+| `src/features/properties/components/UnitsTable.tsx` | Glass wrapper, gradient header, modern pagination |
+| `src/features/properties/components/UnitFilters.tsx` | Glass strip filter bar |
+| `src/features/properties/components/PropertyFormDialog.tsx` | Rounded-2xl, dot stepper, rounded inputs, gradient CTA |
+| `src/features/properties/components/UnitFormDialog.tsx` | Same form polish |
+| `src/features/properties/components/DeletePropertyDialog.tsx` | Glass preview, gradient delete button |
+| `src/features/properties/components/PropertySkeleton.tsx` | Rounded-2xl skeletons |
+| `src/features/properties/components/PropertyDetailSkeleton.tsx` | Match new layout |
 
 ## Urutan Implementasi
 
-1. `index.css` -- CSS utilities dan keyframes baru
-2. `AuthForm.tsx` -- Redesign layout dan visual (file terbesar)
-3. `PasswordStrengthMeter.tsx` -- Visual upgrade
-4. `Onboarding.tsx` -- Redesign layout dan visual
-5. `AuthLoadingSkeleton.tsx` -- Update styling
+1. `index.css` -- CSS utility tambahan
+2. `PropertyCard.tsx` + `PropertyTable.tsx` -- Core listing components
+3. `PropertyFilters.tsx` + `UnitFilters.tsx` -- Filter bars
+4. `Properties.tsx` -- Main page with stats
+5. `PropertyDetail.tsx` -- Detail page
+6. `UnitsStats.tsx` + `UnitsTable.tsx` -- Unit listing components
+7. `Units.tsx` + `UnitDetail.tsx` -- Unit pages
+8. `PropertyFormDialog.tsx` + `UnitFormDialog.tsx` -- Form dialogs
+9. `DeletePropertyDialog.tsx` -- Delete dialog
+10. Skeletons -- Loading states
 
