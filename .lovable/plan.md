@@ -1,73 +1,59 @@
 
-# Phase 2: Financial & Contract Consolidation
+# Phase 3: Operations Unification
 
-Merge "Kontrak Sewa" into TransactionsHub, rename to FinanceHub, and redirect legacy routes.
+Merge "Laporan Kerusakan" (Maintenance) and "Kepatuhan & Legalitas" (LegalHub) into a single "Operasional" hub with 3 tabs.
 
 ## Changes
 
-### 1. Rename & Update `src/pages/merchant/TransactionsHub.tsx` to `FinanceHub.tsx`
+### 1. Create `src/pages/merchant/OperationsHub.tsx`
 
-Create new file `src/pages/merchant/FinanceHub.tsx` (replacing TransactionsHub):
-- Add `MerchantContracts` as a third lazy-loaded tab
-- Update `TAB_MAP` to `{ invoices, payments, contracts }`
-- Add "Kontrak" `TabsTrigger`
-- Update `PageHeader` title to "Keuangan" and description to "Kelola tagihan, pembayaran, dan kontrak sewa"
+New hub page following the established pattern (identical to AssetsHub/FinanceHub):
+- 3 lazy-loaded tabs: **Maintenance** | **Kepatuhan** | **Validasi Data**
+- `TAB_MAP`: `{ maintenance, compliance, "data-quality" }`
+- Default tab: `maintenance`
+- `PageHeader`: icon `Wrench`, title "Operasional", description "Kelola pemeliharaan, kepatuhan, dan validasi data properti"
+- Lazy imports reuse existing components:
+  - `MerchantMaintenance` from `@/pages/merchant/Maintenance`
+  - `MerchantCompliance` from `@/pages/merchant/PropertyCompliance`
+  - `MerchantDataQuality` from `@/pages/merchant/DataQualityHistory`
 
 ### 2. Update `src/shared/components/layouts/navigation-config.ts`
 
-- Remove standalone `{ path: "/merchant/contracts", icon: ClipboardList, label: "Kontrak Sewa" }` item
-- Rename "Transaksi & Tagihan" to "Keuangan"
-- Change path from `/merchant/transactions` to `/merchant/finance`
-- Update `activePatterns` to include `/merchant/contracts`
-
-### 3. Update `src/App.tsx`
-
-- Replace `MerchantTransactionsHub` import with new `MerchantFinanceHub` import
-- Change hub route: `path="transactions"` becomes `path="finance"` using `MerchantFinanceHub`
-- Add redirects for legacy routes:
-  - `path="transactions"` redirects to `/merchant/finance`
-  - `path="contracts"` redirects to `/merchant/finance#contracts`
-  - `path="invoices"` redirects to `/merchant/finance#invoices`
-  - `path="payments"` redirects to `/merchant/finance#payments`
-- Keep detail routes intact (`contracts/:contractId`, `invoices/:invoiceId`, `payments/:paymentId`) since those are standalone detail pages
-
-## Technical Details
-
-### FinanceHub.tsx structure
-
-```text
-TAB_MAP = { invoices, payments, contracts }
-Tabs: Tagihan | Pembayaran | Kontrak
-Lazy imports: Invoices, Payments, Contracts
-```
-
-### Navigation Config changes
-
-The "Keuangan" group goes from 2 items to 1:
+Replace the "Operasional" group (currently 2 items) with a single item:
 
 | Before | After |
 |--------|-------|
-| Transaksi & Tagihan (path: /merchant/transactions) | Keuangan (path: /merchant/finance, activePatterns includes /merchant/contracts) |
-| Kontrak Sewa (standalone) | (removed - merged as tab) |
+| Laporan Kerusakan (`/merchant/maintenance`) | Operasional (`/merchant/operations`, activePatterns: `/merchant/maintenance`, `/merchant/legal`, `/merchant/compliance`, `/merchant/data-quality`) |
+| Kepatuhan & Legalitas (`/merchant/legal`) | (removed - merged as tab) |
 
-### Route changes in App.tsx
+### 3. Update `src/App.tsx`
+
+- Add new import: `MerchantOperationsHub` from `OperationsHub`
+- Add hub route: `path="operations"` renders `MerchantOperationsHub`
+- Replace standalone routes with redirects:
+  - `maintenance` redirects to `/merchant/operations#maintenance`
+  - `legal` redirects to `/merchant/operations#compliance`
+- Keep detail route `maintenance/:id` unchanged (standalone detail page)
+- Remove `MerchantLegalHub` import (no longer needed)
+
+### 4. Delete `src/pages/merchant/LegalHub.tsx`
+
+Fully replaced by OperationsHub. Its two lazy imports (PropertyCompliance, DataQualityHistory) are now loaded inside OperationsHub.
+
+## Route Changes Summary
 
 | Route | Before | After |
 |-------|--------|-------|
-| `finance` | (new) | `FinanceHub` component |
-| `transactions` | `TransactionsHub` | Redirect to `/merchant/finance` |
-| `contracts` | `MerchantContracts` | Redirect to `/merchant/finance#contracts` |
-| `invoices` | `MerchantInvoices` | Redirect to `/merchant/finance#invoices` |
-| `payments` | `MerchantPayments` | Redirect to `/merchant/finance#payments` |
-| `contracts/:contractId` | `MerchantContractDetail` | Unchanged (detail page) |
-| `invoices/:invoiceId` | `MerchantInvoiceDetail` | Unchanged (detail page) |
-| `payments/:paymentId` | `MerchantPaymentDetail` | Unchanged (detail page) |
+| `operations` | (new) | `OperationsHub` component |
+| `maintenance` | `MerchantMaintenance` | Redirect to `/merchant/operations#maintenance` |
+| `maintenance/:id` | `MerchantMaintenanceDetail` | Unchanged |
+| `legal` | `MerchantLegalHub` | Redirect to `/merchant/operations#compliance` |
 
-### File Summary
+## File Summary
 
 | File | Action |
 |------|--------|
-| `src/pages/merchant/FinanceHub.tsx` | Create - 3-tab hub (Tagihan, Pembayaran, Kontrak) |
-| `src/pages/merchant/TransactionsHub.tsx` | Delete (replaced by FinanceHub) |
-| `src/shared/components/layouts/navigation-config.ts` | Modify - remove Contracts item, rename to Keuangan, update path and activePatterns |
-| `src/App.tsx` | Modify - add finance route, redirect transactions/contracts/invoices/payments to finance hub |
+| `src/pages/merchant/OperationsHub.tsx` | Create - 3-tab hub (Maintenance, Kepatuhan, Validasi Data) |
+| `src/pages/merchant/LegalHub.tsx` | Delete (replaced by OperationsHub) |
+| `src/shared/components/layouts/navigation-config.ts` | Modify - merge 2 items into 1 "Operasional" item |
+| `src/App.tsx` | Modify - add operations route, redirect maintenance and legal |
