@@ -1,7 +1,7 @@
 import {
     AlertTriangle,
     BarChart3,
-    Brain,
+    
     Briefcase,
     Building2,
     Calculator,
@@ -139,8 +139,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
       {
         label: "Wawasan Bisnis",
         items: [
-          { path: "/merchant/analytics", icon: BarChart3, label: "Analitik Performa", activePatterns: ["/merchant/analytics-dashboard", "/merchant/reports", "/merchant/report-templates", "/merchant/comparative-portfolio"] },
-          { path: "/merchant/ai-insights", icon: Brain, label: "Intelijen AI", activePatterns: ["/merchant/ml-analytics", "/merchant/dss-advisor", "/merchant/market-intelligence", "/merchant/financial-risk", "/merchant/tenant-quality"] },
+          { path: "/merchant/insights", icon: BarChart3, label: "Wawasan & Data", activePatterns: ["/merchant/analytics", "/merchant/ai-insights", "/merchant/analytics-dashboard", "/merchant/reports", "/merchant/report-templates", "/merchant/comparative-portfolio", "/merchant/ml-analytics", "/merchant/dss-advisor", "/merchant/market-intelligence", "/merchant/financial-risk", "/merchant/tenant-quality"] },
         ],
       },
       {
