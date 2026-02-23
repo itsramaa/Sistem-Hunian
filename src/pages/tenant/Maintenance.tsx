@@ -257,7 +257,7 @@ export default function TenantMaintenance() {
 
   // Dialog content component to reuse
   const MaintenanceDialogContent = (
-    <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+    <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl">
       <DialogHeader>
         <DialogTitle>Submit Maintenance Request</DialogTitle>
         <DialogDescription>
@@ -272,16 +272,17 @@ export default function TenantMaintenance() {
             onChange={(e) => setTitle(e.target.value.slice(0, MAX_TITLE_LENGTH))}
             placeholder="Brief description of the issue"
             maxLength={MAX_TITLE_LENGTH}
+            className="rounded-xl bg-background/60 border-border/50"
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Category</Label>
             <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger>
+              <SelectTrigger className="rounded-xl bg-background/60 border-border/50">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="rounded-xl">
                 <SelectItem value="general">General</SelectItem>
                 <SelectItem value="plumbing">Plumbing</SelectItem>
                 <SelectItem value="electrical">Electrical</SelectItem>
@@ -296,10 +297,10 @@ export default function TenantMaintenance() {
           <div className="space-y-2">
             <Label>Priority</Label>
             <Select value={priority} onValueChange={setPriority}>
-              <SelectTrigger>
+              <SelectTrigger className="rounded-xl bg-background/60 border-border/50">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="rounded-xl">
                 <SelectItem value="low">Low</SelectItem>
                 <SelectItem value="medium">Medium</SelectItem>
                 <SelectItem value="high">High</SelectItem>
@@ -310,12 +311,10 @@ export default function TenantMaintenance() {
               SLA: {getSLAText(priority)}
             </p>
             {priority === 'urgent' && (
-              <Alert className="py-2">
+              <div className="flex items-center gap-2 p-2 rounded-xl bg-destructive/10 border border-destructive/20 text-xs text-destructive">
                 <AlertTriangle className="h-3 w-3" />
-                <AlertDescription className="text-xs">
-                  Urgent requests require immediate attention. Expected response within 4 hours.
-                </AlertDescription>
-              </Alert>
+                Urgent: expected response within 4 hours.
+              </div>
             )}
           </div>
         </div>
@@ -326,6 +325,7 @@ export default function TenantMaintenance() {
             value={preferredSchedule}
             onChange={(e) => setPreferredSchedule(e.target.value)}
             min={new Date().toISOString().slice(0, 16)}
+            className="rounded-xl bg-background/60 border-border/50"
           />
           <p className="text-xs text-muted-foreground">
             When would you prefer the maintenance to be done?
@@ -339,10 +339,10 @@ export default function TenantMaintenance() {
             placeholder="Provide details about the issue..."
             rows={3}
             maxLength={MAX_DESCRIPTION_LENGTH}
+            className="rounded-xl bg-background/60 border-border/50"
           />
         </div>
         
-        {/* Photo Upload */}
         <MaintenancePhotoUpload
           photos={photos}
           onChange={setPhotos}
@@ -350,12 +350,13 @@ export default function TenantMaintenance() {
         />
 
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={resetForm}>
+          <Button variant="outline" onClick={resetForm} className="rounded-xl">
             Cancel
           </Button>
           <Button 
             onClick={() => createMutation.mutate()} 
             disabled={!title.trim() || createMutation.isPending}
+            className="gradient-cta rounded-xl"
           >
             {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Submit Request
@@ -389,7 +390,7 @@ export default function TenantMaintenance() {
       description="Submit and track maintenance issues"
       actions={
         !isMobile ? (
-          <Button disabled={!contract} onClick={() => setIsDialogOpen(true)}>
+          <Button disabled={!contract} onClick={() => setIsDialogOpen(true)} className="gradient-cta rounded-xl">
             <Plus className="h-4 w-4 mr-2" />
             New Request
           </Button>
@@ -403,34 +404,32 @@ export default function TenantMaintenance() {
       }
     >
       {!contract && !contractLoading && (
-        <Card className="mb-6">
-          <CardContent className="p-6 text-center">
-            <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
-            <p className="font-medium">No Active Contract</p>
-            <p className="text-muted-foreground text-sm">
-              You need an active or notice period rental contract to submit maintenance requests.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 text-center mb-6">
+          <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-warning" />
+          <p className="font-medium">No Active Contract</p>
+          <p className="text-muted-foreground text-sm">
+            You need an active or notice period rental contract to submit maintenance requests.
+          </p>
+        </div>
       )}
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+      <div className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border/40 p-4 flex flex-col sm:flex-row gap-3 mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search requests..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
+            className="pl-9 rounded-xl bg-background/60 border-border/50"
           />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px] rounded-xl bg-background/60 border-border/50">
             <Filter className="h-4 w-4 mr-2" />
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="rounded-xl">
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="in_progress">In Progress</SelectItem>
@@ -445,80 +444,75 @@ export default function TenantMaintenance() {
           {Array.from({ length: 3 }).map((_, i) => <MaintenanceCardSkeleton key={i} />)}
         </div>
       ) : filteredRequests.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <Wrench className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p className="text-muted-foreground">
-              {searchQuery || statusFilter !== 'all' 
-                ? 'No maintenance requests match your filters' 
-                : 'No maintenance requests yet'}
-            </p>
-            {contract && !searchQuery && statusFilter === 'all' && (
-              <Button variant="outline" className="mt-4" onClick={() => setIsDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Submit Your First Request
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+        <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-8 text-center">
+          <Wrench className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p className="text-muted-foreground">
+            {searchQuery || statusFilter !== 'all' 
+              ? 'No maintenance requests match your filters' 
+              : 'No maintenance requests yet'}
+          </p>
+          {contract && !searchQuery && statusFilter === 'all' && (
+            <Button variant="outline" className="mt-4 rounded-xl" onClick={() => setIsDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Submit Your First Request
+            </Button>
+          )}
+        </div>
       ) : (
         <div className="space-y-4">
           {filteredRequests.map((request) => (
-            <Card 
+            <div 
               key={request.id} 
-              className="cursor-pointer hover:shadow-md transition-shadow"
+              className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-4 cursor-pointer hover:-translate-y-0.5 hover:shadow-lg hover:border-primary/30 transition-all duration-200"
               onClick={() => navigate(`/tenant/maintenance/${request.id}`)}
             >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <h3 className="font-medium">{request.title}</h3>
-                      <Badge variant={getStatusColor(request.status) as "default" | "secondary" | "destructive" | "outline"} className="gap-1">
-                        {getStatusIcon(request.status)}
-                        {request.status.replace('_', ' ')}
-                      </Badge>
-                      <SLABadge slaDeadline={request.sla_deadline} status={request.status} />
-                    </div>
-                    {request.description && (
-                      <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{request.description}</p>
-                    )}
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-                      <span className="capitalize">{request.category}</span>
-                      <span>Priority: {request.priority}</span>
-                      <span>{format(new Date(request.created_at), 'MMM d, yyyy')}</span>
-                      <span className="font-mono text-xs">#{request.id.slice(0, 8).toUpperCase()}</span>
-                    </div>
-                    {request.images && request.images.length > 0 && (
-                      <div className="flex gap-1 mt-2">
-                        {request.images.slice(0, 3).map((img: string, i: number) => (
-                          <img key={i} src={img} alt="" className="h-10 w-10 rounded object-cover" />
-                        ))}
-                        {request.images.length > 3 && (
-                          <div className="h-10 w-10 rounded bg-muted flex items-center justify-center text-xs">
-                            +{request.images.length - 3}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    
-                    {/* Cancel button for pending requests */}
-                    {request.status === 'pending' && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="mt-2 text-destructive hover:text-destructive"
-                        onClick={(e) => handleCancelRequest(request.id, e)}
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Cancel Request
-                      </Button>
-                    )}
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <h3 className="font-medium">{request.title}</h3>
+                    <Badge variant={getStatusColor(request.status) as "default" | "secondary" | "destructive" | "outline"} className="gap-1 rounded-full">
+                      {getStatusIcon(request.status)}
+                      {request.status.replace('_', ' ')}
+                    </Badge>
+                    <SLABadge slaDeadline={request.sla_deadline} status={request.status} />
                   </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  {request.description && (
+                    <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{request.description}</p>
+                  )}
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+                    <span className="capitalize">{request.category}</span>
+                    <span>Priority: {request.priority}</span>
+                    <span>{format(new Date(request.created_at), 'MMM d, yyyy')}</span>
+                    <span className="font-mono text-xs">#{request.id.slice(0, 8).toUpperCase()}</span>
+                  </div>
+                  {request.images && request.images.length > 0 && (
+                    <div className="flex gap-1 mt-2">
+                      {request.images.slice(0, 3).map((img: string, i: number) => (
+                        <img key={i} src={img} alt="" className="h-10 w-10 rounded-xl object-cover border border-border/40" />
+                      ))}
+                      {request.images.length > 3 && (
+                        <div className="h-10 w-10 rounded-xl bg-muted/40 flex items-center justify-center text-xs">
+                          +{request.images.length - 3}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {request.status === 'pending' && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="mt-2 text-destructive hover:text-destructive rounded-xl"
+                      onClick={(e) => handleCancelRequest(request.id, e)}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Cancel Request
+                    </Button>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -530,7 +524,7 @@ export default function TenantMaintenance() {
 
       {/* Cancel confirmation dialog */}
       <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
-        <DialogContent>
+        <DialogContent className="rounded-2xl">
           <DialogHeader>
             <DialogTitle>Cancel Maintenance Request?</DialogTitle>
             <DialogDescription>
@@ -538,13 +532,14 @@ export default function TenantMaintenance() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setCancelDialogOpen(false)} className="rounded-xl">
               Keep Request
             </Button>
             <Button 
               variant="destructive" 
               onClick={handleConfirmCancel}
               disabled={cancelMutation.isPending}
+              className="rounded-xl"
             >
               {cancelMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Cancel Request
