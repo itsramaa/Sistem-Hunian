@@ -1,3 +1,4 @@
+import { PropertyImportDialog } from '@/features/properties/components/PropertyImportDialog';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { DeletePropertyDialog } from '@/features/properties/components/DeletePropertyDialog';
 import { PropertyCard } from '@/features/properties/components/PropertyCard';
@@ -34,6 +35,7 @@ import {
   Sparkles,
   TrendingUp,
   Users,
+  Upload,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -69,6 +71,7 @@ export default function MerchantProperties() {
   const [unitsProperty, setUnitsProperty] = useState<Property | null>(null);
   const [imagesProperty, setImagesProperty] = useState<Property | null>(null);
   const [propertyImages, setPropertyImages] = useState<string[]>([]);
+  const [showImportDialog, setShowImportDialog] = useState(false);
   const { toast } = useToast();
   const { data: limits } = useSubscriptionLimits();
 
@@ -218,6 +221,9 @@ export default function MerchantProperties() {
   return (
     <>
       <PageHeader icon={Building2} title="Properti Saya" description="Kelola properti dan unit Anda">
+        <Button variant="outline" onClick={() => setShowImportDialog(true)} className="rounded-xl gap-2">
+          <Upload className="h-4 w-4" /> Import CSV
+        </Button>
         <Button onClick={() => setShowAddDialog(true)} disabled={limits && !limits.canAddProperty} className="gradient-cta text-primary-foreground hover:opacity-90 rounded-xl gap-2">
           <Plus className="h-4 w-4" />Tambah Properti
         </Button>
@@ -227,6 +233,7 @@ export default function MerchantProperties() {
         
         <PropertyFormDialog open={showAddDialog} onOpenChange={handleDialogClose} property={editingProperty} onSubmit={handleSubmit} isLoading={isCreating || isUpdating} />
         <DeletePropertyDialog open={!!deleteDialogProperty} onOpenChange={(open) => !open && setDeleteDialogProperty(null)} property={deleteDialogProperty} onConfirm={handleDeleteConfirm} isLoading={!!deleteLoading} />
+        <PropertyImportDialog open={showImportDialog} onOpenChange={setShowImportDialog} onSuccess={() => refetch()} />
 
         {loading ? (
           <PropertiesPageSkeleton />
