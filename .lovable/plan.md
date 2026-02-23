@@ -1,229 +1,242 @@
 
-# Full UI/UX Redesign: Properties, Units & Tenants (Production-Grade)
+# Full Structural & UX Redesign: Contracts, Invoices & Payments
 
-Complete visual and structural overhaul of Properties, Units, and Tenants modules -- pages, detail views, forms, tables, filters, cards, stats, skeletons, dialogs, and all related components.
-
----
-
-## Design Principles Applied
-
-- **Warm Luxury Futurism**: glassmorphism (`bg-card/90 backdrop-blur-sm`), `rounded-2xl`, `gradient-icon-box`, `gradient-cta`
-- **Information Hierarchy**: Summary header with KPIs at top, then filters, then content
-- **Pill Navigation**: `rounded-full` tabs with active gradient
-- **Glass Tables**: `glass-table` wrapper with gradient header rows
-- **Consistent Status System**: `rounded-full` badges with semantic colors
-- **Mobile-First**: Responsive grids, collapsible sections, drawer-friendly dialogs
+Redesign lengkap arsitektur informasi, interaction flow, dan layout untuk modul Contracts, Invoices, dan Payments -- baik halaman list maupun detail.
 
 ---
 
-## PART A: Properties Page (`Properties.tsx`)
+## Design System (Berlaku untuk Semua)
+
+- **Cards**: `bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40`
+- **Tabs**: `pill-tab-list` + `pill-tab-trigger` pattern (rounded-full, gradient active)
+- **Buttons**: Primary = `gradient-cta rounded-xl`, Secondary = `variant="outline" rounded-xl`
+- **Inputs**: `rounded-xl bg-background/60 border-border/50`
+- **Tables**: `glass-table` wrapper, gradient header row
+- **Badges**: `rounded-full` with semantic colors
+- **Dropdown**: `DropdownMenuContent` gets `rounded-xl`
+- **Icons**: `gradient-icon-box` (rounded-xl bg-gradient-to-br from-primary/20 to-primary/5)
+
+---
+
+## PART 1: Contracts Page (`Contracts.tsx`)
 
 ### Current Issues
-- Header is flat (`div` with text + button), no icon or visual anchor
-- Grid pagination uses unstyled `Button variant="outline"` instead of pill pagination
-- Images dialog lacks glass treatment
-- No PageHeader component used
+- TabsList uses inline styling instead of pill-tab-list/pill-tab-trigger classes
+- "Create Contract" button uses raw gradient classes instead of `gradient-cta`
+- Filter bar already uses `glass-filter-bar` -- good
+- Stats already use StatCard -- good
 
 ### Changes
-1. **Add PageHeader** with `Building2` icon, title "Properti Saya", description "Kelola properti dan unit Anda"
-2. **Add Property button**: `gradient-cta rounded-xl` with `Plus` icon
-3. **Stats cards**: Already have `glass-stat-card` -- add count-up animation class and hover lift (`hover:-translate-y-1 hover:shadow-lg transition-all duration-300`)
-4. **Grid pagination**: Replace unstyled buttons with pill-style pagination matching `PropertyTable` pagination (gradient-cta active page, rounded-full buttons)
-5. **Images Dialog**: Add `rounded-2xl` to DialogContent, `gradient-cta rounded-xl` to Save button, `rounded-xl` to Cancel button
-6. **Error Alert**: Add `rounded-xl`
-7. **Empty state**: Already glassmorphic -- improve step indicators to use `gradient-icon-box` mini circles
+1. **TabsList**: Replace inline classes with `pill-tab-list` class
+2. **TabsTrigger**: Replace inline classes with `pill-tab-trigger` class
+3. **Create Contract button**: Simplify to `gradient-cta rounded-xl shadow-md`
+4. **Add "Expiring Soon" tab**: New tab filtering contracts ending within 30 days (lifecycle view)
+5. **Contracts page description**: More context-aware -- show total active revenue in description
 
-### Estimated Lines Changed: ~80
+### Components Touched
+- `Contracts.tsx` -- tabs, button, expiring tab
 
 ---
 
-## PART B: Property Detail Page (`PropertyDetail.tsx`)
+## PART 2: Contract Detail Page (`ContractDetail.tsx`)
 
 ### Current Issues
-- Cards use plain `rounded-2xl` without glass treatment
-- Sidebar uses `glass-sidebar-card` but inconsistent with main content
-- Activity tab is a dead-end placeholder
+- Flat 2-column layout with no KPI strip at top
+- No financial summary (total contract value, payments made)
+- Sidebar only has document upload + download -- minimal
+- No contract timeline/progress indicator
+- Back button uses `variant="ghost"` inconsistently
+
+### Redesign Structure
+
+```text
+[Back Button (glass pill)]
+[PageHeader + Status Badge]
+[KPI Strip: 4 cards -- Contract Value, Monthly Rent, Duration, Days Remaining]
+[2-col grid]
+  [Main: Property+Tenant | Contract Details Grid | Signatures | Terms]
+  [Sidebar: Contract Progress | Actions | Documents]
+```
 
 ### Changes
-1. **All Cards**: Add `bg-card/90 backdrop-blur-sm border border-border/40` consistently
-2. **Image carousel**: Add subtle `rounded-2xl overflow-hidden` container wrapper with shadow
-3. **Stats cards**: Add hover effect `hover:-translate-y-1 hover:shadow-lg transition-all duration-300`
-4. **Overview cards** (Address, Description, Amenities): Add `bg-card/90 backdrop-blur-sm border border-border/40`
-5. **Units table in detail**: Rows should navigate to `/merchant/units/:id` on click (add `cursor-pointer onClick`)
-6. **Activity tab**: Improve placeholder with gradient icon box and better copy
-7. **Sidebar cards**: Ensure consistent `bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40` (replace `glass-sidebar-card` custom class for consistency)
-8. **Edit button**: Should navigate to edit dialog, not just back to properties
+1. **Add KPI Strip** (4 glass stat cards):
+   - Total Contract Value (rent_amount x months)
+   - Monthly Rent
+   - Duration (months)
+   - Days Remaining (or "Expired" badge)
+2. **Contract Progress sidebar card**: Visual progress bar showing elapsed vs remaining time
+3. **Back button**: Glass pill style `px-3 py-1.5 rounded-full bg-card/80 backdrop-blur-sm border border-border/40`
+4. **Signatures section**: Add gradient treatment to signed state (green gradient border)
+5. **Terms section**: Add `prose` styling for better readability
+6. **Actions card**: Add "Edit Terms" button if contract is draft, add "Mark Notice" if active
 
-### Estimated Lines Changed: ~50
+### Components Touched
+- `ContractDetail.tsx` -- full restructure
 
 ---
 
-## PART C: Units Page (`Units.tsx`)
+## PART 3: Invoices Page (`Invoices.tsx`)
 
 ### Current Issues
-- Header is custom-built instead of using `PageHeader`
-- View mode toggle has inconsistent styling with other pages
-- Delete dialog uses native `confirm()` in UnitsManager but proper AlertDialog here
+- Good structure already (PageHeader + Stats + Filters + Table)
+- Missing tab navigation for status-based views (unlike Contracts which has tabs)
+- InvoiceDetailsDialog is a plain dialog without glass treatment
 
 ### Changes
-1. **Use PageHeader** component with `DoorOpen` icon
-2. **View mode toggle**: Move into filter bar, pill-style matching PropertyFilters
-3. **Gallery empty state**: Already glassmorphic -- verify consistency
-4. **Pagination**: Already pill-style -- ensure gradient-cta active state
-5. **AlertDialog**: Already `rounded-2xl` -- add glass treatment to content
+1. **Add Tabs** for lifecycle-based filtering:
+   - All | Draft | Sent | Paid | Overdue
+   - Using pill-tab-list pattern
+   - Each tab filters `filteredInvoices` by status
+2. **InvoiceDetailsDialog enhancement** (see Part 4 sub-section)
 
-### Estimated Lines Changed: ~30
+### Components Touched
+- `Invoices.tsx` -- add tabs
+- `InvoicesTable.tsx` -- add `rounded-xl` to DropdownMenuContent
 
 ---
 
-## PART D: Unit Detail Page (`UnitDetail.tsx`)
+## PART 4: Invoice Detail Page (`InvoiceDetail.tsx`)
 
 ### Current Issues
-- Cards use plain `Card` without glass treatment
-- Contract cards lack hover interactivity
-- Maintenance cards are flat
+- Already has good glassmorphic layout with Amount Breakdown + sidebar
+- Missing tenant info section (who is this invoice for?)
+- Missing linked contract reference
+- Missing payment history for this invoice
+- Back button not glass-pill styled
 
 ### Changes
-1. **All Cards**: Add `bg-card/90 backdrop-blur-sm border border-border/40`
-2. **Active tenant card**: Add avatar gradient ring `ring-2 ring-success/20`
-3. **Contract cards**: Add `hover:border-primary/20 hover:shadow-sm transition-all cursor-pointer` and navigate to contract detail on click
-4. **Maintenance cards**: Add `hover:border-primary/20 transition-all cursor-pointer` and navigate to maintenance detail
-5. **Sidebar**: Replace `glass-sidebar-card` with consistent `bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40`
-6. **Empty states**: Add `gradient-icon-box` treatment to icons
-7. **Edit button**: Wire to actual edit functionality (open UnitFormDialog or navigate)
-8. **Breadcrumb**: Add glass pill style `px-3 py-1 rounded-full bg-card/80 backdrop-blur-sm border border-border/40`
+1. **Add Tenant Info card** in main content (above Amount Breakdown):
+   - Fetch tenant profile using `invoice.tenant_user_id`
+   - Show name, email, phone with gradient-icon-box User icon
+2. **Add Contract Reference link** in sidebar Details card:
+   - Show contract unit + property
+   - Clickable to navigate to `/merchant/contracts/:id`
+3. **Back button**: Glass pill style
+4. **Amount Breakdown card**: Add gradient-icon-box to section header
+5. **Actions card**: Add gradient-icon-box to section header
 
-### Estimated Lines Changed: ~60
+### InvoiceDetailsDialog Enhancement
+- Add `rounded-2xl` to DialogContent
+- Add glass treatment: `bg-card/90 backdrop-blur-sm border border-border/40` to amount section
+- Add `rounded-full` to status badge
+- Add `rounded-xl` to all buttons
+- Add `gradient-cta` to primary action buttons
+
+### Components Touched
+- `InvoiceDetail.tsx` -- tenant info, contract ref, glass pill back
+- `InvoiceDetailsDialog.tsx` -- glass treatment, rounded buttons
 
 ---
 
-## PART E: Tenants Page (`Tenants.tsx`)
+## PART 5: Payments Page (`Payments.tsx`)
 
 ### Current Issues
-- No PageHeader used
-- Header area has empty `<div />` placeholder
-- TabsList uses inline grid styling instead of pill pattern
+- Header buttons (Refresh, Send Reminders) lack glass/rounded treatment
+- TabsList uses inline styling instead of pill classes
+- Good structure with History + Overdue tabs
 
 ### Changes
-1. **Add PageHeader** with `Users` icon, title "Manajemen Tenant", description "Kelola tenant aktif dan undangan"
-2. **Action buttons in PageHeader children**: Move "Kirim Undangan" and "Tambah Langsung" into PageHeader
-3. **TabsList**: Use `pill-tab-list` class pattern instead of inline grid
-4. **TabsTrigger**: Use `pill-tab-trigger` class
-5. **AlertDialog**: Already `rounded-2xl` -- add glass backdrop treatment
+1. **Refresh button**: `rounded-xl` + glass treatment
+2. **Send Reminders button**: `gradient-cta rounded-xl` (not `variant="secondary"`)
+3. **TabsList**: Replace with `pill-tab-list` class
+4. **TabsTrigger**: Replace with `pill-tab-trigger` class
+5. **Add "Pending" count badge** to History tab (like overdue has badge)
 
-### Estimated Lines Changed: ~30
+### Components Touched
+- `Payments.tsx` -- button styling, pill tabs, pending badge
 
 ---
 
-## PART F: Component Enhancements
+## PART 6: Payment Detail Page (`PaymentDetail.tsx`)
 
-### F1. PropertyCard.tsx
-- Already well-styled with glassmorphism, hover lift, image overlay
-- **Minor**: Add `rounded-xl` to dropdown content
-- No major changes needed
+### Current Issues
+- Good glassmorphic layout already
+- Missing tenant info (who made the payment?)
+- Missing linked invoice reference
+- Back button not glass-pill styled
+- Amount card is centered text -- could be more structured
 
-### F2. PropertyTable.tsx
-- Already uses `glass-table`, gradient headers, pill pagination
-- **Minor**: Add `rounded-xl` to DropdownMenuContent
-- No major changes needed
+### Changes
+1. **Add Tenant Info** card (fetch from payment's related invoice/contract)
+2. **Back button**: Glass pill style
+3. **Amount card**: Add gradient-icon-box to left side, keep big number, add "Payment Type" subtitle
+4. **Add Invoice Reference** in sidebar:
+   - Link to `/merchant/invoices/:id` if invoice exists
+5. **Details Grid cards**: Add hover effect `hover:bg-primary/5 transition-all`
 
-### F3. PropertyFilters.tsx
-- Already uses `glass-filter-bar`, pill view toggle, rounded-xl inputs
-- No changes needed
+### Components Touched
+- `PaymentDetail.tsx` -- tenant info, invoice ref, glass pill back
 
-### F4. UnitCard.tsx
-- Already well-styled with glassmorphism, hover lift
-- **Minor**: Add `rounded-xl` to DropdownMenuContent
-- No major changes needed
+---
 
-### F5. UnitFilters.tsx
-- Already uses `glass-filter-bar`, rounded-xl inputs
-- No changes needed
+## PART 7: Dialog & Form Enhancements
 
-### F6. UnitsTable.tsx
-- Already uses `glass-table`, gradient headers, pill pagination
-- No changes needed
+### MarkPaidDialog.tsx
+- SelectTrigger: Add `rounded-xl bg-background/60 border-border/50`
+- Input: Add `rounded-xl bg-background/60 border-border/50`
+- DialogFooter: Add `flex-col-reverse sm:flex-row` for mobile stacking
 
-### F7. UnitsStats.tsx
-- Already uses `glass-stat-card`, `gradient-icon-box`, segmented bars
-- **Minor**: Add hover lift to all cards (`hover:-translate-y-1 hover:shadow-lg transition-all duration-300`)
+### CreateInvoiceDialog.tsx
+- All Input/Select: Already have `rounded-xl` on some -- ensure consistency
+- SelectTrigger: Add `bg-background/60 border-border/50`
+- Total Amount card: Keep existing gradient treatment
+- DialogFooter: Add `flex-col-reverse sm:flex-row`
 
-### F8. TenantStats.tsx
-- Already uses `glass-stat-card`, `gradient-icon-box`
-- Already has hover lift
-- No changes needed
+### InvoiceDetailsDialog.tsx (full restyle)
+- DialogContent: `rounded-2xl bg-popover/95 backdrop-blur-xl`
+- Invoice number + badge: Glass treatment header
+- Amount breakdown: `bg-card/90 backdrop-blur-sm rounded-xl border border-border/40 p-4`
+- Total line: Gradient text treatment
+- Buttons: `rounded-xl`, primary = `gradient-cta`
 
-### F9. TenantsFilters.tsx
-- Already uses `glass-filter-bar`, rounded-xl inputs
-- No changes needed
+### CreateContractDialog.tsx
+- Already well-styled with rounded-xl inputs
+- DialogFooter: Add `flex-col-reverse sm:flex-row`
 
-### F10. TenantsTable.tsx
-- Already uses `glass-table`, gradient headers, avatar colors, pill pagination
-- **Minor**: Add `rounded-xl` to DropdownMenuContent
-- No changes needed
+---
 
-### F11. InvitationsTable.tsx
-- Already uses `glass-table`, gradient headers, pill pagination
-- No changes needed
+## PART 8: Table Component Enhancements
 
-### F12. TenantDetailsDialog.tsx
-- Already uses glass cards, gradient avatars, progress bars
-- **Minor**: Enhance close button to `gradient-cta rounded-xl` for primary action
-- No major changes needed
+### ContractsTable.tsx
+- DropdownMenuContent: Add `rounded-xl`
 
-### F13. InviteTenantDialog.tsx
-- Already uses `rounded-2xl` dialog, `rounded-xl` inputs, gradient submit button
-- No changes needed
+### InvoicesTable.tsx
+- DropdownMenuContent: Add `rounded-xl`
 
-### F14. AddTenantDialog.tsx
-- Already uses stepper, `rounded-2xl` dialog, glass treatment
-- No changes needed
+### PaymentsTable.tsx
+- "Mark Paid" button: Add `rounded-xl`
+- Reminder icon button: Add `rounded-xl`
 
-### F15. UnitFormDialog.tsx
-- Already uses stepper, `rounded-2xl` dialog, gradient-cta buttons
-- No changes needed
-
-### F16. PropertyFormDialog.tsx
-- Already uses stepper, `rounded-2xl` dialog, gradient-cta buttons
-- No changes needed
-
-### F17. DeletePropertyDialog.tsx
-- Already uses `rounded-2xl`, gradient destructive button, glass info box
-- No changes needed
-
-### F18. UnitsManager.tsx
-- Uses `rounded-2xl` dialog, glass cards
-- **Changes**: Replace native `confirm()` in `handleDelete` with proper AlertDialog
-- Add `rounded-xl` to action buttons in card
-- Add glass treatment to subscription limit alert
-
-### F19. PropertySkeleton.tsx / PropertyDetailSkeleton.tsx
-- Already styled with glass-stat-card, rounded-2xl
+### OverdueInvoicesTable.tsx
+- "Setup Payment Plan" button: Already `rounded-xl` -- good
 - No changes needed
 
 ---
 
 ## Summary of Files Modified
 
-| No | File | Changes |
-|----|------|---------|
-| 1 | `Properties.tsx` | PageHeader, pill pagination, glass images dialog |
-| 2 | `PropertyDetail.tsx` | Glass cards, hover effects, clickable rows, sidebar consistency |
-| 3 | `Units.tsx` | PageHeader, view toggle into filter bar |
-| 4 | `UnitDetail.tsx` | Glass cards, clickable contracts/maintenance, breadcrumb pill |
-| 5 | `Tenants.tsx` | PageHeader, pill tabs, action buttons in header |
-| 6 | `UnitsManager.tsx` | Replace confirm() with AlertDialog, rounded-xl buttons |
-| 7 | `UnitsStats.tsx` | Add hover lift to stat cards |
-| 8 | `TenantsTable.tsx` | DropdownMenuContent rounded-xl |
-| 9 | `PropertyTable.tsx` | DropdownMenuContent rounded-xl |
-| 10 | `UnitCard.tsx` | DropdownMenuContent rounded-xl |
+| No | File | Type | Changes |
+|----|------|------|---------|
+| 1 | `Contracts.tsx` | EDIT | pill-tab classes, gradient-cta button, expiring tab |
+| 2 | `ContractDetail.tsx` | EDIT | KPI strip, contract progress, glass back button, enhanced actions |
+| 3 | `Invoices.tsx` | EDIT | Add status tabs with pill pattern |
+| 4 | `InvoiceDetail.tsx` | EDIT | Tenant info, contract ref, glass back button |
+| 5 | `Payments.tsx` | EDIT | pill-tab classes, button styling, pending badge |
+| 6 | `PaymentDetail.tsx` | EDIT | Glass back button, hover effects |
+| 7 | `InvoiceDetailsDialog.tsx` | EDIT | Full glass restyle |
+| 8 | `MarkPaidDialog.tsx` | EDIT | Input/select styling, mobile footer |
+| 9 | `CreateInvoiceDialog.tsx` | EDIT | Mobile footer |
+| 10 | `CreateContractDialog.tsx` | EDIT | Mobile footer |
+| 11 | `ContractsTable.tsx` | EDIT | DropdownMenuContent rounded-xl |
+| 12 | `InvoicesTable.tsx` | EDIT | DropdownMenuContent rounded-xl |
+| 13 | `PaymentsTable.tsx` | EDIT | Button rounded-xl |
 
 ## Implementation Order
 
-1. `Properties.tsx` -- main page with PageHeader + pagination upgrade
-2. `PropertyDetail.tsx` -- glass cards + interactive rows
-3. `Units.tsx` -- PageHeader integration
-4. `UnitDetail.tsx` -- glass cards + clickable entities
-5. `Tenants.tsx` -- PageHeader + pill tabs
-6. `UnitsManager.tsx` -- AlertDialog replacement
-7. Minor component enhancements (UnitsStats, tables, cards -- dropdown rounding)
+1. Contracts page + ContractsTable (tabs + expiring)
+2. Contract Detail page (KPI strip + progress + actions)
+3. Invoices page + InvoicesTable (status tabs)
+4. Invoice Detail page (tenant info + contract ref)
+5. Payments page + PaymentsTable (pill tabs + buttons)
+6. Payment Detail page (glass back + hover)
+7. Dialogs (InvoiceDetailsDialog, MarkPaidDialog, CreateInvoiceDialog, CreateContractDialog)
