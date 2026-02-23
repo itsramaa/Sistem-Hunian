@@ -598,6 +598,56 @@ export type Database = {
           },
         ]
       }
+      data_quality_checks: {
+        Row: {
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          is_final_validated: boolean | null
+          merchant_id: string
+          overrides: Json | null
+          quality_score: number | null
+          validated_at: string | null
+          validated_by: string | null
+          validation_results: Json | null
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          is_final_validated?: boolean | null
+          merchant_id: string
+          overrides?: Json | null
+          quality_score?: number | null
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_results?: Json | null
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          is_final_validated?: boolean | null
+          merchant_id?: string
+          overrides?: Json | null
+          quality_score?: number | null
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_results?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_quality_checks_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deposit_disputes: {
         Row: {
           admin_notes: string | null
@@ -3479,6 +3529,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      property_data_versions: {
+        Row: {
+          change_reason: string | null
+          change_summary: string | null
+          changed_by: string | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          snapshot_data: Json
+          version_number: number
+        }
+        Insert: {
+          change_reason?: string | null
+          change_summary?: string | null
+          changed_by?: string | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          snapshot_data: Json
+          version_number: number
+        }
+        Update: {
+          change_reason?: string | null
+          change_summary?: string | null
+          changed_by?: string | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          snapshot_data?: Json
+          version_number?: number
+        }
+        Relationships: []
       }
       property_guardians: {
         Row: {

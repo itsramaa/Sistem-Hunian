@@ -123,6 +123,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/merchant/guardians", icon: User, label: "Penjaga" },
           { path: "/merchant/tenants", icon: Users, label: "Penyewa" },
           { path: "/merchant/compliance", icon: Shield, label: "Risiko & Kepatuhan" },
+          { path: "/merchant/data-quality", icon: ClipboardList, label: "Kualitas Data" },
         ],
       },
       {
