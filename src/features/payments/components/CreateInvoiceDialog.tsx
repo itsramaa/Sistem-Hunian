@@ -101,7 +101,7 @@ export const CreateInvoiceDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg rounded-2xl">
         <DialogHeader>
           <DialogTitle>Create Invoice</DialogTitle>
         </DialogHeader>
@@ -123,7 +123,7 @@ export const CreateInvoiceDialog = ({
           </div>
 
           {selectedContract && (
-            <div className="p-3 bg-muted rounded-lg text-sm">
+            <div className="p-3 bg-gradient-to-br from-muted/50 to-muted/30 rounded-2xl text-sm">
               <p>Monthly Rent: {formatCurrency(selectedContract.rent_amount)}</p>
             </div>
           )}
@@ -150,7 +150,7 @@ export const CreateInvoiceDialog = ({
           </div>
 
           {amount && (
-            <div className="p-3 bg-primary/10 rounded-lg">
+            <div className="p-3 bg-primary/10 rounded-2xl">
               <p className="text-sm text-muted-foreground">Total Amount</p>
               <p className="text-xl font-bold">
                 {formatCurrency(totalAmount)}
@@ -178,12 +178,13 @@ export const CreateInvoiceDialog = ({
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">
               Cancel
             </Button>
             <Button 
               onClick={handleSubmit} 
               disabled={!selectedContractId || !amount || !dueDate || isCreating}
+              className="gradient-cta text-primary-foreground rounded-xl"
             >
               {isCreating ? (
                 <>

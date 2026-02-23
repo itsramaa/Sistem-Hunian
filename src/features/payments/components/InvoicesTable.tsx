@@ -16,6 +16,7 @@ import { formatCurrency } from '@/shared/utils/currency';
 import { getInvoiceStatusColor } from '@/shared/utils/statusColors';
 import { format } from 'date-fns';
 import { Bell, Download, Eye, FileText, Loader2, MoreHorizontal, Send } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Invoice } from '../types';
 
 interface InvoicesTableProps {
@@ -49,18 +50,19 @@ export const InvoicesTable = ({
   onPageChange,
   itemsPerPage
 }: InvoicesTableProps) => {
+  const navigate = useNavigate();
   if (isLoading) {
     return (
-      <div className="rounded-md border">
+      <div className="glass-table">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>Invoice #</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Due Date</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+            <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b-0">
+              <TableHead className="font-semibold text-xs uppercase tracking-wider">Invoice #</TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wider">Description</TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wider">Amount</TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wider">Due Date</TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wider">Status</TableHead>
+              <TableHead className="text-right font-semibold text-xs uppercase tracking-wider">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -82,7 +84,7 @@ export const InvoicesTable = ({
 
   if (invoices.length === 0) {
     return (
-      <div className="border rounded-md bg-card">
+      <div className="glass-table">
         <EmptyState
           icon={FileText}
           title="No invoices found"
@@ -93,21 +95,21 @@ export const InvoicesTable = ({
   }
 
   return (
-    <div className="rounded-md border">
+    <div className="glass-table">
       <Table>
         <TableHeader>
-          <TableRow>
-            <TableHead>Invoice #</TableHead>
-            <TableHead>Description</TableHead>
-            <TableHead>Amount</TableHead>
-            <TableHead>Due Date</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+          <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b-0">
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Invoice #</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Description</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Amount</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Due Date</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Status</TableHead>
+            <TableHead className="text-right font-semibold text-xs uppercase tracking-wider">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {invoices.map((invoice) => (
-            <TableRow key={invoice.id}>
+            <TableRow key={invoice.id} className="hover:bg-primary/5 cursor-pointer transition-colors" onClick={() => navigate(`/merchant/invoices/${invoice.id}`)}>
               <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
               <TableCell className="max-w-[200px] truncate">
                 {invoice.description || '-'}
@@ -119,7 +121,7 @@ export const InvoicesTable = ({
                   {invoice.status}
                 </Badge>
               </TableCell>
-              <TableCell className="text-right">
+              <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="h-8 w-8 p-0">
