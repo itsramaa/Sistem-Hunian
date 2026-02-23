@@ -10,12 +10,18 @@ import { Separator } from '@/shared/components/ui/separator';
 import { Progress } from '@/shared/components/ui/progress';
 import { 
   ArrowLeft, Building2, ChevronRight, DoorOpen, Edit, Image as ImageIcon, MapPin, 
-  Sparkles, TrendingUp, Users, DollarSign, Calendar, Hash, Clock, Wrench, FileText, AlertTriangle
+  Sparkles, TrendingUp, Users, DollarSign, Calendar, Hash, Clock, Wrench, FileText, AlertTriangle,
+  Shield, UserCheck
 } from 'lucide-react';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/shared/components/ui/carousel';
+import { Suspense, lazy, useState } from 'react';
+import { ContentSkeleton } from '@/shared/components/ui/PageSkeleton';
 import { formatCurrency } from '@/shared/utils/currency';
 import { format } from 'date-fns';
-import { useState } from 'react';
+
+const LazyGuardians = lazy(() => import('@/pages/merchant/Guardians'));
+const LazyCompliance = lazy(() => import('@/pages/merchant/PropertyCompliance'));
+const LazyDataQuality = lazy(() => import('@/pages/merchant/DataQualityHistory'));
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/integrations/supabase/client';
 import { PropertyFinancialForm, FinancialFormData } from '@/features/properties/components/PropertyFinancialForm';
@@ -208,7 +214,7 @@ export default function PropertyDetail() {
       {/* Tabs + Sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="pill-tab-list w-full sm:w-auto">
+          <TabsList className="pill-tab-list w-full sm:w-auto flex-wrap">
             <TabsTrigger value="overview" className="pill-tab-trigger">Overview</TabsTrigger>
             <TabsTrigger value="units" className="pill-tab-trigger">Unit ({totalUnits})</TabsTrigger>
             <TabsTrigger value="tenants" className="pill-tab-trigger">Tenant ({activeContracts.length})</TabsTrigger>
@@ -216,6 +222,12 @@ export default function PropertyDetail() {
             <TabsTrigger value="maintenance" className="pill-tab-trigger">
               Maintenance
               {pendingMaintenance.length > 0 && <Badge variant="secondary" className="ml-1.5 rounded-full text-xs">{pendingMaintenance.length}</Badge>}
+            </TabsTrigger>
+            <TabsTrigger value="guardians" className="pill-tab-trigger">
+              <UserCheck className="h-3.5 w-3.5 mr-1" />Staf
+            </TabsTrigger>
+            <TabsTrigger value="compliance" className="pill-tab-trigger">
+              <Shield className="h-3.5 w-3.5 mr-1" />Kepatuhan
             </TabsTrigger>
           </TabsList>
 
@@ -357,6 +369,23 @@ export default function PropertyDetail() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          {/* Guardians Tab */}
+          <TabsContent value="guardians" className="mt-4 animate-fade-in">
+            <Suspense fallback={<ContentSkeleton />}>
+              <LazyGuardians />
+            </Suspense>
+          </TabsContent>
+
+          {/* Compliance Tab */}
+          <TabsContent value="compliance" className="space-y-4 mt-4 animate-fade-in">
+            <Suspense fallback={<ContentSkeleton />}>
+              <LazyCompliance />
+            </Suspense>
+            <Suspense fallback={<ContentSkeleton />}>
+              <LazyDataQuality />
+            </Suspense>
           </TabsContent>
         </Tabs>
 
