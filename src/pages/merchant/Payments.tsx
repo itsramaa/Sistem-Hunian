@@ -137,12 +137,12 @@ export default function MerchantPayments() {
         />
 
         <Tabs defaultValue="history" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="history">Payment History</TabsTrigger>
-            <TabsTrigger value="overdue" className="relative">
+          <TabsList className="bg-muted/50 backdrop-blur-sm rounded-full p-1">
+            <TabsTrigger value="history" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">Payment History</TabsTrigger>
+            <TabsTrigger value="overdue" className="relative rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">
               Overdue Invoices
               {overdueInvoices.length > 0 && (
-                <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs rounded-full">
                   {overdueInvoices.length}
                 </Badge>
               )}

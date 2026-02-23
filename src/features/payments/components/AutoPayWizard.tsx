@@ -19,27 +19,9 @@ interface AutoPayWizardProps {
 }
 
 const PAYMENT_METHODS = [
-  { 
-    id: 'credit_card', 
-    label: 'Credit/Debit Card', 
-    icon: CreditCard, 
-    supportsRecurring: true,
-    description: 'Automatically charge your card each month'
-  },
-  { 
-    id: 'bank_transfer', 
-    label: 'Bank Transfer (VA)', 
-    icon: Building2, 
-    supportsRecurring: false,
-    description: 'Receive VA number each month'
-  },
-  { 
-    id: 'ewallet', 
-    label: 'E-Wallet', 
-    icon: Wallet, 
-    supportsRecurring: true,
-    description: 'Auto-debit from your e-wallet'
-  },
+  { id: 'credit_card', label: 'Credit/Debit Card', icon: CreditCard, supportsRecurring: true, description: 'Automatically charge your card each month' },
+  { id: 'bank_transfer', label: 'Bank Transfer (VA)', icon: Building2, supportsRecurring: false, description: 'Receive VA number each month' },
+  { id: 'ewallet', label: 'E-Wallet', icon: Wallet, supportsRecurring: true, description: 'Auto-debit from your e-wallet' },
 ];
 
 export function AutoPayWizard({ onComplete, currentMethod, isEnabled }: AutoPayWizardProps) {
@@ -51,37 +33,27 @@ export function AutoPayWizard({ onComplete, currentMethod, isEnabled }: AutoPayW
   const selectedMethodData = PAYMENT_METHODS.find(m => m.id === selectedMethod);
 
   const handleNext = async () => {
-    if (step === 1 && !selectedMethod) {
-      toast.error('Please select a payment method');
-      return;
-    }
-
+    if (step === 1 && !selectedMethod) { toast.error('Please select a payment method'); return; }
     if (step === 2) {
       setIsProcessing(true);
-      
-      // Simulate authorization process
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
       setIsProcessing(false);
       onComplete(selectedMethod, autoPayEnabled);
       toast.success(autoPayEnabled ? 'Auto-pay enabled successfully!' : 'Payment method saved');
       return;
     }
-
     setStep(step + 1);
   };
 
-  const handleBack = () => {
-    setStep(step - 1);
-  };
-
   return (
-    <Card>
+    <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5" />
+              <div className="p-2 rounded-xl bg-primary/10">
+                <CreditCard className="h-5 w-5 text-primary" />
+              </div>
               Auto-pay Setup
             </CardTitle>
             <CardDescription>
@@ -90,13 +62,13 @@ export function AutoPayWizard({ onComplete, currentMethod, isEnabled }: AutoPayW
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            <div className={`h-2 w-8 rounded-full ${step >= 1 ? 'bg-primary' : 'bg-muted'}`} />
-            <div className={`h-2 w-8 rounded-full ${step >= 2 ? 'bg-primary' : 'bg-muted'}`} />
+            {[1, 2].map(s => (
+              <div key={s} className={`h-2 w-8 rounded-full transition-colors ${step >= s ? 'bg-primary' : 'bg-muted'}`} />
+            ))}
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Step 1: Select Payment Method */}
         {step === 1 && (
           <div className="space-y-4">
             <RadioGroup value={selectedMethod} onValueChange={setSelectedMethod}>
@@ -105,15 +77,13 @@ export function AutoPayWizard({ onComplete, currentMethod, isEnabled }: AutoPayW
                   <RadioGroupItem value={method.id} id={method.id} />
                   <Label 
                     htmlFor={method.id} 
-                    className="flex items-center gap-3 flex-1 cursor-pointer p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                    className="flex items-center gap-3 flex-1 cursor-pointer p-3 rounded-xl border border-border/40 bg-card/80 backdrop-blur-sm hover:bg-primary/5 hover:border-primary/30 transition-all"
                   >
                     <method.icon className="h-5 w-5 text-muted-foreground" />
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{method.label}</span>
-                        {method.supportsRecurring && (
-                          <Badge variant="secondary" className="text-xs">Auto-pay</Badge>
-                        )}
+                        {method.supportsRecurring && <Badge variant="secondary" className="text-xs rounded-full">Auto-pay</Badge>}
                       </div>
                       <p className="text-sm text-muted-foreground">{method.description}</p>
                     </div>
@@ -121,24 +91,19 @@ export function AutoPayWizard({ onComplete, currentMethod, isEnabled }: AutoPayW
                 </div>
               ))}
             </RadioGroup>
-
             {selectedMethod && !selectedMethodData?.supportsRecurring && (
-              <Alert>
+              <Alert className="rounded-xl">
                 <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  This method doesn't support automatic payments. You'll receive a reminder each month.
-                </AlertDescription>
+                <AlertDescription>This method doesn't support automatic payments. You'll receive a reminder each month.</AlertDescription>
               </Alert>
             )}
           </div>
         )}
 
-        {/* Step 2: Confirm and Enable */}
         {step === 2 && (
           <div className="space-y-6">
-            {/* Selected Method Summary */}
             {selectedMethodData && (
-              <div className="p-4 rounded-lg border bg-muted/30">
+              <div className="p-4 rounded-xl border border-border/40 bg-gradient-to-br from-muted/50 to-muted/30">
                 <div className="flex items-center gap-3">
                   <selectedMethodData.icon className="h-8 w-8 text-primary" />
                   <div>
@@ -148,77 +113,46 @@ export function AutoPayWizard({ onComplete, currentMethod, isEnabled }: AutoPayW
                 </div>
               </div>
             )}
-
-            {/* Auto-pay Toggle */}
             {selectedMethodData?.supportsRecurring && (
-              <div className="flex items-center justify-between p-4 rounded-lg border">
+              <div className="flex items-center justify-between p-4 rounded-xl border border-border/40 bg-card/80">
                 <div className="flex items-center gap-3">
-                  <Shield className="h-5 w-5 text-green-600" />
+                  <Shield className="h-5 w-5 text-success" />
                   <div>
                     <Label htmlFor="auto-pay-toggle" className="font-medium">Enable Auto-pay</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Automatically pay on the due date each month
-                    </p>
+                    <p className="text-sm text-muted-foreground">Automatically pay on the due date each month</p>
                   </div>
                 </div>
-                <Switch
-                  id="auto-pay-toggle"
-                  checked={autoPayEnabled}
-                  onCheckedChange={setAutoPayEnabled}
-                />
+                <Switch id="auto-pay-toggle" checked={autoPayEnabled} onCheckedChange={setAutoPayEnabled} />
               </div>
             )}
-
-            {/* Benefits */}
             {autoPayEnabled && (
               <div className="space-y-2">
                 <p className="text-sm font-medium">Benefits:</p>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-green-600" />
-                    Never miss a payment
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-green-600" />
-                    Avoid late fees
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-green-600" />
-                    Cancel anytime
-                  </li>
+                  {['Never miss a payment', 'Avoid late fees', 'Cancel anytime'].map(b => (
+                    <li key={b} className="flex items-center gap-2">
+                      <Check className="h-4 w-4 text-success" />{b}
+                    </li>
+                  ))}
                 </ul>
               </div>
             )}
           </div>
         )}
 
-        {/* Navigation Buttons */}
-        <div className="flex justify-between pt-4 border-t">
+        <div className="flex justify-between pt-4 border-t border-border/30">
           {step > 1 ? (
-            <Button variant="outline" onClick={handleBack}>
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Back
+            <Button variant="outline" onClick={() => setStep(step - 1)} className="rounded-xl">
+              <ChevronLeft className="h-4 w-4 mr-1" />Back
             </Button>
-          ) : (
-            <div />
-          )}
-          
-          <Button onClick={handleNext} disabled={isProcessing}>
+          ) : <div />}
+          <Button onClick={handleNext} disabled={isProcessing} className={step === 2 ? 'gradient-cta rounded-xl' : 'rounded-xl'}>
             {isProcessing ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Processing...
-              </>
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Processing...</>
             ) : step === 2 ? (
-              <>
-                <Check className="h-4 w-4 mr-1" />
-                Confirm
-              </>
+              <><Check className="h-4 w-4 mr-1" />Confirm</>
             ) : (
-              <>
-                Next
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </>
+              <>Next<ChevronRight className="h-4 w-4 ml-1" /></>
             )}
           </Button>
         </div>
