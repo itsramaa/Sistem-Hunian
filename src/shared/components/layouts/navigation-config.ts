@@ -133,8 +133,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
       {
         label: "Operasional",
         items: [
-          { path: "/merchant/maintenance", icon: Wrench, label: "Laporan Kerusakan" },
-          { path: "/merchant/legal", icon: Shield, label: "Kepatuhan & Legalitas", activePatterns: ["/merchant/compliance", "/merchant/data-quality"] },
+          { path: "/merchant/operations", icon: Wrench, label: "Operasional", activePatterns: ["/merchant/maintenance", "/merchant/legal", "/merchant/compliance", "/merchant/data-quality"] },
         ],
       },
       {
