@@ -36,11 +36,11 @@ export default function MerchantDashboard() {
 
   if (error) {
     return (
-      <Alert variant="destructive">
+      <Alert variant="destructive" className="rounded-xl">
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
           Failed to load dashboard data. Please try again.
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="ml-2">
+          <Button variant="outline" size="sm" onClick={() => refetch()} className="ml-2 rounded-xl">
             Retry
           </Button>
         </AlertDescription>
@@ -61,7 +61,7 @@ export default function MerchantDashboard() {
           size="sm" 
           onClick={() => refetch()} 
           disabled={isRefetching}
-          className="gap-2"
+          className="gap-2 rounded-xl"
           aria-label="Refresh dashboard data"
         >
           <RefreshCw className={`h-4 w-4 ${isRefetching ? 'animate-spin' : ''}`} />
@@ -82,10 +82,12 @@ export default function MerchantDashboard() {
         {/* Key Metrics Grid */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {/* Total Properties */}
-          <Card className="transition-[transform,box-shadow] duration-200 hover:shadow-md hover:-translate-y-0.5 animate-fade-in" style={{ animationDelay: '0ms', animationFillMode: 'both' }}>
+          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 transition-[transform,box-shadow] duration-200 hover:shadow-md hover:-translate-y-0.5 animate-fade-in" style={{ animationDelay: '0ms', animationFillMode: 'both' }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Properties</CardTitle>
-              <Building2 className="h-4 w-4 text-muted-foreground" />
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                <Building2 className="h-4 w-4 text-primary" />
+              </div>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats?.properties.total || 0}</div>
@@ -96,10 +98,12 @@ export default function MerchantDashboard() {
           </Card>
 
           {/* Occupancy Rate */}
-          <Card className="transition-[transform,box-shadow] duration-200 hover:shadow-md hover:-translate-y-0.5 animate-fade-in" style={{ animationDelay: '80ms', animationFillMode: 'both' }}>
+          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 transition-[transform,box-shadow] duration-200 hover:shadow-md hover:-translate-y-0.5 animate-fade-in" style={{ animationDelay: '80ms', animationFillMode: 'both' }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Occupancy Rate</CardTitle>
-              <Home className="h-4 w-4 text-muted-foreground" />
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-success/20 to-success/5 flex items-center justify-center">
+                <Home className="h-4 w-4 text-success" />
+              </div>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
@@ -107,7 +111,7 @@ export default function MerchantDashboard() {
               </div>
               <Progress 
                 value={stats?.properties.occupancyRate || 0} 
-                className={`mt-2 h-2 ${
+                className={`mt-2 h-2 rounded-full ${
                   (stats?.properties.occupancyRate || 0) >= 80 ? '[&>div]:bg-success' : 
                   (stats?.properties.occupancyRate || 0) >= 50 ? '[&>div]:bg-warning' : '[&>div]:bg-destructive'
                 }`}
@@ -119,10 +123,12 @@ export default function MerchantDashboard() {
           </Card>
 
           {/* Active Tenants */}
-          <Card className="transition-[transform,box-shadow] duration-200 hover:shadow-md hover:-translate-y-0.5 animate-fade-in" style={{ animationDelay: '160ms', animationFillMode: 'both' }}>
+          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 transition-[transform,box-shadow] duration-200 hover:shadow-md hover:-translate-y-0.5 animate-fade-in" style={{ animationDelay: '160ms', animationFillMode: 'both' }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Active Tenants</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-warning/20 to-warning/5 flex items-center justify-center">
+                <Users className="h-4 w-4 text-warning" />
+              </div>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats?.tenants.active || 0}</div>
@@ -156,10 +162,12 @@ export default function MerchantDashboard() {
           </Card>
 
           {/* Revenue / Escrow */}
-          <Card className="transition-[transform,box-shadow] duration-200 hover:shadow-md hover:-translate-y-0.5 animate-fade-in" style={{ animationDelay: '240ms', animationFillMode: 'both' }}>
+          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 transition-[transform,box-shadow] duration-200 hover:shadow-md hover:-translate-y-0.5 animate-fade-in" style={{ animationDelay: '240ms', animationFillMode: 'both' }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Escrow Balance</CardTitle>
-              <Wallet className="h-4 w-4 text-muted-foreground" />
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-accent/20 to-accent/5 flex items-center justify-center">
+                <Wallet className="h-4 w-4 text-accent" />
+              </div>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
@@ -174,7 +182,7 @@ export default function MerchantDashboard() {
 
         {/* Detailed Property Stats */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-          <Card className="col-span-4">
+          <Card className="col-span-4 bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader>
               <CardTitle>Property Overview</CardTitle>
               <CardDescription>
@@ -189,14 +197,14 @@ export default function MerchantDashboard() {
                     : 0;
                   
                   return (
-                    <div key={property.id} className="space-y-2 cursor-pointer hover:bg-muted/50 rounded-lg p-2 -mx-2 transition-colors" onClick={() => navigate(`/merchant/properties/${property.id}`)}>
+                    <div key={property.id} className="space-y-2 cursor-pointer hover:bg-primary/5 rounded-xl p-3 -mx-2 transition-colors" onClick={() => navigate(`/merchant/properties/${property.id}`)}>
                       <div className="flex items-center justify-between text-sm">
                         <div className="font-medium">{property.name}</div>
                         <div className="text-muted-foreground">
                           {property.occupied_units}/{property.total_units} Units ({Math.round(occupancy)}%)
                         </div>
                       </div>
-                      <Progress value={occupancy} className="h-2" />
+                      <Progress value={occupancy} className="h-2 rounded-full" />
                     </div>
                   );
                 })}
@@ -213,7 +221,7 @@ export default function MerchantDashboard() {
             </CardContent>
           </Card>
           
-          <Card className="col-span-3">
+          <Card className="col-span-3 bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader>
               <CardTitle>Financial Summary</CardTitle>
               <CardDescription>
@@ -222,7 +230,7 @@ export default function MerchantDashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="rounded-lg border p-4">
+                <div className="rounded-xl bg-card/80 backdrop-blur-sm border border-border/40 p-4">
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
                       <p className="text-sm font-medium text-muted-foreground">
@@ -250,7 +258,7 @@ export default function MerchantDashboard() {
                   </div>
                 </div>
                 
-                <Button className="w-full" variant="outline" onClick={() => navigate('/merchant/reports')}>
+                <Button className="w-full rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-md hover:shadow-lg transition-all" onClick={() => navigate('/merchant/reports')}>
                   View Detailed Reports
                 </Button>
               </div>

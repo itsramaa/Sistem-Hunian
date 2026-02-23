@@ -36,7 +36,6 @@ const Settings = () => {
   const [searchParams] = useSearchParams();
   const defaultTab = searchParams.get("tab") || "theme";
 
-  // Password change state
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     newPassword: "",
@@ -56,46 +55,21 @@ const Settings = () => {
   const handlePasswordChange = async () => {
     setPasswordErrors({});
     setPasswordSuccess(false);
-
-    // Validate form
     const result = passwordSchema.safeParse(passwordForm);
     if (!result.success) {
       const errors: Record<string, string> = {};
-      result.error.errors.forEach((err) => {
-        if (err.path[0]) {
-          errors[err.path[0] as string] = err.message;
-        }
-      });
+      result.error.errors.forEach((err) => { if (err.path[0]) { errors[err.path[0] as string] = err.message; } });
       setPasswordErrors(errors);
       return;
     }
-
     setIsChangingPassword(true);
-
     try {
-      // First verify current password by attempting to sign in
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.email) {
-        throw new Error("User email not found");
-      }
-
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: user.email,
-        password: passwordForm.currentPassword,
-      });
-
-      if (signInError) {
-        setPasswordErrors({ currentPassword: "Current password is incorrect" });
-        return;
-      }
-
-      // Update password
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: passwordForm.newPassword,
-      });
-
+      if (!user?.email) throw new Error("User email not found");
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email: user.email, password: passwordForm.currentPassword });
+      if (signInError) { setPasswordErrors({ currentPassword: "Current password is incorrect" }); return; }
+      const { error: updateError } = await supabase.auth.updateUser({ password: passwordForm.newPassword });
       if (updateError) throw updateError;
-
       setPasswordSuccess(true);
       setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
       toast.success("Password changed successfully");
@@ -110,73 +84,60 @@ const Settings = () => {
     <div className="space-y-6">
       <PageHeader icon={SettingsIcon} title="Settings" description="Configure your account preferences" />
       <Tabs defaultValue={defaultTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5">
-          <TabsTrigger value="theme" className="flex items-center gap-2">
+        <TabsList className="inline-flex rounded-full bg-card/80 backdrop-blur-sm border border-border/40 p-1">
+          <TabsTrigger value="theme" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
             <Palette className="h-4 w-4" />
             <span className="hidden sm:inline">Theme</span>
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center gap-2">
+          <TabsTrigger value="notifications" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
             <Bell className="h-4 w-4" />
             <span className="hidden sm:inline">Notifications</span>
           </TabsTrigger>
-          <TabsTrigger value="security" className="flex items-center gap-2">
+          <TabsTrigger value="security" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
             <Lock className="h-4 w-4" />
             <span className="hidden sm:inline">Security</span>
           </TabsTrigger>
-          <TabsTrigger value="banking" className="flex items-center gap-2">
+          <TabsTrigger value="banking" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
             <CreditCard className="h-4 w-4" />
             <span className="hidden sm:inline">Banking</span>
           </TabsTrigger>
-          <TabsTrigger value="disbursement" className="flex items-center gap-2">
+          <TabsTrigger value="disbursement" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
             <CreditCard className="h-4 w-4" />
             <span className="hidden sm:inline">Disbursement</span>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="theme" className="space-y-6">
-          <Card>
+          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader>
               <CardTitle>Appearance</CardTitle>
               <CardDescription>Customize how SiHuni looks on your device</CardDescription>
             </CardHeader>
             <CardContent>
-              <RadioGroup
-                value={theme}
-                onValueChange={handleThemeChange}
-                className="grid grid-cols-3 gap-4"
-              >
+              <RadioGroup value={theme} onValueChange={handleThemeChange} className="grid grid-cols-3 gap-4">
                 <div>
                   <RadioGroupItem value="light" id="light" className="peer sr-only" />
-                  <Label
-                    htmlFor="light"
-                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-                  >
-                    <div className="w-full aspect-video rounded-md bg-background border mb-3 flex items-center justify-center">
-                      <div className="w-1/2 h-3/4 bg-muted rounded" />
+                  <Label htmlFor="light" className="flex flex-col items-center justify-between rounded-2xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:ring-2 peer-data-[state=checked]:ring-primary/20 [&:has([data-state=checked])]:border-primary cursor-pointer transition-all">
+                    <div className="w-full aspect-video rounded-xl bg-background border mb-3 flex items-center justify-center">
+                      <div className="w-1/2 h-3/4 bg-muted rounded-lg" />
                     </div>
                     <span className="text-sm font-medium">Light</span>
                   </Label>
                 </div>
                 <div>
                   <RadioGroupItem value="dark" id="dark" className="peer sr-only" />
-                  <Label
-                    htmlFor="dark"
-                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-                  >
-                    <div className="w-full aspect-video rounded-md bg-zinc-900 border border-zinc-800 mb-3 flex items-center justify-center">
-                      <div className="w-1/2 h-3/4 bg-zinc-800 rounded" />
+                  <Label htmlFor="dark" className="flex flex-col items-center justify-between rounded-2xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:ring-2 peer-data-[state=checked]:ring-primary/20 [&:has([data-state=checked])]:border-primary cursor-pointer transition-all">
+                    <div className="w-full aspect-video rounded-xl bg-zinc-900 border border-zinc-800 mb-3 flex items-center justify-center">
+                      <div className="w-1/2 h-3/4 bg-zinc-800 rounded-lg" />
                     </div>
                     <span className="text-sm font-medium">Dark</span>
                   </Label>
                 </div>
                 <div>
                   <RadioGroupItem value="system" id="system" className="peer sr-only" />
-                  <Label
-                    htmlFor="system"
-                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-                  >
-                    <div className="w-full aspect-video rounded-md bg-gradient-to-r from-background to-zinc-900 border mb-3 flex items-center justify-center">
-                      <div className="w-1/2 h-3/4 bg-gradient-to-r from-muted to-zinc-800 rounded" />
+                  <Label htmlFor="system" className="flex flex-col items-center justify-between rounded-2xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:ring-2 peer-data-[state=checked]:ring-primary/20 [&:has([data-state=checked])]:border-primary cursor-pointer transition-all">
+                    <div className="w-full aspect-video rounded-xl bg-gradient-to-r from-background to-zinc-900 border mb-3 flex items-center justify-center">
+                      <div className="w-1/2 h-3/4 bg-gradient-to-r from-muted to-zinc-800 rounded-lg" />
                     </div>
                     <span className="text-sm font-medium">System</span>
                   </Label>
@@ -191,10 +152,12 @@ const Settings = () => {
         </TabsContent>
 
         <TabsContent value="security" className="space-y-6">
-          <Card>
+          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Lock className="h-5 w-5" />
+                <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                  <Lock className="h-4 w-4 text-primary" />
+                </div>
                 Change Password
               </CardTitle>
               <CardDescription>
@@ -203,7 +166,7 @@ const Settings = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               {passwordSuccess && (
-                <div className="flex items-center gap-2 p-3 rounded-md bg-success/10 text-success">
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-success/10 border border-success/20 text-success">
                   <CheckCircle className="h-4 w-4" />
                   <span className="text-sm">Password changed successfully</span>
                 </div>
@@ -211,62 +174,30 @@ const Settings = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="currentPassword">Current Password</Label>
-                <Input
-                  id="currentPassword"
-                  type="password"
-                  value={passwordForm.currentPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                  placeholder="Enter your current password"
-                />
+                <Input id="currentPassword" type="password" value={passwordForm.currentPassword} onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })} placeholder="Enter your current password" className="rounded-xl bg-background/60 border-border/50" />
                 {passwordErrors.currentPassword && (
-                  <p className="text-sm text-destructive flex items-center gap-1">
-                    <AlertTriangle className="h-3 w-3" />
-                    {passwordErrors.currentPassword}
-                  </p>
+                  <p className="text-sm text-destructive flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{passwordErrors.currentPassword}</p>
                 )}
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="newPassword">New Password</Label>
-                <Input
-                  id="newPassword"
-                  type="password"
-                  value={passwordForm.newPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                  placeholder="Enter new password"
-                />
+                <Input id="newPassword" type="password" value={passwordForm.newPassword} onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} placeholder="Enter new password" className="rounded-xl bg-background/60 border-border/50" />
                 {passwordErrors.newPassword && (
-                  <p className="text-sm text-destructive flex items-center gap-1">
-                    <AlertTriangle className="h-3 w-3" />
-                    {passwordErrors.newPassword}
-                  </p>
+                  <p className="text-sm text-destructive flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{passwordErrors.newPassword}</p>
                 )}
-                <p className="text-xs text-muted-foreground">
-                  Must be at least 8 characters with uppercase, lowercase, and number
-                </p>
+                <p className="text-xs text-muted-foreground">Must be at least 8 characters with uppercase, lowercase, and number</p>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={passwordForm.confirmPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                  placeholder="Confirm new password"
-                />
+                <Input id="confirmPassword" type="password" value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} placeholder="Confirm new password" className="rounded-xl bg-background/60 border-border/50" />
                 {passwordErrors.confirmPassword && (
-                  <p className="text-sm text-destructive flex items-center gap-1">
-                    <AlertTriangle className="h-3 w-3" />
-                    {passwordErrors.confirmPassword}
-                  </p>
+                  <p className="text-sm text-destructive flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{passwordErrors.confirmPassword}</p>
                 )}
               </div>
 
-              <Button 
-                onClick={handlePasswordChange} 
-                disabled={isChangingPassword}
-              >
+              <Button onClick={handlePasswordChange} disabled={isChangingPassword} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-md">
                 {isChangingPassword && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Change Password
               </Button>

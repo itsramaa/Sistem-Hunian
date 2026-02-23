@@ -82,13 +82,13 @@ export function SubscriptionWidget() {
   const getTierBadge = (tier: string) => {
     switch (tier) {
       case "enterprise":
-        return <Badge className="bg-accent text-accent-foreground">Enterprise</Badge>;
+        return <Badge className="rounded-full bg-accent text-accent-foreground">Enterprise</Badge>;
       case "pro":
-        return <Badge className="bg-primary text-primary-foreground">Pro</Badge>;
+        return <Badge className="rounded-full bg-primary text-primary-foreground">Pro</Badge>;
       case "basic":
-        return <Badge variant="secondary">Basic</Badge>;
+        return <Badge variant="secondary" className="rounded-full">Basic</Badge>;
       default:
-        return <Badge variant="outline">Free</Badge>;
+        return <Badge variant="outline" className="rounded-full">Free</Badge>;
     }
   };
 
@@ -102,7 +102,7 @@ export function SubscriptionWidget() {
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
         <CardContent className="flex items-center justify-center py-8">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </CardContent>
@@ -127,7 +127,7 @@ export function SubscriptionWidget() {
   const trialEndsAt = isTrialing ? new Date(subscription.trial_ends_at!) : null;
 
   return (
-    <Card>
+    <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -153,7 +153,7 @@ export function SubscriptionWidget() {
       </CardHeader>
       <CardContent className="space-y-4">
         {isTrialing && trialEndsAt && (
-          <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+          <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
             <p className="text-sm font-medium text-primary">
               Trial ends {format(trialEndsAt, "MMM dd, yyyy")}
             </p>
@@ -175,7 +175,7 @@ export function SubscriptionWidget() {
                 {usage?.properties || 0} / {tier.max_properties}
               </span>
             </div>
-            <Progress value={Math.min(propertiesUsage, 100)} className="h-2" />
+            <Progress value={Math.min(propertiesUsage, 100)} className="h-2 rounded-full" />
           </div>
 
           <div>
@@ -188,7 +188,7 @@ export function SubscriptionWidget() {
                 {usage?.units || 0} / {tier.max_units}
               </span>
             </div>
-            <Progress value={Math.min(unitsUsage, 100)} className="h-2" />
+            <Progress value={Math.min(unitsUsage, 100)} className="h-2 rounded-full" />
           </div>
 
           <div>
@@ -201,12 +201,12 @@ export function SubscriptionWidget() {
                 {usage?.tenants || 0} / {tier.max_tenants}
               </span>
             </div>
-            <Progress value={Math.min(tenantsUsage, 100)} className="h-2" />
+            <Progress value={Math.min(tenantsUsage, 100)} className="h-2 rounded-full" />
           </div>
         </div>
 
         {tier.name === "free" ? (
-          <Button className="w-full" asChild>
+          <Button className="w-full rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-md" asChild>
             <Link to="/merchant/billing">
               Upgrade Plan
               <ArrowRight className="h-4 w-4 ml-2" />
@@ -214,7 +214,7 @@ export function SubscriptionWidget() {
           </Button>
         ) : (
           <div className="flex gap-2">
-            <Button className="flex-1" asChild>
+            <Button className="flex-1 rounded-xl" asChild>
               <Link to="/merchant/billing">
                 Manage Plan
               </Link>
@@ -222,7 +222,7 @@ export function SubscriptionWidget() {
             <Button 
               variant="outline" 
               size="icon"
-              className="text-muted-foreground hover:text-destructive"
+              className="rounded-xl text-muted-foreground hover:text-destructive"
               onClick={() => setShowCancelDialog(true)}
               title="Cancel Subscription"
             >

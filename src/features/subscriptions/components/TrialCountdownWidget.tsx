@@ -38,10 +38,10 @@ export function TrialCountdownWidget() {
 
   if (isExpired) {
     return (
-      <Card className="border-destructive bg-destructive/10">
+      <Card className="rounded-2xl border-destructive bg-destructive/10">
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-full bg-destructive/20">
+            <div className="p-2 rounded-xl bg-destructive/20">
               <AlertTriangle className="h-5 w-5 text-destructive" />
             </div>
             <div className="flex-1">
@@ -50,7 +50,7 @@ export function TrialCountdownWidget() {
                 Upgrade now to continue using all features
               </p>
             </div>
-            <Button size="sm" asChild>
+            <Button size="sm" className="rounded-xl" asChild>
               <Link to="/merchant/settings?tab=verification">
                 Upgrade Now
                 <ArrowRight className="h-4 w-4 ml-1" />
@@ -63,10 +63,10 @@ export function TrialCountdownWidget() {
   }
 
   return (
-    <Card className={isUrgent ? "border-warning bg-warning/10" : "border-primary/30 bg-primary/5"}>
+    <Card className={`rounded-2xl ${isUrgent ? "border-warning bg-warning/10" : "border-primary/30 bg-primary/5"}`}>
       <CardContent className="p-4">
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-full ${isUrgent ? "bg-warning/20" : "bg-primary/20"}`}>
+          <div className={`p-2 rounded-xl ${isUrgent ? "bg-warning/20" : "bg-primary/20"}`}>
             <Clock className={`h-5 w-5 ${isUrgent ? "text-warning" : "text-primary"}`} />
           </div>
           <div className="flex-1">
@@ -84,7 +84,7 @@ export function TrialCountdownWidget() {
                 : "Trial period - Upgrade anytime to unlock all features"}
             </p>
           </div>
-          <Button variant={isUrgent ? "default" : "outline"} size="sm" asChild>
+          <Button variant={isUrgent ? "default" : "outline"} size="sm" className="rounded-xl" asChild>
             <Link to="/merchant/settings?tab=verification">
               {isUrgent ? "Upgrade Now" : "View Plans"}
               <ArrowRight className="h-4 w-4 ml-1" />
