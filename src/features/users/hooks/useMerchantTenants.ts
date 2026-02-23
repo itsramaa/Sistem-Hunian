@@ -62,7 +62,7 @@ export function useMerchantTenantMutations(merchantId: string | undefined) {
   const { toast } = useToast();
 
   const sendInvitation = useMutation({
-    mutationFn: (data: { unit_id: string; email: string; phone?: string | null }) => {
+    mutationFn: (data: { property_id: string; email: string; phone?: string | null }) => {
       if (!merchantId) throw new Error('Merchant ID is required');
       return merchantTenantService.sendInvitation(merchantId, data);
     },
@@ -141,10 +141,32 @@ export function useMerchantTenantMutations(merchantId: string | undefined) {
     },
   });
 
+  const unlinkTenant = useMutation({
+    mutationFn: (userId: string) => {
+      if (!merchantId) throw new Error('Merchant ID is required');
+      return merchantTenantService.unlinkTenant(userId, merchantId);
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Tenant Dilepas',
+        description: 'Tenant berhasil dilepas dari merchant Anda.',
+      });
+      queryClient.invalidateQueries({ queryKey: ['active-tenants'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: 'destructive',
+        title: 'Gagal melepas tenant',
+        description: error.message || 'Tidak dapat melepas tenant. Silakan coba lagi.',
+      });
+    },
+  });
+
   return {
     sendInvitation,
     cancelInvitation,
     terminateContract,
     addTenantDirectly,
+    unlinkTenant,
   };
 }

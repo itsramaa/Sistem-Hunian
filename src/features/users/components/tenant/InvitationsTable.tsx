@@ -53,32 +53,30 @@ export function InvitationsTable({
         <TableHeader>
           <TableRow>
             <TableHead>Email</TableHead>
-            <TableHead>Property</TableHead>
-            <TableHead>Unit</TableHead>
+            <TableHead>Properti</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Sent Date</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+            <TableHead>Tanggal Kirim</TableHead>
+            <TableHead className="text-right">Aksi</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {invitations.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                No pending invitations
+              <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                Tidak ada undangan
               </TableCell>
             </TableRow>
           ) : (
             invitations.map((invitation) => (
               <TableRow key={invitation.id}>
                 <TableCell className="font-medium">{invitation.email}</TableCell>
-                <TableCell>{invitation.unit?.property?.name || '-'}</TableCell>
-                <TableCell>{invitation.unit?.unit_number || '-'}</TableCell>
+                <TableCell>{(invitation as any).property_name || invitation.unit?.property?.name || '-'}</TableCell>
                 <TableCell>
                   <Badge variant={invitation.status === 'pending' ? 'outline' : 'secondary'}>
                     {invitation.status}
                   </Badge>
                 </TableCell>
-                <TableCell>{new Date(invitation.created_at).toLocaleDateString()}</TableCell>
+                <TableCell>{new Date(invitation.created_at).toLocaleDateString('id-ID')}</TableCell>
                 <TableCell className="text-right">
                   <Button
                     variant="ghost"

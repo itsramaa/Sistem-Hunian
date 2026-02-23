@@ -1,13 +1,15 @@
 export interface TenantInvitation {
   id: string;
   merchant_id: string;
-  unit_id: string;
+  unit_id: string | null;
+  property_id: string | null;
   email: string;
   phone: string | null;
   status: string;
   token: string;
   expires_at: string;
   created_at: string;
+  property_name?: string | null;
   unit?: {
     unit_number: string;
     property?: {

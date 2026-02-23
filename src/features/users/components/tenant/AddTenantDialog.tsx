@@ -107,7 +107,7 @@ export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLo
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg w-[95vw]">
         <DialogHeader>
           <DialogTitle>Tambah Tenant</DialogTitle>
           <DialogDescription>Pilih tenant dari daftar dan buat kontrak langsung</DialogDescription>
@@ -256,7 +256,7 @@ export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLo
           {/* Step 3: Contract Details */}
           {step === 2 && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="start_date">Tanggal Mulai *</Label>
                   <Input id="start_date" type="date" {...register('start_date')} />
@@ -273,7 +273,7 @@ export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLo
                 <Input id="rent_amount" type="number" {...register('rent_amount', { valueAsNumber: true })} />
                 {errors.rent_amount && <p className="text-sm text-destructive mt-1">{errors.rent_amount.message}</p>}
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="deposit_amount">Deposit (Rp)</Label>
                   <Input id="deposit_amount" type="number" {...register('deposit_amount', { valueAsNumber: true })} />

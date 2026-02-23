@@ -3521,9 +3521,10 @@ export type Database = {
           id: string
           merchant_id: string
           phone: string | null
+          property_id: string | null
           status: string | null
           token: string
-          unit_id: string
+          unit_id: string | null
         }
         Insert: {
           accepted_at?: string | null
@@ -3534,9 +3535,10 @@ export type Database = {
           id?: string
           merchant_id: string
           phone?: string | null
+          property_id?: string | null
           status?: string | null
           token?: string
-          unit_id: string
+          unit_id?: string | null
         }
         Update: {
           accepted_at?: string | null
@@ -3547,9 +3549,10 @@ export type Database = {
           id?: string
           merchant_id?: string
           phone?: string | null
+          property_id?: string | null
           status?: string | null
           token?: string
-          unit_id?: string
+          unit_id?: string | null
         }
         Relationships: [
           {
@@ -3557,6 +3560,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_invitations_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
             referencedColumns: ["id"]
           },
           {
