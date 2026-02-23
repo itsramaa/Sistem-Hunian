@@ -30,15 +30,7 @@ const statusLabels: Record<string, string> = {
 };
 
 export const UnitsTable = ({
-  units,
-  properties,
-  onEdit,
-  onDelete,
-  page,
-  totalPages,
-  totalUnits,
-  onPageChange,
-  itemsPerPage
+  units, properties, onEdit, onDelete, page, totalPages, totalUnits, onPageChange, itemsPerPage
 }: UnitsTableProps) => {
   const navigate = useNavigate();
   
@@ -48,9 +40,9 @@ export const UnitsTable = ({
 
   if (units.length === 0) {
     return (
-      <div className="rounded-xl border bg-card">
+      <div className="glass-table">
         <div className="flex flex-col items-center justify-center py-16 px-4">
-          <div className="p-4 rounded-full bg-muted mb-4">
+          <div className="gradient-icon-box w-16 h-16 mb-4">
             <DoorOpen className="h-8 w-8 text-muted-foreground" />
           </div>
           <h3 className="font-medium text-lg mb-1">Belum ada unit</h3>
@@ -63,29 +55,29 @@ export const UnitsTable = ({
   }
 
   return (
-    <div className="rounded-xl border bg-card overflow-hidden">
+    <div className="glass-table">
       <Table>
         <TableHeader>
-          <TableRow className="bg-muted/50">
-            <TableHead className="font-semibold">Unit</TableHead>
-            <TableHead className="font-semibold">Properti</TableHead>
-            <TableHead className="font-semibold">Tipe</TableHead>
-            <TableHead className="font-semibold">Status</TableHead>
-            <TableHead className="font-semibold">Harga Sewa</TableHead>
-            <TableHead className="font-semibold">Ukuran</TableHead>
-            <TableHead className="text-right font-semibold">Aksi</TableHead>
+          <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b-0">
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Unit</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Properti</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Tipe</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Status</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Harga Sewa</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Ukuran</TableHead>
+            <TableHead className="text-right font-semibold text-xs uppercase tracking-wider">Aksi</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {units.map((unit) => (
             <TableRow
               key={unit.id}
-              className="cursor-pointer hover:bg-muted/50 transition-colors group"
+              className="cursor-pointer hover:bg-primary/5 transition-colors group"
               onClick={() => navigate(`/merchant/units/${unit.id}`)}
             >
               <TableCell>
                 <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-md bg-primary/10">
+                  <div className="gradient-icon-box w-8 h-8">
                     <DoorOpen className="h-3.5 w-3.5 text-primary" />
                   </div>
                   <span className="font-medium">{unit.unit_number}</span>
@@ -101,7 +93,7 @@ export const UnitsTable = ({
                 <span className="capitalize text-sm">{unit.unit_type?.replace(/_/g, ' ') || '—'}</span>
               </TableCell>
               <TableCell>
-                <Badge variant="outline" className={cn("capitalize text-xs", statusColors[unit.status] || '')}>
+                <Badge variant="outline" className={cn("capitalize text-xs rounded-full", statusColors[unit.status] || '')}>
                   {statusLabels[unit.status] || unit.status}
                 </Badge>
               </TableCell>
@@ -119,18 +111,11 @@ export const UnitsTable = ({
                   </Tooltip>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
+                      <Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onEdit(unit)}>
-                        <Edit className="mr-2 h-4 w-4" />Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => onDelete(unit.id)}
-                      >
+                      <DropdownMenuItem onClick={() => onEdit(unit)}><Edit className="mr-2 h-4 w-4" />Edit</DropdownMenuItem>
+                      <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => onDelete(unit.id)}>
                         <Trash2 className="mr-2 h-4 w-4" />Hapus
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -143,17 +128,17 @@ export const UnitsTable = ({
       </Table>
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-between border-t px-4 py-3 bg-muted/30">
+        <div className="flex items-center justify-between border-t border-border/40 px-4 py-3 bg-muted/20">
           <div className="text-sm text-muted-foreground">
             Menampilkan {((page - 1) * itemsPerPage) + 1}–{Math.min(page * itemsPerPage, totalUnits)} dari {totalUnits} unit
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => onPageChange(page - 1)} disabled={page === 1}>
-              <ChevronLeft className="h-4 w-4" />Sebelumnya
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={() => onPageChange(page - 1)} disabled={page === 1} className="h-8 rounded-full">
+              <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm font-medium px-2">{page}/{totalPages}</span>
-            <Button variant="outline" size="sm" onClick={() => onPageChange(page + 1)} disabled={page === totalPages}>
-              Berikutnya<ChevronRight className="h-4 w-4" />
+            <span className="text-sm font-medium px-3 py-1 rounded-full bg-primary/10 text-primary">{page}/{totalPages}</span>
+            <Button variant="ghost" size="sm" onClick={() => onPageChange(page + 1)} disabled={page === totalPages} className="h-8 rounded-full">
+              <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
