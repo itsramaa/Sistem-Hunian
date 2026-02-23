@@ -81,6 +81,7 @@ const MerchantSupport = lazy(() => import("@/pages/merchant/Support"));
 const MerchantGuardians = lazy(() => import("@/pages/merchant/Guardians"));
 const MerchantTenantAnalytics = lazy(() => import("@/pages/merchant/TenantAnalytics"));
 const MerchantCompliance = lazy(() => import("@/pages/merchant/PropertyCompliance"));
+const MerchantFinancialRisk = lazy(() => import("@/pages/merchant/FinancialRiskAnalytics"));
 
 // Tenant Pages
 const TenantContractDetail = lazy(() => import("@/pages/tenant/ContractDetail"));
@@ -203,6 +204,7 @@ const App = () => (
                     <Route path="support" element={<MerchantSupport />} />
                     <Route path="tenant-analytics" element={<MerchantTenantAnalytics />} />
                     <Route path="compliance" element={<MerchantCompliance />} />
+                    <Route path="financial-risk" element={<MerchantFinancialRisk />} />
                   </Route>
 
                   {/* Tenant Routes */}
