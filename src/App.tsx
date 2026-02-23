@@ -3,7 +3,7 @@ import { Loader2 } from "lucide-react";
 import { MerchantLayoutRoute } from "@/shared/components/layouts/MerchantLayoutRoute";
 import { Suspense, lazy } from "react";
 import { HelmetProvider } from 'react-helmet-async';
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { InactivityMonitor } from "@/features/auth/components/InactivityMonitor";
 import { ProtectedRoute } from "@/features/auth/components/ProtectedRoute";
@@ -211,7 +211,7 @@ const App = () => (
                     <Route path="settings" element={<MerchantSettings />} />
                     <Route path="units" element={<MerchantUnits />} />
                     <Route path="units/:id" element={<MerchantUnitDetail />} />
-                    <Route path="guardians" element={<MerchantGuardians />} />
+                    <Route path="guardians" element={<Navigate to="/merchant/assets#guardians" replace />} />
                     <Route path="escrow" element={<MerchantEscrow />} />
                     <Route path="referrals" element={<MerchantReferrals />} />
                     <Route path="contracts" element={<MerchantContracts />} />

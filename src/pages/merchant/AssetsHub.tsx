@@ -7,8 +7,9 @@ import { ContentSkeleton } from "@/shared/components/ui/PageSkeleton";
 
 const MerchantProperties = lazy(() => import("@/pages/merchant/Properties"));
 const MerchantUnits = lazy(() => import("@/pages/merchant/Units"));
+const MerchantGuardians = lazy(() => import("@/pages/merchant/Guardians"));
 
-const TAB_MAP: Record<string, string> = { properties: "properties", units: "units" };
+const TAB_MAP: Record<string, string> = { properties: "properties", units: "units", guardians: "guardians" };
 
 export default function AssetsHub() {
   const location = useLocation();
@@ -21,12 +22,13 @@ export default function AssetsHub() {
 
   return (
     <div className="space-y-6">
-      <PageHeader icon={Building2} title="Properti & Unit" description="Kelola properti dan unit Anda dalam satu tampilan" />
+      <PageHeader icon={Building2} title="Manajemen Aset" description="Kelola properti, unit, dan staf operasional Anda" />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="pill-tab-list">
           <TabsTrigger value="properties" className="pill-tab-trigger">Properti</TabsTrigger>
           <TabsTrigger value="units" className="pill-tab-trigger">Unit</TabsTrigger>
+          <TabsTrigger value="guardians" className="pill-tab-trigger">Staf</TabsTrigger>
         </TabsList>
 
         <TabsContent value="properties" className="mt-6">
@@ -38,6 +40,12 @@ export default function AssetsHub() {
         <TabsContent value="units" className="mt-6">
           <Suspense fallback={<ContentSkeleton />}>
             <MerchantUnits />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="guardians" className="mt-6">
+          <Suspense fallback={<ContentSkeleton />}>
+            <MerchantGuardians />
           </Suspense>
         </TabsContent>
       </Tabs>
