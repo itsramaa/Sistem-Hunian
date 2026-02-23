@@ -66,28 +66,22 @@ export function TenantDetailsDialog({ tenant, open, onOpenChange }: TenantDetail
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl w-[95vw]">
+      <DialogContent className="max-w-2xl w-[95vw] rounded-2xl">
         <DialogHeader>
           <DialogTitle className="sr-only">Detail Tenant</DialogTitle>
         </DialogHeader>
 
         {/* Header with Avatar */}
         <div className="flex items-center gap-4">
-          <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center text-lg font-bold text-primary-foreground ${getAvatarColor(tenant.profile?.full_name)}`}>
+          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-lg font-bold text-primary-foreground ring-2 ring-primary/20 ring-offset-2 ring-offset-background ${getAvatarColor(tenant.profile?.full_name)}`}>
             {getInitials(tenant.profile?.full_name)}
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-xl font-bold truncate">{tenant.profile?.full_name || 'Unknown Tenant'}</h3>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <Badge variant="outline" className={contractStatusColors[tenant.status] || ''}>{tenant.status === 'linked' ? 'Terhubung' : tenant.status}</Badge>
-              {tenant.unit && (
-                <span className="text-sm text-muted-foreground">
-                  {tenant.unit.property?.name} • Unit {tenant.unit.unit_number}
-                </span>
-              )}
-              {isLinked && !tenant.unit && (
-                <span className="text-sm text-muted-foreground">Belum ada unit</span>
-              )}
+              <Badge variant="outline" className={`rounded-full ${contractStatusColors[tenant.status] || ''}`}>{tenant.status === 'linked' ? 'Terhubung' : tenant.status}</Badge>
+              {tenant.unit && <span className="text-sm text-muted-foreground">{tenant.unit.property?.name} • Unit {tenant.unit.unit_number}</span>}
+              {isLinked && !tenant.unit && <span className="text-sm text-muted-foreground">Belum ada unit</span>}
             </div>
           </div>
         </div>
@@ -95,52 +89,31 @@ export function TenantDetailsDialog({ tenant, open, onOpenChange }: TenantDetail
         <Separator />
 
         <div className="grid gap-4 sm:grid-cols-2">
-          {/* Personal Info Card */}
-          <Card>
+          <Card className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardContent className="pt-4 space-y-3">
-              <h4 className="text-sm font-semibold flex items-center gap-2">
-                <User className="h-4 w-4 text-primary" />Info Pribadi
-              </h4>
+              <h4 className="text-sm font-semibold flex items-center gap-2"><User className="h-4 w-4 text-primary" />Info Pribadi</h4>
               <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2">
-                  <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="truncate">{tenant.profile?.email || '—'}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>{tenant.profile?.phone || 'Belum diset'}</span>
-                </div>
+                <div className="flex items-center gap-2"><Mail className="h-3.5 w-3.5 text-muted-foreground" /><span className="truncate">{tenant.profile?.email || '—'}</span></div>
+                <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-muted-foreground" /><span>{tenant.profile?.phone || 'Belum diset'}</span></div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Unit Info Card */}
-          <Card>
+          <Card className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardContent className="pt-4 space-y-3">
-              <h4 className="text-sm font-semibold flex items-center gap-2">
-                <Home className="h-4 w-4 text-info" />Info Unit
-              </h4>
+              <h4 className="text-sm font-semibold flex items-center gap-2"><Home className="h-4 w-4 text-info" />Info Unit</h4>
               <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2">
-                  <Building className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>{tenant.unit?.property?.name || '—'}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Home className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>Unit {tenant.unit?.unit_number || '—'}</span>
-                </div>
+                <div className="flex items-center gap-2"><Building className="h-3.5 w-3.5 text-muted-foreground" /><span>{tenant.unit?.property?.name || '—'}</span></div>
+                <div className="flex items-center gap-2"><Home className="h-3.5 w-3.5 text-muted-foreground" /><span>Unit {tenant.unit?.unit_number || '—'}</span></div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Contract Timeline - only show for contract tenants */}
         {hasValidDates && startDate && endDate && (
-          <Card>
+          <Card className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardContent className="pt-4 space-y-4">
-              <h4 className="text-sm font-semibold flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-warning" />Timeline Kontrak
-              </h4>
+              <h4 className="text-sm font-semibold flex items-center gap-2"><Calendar className="h-4 w-4 text-warning" />Timeline Kontrak</h4>
               <div>
                 <div className="flex justify-between text-xs text-muted-foreground mb-1">
                   <span>{format(startDate, 'MMM d, yyyy')}</span>
@@ -149,28 +122,23 @@ export function TenantDetailsDialog({ tenant, open, onOpenChange }: TenantDetail
                 </div>
                 <Progress value={progressPercent} className="h-2" />
                 <p className="text-xs text-muted-foreground mt-1 text-center">
-                  {elapsedDays > 0 ? `${elapsedDays} hari berlalu` : 'Belum dimulai'} 
-                  {' • '}
-                  {totalDays - elapsedDays > 0 ? `${totalDays - elapsedDays} hari tersisa` : 'Kontrak selesai'}
+                  {elapsedDays > 0 ? `${elapsedDays} hari berlalu` : 'Belum dimulai'}{' • '}{totalDays - elapsedDays > 0 ? `${totalDays - elapsedDays} hari tersisa` : 'Kontrak selesai'}
                 </p>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Financial Summary - only show for contract tenants */}
         {!isLinked && (
-          <Card>
+          <Card className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardContent className="pt-4">
-              <h4 className="text-sm font-semibold flex items-center gap-2 mb-3">
-                <DollarSign className="h-4 w-4 text-success" />Ringkasan Keuangan
-              </h4>
+              <h4 className="text-sm font-semibold flex items-center gap-2 mb-3"><DollarSign className="h-4 w-4 text-success" />Ringkasan Keuangan</h4>
               <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-3 rounded-lg bg-muted/50">
+                <div className="text-center p-3 rounded-xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/30">
                   <p className="text-xs text-muted-foreground">Sewa Bulanan</p>
                   <p className="text-lg font-bold">{formatCurrency(tenant.rent_amount)}</p>
                 </div>
-                <div className="text-center p-3 rounded-lg bg-muted/50">
+                <div className="text-center p-3 rounded-xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/30">
                   <p className="text-xs text-muted-foreground">Deposit</p>
                   <p className="text-lg font-bold">{tenant.deposit_amount ? formatCurrency(tenant.deposit_amount) : '—'}</p>
                 </div>
@@ -180,7 +148,7 @@ export function TenantDetailsDialog({ tenant, open, onOpenChange }: TenantDetail
         )}
 
         {isLinked && (
-          <Card>
+          <Card className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardContent className="pt-4 text-center text-sm text-muted-foreground">
               <p>Tenant ini terhubung ke merchant Anda tapi belum memiliki kontrak aktif.</p>
               <p className="mt-1">Buat kontrak melalui menu "Add Tenant" untuk menetapkan unit dan harga sewa.</p>
@@ -189,7 +157,7 @@ export function TenantDetailsDialog({ tenant, open, onOpenChange }: TenantDetail
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Tutup</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">Tutup</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -26,41 +26,35 @@ export const EarlyTerminationsList = ({ requests, onReview }: EarlyTerminationsL
   return (
     <div className="space-y-4">
       {requests.map((request) => (
-        <Card key={request.id} className="border-warning">
+        <Card key={request.id} className="border-warning/50 bg-card/90 backdrop-blur-sm rounded-2xl hover:border-warning transition-all duration-300">
           <CardHeader>
             <div className="flex items-start justify-between">
-              <div>
-                <CardTitle className="text-lg flex items-center gap-2">
+              <div className="flex items-center gap-3">
+                <div className="gradient-icon-box">
                   <AlertTriangle className="h-5 w-5 text-warning" />
-                  Early Termination Request
-                </CardTitle>
-                <CardDescription>
-                  {request.contract?.unit?.property?.name} - Unit {request.contract?.unit?.unit_number}
-                </CardDescription>
+                </div>
+                <div>
+                  <CardTitle className="text-lg">Early Termination Request</CardTitle>
+                  <CardDescription>{request.contract?.unit?.property?.name} - Unit {request.contract?.unit?.unit_number}</CardDescription>
+                </div>
               </div>
-              <Badge variant="secondary">Pending Approval</Badge>
+              <Badge variant="secondary" className="rounded-full">Pending Approval</Badge>
             </div>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-sm text-muted-foreground">Requested Date</p>
-                <p className="font-semibold">{format(new Date(request.requested_date), "MMM dd, yyyy")}</p>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-sm text-muted-foreground">Penalty Amount</p>
-                <p className="font-semibold text-destructive">
-                  {formatCurrency(request.penalty_amount)}
-                </p>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-sm text-muted-foreground">Reason</p>
-                <p className="font-semibold">{request.reason || "Not specified"}</p>
-              </div>
+              {[
+                { label: "Requested Date", value: format(new Date(request.requested_date), "MMM dd, yyyy") },
+                { label: "Penalty Amount", value: formatCurrency(request.penalty_amount), className: "text-destructive" },
+                { label: "Reason", value: request.reason || "Not specified" },
+              ].map((item, i) => (
+                <div key={i} className="p-3 rounded-xl bg-card/80 backdrop-blur-sm border border-border/30">
+                  <p className="text-sm text-muted-foreground">{item.label}</p>
+                  <p className={`font-semibold ${item.className || ""}`}>{item.value}</p>
+                </div>
+              ))}
             </div>
-            <Button 
-              onClick={() => onReview(request)}
-            >
+            <Button onClick={() => onReview(request)} className="gradient-cta rounded-xl">
               Review Request
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>

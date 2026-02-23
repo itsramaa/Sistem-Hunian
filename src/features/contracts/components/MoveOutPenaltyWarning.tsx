@@ -10,16 +10,12 @@ interface MoveOutPenaltyWarningProps {
   contractEndDate: Date;
   intendedMoveOutDate: Date;
   monthlyRent: number;
-  penaltyRate: number; // percentage, e.g., 0.5 for 50%
+  penaltyRate: number;
   noticePeriodDays: number;
 }
 
 export function MoveOutPenaltyWarning({
-  contractEndDate,
-  intendedMoveOutDate,
-  monthlyRent,
-  penaltyRate,
-  noticePeriodDays,
+  contractEndDate, intendedMoveOutDate, monthlyRent, penaltyRate, noticePeriodDays,
 }: MoveOutPenaltyWarningProps) {
   const isEarlyTermination = intendedMoveOutDate < contractEndDate;
   const daysBeforeContractEnd = differenceInDays(contractEndDate, intendedMoveOutDate);
@@ -31,12 +27,10 @@ export function MoveOutPenaltyWarning({
 
   if (!isEarlyTermination && isWithinNoticePeriod) {
     return (
-      <Alert className="border-green-500 bg-green-50 dark:bg-green-950/20">
-        <Info className="h-4 w-4 text-green-600" />
-        <AlertTitle className="text-green-800 dark:text-green-400">
-          Tidak Ada Penalti
-        </AlertTitle>
-        <AlertDescription className="text-green-700 dark:text-green-300">
+      <Alert className="border-success bg-success/10 rounded-2xl">
+        <Info className="h-4 w-4 text-success" />
+        <AlertTitle className="text-success">Tidak Ada Penalti</AlertTitle>
+        <AlertDescription className="text-success/80">
           Anda memenuhi syarat untuk pindah tanpa penalti karena kontrak akan berakhir pada{" "}
           {format(contractEndDate, "d MMMM yyyy", { locale: id })}.
         </AlertDescription>
@@ -45,7 +39,7 @@ export function MoveOutPenaltyWarning({
   }
 
   return (
-    <Card className="border-destructive/50">
+    <Card className="border-destructive/50 rounded-2xl bg-card/90 backdrop-blur-sm">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-destructive">
           <AlertTriangle className="h-5 w-5" />
@@ -54,7 +48,7 @@ export function MoveOutPenaltyWarning({
       </CardHeader>
       <CardContent className="space-y-4">
         {isEarlyTermination && (
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="rounded-xl">
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Terminasi Kontrak Lebih Awal</AlertTitle>
             <AlertDescription>
@@ -65,7 +59,7 @@ export function MoveOutPenaltyWarning({
         )}
 
         {!isWithinNoticePeriod && (
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="rounded-xl">
             <Calendar className="h-4 w-4" />
             <AlertTitle>Periode Pemberitahuan Tidak Terpenuhi</AlertTitle>
             <AlertDescription>
@@ -75,35 +69,31 @@ export function MoveOutPenaltyWarning({
           </Alert>
         )}
 
-        <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
+        <div className="rounded-2xl border border-border/40 bg-gradient-to-br from-muted/50 to-muted/30 p-4 space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Tanggal Akhir Kontrak</span>
-            <span className="font-medium">
-              {format(contractEndDate, "d MMMM yyyy", { locale: id })}
-            </span>
+            <span className="font-medium">{format(contractEndDate, "d MMMM yyyy", { locale: id })}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Tanggal Pindah Diajukan</span>
-            <span className="font-medium">
-              {format(intendedMoveOutDate, "d MMMM yyyy", { locale: id })}
-            </span>
+            <span className="font-medium">{format(intendedMoveOutDate, "d MMMM yyyy", { locale: id })}</span>
           </div>
           {isEarlyTermination && (
             <>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Sisa Bulan Kontrak</span>
-                <Badge variant="secondary">{remainingMonths} bulan</Badge>
+                <Badge variant="secondary" className="rounded-full">{remainingMonths} bulan</Badge>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Tarif Penalti</span>
-                <Badge variant="secondary">{penaltyRate * 100}% per bulan</Badge>
+                <Badge variant="secondary" className="rounded-full">{penaltyRate * 100}% per bulan</Badge>
               </div>
             </>
           )}
         </div>
 
         {penaltyAmount > 0 && (
-          <div className="rounded-lg bg-destructive/10 p-4 flex items-center justify-between">
+          <div className="rounded-2xl bg-destructive/10 p-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <DollarSign className="h-5 w-5 text-destructive" />
               <span className="font-medium">Estimasi Total Penalti</span>
@@ -116,7 +106,6 @@ export function MoveOutPenaltyWarning({
 
         <p className="text-xs text-muted-foreground">
           * Estimasi penalti dapat berubah berdasarkan hasil inspeksi unit dan ketentuan lainnya.
-          Silakan hubungi pengelola properti untuk informasi lebih lanjut.
         </p>
       </CardContent>
     </Card>

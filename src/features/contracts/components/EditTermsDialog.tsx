@@ -1,10 +1,5 @@
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
 import { Label } from '@/shared/components/ui/label';
@@ -24,33 +19,20 @@ interface EditTermsDialogProps {
 }
 
 export function EditTermsDialog({
-  open,
-  onOpenChange,
-  contract,
-  tenantName,
-  terms,
-  onTermsChange,
-  onSave,
-  loading,
+  open, onOpenChange, contract, tenantName, terms, onTermsChange, onSave, loading,
 }: EditTermsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl rounded-2xl">
         <DialogHeader>
           <DialogTitle>Edit Contract Terms</DialogTitle>
-          <DialogDescription>
-            Update the terms and conditions for this rental agreement
-          </DialogDescription>
+          <DialogDescription>Update the terms and conditions for this rental agreement</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           {contract && (
-            <div className="p-3 rounded-lg bg-muted/50 text-sm">
-              <p className="font-medium">
-                {contract.unit?.property?.name} - Unit {contract.unit?.unit_number}
-              </p>
-              <p className="text-muted-foreground">
-                Tenant: {tenantName}
-              </p>
+            <div className="p-3 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/40 text-sm">
+              <p className="font-medium">{contract.unit?.property?.name} - Unit {contract.unit?.unit_number}</p>
+              <p className="text-muted-foreground">Tenant: {tenantName}</p>
             </div>
           )}
           <div className="space-y-2">
@@ -61,26 +43,14 @@ export function EditTermsDialog({
               onChange={(e) => onTermsChange(e.target.value)}
               placeholder="Enter the terms and conditions for this rental agreement..."
               rows={12}
-              className="font-mono text-sm"
+              className="font-mono text-sm rounded-xl bg-background/60 border-border/50"
             />
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={onSave}
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              'Save Terms'
-            )}
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">Cancel</Button>
+          <Button onClick={onSave} disabled={loading} className="gradient-cta rounded-xl">
+            {loading ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</>) : 'Save Terms'}
           </Button>
         </DialogFooter>
       </DialogContent>

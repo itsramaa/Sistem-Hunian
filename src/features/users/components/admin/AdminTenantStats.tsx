@@ -4,83 +4,41 @@ import { cn } from "@/shared/utils/utils";
 import { AlertTriangle, Building2, CheckCircle, UserX } from "lucide-react";
 
 interface AdminTenantStatsProps {
-  stats?: {
-    total: number;
-    active: number;
-    pending: number;
-    terminated: number;
-  };
+  stats?: { total: number; active: number; pending: number; terminated: number };
   isLoading: boolean;
   className?: string;
 }
 
+const statItems = [
+  { key: 'total', label: 'Total Tenants', desc: 'Across all properties', icon: Building2 },
+  { key: 'active', label: 'Active Leases', desc: 'Currently occupying', icon: CheckCircle },
+  { key: 'pending', label: 'Pending', desc: 'Awaiting signature', icon: AlertTriangle },
+  { key: 'terminated', label: 'Terminated', desc: 'Past tenants', icon: UserX },
+] as const;
+
 export function AdminTenantStats({ stats, isLoading, className }: AdminTenantStatsProps) {
   return (
     <div className={cn("grid gap-4 sm:grid-cols-2 lg:grid-cols-4", className)}>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Tenants</CardTitle>
-          <Building2 className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="h-8 w-16 bg-muted animate-pulse rounded" />
-          ) : (
-            <>
-              <div className="text-2xl font-bold">{stats?.total || 0}</div>
-              <p className="text-xs text-muted-foreground">Across all properties</p>
-            </>
-          )}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Active Leases</CardTitle>
-          <CheckCircle className="h-4 w-4 text-green-500" />
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="h-8 w-16 bg-muted animate-pulse rounded" />
-          ) : (
-            <>
-              <div className="text-2xl font-bold">{stats?.active || 0}</div>
-              <p className="text-xs text-muted-foreground">Currently occupying</p>
-            </>
-          )}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Pending</CardTitle>
-          <AlertTriangle className="h-4 w-4 text-yellow-500" />
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="h-8 w-16 bg-muted animate-pulse rounded" />
-          ) : (
-            <>
-              <div className="text-2xl font-bold">{stats?.pending || 0}</div>
-              <p className="text-xs text-muted-foreground">Awaiting signature</p>
-            </>
-          )}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Terminated</CardTitle>
-          <UserX className="h-4 w-4 text-red-500" />
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="h-8 w-16 bg-muted animate-pulse rounded" />
-          ) : (
-            <>
-              <div className="text-2xl font-bold">{stats?.terminated || 0}</div>
-              <p className="text-xs text-muted-foreground">Past tenants</p>
-            </>
-          )}
-        </CardContent>
-      </Card>
+      {statItems.map((item, index) => (
+        <Card key={item.key} className="glass-stat-card hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">{item.label}</CardTitle>
+            <div className="gradient-icon-box">
+              <item.icon className="h-4 w-4 text-primary" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="h-8 w-16 bg-muted animate-pulse rounded-xl" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold font-display">{stats?.[item.key] || 0}</div>
+                <p className="text-xs text-muted-foreground">{item.desc}</p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }
