@@ -5,8 +5,11 @@ import { Badge } from "@/shared/components/ui/badge";
 import { PageHeader } from "@/shared/components/ui/PageHeader";
 import { Progress } from "@/shared/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
 import { Loader2, DollarSign, FileWarning, Wrench, TrendingUp, Check, X, Brain, Sparkles, Target, Clock, CheckCircle2, XCircle } from "lucide-react";
 import { TierGate } from "@/features/dss/components/TierGate";
+import { DssReadinessCard } from "@/features/dss/components/DssReadinessCard";
+import { useDssReadiness } from "@/features/dss/hooks/useDssReadiness";
 import { toast } from "sonner";
 import { usePricingAdvisor, useCollectionStrategy, useMaintenancePriority, useInvestmentInsight, useDssRecommendations, useUpdateRecommendation } from "@/features/dss/hooks/useDssAdvisors";
 import { useMerchantTier } from "@/features/dss/hooks/useMerchantTier";
@@ -43,6 +46,19 @@ export default function DssAdvisor() {
 
   const merchantId = merchant?.id;
   const [activeTab, setActiveTab] = useState("pricing");
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | undefined>();
+
+  // Fetch properties for selector
+  const { data: properties } = useQuery({
+    queryKey: ["merchant-properties-list", merchantId],
+    queryFn: async () => {
+      const { data } = await supabase.from("properties").select("id, name").eq("merchant_id", merchantId!).order("name");
+      return data || [];
+    },
+    enabled: !!merchantId,
+  });
+
+  const readiness = useDssReadiness(selectedPropertyId, merchantId);
 
   const { data: recommendations, isLoading: recsLoading } = useDssRecommendations(merchantId, activeTab);
   const updateRec = useUpdateRecommendation();
@@ -114,7 +130,28 @@ export default function DssAdvisor() {
         </Badge>
       </PageHeader>
 
-      <TierGate>
+      {/* Property Selector */}
+      <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="text-sm font-medium shrink-0">Pilih Properti:</label>
+            <Select value={selectedPropertyId || ""} onValueChange={(v) => setSelectedPropertyId(v)}>
+              <SelectTrigger className="w-[240px] rounded-xl">
+                <SelectValue placeholder="Pilih properti..." />
+              </SelectTrigger>
+              <SelectContent>
+                {(properties || []).map((p: any) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {selectedPropertyId && <DssReadinessCard readiness={readiness} />}
+
+      <TierGate propertyId={selectedPropertyId} merchantId={merchantId}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="pill-tab-list">
             {tabConfig.map((tab) => (

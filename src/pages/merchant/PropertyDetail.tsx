@@ -22,6 +22,8 @@ import { PropertyFinancialForm, FinancialFormData } from '@/features/properties/
 import { PropertyFinancialMetrics } from '@/features/properties/components/PropertyFinancialMetrics';
 import { propertyService } from '@/features/properties/services/propertyService';
 import { toast } from 'sonner';
+import { useDssReadiness } from '@/features/dss/hooks/useDssReadiness';
+import { DssReadinessCard } from '@/features/dss/components/DssReadinessCard';
 
 const statusColors: Record<string, string> = {
   active: 'bg-success/10 text-success border-success/30',
@@ -248,7 +250,7 @@ export default function PropertyDetail() {
 
           {/* Financial Tab */}
           <TabsContent value="financial" className="space-y-4 mt-4 animate-fade-in">
-            <FinancialTabContent property={property} revenuePotential={revenuePotential} occupancyRate={occupancyRate / 100} />
+            <FinancialTabWithReadiness property={property} revenuePotential={revenuePotential} occupancyRate={occupancyRate} />
           </TabsContent>
 
           {/* Units Tab */}
@@ -384,6 +386,17 @@ export default function PropertyDetail() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function FinancialTabWithReadiness({ property, revenuePotential, occupancyRate }: { property: any; revenuePotential: number; occupancyRate: number }) {
+  const readiness = useDssReadiness(property.id, property.merchant_id);
+
+  return (
+    <div className="space-y-4">
+      <DssReadinessCard readiness={readiness} />
+      <FinancialTabContent property={property} revenuePotential={revenuePotential} occupancyRate={occupancyRate / 100} />
     </div>
   );
 }

@@ -2,16 +2,21 @@ import { Card, CardContent } from "@/shared/components/ui/card";
 import { Badge } from "@/shared/components/ui/badge";
 import { Loader2, Lock, Sparkles } from "lucide-react";
 import { useMerchantTier } from "@/features/dss/hooks/useMerchantTier";
+import { useDssReadiness } from "@/features/dss/hooks/useDssReadiness";
+import { DssReadinessChecklist } from "./DssReadinessChecklist";
 
 interface TierGateProps {
   feature?: string;
+  propertyId?: string;
+  merchantId?: string;
   children: React.ReactNode;
 }
 
-export function TierGate({ feature = "ai_recommendations", children }: TierGateProps) {
+export function TierGate({ feature = "ai_recommendations", propertyId, merchantId, children }: TierGateProps) {
   const { canAccess, tierName, isLoading } = useMerchantTier();
+  const readiness = useDssReadiness(propertyId, merchantId);
 
-  if (isLoading) return <Loader2 className="h-4 w-4 animate-spin" />;
+  if (isLoading || (propertyId && readiness.isLoading)) return <Loader2 className="h-4 w-4 animate-spin" />;
 
   if (!canAccess(feature)) {
     return (
@@ -26,6 +31,21 @@ export function TierGate({ feature = "ai_recommendations", children }: TierGateP
             <Sparkles className="h-3.5 w-3.5" />
             <span>Upgrade untuk mengakses fitur AI premium</span>
           </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Tier OK but DSS data not ready
+  if (propertyId && !readiness.isDssReady) {
+    return (
+      <Card className="rounded-2xl border-dashed border-border/60 bg-card/90 backdrop-blur-sm">
+        <CardContent className="py-6">
+          <div className="text-center mb-4">
+            <p className="font-semibold">Data Belum Lengkap untuk DSS</p>
+            <p className="text-sm text-muted-foreground mt-1">Lengkapi semua data berikut agar fitur DSS dapat digunakan.</p>
+          </div>
+          <DssReadinessChecklist readiness={readiness} />
         </CardContent>
       </Card>
     );
