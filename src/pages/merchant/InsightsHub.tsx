@@ -1,141 +1,140 @@
-import { Suspense, lazy, useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, TrendingUp, FileText, Briefcase, Brain, Target, Globe, ShieldAlert, UserCheck } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/shared/components/ui/PageHeader";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
-import { ContentSkeleton } from "@/shared/components/ui/PageSkeleton";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/shared/components/ui/card";
+import { cn } from "@/shared/utils/utils";
 
-// Performance (Standard)
-const AnalyticsDashboard = lazy(() => import("@/pages/merchant/AnalyticsDashboard"));
-const Reports = lazy(() => import("@/pages/merchant/Reports"));
-const ReportTemplates = lazy(() => import("@/pages/merchant/ReportTemplates"));
-const ComparativePortfolio = lazy(() => import("@/pages/merchant/ComparativePortfolio"));
+interface InsightCard {
+  title: string;
+  description: string;
+  icon: React.ElementType;
+  path: string;
+  accentClass: string;
+}
 
-// Intelligence (AI)
-const MlAnalytics = lazy(() => import("@/pages/merchant/MlAnalytics"));
-const DssAdvisor = lazy(() => import("@/pages/merchant/DssAdvisor"));
-const MarketIntelligence = lazy(() => import("@/pages/merchant/MarketIntelligence"));
-const FinancialRisk = lazy(() => import("@/pages/merchant/FinancialRiskAnalytics"));
-const TenantQuality = lazy(() => import("@/pages/merchant/TenantQualityScoring"));
+const performanceCards: InsightCard[] = [
+  {
+    title: "Ringkasan Analitik",
+    description: "Ikhtisar performa properti, okupansi, dan pendapatan",
+    icon: BarChart3,
+    path: "/merchant/analytics-dashboard",
+    accentClass: "from-primary/20 to-primary/5",
+  },
+  {
+    title: "Laporan",
+    description: "Laporan churn, pembayaran tepat waktu, dan proyeksi",
+    icon: FileText,
+    path: "/merchant/reports",
+    accentClass: "from-success/20 to-success/5",
+  },
+  {
+    title: "Template Laporan",
+    description: "Template eksekutif, keuangan, dan analisis risiko",
+    icon: TrendingUp,
+    path: "/merchant/report-templates",
+    accentClass: "from-warning/20 to-warning/5",
+  },
+  {
+    title: "Portofolio Komparatif",
+    description: "Bandingkan performa antar properti Anda",
+    icon: Briefcase,
+    path: "/merchant/comparative-portfolio",
+    accentClass: "from-accent/20 to-accent/5",
+  },
+];
 
-const TAB_MAP: Record<string, string> = {
-  dashboard: "dashboard",
-  reports: "reports",
-  templates: "templates",
-  portfolio: "portfolio",
-  predictions: "predictions",
-  strategy: "strategy",
-  market: "market",
-  risk: "risk",
-  quality: "quality",
-};
+const intelligenceCards: InsightCard[] = [
+  {
+    title: "Prediksi ML",
+    description: "Forecast pendapatan, prediksi churn, dan pricing optimal",
+    icon: Brain,
+    path: "/merchant/ml-analytics",
+    accentClass: "from-primary/20 to-primary/5",
+  },
+  {
+    title: "Strategi DSS",
+    description: "Rekomendasi koleksi, maintenance, dan investasi",
+    icon: Target,
+    path: "/merchant/dss-advisor",
+    accentClass: "from-success/20 to-success/5",
+  },
+  {
+    title: "Tren Pasar",
+    description: "Intelijen harga dan forecast okupansi regional",
+    icon: Globe,
+    path: "/merchant/market-intelligence",
+    accentClass: "from-warning/20 to-warning/5",
+  },
+  {
+    title: "Risiko Keuangan",
+    description: "Analisis risiko keuangan dan assessment portofolio",
+    icon: ShieldAlert,
+    path: "/merchant/financial-risk",
+    accentClass: "from-destructive/20 to-destructive/5",
+  },
+  {
+    title: "Skor Penyewa",
+    description: "Penilaian kualitas penyewa berbasis data historis",
+    icon: UserCheck,
+    path: "/merchant/tenant-quality",
+    accentClass: "from-accent/20 to-accent/5",
+  },
+];
 
-type TabGroup = "performance" | "intelligence";
-
-const GROUP_TABS: Record<TabGroup, string[]> = {
-  performance: ["dashboard", "reports", "templates", "portfolio"],
-  intelligence: ["predictions", "strategy", "market", "risk", "quality"],
-};
-
-function getGroupForTab(tab: string): TabGroup {
-  return GROUP_TABS.intelligence.includes(tab) ? "intelligence" : "performance";
+function InsightCardItem({ card, onClick }: { card: InsightCard; onClick: () => void }) {
+  return (
+    <Card
+      className={cn(
+        "group cursor-pointer bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40",
+        "hover:-translate-y-1 hover:shadow-lg transition-all duration-300"
+      )}
+      onClick={onClick}
+    >
+      <CardHeader className="space-y-3">
+        <div className={cn("w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center", card.accentClass)}>
+          <card.icon className="h-5 w-5 text-foreground/80" />
+        </div>
+        <div>
+          <CardTitle className="text-base">{card.title}</CardTitle>
+          <CardDescription className="text-sm mt-1">{card.description}</CardDescription>
+        </div>
+      </CardHeader>
+    </Card>
+  );
 }
 
 export default function InsightsHub() {
-  const location = useLocation();
-  const hash = location.hash.replace("#", "");
-  const [activeTab, setActiveTab] = useState(TAB_MAP[hash] || "dashboard");
-  const [activeGroup, setActiveGroup] = useState<TabGroup>(getGroupForTab(TAB_MAP[hash] || "dashboard"));
-
-  useEffect(() => {
-    if (hash && TAB_MAP[hash]) {
-      setActiveTab(TAB_MAP[hash]);
-      setActiveGroup(getGroupForTab(TAB_MAP[hash]));
-    }
-  }, [hash]);
-
-  const handleGroupChange = (group: TabGroup) => {
-    setActiveGroup(group);
-    setActiveTab(GROUP_TABS[group][0]);
-  };
+  const navigate = useNavigate();
 
   return (
-    <div className="space-y-6">
-      <PageHeader icon={BarChart3} title="Wawasan & Data" description="Analitik performa, laporan, dan intelijen AI" />
+    <div className="space-y-8">
+      <PageHeader icon={BarChart3} title="Analitik" description="Analitik performa dan intelijen AI untuk bisnis Anda" />
 
-      {/* Group selector */}
-      <div className="flex gap-2">
-        <button
-          onClick={() => handleGroupChange("performance")}
-          className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-            activeGroup === "performance"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "bg-muted text-muted-foreground hover:bg-muted/80"
-          }`}
-        >
-          📊 Performa
-        </button>
-        <button
-          onClick={() => handleGroupChange("intelligence")}
-          className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-            activeGroup === "intelligence"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "bg-muted text-muted-foreground hover:bg-muted/80"
-          }`}
-        >
-          🧠 Intelijen AI
-        </button>
-      </div>
+      {/* Performance Section */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <span className="text-lg font-semibold">📊 Performa</span>
+          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Standar</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {performanceCards.map((card) => (
+            <InsightCardItem key={card.path} card={card} onClick={() => navigate(card.path)} />
+          ))}
+        </div>
+      </section>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        {activeGroup === "performance" ? (
-          <TabsList className="pill-tab-list flex-wrap">
-            <TabsTrigger value="dashboard" className="pill-tab-trigger">Ringkasan</TabsTrigger>
-            <TabsTrigger value="reports" className="pill-tab-trigger">Laporan</TabsTrigger>
-            <TabsTrigger value="templates" className="pill-tab-trigger">Template</TabsTrigger>
-            <TabsTrigger value="portfolio" className="pill-tab-trigger">Portfolio</TabsTrigger>
-          </TabsList>
-        ) : (
-          <TabsList className="pill-tab-list flex-wrap">
-            <TabsTrigger value="predictions" className="pill-tab-trigger">Prediksi</TabsTrigger>
-            <TabsTrigger value="strategy" className="pill-tab-trigger">Strategi</TabsTrigger>
-            <TabsTrigger value="market" className="pill-tab-trigger">Tren Pasar</TabsTrigger>
-            <TabsTrigger value="risk" className="pill-tab-trigger">Risiko</TabsTrigger>
-            <TabsTrigger value="quality" className="pill-tab-trigger">Skor Penyewa</TabsTrigger>
-          </TabsList>
-        )}
-
-        {/* Performance tabs */}
-        <TabsContent value="dashboard" className="mt-6">
-          <Suspense fallback={<ContentSkeleton />}><AnalyticsDashboard /></Suspense>
-        </TabsContent>
-        <TabsContent value="reports" className="mt-6">
-          <Suspense fallback={<ContentSkeleton />}><Reports /></Suspense>
-        </TabsContent>
-        <TabsContent value="templates" className="mt-6">
-          <Suspense fallback={<ContentSkeleton />}><ReportTemplates /></Suspense>
-        </TabsContent>
-        <TabsContent value="portfolio" className="mt-6">
-          <Suspense fallback={<ContentSkeleton />}><ComparativePortfolio /></Suspense>
-        </TabsContent>
-
-        {/* Intelligence tabs */}
-        <TabsContent value="predictions" className="mt-6">
-          <Suspense fallback={<ContentSkeleton />}><MlAnalytics /></Suspense>
-        </TabsContent>
-        <TabsContent value="strategy" className="mt-6">
-          <Suspense fallback={<ContentSkeleton />}><DssAdvisor /></Suspense>
-        </TabsContent>
-        <TabsContent value="market" className="mt-6">
-          <Suspense fallback={<ContentSkeleton />}><MarketIntelligence /></Suspense>
-        </TabsContent>
-        <TabsContent value="risk" className="mt-6">
-          <Suspense fallback={<ContentSkeleton />}><FinancialRisk /></Suspense>
-        </TabsContent>
-        <TabsContent value="quality" className="mt-6">
-          <Suspense fallback={<ContentSkeleton />}><TenantQuality /></Suspense>
-        </TabsContent>
-      </Tabs>
+      {/* Intelligence Section */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <span className="text-lg font-semibold">🧠 Intelijen AI</span>
+          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Premium</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {intelligenceCards.map((card) => (
+            <InsightCardItem key={card.path} card={card} onClick={() => navigate(card.path)} />
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

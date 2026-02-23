@@ -118,34 +118,30 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
         ],
       },
       {
-        label: "Manajemen Aset",
+        label: "Aset",
         items: [
-          { path: "/merchant/assets", icon: Building2, label: "Manajemen Aset", activePatterns: ["/merchant/properties", "/merchant/units", "/merchant/guardians"] },
-          { path: "/merchant/occupancy", icon: Users, label: "Penyewa & Okupansi", activePatterns: ["/merchant/tenants", "/merchant/move-outs", "/merchant/tenant-analytics"] },
+          { path: "/merchant/properties", icon: Building2, label: "Properti", activePatterns: ["/merchant/units", "/merchant/guardians"] },
+          { path: "/merchant/tenants", icon: Users, label: "Penyewa", activePatterns: ["/merchant/move-outs", "/merchant/tenant-analytics"] },
         ],
       },
       {
         label: "Keuangan",
         items: [
-          { path: "/merchant/finance", icon: Wallet, label: "Keuangan", activePatterns: ["/merchant/invoices", "/merchant/payments", "/merchant/contracts", "/merchant/transactions"] },
+          { path: "/merchant/invoices", icon: FileText, label: "Tagihan" },
+          { path: "/merchant/payments", icon: Wallet, label: "Pembayaran", activePatterns: ["/merchant/escrow"] },
+          { path: "/merchant/contracts", icon: ClipboardList, label: "Kontrak" },
         ],
       },
       {
         label: "Operasional",
         items: [
-          { path: "/merchant/operations", icon: Wrench, label: "Operasional", activePatterns: ["/merchant/maintenance", "/merchant/legal", "/merchant/compliance", "/merchant/data-quality"] },
+          { path: "/merchant/maintenance", icon: Wrench, label: "Maintenance" },
         ],
       },
       {
-        label: "Wawasan Bisnis",
+        label: "Wawasan",
         items: [
-          { path: "/merchant/insights", icon: BarChart3, label: "Wawasan & Data", activePatterns: ["/merchant/analytics", "/merchant/ai-insights", "/merchant/analytics-dashboard", "/merchant/reports", "/merchant/report-templates", "/merchant/comparative-portfolio", "/merchant/ml-analytics", "/merchant/dss-advisor", "/merchant/market-intelligence", "/merchant/financial-risk", "/merchant/tenant-quality"] },
-        ],
-      },
-      {
-        label: "Bantuan",
-        items: [
-          { path: "/merchant/help", icon: FileSearch, label: "Pusat Bantuan", activePatterns: ["/merchant/documents", "/merchant/ocr-tutorial", "/merchant/support"] },
+          { path: "/merchant/insights", icon: BarChart3, label: "Analitik", activePatterns: ["/merchant/analytics", "/merchant/ai-insights", "/merchant/analytics-dashboard", "/merchant/reports", "/merchant/report-templates", "/merchant/comparative-portfolio", "/merchant/ml-analytics", "/merchant/dss-advisor", "/merchant/market-intelligence", "/merchant/financial-risk", "/merchant/tenant-quality"] },
         ],
       },
     ],
