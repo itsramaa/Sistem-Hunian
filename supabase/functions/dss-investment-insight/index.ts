@@ -61,12 +61,24 @@ serve(async (req) => {
       .order("created_at", { ascending: false })
       .limit(50);
 
+    // Phase 6: Disaster risk & insurance data
+    const [riskRes, insuranceRes, complianceRes] = await Promise.all([
+      serviceClient.from("disaster_risk_profiles").select("*").eq("property_id", property_id).eq("merchant_id", merchantId).maybeSingle(),
+      serviceClient.from("insurance_policies").select("*").eq("property_id", property_id).eq("merchant_id", merchantId).eq("status", "active"),
+      serviceClient.from("compliance_documents").select("document_type, status, expiry_date").eq("property_id", property_id).eq("merchant_id", merchantId),
+    ]);
+
+    const expiredDocs = (complianceRes.data || []).filter(d => d.expiry_date && new Date(d.expiry_date) < new Date());
+
     const context = JSON.stringify({
       property,
       paymentHistory,
       occupancy,
       maintenance,
       expenses: expenses || [],
+      disasterRiskProfile: riskRes.data || null,
+      activeInsurance: insuranceRes.data || [],
+      complianceStatus: { total: complianceRes.data?.length || 0, expired: expiredDocs.length },
       currentDate: new Date().toISOString(),
     });
 

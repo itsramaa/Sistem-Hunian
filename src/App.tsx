@@ -110,6 +110,7 @@ const VendorProducts = lazy(() => import("@/pages/vendor/Products"));
 const VendorProfile = lazy(() => import("@/pages/vendor/Profile"));
 const VendorReferrals = lazy(() => import("@/pages/vendor/Referrals"));
 const VendorSettings = lazy(() => import("@/pages/vendor/Settings"));
+const VendorAssignedProperties = lazy(() => import("@/pages/vendor/AssignedProperties"));
 
 // Payment Pages
 const PaymentFailed = lazy(() => import("@/pages/payment/Failed"));
@@ -231,6 +232,7 @@ const App = () => (
                   <Route path="/vendor/settings" element={<ProtectedRoute allowedRoles={['vendor']}><VendorSettings /></ProtectedRoute>} />
                   <Route path="/vendor/referrals" element={<ProtectedRoute allowedRoles={['vendor']}><VendorReferrals /></ProtectedRoute>} />
                   <Route path="/vendor/analytics" element={<ProtectedRoute allowedRoles={['vendor']}><VendorAnalytics /></ProtectedRoute>} />
+                  <Route path="/vendor/assigned-properties" element={<ProtectedRoute allowedRoles={['vendor']}><VendorAssignedProperties /></ProtectedRoute>} />
                   
                   {/* Payment Redirect Pages (no auth required - redirect from Xendit) */}
                   <Route path="/payment/success" element={<PaymentSuccess />} />

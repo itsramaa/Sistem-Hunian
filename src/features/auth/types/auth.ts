@@ -59,6 +59,8 @@ export interface AuthState {
   session: import('@supabase/supabase-js').Session | null;
   profile: UserProfile | null;
   role: AppRole | null;
+  roles: AppRole[];
+  activeRole: AppRole | null;
   merchant: MerchantProfile | null;
   vendor: VendorProfile | null;
   isLoading: boolean;

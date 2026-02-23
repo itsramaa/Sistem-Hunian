@@ -50,10 +50,27 @@ serve(async (req) => {
       .select("tenant_user_id, risk_score, risk_level")
       .eq("merchant_id", merchantId);
 
+    // Phase 6: Security incidents
+    const { data: securityIncidents } = await serviceClient
+      .from("security_incidents")
+      .select("id, incident_type, severity, status, property_id, created_at")
+      .eq("merchant_id", merchantId)
+      .eq("status", "open")
+      .limit(20);
+
+    // Phase 6: Guardian assignments
+    const { data: guardians } = await serviceClient
+      .from("property_guardians")
+      .select("id, property_id, status")
+      .eq("merchant_id", merchantId)
+      .eq("status", "active");
+
     const context = JSON.stringify({
       maintenance: maintenanceData,
       vendors: vendors || [],
       tenantRiskScores: riskScores || [],
+      openSecurityIncidents: securityIncidents || [],
+      activeGuardians: guardians || [],
       currentDate: new Date().toISOString(),
     });
 

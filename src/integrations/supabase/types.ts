@@ -3593,6 +3593,67 @@ export type Database = {
           },
         ]
       }
+      property_vendor_services: {
+        Row: {
+          created_at: string
+          id: string
+          merchant_id: string
+          monthly_fee: number | null
+          notes: string | null
+          property_id: string
+          service_type: string
+          status: string
+          updated_at: string
+          vendor_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          merchant_id: string
+          monthly_fee?: number | null
+          notes?: string | null
+          property_id: string
+          service_type: string
+          status?: string
+          updated_at?: string
+          vendor_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          merchant_id?: string
+          monthly_fee?: number | null
+          notes?: string | null
+          property_id?: string
+          service_type?: string
+          status?: string
+          updated_at?: string
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_vendor_services_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_vendor_services_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_vendor_services_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       provinces: {
         Row: {
           id: string
@@ -5067,6 +5128,10 @@ export type Database = {
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
+      }
+      get_user_roles: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"][]
       }
       has_role: {
         Args: {

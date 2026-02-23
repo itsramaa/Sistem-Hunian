@@ -116,12 +116,31 @@ serve(async (req) => {
     // Fetch property occupancy
     const { data: properties } = await supabase
       .from("properties")
-      .select("id, name, total_units, occupied_units")
+      .select("id, name, total_units, occupied_units, construction_cost, renovation_cost, monthly_amortization, security_score, disaster_risk_level")
       .eq("merchant_id", merchantId);
 
     const totalUnits = properties?.reduce((sum, p) => sum + (p.total_units || 0), 0) || 0;
     const occupiedUnits = properties?.reduce((sum, p) => sum + (p.occupied_units || 0), 0) || 0;
     const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
+
+    // Phase 6: Fetch guardian, risk, insurance, compliance, security, tenant metrics, occupancy snapshots
+    const propertyIds = properties?.map(p => p.id) || [];
+
+    const [guardiansRes, riskProfilesRes, insuranceRes, complianceRes, incidentsRes, tenantMetricsRes, occupancySnapsRes] = await Promise.all([
+      supabase.from("property_guardians").select("id, property_id, salary, status").eq("merchant_id", merchantId).eq("status", "active"),
+      supabase.from("disaster_risk_profiles").select("property_id, overall_risk_score, risk_zone").eq("merchant_id", merchantId),
+      supabase.from("insurance_policies").select("property_id, provider, coverage_amount, status, end_date").eq("merchant_id", merchantId).eq("status", "active"),
+      supabase.from("compliance_documents").select("property_id, document_type, status, expiry_date").eq("merchant_id", merchantId),
+      supabase.from("security_incidents").select("property_id, incident_type, severity, status").eq("merchant_id", merchantId).eq("status", "open"),
+      supabase.from("tenant_payment_metrics").select("tenant_user_id, payment_score, risk_level").eq("merchant_id", merchantId),
+      supabase.from("occupancy_snapshots").select("month, occupancy_rate, move_ins, move_outs").eq("merchant_id", merchantId).order("month", { ascending: false }).limit(6),
+    ]);
+
+    const activeGuardians = guardiansRes.data || [];
+    const totalGuardianSalary = activeGuardians.reduce((s, g) => s + (g.salary || 0), 0);
+    const expiredDocs = (complianceRes.data || []).filter(d => d.expiry_date && new Date(d.expiry_date) < new Date());
+    const expiringPolicies = (insuranceRes.data || []).filter(p => p.end_date && new Date(p.end_date) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
+    const lowScoreTenants = (tenantMetricsRes.data || []).filter(t => t.payment_score < 50);
 
     // Calculate overdue days for each invoice
     const unpaidList = unpaidInvoices?.map(inv => {
@@ -148,7 +167,7 @@ serve(async (req) => {
     }).join('\n') || 'Tidak ada kontrak yang akan berakhir';
 
     const propertyList = properties?.map(p => 
-      `- ${p.name}: ${p.occupied_units || 0}/${p.total_units || 0} units (${p.total_units ? Math.round(((p.occupied_units || 0) / p.total_units) * 100) : 0}%)`
+      `- ${p.name}: ${p.occupied_units || 0}/${p.total_units || 0} units (${p.total_units ? Math.round(((p.occupied_units || 0) / p.total_units) * 100) : 0}%)${p.disaster_risk_level ? ` | Risiko: ${p.disaster_risk_level}` : ''}${p.security_score ? ` | Keamanan: ${p.security_score}/100` : ''}`
     ).join('\n') || 'Tidak ada properti';
 
     // Revenue trend info
@@ -169,8 +188,25 @@ DATA BISNIS MERCHANT (${today.toLocaleDateString('id-ID')}):
 - Invoice Belum Dibayar: ${unpaidInvoices?.length || 0} (Total: Rp${unpaidInvoices?.reduce((sum, inv) => sum + Number(inv.amount), 0).toLocaleString('id-ID') || 0})
 - Kontrak Akan Berakhir (30 hari): ${expiringContracts?.length || 0}
 
+👮 PENJAGA PROPERTI:
+- Penjaga Aktif: ${activeGuardians.length}
+- Total Gaji Penjaga: Rp${totalGuardianSalary.toLocaleString('id-ID')}/bulan
+
+🌊 RISIKO & KEPATUHAN:
+- Profil Risiko: ${(riskProfilesRes.data || []).map(r => `${r.risk_zone} (skor ${r.overall_risk_score})`).join(', ') || 'Belum ada'}
+- Polis Asuransi Aktif: ${(insuranceRes.data || []).length} (Coverage: Rp${(insuranceRes.data || []).reduce((s, p) => s + p.coverage_amount, 0).toLocaleString('id-ID')})
+- Polis Akan Expired: ${expiringPolicies.length}
+- Dokumen Expired: ${expiredDocs.length}
+- Insiden Keamanan Terbuka: ${(incidentsRes.data || []).length}
+
+👥 TENANT INSIGHTS:
+- Tenant Skor Rendah (<50): ${lowScoreTenants.length}
+
 📈 TREN REVENUE 6 BULAN:
 ${revenueTrendInfo || 'Belum ada data'}
+
+📉 TREN OCCUPANCY:
+${(occupancySnapsRes.data || []).map(s => `${s.month}: ${s.occupancy_rate}% (masuk: ${s.move_ins}, keluar: ${s.move_outs})`).join('\n') || 'Belum ada data'}
 
 💰 INVOICE BELUM DIBAYAR:
 ${unpaidList}
