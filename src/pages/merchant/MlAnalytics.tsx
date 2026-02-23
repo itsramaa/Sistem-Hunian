@@ -5,7 +5,7 @@ import { Badge } from "@/shared/components/ui/badge";
 import { PageHeader } from "@/shared/components/ui/PageHeader";
 import { Progress } from "@/shared/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
-import { Loader2, TrendingUp, AlertTriangle, Users, DollarSign, RefreshCw, BarChart3, Sparkles } from "lucide-react";
+import { Loader2, TrendingUp, AlertTriangle, Users, DollarSign, RefreshCw, BarChart3, Sparkles, Brain, Target } from "lucide-react";
 import { toast } from "sonner";
 import { useRevenueForecast, useTenantRiskScores, useRefreshRiskScore, useChurnPrediction, useOptimalPricing } from "@/features/dss/hooks/useMlAnalytics";
 import { TierGate } from "@/features/dss/components/TierGate";
@@ -76,47 +76,82 @@ export default function MlAnalytics() {
     }
   };
 
+  // KPI summary for risk tab
+  const riskSummary = (riskScores || []).reduce(
+    (acc: any, s: any) => {
+      acc[s.risk_level] = (acc[s.risk_level] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
   return (
     <div className="space-y-6">
-      <PageHeader icon={BarChart3} title="ML Analytics" description="AI-powered predictive analytics for your properties" />
+      <PageHeader icon={Brain} title="ML Analytics" description="AI-powered predictive analytics for your properties">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="rounded-full bg-primary/10 text-primary border-primary/30 gap-1.5">
+            <Sparkles className="h-3 w-3" />
+            AI-Powered
+          </Badge>
+        </div>
+      </PageHeader>
 
-      <Tabs defaultValue="forecast">
-        <TabsList className="inline-flex h-auto p-1 rounded-full bg-card/80 backdrop-blur-sm border border-border/40">
-          <TabsTrigger value="forecast" className="rounded-full px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm gap-1.5">
+      <Tabs defaultValue="forecast" className="space-y-6">
+        <TabsList className="pill-tab-list">
+          <TabsTrigger value="forecast" className="pill-tab-trigger gap-1.5">
             <TrendingUp className="h-3.5 w-3.5" />Forecast
           </TabsTrigger>
-          <TabsTrigger value="risk" className="rounded-full px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm gap-1.5">
+          <TabsTrigger value="risk" className="pill-tab-trigger gap-1.5">
             <AlertTriangle className="h-3.5 w-3.5" />Risk
+            {(riskScores || []).filter((s: any) => s.risk_level === 'high' || s.risk_level === 'critical').length > 0 && (
+              <Badge variant="destructive" className="rounded-full ml-1 h-5 min-w-5 text-[10px] px-1.5">
+                {(riskScores || []).filter((s: any) => s.risk_level === 'high' || s.risk_level === 'critical').length}
+              </Badge>
+            )}
           </TabsTrigger>
-          <TabsTrigger value="churn" className="rounded-full px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm gap-1.5">
+          <TabsTrigger value="churn" className="pill-tab-trigger gap-1.5">
             <Users className="h-3.5 w-3.5" />Churn
           </TabsTrigger>
-          <TabsTrigger value="pricing" className="rounded-full px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm gap-1.5">
+          <TabsTrigger value="pricing" className="pill-tab-trigger gap-1.5">
             <DollarSign className="h-3.5 w-3.5" />Pricing
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="forecast" className="space-y-4 mt-6">
+        <TabsContent value="forecast" className="space-y-6">
           <TierGate feature="revenue_forecast">
             <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
-              <CardHeader>
-                <CardTitle>Revenue Forecast</CardTitle>
-                <CardDescription>Predict monthly revenue with confidence intervals</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Button onClick={handleForecast} disabled={revenueForecast.isPending} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-sm gap-2">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="gradient-icon-box">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle>Revenue Forecast</CardTitle>
+                    <CardDescription>Predict monthly revenue with confidence intervals</CardDescription>
+                  </div>
+                </div>
+                <Button onClick={handleForecast} disabled={revenueForecast.isPending} className="gradient-cta rounded-xl shadow-sm gap-2">
                   {revenueForecast.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                   Generate Forecast
                 </Button>
-                {forecastResult && (
-                  <div className="space-y-3">
-                    <p className="text-sm font-medium">Trend: <Badge variant="outline" className="rounded-full">{forecastResult.trend}</Badge></p>
-                    <p className="text-sm text-muted-foreground">{forecastResult.summary}</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {forecastResult ? (
+                  <div className="space-y-4">
+                    {/* Summary strip */}
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/10">
+                      <Target className="h-5 w-5 text-primary" />
+                      <div>
+                        <p className="text-sm font-medium">Trend: <Badge variant="outline" className="rounded-full ml-1">{forecastResult.trend}</Badge></p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{forecastResult.summary}</p>
+                      </div>
+                    </div>
+                    {/* Predictions grid */}
                     <div className="grid gap-2">
                       {forecastResult.predictions?.map((p: any) => (
-                        <div key={p.month} className="flex items-center justify-between rounded-xl bg-card/80 backdrop-blur-sm border border-border/40 p-3">
-                          <span className="font-semibold">{p.month}</span>
-                          <span className="font-mono">Rp {p.predicted_revenue?.toLocaleString("id-ID")}</span>
+                        <div key={p.month} className="flex items-center justify-between rounded-xl bg-card/80 backdrop-blur-sm border border-border/40 p-3 hover:border-primary/20 transition-colors">
+                          <span className="font-semibold text-sm">{p.month}</span>
+                          <span className="font-mono text-sm">Rp {p.predicted_revenue?.toLocaleString("id-ID")}</span>
                           <span className="text-xs text-muted-foreground">
                             ±{((p.upper_bound - p.lower_bound) / 2)?.toLocaleString("id-ID")}
                           </span>
@@ -125,19 +160,56 @@ export default function MlAnalytics() {
                       ))}
                     </div>
                   </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mx-auto mb-4">
+                      <TrendingUp className="h-7 w-7 text-primary" />
+                    </div>
+                    <p className="text-sm font-medium">No forecast generated yet</p>
+                    <p className="text-xs text-muted-foreground mt-1">Click "Generate Forecast" to predict future revenue</p>
+                  </div>
                 )}
               </CardContent>
             </Card>
           </TierGate>
         </TabsContent>
 
-        <TabsContent value="risk" className="space-y-4 mt-6">
+        <TabsContent value="risk" className="space-y-6">
           <TierGate feature="risk_dashboard">
+            {/* Risk KPI Strip */}
+            {(riskScores || []).length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {[
+                  { label: "Low Risk", count: riskSummary.low || 0, color: "text-success", bg: "from-success/20 to-success/5" },
+                  { label: "Medium Risk", count: riskSummary.medium || 0, color: "text-warning", bg: "from-warning/20 to-warning/5" },
+                  { label: "High Risk", count: riskSummary.high || 0, color: "text-destructive", bg: "from-destructive/20 to-destructive/5" },
+                  { label: "Critical", count: riskSummary.critical || 0, color: "text-destructive", bg: "from-destructive/20 to-destructive/5" },
+                ].map((item) => (
+                  <Card key={item.label} className="glass-stat-card">
+                    <CardContent className="p-4 flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${item.bg} flex items-center justify-center`}>
+                        <AlertTriangle className={`h-5 w-5 ${item.color}`} />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold">{item.count}</p>
+                        <p className="text-xs text-muted-foreground">{item.label}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
             <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
               <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Tenant Risk Scores</CardTitle>
-                  <CardDescription>AI-assessed risk levels per tenant</CardDescription>
+                <div className="flex items-center gap-3">
+                  <div className="gradient-icon-box">
+                    <AlertTriangle className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle>Tenant Risk Scores</CardTitle>
+                    <CardDescription>AI-assessed risk levels per tenant</CardDescription>
+                  </div>
                 </div>
                 <Button variant="outline" size="sm" onClick={handleBatchRisk} disabled={refreshRisk.isPending} className="rounded-xl gap-1.5">
                   {refreshRisk.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
@@ -146,18 +218,21 @@ export default function MlAnalytics() {
               </CardHeader>
               <CardContent>
                 {riskLoading ? (
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  </div>
                 ) : (riskScores || []).length === 0 ? (
-                  <div className="text-center py-8">
-                    <div className="h-12 w-12 rounded-2xl bg-muted/30 flex items-center justify-center mx-auto mb-3">
-                      <AlertTriangle className="h-6 w-6 text-muted-foreground" />
+                  <div className="text-center py-12">
+                    <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/20 flex items-center justify-center mx-auto mb-4">
+                      <AlertTriangle className="h-7 w-7 text-muted-foreground" />
                     </div>
-                    <p className="text-sm text-muted-foreground">No risk scores yet. Click "Refresh All" to generate.</p>
+                    <p className="text-sm font-medium">No risk scores yet</p>
+                    <p className="text-xs text-muted-foreground mt-1">Click "Refresh All" to generate risk assessments</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {(riskScores || []).map((s: any) => (
-                      <div key={s.id} className="flex items-center justify-between rounded-xl bg-card/80 backdrop-blur-sm border border-border/40 p-3 gap-3">
+                      <div key={s.id} className="flex items-center justify-between rounded-xl bg-card/80 backdrop-blur-sm border border-border/40 p-3 gap-3 hover:border-primary/20 transition-colors">
                         <span className="text-sm font-mono">{s.tenant_user_id?.slice(0, 8)}...</span>
                         <div className="flex-1 max-w-[120px]">
                           <Progress value={s.risk_score} className={`h-2 rounded-full ${
@@ -176,37 +251,57 @@ export default function MlAnalytics() {
           </TierGate>
         </TabsContent>
 
-        <TabsContent value="churn" className="space-y-4 mt-6">
+        <TabsContent value="churn" className="space-y-6">
           <TierGate feature="custom_models">
             <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
-              <CardHeader>
-                <CardTitle>Churn Prediction</CardTitle>
-                <CardDescription>Predict which tenants may leave</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Button onClick={handleChurn} disabled={churnPrediction.isPending} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-sm gap-2">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="gradient-icon-box">
+                    <Users className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle>Churn Prediction</CardTitle>
+                    <CardDescription>Predict which tenants may leave</CardDescription>
+                  </div>
+                </div>
+                <Button onClick={handleChurn} disabled={churnPrediction.isPending} className="gradient-cta rounded-xl shadow-sm gap-2">
                   {churnPrediction.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                   Predict Churn
                 </Button>
-                {churnResult && (
-                  <div className="space-y-3">
-                    <p className="text-sm text-muted-foreground">{churnResult.summary}</p>
-                    <p className="text-sm">High risk tenants: <Badge variant="destructive" className="rounded-full">{churnResult.high_risk_count}</Badge></p>
+              </CardHeader>
+              <CardContent>
+                {churnResult ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/10">
+                      <Target className="h-5 w-5 text-primary" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">{churnResult.summary}</p>
+                        <p className="text-sm font-medium mt-1">High risk tenants: <Badge variant="destructive" className="rounded-full">{churnResult.high_risk_count}</Badge></p>
+                      </div>
+                    </div>
                     <div className="grid gap-2">
                       {churnResult.predictions?.map((p: any) => (
-                        <div key={p.tenant_user_id} className="rounded-xl bg-card/80 backdrop-blur-sm border border-border/40 p-3 space-y-1">
-                          <div className="flex justify-between">
+                        <div key={p.tenant_user_id} className="rounded-xl bg-card/80 backdrop-blur-sm border border-border/40 p-4 space-y-2 hover:border-primary/20 transition-colors">
+                          <div className="flex justify-between items-center">
                             <span className="text-sm font-mono">{p.tenant_user_id?.slice(0, 8)}...</span>
                             <Badge variant={p.churn_probability > 0.6 ? "destructive" : "outline"} className="rounded-full">
                               {Math.round(p.churn_probability * 100)}% churn risk
                             </Badge>
                           </div>
                           {p.retention_suggestions?.length > 0 && (
-                            <p className="text-xs text-muted-foreground">💡 {p.retention_suggestions[0]}</p>
+                            <p className="text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">💡 {p.retention_suggestions[0]}</p>
                           )}
                         </div>
                       ))}
                     </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mx-auto mb-4">
+                      <Users className="h-7 w-7 text-primary" />
+                    </div>
+                    <p className="text-sm font-medium">No churn analysis yet</p>
+                    <p className="text-xs text-muted-foreground mt-1">Click "Predict Churn" to identify at-risk tenants</p>
                   </div>
                 )}
               </CardContent>
@@ -214,27 +309,39 @@ export default function MlAnalytics() {
           </TierGate>
         </TabsContent>
 
-        <TabsContent value="pricing" className="space-y-4 mt-6">
+        <TabsContent value="pricing" className="space-y-6">
           <TierGate feature="custom_models">
             <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
-              <CardHeader>
-                <CardTitle>Optimal Pricing</CardTitle>
-                <CardDescription>AI-suggested rental prices per unit</CardDescription>
+              <CardHeader className="flex flex-row items-center gap-3">
+                <div className="gradient-icon-box">
+                  <DollarSign className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle>Optimal Pricing</CardTitle>
+                  <CardDescription>AI-suggested rental prices per unit</CardDescription>
+                </div>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">Select a property from the Properties page, then use "Analyze Pricing" to get AI suggestions.</p>
-                {pricingResult && (
-                  <div className="space-y-3 mt-4">
+                {pricingResult ? (
+                  <div className="space-y-4">
                     <p className="text-sm text-muted-foreground">{pricingResult.summary}</p>
                     <div className="grid gap-2">
                       {pricingResult.unit_suggestions?.map((u: any) => (
-                        <div key={u.unit_id} className="flex items-center justify-between rounded-xl bg-card/80 backdrop-blur-sm border border-border/40 p-3">
+                        <div key={u.unit_id} className="flex items-center justify-between rounded-xl bg-card/80 backdrop-blur-sm border border-border/40 p-3 hover:border-primary/20 transition-colors">
                           <span className="text-sm font-mono">{u.unit_id?.slice(0, 8)}</span>
-                          <span className="text-sm">Current: Rp {u.current_price?.toLocaleString("id-ID")}</span>
+                          <span className="text-sm text-muted-foreground">Current: Rp {u.current_price?.toLocaleString("id-ID")}</span>
                           <span className="text-sm font-bold text-primary">→ Rp {u.suggested_price?.toLocaleString("id-ID")}</span>
                         </div>
                       ))}
                     </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mx-auto mb-4">
+                      <DollarSign className="h-7 w-7 text-primary" />
+                    </div>
+                    <p className="text-sm font-medium">No pricing analysis yet</p>
+                    <p className="text-xs text-muted-foreground mt-1">Select a property from the Properties page, then use "Analyze Pricing"</p>
                   </div>
                 )}
               </CardContent>

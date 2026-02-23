@@ -161,17 +161,20 @@ export default function MerchantReports() {
       )}
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="inline-flex h-auto p-1 rounded-full bg-card/80 backdrop-blur-sm border border-border/40">
-          <TabsTrigger value="overview" className="rounded-full px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">Overview</TabsTrigger>
-          <TabsTrigger value="forecasting" className="rounded-full px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm flex items-center gap-1.5">
+        <TabsList className="pill-tab-list">
+          <TabsTrigger value="overview" className="pill-tab-trigger">Overview</TabsTrigger>
+          <TabsTrigger value="forecasting" className="pill-tab-trigger flex items-center gap-1.5">
             <BarChart3 className="h-3.5 w-3.5" />
             Forecasting
           </TabsTrigger>
-          <TabsTrigger value="churn" className="rounded-full px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm flex items-center gap-1.5">
+          <TabsTrigger value="churn" className="pill-tab-trigger flex items-center gap-1.5">
             <UserMinus className="h-3.5 w-3.5" />
             Tenant Churn
           </TabsTrigger>
-          <TabsTrigger value="maintenance" className="rounded-full px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">Maintenance</TabsTrigger>
+          <TabsTrigger value="maintenance" className="pill-tab-trigger flex items-center gap-1.5">
+            <Wrench className="h-3.5 w-3.5" />
+            Maintenance
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -187,14 +190,14 @@ export default function MerchantReports() {
             <>
               <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                 {kpiCards.map((kpi) => (
-                  <Card key={kpi.label} className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
+                  <Card key={kpi.label} className="glass-stat-card hover-lift">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm text-muted-foreground">{kpi.label}</p>
-                          <p className="text-2xl font-bold">{kpi.value}</p>
+                          <p className="text-xs text-muted-foreground font-medium">{kpi.label}</p>
+                          <p className="text-2xl font-bold mt-1">{kpi.value}</p>
                         </div>
-                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${kpi.iconBg} flex items-center justify-center`}>
+                        <div className={`gradient-icon-box bg-gradient-to-br ${kpi.iconBg}`}>
                           <kpi.icon className={`h-5 w-5 ${kpi.iconColor}`} />
                         </div>
                       </div>
@@ -205,7 +208,7 @@ export default function MerchantReports() {
                         </div>
                       )}
                       {kpi.subtext && (
-                        <p className="text-sm text-muted-foreground mt-2">{kpi.subtext}</p>
+                        <p className="text-xs text-muted-foreground mt-2">{kpi.subtext}</p>
                       )}
                     </CardContent>
                   </Card>
@@ -216,7 +219,10 @@ export default function MerchantReports() {
 
               <div className="grid lg:grid-cols-2 gap-6">
                 <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
-                  <CardHeader>
+                  <CardHeader className="flex flex-row items-center gap-3">
+                    <div className="gradient-icon-box">
+                      <TrendingUp className="h-5 w-5 text-primary" />
+                    </div>
                     <CardTitle>Revenue Trend</CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -238,7 +244,10 @@ export default function MerchantReports() {
                 </Card>
 
                 <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
-                  <CardHeader>
+                  <CardHeader className="flex flex-row items-center gap-3">
+                    <div className="gradient-icon-box">
+                      <Building2 className="h-5 w-5 text-primary" />
+                    </div>
                     <CardTitle>Occupancy by Property Type</CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -275,7 +284,10 @@ export default function MerchantReports() {
         <TabsContent value="maintenance" className="space-y-6">
           <div className="grid lg:grid-cols-2 gap-6">
             <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center gap-3">
+                <div className="gradient-icon-box">
+                  <Wrench className="h-5 w-5 text-primary" />
+                </div>
                 <CardTitle>Maintenance by Category</CardTitle>
               </CardHeader>
               <CardContent>
@@ -304,7 +316,10 @@ export default function MerchantReports() {
             </Card>
 
             <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center gap-3">
+                <div className="gradient-icon-box">
+                  <BarChart3 className="h-5 w-5 text-primary" />
+                </div>
                 <CardTitle>Maintenance Trend</CardTitle>
               </CardHeader>
               <CardContent>

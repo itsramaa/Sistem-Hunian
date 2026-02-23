@@ -5,7 +5,7 @@ import { Badge } from "@/shared/components/ui/badge";
 import { PageHeader } from "@/shared/components/ui/PageHeader";
 import { Progress } from "@/shared/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
-import { Loader2, DollarSign, FileWarning, Wrench, TrendingUp, Check, X, Brain, Sparkles } from "lucide-react";
+import { Loader2, DollarSign, FileWarning, Wrench, TrendingUp, Check, X, Brain, Sparkles, Target, Clock, CheckCircle2, XCircle } from "lucide-react";
 import { TierGate } from "@/features/dss/components/TierGate";
 import { toast } from "sonner";
 import { usePricingAdvisor, useCollectionStrategy, useMaintenancePriority, useInvestmentInsight, useDssRecommendations, useUpdateRecommendation } from "@/features/dss/hooks/useDssAdvisors";
@@ -19,6 +19,13 @@ const STATUS_COLORS: Record<string, string> = {
   accepted: "bg-success/15 text-success border-success/30",
   dismissed: "bg-muted text-muted-foreground",
   expired: "bg-destructive/15 text-destructive border-destructive/30",
+};
+
+const STATUS_ICONS: Record<string, React.ReactNode> = {
+  pending: <Clock className="h-3.5 w-3.5" />,
+  accepted: <CheckCircle2 className="h-3.5 w-3.5" />,
+  dismissed: <XCircle className="h-3.5 w-3.5" />,
+  expired: <XCircle className="h-3.5 w-3.5" />,
 };
 
 export default function DssAdvisor() {
@@ -87,62 +94,119 @@ export default function DssAdvisor() {
     }
   };
 
-  const tabIcons: Record<string, React.ReactNode> = {
-    pricing: <DollarSign className="h-3.5 w-3.5" />,
-    collection: <FileWarning className="h-3.5 w-3.5" />,
-    maintenance: <Wrench className="h-3.5 w-3.5" />,
-    investment: <TrendingUp className="h-3.5 w-3.5" />,
-  };
+  const tabConfig = [
+    { value: "pricing", label: "Pricing", icon: <DollarSign className="h-3.5 w-3.5" /> },
+    { value: "collection", label: "Collection", icon: <FileWarning className="h-3.5 w-3.5" /> },
+    { value: "maintenance", label: "Maintenance", icon: <Wrench className="h-3.5 w-3.5" /> },
+    { value: "investment", label: "Investment", icon: <TrendingUp className="h-3.5 w-3.5" /> },
+  ];
+
+  // Recommendation stats
+  const pendingCount = (recommendations || []).filter((r: any) => r.status === 'pending').length;
+  const acceptedCount = (recommendations || []).filter((r: any) => r.status === 'accepted').length;
 
   return (
     <div className="space-y-6">
-      <PageHeader icon={Brain} title="DSS Advisor" description="AI-powered decision support recommendations" />
+      <PageHeader icon={Brain} title="DSS Advisor" description="AI-powered decision support recommendations">
+        <Badge variant="outline" className="rounded-full bg-primary/10 text-primary border-primary/30 gap-1.5">
+          <Sparkles className="h-3 w-3" />
+          AI-Powered
+        </Badge>
+      </PageHeader>
 
       <TierGate>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="inline-flex h-auto p-1 rounded-full bg-card/80 backdrop-blur-sm border border-border/40">
-            {["pricing", "collection", "maintenance", "investment"].map((tab) => (
-              <TabsTrigger key={tab} value={tab} className="rounded-full px-4 py-2 capitalize data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm gap-1.5">
-                {tabIcons[tab]}{tab}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="pill-tab-list">
+            {tabConfig.map((tab) => (
+              <TabsTrigger key={tab.value} value={tab.value} className="pill-tab-trigger gap-1.5">
+                {tab.icon}{tab.label}
               </TabsTrigger>
             ))}
           </TabsList>
 
-          {["pricing", "collection", "maintenance", "investment"].map((tab) => (
-            <TabsContent key={tab} value={tab} className="space-y-4 mt-6">
+          {/* Summary KPI Strip */}
+          {!recsLoading && (recommendations || []).length > 0 && (
+            <div className="grid grid-cols-3 gap-4">
+              <Card className="glass-stat-card">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                    <Target className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">{(recommendations || []).length}</p>
+                    <p className="text-xs text-muted-foreground">Total</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="glass-stat-card">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-warning/20 to-warning/5 flex items-center justify-center">
+                    <Clock className="h-5 w-5 text-warning" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">{pendingCount}</p>
+                    <p className="text-xs text-muted-foreground">Pending</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="glass-stat-card">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-success/20 to-success/5 flex items-center justify-center">
+                    <CheckCircle2 className="h-5 w-5 text-success" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">{acceptedCount}</p>
+                    <p className="text-xs text-muted-foreground">Accepted</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {tabConfig.map((tab) => (
+            <TabsContent key={tab.value} value={tab.value} className="space-y-4">
               <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="capitalize">{tab} Advisor</CardTitle>
-                    <CardDescription>Generate AI-powered {tab} recommendations</CardDescription>
+                  <div className="flex items-center gap-3">
+                    <div className="gradient-icon-box">
+                      {tab.icon}
+                    </div>
+                    <div>
+                      <CardTitle>{tab.label} Advisor</CardTitle>
+                      <CardDescription>Generate AI-powered {tab.label.toLowerCase()} recommendations</CardDescription>
+                    </div>
                   </div>
-                  <Button onClick={handleGenerate} disabled={isGenerating} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-sm gap-2">
+                  <Button onClick={handleGenerate} disabled={isGenerating} className="gradient-cta rounded-xl shadow-sm gap-2">
                     {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                     Generate
                   </Button>
                 </CardHeader>
                 <CardContent>
                   {recsLoading ? (
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
                   ) : (recommendations || []).length === 0 ? (
-                    <div className="text-center py-10">
-                      <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/20 flex items-center justify-center mx-auto mb-3">
+                    <div className="text-center py-12">
+                      <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/20 flex items-center justify-center mx-auto mb-4">
                         <Brain className="h-7 w-7 text-muted-foreground" />
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        No recommendations yet. Click "Generate" to create one.
-                      </p>
+                      <p className="text-sm font-medium">No recommendations yet</p>
+                      <p className="text-xs text-muted-foreground mt-1">Click "Generate" to create AI-powered recommendations</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
                       {(recommendations || []).map((rec: any) => (
                         <div key={rec.id} className="rounded-xl bg-card/80 backdrop-blur-sm border border-border/40 p-4 space-y-3 hover:border-primary/20 transition-colors">
-                          <div className="flex items-start justify-between">
+                          <div className="flex items-start justify-between gap-3">
                             <div className="flex-1">
                               <h4 className="font-semibold">{rec.title}</h4>
                               <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{rec.description}</p>
                             </div>
-                            <Badge className={`rounded-full border ${STATUS_COLORS[rec.status] || ""}`}>{rec.status}</Badge>
+                            <Badge className={`rounded-full border gap-1 ${STATUS_COLORS[rec.status] || ""}`}>
+                              {STATUS_ICONS[rec.status]}
+                              {rec.status}
+                            </Badge>
                           </div>
                           {rec.confidence_score && (
                             <div className="space-y-1.5">
@@ -155,7 +219,7 @@ export default function DssAdvisor() {
                           )}
                           {rec.status === "pending" && (
                             <div className="flex gap-2 pt-1">
-                              <Button size="sm" onClick={() => handleAction(rec.id, "accept")} disabled={updateRec.isPending} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-sm gap-1.5">
+                              <Button size="sm" onClick={() => handleAction(rec.id, "accept")} disabled={updateRec.isPending} className="gradient-cta rounded-xl shadow-sm gap-1.5">
                                 <Check className="h-3 w-3" />Accept
                               </Button>
                               <Button size="sm" variant="ghost" onClick={() => handleAction(rec.id, "dismiss")} disabled={updateRec.isPending} className="rounded-xl gap-1.5 text-muted-foreground">
