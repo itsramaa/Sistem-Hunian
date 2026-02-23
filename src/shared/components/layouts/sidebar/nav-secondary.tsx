@@ -22,20 +22,24 @@ interface NavSecondaryProps extends React.ComponentPropsWithoutRef<typeof Sideba
 
 export function NavSecondary({ items, ...props }: NavSecondaryProps) {
   return (
-    <SidebarGroup {...props}>
+    <SidebarGroup className="mt-auto" {...props}>
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton asChild size="sm">
+              <SidebarMenuButton
+                asChild
+                size="sm"
+                className="rounded-lg hover:bg-sidebar-accent/60 transition-all duration-150"
+              >
                 {item.url.startsWith("mailto:") || item.url.startsWith("http") ? (
                   <a href={item.url} target={item.url.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer">
-                    <item.icon />
+                    <item.icon className="text-sidebar-foreground/60" />
                     <span>{item.title}</span>
                   </a>
                 ) : (
                   <Link to={item.url}>
-                    <item.icon />
+                    <item.icon className="text-sidebar-foreground/60" />
                     <span>{item.title}</span>
                   </Link>
                 )}

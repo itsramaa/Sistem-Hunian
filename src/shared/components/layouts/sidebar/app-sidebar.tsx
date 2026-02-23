@@ -15,6 +15,7 @@ import { NavMain } from "@/shared/components/layouts/sidebar/nav-main";
 import { NavSecondary } from "@/shared/components/layouts/sidebar/nav-secondary";
 import { NavUser } from "@/shared/components/layouts/sidebar/nav-user";
 import { TeamSwitcher } from "@/shared/components/layouts/sidebar/team-switcher";
+import { Separator } from "@/shared/components/ui/separator";
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   role: UserRole;
@@ -31,7 +32,6 @@ export function AppSidebar({ role, ...props }: AppSidebarProps) {
     navigate("/auth");
   };
 
-  // Get entity info based on role
   const entityInfo = role === "merchant" ? merchant : role === "vendor" ? vendor : null;
   const entityName = entityInfo?.business_name;
   const verificationStatus = entityInfo?.verification_status;
@@ -40,7 +40,7 @@ export function AppSidebar({ role, ...props }: AppSidebarProps) {
   const secondaryNavItems = [
     {
       title: "Support",
-      url: `/${role}/settings`,
+      url: `/${role}/support`,
       icon: LifeBuoy,
     },
     {
@@ -57,6 +57,7 @@ export function AppSidebar({ role, ...props }: AppSidebarProps) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain groups={config.mainNav} basePath={basePath} />
+        <Separator className="mx-3 w-auto bg-border/30" />
         <NavSecondary items={secondaryNavItems} />
       </SidebarContent>
       <SidebarFooter>
