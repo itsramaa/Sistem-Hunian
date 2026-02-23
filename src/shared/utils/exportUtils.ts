@@ -1,9 +1,28 @@
 import { format } from 'date-fns';
 
+export interface ExportMetadata {
+  exportedBy?: string;
+  filters?: Record<string, string>;
+}
+
+function buildMetadataRows(metadata?: ExportMetadata, separator = ','): string[] {
+  if (!metadata) return [];
+  const rows: string[] = [];
+  rows.push(`# Exported: ${format(new Date(), 'yyyy-MM-dd HH:mm:ss')}`);
+  if (metadata.exportedBy) rows.push(`# Exported By: ${metadata.exportedBy}`);
+  if (metadata.filters && Object.keys(metadata.filters).length > 0) {
+    const filterStr = Object.entries(metadata.filters).map(([k, v]) => `${k}=${v}`).join(', ');
+    rows.push(`# Filters: ${filterStr}`);
+  }
+  rows.push('# ---');
+  return rows;
+}
+
 export function exportToCSV<T extends Record<string, unknown>>(
   data: T[],
   filename: string,
-  columns?: { key: keyof T; label: string }[]
+  columns?: { key: keyof T; label: string }[],
+  metadata?: ExportMetadata
 ): void {
   if (data.length === 0) {
     alert('No data to export');
@@ -18,7 +37,9 @@ export function exportToCSV<T extends Record<string, unknown>>(
     ? columns.map(col => col.key) 
     : Object.keys(data[0]) as (keyof T)[];
 
+  const metaRows = buildMetadataRows(metadata);
   const csvContent = [
+    ...metaRows,
     headers.join(','),
     ...data.map(row => 
       keys.map(key => {
@@ -162,7 +183,8 @@ export function exportToPDF<T extends Record<string, unknown>>(
 export function exportToExcel<T extends Record<string, unknown>>(
   data: T[],
   filename: string,
-  columns?: { key: keyof T; label: string }[]
+  columns?: { key: keyof T; label: string }[],
+  metadata?: ExportMetadata
 ): void {
   if (data.length === 0) {
     alert('No data to export');
@@ -172,7 +194,9 @@ export function exportToExcel<T extends Record<string, unknown>>(
   const headers = columns ? columns.map(col => col.label) : Object.keys(data[0]);
   const keys = columns ? columns.map(col => col.key) : Object.keys(data[0]) as (keyof T)[];
 
+  const metaRows = buildMetadataRows(metadata, '\t');
   const csvContent = [
+    ...metaRows,
     headers.join('\t'),
     ...data.map(row =>
       keys.map(key => {

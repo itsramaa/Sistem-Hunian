@@ -2,6 +2,7 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import { UnitCard } from "@/features/properties/components/UnitCard";
 import { UnitFilters } from "@/features/properties/components/UnitFilters";
 import { UnitFormDialog } from "@/features/properties/components/UnitFormDialog";
+import { UnitImportDialog } from "@/features/properties/components/UnitImportDialog";
 import { UnitsStats } from "@/features/properties/components/UnitsStats";
 import { UnitsTable } from "@/features/properties/components/UnitsTable";
 import { useMerchantProperties } from "@/features/properties/hooks/useMerchantProperties";
@@ -16,7 +17,7 @@ import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 import { PageHeader } from "@/shared/components/ui/PageHeader";
-import { ChevronLeft, ChevronRight, DoorOpen, LayoutGrid, List, Plus, CalendarClock } from "lucide-react";
+import { ChevronLeft, ChevronRight, DoorOpen, LayoutGrid, List, Plus, Upload, CalendarClock } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 const ITEMS_PER_PAGE = 10;
@@ -33,11 +34,12 @@ export default function MerchantUnits() {
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'gallery' | 'list'>('gallery');
+  const [showImportDialog, setShowImportDialog] = useState(false);
 
   useEffect(() => { setPage(1); }, [debouncedSearch, statusFilter, propertyFilter]);
 
   const { properties, loading: propertiesLoading } = useMerchantProperties(merchant?.id || '');
-  const { units, loading: unitsLoading, createUnit, updateUnit, deleteUnit, isCreating, isUpdating, isDeleting } = useMerchantUnits(merchant?.id || '');
+  const { units, loading: unitsLoading, createUnit, updateUnit, deleteUnit, isCreating, isUpdating, isDeleting, refetch: refetchUnits } = useMerchantUnits(merchant?.id || '');
 
   const filteredUnits = useMemo(() => units.filter(unit => {
     const matchesSearch = unit.unit_number.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
@@ -93,6 +95,9 @@ export default function MerchantUnits() {
   return (
     <>
       <PageHeader icon={DoorOpen} title="Unit Saya" description="Kelola semua unit di properti Anda">
+        <Button variant="outline" onClick={() => setShowImportDialog(true)} disabled={properties.length === 0} className="gap-2 rounded-xl">
+          <Upload className="h-4 w-4" /> Import CSV
+        </Button>
         <Button disabled={properties.length === 0} onClick={handleCreate} className="gap-2 gradient-cta text-primary-foreground hover:opacity-90 rounded-xl">
           <Plus className="h-4 w-4" />Tambah Unit
         </Button>
@@ -168,6 +173,13 @@ export default function MerchantUnits() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <UnitImportDialog
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+        onSuccess={() => refetchUnits()}
+        properties={properties.map(p => ({ id: p.id, name: p.name }))}
+      />
     </>
   );
 }
