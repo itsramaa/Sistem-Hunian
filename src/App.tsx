@@ -93,8 +93,7 @@ const MerchantAssetsHub = lazy(() => import("@/pages/merchant/AssetsHub"));
 const MerchantOccupancyHub = lazy(() => import("@/pages/merchant/OccupancyHub"));
 const MerchantFinanceHub = lazy(() => import("@/pages/merchant/FinanceHub"));
 const MerchantOperationsHub = lazy(() => import("@/pages/merchant/OperationsHub"));
-const MerchantAnalyticsHub = lazy(() => import("@/pages/merchant/AnalyticsHub"));
-const MerchantAiInsightsHub = lazy(() => import("@/pages/merchant/AiInsightsHub"));
+const MerchantInsightsHub = lazy(() => import("@/pages/merchant/InsightsHub"));
 const MerchantHelpHub = lazy(() => import("@/pages/merchant/HelpHub"));
 // Tenant Pages
 const TenantContractDetail = lazy(() => import("@/pages/tenant/ContractDetail"));
@@ -195,8 +194,9 @@ const App = () => (
                     <Route path="transactions" element={<Navigate to="/merchant/finance" replace />} />
                     <Route path="operations" element={<MerchantOperationsHub />} />
                     <Route path="legal" element={<Navigate to="/merchant/operations#compliance" replace />} />
-                    <Route path="analytics" element={<MerchantAnalyticsHub />} />
-                    <Route path="ai-insights" element={<MerchantAiInsightsHub />} />
+                    <Route path="insights" element={<MerchantInsightsHub />} />
+                    <Route path="analytics" element={<Navigate to="/merchant/insights#dashboard" replace />} />
+                    <Route path="ai-insights" element={<Navigate to="/merchant/insights#predictions" replace />} />
                     <Route path="help" element={<MerchantHelpHub />} />
                     {/* Individual pages (backward compat) */}
                     <Route path="profile" element={<MerchantProfile />} />
