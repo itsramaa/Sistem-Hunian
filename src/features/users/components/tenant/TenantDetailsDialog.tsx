@@ -73,7 +73,7 @@ export function TenantDetailsDialog({ tenant, open, onOpenChange }: TenantDetail
 
         {/* Header with Avatar */}
         <div className="flex items-center gap-4">
-          <div className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold text-primary-foreground ${getAvatarColor(tenant.profile?.full_name)}`}>
+          <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center text-lg font-bold text-primary-foreground ${getAvatarColor(tenant.profile?.full_name)}`}>
             {getInitials(tenant.profile?.full_name)}
           </div>
           <div className="flex-1 min-w-0">

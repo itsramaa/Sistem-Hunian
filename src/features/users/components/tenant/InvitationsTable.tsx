@@ -53,9 +53,9 @@ export function InvitationsTable({
         <TableHeader>
           <TableRow>
             <TableHead>Email</TableHead>
-            <TableHead>Properti</TableHead>
+            <TableHead className="hidden sm:table-cell">Properti</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Tanggal Kirim</TableHead>
+            <TableHead className="hidden sm:table-cell">Tanggal Kirim</TableHead>
             <TableHead className="text-right">Aksi</TableHead>
           </TableRow>
         </TableHeader>
@@ -69,20 +69,38 @@ export function InvitationsTable({
           ) : (
             invitations.map((invitation) => (
               <TableRow key={invitation.id}>
-                <TableCell className="font-medium">{invitation.email}</TableCell>
-                <TableCell>{(invitation as any).property_name || invitation.unit?.property?.name || '-'}</TableCell>
+                <TableCell className="font-medium">
+                  <div>
+                    {invitation.email}
+                    {/* Mobile-only: show property & date inline */}
+                    <div className="sm:hidden text-xs text-muted-foreground mt-0.5">
+                      {(invitation as any).property_name || invitation.unit?.property?.name || '-'}
+                      {' • '}
+                      {new Date(invitation.created_at).toLocaleDateString('id-ID')}
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell className="hidden sm:table-cell">
+                  {(invitation as any).property_name || invitation.unit?.property?.name || '-'}
+                </TableCell>
                 <TableCell>
                   <Badge variant={invitation.status === 'pending' ? 'outline' : 'secondary'}>
-                    {invitation.status}
+                    {invitation.status === 'pending' ? 'Menunggu' : 
+                     invitation.status === 'accepted' ? 'Diterima' :
+                     invitation.status === 'expired' ? 'Kedaluwarsa' :
+                     invitation.status === 'cancelled' ? 'Dibatalkan' :
+                     invitation.status}
                   </Badge>
                 </TableCell>
-                <TableCell>{new Date(invitation.created_at).toLocaleDateString('id-ID')}</TableCell>
+                <TableCell className="hidden sm:table-cell">
+                  {new Date(invitation.created_at).toLocaleDateString('id-ID')}
+                </TableCell>
                 <TableCell className="text-right">
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => onCancel(invitation.id)}
-                    disabled={cancelLoadingId === invitation.id}
+                    disabled={cancelLoadingId === invitation.id || invitation.status !== 'pending'}
                     className="text-destructive hover:text-destructive hover:bg-destructive/10"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -95,9 +113,9 @@ export function InvitationsTable({
       </Table>
 
       {/* Pagination Controls */}
-      <div className="flex items-center justify-between px-4 py-4 border-t">
-        <div className="flex-1 text-sm text-muted-foreground">
-          Showing {((page - 1) * itemsPerPage) + 1} to {Math.min(page * itemsPerPage, totalInvitations)} of {totalInvitations} invitations
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-4 border-t">
+        <div className="text-sm text-muted-foreground">
+          Menampilkan {((page - 1) * itemsPerPage) + 1} - {Math.min(page * itemsPerPage, totalInvitations)} dari {totalInvitations} undangan
         </div>
         <div className="flex items-center space-x-2">
           <Button
@@ -107,10 +125,10 @@ export function InvitationsTable({
             disabled={page <= 1}
           >
             <ChevronLeft className="h-4 w-4" />
-            Previous
+            <span className="hidden sm:inline">Sebelumnya</span>
           </Button>
           <div className="text-sm font-medium">
-            Page {page} of {totalPages}
+            {page} / {totalPages}
           </div>
           <Button
             variant="outline"
@@ -118,7 +136,7 @@ export function InvitationsTable({
             onClick={() => onPageChange(page + 1)}
             disabled={page >= totalPages}
           >
-            Next
+            <span className="hidden sm:inline">Selanjutnya</span>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

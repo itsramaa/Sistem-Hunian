@@ -153,10 +153,10 @@ export default function MerchantTenants() {
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12">
           <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
-          <h3 className="text-lg font-medium mb-2">Failed to load data</h3>
-          <p className="text-sm text-muted-foreground text-center mb-4">There was an error loading tenant data.</p>
+          <h3 className="text-lg font-medium mb-2">Gagal memuat data</h3>
+          <p className="text-sm text-muted-foreground text-center mb-4">Terjadi kesalahan saat memuat data tenant.</p>
           <Button onClick={() => { refetchInvitations(); refetchTenants(); }}>
-            <RefreshCw className="h-4 w-4 mr-2" />Retry
+            <RefreshCw className="h-4 w-4 mr-2" />Coba Lagi
           </Button>
         </CardContent>
       </Card>
@@ -168,11 +168,11 @@ export default function MerchantTenants() {
       <div className="flex items-center justify-between mb-4">
         <div />
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setShowAddDialog(true)}>
-            <Plus className="h-4 w-4 mr-2" />Add Tenant
-          </Button>
           <Button onClick={() => setShowInviteDialog(true)} disabled={properties.length === 0}>
             <Send className="h-4 w-4 mr-2" />Kirim Undangan
+          </Button>
+          <Button variant="outline" onClick={() => setShowAddDialog(true)} title="Untuk tenant yang sudah terdaftar di sistem">
+            <Plus className="h-4 w-4 mr-2" />Tambah Langsung
           </Button>
         </div>
       </div>
@@ -187,18 +187,18 @@ export default function MerchantTenants() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="active">
+              Tenant Aktif
+              {activeTenants.length > 0 && (
+                <Badge variant="secondary" className="ml-2">{activeTenants.length}</Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="invitations" className="relative">
-              Invitations
+              Undangan
               {pendingCount > 0 && (
                 <Badge variant="secondary" className="ml-2 animate-pulse bg-warning/20 text-warning border-warning/30">
                   {pendingCount}
                 </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="active">
-              Active Tenants
-              {activeTenants.length > 0 && (
-                <Badge variant="secondary" className="ml-2">{activeTenants.length}</Badge>
               )}
             </TabsTrigger>
           </TabsList>
@@ -219,9 +219,9 @@ export default function MerchantTenants() {
                   <div className="w-16 h-16 rounded-full bg-warning/10 flex items-center justify-center mb-4">
                     <Send className="h-8 w-8 text-warning/60" />
                   </div>
-                  <h3 className="font-medium mb-1">No invitations yet</h3>
+                  <h3 className="font-medium mb-1">Belum ada undangan</h3>
                   <p className="text-sm text-muted-foreground text-center mb-4 max-w-sm">
-                    Send invitations to your tenants to get them onboarded to the platform.
+                    Kirim undangan ke tenant Anda agar mereka bisa bergabung ke platform.
                   </p>
                   <Button onClick={() => setShowInviteDialog(true)} disabled={properties.length === 0}>
                     <Send className="h-4 w-4 mr-2" />Kirim Undangan
@@ -250,16 +250,16 @@ export default function MerchantTenants() {
                   <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-4">
                     <Users className="h-8 w-8 text-success/60" />
                   </div>
-                  <h3 className="font-medium mb-1">No active tenants</h3>
+                  <h3 className="font-medium mb-1">Belum ada tenant aktif</h3>
                   <p className="text-sm text-muted-foreground text-center mb-4 max-w-sm">
-                    Add tenants directly or invite them to get started.
+                    Tambahkan tenant langsung atau kirim undangan untuk memulai.
                   </p>
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setShowAddDialog(true)}>
-                      <Plus className="h-4 w-4 mr-2" />Add Tenant
-                    </Button>
                     <Button onClick={() => setShowInviteDialog(true)} disabled={properties.length === 0}>
                       <Send className="h-4 w-4 mr-2" />Kirim Undangan
+                    </Button>
+                    <Button variant="outline" onClick={() => setShowAddDialog(true)}>
+                      <Plus className="h-4 w-4 mr-2" />Tambah Langsung
                     </Button>
                   </div>
                 </CardContent>

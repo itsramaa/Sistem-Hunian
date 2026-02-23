@@ -50,10 +50,11 @@ export function useMerchantTenants(merchantId: string | undefined) {
   });
 }
 
-export function useAllTenantsInSystem() {
+export function useAvailableTenants(merchantId: string | undefined) {
   return useQuery({
-    queryKey: ['all-tenants-system'],
-    queryFn: () => merchantTenantService.getAllTenantsInSystem(),
+    queryKey: ['available-tenants', merchantId],
+    queryFn: () => merchantTenantService.getAvailableTenants(merchantId!),
+    enabled: !!merchantId,
   });
 }
 
@@ -68,16 +69,16 @@ export function useMerchantTenantMutations(merchantId: string | undefined) {
     },
     onSuccess: (_, variables) => {
       toast({
-        title: 'Invitation Sent',
-        description: `Invitation sent to ${variables.email}`,
+        title: 'Undangan Terkirim',
+        description: `Undangan berhasil dikirim ke ${variables.email}`,
       });
       queryClient.invalidateQueries({ queryKey: ['tenant-invitations'] });
     },
     onError: (error: Error) => {
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to send invitation',
+        title: 'Gagal',
+        description: error.message || 'Gagal mengirim undangan. Silakan coba lagi.',
       });
     },
   });
@@ -85,14 +86,14 @@ export function useMerchantTenantMutations(merchantId: string | undefined) {
   const cancelInvitation = useMutation({
     mutationFn: merchantTenantService.cancelInvitation,
     onSuccess: () => {
-      toast({ title: 'Invitation Cancelled' });
+      toast({ title: 'Undangan Dibatalkan' });
       queryClient.invalidateQueries({ queryKey: ['tenant-invitations'] });
     },
     onError: (error: Error) => {
       toast({
         variant: 'destructive',
-        title: 'Failed to cancel',
-        description: error.message || 'Could not cancel the invitation. Please try again.',
+        title: 'Gagal membatalkan',
+        description: error.message || 'Tidak dapat membatalkan undangan. Silakan coba lagi.',
       });
     },
   });
@@ -101,8 +102,8 @@ export function useMerchantTenantMutations(merchantId: string | undefined) {
     mutationFn: merchantTenantService.terminateContract,
     onSuccess: () => {
       toast({
-        title: 'Contract Terminated',
-        description: 'The tenant has been removed from this unit.',
+        title: 'Kontrak Diakhiri',
+        description: 'Tenant telah dihapus dari unit ini.',
       });
       queryClient.invalidateQueries({ queryKey: ['active-tenants'] });
       queryClient.invalidateQueries({ queryKey: ['active-contracts-count'] });
@@ -111,8 +112,8 @@ export function useMerchantTenantMutations(merchantId: string | undefined) {
     onError: (error: Error) => {
       toast({
         variant: 'destructive',
-        title: 'Failed to terminate contract',
-        description: error.message || 'Could not remove the tenant. Please try again.',
+        title: 'Gagal mengakhiri kontrak',
+        description: error.message || 'Tidak dapat menghapus tenant. Silakan coba lagi.',
       });
     },
   });
@@ -124,8 +125,8 @@ export function useMerchantTenantMutations(merchantId: string | undefined) {
     },
     onSuccess: (_, variables) => {
       toast({
-        title: 'Tenant Added',
-        description: `Tenant ${variables.full_name} has been added successfully`,
+        title: 'Tenant Ditambahkan',
+        description: `Tenant ${variables.full_name} berhasil ditambahkan`,
       });
       queryClient.invalidateQueries({ queryKey: ['active-tenants'] });
       queryClient.invalidateQueries({ queryKey: ['active-contracts-count'] });
@@ -135,8 +136,8 @@ export function useMerchantTenantMutations(merchantId: string | undefined) {
     onError: (error: Error) => {
       toast({
         variant: 'destructive',
-        title: 'Failed to add tenant',
-        description: error.message || 'Could not add the tenant. Please try again.',
+        title: 'Gagal menambah tenant',
+        description: error.message || 'Tidak dapat menambah tenant. Silakan coba lagi.',
       });
     },
   });

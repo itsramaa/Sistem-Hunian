@@ -332,7 +332,7 @@ export const UnitFormDialog = ({
           )}
         </form>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 flex-col-reverse sm:flex-row">
           {step > 0 && (
             <Button type="button" variant="outline" onClick={handleBack}>
               <ArrowLeft className="h-4 w-4 mr-1" />Kembali

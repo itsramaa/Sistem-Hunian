@@ -68,18 +68,42 @@ export function TenantsTable({
 }: TenantsTableProps) {
   const getStatusBadge = (status: string) => {
     const config: Record<string, { className: string; label: string }> = {
-      active: { className: 'bg-success/10 text-success border-success/30', label: 'Active' },
-      linked: { className: 'bg-info/10 text-info border-info/30', label: 'Linked' },
-      suspended: { className: 'bg-destructive/10 text-destructive border-destructive/30', label: 'Suspended' },
-      pending: { className: 'bg-warning/10 text-warning border-warning/30', label: 'Pending' },
-      pending_signature: { className: 'bg-warning/10 text-warning border-warning/30', label: 'Pending' },
+      active: { className: 'bg-success/10 text-success border-success/30', label: 'Aktif' },
+      linked: { className: 'bg-info/10 text-info border-info/30', label: 'Terhubung' },
+      suspended: { className: 'bg-destructive/10 text-destructive border-destructive/30', label: 'Ditangguhkan' },
+      pending: { className: 'bg-warning/10 text-warning border-warning/30', label: 'Menunggu' },
+      pending_signature: { className: 'bg-warning/10 text-warning border-warning/30', label: 'Menunggu Tanda Tangan' },
       notice: { className: 'bg-orange-500/10 text-orange-600 border-orange-500/30', label: 'Notice' },
-      expired: { className: 'bg-muted text-muted-foreground border-muted', label: 'Expired' },
-      evicted: { className: 'bg-destructive/10 text-destructive border-destructive/30', label: 'Evicted' },
-      terminated: { className: 'bg-destructive/10 text-destructive border-destructive/30', label: 'Terminated' },
+      expired: { className: 'bg-muted text-muted-foreground border-muted', label: 'Kedaluwarsa' },
+      evicted: { className: 'bg-destructive/10 text-destructive border-destructive/30', label: 'Diusir' },
+      terminated: { className: 'bg-destructive/10 text-destructive border-destructive/30', label: 'Diakhiri' },
     };
     const c = config[status] || { className: '', label: status };
     return <Badge variant="outline" className={c.className}>{c.label}</Badge>;
+  };
+
+  const getPropertyDisplay = (tenant: ActiveTenant) => {
+    if (tenant.status === 'linked' && !tenant.unit) {
+      return { property: 'Belum ada unit', unit: 'Buat kontrak untuk menetapkan unit' };
+    }
+    return {
+      property: tenant.unit?.property?.name || '—',
+      unit: tenant.unit?.unit_number ? `Unit ${tenant.unit.unit_number}` : '—',
+    };
+  };
+
+  const getRentDisplay = (tenant: ActiveTenant) => {
+    if (tenant.status === 'linked' && tenant.rent_amount === 0) return '—';
+    return formatCurrency(tenant.rent_amount);
+  };
+
+  const getDateDisplay = (dateStr: string | undefined | null) => {
+    if (!dateStr) return '—';
+    try {
+      return format(new Date(dateStr), 'dd MMM yyyy');
+    } catch {
+      return '—';
+    }
   };
 
   if (isLoading) {
@@ -89,10 +113,10 @@ export function TenantsTable({
           <TableHeader>
             <TableRow>
               <TableHead>Tenant</TableHead>
-              <TableHead className="hidden md:table-cell">Property & Unit</TableHead>
+              <TableHead className="hidden md:table-cell">Properti & Unit</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="hidden sm:table-cell text-right">Rent</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="hidden sm:table-cell text-right">Sewa</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -118,12 +142,12 @@ export function TenantsTable({
           <TableHeader>
             <TableRow>
               <TableHead>Tenant</TableHead>
-              <TableHead className="hidden md:table-cell">Property & Unit</TableHead>
+              <TableHead className="hidden md:table-cell">Properti & Unit</TableHead>
               {mode === "admin" && <TableHead className="hidden lg:table-cell">Merchant</TableHead>}
               <TableHead>Status</TableHead>
-              <TableHead className="hidden xl:table-cell">Dates</TableHead>
-              <TableHead className="hidden sm:table-cell text-right">Rent</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="hidden xl:table-cell">Periode</TableHead>
+              <TableHead className="hidden sm:table-cell text-right">Sewa</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -134,103 +158,108 @@ export function TenantsTable({
                     <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
                       <UserX className="h-5 w-5" />
                     </div>
-                    <p className="text-sm">No active tenants found</p>
+                    <p className="text-sm">Belum ada tenant aktif</p>
                   </div>
                 </TableCell>
               </TableRow>
             ) : (
-              tenants.map((tenant) => (
-                <TableRow key={tenant.id} className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => onViewDetails(tenant)}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${getAvatarColor(tenant.profile?.full_name)}`}>
-                        {getInitials(tenant.profile?.full_name)}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-medium truncate">{tenant.profile?.full_name || 'Unknown'}</p>
-                        <p className="text-xs text-muted-foreground truncate">{tenant.profile?.email || 'No Email'}</p>
-                        <div className="md:hidden text-xs text-muted-foreground mt-0.5">
-                          {tenant.unit?.property?.name} • Unit {tenant.unit?.unit_number}
+              tenants.map((tenant) => {
+                const { property, unit } = getPropertyDisplay(tenant);
+                return (
+                  <TableRow key={tenant.id} className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => onViewDetails(tenant)}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${getAvatarColor(tenant.profile?.full_name)}`}>
+                          {getInitials(tenant.profile?.full_name)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{tenant.profile?.full_name || 'Unknown'}</p>
+                          <p className="text-xs text-muted-foreground truncate">{tenant.profile?.email || 'No Email'}</p>
+                          <div className="md:hidden text-xs text-muted-foreground mt-0.5">
+                            {property} {unit !== '—' ? `• ${unit}` : ''}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    <div>
-                      <p className="font-medium">{tenant.unit?.property?.name || 'Unknown Property'}</p>
-                      <p className="text-xs text-muted-foreground">Unit {tenant.unit?.unit_number || 'N/A'}</p>
-                    </div>
-                  </TableCell>
-                  {mode === "admin" && (
-                    <TableCell className="hidden lg:table-cell">
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <div>
-                        <p className="font-medium">{(tenant as AdminTenant).merchant_profile?.full_name || 'Unknown'}</p>
-                        <p className="text-xs text-muted-foreground">{(tenant as AdminTenant).merchant_profile?.email}</p>
+                        <p className="font-medium">{property}</p>
+                        <p className="text-xs text-muted-foreground">{unit}</p>
                       </div>
                     </TableCell>
-                  )}
-                  <TableCell>{getStatusBadge(tenant.status)}</TableCell>
-                  <TableCell className="hidden xl:table-cell">
-                    <div className="flex flex-col text-xs text-muted-foreground">
-                      <span>{tenant.start_date ? format(new Date(tenant.start_date), 'MMM d, yyyy') : '-'}</span>
-                      <span className="text-muted-foreground/60">to {tenant.end_date ? format(new Date(tenant.end_date), 'MMM d, yyyy') : '-'}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell text-right font-medium">
-                    {formatCurrency(tenant.rent_amount)}
-                  </TableCell>
-                  <TableCell className="text-right" onClick={e => e.stopPropagation()}>
-                    <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => onViewDetails(tenant)}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      {onTerminate && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => onTerminate(tenant)}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              {mode === 'admin' ? (
-                                <><UserX className="mr-2 h-4 w-4" />Terminate Lease</>
-                              ) : (
-                                <><Trash2 className="mr-2 h-4 w-4" />Remove Tenant</>
-                              )}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+                    {mode === "admin" && (
+                      <TableCell className="hidden lg:table-cell">
+                        <div>
+                          <p className="font-medium">{(tenant as AdminTenant).merchant_profile?.full_name || 'Unknown'}</p>
+                          <p className="text-xs text-muted-foreground">{(tenant as AdminTenant).merchant_profile?.email}</p>
+                        </div>
+                      </TableCell>
+                    )}
+                    <TableCell>{getStatusBadge(tenant.status)}</TableCell>
+                    <TableCell className="hidden xl:table-cell">
+                      <div className="flex flex-col text-xs text-muted-foreground">
+                        <span>{getDateDisplay(tenant.start_date)}</span>
+                        <span className="text-muted-foreground/60">s/d {getDateDisplay(tenant.end_date)}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell text-right font-medium">
+                      {getRentDisplay(tenant)}
+                    </TableCell>
+                    <TableCell className="text-right" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => onViewDetails(tenant)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {onTerminate && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => onTerminate(tenant)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                {tenant.status === 'linked' ? (
+                                  <><UserX className="mr-2 h-4 w-4" />Lepas Tenant</>
+                                ) : mode === 'admin' ? (
+                                  <><UserX className="mr-2 h-4 w-4" />Akhiri Sewa</>
+                                ) : (
+                                  <><Trash2 className="mr-2 h-4 w-4" />Hapus Tenant</>
+                                )}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
       </div>
 
       {(totalPages > 1 || (totalCount && itemsPerPage)) && onPageChange && (
-        <div className="flex items-center justify-between px-2">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-2">
           <div className="text-sm text-muted-foreground">
             {totalCount ? (
-              <>Showing {((page - 1) * itemsPerPage) + 1} to {Math.min(page * itemsPerPage, totalCount)} of {totalCount}</>
+              <>Menampilkan {((page - 1) * itemsPerPage) + 1} - {Math.min(page * itemsPerPage, totalCount)} dari {totalCount}</>
             ) : (
-              <>Page {page} of {totalPages}</>
+              <>{page} / {totalPages}</>
             )}
           </div>
           <div className="flex items-center space-x-2">
             <Button variant="outline" size="sm" onClick={() => onPageChange(page - 1)} disabled={page <= 1}>
-              <ChevronLeft className="h-4 w-4" />Previous
+              <ChevronLeft className="h-4 w-4" /><span className="hidden sm:inline">Sebelumnya</span>
             </Button>
             <Button variant="outline" size="sm" onClick={() => onPageChange(page + 1)} disabled={page >= totalPages}>
-              Next<ChevronRight className="h-4 w-4" />
+              <span className="hidden sm:inline">Selanjutnya</span><ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
