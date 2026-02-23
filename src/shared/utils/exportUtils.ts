@@ -159,6 +159,48 @@ export function exportToPDF<T extends Record<string, unknown>>(
   }, 250);
 }
 
+export function exportToExcel<T extends Record<string, unknown>>(
+  data: T[],
+  filename: string,
+  columns?: { key: keyof T; label: string }[]
+): void {
+  if (data.length === 0) {
+    alert('No data to export');
+    return;
+  }
+
+  const headers = columns ? columns.map(col => col.label) : Object.keys(data[0]);
+  const keys = columns ? columns.map(col => col.key) : Object.keys(data[0]) as (keyof T)[];
+
+  const csvContent = [
+    headers.join('\t'),
+    ...data.map(row =>
+      keys.map(key => {
+        const value = row[key];
+        if (value === null || value === undefined) return '';
+        const str = String(value);
+        if (str.includes('\t') || str.includes('\n') || str.includes('"')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      }).join('\t')
+    )
+  ].join('\n');
+
+  const BOM = '\uFEFF';
+  const blob = new Blob([BOM + csvContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+
+  link.setAttribute('href', url);
+  link.setAttribute('download', `${filename}_${format(new Date(), 'yyyy-MM-dd')}.xls`);
+  link.style.visibility = 'hidden';
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 export function generateReportHTML<T extends Record<string, unknown>>(
   data: T[],
   columns: { key: keyof T; label: string; format?: (value: unknown) => string }[],

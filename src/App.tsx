@@ -86,6 +86,7 @@ const MerchantTenantQuality = lazy(() => import("@/pages/merchant/TenantQualityS
 const MerchantDataQuality = lazy(() => import("@/pages/merchant/DataQualityHistory"));
 const MerchantDocumentCenter = lazy(() => import("@/pages/merchant/DocumentCenter"));
 const MerchantAnalyticsDashboard = lazy(() => import("@/pages/merchant/AnalyticsDashboard"));
+const MerchantReportTemplates = lazy(() => import("@/pages/merchant/ReportTemplates"));
 // Tenant Pages
 const TenantContractDetail = lazy(() => import("@/pages/tenant/ContractDetail"));
 const TenantContracts = lazy(() => import("@/pages/tenant/Contracts"));
@@ -212,6 +213,7 @@ const App = () => (
                     <Route path="data-quality" element={<MerchantDataQuality />} />
                     <Route path="documents" element={<MerchantDocumentCenter />} />
                     <Route path="analytics-dashboard" element={<MerchantAnalyticsDashboard />} />
+                    <Route path="report-templates" element={<MerchantReportTemplates />} />
                   </Route>
 
                   {/* Tenant Routes */}

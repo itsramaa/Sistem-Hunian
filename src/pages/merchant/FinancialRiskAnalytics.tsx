@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   Calculator, Sparkles, Loader2, DollarSign, TrendingUp, BarChart3,
-  Shield, AlertTriangle, Wrench, Umbrella, Target,
+  Shield, AlertTriangle, Wrench, Umbrella, Target, Users,
 } from "lucide-react";
 import { PageHeader } from "@/shared/components/ui/PageHeader";
 import { Badge } from "@/shared/components/ui/badge";
@@ -18,6 +18,7 @@ import { supabase } from "@/lib/integrations/supabase/client";
 import { formatRupiah } from "@/shared/utils/utils";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  BarChart, Bar, ReferenceLine, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
 } from "recharts";
 import type { FinancialAnalysisResult, RiskAssessmentResult } from "@/features/dss/services/financialRiskService";
 
@@ -94,6 +95,7 @@ export default function FinancialRiskAnalytics() {
               <TabsTrigger value="npv" className="pill-tab-trigger gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> NPV & IRR</TabsTrigger>
               <TabsTrigger value="sensitivity" className="pill-tab-trigger gap-1.5"><BarChart3 className="h-3.5 w-3.5" /> Sensitivitas</TabsTrigger>
               <TabsTrigger value="risk" className="pill-tab-trigger gap-1.5"><Shield className="h-3.5 w-3.5" /> Risk Assessment</TabsTrigger>
+              <TabsTrigger value="benchmark" className="pill-tab-trigger gap-1.5"><Users className="h-3.5 w-3.5" /> Benchmark</TabsTrigger>
             </TabsList>
 
             {/* Tab 1: ROI & Payback */}
@@ -254,39 +256,66 @@ export default function FinancialRiskAnalytics() {
                   </CardContent>
                 </Card>
               ) : finData.sensitivity.length > 0 ? (
-                <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border-border/40">
-                  <CardHeader><CardTitle className="text-base">Analisis Sensitivitas</CardTitle></CardHeader>
-                  <CardContent>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead><tr className="border-b text-muted-foreground">
-                          <th className="text-left py-2 pr-4">Skenario</th>
-                          <th className="text-left py-2 px-4">Variabel</th>
-                          <th className="text-right py-2 px-4">Perubahan</th>
-                          <th className="text-right py-2 px-4">ROI</th>
-                          <th className="text-right py-2 px-4">NPV</th>
-                          <th className="text-center py-2 pl-4">Dampak</th>
-                        </tr></thead>
-                        <tbody>
-                          {finData.sensitivity.map((s, i) => (
-                            <tr key={i} className="border-b border-border/30">
-                              <td className="py-2.5 pr-4 font-medium">{s.scenario_name}</td>
-                              <td className="py-2.5 px-4 text-muted-foreground">{s.variable_changed}</td>
-                              <td className="text-right py-2.5 px-4">{s.change_percentage > 0 ? "+" : ""}{s.change_percentage}%</td>
-                              <td className="text-right py-2.5 px-4">{s.resulting_roi.toFixed(1)}%</td>
-                              <td className="text-right py-2.5 px-4">{formatRupiah(s.resulting_npv)}</td>
-                              <td className="text-center py-2.5 pl-4">
-                                <Badge variant={s.impact_level === "high" ? "destructive" : s.impact_level === "medium" ? "default" : "secondary"} className="text-xs rounded-full">
-                                  {s.impact_level}
-                                </Badge>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
+                <>
+                  {/* Sensitivity Chart */}
+                  <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border-border/40">
+                    <CardHeader><CardTitle className="text-base">Grafik Sensitivitas ROI</CardTitle></CardHeader>
+                    <CardContent>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={finData.sensitivity}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
+                          <XAxis dataKey="scenario_name" className="text-xs" tick={{ fontSize: 10 }} angle={-20} textAnchor="end" height={60} />
+                          <YAxis tickFormatter={(v) => `${v}%`} className="text-xs" />
+                          <Tooltip formatter={(v: number) => `${v.toFixed(1)}%`} />
+                          <Legend />
+                          <ReferenceLine y={finData.roi_analysis.roi_percentage} stroke="hsl(var(--primary))" strokeDasharray="3 3" label={{ value: `Baseline: ${finData.roi_analysis.roi_percentage.toFixed(1)}%`, position: "top", fontSize: 11 }} />
+                          <Bar dataKey="resulting_roi" name="ROI Skenario" fill="hsl(var(--primary))"
+                            shape={(props: any) => {
+                              const { x, y, width, height, payload } = props;
+                              const color = payload.impact_level === "high" ? "hsl(var(--destructive))" : payload.impact_level === "medium" ? "hsl(45 93% 47%)" : "hsl(142 76% 36%)";
+                              return <rect x={x} y={y} width={width} height={height} fill={color} rx={4} />;
+                            }}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+
+                  {/* Sensitivity Table */}
+                  <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border-border/40">
+                    <CardHeader><CardTitle className="text-base">Tabel Analisis Sensitivitas</CardTitle></CardHeader>
+                    <CardContent>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead><tr className="border-b text-muted-foreground">
+                            <th className="text-left py-2 pr-4">Skenario</th>
+                            <th className="text-left py-2 px-4">Variabel</th>
+                            <th className="text-right py-2 px-4">Perubahan</th>
+                            <th className="text-right py-2 px-4">ROI</th>
+                            <th className="text-right py-2 px-4">NPV</th>
+                            <th className="text-center py-2 pl-4">Dampak</th>
+                          </tr></thead>
+                          <tbody>
+                            {finData.sensitivity.map((s, i) => (
+                              <tr key={i} className="border-b border-border/30">
+                                <td className="py-2.5 pr-4 font-medium">{s.scenario_name}</td>
+                                <td className="py-2.5 px-4 text-muted-foreground">{s.variable_changed}</td>
+                                <td className="text-right py-2.5 px-4">{s.change_percentage > 0 ? "+" : ""}{s.change_percentage}%</td>
+                                <td className="text-right py-2.5 px-4">{s.resulting_roi.toFixed(1)}%</td>
+                                <td className="text-right py-2.5 px-4">{formatRupiah(s.resulting_npv)}</td>
+                                <td className="text-center py-2.5 pl-4">
+                                  <Badge variant={s.impact_level === "high" ? "destructive" : s.impact_level === "medium" ? "default" : "secondary"} className="text-xs rounded-full">
+                                    {s.impact_level}
+                                  </Badge>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
               ) : (
                 <Card className="rounded-2xl"><CardContent className="py-8 text-center text-muted-foreground">Data sensitivitas tidak tersedia.</CardContent></Card>
               )}
@@ -433,9 +462,124 @@ export default function FinancialRiskAnalytics() {
                 </>
               )}
             </TabsContent>
+
+            {/* Tab 5: Benchmark */}
+            <TabsContent value="benchmark" className="space-y-4">
+              <BenchmarkTab selectedPropertyId={selectedPropertyId} merchantId={merchant?.id || ""} properties={properties || []} />
+            </TabsContent>
           </Tabs>
         </TierGate>
       )}
     </div>
+  );
+}
+
+// Benchmark Tab Component
+function BenchmarkTab({ selectedPropertyId, merchantId, properties }: { selectedPropertyId: string; merchantId: string; properties: any[] }) {
+  const db = supabase as any;
+  const { data: benchmarkData } = useQuery({
+    queryKey: ["benchmark", merchantId, selectedPropertyId],
+    queryFn: async () => {
+      const [unitsRes] = await Promise.all([
+        db.from("units").select("id, property_id, rent_amount, status").eq("merchant_id", merchantId),
+      ]);
+      const units = (unitsRes.data || []) as any[];
+      const selectedProp = properties.find((p: any) => p.id === selectedPropertyId);
+      if (!selectedProp) return null;
+
+      const peerProps = properties.filter((p: any) => p.id !== selectedPropertyId && (p.city === selectedProp.city || p.property_type === selectedProp.property_type));
+
+      const calcMetrics = (propId: string) => {
+        const propUnits = units.filter((u: any) => u.property_id === propId);
+        const total = propUnits.length;
+        const occupied = propUnits.filter((u: any) => u.status === "occupied").length;
+        const avgRent = total > 0 ? propUnits.reduce((s: number, u: any) => s + (u.rent_amount || 0), 0) / total : 0;
+        const occupancyRate = total > 0 ? (occupied / total) * 100 : 0;
+        return { totalUnits: total, occupancyRate, avgRent };
+      };
+
+      const myMetrics = calcMetrics(selectedPropertyId);
+      const peerMetricsList = peerProps.map((p: any) => calcMetrics(p.id));
+
+      const avgPeer = peerMetricsList.length > 0 ? {
+        occupancyRate: peerMetricsList.reduce((s, m) => s + m.occupancyRate, 0) / peerMetricsList.length,
+        avgRent: peerMetricsList.reduce((s, m) => s + m.avgRent, 0) / peerMetricsList.length,
+        totalUnits: peerMetricsList.reduce((s, m) => s + m.totalUnits, 0) / peerMetricsList.length,
+      } : { occupancyRate: 0, avgRent: 0, totalUnits: 0 };
+
+      return {
+        my: myMetrics,
+        peer: avgPeer,
+        peerCount: peerProps.length,
+        propertyName: selectedProp.name,
+        radarData: [
+          { subject: "Okupansi", mine: myMetrics.occupancyRate, peer: avgPeer.occupancyRate, fullMark: 100 },
+          { subject: "Avg Rent (x1000)", mine: myMetrics.avgRent / 1000, peer: avgPeer.avgRent / 1000, fullMark: Math.max(myMetrics.avgRent, avgPeer.avgRent) / 1000 * 1.2 || 100 },
+          { subject: "Total Unit", mine: myMetrics.totalUnits, peer: avgPeer.totalUnits, fullMark: Math.max(myMetrics.totalUnits, avgPeer.totalUnits) * 1.2 || 10 },
+        ],
+      };
+    },
+    enabled: !!merchantId && !!selectedPropertyId && properties.length > 0,
+  });
+
+  if (!benchmarkData) {
+    return (
+      <Card className="rounded-2xl">
+        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+          <Users className="h-12 w-12 text-muted-foreground/40 mb-4" />
+          <p className="text-muted-foreground">Memuat data benchmark peer group...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <>
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-3">
+        <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border-primary/20">
+          <CardContent className="pt-4 pb-3 text-center">
+            <p className="text-xs text-muted-foreground mb-1">Okupansi Anda</p>
+            <p className="text-lg font-bold text-primary">{benchmarkData.my.occupancyRate.toFixed(0)}%</p>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border-border/40">
+          <CardContent className="pt-4 pb-3 text-center">
+            <p className="text-xs text-muted-foreground mb-1">Rata-rata Peer ({benchmarkData.peerCount})</p>
+            <p className="text-lg font-bold">{benchmarkData.peer.occupancyRate.toFixed(0)}%</p>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border-border/40">
+          <CardContent className="pt-4 pb-3 text-center">
+            <p className="text-xs text-muted-foreground mb-1">Avg Rent Anda</p>
+            <p className="text-lg font-bold">{formatRupiah(benchmarkData.my.avgRent)}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {benchmarkData.peerCount > 0 ? (
+        <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border-border/40">
+          <CardHeader><CardTitle className="text-base">Perbandingan Radar — "{benchmarkData.propertyName}" vs Peer Group</CardTitle></CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={350}>
+              <RadarChart data={benchmarkData.radarData}>
+                <PolarGrid className="stroke-border/30" />
+                <PolarAngleAxis dataKey="subject" className="text-xs" />
+                <PolarRadiusAxis className="text-xs" />
+                <Radar name="Properti Anda" dataKey="mine" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.3} />
+                <Radar name="Rata-rata Peer" dataKey="peer" stroke="hsl(var(--muted-foreground))" fill="hsl(var(--muted-foreground))" fillOpacity={0.15} />
+                <Legend />
+                <Tooltip />
+              </RadarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="rounded-2xl">
+          <CardContent className="py-8 text-center text-muted-foreground">
+            Tidak ada peer group ditemukan (properti lain di kota/segmen yang sama).
+          </CardContent>
+        </Card>
+      )}
+    </>
   );
 }

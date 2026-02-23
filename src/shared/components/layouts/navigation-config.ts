@@ -153,6 +153,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/merchant/dss-advisor", icon: Lightbulb, label: "Advisor DSS" },
           { path: "/merchant/financial-risk", icon: Calculator, label: "Financial & Risk" },
           { path: "/merchant/tenant-quality", icon: UserCheck, label: "Kualitas Tenant" },
+          { path: "/merchant/report-templates", icon: FileText, label: "Template Laporan" },
         ],
       },
       {
