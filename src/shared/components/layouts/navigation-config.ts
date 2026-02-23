@@ -39,6 +39,7 @@ export interface NavItem {
   path: string;
   icon: LucideIcon;
   label: string;
+  activePatterns?: string[];
 }
 
 export interface NavGroup {
@@ -117,50 +118,38 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
         ],
       },
       {
-        label: "Manajemen Properti",
+        label: "Manajemen Aset",
         items: [
-          { path: "/merchant/properties", icon: Building2, label: "Properti Saya" },
-          { path: "/merchant/units", icon: Home, label: "Kamar & Unit" },
-          { path: "/merchant/tenants", icon: Users, label: "Penyewa" },
-          { path: "/merchant/guardians", icon: User, label: "Staf Penjaga" },
+          { path: "/merchant/assets", icon: Building2, label: "Properti & Unit", activePatterns: ["/merchant/properties", "/merchant/units"] },
+          { path: "/merchant/occupancy", icon: Users, label: "Penyewa & Okupansi", activePatterns: ["/merchant/tenants", "/merchant/move-outs", "/merchant/tenant-analytics"] },
+          { path: "/merchant/guardians", icon: User, label: "Staf Operasional" },
         ],
       },
       {
         label: "Keuangan",
         items: [
+          { path: "/merchant/transactions", icon: Wallet, label: "Transaksi & Tagihan", activePatterns: ["/merchant/invoices", "/merchant/payments"] },
           { path: "/merchant/contracts", icon: ClipboardList, label: "Kontrak Sewa" },
-          { path: "/merchant/invoices", icon: FileText, label: "Tagihan" },
-          { path: "/merchant/payments", icon: Wallet, label: "Pembayaran Masuk" },
         ],
       },
       {
         label: "Operasional",
         items: [
           { path: "/merchant/maintenance", icon: Wrench, label: "Laporan Kerusakan" },
-          { path: "/merchant/move-outs", icon: LogOut, label: "Pindah Keluar" },
-          { path: "/merchant/compliance", icon: Shield, label: "Kepatuhan Legal" },
-          { path: "/merchant/data-quality", icon: ClipboardList, label: "Validasi Data" },
+          { path: "/merchant/legal", icon: Shield, label: "Kepatuhan & Legalitas", activePatterns: ["/merchant/compliance", "/merchant/data-quality"] },
         ],
       },
       {
         label: "Wawasan Bisnis",
         items: [
-          { path: "/merchant/analytics-dashboard", icon: TrendingUp, label: "Ringkasan Statistik" },
-          { path: "/merchant/reports", icon: BarChart3, label: "Laporan Keuangan" },
-          { path: "/merchant/market-intelligence", icon: TrendingUp, label: "Tren Pasar" },
-          { path: "/merchant/ml-analytics", icon: Brain, label: "Prediksi AI" },
-          { path: "/merchant/dss-advisor", icon: Lightbulb, label: "Saran Cerdas" },
-          { path: "/merchant/financial-risk", icon: Calculator, label: "Risiko Keuangan" },
-          { path: "/merchant/tenant-quality", icon: UserCheck, label: "Skor Penyewa" },
-          { path: "/merchant/comparative-portfolio", icon: Briefcase, label: "Perbandingan Aset" },
-          { path: "/merchant/report-templates", icon: FileText, label: "Template Laporan" },
+          { path: "/merchant/analytics", icon: BarChart3, label: "Analitik Performa", activePatterns: ["/merchant/analytics-dashboard", "/merchant/reports", "/merchant/report-templates", "/merchant/comparative-portfolio"] },
+          { path: "/merchant/ai-insights", icon: Brain, label: "Intelijen AI", activePatterns: ["/merchant/ml-analytics", "/merchant/dss-advisor", "/merchant/market-intelligence", "/merchant/financial-risk", "/merchant/tenant-quality"] },
         ],
       },
       {
         label: "Bantuan",
         items: [
-          { path: "/merchant/documents", icon: FileSearch, label: "Pusat Dokumen" },
-          { path: "/merchant/ocr-tutorial", icon: ScanText, label: "Panduan OCR" },
+          { path: "/merchant/help", icon: FileSearch, label: "Pusat Bantuan", activePatterns: ["/merchant/documents", "/merchant/ocr-tutorial", "/merchant/support"] },
         ],
       },
     ],
@@ -239,10 +228,14 @@ export function getAllNavItems(role: UserRole): NavItem[] {
   return config.mainNav.flatMap((group) => group.items);
 }
 
-// Helper to check if a path is active
-export function isPathActive(path: string, currentPath: string, basePath: string): boolean {
+// Helper to check if a path is active (supports activePatterns)
+export function isPathActive(path: string, currentPath: string, basePath: string, activePatterns?: string[]): boolean {
   if (path === basePath) {
     return currentPath === basePath;
   }
-  return currentPath.startsWith(path);
+  if (currentPath.startsWith(path)) return true;
+  if (activePatterns) {
+    return activePatterns.some(pattern => currentPath.startsWith(pattern));
+  }
+  return false;
 }

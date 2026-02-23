@@ -89,3 +89,13 @@ export function ChartSkeleton() {
     </Card>
   );
 }
+
+export function ContentSkeleton() {
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <StatsRowSkeleton count={4} />
+      <FiltersSkeleton />
+      <TableSkeleton rows={5} />
+    </div>
+  );
+}

@@ -88,6 +88,14 @@ const MerchantDocumentCenter = lazy(() => import("@/pages/merchant/DocumentCente
 const MerchantAnalyticsDashboard = lazy(() => import("@/pages/merchant/AnalyticsDashboard"));
 const MerchantReportTemplates = lazy(() => import("@/pages/merchant/ReportTemplates"));
 const MerchantComparativePortfolio = lazy(() => import("@/pages/merchant/ComparativePortfolio"));
+// Hub Pages
+const MerchantAssetsHub = lazy(() => import("@/pages/merchant/AssetsHub"));
+const MerchantOccupancyHub = lazy(() => import("@/pages/merchant/OccupancyHub"));
+const MerchantTransactionsHub = lazy(() => import("@/pages/merchant/TransactionsHub"));
+const MerchantLegalHub = lazy(() => import("@/pages/merchant/LegalHub"));
+const MerchantAnalyticsHub = lazy(() => import("@/pages/merchant/AnalyticsHub"));
+const MerchantAiInsightsHub = lazy(() => import("@/pages/merchant/AiInsightsHub"));
+const MerchantHelpHub = lazy(() => import("@/pages/merchant/HelpHub"));
 // Tenant Pages
 const TenantContractDetail = lazy(() => import("@/pages/tenant/ContractDetail"));
 const TenantContracts = lazy(() => import("@/pages/tenant/Contracts"));
@@ -180,6 +188,15 @@ const App = () => (
                   {/* Merchant Routes - Nested with layout */}
                   <Route path="/merchant" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantLayoutRoute /></ProtectedRoute>}>
                     <Route index element={<MerchantDashboard />} />
+                    {/* Hub Pages */}
+                    <Route path="assets" element={<MerchantAssetsHub />} />
+                    <Route path="occupancy" element={<MerchantOccupancyHub />} />
+                    <Route path="transactions" element={<MerchantTransactionsHub />} />
+                    <Route path="legal" element={<MerchantLegalHub />} />
+                    <Route path="analytics" element={<MerchantAnalyticsHub />} />
+                    <Route path="ai-insights" element={<MerchantAiInsightsHub />} />
+                    <Route path="help" element={<MerchantHelpHub />} />
+                    {/* Individual pages (backward compat) */}
                     <Route path="profile" element={<MerchantProfile />} />
                     <Route path="properties" element={<MerchantProperties />} />
                     <Route path="properties/:id" element={<MerchantPropertyDetail />} />
