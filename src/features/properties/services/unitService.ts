@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/integrations/supabase/client';
 import { CreateUnitPayload, Unit, UpdateUnitPayload } from '../types';
+import { dataQualityService } from './dataQualityService';
 
 export const unitService = {
   async fetchUnits(propertyId: string): Promise<Unit[]> {
@@ -44,6 +45,20 @@ export const unitService = {
   },
 
   async updateUnit(id: string, payload: UpdateUnitPayload): Promise<Unit> {
+    // Auto-versioning: snapshot current data before update
+    try {
+      const { data: current } = await supabase.from('units').select('*').eq('id', id).single();
+      if (current) {
+        const changedFields = Object.keys(payload).filter(k => (current as any)[k] !== (payload as any)[k]);
+        const summary = changedFields.length > 0
+          ? `Updated: ${changedFields.join(', ')}`
+          : 'Update (no field diff detected)';
+        await dataQualityService.createVersion('unit', id, current as any, summary);
+      }
+    } catch (e) {
+      console.warn('Auto-versioning failed for unit:', e);
+    }
+
     const { data, error } = await supabase
       .from('units')
       .update(payload)
