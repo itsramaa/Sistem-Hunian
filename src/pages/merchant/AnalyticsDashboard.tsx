@@ -17,7 +17,7 @@ import { Button } from "@/shared/components/ui/button";
 import { Label } from "@/shared/components/ui/label";
 import { Slider } from "@/shared/components/ui/slider";
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { formatRupiah } from "@/shared/utils/utils";
+import { formatRupiah, formatYear } from "@/shared/utils/utils";
 import {
   useAnalyticsProperties,
   useAnalyticsUnits,
@@ -44,11 +44,11 @@ export default function AnalyticsDashboard() {
 
   const [propertyType, setPropertyType] = useState<string>("all");
   const [city, setCity] = useState<string>("all");
-  const [yearRange, setYearRange] = useState<number[]>([2000, 2026]);
+  const [yearRange, setYearRange] = useState<number[]>([2020, 2026]);
 
-  const { data: properties = [] } = useAnalyticsProperties(merchantId);
+  const { data: properties = [] } = useAnalyticsProperties(merchantId, yearRange);
   const { data: units = [] } = useAnalyticsUnits(merchantId);
-  const { data: contracts = [] } = useAnalyticsContracts(merchantId);
+  const { data: contracts = [] } = useAnalyticsContracts(merchantId, yearRange);
   const { data: tenantRisk = [] } = useAnalyticsTenantRiskScores(merchantId);
   const { data: disasterRisk = [] } = useAnalyticsDisasterRisk(merchantId);
 
@@ -211,9 +211,9 @@ export default function AnalyticsDashboard() {
               </Select>
             </div>
             <div className="space-y-1 min-w-[200px]">
-              <Label className="text-xs">Tahun Bangun: {yearRange[0]} - {yearRange[1]}</Label>
+              <Label className="text-xs">Tahun Bangun: {formatYear(yearRange[0])} - {formatYear(yearRange[1])}</Label>
               <Slider
-                min={1990}
+                min={2020}
                 max={2026}
                 step={1}
                 value={yearRange}

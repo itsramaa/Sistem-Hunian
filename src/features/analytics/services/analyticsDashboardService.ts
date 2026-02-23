@@ -3,15 +3,24 @@ import { supabase } from "@/integrations/supabase/client";
 export interface DashboardFilters {
   propertyType?: string;
   city?: string;
-  constructionYearMin?: number;
-  constructionYearMax?: number;
+  yearMin?: number;
+  yearMax?: number;
 }
 
-export async function fetchProperties(merchantId: string) {
-  const { data, error } = await supabase
+export async function fetchProperties(merchantId: string, filters?: DashboardFilters) {
+  let query = supabase
     .from("properties")
     .select("id, name, property_type, city, latitude, longitude, disaster_risk_level, construction_cost, renovation_cost, construction_year, total_units, occupied_units")
     .eq("merchant_id", merchantId);
+
+  if (filters?.yearMin) {
+    query = query.gte("construction_year", filters.yearMin);
+  }
+  if (filters?.yearMax) {
+    query = query.lte("construction_year", filters.yearMax);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return data || [];
 }
@@ -26,11 +35,20 @@ export async function fetchUnits(merchantId: string) {
   return (data || []) as { id: string; property_id: string; rent_amount: number | null; status: string }[];
 }
 
-export async function fetchContracts(merchantId: string) {
-  const { data, error } = await supabase
+export async function fetchContracts(merchantId: string, filters?: DashboardFilters) {
+  let query = supabase
     .from("contracts")
     .select("id, unit_id, status, start_date, end_date, rent_amount, created_at")
     .eq("merchant_id", merchantId);
+
+  if (filters?.yearMin) {
+    query = query.gte("created_at", `${filters.yearMin}-01-01`);
+  }
+  if (filters?.yearMax) {
+    query = query.lte("created_at", `${filters.yearMax}-12-31`);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return data || [];
 }

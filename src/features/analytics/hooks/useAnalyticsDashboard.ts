@@ -5,12 +5,17 @@ import {
   fetchContracts,
   fetchTenantRiskScores,
   fetchDisasterRiskProfiles,
+  DashboardFilters,
 } from "../services/analyticsDashboardService";
 
-export function useAnalyticsProperties(merchantId: string | undefined) {
+export function useAnalyticsProperties(merchantId: string | undefined, yearRange?: number[]) {
+  const filters: DashboardFilters | undefined = yearRange
+    ? { yearMin: yearRange[0], yearMax: yearRange[1] }
+    : undefined;
+
   return useQuery({
-    queryKey: ["analytics-properties", merchantId],
-    queryFn: () => fetchProperties(merchantId!),
+    queryKey: ["analytics-properties", merchantId, yearRange],
+    queryFn: () => fetchProperties(merchantId!, filters),
     enabled: !!merchantId,
   });
 }
@@ -23,10 +28,14 @@ export function useAnalyticsUnits(merchantId: string | undefined) {
   });
 }
 
-export function useAnalyticsContracts(merchantId: string | undefined) {
+export function useAnalyticsContracts(merchantId: string | undefined, yearRange?: number[]) {
+  const filters: DashboardFilters | undefined = yearRange
+    ? { yearMin: yearRange[0], yearMax: yearRange[1] }
+    : undefined;
+
   return useQuery({
-    queryKey: ["analytics-contracts", merchantId],
-    queryFn: () => fetchContracts(merchantId!),
+    queryKey: ["analytics-contracts", merchantId, yearRange],
+    queryFn: () => fetchContracts(merchantId!, filters),
     enabled: !!merchantId,
   });
 }
