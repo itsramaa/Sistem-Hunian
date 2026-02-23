@@ -7,10 +7,11 @@ import { ContentSkeleton } from "@/shared/components/ui/PageSkeleton";
 
 const MerchantInvoices = lazy(() => import("@/pages/merchant/Invoices"));
 const MerchantPayments = lazy(() => import("@/pages/merchant/Payments"));
+const MerchantContracts = lazy(() => import("@/pages/merchant/Contracts"));
 
-const TAB_MAP: Record<string, string> = { invoices: "invoices", payments: "payments" };
+const TAB_MAP: Record<string, string> = { invoices: "invoices", payments: "payments", contracts: "contracts" };
 
-export default function TransactionsHub() {
+export default function FinanceHub() {
   const location = useLocation();
   const hash = location.hash.replace("#", "");
   const [activeTab, setActiveTab] = useState(TAB_MAP[hash] || "invoices");
@@ -21,12 +22,13 @@ export default function TransactionsHub() {
 
   return (
     <div className="space-y-6">
-      <PageHeader icon={Wallet} title="Transaksi & Tagihan" description="Kelola tagihan dan pembayaran masuk" />
+      <PageHeader icon={Wallet} title="Keuangan" description="Kelola tagihan, pembayaran, dan kontrak sewa" />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="pill-tab-list">
           <TabsTrigger value="invoices" className="pill-tab-trigger">Tagihan</TabsTrigger>
           <TabsTrigger value="payments" className="pill-tab-trigger">Pembayaran</TabsTrigger>
+          <TabsTrigger value="contracts" className="pill-tab-trigger">Kontrak</TabsTrigger>
         </TabsList>
 
         <TabsContent value="invoices" className="mt-6">
@@ -38,6 +40,12 @@ export default function TransactionsHub() {
         <TabsContent value="payments" className="mt-6">
           <Suspense fallback={<ContentSkeleton />}>
             <MerchantPayments />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="contracts" className="mt-6">
+          <Suspense fallback={<ContentSkeleton />}>
+            <MerchantContracts />
           </Suspense>
         </TabsContent>
       </Tabs>

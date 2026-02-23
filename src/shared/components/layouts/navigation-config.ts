@@ -127,8 +127,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
       {
         label: "Keuangan",
         items: [
-          { path: "/merchant/transactions", icon: Wallet, label: "Transaksi & Tagihan", activePatterns: ["/merchant/invoices", "/merchant/payments"] },
-          { path: "/merchant/contracts", icon: ClipboardList, label: "Kontrak Sewa" },
+          { path: "/merchant/finance", icon: Wallet, label: "Keuangan", activePatterns: ["/merchant/invoices", "/merchant/payments", "/merchant/contracts", "/merchant/transactions"] },
         ],
       },
       {
