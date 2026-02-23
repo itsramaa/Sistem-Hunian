@@ -3,6 +3,29 @@ import { format } from 'date-fns';
 export interface ExportMetadata {
   exportedBy?: string;
   filters?: Record<string, string>;
+  anonymize?: boolean;
+}
+
+// PII field keys to anonymize
+const PII_FIELDS = ['name', 'full_name', 'email', 'phone', 'ktp_number', 'ktp', 'nik', 'contact', 'tenant_name', 'emergency_contact_name', 'emergency_contact_phone', 'account_name', 'account_number'];
+
+function anonymizeValue(key: string, value: unknown): unknown {
+  if (value === null || value === undefined) return value;
+  const lowerKey = key.toLowerCase();
+  if (!PII_FIELDS.some(f => lowerKey.includes(f))) return value;
+  const str = String(value);
+  if (lowerKey.includes('email')) {
+    const [local, domain] = str.split('@');
+    if (!domain) return '***@***.***';
+    return local[0] + '***@' + domain;
+  }
+  if (lowerKey.includes('phone') || lowerKey.includes('ktp') || lowerKey.includes('nik') || lowerKey.includes('account_number')) {
+    if (str.length <= 4) return '****';
+    return str.slice(0, 2) + '*'.repeat(str.length - 4) + str.slice(-2);
+  }
+  // Name fields
+  if (str.length <= 2) return '**';
+  return str[0] + '*'.repeat(str.length - 2) + str[str.length - 1];
 }
 
 function buildMetadataRows(metadata?: ExportMetadata, separator = ','): string[] {
@@ -43,7 +66,8 @@ export function exportToCSV<T extends Record<string, unknown>>(
     headers.join(','),
     ...data.map(row => 
       keys.map(key => {
-        const value = row[key];
+        let value = row[key];
+        if (metadata?.anonymize) value = anonymizeValue(String(key), value) as T[keyof T];
         if (value === null || value === undefined) return '';
         if (typeof value === 'string' && value.includes(',')) {
           return `"${value}"`;
@@ -200,7 +224,8 @@ export function exportToExcel<T extends Record<string, unknown>>(
     headers.join('\t'),
     ...data.map(row =>
       keys.map(key => {
-        const value = row[key];
+        let value = row[key];
+        if (metadata?.anonymize) value = anonymizeValue(String(key), value) as T[keyof T];
         if (value === null || value === undefined) return '';
         const str = String(value);
         if (str.includes('\t') || str.includes('\n') || str.includes('"')) {

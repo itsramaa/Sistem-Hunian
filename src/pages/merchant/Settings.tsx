@@ -16,15 +16,13 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { z } from "zod";
+import { strongPasswordSchema, loginPasswordSchema } from "@/shared/utils/validations/auth";
 
 const VALID_THEMES = ["light", "dark", "system"] as const;
 
 const passwordSchema = z.object({
-  currentPassword: z.string().min(6, "Password must be at least 6 characters"),
-  newPassword: z.string().min(8, "New password must be at least 8 characters")
-    .regex(/[A-Z]/, "Must contain at least one uppercase letter")
-    .regex(/[a-z]/, "Must contain at least one lowercase letter")
-    .regex(/[0-9]/, "Must contain at least one number"),
+  currentPassword: loginPasswordSchema,
+  newPassword: strongPasswordSchema,
   confirmPassword: z.string(),
 }).refine((data) => data.newPassword === data.confirmPassword, {
   message: "Passwords don't match",

@@ -253,11 +253,11 @@ export function AuthForm() {
       const newAttempts = failedAttempts + 1;
       setFailedAttempts(newAttempts);
       
-      // Lock out after 3 failed attempts for 30 seconds
-      if (newAttempts >= 3) {
-        const lockoutTime = Date.now() + 30000;
+      // Lock out after 5 failed attempts for 15 minutes (SR-104)
+      if (newAttempts >= 5) {
+        const lockoutTime = Date.now() + 900000; // 15 minutes
         setLockoutUntil(lockoutTime);
-        setLockoutRemaining(30);
+        setLockoutRemaining(900);
       }
 
       const errorMessage = getAuthErrorMessage(error);

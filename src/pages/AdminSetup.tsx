@@ -11,12 +11,13 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link } from 'react-router-dom';
 import { z } from 'zod';
+import { strongPasswordSchema } from '@/shared/utils/validations/auth';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 const adminSchema = z.object({
   email: z.string().email('Please enter a valid email'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: strongPasswordSchema,
   fullName: z.string().min(2, 'Name must be at least 2 characters'),
   secretKey: z.string().min(1, 'Secret key is required'),
 });
