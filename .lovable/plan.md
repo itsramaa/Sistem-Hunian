@@ -1,242 +1,134 @@
 
-# Full Structural & UX Redesign: Contracts, Invoices & Payments
 
-Redesign lengkap arsitektur informasi, interaction flow, dan layout untuk modul Contracts, Invoices, dan Payments -- baik halaman list maupun detail.
+# Full Structural & UX Redesign: Merchant Dashboard Page
 
----
-
-## Design System (Berlaku untuk Semua)
-
-- **Cards**: `bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40`
-- **Tabs**: `pill-tab-list` + `pill-tab-trigger` pattern (rounded-full, gradient active)
-- **Buttons**: Primary = `gradient-cta rounded-xl`, Secondary = `variant="outline" rounded-xl`
-- **Inputs**: `rounded-xl bg-background/60 border-border/50`
-- **Tables**: `glass-table` wrapper, gradient header row
-- **Badges**: `rounded-full` with semantic colors
-- **Dropdown**: `DropdownMenuContent` gets `rounded-xl`
-- **Icons**: `gradient-icon-box` (rounded-xl bg-gradient-to-br from-primary/20 to-primary/5)
+Complete information architecture overhaul of the Merchant Dashboard -- transforming it from a basic stats page into a structured operational command center.
 
 ---
 
-## PART 1: Contracts Page (`Contracts.tsx`)
+## Current State Analysis
 
-### Current Issues
-- TabsList uses inline styling instead of pill-tab-list/pill-tab-trigger classes
-- "Create Contract" button uses raw gradient classes instead of `gradient-cta`
-- Filter bar already uses `glass-filter-bar` -- good
-- Stats already use StatCard -- good
+The current Dashboard (`src/pages/merchant/Dashboard.tsx`) has:
+- A welcome text + refresh button header (no PageHeader component)
+- Subscription widgets (2/3 + 1/3 grid)
+- 4 KPI cards (Properties, Occupancy, Tenants, Escrow)
+- A 2-column grid: Property Overview (occupancy bars) + Financial Summary
+- No quick actions section
+- No charts (InteractiveDashboardCharts exists but is NOT used)
+- No VacancyDashboard integration (exists but NOT used)
+- No recent activity or alerts section
 
-### Changes
-1. **TabsList**: Replace inline classes with `pill-tab-list` class
-2. **TabsTrigger**: Replace inline classes with `pill-tab-trigger` class
-3. **Create Contract button**: Simplify to `gradient-cta rounded-xl shadow-md`
-4. **Add "Expiring Soon" tab**: New tab filtering contracts ending within 30 days (lifecycle view)
-5. **Contracts page description**: More context-aware -- show total active revenue in description
-
-### Components Touched
-- `Contracts.tsx` -- tabs, button, expiring tab
+Two powerful components exist but are completely unused:
+- `InteractiveDashboardCharts` -- Revenue, Occupancy, Payment Status charts
+- `VacancyDashboard` -- Vacant units management with alerts
 
 ---
 
-## PART 2: Contract Detail Page (`ContractDetail.tsx`)
-
-### Current Issues
-- Flat 2-column layout with no KPI strip at top
-- No financial summary (total contract value, payments made)
-- Sidebar only has document upload + download -- minimal
-- No contract timeline/progress indicator
-- Back button uses `variant="ghost"` inconsistently
-
-### Redesign Structure
+## Redesigned Information Architecture
 
 ```text
-[Back Button (glass pill)]
-[PageHeader + Status Badge]
-[KPI Strip: 4 cards -- Contract Value, Monthly Rent, Duration, Days Remaining]
-[2-col grid]
-  [Main: Property+Tenant | Contract Details Grid | Signatures | Terms]
-  [Sidebar: Contract Progress | Actions | Documents]
+Section 1: PageHeader + Welcome + Refresh CTA
+Section 2: Alert Strip (Trial Countdown -- conditional)
+Section 3: KPI Strip (4 cards -- Properties, Occupancy, Tenants, Revenue)
+Section 4: 2-col grid
+  [Left 2/3: Quick Actions Panel]
+  [Right 1/3: Subscription Widget]
+Section 5: Interactive Charts (Revenue, Occupancy, Payment Status)
+Section 6: 2-col grid
+  [Left 2/3: Property Overview with occupancy bars]
+  [Right 1/3: Financial Summary]
+Section 7: Vacancy Alerts (VacancyDashboard -- conditional, only if vacancies exist)
 ```
 
-### Changes
-1. **Add KPI Strip** (4 glass stat cards):
-   - Total Contract Value (rent_amount x months)
-   - Monthly Rent
-   - Duration (months)
-   - Days Remaining (or "Expired" badge)
-2. **Contract Progress sidebar card**: Visual progress bar showing elapsed vs remaining time
-3. **Back button**: Glass pill style `px-3 py-1.5 rounded-full bg-card/80 backdrop-blur-sm border border-border/40`
-4. **Signatures section**: Add gradient treatment to signed state (green gradient border)
-5. **Terms section**: Add `prose` styling for better readability
-6. **Actions card**: Add "Edit Terms" button if contract is draft, add "Mark Notice" if active
-
-### Components Touched
-- `ContractDetail.tsx` -- full restructure
+### Why This Order
+1. **PageHeader** -- Establishes context and identity (consistent with all other redesigned pages)
+2. **Alert Strip** -- Trial urgency must be immediately visible, not buried in a grid
+3. **KPI Strip** -- Executive summary at a glance before diving into details
+4. **Quick Actions + Subscription** -- Actionable items paired with account status
+5. **Charts** -- Data visualization for trend analysis (leveraging the unused InteractiveDashboardCharts component)
+6. **Property + Financial detail** -- Drill-down information
+7. **Vacancy Alerts** -- Operational warnings at the bottom (leveraging unused VacancyDashboard)
 
 ---
 
-## PART 3: Invoices Page (`Invoices.tsx`)
+## Changes to Implement
 
-### Current Issues
-- Good structure already (PageHeader + Stats + Filters + Table)
-- Missing tab navigation for status-based views (unlike Contracts which has tabs)
-- InvoiceDetailsDialog is a plain dialog without glass treatment
+### 1. Add PageHeader
+- Use `LayoutDashboard` icon, title "Dashboard", description with welcome message
+- Move Refresh button into PageHeader children slot
+- Remove the current inline header `div`
 
-### Changes
-1. **Add Tabs** for lifecycle-based filtering:
-   - All | Draft | Sent | Paid | Overdue
-   - Using pill-tab-list pattern
-   - Each tab filters `filteredInvoices` by status
-2. **InvoiceDetailsDialog enhancement** (see Part 4 sub-section)
+### 2. Restructure Alert Strip
+- Move `TrialCountdownWidget` out of the grid and into a full-width position below header
+- This gives it proper visual weight as an alert, not just a sidebar card
 
-### Components Touched
-- `Invoices.tsx` -- add tabs
-- `InvoicesTable.tsx` -- add `rounded-xl` to DropdownMenuContent
+### 3. Enhance KPI Strip
+- Keep existing 4 cards but add `gradient-icon-box` class consistency
+- Add hover lift: `hover:-translate-y-1 hover:shadow-lg transition-all duration-300`
+- Make cards clickable -- navigate to respective module pages (Properties, Tenants, Payments)
 
----
+### 4. Add Quick Actions Panel
+- New card with 4-6 quick action buttons in a responsive grid:
+  - Add Property (navigates to /merchant/properties)
+  - Create Invoice (navigates to /merchant/invoices)
+  - Create Contract (navigates to /merchant/contracts)
+  - View Reports (navigates to /merchant/reports)
+- Each action: `gradient-icon-box` icon + label, `hover:bg-primary/5 rounded-xl transition-all cursor-pointer`
+- Place alongside SubscriptionWidget in a 2-col grid (lg:col-span-4 + lg:col-span-3)
 
-## PART 4: Invoice Detail Page (`InvoiceDetail.tsx`)
+### 5. Integrate InteractiveDashboardCharts
+- Import and render `InteractiveDashboardCharts` component (currently unused)
+- Full-width section below Quick Actions
+- Already has proper glassmorphism, pill tabs, and chart styling
 
-### Current Issues
-- Already has good glassmorphic layout with Amount Breakdown + sidebar
-- Missing tenant info section (who is this invoice for?)
-- Missing linked contract reference
-- Missing payment history for this invoice
-- Back button not glass-pill styled
+### 6. Keep Property Overview + Financial Summary
+- Already well-styled with glassmorphism
+- Add `gradient-icon-box` section headers for consistency
+- Property rows already have `cursor-pointer` and `hover:bg-primary/5`
 
-### Changes
-1. **Add Tenant Info card** in main content (above Amount Breakdown):
-   - Fetch tenant profile using `invoice.tenant_user_id`
-   - Show name, email, phone with gradient-icon-box User icon
-2. **Add Contract Reference link** in sidebar Details card:
-   - Show contract unit + property
-   - Clickable to navigate to `/merchant/contracts/:id`
-3. **Back button**: Glass pill style
-4. **Amount Breakdown card**: Add gradient-icon-box to section header
-5. **Actions card**: Add gradient-icon-box to section header
-
-### InvoiceDetailsDialog Enhancement
-- Add `rounded-2xl` to DialogContent
-- Add glass treatment: `bg-card/90 backdrop-blur-sm border border-border/40` to amount section
-- Add `rounded-full` to status badge
-- Add `rounded-xl` to all buttons
-- Add `gradient-cta` to primary action buttons
-
-### Components Touched
-- `InvoiceDetail.tsx` -- tenant info, contract ref, glass pill back
-- `InvoiceDetailsDialog.tsx` -- glass treatment, rounded buttons
+### 7. Integrate VacancyDashboard (conditional)
+- Import and render `VacancyDashboard` component (currently unused)
+- Only show if there are vacant units (the component handles its own empty state)
+- Wrap in a collapsible section with a header: "Vacancy Management"
 
 ---
 
-## PART 5: Payments Page (`Payments.tsx`)
+## Technical Details
 
-### Current Issues
-- Header buttons (Refresh, Send Reminders) lack glass/rounded treatment
-- TabsList uses inline styling instead of pill classes
-- Good structure with History + Overdue tabs
+### Files Modified
 
-### Changes
-1. **Refresh button**: `rounded-xl` + glass treatment
-2. **Send Reminders button**: `gradient-cta rounded-xl` (not `variant="secondary"`)
-3. **TabsList**: Replace with `pill-tab-list` class
-4. **TabsTrigger**: Replace with `pill-tab-trigger` class
-5. **Add "Pending" count badge** to History tab (like overdue has badge)
+| File | Changes |
+|------|---------|
+| `src/pages/merchant/Dashboard.tsx` | PageHeader, layout restructure, integrate Charts + VacancyDashboard, Quick Actions, clickable KPIs |
 
-### Components Touched
-- `Payments.tsx` -- button styling, pill tabs, pending badge
+### Component Mapping
 
----
+- **PageHeader** -- Dashboard title with LayoutDashboard icon
+- **Card** -- KPI cards, Quick Actions, Property Overview, Financial Summary
+- **Button** -- Refresh, Quick Action items
+- **Progress** -- Occupancy bars (existing)
+- **Badge** -- Growth indicators (existing)
+- **Tabs** -- Inside InteractiveDashboardCharts (already implemented)
 
-## PART 6: Payment Detail Page (`PaymentDetail.tsx`)
+### Tailwind Strategy
 
-### Current Issues
-- Good glassmorphic layout already
-- Missing tenant info (who made the payment?)
-- Missing linked invoice reference
-- Back button not glass-pill styled
-- Amount card is centered text -- could be more structured
+- All cards: `bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40`
+- KPI hover: `hover:-translate-y-1 hover:shadow-lg transition-all duration-300 cursor-pointer`
+- Quick action items: `p-4 rounded-xl hover:bg-primary/5 transition-all cursor-pointer`
+- Icon boxes: `gradient-icon-box` pattern (h-10 w-10 rounded-xl bg-gradient-to-br)
+- Section spacing: `space-y-6` between major sections
 
-### Changes
-1. **Add Tenant Info** card (fetch from payment's related invoice/contract)
-2. **Back button**: Glass pill style
-3. **Amount card**: Add gradient-icon-box to left side, keep big number, add "Payment Type" subtitle
-4. **Add Invoice Reference** in sidebar:
-   - Link to `/merchant/invoices/:id` if invoice exists
-5. **Details Grid cards**: Add hover effect `hover:bg-primary/5 transition-all`
+### Responsiveness
 
-### Components Touched
-- `PaymentDetail.tsx` -- tenant info, invoice ref, glass pill back
+- KPI strip: `grid-cols-2 md:grid-cols-4` (stacks on mobile)
+- Quick Actions + Subscription: `lg:grid-cols-7` (stacks on mobile)
+- Charts: Full-width, responsive via Recharts `ResponsiveContainer`
+- Property + Financial: `lg:grid-cols-7` (stacks on mobile)
 
----
+### No Business Logic Changes
 
-## PART 7: Dialog & Form Enhancements
+- Same `useMerchantDashboardStats` hook
+- Same `MerchantDashboardSkeleton` for loading
+- Same data shape from `merchantDashboardService`
+- InteractiveDashboardCharts and VacancyDashboard use their own hooks internally
 
-### MarkPaidDialog.tsx
-- SelectTrigger: Add `rounded-xl bg-background/60 border-border/50`
-- Input: Add `rounded-xl bg-background/60 border-border/50`
-- DialogFooter: Add `flex-col-reverse sm:flex-row` for mobile stacking
-
-### CreateInvoiceDialog.tsx
-- All Input/Select: Already have `rounded-xl` on some -- ensure consistency
-- SelectTrigger: Add `bg-background/60 border-border/50`
-- Total Amount card: Keep existing gradient treatment
-- DialogFooter: Add `flex-col-reverse sm:flex-row`
-
-### InvoiceDetailsDialog.tsx (full restyle)
-- DialogContent: `rounded-2xl bg-popover/95 backdrop-blur-xl`
-- Invoice number + badge: Glass treatment header
-- Amount breakdown: `bg-card/90 backdrop-blur-sm rounded-xl border border-border/40 p-4`
-- Total line: Gradient text treatment
-- Buttons: `rounded-xl`, primary = `gradient-cta`
-
-### CreateContractDialog.tsx
-- Already well-styled with rounded-xl inputs
-- DialogFooter: Add `flex-col-reverse sm:flex-row`
-
----
-
-## PART 8: Table Component Enhancements
-
-### ContractsTable.tsx
-- DropdownMenuContent: Add `rounded-xl`
-
-### InvoicesTable.tsx
-- DropdownMenuContent: Add `rounded-xl`
-
-### PaymentsTable.tsx
-- "Mark Paid" button: Add `rounded-xl`
-- Reminder icon button: Add `rounded-xl`
-
-### OverdueInvoicesTable.tsx
-- "Setup Payment Plan" button: Already `rounded-xl` -- good
-- No changes needed
-
----
-
-## Summary of Files Modified
-
-| No | File | Type | Changes |
-|----|------|------|---------|
-| 1 | `Contracts.tsx` | EDIT | pill-tab classes, gradient-cta button, expiring tab |
-| 2 | `ContractDetail.tsx` | EDIT | KPI strip, contract progress, glass back button, enhanced actions |
-| 3 | `Invoices.tsx` | EDIT | Add status tabs with pill pattern |
-| 4 | `InvoiceDetail.tsx` | EDIT | Tenant info, contract ref, glass back button |
-| 5 | `Payments.tsx` | EDIT | pill-tab classes, button styling, pending badge |
-| 6 | `PaymentDetail.tsx` | EDIT | Glass back button, hover effects |
-| 7 | `InvoiceDetailsDialog.tsx` | EDIT | Full glass restyle |
-| 8 | `MarkPaidDialog.tsx` | EDIT | Input/select styling, mobile footer |
-| 9 | `CreateInvoiceDialog.tsx` | EDIT | Mobile footer |
-| 10 | `CreateContractDialog.tsx` | EDIT | Mobile footer |
-| 11 | `ContractsTable.tsx` | EDIT | DropdownMenuContent rounded-xl |
-| 12 | `InvoicesTable.tsx` | EDIT | DropdownMenuContent rounded-xl |
-| 13 | `PaymentsTable.tsx` | EDIT | Button rounded-xl |
-
-## Implementation Order
-
-1. Contracts page + ContractsTable (tabs + expiring)
-2. Contract Detail page (KPI strip + progress + actions)
-3. Invoices page + InvoicesTable (status tabs)
-4. Invoice Detail page (tenant info + contract ref)
-5. Payments page + PaymentsTable (pill tabs + buttons)
-6. Payment Detail page (glass back + hover)
-7. Dialogs (InvoiceDetailsDialog, MarkPaidDialog, CreateInvoiceDialog, CreateContractDialog)
