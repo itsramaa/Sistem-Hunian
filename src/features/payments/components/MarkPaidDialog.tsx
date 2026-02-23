@@ -60,7 +60,7 @@ export function MarkPaidDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="rounded-2xl">
         <DialogHeader>
           <DialogTitle>Mark Payment as Paid</DialogTitle>
           <DialogDescription>
@@ -94,10 +94,10 @@ export function MarkPaidDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!method || loading}>
+          <Button onClick={handleSubmit} disabled={!method || loading} className="gradient-cta text-primary-foreground rounded-xl">
             {loading ? "Saving..." : "Confirm Payment"}
           </Button>
         </DialogFooter>

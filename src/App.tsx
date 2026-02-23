@@ -52,13 +52,16 @@ const AdminDssHealth = lazy(() => import("@/pages/admin/DssHealth"));
 
 // Merchant Pages
 const MerchantBilling = lazy(() => import("@/pages/merchant/Billing"));
+const MerchantContractDetail = lazy(() => import("@/pages/merchant/ContractDetail"));
 const MerchantContracts = lazy(() => import("@/pages/merchant/Contracts"));
 const MerchantDashboard = lazy(() => import("@/pages/merchant/Dashboard"));
 const MerchantEscrow = lazy(() => import("@/pages/merchant/Escrow"));
+const MerchantInvoiceDetail = lazy(() => import("@/pages/merchant/InvoiceDetail"));
 const MerchantInvoices = lazy(() => import("@/pages/merchant/Invoices"));
 const MerchantMaintenance = lazy(() => import("@/pages/merchant/Maintenance"));
 const MerchantMaintenanceDetail = lazy(() => import("@/pages/merchant/MaintenanceDetail"));
 const MerchantMoveOuts = lazy(() => import("@/pages/merchant/MoveOuts"));
+const MerchantPaymentDetail = lazy(() => import("@/pages/merchant/PaymentDetail"));
 const MerchantPayments = lazy(() => import("@/pages/merchant/Payments"));
 const MerchantProfile = lazy(() => import("@/pages/merchant/Profile"));
 const MerchantProperties = lazy(() => import("@/pages/merchant/Properties"));
@@ -74,10 +77,12 @@ const MerchantMlAnalytics = lazy(() => import("@/pages/merchant/MlAnalytics"));
 const MerchantDssAdvisor = lazy(() => import("@/pages/merchant/DssAdvisor"));
 
 // Tenant Pages
+const TenantContractDetail = lazy(() => import("@/pages/tenant/ContractDetail"));
 const TenantContracts = lazy(() => import("@/pages/tenant/Contracts"));
 const TenantDashboard = lazy(() => import("@/pages/tenant/Dashboard"));
 const TenantForum = lazy(() => import("@/pages/tenant/Forum"));
 const TenantForumPost = lazy(() => import("@/pages/tenant/ForumPost"));
+const TenantInvoiceDetail = lazy(() => import("@/pages/tenant/InvoiceDetail"));
 const TenantInvoices = lazy(() => import("@/pages/tenant/Invoices"));
 const TenantMaintenance = lazy(() => import("@/pages/tenant/Maintenance"));
 const TenantMaintenanceDetail = lazy(() => import("@/pages/tenant/MaintenanceDetail"));
@@ -169,14 +174,17 @@ const App = () => (
                     <Route path="maintenance" element={<MerchantMaintenance />} />
                     <Route path="maintenance/:id" element={<MerchantMaintenanceDetail />} />
                     <Route path="payments" element={<MerchantPayments />} />
+                    <Route path="payments/:paymentId" element={<MerchantPaymentDetail />} />
                     <Route path="reports" element={<MerchantReports />} />
                     <Route path="invoices" element={<MerchantInvoices />} />
+                    <Route path="invoices/:invoiceId" element={<MerchantInvoiceDetail />} />
                     <Route path="settings" element={<MerchantSettings />} />
                     <Route path="units" element={<MerchantUnits />} />
                     <Route path="units/:id" element={<MerchantUnitDetail />} />
                     <Route path="escrow" element={<MerchantEscrow />} />
                     <Route path="referrals" element={<MerchantReferrals />} />
                     <Route path="contracts" element={<MerchantContracts />} />
+                    <Route path="contracts/:contractId" element={<MerchantContractDetail />} />
                     <Route path="billing" element={<MerchantBilling />} />
                     <Route path="move-outs" element={<MerchantMoveOuts />} />
                     <Route path="ocr-tutorial" element={<MerchantOcrTutorial />} />
@@ -193,7 +201,9 @@ const App = () => (
                   <Route path="/tenant/settings" element={<ProtectedRoute allowedRoles={['tenant']}><TenantSettings /></ProtectedRoute>} />
                   <Route path="/tenant/profile" element={<ProtectedRoute allowedRoles={['tenant']}><TenantProfile /></ProtectedRoute>} />
                   <Route path="/tenant/contracts" element={<ProtectedRoute allowedRoles={['tenant']}><TenantContracts /></ProtectedRoute>} />
+                  <Route path="/tenant/contracts/:contractId" element={<ProtectedRoute allowedRoles={['tenant']}><TenantContractDetail /></ProtectedRoute>} />
                   <Route path="/tenant/invoices" element={<ProtectedRoute allowedRoles={['tenant']}><TenantInvoices /></ProtectedRoute>} />
+                  <Route path="/tenant/invoices/:invoiceId" element={<ProtectedRoute allowedRoles={['tenant']}><TenantInvoiceDetail /></ProtectedRoute>} />
                   <Route path="/tenant/marketplace" element={<ProtectedRoute allowedRoles={['tenant']}><TenantMarketplace /></ProtectedRoute>} />
                   <Route path="/tenant/marketplace/:vendorId" element={<ProtectedRoute allowedRoles={['tenant']}><TenantVendorDetail /></ProtectedRoute>} />
                   <Route path="/tenant/orders" element={<ProtectedRoute allowedRoles={['tenant']}><TenantOrders /></ProtectedRoute>} />
