@@ -154,6 +154,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/merchant/financial-risk", icon: Calculator, label: "Financial & Risk" },
           { path: "/merchant/tenant-quality", icon: UserCheck, label: "Kualitas Tenant" },
           { path: "/merchant/report-templates", icon: FileText, label: "Template Laporan" },
+          { path: "/merchant/comparative-portfolio", icon: Briefcase, label: "Komparatif & Portfolio" },
         ],
       },
       {
