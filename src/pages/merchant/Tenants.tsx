@@ -18,14 +18,8 @@ import { InvitationFormData } from '@/features/users/types/schema';
 import { AddTenantFormData } from '@/features/users/types/addTenantSchema';
 
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/shared/components/ui/alert-dialog';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
@@ -49,10 +43,9 @@ export default function MerchantTenants() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [tenantToDelete, setTenantToDelete] = useState<ActiveTenant | null>(null);
   const [activeTab, setActiveTab] = useState('active');
-  
   const [invitationPage, setInvitationPage] = useState(1);
   const [activeTenantPage, setActiveTenantPage] = useState(1);
-
+  
   const { toast } = useToast();
   const { merchant } = useAuth();
 
@@ -150,14 +143,12 @@ export default function MerchantTenants() {
 
   if (hasError) {
     return (
-      <Card>
+      <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
         <CardContent className="flex flex-col items-center justify-center py-12">
           <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
           <h3 className="text-lg font-medium mb-2">Gagal memuat data</h3>
           <p className="text-sm text-muted-foreground text-center mb-4">Terjadi kesalahan saat memuat data tenant.</p>
-          <Button onClick={() => { refetchInvitations(); refetchTenants(); }}>
-            <RefreshCw className="h-4 w-4 mr-2" />Coba Lagi
-          </Button>
+          <Button onClick={() => { refetchInvitations(); refetchTenants(); }} className="rounded-xl"><RefreshCw className="h-4 w-4 mr-2" />Coba Lagi</Button>
         </CardContent>
       </Card>
     );
@@ -168,10 +159,10 @@ export default function MerchantTenants() {
       <div className="flex items-center justify-between mb-4">
         <div />
         <div className="flex items-center gap-2">
-          <Button onClick={() => setShowInviteDialog(true)} disabled={properties.length === 0}>
+          <Button onClick={() => setShowInviteDialog(true)} disabled={properties.length === 0} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 shadow-md">
             <Send className="h-4 w-4 mr-2" />Kirim Undangan
           </Button>
-          <Button variant="outline" onClick={() => setShowAddDialog(true)} title="Untuk tenant yang sudah terdaftar di sistem">
+          <Button variant="outline" onClick={() => setShowAddDialog(true)} title="Untuk tenant yang sudah terdaftar di sistem" className="rounded-xl">
             <Plus className="h-4 w-4 mr-2" />Tambah Langsung
           </Button>
         </div>
@@ -186,17 +177,17 @@ export default function MerchantTenants() {
         />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
-            <TabsTrigger value="active">
+          <TabsList className="grid w-full max-w-md grid-cols-2 bg-muted/50 backdrop-blur-sm rounded-full p-1 border border-border/40">
+            <TabsTrigger value="active" className="rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">
               Tenant Aktif
               {activeTenants.length > 0 && (
-                <Badge variant="secondary" className="ml-2">{activeTenants.length}</Badge>
+                <Badge variant="secondary" className="ml-2 rounded-full">{activeTenants.length}</Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="invitations" className="relative">
+            <TabsTrigger value="invitations" className="relative rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">
               Undangan
               {pendingCount > 0 && (
-                <Badge variant="secondary" className="ml-2 animate-pulse bg-warning/20 text-warning border-warning/30">
+                <Badge variant="secondary" className="ml-2 animate-pulse bg-warning/20 text-warning border-warning/30 rounded-full">
                   {pendingCount}
                 </Badge>
               )}
@@ -214,7 +205,7 @@ export default function MerchantTenants() {
 
           <TabsContent value="invitations" className="mt-4">
             {!loading && filteredInvitations.length === 0 && invitations.length === 0 ? (
-              <Card>
+              <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <div className="w-16 h-16 rounded-full bg-warning/10 flex items-center justify-center mb-4">
                     <Send className="h-8 w-8 text-warning/60" />
@@ -223,7 +214,7 @@ export default function MerchantTenants() {
                   <p className="text-sm text-muted-foreground text-center mb-4 max-w-sm">
                     Kirim undangan ke tenant Anda agar mereka bisa bergabung ke platform.
                   </p>
-                  <Button onClick={() => setShowInviteDialog(true)} disabled={properties.length === 0}>
+                  <Button onClick={() => setShowInviteDialog(true)} disabled={properties.length === 0} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 shadow-md">
                     <Send className="h-4 w-4 mr-2" />Kirim Undangan
                   </Button>
                 </CardContent>
@@ -245,7 +236,7 @@ export default function MerchantTenants() {
 
           <TabsContent value="active" className="mt-4">
             {!loading && filteredActiveTenants.length === 0 && activeTenants.length === 0 ? (
-              <Card>
+              <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-4">
                     <Users className="h-8 w-8 text-success/60" />
@@ -255,10 +246,10 @@ export default function MerchantTenants() {
                     Tambahkan tenant langsung atau kirim undangan untuk memulai.
                   </p>
                   <div className="flex gap-2">
-                    <Button onClick={() => setShowInviteDialog(true)} disabled={properties.length === 0}>
+                    <Button onClick={() => setShowInviteDialog(true)} disabled={properties.length === 0} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 shadow-md">
                       <Send className="h-4 w-4 mr-2" />Kirim Undangan
                     </Button>
-                    <Button variant="outline" onClick={() => setShowAddDialog(true)}>
+                    <Button variant="outline" onClick={() => setShowAddDialog(true)} className="rounded-xl">
                       <Plus className="h-4 w-4 mr-2" />Tambah Langsung
                     </Button>
                   </div>
@@ -305,7 +296,7 @@ export default function MerchantTenants() {
       />
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>{tenantToDelete?.status === 'linked' ? 'Lepas Tenant' : 'Hapus Tenant'}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -332,12 +323,8 @@ export default function MerchantTenants() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={confirmDeleteTenant}
-              disabled={terminateContract.isPending || unlinkTenant.isPending}
-            >
+            <AlertDialogCancel className="rounded-xl">Batal</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl" onClick={confirmDeleteTenant} disabled={terminateContract.isPending || unlinkTenant.isPending}>
               {(terminateContract.isPending || unlinkTenant.isPending) ? 'Memproses...' : tenantToDelete?.status === 'linked' ? 'Lepas Tenant' : 'Hapus Tenant'}
             </AlertDialogAction>
           </AlertDialogFooter>

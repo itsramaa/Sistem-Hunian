@@ -65,7 +65,7 @@ export function InviteTenantDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] w-[95vw]">
+      <DialogContent className="sm:max-w-[425px] w-[95vw] rounded-2xl">
         <DialogHeader>
           <DialogTitle>Undang Tenant</DialogTitle>
           <DialogDescription>
@@ -87,7 +87,7 @@ export function InviteTenantDialog({
                     disabled={properties.length === 0}
                   >
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="rounded-xl bg-background/60 border-border/50">
                         <SelectValue placeholder="Pilih properti" />
                       </SelectTrigger>
                     </FormControl>
@@ -111,7 +111,7 @@ export function InviteTenantDialog({
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input placeholder="tenant@example.com" {...field} />
+                    <Input placeholder="tenant@example.com" {...field} className="rounded-xl bg-background/60 border-border/50" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -125,7 +125,7 @@ export function InviteTenantDialog({
                 <FormItem>
                   <FormLabel>Telepon (Opsional)</FormLabel>
                   <FormControl>
-                    <Input placeholder="08123456789" {...field} />
+                    <Input placeholder="08123456789" {...field} className="rounded-xl bg-background/60 border-border/50" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -133,10 +133,10 @@ export function InviteTenantDialog({
             />
             
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">
                 Batal
               </Button>
-              <Button type="submit" disabled={isLoading}>
+              <Button type="submit" disabled={isLoading} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-md">
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

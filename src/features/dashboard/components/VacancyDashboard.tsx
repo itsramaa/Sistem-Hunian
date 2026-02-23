@@ -7,10 +7,7 @@ import { Progress } from "@/shared/components/ui/progress";
 import { supabase } from "@/lib/integrations/supabase/client";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { differenceInDays, format } from "date-fns";
-import { 
-  Home, AlertTriangle, TrendingDown, DollarSign, 
-  RefreshCw, Eye, ListPlus, BarChart
-} from "lucide-react";
+import { Home, AlertTriangle, TrendingDown, DollarSign, RefreshCw, Eye, ListPlus, BarChart } from "lucide-react";
 import { toast } from "sonner";
 import { RelistUnitDialog } from "@/features/properties/components/RelistUnitDialog";
 
@@ -80,77 +77,42 @@ export function VacancyDashboard() {
   const listingRate = totalVacant > 0 ? (listedCount / totalVacant) * 100 : 0;
 
   if (isLoading) {
-    return <div className="animate-pulse h-48 bg-muted rounded-lg" />;
+    return <div className="animate-pulse h-48 bg-muted rounded-2xl" />;
   }
 
   return (
     <div className="space-y-6">
       {/* Stats Overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-lg bg-primary/10">
-                <Home className="h-6 w-6 text-primary" />
+        {[
+          { icon: Home, color: 'text-primary', bg: 'from-primary/20 to-primary/5', label: 'Vacant Units', value: String(totalVacant) },
+          { icon: AlertTriangle, color: 'text-warning', bg: 'from-warning/20 to-warning/5', label: '30+ Days Vacant', value: String(longVacancies) },
+          { icon: TrendingDown, color: 'text-destructive', bg: 'from-destructive/20 to-destructive/5', label: 'Lost Revenue', value: `Rp ${(totalLostRevenue / 1000000).toFixed(1)}M` },
+          { icon: ListPlus, color: 'text-success', bg: 'from-success/20 to-success/5', label: 'Listed', value: `${listedCount}/${totalVacant}` },
+        ].map((item, i) => (
+          <Card key={i} className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className={`p-3 rounded-xl bg-gradient-to-br ${item.bg}`}>
+                  <item.icon className={`h-6 w-6 ${item.color}`} />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{item.label}</p>
+                  <p className="text-2xl font-bold">{item.value}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Vacant Units</p>
-                <p className="text-2xl font-bold">{totalVacant}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-lg bg-warning/10">
-                <AlertTriangle className="h-6 w-6 text-warning" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">30+ Days Vacant</p>
-                <p className="text-2xl font-bold">{longVacancies}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-lg bg-destructive/10">
-                <TrendingDown className="h-6 w-6 text-destructive" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Lost Revenue</p>
-                <p className="text-2xl font-bold">Rp {(totalLostRevenue / 1000000).toFixed(1)}M</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-lg bg-success/10">
-                <ListPlus className="h-6 w-6 text-success" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Listed</p>
-                <p className="text-2xl font-bold">{listedCount}/{totalVacant}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Listing Progress */}
-      <Card>
+      <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
         <CardHeader>
           <CardTitle className="text-base">Listing Coverage</CardTitle>
         </CardHeader>
         <CardContent>
-          <Progress value={listingRate} className="h-3" />
+          <Progress value={listingRate} className="h-3 rounded-full" />
           <p className="text-sm text-muted-foreground mt-2">
             {listedCount} of {totalVacant} vacant units are actively listed ({listingRate.toFixed(0)}%)
           </p>
@@ -158,7 +120,7 @@ export function VacancyDashboard() {
       </Card>
 
       {/* Vacant Units List */}
-      <Card>
+      <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
         <CardHeader>
           <CardTitle className="text-base">Vacant Units</CardTitle>
           <CardDescription>Manage your vacant properties</CardDescription>
@@ -184,14 +146,14 @@ export function VacancyDashboard() {
                 return (
                   <div 
                     key={unit.id} 
-                    className={`p-4 rounded-lg border ${
-                      isCriticalVacancy ? "border-destructive bg-destructive/5" :
-                      isLongVacancy ? "border-warning bg-warning/5" : ""
+                    className={`p-4 rounded-xl border border-border/40 transition-all duration-200 hover:border-primary/20 ${
+                      isCriticalVacancy ? "border-destructive/50 bg-destructive/5" :
+                      isLongVacancy ? "border-warning/50 bg-warning/5" : "bg-card/80 backdrop-blur-sm"
                     }`}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-muted">
+                        <div className="p-2 rounded-xl bg-muted/50">
                           <Home className="h-5 w-5 text-muted-foreground" />
                         </div>
                         <div>
@@ -205,17 +167,17 @@ export function VacancyDashboard() {
                       </div>
                       <div className="flex items-center gap-2">
                         {unit.is_listed ? (
-                          <Badge variant="outline" className="gap-1">
+                          <Badge variant="outline" className="gap-1 rounded-full">
                             <Eye className="h-3 w-3" /> Listed
                           </Badge>
                         ) : (
-                          <Badge variant="secondary">Not Listed</Badge>
+                          <Badge variant="secondary" className="rounded-full">Not Listed</Badge>
                         )}
                         {isCriticalVacancy && (
-                          <Badge variant="destructive">Critical</Badge>
+                          <Badge variant="destructive" className="rounded-full">Critical</Badge>
                         )}
                         {isLongVacancy && !isCriticalVacancy && (
-                          <Badge variant="outline" className="border-warning text-warning">
+                          <Badge variant="outline" className="border-warning text-warning rounded-full">
                             Long Vacancy
                           </Badge>
                         )}
@@ -223,37 +185,24 @@ export function VacancyDashboard() {
                     </div>
 
                     <div className="grid grid-cols-4 gap-4 mb-4">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Days Vacant</p>
-                        <p className={`font-semibold ${isLongVacancy ? "text-warning" : ""}`}>
-                          {daysVacant} days
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Monthly Rent</p>
-                        <p className="font-semibold">
-                          Rp {(unit.rent_amount || 0).toLocaleString("id-ID")}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Lost Revenue</p>
-                        <p className="font-semibold text-destructive">
-                          Rp {lostRevenue.toLocaleString("id-ID", { maximumFractionDigits: 0 })}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Vacant Since</p>
-                        <p className="font-semibold">
-                          {unit.vacant_since 
-                            ? format(new Date(unit.vacant_since), "MMM dd") 
-                            : "Unknown"}
-                        </p>
-                      </div>
+                      {[
+                        { label: 'Days Vacant', value: `${daysVacant} days`, cls: isLongVacancy ? "text-warning" : "" },
+                        { label: 'Monthly Rent', value: `Rp ${(unit.rent_amount || 0).toLocaleString("id-ID")}`, cls: "" },
+                        { label: 'Lost Revenue', value: `Rp ${lostRevenue.toLocaleString("id-ID", { maximumFractionDigits: 0 })}`, cls: "text-destructive" },
+                        { label: 'Vacant Since', value: unit.vacant_since 
+                          ? format(new Date(unit.vacant_since), "MMM dd") 
+                          : "Unknown", cls: "" },
+                      ].map((item, i) => (
+                        <div key={i}>
+                          <p className="text-xs text-muted-foreground">{item.label}</p>
+                          <p className={`font-semibold ${item.cls}`}>{item.value}</p>
+                        </div>
+                      ))}
                     </div>
 
                     {/* Suggestions for long vacancies */}
                     {isLongVacancy && (
-                      <div className="p-3 rounded bg-muted/50 mb-4">
+                      <div className="p-3 rounded-xl bg-muted/30 border border-border/30 mb-4">
                         <p className="text-sm font-medium mb-1">💡 Suggestions:</p>
                         <ul className="text-xs text-muted-foreground space-y-1">
                           {daysVacant >= 60 && <li>• Consider a significant rent reduction</li>}
@@ -268,6 +217,7 @@ export function VacancyDashboard() {
                       {!unit.is_listed ? (
                         <Button 
                           size="sm"
+                          className="rounded-xl bg-gradient-to-r from-primary to-primary/80 shadow-md"
                           onClick={() => {
                             setSelectedUnit(unit);
                             setRelistDialogOpen(true);
@@ -281,6 +231,7 @@ export function VacancyDashboard() {
                           <Button 
                             variant="outline" 
                             size="sm"
+                            className="rounded-xl"
                             onClick={() => {
                               setSelectedUnit(unit);
                               setRelistDialogOpen(true);
@@ -290,7 +241,7 @@ export function VacancyDashboard() {
                             Update Listing
                           </Button>
                           {listing && (
-                            <Badge variant="secondary" className="gap-1">
+                            <Badge variant="secondary" className="gap-1 rounded-full">
                               <Eye className="h-3 w-3" />
                               {listing.views || 0} views
                             </Badge>
