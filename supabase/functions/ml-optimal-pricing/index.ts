@@ -48,7 +48,7 @@ serve(async (req) => {
     // Get property details
     const { data: property } = await serviceClient
       .from("properties")
-      .select("id, name, address, city_id, type, total_units, occupied_units")
+      .select("id, name, address, city_id, type, total_units, occupied_units, building_condition")
       .eq("id", property_id)
       .single();
 

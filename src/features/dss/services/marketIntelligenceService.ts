@@ -71,11 +71,21 @@ export interface OccupancyWarning {
   recommended_action: string;
 }
 
+export interface OccupancyAnomaly {
+  period: string;
+  anomaly_type: "spike" | "drop" | "off_season" | "trend_break";
+  severity: "low" | "medium" | "high";
+  description: string;
+  expected_value?: number;
+  actual_value?: number;
+}
+
 export interface OccupancyForecastResult {
   monthly_predictions: OccupancyPrediction[];
   seasonal_patterns: SeasonalPattern[];
   turnover_metrics: TurnoverMetrics;
   warnings: OccupancyWarning[];
+  anomalies: OccupancyAnomaly[];
   summary: string;
 }
 

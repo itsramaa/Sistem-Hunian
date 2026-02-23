@@ -5,9 +5,9 @@ import { Badge } from "@/shared/components/ui/badge";
 import { PageHeader } from "@/shared/components/ui/PageHeader";
 import { Progress } from "@/shared/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
-import { Loader2, TrendingUp, AlertTriangle, Users, DollarSign, RefreshCw, BarChart3, Sparkles, Brain, Target } from "lucide-react";
+import { Loader2, TrendingUp, AlertTriangle, Users, DollarSign, RefreshCw, BarChart3, Sparkles, Brain, Target, Clock, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
-import { useRevenueForecast, useTenantRiskScores, useRefreshRiskScore, useChurnPrediction, useOptimalPricing } from "@/features/dss/hooks/useMlAnalytics";
+import { useRevenueForecast, useTenantRiskScores, useRefreshRiskScore, useChurnPrediction, useOptimalPricing, useModelRunHistory } from "@/features/dss/hooks/useMlAnalytics";
 import { TierGate } from "@/features/dss/components/TierGate";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -32,6 +32,7 @@ export default function MlAnalytics() {
   const refreshRisk = useRefreshRiskScore();
   const churnPrediction = useChurnPrediction();
   const optimalPricing = useOptimalPricing();
+  const { data: modelRuns } = useModelRunHistory(merchantId);
 
   const [forecastResult, setForecastResult] = useState<any>(null);
   const [churnResult, setChurnResult] = useState<any>(null);
@@ -85,6 +86,24 @@ export default function MlAnalytics() {
     {} as Record<string, number>
   );
 
+  const getModelStatus = (functionName: string) => {
+    const run = (modelRuns || []).find(r => r.function_name === functionName);
+    if (!run) return { label: "Belum Dijalankan", variant: "secondary" as const, color: "text-muted-foreground" };
+    const hoursAgo = (Date.now() - new Date(run.last_run_at).getTime()) / (1000 * 60 * 60);
+    if (hoursAgo < 24) return { label: "Terkini", variant: "default" as const, color: "text-success", run };
+    if (hoursAgo < 24 * 7) return { label: "Perlu Update", variant: "secondary" as const, color: "text-warning", run };
+    return { label: "Kadaluarsa", variant: "destructive" as const, color: "text-destructive", run };
+  };
+
+  const modelConfigs = [
+    { name: "Revenue Forecast", fn: "ml-revenue-forecast", icon: TrendingUp },
+    { name: "Tenant Risk Score", fn: "ml-tenant-risk-score", icon: AlertTriangle },
+    { name: "Churn Prediction", fn: "ml-churn-prediction", icon: Users },
+    { name: "Optimal Pricing", fn: "ml-optimal-pricing", icon: DollarSign },
+    { name: "Price Intelligence", fn: "ml-price-intelligence", icon: BarChart3 },
+    { name: "Occupancy Forecast", fn: "ml-occupancy-forecast", icon: Target },
+  ];
+
   return (
     <div className="space-y-6">
       <PageHeader icon={Brain} title="ML Analytics" description="AI-powered predictive analytics for your properties">
@@ -95,6 +114,48 @@ export default function MlAnalytics() {
           </Badge>
         </div>
       </PageHeader>
+
+      {/* Model Status Section */}
+      <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
+        <CardHeader className="flex flex-row items-center gap-3">
+          <div className="gradient-icon-box">
+            <Clock className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <CardTitle>Status Model</CardTitle>
+            <CardDescription>Kapan terakhir setiap model dijalankan</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {modelConfigs.map((mc) => {
+              const status = getModelStatus(mc.fn);
+              const Icon = mc.icon;
+              return (
+                <div key={mc.fn} className="flex items-center gap-3 rounded-xl border border-border/40 bg-card/80 p-3 hover:border-primary/20 transition-colors">
+                  <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center shrink-0">
+                    <Icon className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{mc.name}</p>
+                    {status.run ? (
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(status.run.last_run_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">—</p>
+                    )}
+                  </div>
+                  <Badge variant={status.variant} className="rounded-full text-xs shrink-0">
+                    {status.label === "Terkini" && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                    {status.label}
+                  </Badge>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       <Tabs defaultValue="forecast" className="space-y-6">
         <TabsList className="pill-tab-list">

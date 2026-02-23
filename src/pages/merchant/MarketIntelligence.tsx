@@ -20,6 +20,7 @@ import {
 import type {
   PriceIntelligenceResult,
   OccupancyForecastResult,
+  OccupancyAnomaly,
 } from "@/features/dss/services/marketIntelligenceService";
 
 export default function MarketIntelligence() {
@@ -395,6 +396,39 @@ export default function MarketIntelligence() {
                         </CardContent>
                       </Card>
                     ))}
+                  </div>
+                )}
+
+                {/* Anomalies */}
+                {(occData.anomalies || []).length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold flex items-center gap-2">
+                      <Activity className="h-4 w-4 text-warning" /> Anomali Terdeteksi
+                    </h3>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {(occData.anomalies as OccupancyAnomaly[]).map((a, i) => (
+                        <Card key={i} className={`rounded-2xl border-l-4 ${
+                          a.severity === "high" ? "border-l-destructive bg-destructive/5"
+                            : a.severity === "medium" ? "border-l-warning bg-warning/5"
+                            : "border-l-muted-foreground bg-muted/30"
+                        }`}>
+                          <CardContent className="py-3">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant={a.severity === "high" ? "destructive" : "secondary"} className="text-xs rounded-full">
+                                {a.anomaly_type === "spike" ? "📈 Lonjakan" : a.anomaly_type === "drop" ? "📉 Penurunan" : a.anomaly_type === "off_season" ? "🔀 Off-Season" : "⚡ Trend Break"}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">{a.period}</span>
+                            </div>
+                            <p className="text-sm">{a.description}</p>
+                            {a.expected_value != null && a.actual_value != null && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Expected: {(a.expected_value * 100).toFixed(0)}% | Actual: {(a.actual_value * 100).toFixed(0)}%
+                              </p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
                   </div>
                 )}
               </>

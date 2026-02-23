@@ -92,6 +92,7 @@ Analyze historical occupancy data, contract patterns, and tenant behavior to:
 2. Identify seasonal patterns (peak/low season)
 3. Calculate turnover metrics
 4. Generate warnings for declining occupancy trends
+5. Detect anomalies - unusual occupancy patterns such as sudden spikes/drops, off-season anomalies, or statistically abnormal occupancy rates
 Be specific with predictions and provide actionable insights.`,
       userContent: [{ type: "text", text: `Forecast occupancy based on this data:\n${context}` }],
       tools: [
@@ -153,9 +154,24 @@ Be specific with predictions and provide actionable insights.`,
                     required: ["type", "severity", "message", "recommended_action"],
                   },
                 },
+                anomalies: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      period: { type: "string", description: "YYYY-MM or date range" },
+                      anomaly_type: { type: "string", enum: ["spike", "drop", "off_season", "trend_break"] },
+                      severity: { type: "string", enum: ["low", "medium", "high"] },
+                      description: { type: "string" },
+                      expected_value: { type: "number", description: "Expected occupancy rate 0-1" },
+                      actual_value: { type: "number", description: "Actual/detected occupancy rate 0-1" },
+                    },
+                    required: ["period", "anomaly_type", "severity", "description"],
+                  },
+                },
                 summary: { type: "string" },
               },
-              required: ["monthly_predictions", "seasonal_patterns", "turnover_metrics", "warnings", "summary"],
+              required: ["monthly_predictions", "seasonal_patterns", "turnover_metrics", "warnings", "anomalies", "summary"],
             },
           },
         },
