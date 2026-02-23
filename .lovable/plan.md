@@ -1,10 +1,27 @@
 
 
-# 2.1.3 Financial Analytics + 2.1.4 Risk Assessment
+# 2.1.5 Tenant Quality Scoring + 3.1.1 Data Entry & Collection
 
 ## Ringkasan
 
-Membuat 2 edge function AI baru dan 1 halaman dashboard baru **"Financial & Risk Analytics"** yang menggabungkan Financial Analytics (BR-301 s/d BR-304) dan Risk Assessment (BR-401 s/d BR-404).
+Implementasi terbagi menjadi 2 bagian:
+
+1. **Tenant Quality Scoring (BR-501 s/d BR-504)**: Edge function AI baru `ml-tenant-quality-scoring` + halaman dashboard baru "Tenant Quality Scoring" yang menyediakan penilaian kualitas tenant, prediksi payment reliability, identifikasi high-risk profiles, dan screening recommendation.
+
+2. **Data Entry & Collection (FR-101 s/d FR-106)**: Sebagian besar sudah terimplementasi. Yang perlu ditambahkan hanya **FR-104 (CSV/Excel import)** -- fitur import data properti dan unit dari file CSV.
+
+---
+
+## Status FR-101 s/d FR-106
+
+| FR | Deskripsi | Status |
+|----|-----------|--------|
+| FR-101 | Web form terstruktur untuk input data kosan | Sudah ada (`PropertyFormDialog`) |
+| FR-102 | Mobile-responsive design | Sudah ada (min-height 44px, text-base) |
+| FR-103 | Real-time validation | Sudah ada (Zod + react-hook-form) |
+| FR-104 | Import dari CSV/Excel | **Belum ada -- perlu dibuat** |
+| FR-105 | Generate unique ID otomatis | Sudah ada (UUID v4 via `gen_random_uuid()`) |
+| FR-106 | Track timestamp dan user | Sudah ada (`created_at`, `updated_at` triggers, audit log) |
 
 ---
 
@@ -12,161 +29,144 @@ Membuat 2 edge function AI baru dan 1 halaman dashboard baru **"Financial & Risk
 
 ```text
 [Frontend]                          [Edge Functions]               [AI Gateway]
-FinancialRiskAnalytics.tsx  --->  ml-financial-analytics  --->  Gemini 2.5 Pro
-                            --->  ml-risk-assessment      --->  Gemini 2.5 Pro
-```
+TenantQualityScoring.tsx  --->  ml-tenant-quality-scoring  --->  Gemini 2.5 Pro
 
-Tidak ada perubahan database. Semua data diambil dari tabel existing (`properties`, `units`, `contracts`, `invoices`, `maintenance_expenses`, `occupancy_snapshots`, `disaster_risk_profiles`, `insurance_policies`, `compliance_documents`, `security_incidents`). Hasil AI di-log ke `ml_model_runs` dan `dss_recommendations`.
+PropertyImportDialog.tsx  --->  (client-side CSV parse + Supabase insert)
+```
 
 ---
 
-## 1. Edge Function: `ml-financial-analytics`
+## 1. Edge Function: `ml-tenant-quality-scoring`
 
-**File baru**: `supabase/functions/ml-financial-analytics/index.ts`
+**File baru**: `supabase/functions/ml-tenant-quality-scoring/index.ts`
 
-Mengcover BR-301 s/d BR-304:
-- Input: `property_id` (wajib), optional `discount_rate` (default 12%)
-- Pattern: sama persis dengan `ml-price-intelligence` dan `dss-investment-insight`
-- Tier limits: `{ free: 0, starter: 0, professional: 3, enterprise: -1 }`
+Mengcover BR-501 s/d BR-504. Berbeda dari `ml-tenant-risk-score` yang sudah ada:
+- `ml-tenant-risk-score`: fokus risk scoring (0-100, higher = riskier) untuk tenant yang sudah aktif
+- `ml-tenant-quality-scoring`: fokus quality assessment menyeluruh + screening recommendation untuk evaluasi calon tenant maupun tenant existing
 
-### Data yang Di-fetch:
-1. `properties` -- detail properti termasuk construction_cost, renovation_cost, monthly_amortization, monthly_maintenance_cost, avg_annual_unexpected_cost
-2. `units` -- semua unit properti (rent_amount, status)
-3. `contracts` -- historis 24 bulan (rent_amount, start_date, end_date)
-4. `invoices` -- 24 bulan (amount, status, paid_at, due_date, late_fee)
-5. `maintenance_expenses` -- 24 bulan (total_amount)
-6. `occupancy_snapshots` -- historis (occupancy_rate)
+### Input:
+- `tenant_user_id` (opsional, untuk tenant existing)
+- `screening_data` (opsional, untuk calon tenant baru -- data manual: nama, pekerjaan, penghasilan, referensi)
+- `batch` (boolean, untuk scoring semua tenant aktif)
+
+### Data yang Di-fetch (untuk tenant existing):
+1. `invoices` -- riwayat pembayaran 24 bulan
+2. `contracts` -- semua kontrak (aktif + historis)
+3. `collections_cases` -- riwayat koleksi
+4. `maintenance_requests` -- pola maintenance
+5. `tenant_payment_metrics` -- metrik payment yang sudah dihitung
+6. `tenant_risk_scores` -- risk score existing (dari `ml-tenant-risk-score`)
+7. `profiles` -- data profil tenant
+
+### Tier limits: `{ free: 0, starter: 3, professional: 15, enterprise: -1 }`
 
 ### AI Tool Output:
 ```text
-Tool: financial_analysis
+Tool: score_tenant_quality
 Output:
 {
-  roi_analysis: {
-    total_investment, annual_revenue, annual_expenses,
-    net_annual_income, roi_percentage, payback_period_years
+  quality_score: number,          // 0-100, higher = better quality
+  quality_grade: "A" | "B" | "C" | "D" | "F",
+  payment_reliability: {
+    score: number,                // 0-100
+    on_time_ratio: number,
+    avg_days_late: number,
+    trend: "improving" | "stable" | "declining",
+    prediction_next_6_months: "reliable" | "moderate_risk" | "high_risk"
   },
-  npv_irr: {
-    npv, irr, discount_rate_used, cash_flows: [{ year, revenue, expenses, net }],
-    recommendation  // "invest" | "hold" | "divest"
+  risk_profile: {
+    level: "low" | "medium" | "high" | "critical",
+    flags: [{ flag, severity, description }],
+    churn_probability: number
   },
-  sensitivity: [
-    { scenario_name, variable_changed, change_percentage,
-      resulting_roi, resulting_npv, impact_level }
-  ],
-  break_even: {
-    monthly_fixed_costs, variable_cost_per_unit,
-    avg_revenue_per_unit, break_even_units,
-    break_even_occupancy_rate, months_to_break_even
+  screening_recommendation: {
+    decision: "approve" | "approve_with_conditions" | "review" | "reject",
+    conditions: string[],
+    reasoning: string,
+    suggested_deposit_multiplier: number
   },
-  summary, confidence
+  behavioral_insights: [{ category, observation, impact }],
+  summary: string
 }
 ```
 
 ---
 
-## 2. Edge Function: `ml-risk-assessment`
+## 2. Frontend: Tenant Quality Scoring Dashboard
 
-**File baru**: `supabase/functions/ml-risk-assessment/index.ts`
-
-Mengcover BR-401 s/d BR-404:
-- Input: `property_id` (wajib)
-- Tier limits: `{ free: 0, starter: 0, professional: 3, enterprise: -1 }`
-
-### Data yang Di-fetch:
-1. `properties` -- detail properti (lokasi, tipe, construction_year, building_condition)
-2. `disaster_risk_profiles` -- profil risiko existing
-3. `insurance_policies` -- polis aktif
-4. `compliance_documents` -- status dokumen
-5. `security_incidents` -- riwayat insiden
-6. `maintenance_requests` -- riwayat maintenance (untuk preventive patterns)
-7. `maintenance_expenses` -- biaya historis
-8. `units` -- jumlah unit, status, rent_amount (untuk loss estimation)
-
-### AI Tool Output:
-```text
-Tool: risk_assessment
-Output:
-{
-  disaster_risk_score: {
-    overall_score, risk_level,  // "low" | "medium" | "high" | "critical"
-    factors: [{ factor, score, description, weight }]
-  },
-  preventive_maintenance: [
-    { strategy, priority, estimated_cost, frequency,
-      risk_reduction_percentage, description }
-  ],
-  potential_loss_estimate: {
-    scenarios: [{ disaster_type, probability, estimated_damage_cost,
-      estimated_revenue_loss_months, total_potential_loss }],
-    annual_expected_loss, worst_case_loss
-  },
-  insurance_recommendations: [
-    { coverage_type, recommended_coverage_amount,
-      estimated_premium, reason, priority, gap_identified }
-  ],
-  summary, confidence
-}
-```
-
----
-
-## 3. Frontend Service & Hooks
-
-### `src/features/dss/services/financialRiskService.ts`
-- `invokeFinancialAnalytics(propertyId, discountRate?)` -- invoke `ml-financial-analytics`
-- `invokeRiskAssessment(propertyId)` -- invoke `ml-risk-assessment`
-- Type interfaces untuk kedua result
-
-### `src/features/dss/hooks/useFinancialRisk.ts`
-- `useFinancialAnalytics()` -- mutation hook
-- `useRiskAssessment()` -- mutation hook
-
----
-
-## 4. Halaman: Financial & Risk Analytics Dashboard
-
-**File baru**: `src/pages/merchant/FinancialRiskAnalytics.tsx`
+**File baru**: `src/pages/merchant/TenantQualityScoring.tsx`
 
 ### Layout:
-- PageHeader dengan icon Calculator dan badge "AI-Powered"
-- Property selector (wajib pilih 1 properti, bukan "Semua")
+- PageHeader dengan icon UserCheck dan badge "AI-Powered"
+- Mode selector: "Tenant Existing" vs "Screening Calon Tenant"
 - TierGate wrapper
 
-### 4 Tab:
+### Mode 1: Tenant Existing
+- Tenant selector (dropdown tenant aktif)
+- Generate button --> memanggil `ml-tenant-quality-scoring` dengan `tenant_user_id`
+- Batch scoring button (scoring semua tenant sekaligus)
+- Hasil ditampilkan:
+  - **Quality Score Card**: skor 0-100, grade (A-F), badge warna
+  - **Payment Reliability Section**: skor, on-time ratio, trend chart, prediksi 6 bulan (BR-502)
+  - **Risk Profile Card**: level, flags list, churn probability gauge (BR-503)
+  - **Screening Recommendation**: decision badge, conditions list, reasoning (BR-504)
+  - **Behavioral Insights**: cards per kategori
 
-**Tab 1: ROI & Payback (BR-301)**
-- Generate button -> memanggil `ml-financial-analytics`
-- KPI cards: Total Investment, Annual Revenue, Annual Expenses, Net Income, ROI %, Payback Period
-- Summary card
+### Mode 2: Screening Calon Tenant
+- Form input data calon tenant: nama, pekerjaan, penghasilan, riwayat sewa sebelumnya (opsional)
+- Generate button --> memanggil `ml-tenant-quality-scoring` dengan `screening_data`
+- Hasil screening recommendation ditampilkan (approve/reject/review)
 
-**Tab 2: NPV & IRR (BR-302)**
-- Cash flow table per tahun (revenue, expenses, net)
-- KPI strip: NPV, IRR, Discount Rate, Recommendation badge
-- Area chart cash flow projection
+### Batch Results View
+- Tabel semua tenant dengan kolom: nama, quality score, grade, payment reliability, risk level, decision
+- Sortable dan filterable
+- Export CSV button
 
-**Tab 3: Sensitivity Analysis (BR-303)**
-- Tabel skenario: nama, variabel, % perubahan, resulting ROI, resulting NPV, impact level
-- Color-coded impact badges (low/medium/high)
+---
 
-**Tab 4: Risk Assessment (BR-401 s/d BR-404)**
-- Generate button -> memanggil `ml-risk-assessment`
-- **Risk Score Card**: overall score gauge, risk level badge, factor breakdown
-- **Preventive Maintenance**: cards per strategi dengan priority, cost, frequency
-- **Potential Loss**: tabel skenario bencana (tipe, probability, estimated damage, revenue loss)
-- **Insurance Recommendations**: cards per coverage type dengan gap identified badge
-- Break-even info card (BR-304) ditampilkan di bawah tab ROI atau sebagai section terpisah
+## 3. CSV Import untuk Properties (FR-104)
+
+**File baru**: `src/features/properties/components/PropertyImportDialog.tsx`
+
+### Fitur:
+- Dialog modal dengan drag-and-drop area untuk file CSV
+- Template CSV yang bisa didownload (contoh format)
+- Client-side parsing menggunakan native `FileReader` + manual CSV parse (tidak perlu library tambahan)
+- Preview tabel data sebelum import
+- Validasi per baris (Zod schema) dengan error highlighting
+- Tombol "Import" untuk menyimpan ke database via Supabase client
+- Progress indicator selama import
+- Laporan hasil: berhasil, gagal, error detail
+
+### Format CSV yang Didukung:
+```text
+name,property_type,address,city,province,postal_code,description
+Kosan ABC,kost,Jl. Sudirman 123,Jakarta Selatan,DKI Jakarta,12345,Kosan nyaman
+```
+
+### Integrasi:
+- Tombol "Import CSV" ditambahkan di halaman `Properties.tsx` di samping tombol "Tambah Properti"
+
+---
+
+## 4. Service & Hooks
+
+### `src/features/dss/services/tenantQualityService.ts`
+- `invokeTenantQualityScoring(params)` -- invoke `ml-tenant-quality-scoring`
+- Type interfaces untuk result
+
+### `src/features/dss/hooks/useTenantQuality.ts`
+- `useTenantQualityScoring()` -- mutation hook
 
 ---
 
 ## 5. Navigasi
 
 Update `navigation-config.ts`:
-- Tambah item di grup "Analitik": `{ path: "/merchant/financial-risk", icon: Calculator, label: "Financial & Risk" }`
+- Tambah item di grup "Analitik": `{ path: "/merchant/tenant-quality", icon: UserCheck, label: "Kualitas Tenant" }`
 
 Update `App.tsx`:
-- Import lazy: `const MerchantFinancialRisk = lazy(() => import("@/pages/merchant/FinancialRiskAnalytics"))`
-- Tambah route: `<Route path="financial-risk" element={<MerchantFinancialRisk />} />`
+- Lazy import + route `tenant-quality`
 
 ---
 
@@ -176,27 +176,28 @@ Update `App.tsx`:
 
 | File | Deskripsi |
 |------|-----------|
-| `supabase/functions/ml-financial-analytics/index.ts` | AI financial analysis edge function |
-| `supabase/functions/ml-risk-assessment/index.ts` | AI risk assessment edge function |
-| `src/features/dss/services/financialRiskService.ts` | Service invoke functions + types |
-| `src/features/dss/hooks/useFinancialRisk.ts` | React Query mutation hooks |
-| `src/pages/merchant/FinancialRiskAnalytics.tsx` | Dashboard page |
+| `supabase/functions/ml-tenant-quality-scoring/index.ts` | AI tenant quality scoring edge function |
+| `src/features/dss/services/tenantQualityService.ts` | Service invoke + types |
+| `src/features/dss/hooks/useTenantQuality.ts` | React Query mutation hook |
+| `src/pages/merchant/TenantQualityScoring.tsx` | Dashboard page |
+| `src/features/properties/components/PropertyImportDialog.tsx` | CSV import dialog |
 
 ### File yang Dimodifikasi
 
 | File | Perubahan |
 |------|-----------|
-| `src/shared/components/layouts/navigation-config.ts` | Tambah menu + import Calculator icon |
+| `src/shared/components/layouts/navigation-config.ts` | Tambah menu + import UserCheck |
 | `src/App.tsx` | Tambah lazy import + route |
+| `src/pages/merchant/Properties.tsx` | Tambah tombol "Import CSV" |
 
 ### Tidak Ada Perubahan Database
 
-Semua data sudah tersedia di tabel existing.
+Semua data sudah tersedia di tabel existing. Import CSV menggunakan Supabase client insert biasa ke tabel `properties`.
 
 ### Urutan Implementasi
-1. Edge function `ml-financial-analytics`
-2. Edge function `ml-risk-assessment`
-3. Service + hooks frontend
-4. Halaman `FinancialRiskAnalytics.tsx`
-5. Update navigasi + routes
+1. Edge function `ml-tenant-quality-scoring`
+2. Service + hooks tenant quality
+3. Halaman `TenantQualityScoring.tsx`
+4. `PropertyImportDialog.tsx` (CSV import)
+5. Update navigasi + routes + Properties page
 
