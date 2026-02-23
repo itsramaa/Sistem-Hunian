@@ -146,6 +146,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
         label: "Analitik",
         items: [
           { path: "/merchant/reports", icon: BarChart3, label: "Laporan" },
+          { path: "/merchant/analytics-dashboard", icon: TrendingUp, label: "Dashboard Analitik" },
           { path: "/merchant/tenant-analytics", icon: Users, label: "Analitik Tenant" },
           { path: "/merchant/market-intelligence", icon: TrendingUp, label: "Market Intelligence" },
           { path: "/merchant/ml-analytics", icon: Brain, label: "Analitik ML" },
