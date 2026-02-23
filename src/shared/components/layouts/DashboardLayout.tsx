@@ -156,7 +156,7 @@ export function DashboardLayout({
         </header>
 
         {/* Main Content */}
-        <div id="main-content" className="flex flex-1 flex-col gap-4 p-4 pt-0">
+        <div id="main-content" className="flex flex-1 flex-col gap-4 p-4 pt-4">
           {/* Page Toolbar - description and actions */}
           {(description || actions) && (
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
