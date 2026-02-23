@@ -20,7 +20,7 @@ import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { TablePagination } from '@/shared/components/ui/TablePagination';
 import { format } from 'date-fns';
 import { AlertTriangle, Edit, Eye, MoreHorizontal, Wrench, XCircle } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { MaintenanceRequest } from '../types';
 import { MaintenancePriorityBadge } from './MaintenancePriorityBadge';
 import { MaintenanceStatusBadge } from './MaintenanceStatusBadge';
@@ -49,22 +49,24 @@ export function MaintenanceRequestTable({
   onPageChange,
   itemsPerPage
 }: MaintenanceRequestTableProps) {
+  const navigate = useNavigate();
+
   if (loading) {
     return (
-      <div className="rounded-md border">
+      <div className="glass-table">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>Unit</TableHead>
-              <TableHead>Tenant</TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Priority</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>SLA</TableHead>
-              <TableHead>Assigned To</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+            <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b border-border/40">
+              <TableHead className="text-xs uppercase tracking-wider font-semibold">Unit</TableHead>
+              <TableHead className="text-xs uppercase tracking-wider font-semibold">Tenant</TableHead>
+              <TableHead className="text-xs uppercase tracking-wider font-semibold">Title</TableHead>
+              <TableHead className="text-xs uppercase tracking-wider font-semibold">Category</TableHead>
+              <TableHead className="text-xs uppercase tracking-wider font-semibold">Priority</TableHead>
+              <TableHead className="text-xs uppercase tracking-wider font-semibold">Status</TableHead>
+              <TableHead className="text-xs uppercase tracking-wider font-semibold">SLA</TableHead>
+              <TableHead className="text-xs uppercase tracking-wider font-semibold">Assigned</TableHead>
+              <TableHead className="text-xs uppercase tracking-wider font-semibold">Created</TableHead>
+              <TableHead className="text-xs uppercase tracking-wider font-semibold text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -83,29 +85,31 @@ export function MaintenanceRequestTable({
 
   if (requests.length === 0) {
     return (
-      <EmptyState
-        icon={Wrench}
-        title="No maintenance requests"
-        description="When tenants submit requests, they will appear here."
-      />
+      <div className="glass-table">
+        <EmptyState
+          icon={Wrench}
+          title="No maintenance requests"
+          description="When tenants submit requests, they will appear here."
+        />
+      </div>
     );
   }
 
   return (
-    <div className="rounded-md border">
+    <div className="glass-table">
       <Table>
         <TableHeader>
-          <TableRow>
-            <TableHead>Unit</TableHead>
-            <TableHead>Tenant</TableHead>
-            <TableHead>Title</TableHead>
-            <TableHead>Category</TableHead>
-            <TableHead>Priority</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>SLA</TableHead>
-            <TableHead>Assigned To</TableHead>
-            <TableHead>Created</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+          <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b border-border/40">
+            <TableHead className="text-xs uppercase tracking-wider font-semibold">Unit</TableHead>
+            <TableHead className="text-xs uppercase tracking-wider font-semibold">Tenant</TableHead>
+            <TableHead className="text-xs uppercase tracking-wider font-semibold">Title</TableHead>
+            <TableHead className="text-xs uppercase tracking-wider font-semibold">Category</TableHead>
+            <TableHead className="text-xs uppercase tracking-wider font-semibold">Priority</TableHead>
+            <TableHead className="text-xs uppercase tracking-wider font-semibold">Status</TableHead>
+            <TableHead className="text-xs uppercase tracking-wider font-semibold">SLA</TableHead>
+            <TableHead className="text-xs uppercase tracking-wider font-semibold">Assigned</TableHead>
+            <TableHead className="text-xs uppercase tracking-wider font-semibold">Created</TableHead>
+            <TableHead className="text-xs uppercase tracking-wider font-semibold text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -115,7 +119,11 @@ export function MaintenanceRequestTable({
             const isTerminated = relevantContract?.status === 'terminated' || relevantContract?.status === 'expired';
 
             return (
-              <TableRow key={request.id}>
+              <TableRow
+                key={request.id}
+                className="hover:bg-primary/5 transition-colors cursor-pointer"
+                onClick={() => navigate(`/merchant/maintenance/${request.id}`)}
+              >
                 <TableCell className="font-medium">
                   {request.unit?.unit_number}
                   {isNotice && (
@@ -156,17 +164,11 @@ export function MaintenanceRequestTable({
                 </TableCell>
                 <TableCell>
                   {request.assigned_to ? (
-                    <span className="text-sm font-medium">
-                      {request.assigned_to}
-                    </span>
+                    <span className="text-sm font-medium">{request.assigned_to}</span>
                   ) : request.assigned_vendor ? (
-                    <span className="text-sm font-medium">
-                      {request.assigned_vendor.business_name}
-                    </span>
+                    <span className="text-sm font-medium">{request.assigned_vendor.business_name}</span>
                   ) : (
-                    <span className="text-sm text-muted-foreground italic">
-                      Unassigned
-                    </span>
+                    <span className="text-sm text-muted-foreground italic">Unassigned</span>
                   )}
                 </TableCell>
                 <TableCell>
@@ -175,20 +177,18 @@ export function MaintenanceRequestTable({
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
+                      <Button variant="ghost" className="h-8 w-8 p-0 rounded-xl" onClick={(e) => e.stopPropagation()}>
                         <span className="sr-only">Open menu</span>
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                    <DropdownMenuContent align="end" className="rounded-xl">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem asChild>
-                        <Link to={`/merchant/maintenance/${request.id}`}>
-                          <Eye className="mr-2 h-4 w-4" />
-                          View Details
-                        </Link>
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/merchant/maintenance/${request.id}`); }}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        View Details
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onEdit(request)}>
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(request); }}>
                         <Edit className="mr-2 h-4 w-4" />
                         Update Status
                       </DropdownMenuItem>

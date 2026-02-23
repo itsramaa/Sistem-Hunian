@@ -10,27 +10,27 @@ export function MaintenancePriorityBadge({ priority }: MaintenancePriorityBadgeP
       case 'urgent':
         return {
           label: 'Urgent',
-          variant: 'destructive' as const,
+          className: 'bg-red-100 text-red-800 border-red-200 rounded-full',
         };
       case 'high':
         return {
           label: 'High',
-          variant: 'default' as const,
+          className: 'bg-orange-100 text-orange-800 border-orange-200 rounded-full',
         };
       case 'medium':
         return {
           label: 'Medium',
-          variant: 'secondary' as const,
+          className: 'bg-yellow-100 text-yellow-800 border-yellow-200 rounded-full',
         };
       case 'low':
         return {
           label: 'Low',
-          variant: 'outline' as const,
+          className: 'bg-green-100 text-green-800 border-green-200 rounded-full',
         };
       default:
         return {
           label: priority,
-          variant: 'secondary' as const,
+          className: 'rounded-full',
         };
     }
   };
@@ -38,7 +38,7 @@ export function MaintenancePriorityBadge({ priority }: MaintenancePriorityBadgeP
   const config = getPriorityConfig(priority);
 
   return (
-    <Badge variant={config.variant} className="capitalize">
+    <Badge variant="outline" className={`capitalize ${config.className}`}>
       {config.label}
     </Badge>
   );

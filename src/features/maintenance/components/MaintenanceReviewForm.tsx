@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { Label } from '@/shared/components/ui/label';
@@ -16,13 +15,7 @@ interface MaintenanceReviewFormProps {
   onSuccess?: () => void;
 }
 
-export function MaintenanceReviewForm({
-  maintenanceRequestId,
-  vendorId,
-  vendorName,
-  tenantUserId,
-  onSuccess,
-}: MaintenanceReviewFormProps) {
+export function MaintenanceReviewForm({ maintenanceRequestId, vendorId, vendorName, tenantUserId, onSuccess }: MaintenanceReviewFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [rating, setRating] = useState(0);
@@ -31,46 +24,21 @@ export function MaintenanceReviewForm({
 
   const submitMutation = useMutation({
     mutationFn: async () => {
-      if (rating === 0) {
-        throw new Error('Please select a rating');
-      }
-
-      // Insert review
-      const { error: reviewError } = await supabase
-        .from('maintenance_reviews')
-        .insert({
-          maintenance_request_id: maintenanceRequestId,
-          vendor_id: vendorId,
-          tenant_user_id: tenantUserId,
-          rating,
-          review_text: reviewText || null,
-        });
-
-      if (reviewError) throw reviewError;
-
-      // Insert timeline entry
-      await supabase.from('maintenance_timeline').insert({
-        maintenance_request_id: maintenanceRequestId,
-        status: 'reviewed',
-        message: `Tenant submitted a ${rating}-star review`,
-        actor_id: tenantUserId,
-        actor_role: 'tenant',
+      if (rating === 0) throw new Error('Please select a rating');
+      const { error: reviewError } = await supabase.from('maintenance_reviews').insert({
+        maintenance_request_id: maintenanceRequestId, vendor_id: vendorId, tenant_user_id: tenantUserId,
+        rating, review_text: reviewText || null,
       });
-
-      // Create notification for vendor
-      const { data: vendor } = await supabase
-        .from('vendors')
-        .select('user_id')
-        .eq('id', vendorId)
-        .single();
-
+      if (reviewError) throw reviewError;
+      await supabase.from('maintenance_timeline').insert({
+        maintenance_request_id: maintenanceRequestId, status: 'reviewed',
+        message: `Tenant submitted a ${rating}-star review`, actor_id: tenantUserId, actor_role: 'tenant',
+      });
+      const { data: vendor } = await supabase.from('vendors').select('user_id').eq('id', vendorId).single();
       if (vendor) {
         await supabase.from('notifications').insert({
-          user_id: vendor.user_id,
-          title: 'New Review Received',
-          message: `You received a ${rating}-star review for a maintenance job`,
-          type: 'info',
-          link: '/vendor/jobs',
+          user_id: vendor.user_id, title: 'New Review Received',
+          message: `You received a ${rating}-star review for a maintenance job`, type: 'info', link: '/vendor/jobs',
         });
       }
     },
@@ -80,78 +48,46 @@ export function MaintenanceReviewForm({
       toast({ title: 'Review submitted', description: 'Thank you for your feedback!' });
       onSuccess?.();
     },
-    onError: (error) => {
-      toast({ 
-        title: 'Failed to submit review', 
-        description: error.message,
-        variant: 'destructive' 
-      });
-    },
+    onError: (error) => { toast({ title: 'Failed to submit review', description: error.message, variant: 'destructive' }); },
   });
 
+  const ratingLabels = ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Rate the Service</CardTitle>
-        <CardDescription>
-          How was your experience with {vendorName}?
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Star Rating */}
-        <div className="space-y-2">
-          <Label>Rating</Label>
-          <div className="flex gap-1">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <button
-                key={star}
-                type="button"
-                className="p-1 transition-transform hover:scale-110 focus:outline-none"
-                onClick={() => setRating(star)}
-                onMouseEnter={() => setHoveredRating(star)}
-                onMouseLeave={() => setHoveredRating(0)}
-              >
-                <Star
-                  className={`h-8 w-8 transition-colors ${
-                    star <= (hoveredRating || rating)
-                      ? 'fill-yellow-400 text-yellow-400'
-                      : 'text-muted-foreground'
-                  }`}
-                />
-              </button>
-            ))}
-          </div>
-          {rating > 0 && (
-            <p className="text-sm text-muted-foreground">
-              {rating === 1 && 'Poor'}
-              {rating === 2 && 'Fair'}
-              {rating === 3 && 'Good'}
-              {rating === 4 && 'Very Good'}
-              {rating === 5 && 'Excellent'}
-            </p>
-          )}
-        </div>
+    <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-5">
+      <div>
+        <h3 className="text-lg font-semibold">Rate the Service</h3>
+        <p className="text-sm text-muted-foreground">How was your experience with {vendorName}?</p>
+      </div>
 
-        {/* Review Text */}
-        <div className="space-y-2">
-          <Label>Your Review (Optional)</Label>
-          <Textarea
-            value={reviewText}
-            onChange={(e) => setReviewText(e.target.value)}
-            placeholder="Share your experience with this vendor..."
-            rows={3}
-          />
+      <div className="space-y-2">
+        <Label>Rating</Label>
+        <div className="flex gap-1">
+          {[1, 2, 3, 4, 5].map((star) => (
+            <button
+              key={star} type="button"
+              className="p-1 transition-all hover:scale-125 focus:outline-none"
+              onClick={() => setRating(star)}
+              onMouseEnter={() => setHoveredRating(star)}
+              onMouseLeave={() => setHoveredRating(0)}
+            >
+              <Star className={`h-8 w-8 transition-colors ${
+                star <= (hoveredRating || rating) ? 'fill-yellow-400 text-yellow-400 drop-shadow-[0_0_6px_rgba(250,204,21,0.4)]' : 'text-muted-foreground/40'
+              }`} />
+            </button>
+          ))}
         </div>
+        {rating > 0 && <p className="text-sm text-muted-foreground">{ratingLabels[rating]}</p>}
+      </div>
 
-        <Button
-          onClick={() => submitMutation.mutate()}
-          disabled={rating === 0 || submitMutation.isPending}
-          className="w-full"
-        >
-          {submitMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-          Submit Review
-        </Button>
-      </CardContent>
-    </Card>
+      <div className="space-y-2">
+        <Label>Your Review (Optional)</Label>
+        <Textarea value={reviewText} onChange={(e) => setReviewText(e.target.value)} placeholder="Share your experience with this vendor..." rows={3} className="rounded-xl bg-background/60 border-border/50" />
+      </div>
+
+      <Button onClick={() => submitMutation.mutate()} disabled={rating === 0 || submitMutation.isPending} className="w-full gradient-cta text-primary-foreground rounded-xl">
+        {submitMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Submit Review
+      </Button>
+    </div>
   );
 }

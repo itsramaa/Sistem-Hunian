@@ -1,4 +1,5 @@
 import { Button } from '@/shared/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,18 +38,10 @@ interface MoveOutsTableProps {
 }
 
 export function MoveOutsTable({
-  notices,
-  inspections,
-  tenantProfiles,
-  onScheduleInspection,
-  onConductInspection,
-  type,
-  page,
-  totalPages,
-  totalNotices,
-  onPageChange,
-  itemsPerPage
+  notices, inspections, tenantProfiles, onScheduleInspection, onConductInspection, type,
+  page, totalPages, totalNotices, onPageChange, itemsPerPage
 }: MoveOutsTableProps) {
+  const navigate = useNavigate();
   if (notices.length === 0) {
     return (
       <EmptyState
@@ -86,7 +79,7 @@ export function MoveOutsTable({
             const isUrgent = daysUntil <= 7 && type === 'upcoming';
 
             return (
-              <TableRow key={notice.id} className="hover:bg-primary/5 transition-colors">
+              <TableRow key={notice.id} className="hover:bg-primary/5 transition-colors cursor-pointer" onClick={() => navigate(`/merchant/move-outs/${notice.id}`)}>
                 <TableCell className="font-medium">
                   {notice.contract?.unit?.unit_number}
                   <span className="block text-xs text-muted-foreground">
