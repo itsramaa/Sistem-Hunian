@@ -1,108 +1,132 @@
 
-# Security Requirements Verification (SR-101 to SR-1004)
 
-## Current Status Summary
+# Restrukturisasi Sidebar Merchant: 25 Item menjadi 10 Item
 
-| Req | Description | Status | Detail |
-|-----|-------------|--------|--------|
-| **SR-101** | Password policy (8+ chars, complexity, hashing) | Partial | Registration uses 12-char minimum (`strongPasswordSchema`), but some internal forms (AdminSetup, tenant Profile, merchant Settings) use 6-8 char minimums. Hashing handled by Supabase Auth (bcrypt). |
-| **SR-102** | Session timeout 30 min | Implemented | `useInactivityLogout` with 30-min timeout and 29-min warning. |
-| **SR-103** | 2FA optional but available | Implemented | TOTP-based 2FA via `adminSecurityService` with recovery codes. |
-| **SR-104** | Max 5 failed attempts, 15-min lockout | Partial | Client-side lockout exists but uses 3 attempts / 30 seconds instead of 5 attempts / 15 minutes. Client-side only (easily bypassed). |
-| **SR-201** | RBAC | Implemented | `user_roles` table, `has_role()` function, `ProtectedRoute` component with 4 roles. |
-| **SR-202** | Data-level access (merchant sees own kosan) | Implemented | RLS policies scope data to merchant via `auth.uid()`. |
-| **SR-203** | API endpoint protection | Implemented | JWT verification on most edge functions; `verify_jwt = true` default. |
-| **SR-204** | JWT token expiry 24h | Platform-managed | Handled by Supabase Auth defaults (1 hour access token + refresh token). |
-| **SR-301** | AES-256 at-rest encryption | Platform-managed | Supabase infrastructure encrypts data at rest. |
-| **SR-302** | HTTPS/TLS 1.2+ | Platform-managed | All Supabase endpoints enforce HTTPS/TLS. |
-| **SR-303** | Column-level encryption | Not implemented | No column-level encryption for PII fields. |
-| **SR-304** | API keys in env vars | Implemented | All secrets stored via Supabase secrets (RESEND_API_KEY, XENDIT_SECRET_KEY, etc.). |
-| **SR-401** | PII encryption | Partial | UI masking (`maskEmail`, `maskKtpNumber`) exists but no database-level encryption. |
-| **SR-402** | PII access logged/audited | Implemented | `audit_logs` table with `createAuditLog()` used across 38+ files. |
-| **SR-403** | Anonymization on export | Not implemented | No option to anonymize PII during data export. |
-| **SR-404** | GDPR right to access/delete | Not implemented | No self-service data deletion or data download feature. |
-| **SR-501-503** | Backup security | Platform-managed | Supabase infrastructure handles encrypted backups. |
-| **SR-601** | Rate limiting 1000 req/hr | Not implemented | No server-side rate limiting on edge functions. |
-| **SR-602** | CORS whitelist | Not implemented | All functions use `Access-Control-Allow-Origin: '*'`. |
-| **SR-603** | API key validation | Implemented | Supabase anon key required on all requests. |
-| **SR-604** | Input validation | Implemented | Zod schemas on forms; edge functions validate payloads. |
-| **SR-701-703** | DDoS / WAF | Platform-managed | Infrastructure-level concern. |
-| **SR-801-803** | GDPR / Indonesia regs / PCI DSS | Partial | Payment references only (no card storage). No formal GDPR or OJK compliance module. |
-| **SR-901** | Comprehensive audit log | Implemented | Login, CRUD, report generation, user management all logged via `createAuditLog()`. |
-| **SR-902** | Log retention 1 year | Not enforced | No retention policy or cleanup job configured. |
-| **SR-903** | Log immutability | Partial | `audit_logs` table exists but no policies preventing DELETE/UPDATE on it. |
-| **SR-904** | Restricted log access | Implemented | Admin-only access via `ProtectedRoute allowedRoles={['admin']}`. |
-| **SR-1001-1004** | Vulnerability mgmt | Not implemented | Operational processes, outside application scope. |
+## Pendekatan
 
-## Implementation Plan (Actionable Gaps Only)
+Semua halaman dan fungsi yang ada **tidak dihapus**. Halaman-halaman yang terkait dikonsolidasikan ke dalam "hub pages" baru yang menggunakan **tab navigation** untuk menggabungkan beberapa modul dalam satu layar. Sidebar hanya menampilkan 10 item utama, tetapi semua fitur tetap bisa diakses.
 
-### Task 1: Standardize Password Policy to Spec (SR-101, SR-104)
+## Pemetaan Konsolidasi
 
-**Files to modify:**
-- `src/pages/AdminSetup.tsx` - Change `.min(6)` to use `strongPasswordSchema`
-- `src/pages/tenant/Profile.tsx` - Change `.min(8)` to use `strongPasswordSchema`
-- `src/pages/merchant/Settings.tsx` - Change `.min(8)` / `.min(6)` to use `strongPasswordSchema`
-- `src/features/users/utils/vendor-validations.ts` - Change `.min(8)` to `.min(12)` and align with `strongPasswordSchema`
+```text
+SIDEBAR BARU (10 item)              HALAMAN YANG DIGABUNG
+==========================          =======================
+1. Utama
+   - Dashboard                      Dashboard (tetap)
 
-**Login lockout fix (SR-104):**
-- `src/features/auth/components/AuthForm.tsx` - Change from 3 attempts / 30 seconds to 5 attempts / 15 minutes (900,000ms)
+2. Manajemen Aset
+   - Properti & Unit                Tab: Properti | Unit
+   - Penyewa & Okupansi            Tab: Penyewa | Move-Outs | Tenant Analytics
+   - Staf Operasional              Guardians (tetap, rename)
 
-### Task 2: Export Anonymization Option (SR-403)
+3. Keuangan
+   - Transaksi & Tagihan           Tab: Tagihan | Pembayaran
+   - Kontrak Sewa                  Contracts (tetap)
 
-**Files to modify:**
-- `src/shared/utils/exportUtils.ts` - Add an `anonymize?: boolean` option to `exportToCSV` and `exportToExcel` that replaces PII fields (name, email, phone, KTP) with hashed/masked values before export
+4. Operasional
+   - Laporan Kerusakan             Maintenance (tetap)
+   - Kepatuhan & Legalitas         Tab: Compliance | Data Quality
 
-### Task 3: Audit Log Immutability (SR-903)
+5. Wawasan Bisnis
+   - Analitik Performa             Tab: Analytics Dashboard | Reports | Report Templates | Comparative Portfolio
+   - Intelijen AI                  Tab: ML Analytics | DSS Advisor | Market Intelligence | Financial Risk | Tenant Quality
 
-**Database migration:**
-- Add RLS policy on `audit_logs` table that blocks DELETE and UPDATE for all roles (including authenticated users)
-- Only service_role can insert
-
-```sql
--- Revoke direct delete/update from authenticated users
-CREATE POLICY "audit_logs_no_delete" ON public.audit_logs
-  FOR DELETE TO authenticated USING (false);
-
-CREATE POLICY "audit_logs_no_update" ON public.audit_logs
-  FOR UPDATE TO authenticated USING (false);
+6. Bantuan
+   - Pusat Bantuan                 Tab: Documents | OCR Tutorial | Support
 ```
 
-### Task 4: CORS Whitelist (SR-602)
+## Detail Teknis
 
-**Files to modify:**
-- Create a shared CORS utility `supabase/functions/_shared/cors.ts` that restricts `Access-Control-Allow-Origin` to approved domains (the preview URL, published URL, and any custom domain)
-- Update edge functions to import from the shared utility instead of using `'*'`
+### 1. Update Navigation Config
 
-### Task 5: GDPR Data Access/Deletion Endpoint (SR-404)
+**File:** `src/shared/components/layouts/navigation-config.ts`
 
-**New edge function:** `supabase/functions/gdpr-data-request/index.ts`
-- `GET` - Returns all personal data for the authenticated user (profile, contracts, payments references)
-- `DELETE` - Anonymizes/deletes user data and marks account for deletion
-- Requires JWT authentication
-- Logs the request in `audit_logs`
+Ganti `merchant.mainNav` dengan 6 grup baru berisi 10 item. Path untuk hub pages baru:
+- `/merchant/assets` (Properti & Unit)
+- `/merchant/occupancy` (Penyewa & Okupansi)
+- `/merchant/transactions` (Transaksi & Tagihan)
+- `/merchant/legal` (Kepatuhan & Legalitas)
+- `/merchant/analytics` (Analitik Performa)
+- `/merchant/ai-insights` (Intelijen AI)
+- `/merchant/help` (Pusat Bantuan)
 
-### Summary of Changes
+Item yang tidak berubah path-nya: Dashboard, Guardians, Contracts, Maintenance.
 
-| File | Action |
-|------|--------|
-| `src/pages/AdminSetup.tsx` | Modify - use `strongPasswordSchema` |
-| `src/pages/tenant/Profile.tsx` | Modify - use `strongPasswordSchema` |
-| `src/pages/merchant/Settings.tsx` | Modify - use `strongPasswordSchema` |
-| `src/features/users/utils/vendor-validations.ts` | Modify - align password min to 12 chars |
-| `src/features/auth/components/AuthForm.tsx` | Modify - 5 attempts / 15-min lockout |
-| `src/shared/utils/exportUtils.ts` | Modify - add anonymization option |
-| Database migration | Add immutability policies on `audit_logs` |
-| `supabase/functions/_shared/cors.ts` | Create - shared CORS whitelist utility |
-| Multiple edge functions (54 files) | Modify - import shared CORS (can be done incrementally) |
-| `supabase/functions/gdpr-data-request/index.ts` | Create - data access/deletion endpoint |
+### 2. Buat Hub Pages (7 file baru)
 
-### Out of Scope (Platform/Operational)
+Setiap hub page menggunakan `Tabs` component dengan konten yang mengimpor komponen dari halaman yang sudah ada.
 
-The following are handled by infrastructure or are operational processes, not application code:
-- SR-204 (JWT expiry) - Supabase Auth default
-- SR-301/302 (encryption at rest / TLS) - Supabase infrastructure
-- SR-303 (column-level encryption) - Requires `pgcrypto` extension, skipped per user's previous decision to skip deep DB changes
-- SR-501-503 (backup security) - Supabase infrastructure
-- SR-701-703 (DDoS/WAF) - CDN/infrastructure level
-- SR-902 (log retention) - Requires scheduled cleanup job
-- SR-1001-1004 (vulnerability management) - Operational processes
+| File Baru | Tab 1 | Tab 2 | Tab 3+ |
+|-----------|-------|-------|--------|
+| `src/pages/merchant/AssetsHub.tsx` | Properti (embed Properties content) | Unit (embed Units content) | - |
+| `src/pages/merchant/OccupancyHub.tsx` | Penyewa (Tenants) | Move-Outs | Analitik Penyewa |
+| `src/pages/merchant/TransactionsHub.tsx` | Tagihan (Invoices) | Pembayaran (Payments) | - |
+| `src/pages/merchant/LegalHub.tsx` | Kepatuhan (Compliance) | Validasi Data (DataQuality) | - |
+| `src/pages/merchant/AnalyticsHub.tsx` | Ringkasan (AnalyticsDashboard) | Laporan (Reports) | Template | Portfolio |
+| `src/pages/merchant/AiInsightsHub.tsx` | Prediksi (ML Analytics) | Strategi (DSS Advisor) | Tren Pasar | Risiko | Skor Penyewa |
+| `src/pages/merchant/HelpHub.tsx` | Dokumen (DocumentCenter) | Panduan OCR | Dukungan (Support) |
+
+Setiap hub page akan:
+- Menggunakan `PageHeader` dengan icon dan judul yang sesuai
+- Menggunakan `Tabs` / `TabsList` / `TabsTrigger` / `TabsContent` dari Shadcn
+- Mengimpor dan me-render konten dari halaman yang sudah ada sebagai komponen (bukan iframe)
+- Mendukung URL hash (`#tab-name`) agar tab bisa di-deep-link
+
+### 3. Refactor Halaman yang Ada
+
+Halaman-halaman seperti `Properties.tsx`, `Units.tsx`, `Tenants.tsx`, dll. perlu di-refactor agar bisa digunakan sebagai **komponen embeddable** di dalam hub page:
+- Export komponen utama (tanpa `PageHeader` sendiri) sebagai named export, misal `PropertiesContent`
+- Halaman standalone tetap bisa diakses via route langsung (backward compatible)
+- Hub page mengimpor `PropertiesContent` dan `UnitsContent` ke dalam tab
+
+### 4. Update Routing di App.tsx
+
+- Tambahkan route baru untuk setiap hub page (`/merchant/assets`, `/merchant/occupancy`, dll.)
+- Route lama **tetap ada** untuk backward compatibility dan deep links (misal `/merchant/properties/:id` tetap bekerja)
+- Redirect opsional dari route lama ke hub page bisa ditambahkan nanti
+
+### 5. Update `isPathActive` Logic
+
+Modifikasi `nav-main.tsx` atau `navigation-config.ts` agar hub items menyala (active) ketika user berada di sub-route terkait. Contoh: `/merchant/assets` aktif ketika pathname adalah `/merchant/properties/:id`.
+
+Tambahkan field opsional `activePatterns` di `NavItem`:
+```text
+{ path: "/merchant/assets", activePatterns: ["/merchant/properties", "/merchant/units"], ... }
+```
+
+### Ringkasan File Changes
+
+| File | Aksi |
+|------|------|
+| `src/shared/components/layouts/navigation-config.ts` | Modify - restructure merchant mainNav to 10 items |
+| `src/pages/merchant/AssetsHub.tsx` | Create - Properti + Unit tabs |
+| `src/pages/merchant/OccupancyHub.tsx` | Create - Penyewa + Move-Outs + Tenant Analytics tabs |
+| `src/pages/merchant/TransactionsHub.tsx` | Create - Tagihan + Pembayaran tabs |
+| `src/pages/merchant/LegalHub.tsx` | Create - Compliance + Data Quality tabs |
+| `src/pages/merchant/AnalyticsHub.tsx` | Create - 4 analytics tabs |
+| `src/pages/merchant/AiInsightsHub.tsx` | Create - 5 AI/DSS tabs |
+| `src/pages/merchant/HelpHub.tsx` | Create - Documents + OCR + Support tabs |
+| `src/pages/merchant/Properties.tsx` | Modify - extract `PropertiesContent` named export |
+| `src/pages/merchant/Units.tsx` | Modify - extract `UnitsContent` named export |
+| `src/pages/merchant/Tenants.tsx` | Modify - extract `TenantsContent` named export |
+| `src/pages/merchant/MoveOuts.tsx` | Modify - extract `MoveOutsContent` named export |
+| `src/pages/merchant/Invoices.tsx` | Modify - extract `InvoicesContent` named export |
+| `src/pages/merchant/Payments.tsx` | Modify - extract `PaymentsContent` named export |
+| `src/pages/merchant/PropertyCompliance.tsx` | Modify - extract content component |
+| `src/pages/merchant/DataQualityHistory.tsx` | Modify - extract content component |
+| `src/pages/merchant/AnalyticsDashboard.tsx` | Modify - extract content component |
+| `src/pages/merchant/Reports.tsx` | Modify - extract content component |
+| `src/pages/merchant/ReportTemplates.tsx` | Modify - extract content component |
+| `src/pages/merchant/ComparativePortfolio.tsx` | Modify - extract content component |
+| `src/pages/merchant/MlAnalytics.tsx` | Modify - extract content component |
+| `src/pages/merchant/DssAdvisor.tsx` | Modify - extract content component |
+| `src/pages/merchant/MarketIntelligence.tsx` | Modify - extract content component |
+| `src/pages/merchant/FinancialRiskAnalytics.tsx` | Modify - extract content component |
+| `src/pages/merchant/TenantQualityScoring.tsx` | Modify - extract content component |
+| `src/pages/merchant/TenantAnalytics.tsx` | Modify - extract content component |
+| `src/pages/merchant/DocumentCenter.tsx` | Modify - extract content component |
+| `src/pages/merchant/OcrTutorial.tsx` | Modify - extract content component |
+| `src/pages/merchant/Support.tsx` | Modify - extract content component |
+| `src/App.tsx` | Modify - add 7 new hub routes |
+| `src/shared/components/layouts/sidebar/nav-main.tsx` | Modify - support `activePatterns` for highlight logic |
+
