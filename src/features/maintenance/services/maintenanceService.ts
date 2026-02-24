@@ -65,13 +65,14 @@ export const maintenanceService = {
       .from('maintenance_requests')
       .select(`
         *,
-        assigned_vendor:vendors(business_name),
+        assigned_vendor:vendors(business_name, phone_number, rating, service_categories),
         unit:units(
+          id,
           unit_number,
-          property:properties(name, address),
+          property:properties(id, name, address),
           contracts(status, start_date, end_date, tenant_user_id)
         ),
-        tenant:profiles!maintenance_requests_tenant_user_id_fkey(full_name, email)
+        tenant:profiles!maintenance_requests_tenant_user_id_fkey(user_id, full_name, email, phone)
       `)
       .eq('id', id)
       .single();

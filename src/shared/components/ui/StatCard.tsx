@@ -13,6 +13,7 @@ interface StatCardProps {
   tooltip?: string;
   loading?: boolean;
   index?: number;
+  compact?: boolean;
 }
 
 function useCountUp(target: number, duration = 600, enabled = true) {
@@ -40,7 +41,7 @@ function useCountUp(target: number, duration = 600, enabled = true) {
   return count;
 }
 
-export function StatCard({ title, value, subtitle, icon: Icon, accentColor = 'hsl(var(--primary))', tooltip, loading, index = 0 }: StatCardProps) {
+export function StatCard({ title, value, subtitle, icon: Icon, accentColor = 'hsl(var(--primary))', tooltip, loading, index = 0, compact = false }: StatCardProps) {
   const numericValue = typeof value === 'number' ? value : null;
   const displayCount = useCountUp(numericValue ?? 0, 600, numericValue !== null && !loading);
 
@@ -70,14 +71,14 @@ export function StatCard({ title, value, subtitle, icon: Icon, accentColor = 'hs
         animationFillMode: 'both'
       }}
     >
-      <CardContent className="p-4">
+      <CardContent className={compact ? "p-3" : "p-4"}>
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)` }}>
-            <Icon className="h-5 w-5" style={{ color: accentColor }} />
+          <div className={`${compact ? 'h-8 w-8' : 'h-10 w-10'} rounded-lg flex items-center justify-center shrink-0`} style={{ backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)` }}>
+            <Icon className={compact ? "h-4 w-4" : "h-5 w-5"} style={{ color: accentColor }} />
           </div>
           <div className="min-w-0">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide truncate">{title}</p>
-            <p className="text-2xl font-bold leading-tight">
+            <p className={`${compact ? 'text-xl' : 'text-2xl'} font-bold leading-tight`}>
               {numericValue !== null ? displayCount : value}
             </p>
             {subtitle && (

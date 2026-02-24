@@ -10,7 +10,7 @@ import { Skeleton } from '@/shared/components/ui/skeleton';
 import { formatCurrency } from '@/shared/utils/currency';
 import { format, differenceInDays, differenceInMonths } from 'date-fns';
 import { ArrowLeft, Calendar, DollarSign, Download, Edit, FileText, Home, Timer, TrendingUp, User } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMemo } from 'react';
 import { supabase } from '@/lib/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -121,7 +121,7 @@ export default function MerchantContractDetail() {
                   <h3 className="font-semibold">Tenant</h3>
                 </div>
                 <div className="space-y-2 pl-[52px]">
-                  <p className="font-medium">{tenantProfile?.full_name || 'Unknown'}</p>
+                  <Link to={`/merchant/tenants/${contract.tenant_user_id}`} className="font-medium hover:underline text-primary">{tenantProfile?.full_name || 'Unknown'}</Link>
                   <p className="text-sm text-muted-foreground">{tenantProfile?.email}</p>
                   {tenantProfile?.phone && <p className="text-sm text-muted-foreground">{tenantProfile.phone}</p>}
                 </div>
