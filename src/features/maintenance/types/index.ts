@@ -12,7 +12,7 @@ export interface MaintenanceRequest {
   created_at: string;
   resolved_at: string | null;
   unit_id: string;
-  tenant_user_id: string;
+  tenant_user_id: string | null;
   merchant_id: string;
   sla_deadline: string | null;
   images: string[] | null;
@@ -61,6 +61,15 @@ export interface CreateMaintenanceRequestPayload {
   merchant_id: string;
   images?: string[] | null;
   preferred_schedule?: string | null;
+}
+
+export interface CreateMerchantMaintenancePayload {
+  title: string;
+  description: string;
+  category: string;
+  priority: string;
+  unit_id: string;
+  merchant_id: string;
 }
 
 export interface UpdateMaintenanceStatusPayload {

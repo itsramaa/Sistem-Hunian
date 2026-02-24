@@ -32,10 +32,15 @@ const statusIcon: Record<string, React.ReactNode> = {
   error: <XCircle className="h-4 w-4 text-destructive" />,
 };
 
-export default function DataQualityHistory() {
+interface DataQualityHistoryProps {
+  propertyId?: string;
+}
+
+export default function DataQualityHistory({ propertyId: propPropertyId }: DataQualityHistoryProps = {}) {
   const { merchant } = useAuth();
   const merchantId = merchant?.id;
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
+  const showPropertySelector = !propPropertyId;
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>(propPropertyId || '');
   const [result, setResult] = useState<QualityCheckResult | null>(null);
   const [overrideDialog, setOverrideDialog] = useState<{ checkId: string; rule: string } | null>(null);
   const [overrideReason, setOverrideReason] = useState('');
@@ -134,21 +139,23 @@ export default function DataQualityHistory() {
       </div>
 
       {/* Property Selector */}
-      <Card>
-        <CardContent className="pt-4">
-          <Label>Pilih Properti</Label>
-          <Select value={selectedPropertyId} onValueChange={(v) => { setSelectedPropertyId(v); setResult(null); setSelectedEntity(null); }}>
-            <SelectTrigger className="mt-1">
-              <SelectValue placeholder="Pilih properti..." />
-            </SelectTrigger>
-            <SelectContent>
-              {properties?.map(p => (
-                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
+      {showPropertySelector && (
+        <Card>
+          <CardContent className="pt-4">
+            <Label>Pilih Properti</Label>
+            <Select value={selectedPropertyId} onValueChange={(v) => { setSelectedPropertyId(v); setResult(null); setSelectedEntity(null); }}>
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="Pilih properti..." />
+              </SelectTrigger>
+              <SelectContent>
+                {properties?.map(p => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
+      )}
 
       {selectedPropertyId && (
         <Tabs defaultValue="validation">
