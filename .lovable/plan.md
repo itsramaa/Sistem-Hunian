@@ -1,65 +1,106 @@
 
 
-# Fix: Full-Screen Loading Flicker and Compliance Property Context
+# Fix DSS "Lengkapi" Links + Auto-Generate Missing Metrics
 
-## Problem 1: Full-Screen Empty State When Returning to Chrome
+## Problems
 
-When switching apps and returning to Chrome, users see a full-screen spinner that covers the entire screen -- including the sidebar and navbar. This happens because `App.tsx` has a single top-level `<Suspense>` wrapping ALL routes with a full-screen `<PageLoader />` fallback.
+### A. "Lengkapi" links don't navigate to the right place
 
-The `MerchantLayoutRoute` already has its own inner `<Suspense>` with `<ContentSkeleton />` that correctly only affects the content area. However, if a lazy component suspends at the wrong moment, the outer fallback catches it and blanks the whole screen.
+Every DSS checklist item links to a generic page (e.g., `/merchant/properties/{id}`) without specifying which tab or form to open. Users click "Lengkapi" and land on the property overview -- they have no idea where to find the specific field (e.g., "Biaya pembangunan" is in the Keuangan tab, "Kondisi bangunan" is in the Edit dialog step 2).
 
-### Fix
+### B. Two Level 4 datasets have no way to populate them
 
-1. **Move the outer `<Suspense>` boundary so it only wraps routes that are NOT inside a layout.** The merchant layout routes (under `MerchantLayoutRoute`) already have their own Suspense -- they don't need the outer one.
-
-2. **Alternatively (simpler):** Keep the outer `<Suspense>` but change `<PageLoader />` to a less intrusive fallback (e.g., just a transparent overlay or null). Then ensure each layout route has its own inner Suspense with `ContentSkeleton`.
-
-3. **Recommended approach:** Add a second `<Suspense>` boundary inside `MerchantLayoutRoute` that wraps `<Outlet />` and prevents suspension from bubbling up to the full-screen fallback. This is already done (`ContentSkeleton` fallback), but we should also add `React.startTransition` or configure TanStack Query to avoid re-suspending on window focus refetches.
-
-**Concrete changes:**
-- In `App.tsx`: Wrap only the non-layout routes (auth pages, standalone pages) in the outer `<Suspense fallback={<PageLoader />}>`. The merchant/admin layout routes already handle their own loading.
-- Ensure `QueryClient` has `refetchOnWindowFocus: false` or at minimum does NOT trigger Suspense on refetch (default TanStack Query behavior should not suspend on refetch, but the lazy component re-evaluation might).
+`occupancy_snapshots` and `tenant_payment_metrics` are required for DSS but nothing writes to them. These are computable from existing data (units, invoices, contracts).
 
 ---
 
-## Problem 2: Compliance Tab Asks to Select Property Again
+## Solution
 
-The "Kepatuhan" tab in the Property Detail page loads `PropertyCompliance.tsx` via `React.lazy`. But `PropertyCompliance` is a standalone page that:
-- Fetches its own property list
-- Has its own `selectedPropertyId` state (starts as empty `''`)
-- Shows "Pilih properti untuk melihat data compliance"
+### Part 1: Make PropertyDetail read URL hash for initial tab
 
-It completely ignores the fact that it's already embedded inside a Property Detail page that has a known `id`.
+Currently `<Tabs defaultValue="overview">`. Change to read `window.location.hash` so links like `/merchant/properties/{id}#financial` open the correct tab directly.
 
-### Fix
+**File: `src/pages/merchant/PropertyDetail.tsx`**
+- Read hash on mount to set initial tab value (e.g., `#financial` sets tab to `financial`)
+- Use controlled `<Tabs value={activeTab} onValueChange={setActiveTab}>` instead of uncontrolled `defaultValue`
 
-Modify `PropertyCompliance.tsx` to accept an optional `propertyId` prop. When provided (from PropertyDetail), it skips the property selector and uses the passed ID directly. When not provided (standalone `/merchant/compliance` route), it shows the selector as before.
+### Part 2: Update DSS checklist links to target specific tabs/forms
 
-**Concrete changes:**
-- `PropertyCompliance.tsx`: Add `propertyId?: string` prop. If provided, use it directly and hide the property selector dropdown.
-- `PropertyDetail.tsx` line 377: Pass the property ID: `<LazyCompliance propertyId={id} />`
+**File: `src/features/dss/hooks/useDssReadiness.ts`**
+
+Map each item to the correct deep link:
+
+| Item | Current Link | New Link |
+|---|---|---|
+| Nama properti | `/merchant/properties/{id}` | `/merchant/properties/{id}?edit=true` |
+| Tipe properti | `/merchant/properties/{id}` | `/merchant/properties/{id}?edit=true` |
+| Alamat lengkap | `/merchant/properties/{id}` | `/merchant/properties/{id}?edit=true` |
+| Minimal 1 unit | `/merchant/properties/{id}` | `/merchant/properties/{id}#units` |
+| Fasilitas | `/merchant/properties/{id}` | `/merchant/properties/{id}?edit=true&step=3` |
+| Foto properti | `/merchant/properties/{id}` | `/merchant/properties/{id}?edit=true&step=3` |
+| Penjaga aktif | `/merchant/guardians` | `/merchant/guardians` (keep) |
+| Deskripsi | `/merchant/properties/{id}` | `/merchant/properties/{id}?edit=true` |
+| Jumlah lantai | `/merchant/properties/{id}` | `/merchant/properties/{id}?edit=true&step=2` |
+| Kondisi bangunan | `/merchant/properties/{id}` | `/merchant/properties/{id}?edit=true&step=2` |
+| All Level 3 financial fields | `/merchant/properties/{id}` | `/merchant/properties/{id}#financial` |
+| Disaster risk | `/merchant/compliance` | `/merchant/properties/{id}#compliance` |
+| Insurance | `/merchant/compliance` | `/merchant/properties/{id}#compliance` |
+| IMB/PBG | `/merchant/compliance` | `/merchant/properties/{id}#compliance` |
+| PBB | `/merchant/compliance` | `/merchant/properties/{id}#compliance` |
+| Occupancy | `/merchant/properties/{id}` | auto-generate button |
+| Tenant metrics | `/merchant/tenant-analytics` | auto-generate button |
+
+### Part 3: Handle `?edit=true` in PropertyDetail
+
+**File: `src/pages/merchant/PropertyDetail.tsx`**
+- Read `?edit=true` and `?step=N` from URL search params on mount
+- If present, auto-open `PropertyFormDialog` at the specified step
+- Requires adding `PropertyFormDialog` import and state management to PropertyDetail (currently only in Properties list page)
+
+### Part 4: Add "action" type to checklist items for auto-compute
+
+**File: `src/features/dss/hooks/useDssReadiness.ts`**
+- Add optional `action?: 'auto-generate'` field to `ChecklistItem` interface
+- Mark `occupancy` and `tenant_metrics` items with `action: 'auto-generate'`
+
+**File: `src/features/dss/components/DssReadinessChecklist.tsx`**
+- For items with `action: 'auto-generate'`, show a "Generate" button instead of a "Lengkapi" link
+- Button calls the edge functions to compute the data
+
+### Part 5: Create edge functions for auto-computable data
+
+**File: `supabase/functions/compute-occupancy-snapshots/index.ts`**
+- JWT auth, extract merchant_id from user profile
+- Query all properties for the merchant, count units by status per property
+- Calculate occupancy rate, average rent from units
+- Count move-ins/move-outs from contracts starting/ending this month
+- Upsert into `occupancy_snapshots` (keyed on property_id + snapshot_month)
+
+**File: `supabase/functions/compute-tenant-payment-metrics/index.ts`**
+- JWT auth, extract merchant_id
+- Query invoices + payments for tenants in this merchant's properties
+- Per tenant: count total invoices, paid on time, late, unpaid
+- Calculate average days late, payment score (0-100), streaks
+- Upsert into `tenant_payment_metrics`
 
 ---
 
 ## Technical Details
 
-### File Changes
+### Files to create
+1. `supabase/functions/compute-occupancy-snapshots/index.ts`
+2. `supabase/functions/compute-tenant-payment-metrics/index.ts`
 
-**`src/App.tsx`**
-- Add default options to `QueryClient`: `{ defaultOptions: { queries: { refetchOnWindowFocus: false } } }` (or set `suspense: false` -- though TanStack v5 doesn't use suspense by default, the lazy loading itself can trigger the outer boundary)
-- Restructure `<Suspense>` boundaries so the outer fallback only applies to pages without their own layout shell
+### Files to modify
+1. `src/pages/merchant/PropertyDetail.tsx` -- Read URL hash for tab, read `?edit=true` for auto-open edit dialog
+2. `src/features/dss/hooks/useDssReadiness.ts` -- Update all links with hash/query params, add `action` field
+3. `src/features/dss/components/DssReadinessChecklist.tsx` -- Render "Generate" button for auto-compute items, call edge functions
+4. `src/features/dss/components/DssReadinessCard.tsx` -- No changes needed (delegates to checklist)
 
-**`src/pages/merchant/PropertyCompliance.tsx`**
-- Change the component signature to accept `{ propertyId?: string }`
-- When `propertyId` is provided: skip `useMerchantProperties` fetch, skip the property selector UI, use `propertyId` directly
-- When `propertyId` is not provided: keep current behavior (standalone page)
+### Security
+- Both edge functions require JWT (default in config.toml)
+- Data access scoped to authenticated merchant only via service role + merchant_id filter
+- Uses shared CORS utility from `_shared/cors.ts`
 
-**`src/pages/merchant/PropertyDetail.tsx`**
-- Line 377: Change `<LazyCompliance />` to `<LazyCompliance propertyId={id} />`
-
-### Risk Assessment
-
-- **Low risk**: Both changes are backward-compatible. The standalone compliance route continues to work. The layout change only affects which loading indicator shows during transitions.
-- **No data loss**: No database or backend changes needed.
-- **No feature removal**: All functionality preserved; only the UX flow is improved.
-
+### No database changes needed
+Both `occupancy_snapshots` and `tenant_payment_metrics` tables already exist with the correct schema.
