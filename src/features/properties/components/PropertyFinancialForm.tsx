@@ -75,8 +75,9 @@ export function PropertyFinancialForm({ initialData, onSubmit, isLoading }: Prop
               <Input type="number" min={0} {...register('construction_cost')} className={inputCls} />
             </div>
             <div>
-              <Label>Biaya Renovasi (Rp)</Label>
-              <Input type="number" min={0} {...register('renovation_cost')} className={inputCls} />
+              <Label>Biaya Renovasi Total (Rp)</Label>
+              <Input type="number" min={0} {...register('renovation_cost')} className={inputCls} disabled />
+              <p className="text-xs text-muted-foreground mt-1">Auto-kalkulasi dari Riwayat Renovasi</p>
             </div>
           </div>
 

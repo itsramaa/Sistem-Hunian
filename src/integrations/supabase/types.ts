@@ -1845,7 +1845,7 @@ export type Database = {
           sla_deadline: string | null
           started_at: string | null
           status: string
-          tenant_user_id: string
+          tenant_user_id: string | null
           title: string
           unit_id: string
           updated_at: string
@@ -1868,7 +1868,7 @@ export type Database = {
           sla_deadline?: string | null
           started_at?: string | null
           status?: string
-          tenant_user_id: string
+          tenant_user_id?: string | null
           title: string
           unit_id: string
           updated_at?: string
@@ -1891,7 +1891,7 @@ export type Database = {
           sla_deadline?: string | null
           started_at?: string | null
           status?: string
-          tenant_user_id?: string
+          tenant_user_id?: string | null
           title?: string
           unit_id?: string
           updated_at?: string
@@ -3672,6 +3672,57 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "property_nearby_facilities_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_renovations: {
+        Row: {
+          category: string | null
+          cost: number
+          created_at: string
+          description: string | null
+          id: string
+          merchant_id: string
+          property_id: string
+          renovation_date: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          cost?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          merchant_id: string
+          property_id: string
+          renovation_date?: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          cost?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          merchant_id?: string
+          property_id?: string
+          renovation_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_renovations_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_renovations_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"

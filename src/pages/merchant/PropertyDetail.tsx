@@ -31,6 +31,7 @@ import { propertyService } from '@/features/properties/services/propertyService'
 import { toast } from 'sonner';
 import { useDssReadiness } from '@/features/dss/hooks/useDssReadiness';
 import { DssReadinessCard } from '@/features/dss/components/DssReadinessCard';
+import { RenovationHistoryCard } from '@/features/properties/components/RenovationHistoryCard';
 
 const statusColors: Record<string, string> = {
   active: 'bg-success/10 text-success border-success/30',
@@ -430,7 +431,7 @@ export default function PropertyDetail() {
               <LazyCompliance propertyId={id} />
             </Suspense>
             <Suspense fallback={<ContentSkeleton />}>
-              <LazyDataQuality />
+              <LazyDataQuality propertyId={id} />
             </Suspense>
           </TabsContent>
         </Tabs>
@@ -472,6 +473,7 @@ function FinancialTabWithReadiness({ property, revenuePotential, occupancyRate }
     <div className="space-y-4">
       <DssReadinessCard readiness={readiness} />
       <FinancialTabContent property={property} revenuePotential={revenuePotential} occupancyRate={occupancyRate / 100} />
+      <RenovationHistoryCard propertyId={property.id} merchantId={property.merchant_id} />
     </div>
   );
 }

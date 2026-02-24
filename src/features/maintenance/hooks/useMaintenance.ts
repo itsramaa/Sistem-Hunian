@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { maintenanceService } from '../services/maintenanceService';
-import { CreateMaintenanceRequestPayload, MaintenanceReview, UpdateMaintenanceStatusPayload } from '../types';
+import { CreateMaintenanceRequestPayload, CreateMerchantMaintenancePayload, MaintenanceReview, UpdateMaintenanceStatusPayload } from '../types';
 
 export const useMerchantMaintenanceRequests = (merchantId: string | undefined) => {
   return useQuery({
@@ -42,6 +42,17 @@ export const useCreateMaintenanceRequest = () => {
     mutationFn: (payload: CreateMaintenanceRequestPayload) => maintenanceService.createRequest(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenant-maintenance-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['merchant-maintenance-requests'] });
+    },
+  });
+};
+
+export const useCreateMerchantMaintenanceRequest = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: CreateMerchantMaintenancePayload) => maintenanceService.createMerchantRequest(payload),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['merchant-maintenance-requests'] });
     },
   });

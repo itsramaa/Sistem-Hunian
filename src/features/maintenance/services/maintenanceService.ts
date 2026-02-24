@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/integrations/supabase/client';
 import { Vendor } from '../../users/types/admin-vendor';
-import { CreateMaintenanceRequestPayload, MaintenanceRequest, MaintenanceReview, MaintenanceTimeline, UpdateMaintenanceStatusPayload } from '../types';
+import { CreateMaintenanceRequestPayload, CreateMerchantMaintenancePayload, MaintenanceRequest, MaintenanceReview, MaintenanceTimeline, UpdateMaintenanceStatusPayload } from '../types';
 import { MAINTENANCE_STATUS_TRANSITIONS, isValidTransition } from '@/shared/constants/state-machines';
 import { logStatusChange } from '@/shared/utils/auditLog';
 
@@ -141,6 +141,42 @@ export const maintenanceService = {
       }
     } catch (e) {
       console.error('Failed to create notification', e);
+    }
+
+    return data as MaintenanceRequest;
+  },
+
+  async createMerchantRequest(payload: CreateMerchantMaintenancePayload): Promise<MaintenanceRequest> {
+    const { data, error } = await supabase
+      .from('maintenance_requests')
+      .insert({
+        title: payload.title,
+        description: payload.description,
+        category: payload.category,
+        priority: payload.priority,
+        unit_id: payload.unit_id,
+        merchant_id: payload.merchant_id,
+      } as any)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Create initial timeline entry
+    const { data: merchantData } = await supabase
+      .from('merchants')
+      .select('user_id')
+      .eq('id', payload.merchant_id)
+      .single();
+
+    if (merchantData) {
+      await supabase.from('maintenance_timeline').insert({
+        maintenance_request_id: data.id,
+        status: 'submitted',
+        message: `Maintenance created by merchant: ${payload.title}`,
+        actor_id: merchantData.user_id,
+        actor_role: 'merchant',
+      });
     }
 
     return data as MaintenanceRequest;
