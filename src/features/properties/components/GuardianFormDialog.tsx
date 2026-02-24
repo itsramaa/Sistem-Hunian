@@ -36,13 +36,14 @@ interface GuardianFormDialogProps {
   properties: { id: string; name: string }[];
   onSubmit: (data: GuardianFormData) => Promise<void>;
   isLoading: boolean;
+  defaultPropertyId?: string;
 }
 
-export function GuardianFormDialog({ open, onOpenChange, guardian, properties, onSubmit, isLoading }: GuardianFormDialogProps) {
+export function GuardianFormDialog({ open, onOpenChange, guardian, properties, onSubmit, isLoading, defaultPropertyId }: GuardianFormDialogProps) {
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<GuardianFormData>({
     resolver: zodResolver(guardianSchema),
     defaultValues: {
-      property_id: '', name: '', phone: '', address: '', id_number: '',
+      property_id: defaultPropertyId || '', name: '', phone: '', address: '', id_number: '',
       salary: 0, salary_frequency: 'monthly', start_date: '', end_date: '',
       status: 'active', notes: '',
     },

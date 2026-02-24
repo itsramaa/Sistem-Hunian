@@ -203,9 +203,9 @@ const App = () => (
                     <Route path="maintenance/:id" element={<MerchantMaintenanceDetail />} />
                     <Route path="insights" element={<MerchantInsightsHub />} />
                     <Route path="settings" element={<MerchantSettings />} />
-                    <Route path="units" element={<MerchantUnits />} />
+                    <Route path="units" element={<Navigate to="/merchant/properties" replace />} />
                     <Route path="units/:id" element={<MerchantUnitDetail />} />
-                    <Route path="guardians" element={<MerchantGuardians />} />
+                    <Route path="guardians" element={<Navigate to="/merchant/properties" replace />} />
                     <Route path="escrow" element={<MerchantEscrow />} />
                     <Route path="referrals" element={<MerchantReferrals />} />
                     <Route path="billing" element={<MerchantBilling />} />
@@ -216,8 +216,8 @@ const App = () => (
                     <Route path="support" element={<MerchantSupport />} />
                     <Route path="ocr-tutorial" element={<MerchantOcrTutorial />} />
                     <Route path="tenant-analytics" element={<MerchantTenantAnalytics />} />
-                    <Route path="compliance" element={<MerchantCompliance />} />
-                    <Route path="data-quality" element={<MerchantDataQuality />} />
+                    <Route path="compliance" element={<Navigate to="/merchant/properties" replace />} />
+                    <Route path="data-quality" element={<Navigate to="/merchant/properties" replace />} />
                     {/* Insights sub-pages */}
                     <Route path="analytics-dashboard" element={<MerchantAnalyticsDashboard />} />
                     <Route path="report-templates" element={<MerchantReportTemplates />} />

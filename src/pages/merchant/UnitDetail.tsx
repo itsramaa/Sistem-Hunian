@@ -81,7 +81,7 @@ export default function UnitDetail() {
         <div className="gradient-icon-box w-20 h-20 mx-auto mb-4"><DoorOpen className="h-10 w-10 text-muted-foreground" /></div>
         <h3 className="text-lg font-medium mb-2">Unit tidak ditemukan</h3>
         <p className="text-sm text-muted-foreground mb-4">Unit yang Anda cari tidak ada atau telah dihapus.</p>
-        <Button asChild className="rounded-xl"><Link to="/merchant/units">Kembali ke Units</Link></Button>
+        <Button asChild className="rounded-xl"><Link to="/merchant/properties">Kembali ke Properti</Link></Button>
       </div>
     );
   }
@@ -108,7 +108,7 @@ export default function UnitDetail() {
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-        <Button variant="ghost" size="icon" className="shrink-0 rounded-full bg-card/80 backdrop-blur-sm border border-border/40" onClick={() => navigate('/merchant/units')}>
+        <Button variant="ghost" size="icon" className="shrink-0 rounded-full bg-card/80 backdrop-blur-sm border border-border/40" onClick={() => navigate(`/merchant/properties/${unit.property?.id}#units`)}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1 min-w-0">
