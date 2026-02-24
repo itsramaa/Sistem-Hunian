@@ -1,5 +1,6 @@
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { MarkPaidDialog } from '@/features/payments/components/MarkPaidDialog';
+import { CreatePaymentDialog, CreatePaymentPayload } from '@/features/payments/components/CreatePaymentDialog';
 import { OverdueInvoicesTable } from '@/features/payments/components/OverdueInvoicesTable';
 import { PaymentPlanDialog } from '@/features/payments/components/PaymentPlanDialog';
 import { PaymentsFilters } from '@/features/payments/components/PaymentsFilters';
@@ -14,7 +15,7 @@ import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { TabsPageSkeleton } from '@/shared/components/ui/PageSkeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { useDebounce } from '@/shared/hooks/useDebounce';
-import { Bell, CreditCard, Loader2, RefreshCw } from 'lucide-react';
+import { Bell, CreditCard, Loader2, Plus, RefreshCw } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 const ITEMS_PER_PAGE = 10;
@@ -28,6 +29,8 @@ export default function MerchantPayments() {
     overdueInvoices, 
     isLoading, 
     markPaid, 
+    createPayment,
+    isCreatingPayment,
     sendReminder, 
     sendBulkReminder,
     isMarkingPaid,
@@ -38,6 +41,7 @@ export default function MerchantPayments() {
 
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [isMarkPaidOpen, setIsMarkPaidOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [paymentPlanInvoice, setPaymentPlanInvoice] = useState<Invoice | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 500);
@@ -102,8 +106,16 @@ export default function MerchantPayments() {
 
   return (
     <div className="space-y-6">
-      <PageHeader icon={CreditCard} title="Payments" description="Track rent payments and payment history">
-        <Button 
+      <PageHeader icon={CreditCard} title="Pembayaran" description="Lacak pembayaran sewa dan riwayat pembayaran">
+          <Button 
+            variant="outline" 
+            onClick={() => setIsCreateOpen(true)}
+            className="rounded-xl"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Tambah Pembayaran
+          </Button>
+          <Button 
             variant="outline" 
             onClick={() => refetchPayments()} 
             title="Refresh Data"
@@ -123,7 +135,7 @@ export default function MerchantPayments() {
               ) : (
                 <Bell className="h-4 w-4 mr-2" />
               )}
-              Send Reminders
+              Kirim Pengingat
             </Button>
           )}
         </PageHeader>
@@ -191,6 +203,17 @@ export default function MerchantPayments() {
           payment={selectedPayment}
           onConfirm={handleMarkPaidConfirm}
           loading={isMarkingPaid}
+        />
+        <CreatePaymentDialog
+          open={isCreateOpen}
+          onOpenChange={setIsCreateOpen}
+          merchantId={merchantId || ''}
+          onSubmit={(payload: CreatePaymentPayload) => {
+            createPayment(payload, {
+              onSuccess: () => setIsCreateOpen(false),
+            });
+          }}
+          loading={isCreatingPayment}
         />
 
         <PaymentPlanDialog

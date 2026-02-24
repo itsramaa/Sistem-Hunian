@@ -1,14 +1,15 @@
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useMerchantInvoices } from '@/features/payments/hooks/useMerchantInvoices';
-import { Invoice } from '@/features/payments/types';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { formatCurrency } from '@/shared/utils/currency';
 import { getInvoiceStatusColor } from '@/shared/utils/statusColors';
-import { format } from 'date-fns';
-import { ArrowLeft, Bell, CheckCircle, Download, FileText, Loader2, Send } from 'lucide-react';
+import { supabase } from '@/lib/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
+import { format, differenceInDays } from 'date-fns';
+import { ArrowLeft, Bell, Calendar, CheckCircle, Clock, Download, FileText, Loader2, Mail, MapPin, Phone, Send, User, AlertTriangle } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 export default function MerchantInvoiceDetail() {
@@ -16,31 +17,61 @@ export default function MerchantInvoiceDetail() {
   const navigate = useNavigate();
   const { merchant } = useAuth();
   const {
-    invoices,
-    isLoading,
     sendInvoiceMutation,
     markAsPaidMutation,
     sendReminderMutation,
     generatePdfMutation,
   } = useMerchantInvoices(merchant?.id);
 
-  const invoice = invoices.find((i: Invoice) => i.id === invoiceId);
+  // Fetch invoice with contract relation
+  const { data: invoice, isLoading } = useQuery({
+    queryKey: ['invoice-detail', invoiceId],
+    queryFn: async () => {
+      if (!invoiceId) return null;
+      const { data, error } = await supabase
+        .from('invoices')
+        .select(`
+          *,
+          contracts(
+            id, start_date, end_date, rent_amount,
+            units(unit_number, properties(name))
+          )
+        `)
+        .eq('id', invoiceId)
+        .maybeSingle();
+      if (error) throw error;
+      return data as any;
+    },
+    enabled: !!invoiceId,
+  });
+
+  // Fetch tenant profile separately
+  const { data: tenant } = useQuery({
+    queryKey: ['invoice-tenant', invoice?.tenant_user_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('full_name, email, phone')
+        .eq('user_id', invoice!.tenant_user_id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { full_name: string; email: string; phone: string | null } | null;
+    },
+    enabled: !!invoice?.tenant_user_id,
+  });
 
   const handleSend = async () => {
     if (!invoice) return;
     await sendInvoiceMutation.mutateAsync({ invoiceId: invoice.id, merchantName: merchant?.business_name || 'Landlord' });
   };
-
   const handleMarkPaid = async () => {
     if (!invoice) return;
     await markAsPaidMutation.mutateAsync({ invoiceId: invoice.id, currentStatus: invoice.status });
   };
-
   const handleRemind = async () => {
     if (!invoice) return;
     await sendReminderMutation.mutateAsync({ invoiceId: invoice.id, tenantUserId: invoice.tenant_user_id });
   };
-
   const handleDownload = async () => {
     if (!invoice) return;
     const result = await generatePdfMutation.mutateAsync(invoice.id);
@@ -53,10 +84,7 @@ export default function MerchantInvoiceDetail() {
       <div className="space-y-6">
         <Skeleton className="h-10 w-64" />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <Skeleton className="h-48 rounded-2xl" />
-            <Skeleton className="h-64 rounded-2xl" />
-          </div>
+          <div className="lg:col-span-2 space-y-6"><Skeleton className="h-48 rounded-2xl" /><Skeleton className="h-64 rounded-2xl" /></div>
           <Skeleton className="h-80 rounded-2xl" />
         </div>
       </div>
@@ -66,9 +94,7 @@ export default function MerchantInvoiceDetail() {
   if (!invoice) {
     return (
       <div className="space-y-6">
-        <Button variant="ghost" onClick={() => navigate('/merchant/invoices')} className="gap-2">
-          <ArrowLeft className="h-4 w-4" /> Back to Invoices
-        </Button>
+        <Button variant="ghost" onClick={() => navigate('/merchant/invoices')} className="gap-2"><ArrowLeft className="h-4 w-4" /> Kembali</Button>
         <div className="text-center py-16">
           <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <h2 className="text-xl font-semibold">Faktur tidak ditemukan</h2>
@@ -77,41 +103,90 @@ export default function MerchantInvoiceDetail() {
     );
   }
 
+  const contract = invoice.contracts;
+  const unit = contract?.units;
+  const property = unit?.properties;
+  const lineItems = invoice.line_items as Array<{ item: string; qty: number; price: number }> | null;
+  const overdueDays = invoice.overdue_since ? differenceInDays(new Date(), new Date(invoice.overdue_since)) : 0;
+
+  const timelineSteps = [
+    { label: 'Dibuat', date: invoice.created_at, icon: Calendar, done: true },
+    { label: 'Diterbitkan', date: invoice.issued_at, icon: Send, done: !!invoice.issued_at },
+    { label: 'Jatuh Tempo', date: invoice.due_date, icon: Clock, done: true },
+    { label: 'Dibayar', date: invoice.paid_at, icon: CheckCircle, done: !!invoice.paid_at },
+  ];
+
   return (
     <div className="space-y-6">
-      <Button 
-          variant="ghost" 
-          onClick={() => navigate('/merchant/invoices')}
-          className="gap-2 px-3 py-1.5 rounded-full bg-card/80 backdrop-blur-sm border border-border/40 hover:bg-card"
-        >
-          <ArrowLeft className="h-4 w-4" /> Kembali ke Faktur
-        </Button>
+      <Button variant="ghost" onClick={() => navigate('/merchant/invoices')}
+        className="gap-2 px-3 py-1.5 rounded-full bg-card/80 backdrop-blur-sm border border-border/40 hover:bg-card">
+        <ArrowLeft className="h-4 w-4" /> Kembali ke Faktur
+      </Button>
 
-      <div className="flex items-center justify-between">
-        <PageHeader icon={FileText} title={invoice.invoice_number} description="Invoice Details" />
-        <Badge variant={getInvoiceStatusColor(invoice.status)} className="text-sm px-4 py-1.5 rounded-full capitalize">
-          {invoice.status}
-        </Badge>
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <PageHeader icon={FileText} title={invoice.invoice_number} description="Detail Faktur" />
+        <div className="flex items-center gap-2">
+          {invoice.grace_period_active && <Badge variant="outline" className="rounded-full">Grace Period</Badge>}
+          {overdueDays > 0 && <Badge variant="destructive" className="rounded-full gap-1"><AlertTriangle className="h-3 w-3" /> Overdue {overdueDays} hari</Badge>}
+          <Badge variant={getInvoiceStatusColor(invoice.status)} className="text-sm px-4 py-1.5 rounded-full capitalize">{invoice.status}</Badge>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Tenant Info */}
+          {tenant && (
+            <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6">
+              <h3 className="font-semibold text-lg mb-4 flex items-center gap-2"><User className="h-5 w-5 text-primary" /> Info Penyewa</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="flex items-center gap-3"><User className="h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Nama</p><p className="font-medium">{tenant.full_name || '-'}</p></div></div>
+                <div className="flex items-center gap-3"><Mail className="h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Email</p><p className="font-medium">{tenant.email || '-'}</p></div></div>
+                <div className="flex items-center gap-3"><Phone className="h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Telepon</p><p className="font-medium">{tenant.phone || '-'}</p></div></div>
+              </div>
+            </div>
+          )}
+
+          {/* Contract & Unit */}
+          {contract && (
+            <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6">
+              <h3 className="font-semibold text-lg mb-4 flex items-center gap-2"><MapPin className="h-5 w-5 text-primary" /> Info Kontrak & Unit</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {[
+                  { label: 'Properti', value: property?.name || '-' },
+                  { label: 'Unit', value: unit?.unit_number || '-' },
+                  { label: 'Sewa/Bulan', value: formatCurrency(contract.rent_amount) },
+                  { label: 'Periode', value: `${format(new Date(contract.start_date), 'dd/MM/yy')} - ${format(new Date(contract.end_date), 'dd/MM/yy')}` },
+                ].map((item, i) => (
+                  <div key={i} className="p-3 rounded-xl bg-muted/30">
+                    <p className="text-xs text-muted-foreground">{item.label}</p>
+                    <p className="font-medium mt-0.5 text-sm">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Amount Breakdown */}
           <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-4">
-            <h3 className="font-semibold text-lg">Amount Breakdown</h3>
+            <h3 className="font-semibold text-lg">Rincian Jumlah</h3>
             <div className="space-y-3">
+              {invoice.original_amount && invoice.original_amount !== invoice.amount && (
+                <div className="flex justify-between items-center py-2 text-muted-foreground line-through">
+                  <span>Jumlah Awal</span>
+                  <span>{formatCurrency(Number(invoice.original_amount))}</span>
+                </div>
+              )}
               <div className="flex justify-between items-center py-2">
                 <span className="text-muted-foreground">Subtotal</span>
                 <span className="font-medium">{formatCurrency(Number(invoice.amount))}</span>
               </div>
               <div className="flex justify-between items-center py-2">
-                <span className="text-muted-foreground">Tax</span>
+                <span className="text-muted-foreground">Pajak</span>
                 <span className="font-medium">{formatCurrency(Number(invoice.tax_amount || 0))}</span>
               </div>
               {invoice.late_fee > 0 && (
                 <div className="flex justify-between items-center py-2 text-destructive">
-                  <span>Late Fee</span>
+                  <span>Denda Keterlambatan</span>
                   <span className="font-medium">{formatCurrency(invoice.late_fee)}</span>
                 </div>
               )}
@@ -124,10 +199,39 @@ export default function MerchantInvoiceDetail() {
             </div>
           </div>
 
+          {/* Line Items */}
+          {lineItems && lineItems.length > 0 && (
+            <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6">
+              <h3 className="font-semibold text-lg mb-4">Item Baris</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border/40">
+                      <th className="text-left py-2 text-muted-foreground font-medium">Item</th>
+                      <th className="text-right py-2 text-muted-foreground font-medium">Qty</th>
+                      <th className="text-right py-2 text-muted-foreground font-medium">Harga</th>
+                      <th className="text-right py-2 text-muted-foreground font-medium">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lineItems.map((li, i) => (
+                      <tr key={i} className="border-b border-border/20">
+                        <td className="py-2">{li.item}</td>
+                        <td className="py-2 text-right">{li.qty}</td>
+                        <td className="py-2 text-right">{formatCurrency(li.price)}</td>
+                        <td className="py-2 text-right font-medium">{formatCurrency(li.qty * li.price)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* Description */}
           {invoice.description && (
             <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6">
-              <h3 className="font-semibold text-lg mb-3">Description</h3>
+              <h3 className="font-semibold text-lg mb-3">Deskripsi</h3>
               <p className="text-muted-foreground">{invoice.description}</p>
             </div>
           )}
@@ -135,37 +239,39 @@ export default function MerchantInvoiceDetail() {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Key Info */}
-          <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-4">
-            <h3 className="font-semibold text-lg">Details</h3>
-            {[
-              { label: 'Due Date', value: format(new Date(invoice.due_date), 'MMMM dd, yyyy') },
-              ...(invoice.issued_at ? [{ label: 'Issued', value: format(new Date(invoice.issued_at), 'MMMM dd, yyyy') }] : []),
-              ...(invoice.paid_at ? [{ label: 'Paid', value: format(new Date(invoice.paid_at), 'MMMM dd, yyyy') }] : []),
-            ].map((item, i) => (
-              <div key={i} className="p-3 rounded-xl bg-muted/30">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">{item.label}</p>
-                <p className="font-medium mt-0.5">{item.value}</p>
-              </div>
-            ))}
+          {/* Timeline */}
+          <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6">
+            <h3 className="font-semibold text-lg mb-4">Timeline</h3>
+            <div className="space-y-4">
+              {timelineSteps.map((step, i) => (
+                <div key={i} className={`flex items-start gap-3 ${!step.done ? 'opacity-40' : ''}`}>
+                  <div className={`mt-0.5 p-1.5 rounded-full ${step.done ? 'bg-primary/10' : 'bg-muted/30'}`}>
+                    <step.icon className={`h-3.5 w-3.5 ${step.done ? 'text-primary' : 'text-muted-foreground'}`} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{step.label}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {step.date ? format(new Date(step.date), 'dd MMM yyyy, HH:mm') : 'Belum'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Actions */}
           <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-3">
             <h3 className="font-semibold text-lg mb-2">Aksi</h3>
-            
             <Button variant="outline" className="w-full rounded-xl gap-2" onClick={handleDownload} disabled={generatePdfMutation.isPending}>
               {generatePdfMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
               Unduh PDF
             </Button>
-
             {invoice.status === 'draft' && (
               <Button className="w-full rounded-xl gap-2 gradient-cta text-primary-foreground" onClick={handleSend} disabled={sendInvoiceMutation.isPending}>
                 {sendInvoiceMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 Kirim Faktur
               </Button>
             )}
-
             {(invoice.status === 'sent' || invoice.status === 'overdue') && (
               <>
                 <Button variant="outline" className="w-full rounded-xl gap-2" onClick={handleRemind} disabled={sendReminderMutation.isPending}>
