@@ -1,106 +1,150 @@
 
 
-# Fix DSS "Lengkapi" Links + Auto-Generate Missing Metrics
+# Fix: Merchant UX Issues (7 Items)
 
-## Problems
+## Issue 1: Duplicate/Dead URLs in Merchant Routes
 
-### A. "Lengkapi" links don't navigate to the right place
+Several legacy redirect routes still exist (e.g., `/merchant/legal` redirects to `/merchant/compliance`). While redirects work, some old URLs may be referenced in internal links. The routes themselves are functional redirects -- no duplicate pages exist after Phase B cleanup.
 
-Every DSS checklist item links to a generic page (e.g., `/merchant/properties/{id}`) without specifying which tab or form to open. Users click "Lengkapi" and land on the property overview -- they have no idea where to find the specific field (e.g., "Biaya pembangunan" is in the Keuangan tab, "Kondisi bangunan" is in the Edit dialog step 2).
+**Fix:** Audit all internal links and navigation references. Remove any references to old paths. The legacy redirects in `App.tsx` should stay for backward compatibility but ensure no UI element links to them directly.
 
-### B. Two Level 4 datasets have no way to populate them
-
-`occupancy_snapshots` and `tenant_payment_metrics` are required for DSS but nothing writes to them. These are computable from existing data (units, invoices, contracts).
+No file changes needed -- redirects already work correctly. The user landed on `/merchant/legal` which correctly redirects to `/merchant/compliance`.
 
 ---
 
-## Solution
+## Issue 2: Full-Screen Loading State
 
-### Part 1: Make PropertyDetail read URL hash for initial tab
+The previous fix set `refetchOnWindowFocus: false` and restructured Suspense boundaries. However, some pages still use their own full-screen loading patterns (e.g., `PropertyCompliance` line 36 shows a centered `Loader2` without sidebar/navbar context).
 
-Currently `<Tabs defaultValue="overview">`. Change to read `window.location.hash` so links like `/merchant/properties/{id}#financial` open the correct tab directly.
+**Fix:** Ensure embedded components (LazyCompliance, LazyDataQuality inside PropertyDetail) don't render their own full-screen loaders when used contextually. They're already wrapped in `<Suspense fallback={<ContentSkeleton />}>` by PropertyDetail, so the internal loader should be minimal or removed when `propertyId` prop is provided.
 
-**File: `src/pages/merchant/PropertyDetail.tsx`**
-- Read hash on mount to set initial tab value (e.g., `#financial` sets tab to `financial`)
-- Use controlled `<Tabs value={activeTab} onValueChange={setActiveTab}>` instead of uncontrolled `defaultValue`
-
-### Part 2: Update DSS checklist links to target specific tabs/forms
-
-**File: `src/features/dss/hooks/useDssReadiness.ts`**
-
-Map each item to the correct deep link:
-
-| Item | Current Link | New Link |
-|---|---|---|
-| Nama properti | `/merchant/properties/{id}` | `/merchant/properties/{id}?edit=true` |
-| Tipe properti | `/merchant/properties/{id}` | `/merchant/properties/{id}?edit=true` |
-| Alamat lengkap | `/merchant/properties/{id}` | `/merchant/properties/{id}?edit=true` |
-| Minimal 1 unit | `/merchant/properties/{id}` | `/merchant/properties/{id}#units` |
-| Fasilitas | `/merchant/properties/{id}` | `/merchant/properties/{id}?edit=true&step=3` |
-| Foto properti | `/merchant/properties/{id}` | `/merchant/properties/{id}?edit=true&step=3` |
-| Penjaga aktif | `/merchant/guardians` | `/merchant/guardians` (keep) |
-| Deskripsi | `/merchant/properties/{id}` | `/merchant/properties/{id}?edit=true` |
-| Jumlah lantai | `/merchant/properties/{id}` | `/merchant/properties/{id}?edit=true&step=2` |
-| Kondisi bangunan | `/merchant/properties/{id}` | `/merchant/properties/{id}?edit=true&step=2` |
-| All Level 3 financial fields | `/merchant/properties/{id}` | `/merchant/properties/{id}#financial` |
-| Disaster risk | `/merchant/compliance` | `/merchant/properties/{id}#compliance` |
-| Insurance | `/merchant/compliance` | `/merchant/properties/{id}#compliance` |
-| IMB/PBG | `/merchant/compliance` | `/merchant/properties/{id}#compliance` |
-| PBB | `/merchant/compliance` | `/merchant/properties/{id}#compliance` |
-| Occupancy | `/merchant/properties/{id}` | auto-generate button |
-| Tenant metrics | `/merchant/tenant-analytics` | auto-generate button |
-
-### Part 3: Handle `?edit=true` in PropertyDetail
-
-**File: `src/pages/merchant/PropertyDetail.tsx`**
-- Read `?edit=true` and `?step=N` from URL search params on mount
-- If present, auto-open `PropertyFormDialog` at the specified step
-- Requires adding `PropertyFormDialog` import and state management to PropertyDetail (currently only in Properties list page)
-
-### Part 4: Add "action" type to checklist items for auto-compute
-
-**File: `src/features/dss/hooks/useDssReadiness.ts`**
-- Add optional `action?: 'auto-generate'` field to `ChecklistItem` interface
-- Mark `occupancy` and `tenant_metrics` items with `action: 'auto-generate'`
-
-**File: `src/features/dss/components/DssReadinessChecklist.tsx`**
-- For items with `action: 'auto-generate'`, show a "Generate" button instead of a "Lengkapi" link
-- Button calls the edge functions to compute the data
-
-### Part 5: Create edge functions for auto-computable data
-
-**File: `supabase/functions/compute-occupancy-snapshots/index.ts`**
-- JWT auth, extract merchant_id from user profile
-- Query all properties for the merchant, count units by status per property
-- Calculate occupancy rate, average rent from units
-- Count move-ins/move-outs from contracts starting/ending this month
-- Upsert into `occupancy_snapshots` (keyed on property_id + snapshot_month)
-
-**File: `supabase/functions/compute-tenant-payment-metrics/index.ts`**
-- JWT auth, extract merchant_id
-- Query invoices + payments for tenants in this merchant's properties
-- Per tenant: count total invoices, paid on time, late, unpaid
-- Calculate average days late, payment score (0-100), streaks
-- Upsert into `tenant_payment_metrics`
+### Files to modify:
+- `src/pages/merchant/PropertyCompliance.tsx` -- When `propertyId` is provided, skip the full-page loader and use inline skeleton instead
 
 ---
 
-## Technical Details
+## Issue 3: DataQualityHistory Needs Property Context
 
-### Files to create
-1. `supabase/functions/compute-occupancy-snapshots/index.ts`
-2. `supabase/functions/compute-tenant-payment-metrics/index.ts`
+`DataQualityHistory` (embedded in PropertyDetail's Compliance tab via `<LazyDataQuality />`) still shows its own property selector, forcing users to pick a property they're already viewing.
 
-### Files to modify
-1. `src/pages/merchant/PropertyDetail.tsx` -- Read URL hash for tab, read `?edit=true` for auto-open edit dialog
-2. `src/features/dss/hooks/useDssReadiness.ts` -- Update all links with hash/query params, add `action` field
-3. `src/features/dss/components/DssReadinessChecklist.tsx` -- Render "Generate" button for auto-compute items, call edge functions
-4. `src/features/dss/components/DssReadinessCard.tsx` -- No changes needed (delegates to checklist)
+**Fix:** Apply the same contextual pattern as `PropertyCompliance` -- accept optional `propertyId` prop. When provided, skip the selector and use the ID directly.
 
-### Security
-- Both edge functions require JWT (default in config.toml)
-- Data access scoped to authenticated merchant only via service role + merchant_id filter
-- Uses shared CORS utility from `_shared/cors.ts`
+### Files to modify:
+- `src/pages/merchant/DataQualityHistory.tsx` -- Add `propertyId?: string` prop, skip selector when provided
+- `src/pages/merchant/PropertyDetail.tsx` -- Pass `propertyId={id}` to `<LazyDataQuality propertyId={id} />`
 
-### No database changes needed
-Both `occupancy_snapshots` and `tenant_payment_metrics` tables already exist with the correct schema.
+---
+
+## Issue 4: Merchant-Initiated Maintenance Requests
+
+Currently `maintenanceService.createRequest()` requires an active contract and a `tenant_user_id`. Merchants cannot create maintenance for common areas or vacant units.
+
+**Fix:**
+1. Make `tenant_user_id` nullable in `maintenance_requests` table (it's currently `NOT NULL`)
+2. Create a new service method `createMerchantRequest()` that skips contract validation
+3. Add a "Tambah Maintenance" button + dialog to the Maintenance page
+4. The dialog lets merchant pick a property, unit, fill title/description/category/priority
+
+### Database migration:
+```sql
+ALTER TABLE maintenance_requests ALTER COLUMN tenant_user_id DROP NOT NULL;
+```
+
+### Files to create:
+- `src/features/maintenance/components/CreateMaintenanceDialog.tsx` -- Form dialog for merchant to create maintenance
+
+### Files to modify:
+- `src/features/maintenance/services/maintenanceService.ts` -- Add `createMerchantRequest()` method (skips contract check)
+- `src/features/maintenance/hooks/useMaintenance.ts` -- Add `useCreateMerchantMaintenanceRequest` hook
+- `src/pages/merchant/Maintenance.tsx` -- Add "Tambah" button in header + dialog state
+- `src/features/maintenance/types/index.ts` -- Update `tenant_user_id` to optional in type
+
+---
+
+## Issue 5: Back Button on Deep Detail Pages
+
+Most detail pages already have a back button (MaintenanceDetail, PropertyDetail). Need to verify all detail pages have one.
+
+**Audit results:**
+- `PropertyDetail.tsx` -- Has back button (line 183)
+- `MaintenanceDetail.tsx` -- Has back button (line 99-101)
+- `ContractDetail.tsx`, `InvoiceDetail.tsx`, `PaymentDetail.tsx`, `UnitDetail.tsx`, `MoveOutDetail.tsx` -- Need to verify
+
+**Fix:** Ensure all detail pages have a consistent back button. Pages that are accessed from InsightsHub sub-pages (DssAdvisor, MlAnalytics, etc.) should also have back navigation.
+
+### Files to audit and fix if missing:
+- All `*Detail.tsx` pages under `src/pages/merchant/`
+- InsightsHub sub-pages (analytics pages)
+
+---
+
+## Issue 6: Historical Renovation Costs
+
+Currently `renovation_cost` is a single `numeric` column on `properties`. This only captures one value. Renovation is historical -- properties get renovated multiple times.
+
+**Fix:**
+1. Create a `property_renovations` table to store multiple renovation records (date, cost, description, photos)
+2. Keep `renovation_cost` on properties as a computed total for backward compatibility
+3. Add a renovation history UI in the Financial tab of PropertyDetail
+4. Auto-sum renovation costs back to `properties.renovation_cost` via trigger or application logic
+
+### Database migration:
+```sql
+CREATE TABLE property_renovations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id uuid NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  merchant_id uuid NOT NULL REFERENCES merchants(id),
+  renovation_date date NOT NULL DEFAULT CURRENT_DATE,
+  cost numeric NOT NULL DEFAULT 0,
+  description text,
+  category text DEFAULT 'general',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE property_renovations ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Merchants can manage own renovations" ON property_renovations
+  FOR ALL USING (
+    merchant_id IN (SELECT id FROM merchants WHERE user_id = auth.uid())
+  );
+
+CREATE TRIGGER update_property_renovations_updated_at
+  BEFORE UPDATE ON property_renovations
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+```
+
+### Files to create:
+- `src/features/properties/components/RenovationHistoryCard.tsx` -- CRUD UI for renovation entries
+- `src/features/properties/hooks/useRenovations.ts` -- TanStack Query hooks for CRUD
+
+### Files to modify:
+- `src/features/properties/components/PropertyFinancialForm.tsx` -- Replace single `renovation_cost` input with link to renovation history
+- `src/pages/merchant/PropertyDetail.tsx` -- Add RenovationHistoryCard to Financial tab
+- `src/features/properties/components/PropertyFinancialMetrics.tsx` -- Sum from renovations table instead of single field
+
+---
+
+## Issue 7: Support Page Duplicates Sidebar/Navbar
+
+`Support.tsx` (line 81) wraps content in its own `<DashboardLayout role="merchant">`. But it's already rendered inside `MerchantLayoutRoute` which provides `DashboardLayout`. This causes double sidebar and navbar.
+
+**Fix:** Remove `<DashboardLayout>` wrapper from Support.tsx. Just render the content directly since MerchantLayoutRoute already provides the layout shell.
+
+### Files to modify:
+- `src/pages/merchant/Support.tsx` -- Remove `<DashboardLayout>` wrapper, keep only inner content
+
+---
+
+## Summary of All Changes
+
+| # | Issue | Type | Files |
+|---|---|---|---|
+| 1 | Dead URLs | No change needed | Redirects already work |
+| 2 | Full-screen loading | Code fix | PropertyCompliance.tsx |
+| 3 | DataQuality property context | Code fix | DataQualityHistory.tsx, PropertyDetail.tsx |
+| 4 | Merchant maintenance creation | DB + Code | Migration, 4 existing files, 1 new component |
+| 5 | Back buttons | Code fix | Audit detail pages, add where missing |
+| 6 | Historical renovation costs | DB + Code | Migration, 2 new files, 3 modified files |
+| 7 | Support double layout | Code fix | Support.tsx |
+
