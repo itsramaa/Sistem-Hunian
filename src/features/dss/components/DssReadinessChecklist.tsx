@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
 import { Progress } from "@/shared/components/ui/progress";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/shared/components/ui/collapsible";
-import { ChevronDown, CheckCircle2, Circle, ExternalLink } from "lucide-react";
+import { ChevronDown, CheckCircle2, Circle, ExternalLink, Loader2, Zap } from "lucide-react";
 import { cn } from "@/shared/utils/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import type { DssReadinessResult } from "@/features/dss/hooks/useDssReadiness";
 
 const LEVEL_STYLES: Record<number, { bg: string; border: string; badge: string; progress: string }> = {
@@ -22,9 +26,26 @@ export function DssReadinessChecklist({ readiness }: DssReadinessChecklistProps)
   const [openLevels, setOpenLevels] = useState<number[]>(() =>
     readiness.levels.filter(l => l.score < 100).map(l => l.level)
   );
+  const [generating, setGenerating] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const toggleLevel = (level: number) => {
     setOpenLevels(prev => prev.includes(level) ? prev.filter(l => l !== level) : [...prev, level]);
+  };
+
+  const handleAutoGenerate = async (key: string) => {
+    setGenerating(key);
+    try {
+      const fnName = key === 'occupancy' ? 'compute-occupancy-snapshots' : 'compute-tenant-payment-metrics';
+      const { error } = await supabase.functions.invoke(fnName);
+      if (error) throw error;
+      toast.success(key === 'occupancy' ? 'Data occupancy berhasil di-generate!' : 'Data payment tenant berhasil di-generate!');
+      queryClient.invalidateQueries({ queryKey: ['dss-readiness'] });
+    } catch (e: any) {
+      toast.error(`Gagal generate data: ${e.message || 'Unknown error'}`);
+    } finally {
+      setGenerating(null);
+    }
   };
 
   return (
@@ -95,7 +116,23 @@ export function DssReadinessChecklist({ readiness }: DssReadinessChecklistProps)
                     <span className={cn("text-sm flex-1", item.completed ? "text-muted-foreground line-through" : "text-foreground")}>
                       {item.label}
                     </span>
-                    {!item.completed && item.link && (
+                    {!item.completed && item.action === 'auto-generate' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 text-xs rounded-full px-2.5 gap-1 border-primary/30 text-primary hover:bg-primary/10"
+                        disabled={generating === item.key}
+                        onClick={(e) => { e.stopPropagation(); handleAutoGenerate(item.key); }}
+                      >
+                        {generating === item.key ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Zap className="h-3 w-3" />
+                        )}
+                        Generate
+                      </Button>
+                    )}
+                    {!item.completed && !item.action && item.link && (
                       <Link to={item.link} className="text-xs text-primary hover:underline flex items-center gap-0.5 shrink-0">
                         Lengkapi <ExternalLink className="h-3 w-3" />
                       </Link>
