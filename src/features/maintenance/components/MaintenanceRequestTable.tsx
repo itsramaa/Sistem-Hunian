@@ -1,4 +1,3 @@
-import { getRelevantContract } from '@/features/contracts/utils/contract-utils';
 import { Button } from '@/shared/components/ui/button';
 import {
   DropdownMenu,
@@ -19,7 +18,7 @@ import { Skeleton } from '@/shared/components/ui/skeleton';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { TablePagination } from '@/shared/components/ui/TablePagination';
 import { format } from 'date-fns';
-import { AlertTriangle, Edit, Eye, MoreHorizontal, Wrench, XCircle } from 'lucide-react';
+import { Edit, Eye, MoreHorizontal, Wrench } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { MaintenanceRequest } from '../types';
 import { MaintenancePriorityBadge } from './MaintenancePriorityBadge';
@@ -47,7 +46,12 @@ const PRIORITY_ROW_ACCENT: Record<string, string> = {
 };
 
 const TABLE_HEADERS = [
-  'Unit', 'Tenant', 'Title', 'Category', 'Priority', 'Status', 'SLA', 'Assigned', 'Created', ''
+  { label: 'Request', className: '' },
+  { label: 'Priority', className: '' },
+  { label: 'Status', className: '' },
+  { label: 'SLA', className: 'hidden lg:table-cell' },
+  { label: 'Created', className: '' },
+  { label: '', className: 'text-right w-[50px]' },
 ];
 
 function TableSkeleton() {
@@ -57,8 +61,8 @@ function TableSkeleton() {
         <TableHeader>
           <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b border-border/40">
             {TABLE_HEADERS.map((h, i) => (
-              <TableHead key={i} className={cn("text-xs uppercase tracking-wider font-semibold", i === TABLE_HEADERS.length - 1 && "text-right")}>
-                {h || 'Actions'}
+              <TableHead key={i} className={cn("text-xs uppercase tracking-wider font-semibold", h.className)}>
+                {h.label || 'Actions'}
               </TableHead>
             ))}
           </TableRow>
@@ -66,7 +70,7 @@ function TableSkeleton() {
         <TableBody>
           {Array.from({ length: 5 }).map((_, i) => (
             <TableRow key={i}>
-              {Array.from({ length: TABLE_HEADERS.length }).map((_, j) => (
+              {TABLE_HEADERS.map((_, j) => (
                 <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
               ))}
             </TableRow>
@@ -110,22 +114,14 @@ export function MaintenanceRequestTable({
           <TableHeader>
             <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b border-border/40">
               {TABLE_HEADERS.map((h, i) => (
-                <TableHead key={i} className={cn(
-                  "text-xs uppercase tracking-wider font-semibold",
-                  i === TABLE_HEADERS.length - 1 && "text-right",
-                  // Hide some columns on mobile
-                  (h === 'Category' || h === 'SLA' || h === 'Assigned') && "hidden lg:table-cell"
-                )}>
-                  {h || 'Actions'}
+                <TableHead key={i} className={cn("text-xs uppercase tracking-wider font-semibold", h.className)}>
+                  {h.label || 'Actions'}
                 </TableHead>
               ))}
             </TableRow>
           </TableHeader>
           <TableBody>
             {requests.map((request) => {
-              const relevantContract = getRelevantContract(request.unit?.contracts, request.tenant_user_id);
-              const isNotice = relevantContract?.status === 'notice';
-              const isTerminated = relevantContract?.status === 'terminated' || relevantContract?.status === 'expired';
               const accentClass = PRIORITY_ROW_ACCENT[request.priority] || '';
 
               return (
@@ -134,46 +130,28 @@ export function MaintenanceRequestTable({
                   className={cn("hover:bg-primary/5 transition-colors cursor-pointer", accentClass)}
                   onClick={() => navigate(`/merchant/maintenance/${request.id}`)}
                 >
-                  <TableCell className="font-medium">
-                    {request.unit?.unit_number}
-                    {isNotice && (
-                      <span title="Tenant in notice period" className="ml-2 text-warning inline-flex items-center">
-                        <AlertTriangle className="h-3 w-3" />
-                      </span>
-                    )}
-                    {isTerminated && (
-                      <span title="Contract terminated/expired" className="ml-2 text-destructive inline-flex items-center">
-                        <XCircle className="h-3 w-3" />
-                      </span>
-                    )}
-                    <span className="block text-xs text-muted-foreground">
-                      {request.unit?.property?.name}
-                    </span>
-                  </TableCell>
+                  {/* Request: thumbnail + title + unit */}
                   <TableCell>
-                    {request.tenant?.full_name || <span className="text-muted-foreground italic text-xs">—</span>}
-                    <span className="block text-xs text-muted-foreground">
-                      {request.tenant?.phone_number || request.tenant?.email}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {request.images && request.images.length > 0 && (
+                    <div className="flex items-center gap-3">
+                      {request.images && request.images.length > 0 ? (
                         <img
                           src={request.images[0]}
                           alt=""
-                          className="w-8 h-8 rounded-lg object-cover border border-border/40 shrink-0"
+                          className="w-10 h-10 rounded-lg object-cover border border-border/40 shrink-0"
                         />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-muted/50 flex items-center justify-center shrink-0">
+                          <Wrench className="h-4 w-4 text-muted-foreground" />
+                        </div>
                       )}
                       <div className="min-w-0">
-                        <span className="font-medium block truncate">{request.title}</span>
-                        <span className="block text-xs text-muted-foreground truncate max-w-[200px]">
-                          {request.description}
+                        <span className="font-medium block truncate max-w-[250px]">{request.title}</span>
+                        <span className="block text-xs text-muted-foreground truncate">
+                          {request.unit?.unit_number} · {request.unit?.property?.name}
                         </span>
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="capitalize hidden lg:table-cell">{request.category}</TableCell>
                   <TableCell>
                     <MaintenancePriorityBadge priority={request.priority} />
                   </TableCell>
@@ -183,16 +161,7 @@ export function MaintenanceRequestTable({
                   <TableCell className="hidden lg:table-cell">
                     <SLABadge slaDeadline={request.sla_deadline} status={request.status} />
                   </TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    {request.assigned_to ? (
-                      <span className="text-sm font-medium">{request.assigned_to}</span>
-                    ) : request.assigned_vendor ? (
-                      <span className="text-sm font-medium">{request.assigned_vendor.business_name}</span>
-                    ) : (
-                      <span className="text-sm text-muted-foreground italic">Unassigned</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
+                  <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                     {format(new Date(request.created_at), 'dd MMM yyyy')}
                   </TableCell>
                   <TableCell className="text-right">

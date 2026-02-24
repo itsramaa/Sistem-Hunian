@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { Button } from '@/shared/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
-import { Camera, Loader2, ScanLine, CheckCircle, AlertTriangle } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
+import { Camera, ImageIcon, Loader2, ScanLine, CheckCircle, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/lib/integrations/supabase/client';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { toast } from 'sonner';
@@ -34,11 +35,11 @@ export function OcrCameraButton({
   size = 'default',
   className,
   icon,
-  useCapture = false,
   disabled = false,
 }: OcrCameraButtonProps) {
   const { user } = useAuth();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [results, setResults] = useState<Record<string, any> | null>(null);
@@ -56,7 +57,6 @@ export function OcrCameraButton({
     setIsProcessing(true);
 
     try {
-      // Upload to storage
       const ext = file.name.split('.').pop();
       const filePath = `${user.id}/${Date.now()}.${ext}`;
       
@@ -66,7 +66,6 @@ export function OcrCameraButton({
 
       if (uploadError) throw uploadError;
 
-      // Call OCR edge function
       const { data, error } = await supabase.functions.invoke(edgeFunction, {
         body: { document_path: filePath, ...extraPayload },
       });
@@ -86,7 +85,8 @@ export function OcrCameraButton({
       toast.error(err instanceof Error ? err.message : 'OCR gagal memproses dokumen');
     } finally {
       setIsProcessing(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
+      if (galleryInputRef.current) galleryInputRef.current.value = '';
     }
   };
 
@@ -139,30 +139,51 @@ export function OcrCameraButton({
 
   return (
     <>
+      {/* Hidden file inputs - one for camera, one for gallery */}
       <input
-        ref={fileInputRef}
+        ref={cameraInputRef}
         type="file"
         accept="image/*"
-        capture={useCapture ? "environment" : undefined}
+        capture="environment"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
         onChange={handleFileSelect}
         className="hidden"
       />
 
-      <Button
-        type="button"
-        variant={variant}
-        size={size}
-        className={cn("gap-2 rounded-xl", className)}
-        onClick={() => fileInputRef.current?.click()}
-        disabled={disabled || isProcessing}
-      >
-        {isProcessing ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          icon || <ScanLine className="h-4 w-4" />
-        )}
-        {isProcessing ? 'Memproses...' : label}
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant={variant}
+            size={size}
+            className={cn("gap-2 rounded-xl", className)}
+            disabled={disabled || isProcessing}
+          >
+            {isProcessing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              icon || <ScanLine className="h-4 w-4" />
+            )}
+            {isProcessing ? 'Memproses...' : label}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="rounded-xl">
+          <DropdownMenuItem onClick={() => cameraInputRef.current?.click()}>
+            <Camera className="mr-2 h-4 w-4" />
+            Kamera
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => galleryInputRef.current?.click()}>
+            <ImageIcon className="mr-2 h-4 w-4" />
+            Galeri / Dokumen
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <Dialog open={showResults} onOpenChange={setShowResults}>
         <DialogContent className="rounded-2xl max-w-md max-h-[80vh] overflow-y-auto">
@@ -174,7 +195,6 @@ export function OcrCameraButton({
           </DialogHeader>
           
           <div className="space-y-4">
-            {/* Confidence indicator */}
             <div className={cn(
               "flex items-center gap-2 p-3 rounded-xl border",
               confidence >= 80 
@@ -198,12 +218,10 @@ export function OcrCameraButton({
               </div>
             </div>
 
-            {/* Extracted fields */}
             <div className="space-y-1">
               {results && Object.entries(results).map(([key, value]) => renderFieldValue(key, value))}
             </div>
 
-            {/* Actions */}
             <div className="flex gap-2">
               <Button
                 variant="outline"

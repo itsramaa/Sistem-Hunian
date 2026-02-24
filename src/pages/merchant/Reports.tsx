@@ -23,6 +23,7 @@ import { TenantChurnAnalytics } from '@/features/analytics/components/TenantChur
 import { OnTimePaymentRate } from '@/features/analytics/components/OnTimePaymentRate';
 import { RevenueForecast } from '@/features/analytics/components/RevenueForecast';
 import { ContractNoticePeriod } from '@/features/contracts/components/ContractNoticePeriod';
+import { AnalyticsDashboardTab } from '@/features/analytics/components/AnalyticsDashboardTab';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--muted))', 'hsl(var(--success))', 'hsl(var(--warning))'];
 
@@ -163,6 +164,10 @@ export default function MerchantReports() {
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className="pill-tab-list">
           <TabsTrigger value="overview" className="pill-tab-trigger">Overview</TabsTrigger>
+          <TabsTrigger value="dashboard" className="pill-tab-trigger flex items-center gap-1.5">
+            <BarChart3 className="h-3.5 w-3.5" />
+            Dashboard
+          </TabsTrigger>
           <TabsTrigger value="roi" className="pill-tab-trigger flex items-center gap-1.5">
             <PieChartIcon className="h-3.5 w-3.5" />
             ROI & Ringkasan
@@ -180,6 +185,10 @@ export default function MerchantReports() {
             Maintenance
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="dashboard" className="space-y-6">
+          <AnalyticsDashboardTab />
+        </TabsContent>
 
         <TabsContent value="overview" className="space-y-6">
           {isLoading ? (

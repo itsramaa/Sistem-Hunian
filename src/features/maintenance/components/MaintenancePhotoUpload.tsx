@@ -1,6 +1,8 @@
 import { FileUpload } from '@/shared/components/FileUpload';
 import { Label } from '@/shared/components/ui/label';
-import { X } from 'lucide-react';
+import { Button } from '@/shared/components/ui/button';
+import { X, Camera, ImageIcon } from 'lucide-react';
+import { useRef } from 'react';
 
 interface MaintenancePhotoUploadProps {
   photos: string[];
@@ -11,7 +13,9 @@ interface MaintenancePhotoUploadProps {
 }
 
 export function MaintenancePhotoUpload({ photos, onChange, maxPhotos = 5, label = 'Issue Photos', description = 'Upload photos to help describe the issue (max 5)' }: MaintenancePhotoUploadProps) {
-  const handleUploadComplete = (url: string) => { if (photos.length < maxPhotos) onChange([...photos, url]); };
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+
   const handleRemovePhoto = (index: number) => { onChange(photos.filter((_, i) => i !== index)); };
 
   return (
@@ -38,8 +42,9 @@ export function MaintenancePhotoUpload({ photos, onChange, maxPhotos = 5, label 
 
       {photos.length < maxPhotos && (
         <div className="flex items-center gap-2">
-          <FileUpload bucket="maintenance-photos" onUploadComplete={handleUploadComplete} accept="image/*" maxSize={5} />
-          <span className="text-xs text-muted-foreground">{photos.length}/{maxPhotos} photos</span>
+          <FileUpload bucket="maintenance-photos" onUploadComplete={(url) => { if (photos.length < maxPhotos) onChange([...photos, url]); }} accept="image/*" maxSize={5} capture="environment" />
+          <FileUpload bucket="maintenance-photos" onUploadComplete={(url) => { if (photos.length < maxPhotos) onChange([...photos, url]); }} accept="image/*" maxSize={5} buttonLabel="Galeri" buttonIcon="gallery" />
+          <span className="text-xs text-muted-foreground">{photos.length}/{maxPhotos}</span>
         </div>
       )}
     </div>
