@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,7 @@ function getAvatarColor(name: string | null | undefined): string {
 }
 
 export function TenantDetailsDialog({ tenant, open, onOpenChange }: TenantDetailsDialogProps) {
+  const navigate = useNavigate();
   if (!tenant) return null;
 
   const isLinked = tenant.status === 'linked';
@@ -156,8 +158,11 @@ export function TenantDetailsDialog({ tenant, open, onOpenChange }: TenantDetail
           </Card>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">Tutup</Button>
+          <Button className="rounded-xl gradient-cta text-primary-foreground" onClick={() => { onOpenChange(false); navigate(`/merchant/tenants/${tenant.id}`); }}>
+            Lihat Detail Lengkap
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

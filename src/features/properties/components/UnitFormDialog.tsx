@@ -138,7 +138,7 @@ export const UnitFormDialog = ({ open, onOpenChange, unit, properties, onSubmit,
             <div className="space-y-4">
               {properties.length > 1 && (
                 <div className="space-y-2">
-                  <Label>Properti *</Label>
+                  <Label>Properti <span className="text-destructive">*</span></Label>
                   <Select value={watch("property_id")} onValueChange={(v) => setValue("property_id", v, { shouldValidate: true })}>
                     <SelectTrigger className={cn(inputCls, errors.property_id && 'border-destructive')}><SelectValue placeholder="Pilih properti" /></SelectTrigger>
                     <SelectContent>{properties.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
@@ -148,12 +148,12 @@ export const UnitFormDialog = ({ open, onOpenChange, unit, properties, onSubmit,
               )}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label>Nomor Unit *</Label>
+                  <Label>Nomor Unit <span className="text-destructive">*</span></Label>
                   <Input {...register("unit_number")} placeholder="Contoh: A101" className={cn(inputCls, errors.unit_number && 'border-destructive')} />
                   {errors.unit_number && <p className="text-sm text-destructive">{errors.unit_number.message}</p>}
                 </div>
                 <div className="space-y-2">
-                  <Label>Tipe Unit *</Label>
+                  <Label>Tipe Unit <span className="text-destructive">*</span></Label>
                   <Select value={watch("unit_type")} onValueChange={(v) => setValue("unit_type", v, { shouldValidate: true })}>
                     <SelectTrigger className={cn(inputCls, errors.unit_type && 'border-destructive')}><SelectValue placeholder="Pilih tipe" /></SelectTrigger>
                     <SelectContent>{getUnitTypesForProperty(selectedProperty?.property_type).map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
@@ -191,7 +191,7 @@ export const UnitFormDialog = ({ open, onOpenChange, unit, properties, onSubmit,
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label>Harga Sewa / Bulan *</Label>
+                  <Label>Harga Sewa / Bulan <span className="text-destructive">*</span></Label>
                   <Input type="number" min="0" {...register("rent_amount")} placeholder="1500000" className={cn(inputCls, errors.rent_amount && 'border-destructive')} />
                   {errors.rent_amount && <p className="text-sm text-destructive">{errors.rent_amount.message}</p>}
                 </div>

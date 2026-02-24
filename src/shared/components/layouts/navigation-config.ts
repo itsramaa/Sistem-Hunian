@@ -121,10 +121,10 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
       {
         label: "Operasional",
         items: [
+          { path: "/merchant/guardians", icon: UserCheck, label: "Penjaga" },
           { path: "/merchant/tenants", icon: Users, label: "Penyewa", activePatterns: ["/merchant/move-outs", "/merchant/tenant-analytics"] },
           { path: "/merchant/contracts", icon: ClipboardList, label: "Kontrak" },
           { path: "/merchant/maintenance", icon: Wrench, label: "Maintenance" },
-          { path: "/merchant/guardians", icon: UserCheck, label: "Penjaga" },
         ],
       },
       {
@@ -137,7 +137,8 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
       {
         label: "Wawasan",
         items: [
-          { path: "/merchant/insights", icon: BarChart3, label: "Analitik", activePatterns: ["/merchant/analytics", "/merchant/ai-insights", "/merchant/analytics-dashboard", "/merchant/reports", "/merchant/report-templates", "/merchant/comparative-portfolio", "/merchant/ml-analytics", "/merchant/dss-advisor", "/merchant/market-intelligence", "/merchant/financial-risk", "/merchant/tenant-quality"] },
+          { path: "/merchant/insights", icon: BarChart3, label: "Analitik", activePatterns: ["/merchant/analytics", "/merchant/ai-insights", "/merchant/analytics-dashboard", "/merchant/comparative-portfolio", "/merchant/ml-analytics", "/merchant/dss-advisor", "/merchant/market-intelligence", "/merchant/financial-risk", "/merchant/tenant-quality"] },
+          { path: "/merchant/reports", icon: FileText, label: "Laporan", activePatterns: ["/merchant/report-templates"] },
         ],
       },
     ],

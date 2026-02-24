@@ -24,6 +24,10 @@ import { Suspense, lazy, useState, useEffect, useCallback, useRef } from 'react'
 import { ContentSkeleton } from '@/shared/components/ui/PageSkeleton';
 import { formatCurrency } from '@/shared/utils/currency';
 import { format } from 'date-fns';
+import { TenantDetailsDialog } from '@/features/users/components/tenant/TenantDetailsDialog';
+import { ActiveTenant } from '@/features/users/types/tenant';
+import { CreateMaintenanceDialog } from '@/features/maintenance/components/CreateMaintenanceDialog';
+import { useCreateMerchantMaintenanceRequest } from '@/features/maintenance/hooks/useMaintenance';
 
 const LazyGuardians = lazy(() => import('@/pages/merchant/Guardians'));
 const LazyCompliance = lazy(() => import('@/pages/merchant/PropertyCompliance'));
@@ -89,6 +93,14 @@ export default function PropertyDetail() {
   const [tenantGalleryCount, setTenantGalleryCount] = useState(ITEMS_PER_PAGE);
   const unitObserverRef = useRef<HTMLDivElement>(null);
   const tenantObserverRef = useRef<HTMLDivElement>(null);
+
+  // Tenant dialog
+  const [selectedTenantForDialog, setSelectedTenantForDialog] = useState<ActiveTenant | null>(null);
+  const [showTenantDialog, setShowTenantDialog] = useState(false);
+
+  // Maintenance dialog
+  const [showCreateMaintenanceDialog, setShowCreateMaintenanceDialog] = useState(false);
+  const createMaintenanceMutation = useCreateMerchantMaintenanceRequest();
 
   // Read URL hash for initial tab
   const getInitialTab = useCallback(() => {
@@ -247,7 +259,7 @@ export default function PropertyDetail() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setShowEditDialog(true)}><Edit className="h-4 w-4 mr-1" />Edit</Button>
-          <Button variant="outline" size="sm" className="rounded-xl"><ImageIcon className="h-4 w-4 mr-1" />Foto</Button>
+          <Button variant="outline" size="sm" className="rounded-xl" onClick={() => { setEditInitialStep(3); setShowEditDialog(true); }}><ImageIcon className="h-4 w-4 mr-1" />Foto</Button>
         </div>
       </div>
 
@@ -491,7 +503,16 @@ export default function PropertyDetail() {
                 <>
                   <div className="space-y-3">
                     {paginatedTenants.map((contract: any) => (
-                      <Card key={contract.id} className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40 hover:border-primary/20 hover:shadow-sm transition-all cursor-pointer" onClick={() => navigate(`/merchant/tenants`)}>
+                      <Card key={contract.id} className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40 hover:border-primary/20 hover:shadow-sm transition-all cursor-pointer" onClick={() => {
+                        const unit = units.find((u: any) => u.id === contract.unit_id);
+                        setSelectedTenantForDialog({
+                          id: contract.id, status: contract.status, start_date: contract.start_date, end_date: contract.end_date,
+                          rent_amount: contract.rent_amount, deposit_amount: null, tenant_user_id: contract.tenant_user_id,
+                          unit: unit ? { id: unit.id, unit_number: unit.unit_number, property: { id: property.id, name: property.name } } : null,
+                          profile: { full_name: contract.tenant?.full_name || null, email: contract.tenant?.email || null, phone: null },
+                        });
+                        setShowTenantDialog(true);
+                      }}>
                         <CardContent className="p-4">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-3">
@@ -534,7 +555,16 @@ export default function PropertyDetail() {
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {paginatedTenants.map((contract: any) => (
-                      <Card key={contract.id} className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40 hover:-translate-y-1 hover:shadow-lg hover:border-primary/30 transition-all duration-300 cursor-pointer" onClick={() => navigate(`/merchant/tenants`)}>
+                      <Card key={contract.id} className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40 hover:-translate-y-1 hover:shadow-lg hover:border-primary/30 transition-all duration-300 cursor-pointer" onClick={() => {
+                        const unit = units.find((u: any) => u.id === contract.unit_id);
+                        setSelectedTenantForDialog({
+                          id: contract.id, status: contract.status, start_date: contract.start_date, end_date: contract.end_date,
+                          rent_amount: contract.rent_amount, deposit_amount: null, tenant_user_id: contract.tenant_user_id,
+                          unit: unit ? { id: unit.id, unit_number: unit.unit_number, property: { id: property.id, name: property.name } } : null,
+                          profile: { full_name: contract.tenant?.full_name || null, email: contract.tenant?.email || null, phone: null },
+                        });
+                        setShowTenantDialog(true);
+                      }}>
                         <CardContent className="p-4 text-center">
                           <div className="h-14 w-14 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-bold text-xl mx-auto mb-3">
                             {(contract.tenant?.full_name || 'T')[0].toUpperCase()}
@@ -571,7 +601,7 @@ export default function PropertyDetail() {
           <TabsContent value="maintenance" className="space-y-3 mt-4 animate-fade-in">
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">{propertyMaintenance.length} permintaan total</p>
-              <Button size="sm" className="rounded-xl gradient-cta text-primary-foreground" onClick={() => navigate(`/merchant/maintenance?propertyId=${id}`)}>
+              <Button size="sm" className="rounded-xl gradient-cta text-primary-foreground" onClick={() => setShowCreateMaintenanceDialog(true)}>
                 <Plus className="h-4 w-4 mr-1" />Tambah Maintenance
               </Button>
             </div>
@@ -661,6 +691,29 @@ export default function PropertyDetail() {
           </div>
         </div>
       </div>
+
+      {/* Tenant Details Dialog */}
+      <TenantDetailsDialog
+        tenant={selectedTenantForDialog}
+        open={showTenantDialog}
+        onOpenChange={setShowTenantDialog}
+      />
+
+      {/* Create Maintenance Dialog */}
+      <CreateMaintenanceDialog
+        open={showCreateMaintenanceDialog}
+        onOpenChange={setShowCreateMaintenanceDialog}
+        onSubmit={(payload) => {
+          createMaintenanceMutation.mutate(payload, {
+            onSuccess: () => {
+              setShowCreateMaintenanceDialog(false);
+              queryClient.invalidateQueries({ queryKey: ['property-maintenance', id] });
+            },
+          });
+        }}
+        loading={createMaintenanceMutation.isPending}
+        preselectedPropertyId={id}
+      />
     </div>
   );
 }
