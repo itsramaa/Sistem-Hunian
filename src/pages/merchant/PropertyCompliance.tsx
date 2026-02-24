@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { AlertTriangle, FileText, Loader2, Plus, ScanText, Shield, ShieldAlert, Umbrella, Upload } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -123,6 +123,18 @@ function getScoreColor(score: number) {
 }
 
 // ====== Disaster Risk Tab ======
+function calculateRiskScore(form: { risk_zone: string; flood_risk: string; earthquake_risk: string; landslide_risk: string; fire_risk: string }): number {
+  const WEIGHTS: Record<string, number> = { risk_zone: 0.30, flood_risk: 0.25, earthquake_risk: 0.20, landslide_risk: 0.15, fire_risk: 0.10 };
+  const SCORES: Record<string, number> = { low: 15, medium: 45, high: 75, critical: 95 };
+  return Math.round(
+    (SCORES[form.risk_zone] || 0) * WEIGHTS.risk_zone +
+    (SCORES[form.flood_risk] || 0) * WEIGHTS.flood_risk +
+    (SCORES[form.earthquake_risk] || 0) * WEIGHTS.earthquake_risk +
+    (SCORES[form.landslide_risk] || 0) * WEIGHTS.landslide_risk +
+    (SCORES[form.fire_risk] || 0) * WEIGHTS.fire_risk
+  );
+}
+
 function DisasterRiskTab({ propertyId, merchantId, profile }: { propertyId: string; merchantId: string; profile: DisasterRiskProfile | null }) {
   const qc = useQueryClient();
   const [saving, setSaving] = useState(false);
@@ -135,6 +147,12 @@ function DisasterRiskTab({ propertyId, merchantId, profile }: { propertyId: stri
     overall_risk_score: profile?.overall_risk_score || 0,
     notes: profile?.notes || '',
   });
+
+  // Auto-calculate risk score when dropdowns change
+  useEffect(() => {
+    const score = calculateRiskScore(form);
+    setForm(f => ({ ...f, overall_risk_score: score }));
+  }, [form.risk_zone, form.flood_risk, form.earthquake_risk, form.landslide_risk, form.fire_risk]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -167,8 +185,11 @@ function DisasterRiskTab({ propertyId, merchantId, profile }: { propertyId: stri
             </div>
           ))}
           <div className="space-y-1.5">
-            <Label className="text-xs">Skor Risiko (0-100)</Label>
-            <Input type="number" min={0} max={100} className="rounded-xl" value={form.overall_risk_score} onChange={e => setForm(f => ({ ...f, overall_risk_score: Number(e.target.value) }))} />
+            <Label className="text-xs">Skor Risiko (otomatis)</Label>
+            <div className="flex items-center gap-2">
+              <div className={`text-2xl font-bold ${getScoreColor(form.overall_risk_score)}`}>{form.overall_risk_score}</div>
+              <span className="text-xs text-muted-foreground">/ 100</span>
+            </div>
           </div>
         </div>
         <div className="space-y-1.5">

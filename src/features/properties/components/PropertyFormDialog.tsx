@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, Building2, Check, Image as ImageIcon, Loader2, MapPin, User } from "lucide-react";
-import { Badge } from "@/shared/components/ui/badge";
+
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -52,10 +52,10 @@ interface PropertyFormDialogProps {
 }
 
 const STEPS = [
-  { label: 'Info Dasar', icon: Building2, levelBadge: 'Level 1 — Wajib', levelColor: 'bg-success/15 text-success border-success/30' },
-  { label: 'Lokasi', icon: MapPin, levelBadge: 'Level 1 — Wajib', levelColor: 'bg-success/15 text-success border-success/30' },
-  { label: 'Detail', icon: User, levelBadge: 'Level 2 — Recommended', levelColor: 'bg-info/15 text-info border-info/30' },
-  { label: 'Media', icon: ImageIcon, levelBadge: 'Level 2 — Recommended', levelColor: 'bg-info/15 text-info border-info/30' },
+  { label: 'Info Dasar', icon: Building2 },
+  { label: 'Lokasi', icon: MapPin },
+  { label: 'Detail', icon: User },
+  { label: 'Media', icon: ImageIcon },
 ];
 
 export function PropertyFormDialog({ open, onOpenChange, property, onSubmit, isLoading, initialStep = 0 }: PropertyFormDialogProps) {
@@ -129,7 +129,6 @@ export function PropertyFormDialog({ open, onOpenChange, property, onSubmit, isL
                 {i < step ? <Check className="h-4 w-4" /> : i + 1}
               </div>
               <span className={cn('text-xs font-medium hidden sm:block', i === step ? 'text-foreground' : 'text-muted-foreground')}>{s.label}</span>
-              {i === step && <Badge variant="outline" className={cn("text-[9px] rounded-full px-1.5 py-0 hidden md:inline-flex", s.levelColor)}>{s.levelBadge}</Badge>}
               {i < STEPS.length - 1 && (
                 <div className={cn('w-6 h-0.5 mx-0.5 rounded-full transition-colors', i < step ? 'bg-success' : 'bg-muted')} />
               )}
@@ -142,12 +141,12 @@ export function PropertyFormDialog({ open, onOpenChange, property, onSubmit, isL
           {step === 0 && (
             <div className="space-y-4">
               <div>
-                <Label>Nama Properti *</Label>
+                <Label>Nama Properti <span className="text-destructive">*</span></Label>
                 <Input placeholder="Contoh: Kost Harmoni" {...register('name')} className={cn(inputCls, errors.name && 'border-destructive')} />
                 {errors.name && <p className="text-sm text-destructive mt-1">{errors.name.message}</p>}
               </div>
               <div>
-                <Label>Tipe Properti *</Label>
+                <Label>Tipe Properti <span className="text-destructive">*</span></Label>
                 <Select value={watch('property_type')} onValueChange={(v: any) => setValue('property_type', v, { shouldValidate: true })}>
                   <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
                   <SelectContent>{PROPERTY_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
@@ -170,7 +169,7 @@ export function PropertyFormDialog({ open, onOpenChange, property, onSubmit, isL
                 provinceError={errors.province?.message} cityError={errors.city?.message}
               />
               <div>
-                <Label>Alamat *</Label>
+                <Label>Alamat <span className="text-destructive">*</span></Label>
                 <LocationPicker
                   value={watch('address')}
                   onChange={(a, lat, lng) => {
@@ -199,7 +198,7 @@ export function PropertyFormDialog({ open, onOpenChange, property, onSubmit, isL
                   <Input type="number" placeholder="2020" {...register('construction_year')} className={inputCls} />
                 </div>
                 <div>
-                  <Label>Jumlah Lantai *</Label>
+                  <Label>Jumlah Lantai <span className="text-destructive">*</span></Label>
                   <Input type="number" min={1} {...register('floor_count')} className={cn(inputCls, errors.floor_count && 'border-destructive')} />
                   {errors.floor_count && <p className="text-sm text-destructive mt-1">{errors.floor_count.message}</p>}
                 </div>

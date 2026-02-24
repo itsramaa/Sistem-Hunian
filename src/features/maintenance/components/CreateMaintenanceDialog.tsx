@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
@@ -33,17 +33,23 @@ interface CreateMaintenanceDialogProps {
   onOpenChange: (open: boolean) => void;
   onSubmit: (payload: CreateMerchantMaintenancePayload) => void;
   loading: boolean;
+  preselectedPropertyId?: string;
 }
 
-export function CreateMaintenanceDialog({ open, onOpenChange, onSubmit, loading }: CreateMaintenanceDialogProps) {
+export function CreateMaintenanceDialog({ open, onOpenChange, onSubmit, loading, preselectedPropertyId }: CreateMaintenanceDialogProps) {
   const { merchant } = useAuth();
   const { properties } = useMerchantProperties(merchant?.id || '');
-  const [propertyId, setPropertyId] = useState('');
+  const [propertyId, setPropertyId] = useState(preselectedPropertyId || '');
   const [unitId, setUnitId] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('other');
   const [priority, setPriority] = useState('medium');
+
+  // Sync preselectedPropertyId
+  useEffect(() => {
+    if (preselectedPropertyId) setPropertyId(preselectedPropertyId);
+  }, [preselectedPropertyId]);
 
   const { data: units = [] } = useQuery({
     queryKey: ['units-for-property', propertyId],
@@ -83,15 +89,17 @@ export function CreateMaintenanceDialog({ open, onOpenChange, onSubmit, loading 
           <DialogTitle>Tambah Maintenance</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label className="text-sm">Properti</Label>
-            <Select value={propertyId} onValueChange={(v) => { setPropertyId(v); setUnitId(''); }}>
-              <SelectTrigger className="rounded-xl"><SelectValue placeholder="Pilih properti" /></SelectTrigger>
-              <SelectContent>
-                {properties?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+          {!preselectedPropertyId && (
+            <div className="space-y-1.5">
+              <Label className="text-sm">Properti</Label>
+              <Select value={propertyId} onValueChange={(v) => { setPropertyId(v); setUnitId(''); }}>
+                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Pilih properti" /></SelectTrigger>
+                <SelectContent>
+                  {properties?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label className="text-sm">Unit</Label>
