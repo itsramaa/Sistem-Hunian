@@ -1,11 +1,13 @@
 import { StatCard } from '@/shared/components/ui/StatCard';
-import { Wrench, Clock, Loader, CheckCircle } from 'lucide-react';
+import { Wrench, Clock, Loader, CheckCircle, AlertTriangle, ShieldAlert } from 'lucide-react';
 
 interface MaintenanceStatsProps {
   total: number;
   pending: number;
   inProgress: number;
   completed: number;
+  urgent?: number;
+  slaBreach?: number;
   loading?: boolean;
 }
 
@@ -14,10 +16,12 @@ export function MaintenanceStats({
   pending,
   inProgress,
   completed,
+  urgent = 0,
+  slaBreach = 0,
   loading = false,
 }: MaintenanceStatsProps) {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
       <StatCard
         title="Total Requests"
         value={total}
@@ -49,6 +53,22 @@ export function MaintenanceStats({
         accentColor="hsl(var(--success))"
         loading={loading}
         index={3}
+      />
+      <StatCard
+        title="Urgent"
+        value={urgent}
+        icon={AlertTriangle}
+        accentColor="hsl(var(--destructive))"
+        loading={loading}
+        index={4}
+      />
+      <StatCard
+        title="SLA Breach"
+        value={slaBreach}
+        icon={ShieldAlert}
+        accentColor="hsl(var(--destructive))"
+        loading={loading}
+        index={5}
       />
     </div>
   );

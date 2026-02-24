@@ -25,6 +25,7 @@ import { MaintenanceRequest } from '../types';
 import { MaintenancePriorityBadge } from './MaintenancePriorityBadge';
 import { MaintenanceStatusBadge } from './MaintenanceStatusBadge';
 import { SLABadge } from './SLABadge';
+import { cn } from '@/shared/utils/utils';
 
 interface MaintenanceRequestTableProps {
   requests: MaintenanceRequest[];
@@ -38,9 +39,46 @@ interface MaintenanceRequestTableProps {
   itemsPerPage: number;
 }
 
+const PRIORITY_ROW_ACCENT: Record<string, string> = {
+  urgent: 'border-l-4 border-l-destructive/60',
+  high: 'border-l-4 border-l-warning/60',
+  medium: 'border-l-4 border-l-info/60',
+  low: 'border-l-4 border-l-muted-foreground/30',
+};
+
+const TABLE_HEADERS = [
+  'Unit', 'Tenant', 'Title', 'Category', 'Priority', 'Status', 'SLA', 'Assigned', 'Created', ''
+];
+
+function TableSkeleton() {
+  return (
+    <div className="glass-table">
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b border-border/40">
+            {TABLE_HEADERS.map((h, i) => (
+              <TableHead key={i} className={cn("text-xs uppercase tracking-wider font-semibold", i === TABLE_HEADERS.length - 1 && "text-right")}>
+                {h || 'Actions'}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <TableRow key={i}>
+              {Array.from({ length: TABLE_HEADERS.length }).map((_, j) => (
+                <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
 export function MaintenanceRequestTable({
   requests,
-  onView,
   onEdit,
   loading = false,
   page,
@@ -51,45 +89,15 @@ export function MaintenanceRequestTable({
 }: MaintenanceRequestTableProps) {
   const navigate = useNavigate();
 
-  if (loading) {
-    return (
-      <div className="glass-table">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b border-border/40">
-              <TableHead className="text-xs uppercase tracking-wider font-semibold">Unit</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider font-semibold">Tenant</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider font-semibold">Title</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider font-semibold">Category</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider font-semibold">Priority</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider font-semibold">Status</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider font-semibold">SLA</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider font-semibold">Assigned</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider font-semibold">Created</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider font-semibold text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <TableRow key={i}>
-                {Array.from({ length: 10 }).map((_, j) => (
-                  <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    );
-  }
+  if (loading) return <TableSkeleton />;
 
   if (requests.length === 0) {
     return (
       <div className="glass-table">
         <EmptyState
           icon={Wrench}
-          title="No maintenance requests"
-          description="When tenants submit requests, they will appear here."
+          title="Belum ada permintaan maintenance"
+          description="Permintaan pemeliharaan dari tenant atau yang Anda buat akan muncul di sini."
         />
       </div>
     );
@@ -97,109 +105,112 @@ export function MaintenanceRequestTable({
 
   return (
     <div className="glass-table">
-      <Table>
-        <TableHeader>
-          <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b border-border/40">
-            <TableHead className="text-xs uppercase tracking-wider font-semibold">Unit</TableHead>
-            <TableHead className="text-xs uppercase tracking-wider font-semibold">Tenant</TableHead>
-            <TableHead className="text-xs uppercase tracking-wider font-semibold">Title</TableHead>
-            <TableHead className="text-xs uppercase tracking-wider font-semibold">Category</TableHead>
-            <TableHead className="text-xs uppercase tracking-wider font-semibold">Priority</TableHead>
-            <TableHead className="text-xs uppercase tracking-wider font-semibold">Status</TableHead>
-            <TableHead className="text-xs uppercase tracking-wider font-semibold">SLA</TableHead>
-            <TableHead className="text-xs uppercase tracking-wider font-semibold">Assigned</TableHead>
-            <TableHead className="text-xs uppercase tracking-wider font-semibold">Created</TableHead>
-            <TableHead className="text-xs uppercase tracking-wider font-semibold text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {requests.map((request) => {
-            const relevantContract = getRelevantContract(request.unit?.contracts, request.tenant_user_id);
-            const isNotice = relevantContract?.status === 'notice';
-            const isTerminated = relevantContract?.status === 'terminated' || relevantContract?.status === 'expired';
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b border-border/40">
+              {TABLE_HEADERS.map((h, i) => (
+                <TableHead key={i} className={cn(
+                  "text-xs uppercase tracking-wider font-semibold",
+                  i === TABLE_HEADERS.length - 1 && "text-right",
+                  // Hide some columns on mobile
+                  (h === 'Category' || h === 'SLA' || h === 'Assigned') && "hidden lg:table-cell"
+                )}>
+                  {h || 'Actions'}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {requests.map((request) => {
+              const relevantContract = getRelevantContract(request.unit?.contracts, request.tenant_user_id);
+              const isNotice = relevantContract?.status === 'notice';
+              const isTerminated = relevantContract?.status === 'terminated' || relevantContract?.status === 'expired';
+              const accentClass = PRIORITY_ROW_ACCENT[request.priority] || '';
 
-            return (
-              <TableRow
-                key={request.id}
-                className="hover:bg-primary/5 transition-colors cursor-pointer"
-                onClick={() => navigate(`/merchant/maintenance/${request.id}`)}
-              >
-                <TableCell className="font-medium">
-                  {request.unit?.unit_number}
-                  {isNotice && (
-                    <span title="Tenant in notice period" className="ml-2 text-warning inline-flex items-center">
-                      <AlertTriangle className="h-3 w-3" />
+              return (
+                <TableRow
+                  key={request.id}
+                  className={cn("hover:bg-primary/5 transition-colors cursor-pointer", accentClass)}
+                  onClick={() => navigate(`/merchant/maintenance/${request.id}`)}
+                >
+                  <TableCell className="font-medium">
+                    {request.unit?.unit_number}
+                    {isNotice && (
+                      <span title="Tenant in notice period" className="ml-2 text-warning inline-flex items-center">
+                        <AlertTriangle className="h-3 w-3" />
+                      </span>
+                    )}
+                    {isTerminated && (
+                      <span title="Contract terminated/expired" className="ml-2 text-destructive inline-flex items-center">
+                        <XCircle className="h-3 w-3" />
+                      </span>
+                    )}
+                    <span className="block text-xs text-muted-foreground">
+                      {request.unit?.property?.name}
                     </span>
-                  )}
-                  {isTerminated && (
-                    <span title="Contract terminated/expired" className="ml-2 text-destructive inline-flex items-center">
-                      <XCircle className="h-3 w-3" />
+                  </TableCell>
+                  <TableCell>
+                    {request.tenant?.full_name || <span className="text-muted-foreground italic text-xs">—</span>}
+                    <span className="block text-xs text-muted-foreground">
+                      {request.tenant?.phone_number || request.tenant?.email}
                     </span>
-                  )}
-                  <span className="block text-xs text-muted-foreground">
-                    {request.unit?.property?.name}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  {request.tenant?.full_name}
-                  <span className="block text-xs text-muted-foreground">
-                    {request.tenant?.phone_number || request.tenant?.email}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  {request.title}
-                  <span className="block text-xs text-muted-foreground truncate max-w-[200px]">
-                    {request.description}
-                  </span>
-                </TableCell>
-                <TableCell className="capitalize">{request.category}</TableCell>
-                <TableCell>
-                  <MaintenancePriorityBadge priority={request.priority} />
-                </TableCell>
-                <TableCell>
-                  <MaintenanceStatusBadge status={request.status} />
-                </TableCell>
-                <TableCell>
-                  <SLABadge slaDeadline={request.sla_deadline} status={request.status} />
-                </TableCell>
-                <TableCell>
-                  {request.assigned_to ? (
-                    <span className="text-sm font-medium">{request.assigned_to}</span>
-                  ) : request.assigned_vendor ? (
-                    <span className="text-sm font-medium">{request.assigned_vendor.business_name}</span>
-                  ) : (
-                    <span className="text-sm text-muted-foreground italic">Unassigned</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {format(new Date(request.created_at), 'MMM dd, yyyy')}
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0 rounded-xl" onClick={(e) => e.stopPropagation()}>
-                        <span className="sr-only">Open menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="rounded-xl">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/merchant/maintenance/${request.id}`); }}>
-                        <Eye className="mr-2 h-4 w-4" />
-                        View Details
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(request); }}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Update Status
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-medium">{request.title}</span>
+                    <span className="block text-xs text-muted-foreground truncate max-w-[200px]">
+                      {request.description}
+                    </span>
+                  </TableCell>
+                  <TableCell className="capitalize hidden lg:table-cell">{request.category}</TableCell>
+                  <TableCell>
+                    <MaintenancePriorityBadge priority={request.priority} />
+                  </TableCell>
+                  <TableCell>
+                    <MaintenanceStatusBadge status={request.status} />
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell">
+                    <SLABadge slaDeadline={request.sla_deadline} status={request.status} />
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell">
+                    {request.assigned_to ? (
+                      <span className="text-sm font-medium">{request.assigned_to}</span>
+                    ) : request.assigned_vendor ? (
+                      <span className="text-sm font-medium">{request.assigned_vendor.business_name}</span>
+                    ) : (
+                      <span className="text-sm text-muted-foreground italic">Unassigned</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {format(new Date(request.created_at), 'dd MMM yyyy')}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0 rounded-xl" onClick={(e) => e.stopPropagation()}>
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="rounded-xl">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/merchant/maintenance/${request.id}`); }}>
+                          <Eye className="mr-2 h-4 w-4" />
+                          View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(request); }}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Update Status
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
 
       <TablePagination
         page={page}
