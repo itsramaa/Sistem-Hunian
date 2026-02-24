@@ -1,7 +1,7 @@
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { supabase } from "@/lib/integrations/supabase/client";
 import { Button } from "@/shared/components/ui/button";
-import { FileText, Image as ImageIcon, Loader2, Upload, X } from "lucide-react";
+import { Camera, FileText, Image as ImageIcon, Loader2, Upload, X } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
@@ -12,6 +12,9 @@ interface FileUploadProps {
   accept?: string;
   maxSize?: number; // in MB
   className?: string;
+  capture?: "environment" | "user";
+  buttonLabel?: string;
+  buttonIcon?: "camera" | "gallery" | "upload";
 }
 
 export const FileUpload = ({
@@ -21,6 +24,9 @@ export const FileUpload = ({
   accept = "image/*,application/pdf",
   maxSize = 5,
   className = "",
+  capture,
+  buttonLabel,
+  buttonIcon,
 }: FileUploadProps) => {
   const { user } = useAuth();
   const [isUploading, setIsUploading] = useState(false);
@@ -31,7 +37,6 @@ export const FileUpload = ({
     const file = event.target.files?.[0];
     if (!file || !user) return;
 
-    // Validate file size
     if (file.size > maxSize * 1024 * 1024) {
       toast.error(`File size must be less than ${maxSize}MB`);
       return;
@@ -40,7 +45,6 @@ export const FileUpload = ({
     setIsUploading(true);
     setFileName(file.name);
 
-    // Create preview for images
     if (file.type.startsWith("image/")) {
       const reader = new FileReader();
       reader.onload = (e) => setPreview(e.target?.result as string);
@@ -81,12 +85,34 @@ export const FileUpload = ({
     setFileName(null);
   };
 
+  // Compact button mode when buttonLabel or buttonIcon is provided
+  if (buttonLabel || buttonIcon) {
+    const IconComp = buttonIcon === 'camera' ? Camera : buttonIcon === 'gallery' ? ImageIcon : Upload;
+    return (
+      <div className={`relative inline-block ${className}`}>
+        <input
+          type="file"
+          accept={accept}
+          capture={capture}
+          onChange={handleFileSelect}
+          disabled={isUploading}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+        />
+        <Button type="button" variant="outline" size="sm" className="rounded-xl gap-1.5 pointer-events-none" disabled={isUploading}>
+          {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <IconComp className="h-4 w-4" />}
+          {buttonLabel || (buttonIcon === 'camera' ? 'Kamera' : buttonIcon === 'gallery' ? 'Galeri' : 'Upload')}
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className={`space-y-3 ${className}`}>
       <div className="relative">
         <input
           type="file"
           accept={accept}
+          capture={capture}
           onChange={handleFileSelect}
           disabled={isUploading}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
@@ -119,9 +145,9 @@ export const FileUpload = ({
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2">
-              <Upload className="h-8 w-8 text-muted-foreground" />
+              {capture ? <Camera className="h-8 w-8 text-muted-foreground" /> : <Upload className="h-8 w-8 text-muted-foreground" />}
               <p className="text-sm text-muted-foreground">
-                Click or drag to upload
+                {capture ? 'Tap to take photo' : 'Click or drag to upload'}
               </p>
               <p className="text-xs text-muted-foreground">
                 Max {maxSize}MB • {accept.replace(/,/g, ", ")}

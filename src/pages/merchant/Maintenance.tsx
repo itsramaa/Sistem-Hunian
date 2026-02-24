@@ -95,7 +95,7 @@ export default function MerchantMaintenance() {
   };
 
   if (isLoading && requests.length === 0) {
-    return <TabsPageSkeleton statsCount={6} />;
+    return <TabsPageSkeleton statsCount={4} />;
   }
 
   return (
@@ -120,7 +120,7 @@ export default function MerchantMaintenance() {
         loading={isLoading}
       />
 
-      {/* Tab quick-filter by status */}
+      {/* Filters + Table in card */}
       <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-4 space-y-4">
         <Tabs value={statusFilter} onValueChange={setStatusFilter}>
           <TabsList className="pill-tab-list w-full sm:w-auto">
@@ -143,8 +143,6 @@ export default function MerchantMaintenance() {
         <MaintenanceFilters
           searchTerm={searchQuery}
           onSearchChange={setSearchQuery}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
           priorityFilter={priorityFilter}
           onPriorityFilterChange={setPriorityFilter}
           categoryFilter={categoryFilter}

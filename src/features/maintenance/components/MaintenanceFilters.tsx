@@ -5,8 +5,6 @@ import { Search } from 'lucide-react';
 interface MaintenanceFiltersProps {
   searchTerm: string;
   onSearchChange: (value: string) => void;
-  statusFilter: string;
-  onStatusFilterChange: (value: string) => void;
   priorityFilter: string;
   onPriorityFilterChange: (value: string) => void;
   categoryFilter: string;
@@ -17,8 +15,6 @@ interface MaintenanceFiltersProps {
 export function MaintenanceFilters({
   searchTerm,
   onSearchChange,
-  statusFilter,
-  onStatusFilterChange,
   priorityFilter,
   onPriorityFilterChange,
   categoryFilter,
@@ -26,7 +22,7 @@ export function MaintenanceFilters({
   className = '',
 }: MaintenanceFiltersProps) {
   return (
-    <div className={`glass-filter-bar ${className}`}>
+    <div className={`flex flex-col sm:flex-row gap-3 ${className}`}>
       <div className="relative flex-1">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
@@ -36,18 +32,6 @@ export function MaintenanceFilters({
           className="pl-10 rounded-xl bg-background/60 border-border/50"
         />
       </div>
-      <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-        <SelectTrigger className="w-full sm:w-[160px] rounded-xl bg-background/60 border-border/50">
-          <SelectValue placeholder="Status" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Semua Status</SelectItem>
-          <SelectItem value="pending">Pending</SelectItem>
-          <SelectItem value="in_progress">In Progress</SelectItem>
-          <SelectItem value="completed">Completed</SelectItem>
-          <SelectItem value="cancelled">Cancelled</SelectItem>
-        </SelectContent>
-      </Select>
       <Select value={priorityFilter} onValueChange={onPriorityFilterChange}>
         <SelectTrigger className="w-full sm:w-[160px] rounded-xl bg-background/60 border-border/50">
           <SelectValue placeholder="Prioritas" />
