@@ -1,222 +1,208 @@
 
 
-# Audit & Restructurasi: Aset Group — Prinsip UX Modern
+# Fix & Redesign: Property/Unit Forms, Lists, dan Fitur Baru
 
-## Analisis Current State
+## Ringkasan Perubahan
 
-### Sidebar (Merchant) — 5 Groups, 8 Items
-
-```text
-Utama          → Dashboard                           (1 item)
-Aset           → Properti, Penyewa                   (2 items)
-Keuangan       → Tagihan, Pembayaran, Kontrak        (3 items)
-Operasional    → Maintenance                         (1 item)
-Wawasan        → Analitik                            (1 item)
-```
-
-### PropertyDetail — 7 Tabs
-
-```text
-Overview | Unit | Tenant | Keuangan | Maintenance | Staf | Kepatuhan
-```
+Perbaikan menyeluruh pada form properti/unit, list views, dan penambahan fitur baru.
 
 ---
 
-## Masalah yang Ditemukan (8 Issues)
+## 1. Fix Layout Form Properti & Unit (Overflow & Konsistensi)
 
-### Phase 1: Cognitive Load
+**Masalah:** Form dialog memiliki overflow-x pada layar kecil, gap tidak konsisten, dan scrollable area kurang rapi.
 
-| # | Masalah | Dampak |
-|---|---------|--------|
-| 1 | **3 dari 5 group hanya 1 item** (Utama, Operasional, Wawasan). Group label tanpa grouping nyata = visual noise. | Setiap group label menambah 1 scan point. 3 label sia-sia = 3 scan points terbuang. User harus memproses 13 visual elements (5 labels + 8 items) padahal cuma 8 item. |
-| 2 | **PropertyDetail punya 7 tabs** — di batas atas Miller's Law. Pada mobile, tabs ini wrap ke 2 baris sehingga ada tab yang hidden di bawah fold. | Tab yang tidak terlihat = fitur yang tidak ditemukan. Hidden tabs menurunkan discoverability hingga 40% (NNGroup, 2023). |
+**Perbaikan di `PropertyFormDialog.tsx`:**
+- Tambahkan `overflow-x-hidden` pada form container
+- Standardisasi spacing: `space-y-4` untuk semua step
+- Fix stepper overflow pada mobile: gunakan `overflow-x-auto` + `flex-nowrap`
 
-### Phase 2: Task Completion
-
-| # | Masalah | Dampak |
-|---|---------|--------|
-| 3 | **"Staf" dan "Kepatuhan" tabs di PropertyDetail jarang diakses** — ini fitur setup/audit, bukan daily operations. Tapi menempati tab sejajar dengan "Unit" dan "Tenant" yang high-frequency. | Equal visual weight untuk fitur berbeda frekuensi = false hierarchy. User harus scan 7 tabs untuk menemukan 3 yang sering dipakai. |
-| 4 | **UnitDetail back button sudah diperbaiki** (ke parent property), tapi navigasi antar tab di PropertyDetail tidak persistent. Contoh: user buka Unit tab, klik unit detail, kembali — landing di Overview tab, bukan Unit tab. | User kehilangan konteks. Harus klik tab Unit lagi. Extra click = friction. |
-
-### Phase 3: Menu Count & Grouping
-
-| # | Masalah | Dampak |
-|---|---------|--------|
-| 5 | **"Penyewa" di group "Aset"** — Tenant adalah orang/relasi bisnis, bukan aset fisik. Mental model user: "Aset = barang yang saya miliki". Penyewa bukan barang. | Label mismatch dengan user mental model menurunkan findability 25-30% (Baymard Institute, 2024). |
-| 6 | **"Kontrak" di group "Keuangan"** — Kontrak adalah perjanjian operasional antara merchant dan tenant. Pasangan natural: Penyewa + Kontrak + Maintenance (tenant lifecycle). Bukan Tagihan + Pembayaran (money flow). | Business flow terpecah: Property > Unit > **Penyewa** (Aset) > **Kontrak** (Keuangan) > **Maintenance** (Operasional). User harus lompat 3 group untuk 1 workflow. |
-
-### Phase 4: Hierarchy Levels
-
-| # | Masalah | Dampak |
-|---|---------|--------|
-| 7 | **PropertyDetail sudah level 3** (Sidebar > Properties > Detail), lalu tabs di dalamnya berfungsi sebagai level 4 implisit. Ini OK secara teknis tapi 7 tabs membuat level 4 ini terlalu lebar. | Optimal: max 5 tabs di level 4. Lebih dari itu = tab fatigue. |
-
-### Phase 5: Progressive Disclosure
-
-| # | Masalah | Dampak |
-|---|---------|--------|
-| 8 | **Semua 7 tabs ditampilkan sekaligus**, termasuk "Staf" dan "Kepatuhan" yang hanya dibutuhkan saat setup atau audit. Tidak ada progressive disclosure. | Fitur low-frequency mengambil real estate dari fitur high-frequency. Berlawanan dengan prinsip "show what matters most". |
+**Perbaikan di `UnitFormDialog.tsx`:**
+- Sama — tambahkan `overflow-x-hidden` pada form
+- Fix stepper responsif
+- Ketika `wifi_cost_sharing = "patungan"`, tampilkan field "Biaya WiFi (Rp)" — memerlukan penambahan kolom `wifi_cost` di database dan di schema
 
 ---
 
-## Solusi: Restructurasi 2 Area
+## 2. UnitsManager Dialog: Sticky Header
 
-### A. Sidebar: 5 Groups > 4 Groups
+**Masalah:** Ketika scroll di dialog UnitsManager, header (title + tombol "Tambah Unit") ikut terscroll.
 
-```text
-SEBELUM (5 groups, 13 scan points)    SESUDAH (4 groups, 12 scan points)
-──────────────────────────────        ──────────────────────────────────
-Utama                                 Utama
-  Dashboard                             Dashboard
-                                        Properti
-Aset
-  Properti                            Operasional
-  Penyewa                               Penyewa
-                                        Kontrak
-Keuangan                                Maintenance
-  Tagihan
-  Pembayaran                          Keuangan
-  Kontrak                               Tagihan
-                                        Pembayaran
-Operasional
-  Maintenance                         Wawasan
-                                        Analitik
-Wawasan
-  Analitik
-```
-
-**Perubahan dan alasan UX:**
-
-| Perubahan | Alasan |
-|-----------|--------|
-| **Hapus group "Aset"**, pindahkan Properti ke "Utama" | "Aset" hanya bermakna jika berisi >1 item FISIK. Dengan Penyewa dipindah, Properti sendirian. Dashboard + Properti = 2 entry point utama merchant. Grouping ini natural: "hal pertama yang saya lihat". |
-| **Pindahkan Penyewa ke "Operasional"** | Tenant management = aktivitas operasional harian (screening, move-in/out, complaints). Bukan aset fisik. Grouping bersama Kontrak dan Maintenance membentuk tenant lifecycle yang utuh. |
-| **Pindahkan Kontrak ke "Operasional"** | Kontrak terkait langsung Penyewa (lifecycle: Penyewa > Kontrak > Maintenance). Di "Keuangan" dia outlier — Tagihan + Pembayaran adalah money flow, Kontrak adalah agreement flow. |
-| **Keuangan hanya Tagihan + Pembayaran** | Pasangan natural: buat tagihan > terima pembayaran. Cognitive load turun dari 3 ke 2 item. Sesuai Hick's Law. |
-| **Wawasan tetap 1 item** | Analitik adalah hub (9+ sub-pages). Acceptable sebagai single-item group karena kontennya dalam. |
-
-**Validasi Miller's Law:** 8 items total, 4 groups. Setiap group 1-3 items. Dalam batas optimal.
-
-### B. PropertyDetail Tabs: 7 > 5 + Progressive Disclosure
-
-```text
-SEBELUM (7 tabs, flat)
-Overview | Unit | Tenant | Keuangan | Maintenance | Staf | Kepatuhan
-
-SESUDAH (5 primary tabs + 2 folded into submenu)
-Overview | Unit | Tenant | Keuangan | Maintenance | [Lainnya v]
-                                                      ├─ Staf
-                                                      └─ Kepatuhan
-```
-
-**Mekanisme:** Tab ke-6 "Lainnya" menggunakan `DropdownMenu` yang berisi "Staf" dan "Kepatuhan". Ini mengikuti pola yang sama dengan Gmail tabs ("More" dropdown) dan Notion page tabs.
-
-**Alasan UX per perubahan:**
-
-| Perubahan | Alasan |
-|-----------|--------|
-| **5 primary tabs** | Angka optimal untuk tab bar (NNGroup). Semua visible tanpa scroll/wrap di mobile. |
-| **"Staf" dan "Kepatuhan" di dropdown "Lainnya"** | Frekuensi akses rendah (setup/audit). Progressive disclosure: tampilkan saat dibutuhkan, sembunyikan saat tidak. Tetap accessible dalam 1 klik. |
-| **Tab hash tetap berfungsi** | URL hash `#guardians` dan `#compliance` tetap bisa diakses langsung (deep link dari DSS readiness). Tab "Lainnya" otomatis terbuka jika hash menunjuk ke item di dalamnya. |
-
-### C. Back Navigation: Hash Preservation
-
-**Masalah saat ini:** User di PropertyDetail tab "Unit" > klik unit > kembali > landing di "Overview" (default tab), bukan "Unit".
-
-**Fix:** `UnitDetail.tsx` sudah menggunakan `navigate(`/merchant/properties/${propertyId}#units`)`. Pastikan PropertyDetail membaca hash saat mount — ini **sudah diimplementasikan** di `getInitialTab()` (line 71-75). Jadi fix ini sudah benar.
-
-Perlu diverifikasi: breadcrumb menampilkan path yang benar saat di PropertyDetail tabs.
+**Perbaikan di `UnitsManager.tsx`:**
+- Pindahkan `DialogHeader` dan action bar ke luar area scrollable
+- Buat struktur: sticky header + scrollable content area (`overflow-y-auto` hanya pada list, bukan seluruh dialog)
 
 ---
 
-## Detail Teknis
+## 3. WiFi Patungan: Tampilkan Biaya
 
-### File 1: `src/shared/components/layouts/navigation-config.ts`
+**Masalah:** Saat `wifi_cost_sharing = "patungan"`, tidak ada field untuk memasukkan biaya.
 
-Restructure `merchant.mainNav`:
+**DB Migration:** Tambah kolom `wifi_cost` (numeric, default 0, nullable) di tabel `units`.
 
-```typescript
-mainNav: [
-  {
-    label: "Utama",
-    items: [
-      { path: "/merchant", icon: LayoutDashboard, label: "Dashboard" },
-      { path: "/merchant/properties", icon: Building2, label: "Properti",
-        activePatterns: ["/merchant/units"] },
-    ],
-  },
-  {
-    label: "Operasional",
-    items: [
-      { path: "/merchant/tenants", icon: Users, label: "Penyewa",
-        activePatterns: ["/merchant/move-outs", "/merchant/tenant-analytics"] },
-      { path: "/merchant/contracts", icon: ClipboardList, label: "Kontrak" },
-      { path: "/merchant/maintenance", icon: Wrench, label: "Maintenance" },
-    ],
-  },
-  {
-    label: "Keuangan",
-    items: [
-      { path: "/merchant/invoices", icon: FileText, label: "Tagihan" },
-      { path: "/merchant/payments", icon: Wallet, label: "Pembayaran",
-        activePatterns: ["/merchant/escrow"] },
-    ],
-  },
-  {
-    label: "Wawasan",
-    items: [
-      { path: "/merchant/insights", icon: BarChart3, label: "Analitik",
-        activePatterns: [/* existing patterns minus /merchant/reports */] },
-    ],
-  },
-],
-```
+**Perbaikan di `UnitFormDialog.tsx` (Step 2 - Utilitas):**
+- Ketika `wifi_cost_sharing = "patungan"`, tampilkan input "Biaya WiFi per Penghuni (Rp)"
+- Update schema di `schema.ts`: tambah `wifi_cost: z.coerce.number().min(0).default(0)`
 
-Hapus `/merchant/guardians` dari activePatterns Properti (route sudah di-redirect).
+**Perbaikan di `types/index.ts`:**
+- Tambah `wifi_cost?: number` pada interface `Unit` dan `UnitFormData`
 
-### File 2: `src/pages/merchant/PropertyDetail.tsx`
-
-Refactor TabsList dari 7 flat tabs ke 5 primary + "Lainnya" dropdown:
-
-- Import `DropdownMenu`, `DropdownMenuContent`, `DropdownMenuItem`, `DropdownMenuTrigger` dari radix
-- Render 5 `TabsTrigger` (overview, units, tenants, financial, maintenance)
-- Render 1 `DropdownMenu` trigger styled sebagai tab untuk "Lainnya"
-- Dropdown items: "Staf" dan "Kepatuhan" — onClick sets `activeTab` to respective value
-- Dropdown trigger shows active label when guardians/compliance tab is selected
-- `getInitialTab()` tetap mengenali `guardians` dan `compliance` sebagai valid tabs
-- `TabsContent` untuk guardians dan compliance tetap ada (tidak dihapus)
-
-### File 3: `docs/navigation.md`
-
-Update dokumentasi sidebar structure to reflect new grouping.
+**Perbaikan di `UnitsManager.tsx`:**
+- Sertakan `wifi_cost` pada payload create/update
 
 ---
 
-## Validasi terhadap 8 Phase
+## 4. UnitsManager: Gallery + List Toggle
 
-| Phase | Requirement | Status |
-|-------|-------------|--------|
-| 1. Cognitive Load | Kurangi scan points | 13 > 12 sidebar; 7 > 5 visible tabs |
-| 2. Task Completion | Business flow tidak terpecah | Penyewa + Kontrak + Maintenance dalam 1 group |
-| 3. Main Nav 5-7 | Max 7 primary items | 8 items (OK, dengan 4 groups masing-masing kecil) |
-| 4. Hierarchy 2-3 levels | Max 3 levels | Sidebar(1) > List(2) > Detail(3). Tabs = contextual view, bukan level. |
-| 5. Clear Grouping | Group by workflow | Utama (entry), Operasional (daily), Keuangan (money), Wawasan (analytics) |
-| 6. Progressive Disclosure | Hide low-frequency features | "Staf" dan "Kepatuhan" di dropdown "Lainnya" |
-| 7. Active State & Breadcrumb | Visual state jelas | Existing: gradient bg + border-left + primary color. Breadcrumbs path-based. No changes needed. |
-| 8. Desktop/Mobile | Responsive | Sidebar desktop already works. Merchant has no bottom nav (hasBottomNav: false). 5 tabs fit on mobile without wrap. |
+**Masalah:** List unit di dialog UnitsManager hanya tampil sebagai card 2 kolom. User ingin toggle gallery (3 kolom dengan foto) dan list.
+
+**Perbaikan di `UnitsManager.tsx`:**
+- Tambah state `viewMode: 'list' | 'gallery'` + toggle button (LayoutGrid / List icons)
+- **Gallery mode:** 3 kolom card dengan thumbnail foto unit sebagai header, info unit di bawah
+- **List mode:** List sederhana (current layout, tapi 1 kolom)
+- Gallery default 3 kolom di desktop, 2 di tablet, 1 di mobile
 
 ---
 
-## Summary Perubahan
+## 5. Duplicate Property (Fitur Baru)
 
-| File | Jenis | Perubahan |
-|------|-------|-----------|
-| `navigation-config.ts` | Restructure | 4 groups: Utama(2), Operasional(3), Keuangan(2), Wawasan(1). Hapus group "Aset". |
-| `PropertyDetail.tsx` | UI refactor | 7 flat tabs > 5 primary + "Lainnya" dropdown (Staf, Kepatuhan) |
-| `docs/navigation.md` | Documentation | Update sidebar structure diagram |
+**Masalah:** Fitur duplicate sudah ada untuk unit tapi belum untuk property.
 
-### Risiko
-- **Zero risk**: Hanya reordering sidebar + UI refactor tabs. Tidak ada route, path, atau data yang berubah.
-- Semua URL dan deep links tetap berfungsi.
-- Tab content components tidak berubah.
+**Perbaikan di `PropertyCard.tsx`:**
+- Tambah menu item "Duplikat" di DropdownMenu (three-dot), dengan icon Copy
+
+**Perbaikan di `PropertyTable.tsx`:**
+- Tambah menu item "Duplikat" di DropdownMenu row actions
+
+**Perbaikan di `Properties.tsx`:**
+- Tambah handler `handleDuplicate(property)`:
+  - Copy semua field kecuali `id`, `created_at`, `updated_at`
+  - Set `name` = `{original.name} (Copy)`
+  - Buka PropertyFormDialog dengan data pre-filled
+  - Tidak menduplikasi units (hanya properti)
+
+**Props tambahan:**
+- `PropertyCard` dan `PropertyTable` terima `onDuplicate` callback
+
+---
+
+## 6. PropertyDetail: Tab Unit — Gallery/List + Thumbnail
+
+**Masalah:** Tab "Unit" di PropertyDetail hanya tampilkan tabel. User ingin gallery view dengan thumbnail.
+
+**Perbaikan di `PropertyDetail.tsx` (Units tab):**
+- Tambah state `unitViewMode: 'list' | 'gallery'` + toggle buttons
+- **List mode:** Tabel seperti sekarang (dengan pagination)
+- **Gallery mode:** Grid 3 kolom, card dengan thumbnail foto unit, info status, harga. Infinite scroll.
+- Pagination untuk list, infinite load untuk gallery
+
+---
+
+## 7. PropertyDetail: Tab Tenant — Fix Redirect + Gallery
+
+**Masalah:** Klik tenant card redirect ke `/merchant/contracts/:id` (contract), bukan ke tenant detail.
+
+**Perbaikan di `PropertyDetail.tsx` (Tenants tab, line 380):**
+- Ganti `navigate(`/merchant/contracts/${contract.id}`)` menjadi `navigate(`/merchant/tenants`)` dengan filter atau ke tenant profile
+- Karena tidak ada `/merchant/tenants/:id` route, opsi terbaik: navigate ke `/merchant/tenants` (tenant list) — ATAU buat tenant detail page
+
+**Sebenarnya:** Tenant tidak punya halaman detail individual di sistem ini. Yang ada adalah contract detail. Solusi realistis:
+- Ubah onClick untuk navigasi ke tenant page (filtered), bukan contract
+- Tambahkan link kecil "Lihat Kontrak" terpisah di card agar user bisa akses keduanya
+
+**Gallery view untuk tenant:** Tambah toggle gallery/list. Gallery menampilkan avatar, nama, email, unit, status kontrak dalam card 3 kolom.
+
+---
+
+## 8. PropertyDetail: Tab Maintenance — Tombol Add
+
+**Masalah:** Tab maintenance hanya menampilkan list, tidak ada tombol untuk membuat request baru.
+
+**Perbaikan di `PropertyDetail.tsx` (Maintenance tab):**
+- Tambah tombol "Tambah Maintenance" di atas list
+- onClick: navigate ke `/merchant/maintenance` dengan query param `?propertyId={id}` agar pre-filter/pre-select property
+- Atau buka dialog create maintenance langsung (jika component tersedia)
+
+---
+
+## 9. Pagination di Semua List, Infinite Load di Gallery
+
+**Prinsip:**
+- Mode **list/table**: pagination standar (page numbers)
+- Mode **gallery**: infinite scroll (load more saat scroll bottom)
+
+**File yang perlu pagination:**
+- PropertyDetail units tab (list mode): tambah pagination
+- PropertyDetail tenants tab: tambah pagination
+- PropertyDetail maintenance tab: tambah pagination
+- UnitsManager dialog: tambah pagination (list mode)
+
+**Infinite scroll untuk gallery:**
+- Gunakan `IntersectionObserver` hook sederhana
+- Load 9 items per batch (3x3 grid)
+
+---
+
+## 10. Kualitas Data & Riwayat: Fitur Terpisah
+
+**Masalah:** "Kualitas Data" (`DataQualityHistory`) saat ini tertanam di tab Compliance pada PropertyDetail. User menginginkan ini jadi fitur/tools terpisah.
+
+**Perbaikan:**
+- **PropertyDetail.tsx:** Hapus `<LazyDataQuality>` dari tab `compliance`
+- **Tambah tab baru** "Kualitas Data" di dropdown "Lainnya" (progressive disclosure) — atau jadikan tab ke-6 yang visible
+- Update `getInitialTab()` untuk mengenali `data-quality` sebagai valid tab
+- Tambah `TabsContent value="data-quality"` yang render `<LazyDataQuality propertyId={id} />`
+
+---
+
+## 11. Penjaga (Guardians) Kembali ke Sidebar
+
+**Masalah:** Guardians sebelumnya di-redirect ke `/merchant/properties`. User ingin manajemen penjaga di semua properti tersedia dari sidebar.
+
+**Perbaikan di `navigation-config.ts`:**
+- Tambah item "Penjaga" di group "Operasional":
+  ```
+  Operasional
+    Penyewa
+    Kontrak
+    Maintenance
+    Penjaga      <-- baru
+  ```
+- Icon: `UserCheck`
+- Path: `/merchant/guardians`
+
+**Perbaikan di `App.tsx`:**
+- Ubah route `guardians` dari `<Navigate to="/merchant/properties" replace />` kembali ke `<MerchantGuardians />`
+
+**Perbaikan di `Guardians.tsx`:**
+- Ketika `propertyId` tidak diberikan (standalone mode): tampilkan semua penjaga dari semua properti (current behavior)
+- Ketika `propertyId` diberikan (embedded di PropertyDetail): filter per properti
+
+---
+
+## Daftar File yang Diubah
+
+| File | Perubahan |
+|------|-----------|
+| **DB Migration** | Tambah kolom `wifi_cost` di tabel `units` |
+| `src/features/properties/types/schema.ts` | Tambah `wifi_cost` field |
+| `src/features/properties/types/index.ts` | Tambah `wifi_cost` pada Unit interface |
+| `src/features/properties/components/PropertyFormDialog.tsx` | Fix overflow-x, spacing konsisten |
+| `src/features/properties/components/UnitFormDialog.tsx` | Fix overflow-x, tambah wifi cost field untuk patungan |
+| `src/features/properties/components/UnitsManager.tsx` | Sticky header, gallery/list toggle, pagination, wifi_cost payload |
+| `src/features/properties/components/PropertyCard.tsx` | Tambah onDuplicate prop + menu item |
+| `src/features/properties/components/PropertyTable.tsx` | Tambah onDuplicate prop + menu item |
+| `src/pages/merchant/Properties.tsx` | Handler duplicate property |
+| `src/pages/merchant/PropertyDetail.tsx` | Unit gallery/list + pagination, tenant fix redirect + gallery, maintenance add button, data quality tab terpisah, tenant pagination |
+| `src/shared/components/layouts/navigation-config.ts` | Tambah "Penjaga" ke group Operasional |
+| `src/App.tsx` | Restore route guardians |
+
+---
+
+## Risiko & Catatan
+
+- **DB Migration** diperlukan untuk `wifi_cost` column — low risk (nullable, default 0)
+- **Duplicate property** tidak menduplikasi units untuk menghindari duplikasi data berlebihan
+- **Infinite scroll** menggunakan `IntersectionObserver` native — tidak perlu library tambahan
+- **Tenant redirect** — karena tidak ada halaman tenant detail individual, navigasi akan ke tenant list
 
