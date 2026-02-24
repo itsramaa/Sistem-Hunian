@@ -1,182 +1,142 @@
 
 
-# Fix & Redesign: Property/Unit Forms, Lists, dan Fitur Baru
+# Fix & Redesign: 7 Perbaikan UI/UX
 
-## Ringkasan Perubahan
+## 1. Hapus "Level 1 — Wajib" Badge, Ganti dengan Tanda Merah (*)
 
-Perbaikan menyeluruh pada form properti/unit, list views, dan penambahan fitur baru.
-
----
-
-## 1. Fix Layout Form Properti & Unit (Overflow & Konsistensi)
-
-**Masalah:** Form dialog memiliki overflow-x pada layar kecil, gap tidak konsisten, dan scrollable area kurang rapi.
+**Masalah:** Di `PropertyFormDialog.tsx` dan `UnitFormDialog.tsx`, stepper menampilkan badge "Level 1 — Wajib" / "Level 2 — Recommended" yang memakan ruang.
 
 **Perbaikan di `PropertyFormDialog.tsx`:**
-- Tambahkan `overflow-x-hidden` pada form container
-- Standardisasi spacing: `space-y-4` untuk semua step
-- Fix stepper overflow pada mobile: gunakan `overflow-x-auto` + `flex-nowrap`
+- Hapus `levelBadge` dan `levelColor` dari array `STEPS`
+- Hapus rendering badge di stepper (line 132)
+- Pada semua Label field wajib, ganti `*` dengan `<span className="text-destructive">*</span>`
+- Contoh: `<Label>Nama Properti <span className="text-destructive">*</span></Label>`
 
 **Perbaikan di `UnitFormDialog.tsx`:**
-- Sama — tambahkan `overflow-x-hidden` pada form
-- Fix stepper responsif
-- Ketika `wifi_cost_sharing = "patungan"`, tampilkan field "Biaya WiFi (Rp)" — memerlukan penambahan kolom `wifi_cost` di database dan di schema
+- Sama — pastikan semua field wajib (Properti, Nomor Unit, Tipe Unit, Harga Sewa) menggunakan tanda `*` merah
+- Hapus teks `*` biasa yang sudah ada dan ganti dengan span merah
 
 ---
 
-## 2. UnitsManager Dialog: Sticky Header
+## 2. Tenant Card: Buka Dialog Detail + Tombol ke Detail Page
 
-**Masalah:** Ketika scroll di dialog UnitsManager, header (title + tombol "Tambah Unit") ikut terscroll.
+**Masalah:** Di PropertyDetail tab Tenants, klik tenant card redirect ke `/merchant/tenants` — seharusnya buka dialog ringkasan tenant.
 
-**Perbaikan di `UnitsManager.tsx`:**
-- Pindahkan `DialogHeader` dan action bar ke luar area scrollable
-- Buat struktur: sticky header + scrollable content area (`overflow-y-auto` hanya pada list, bukan seluruh dialog)
+**Perbaikan di `PropertyDetail.tsx` (tab tenants):**
+- Import `TenantDetailsDialog` dari `@/features/users/components/tenant/TenantDetailsDialog`
+- Tambah state: `selectedTenantForDialog`, `showTenantDialog`
+- onClick tenant card: buka `TenantDetailsDialog` dengan data tenant (map contract data ke `ActiveTenant` format)
+- Di dalam dialog (atau di card langsung): tambah link "Lihat Detail Lengkap" yang navigate ke `/merchant/tenants/:id` (halaman detail tenant baru)
 
----
+**Buat halaman detail tenant baru:**
+- File: `src/pages/merchant/TenantDetail.tsx`
+- Route: `/merchant/tenants/:tenantId`
+- Konten: semua info tenant lengkap — profil, riwayat kontrak, riwayat pembayaran, maintenance requests, timeline
+- Ini berbeda dari dialog ringkasan yang hanya tampil info dasar
 
-## 3. WiFi Patungan: Tampilkan Biaya
-
-**Masalah:** Saat `wifi_cost_sharing = "patungan"`, tidak ada field untuk memasukkan biaya.
-
-**DB Migration:** Tambah kolom `wifi_cost` (numeric, default 0, nullable) di tabel `units`.
-
-**Perbaikan di `UnitFormDialog.tsx` (Step 2 - Utilitas):**
-- Ketika `wifi_cost_sharing = "patungan"`, tampilkan input "Biaya WiFi per Penghuni (Rp)"
-- Update schema di `schema.ts`: tambah `wifi_cost: z.coerce.number().min(0).default(0)`
-
-**Perbaikan di `types/index.ts`:**
-- Tambah `wifi_cost?: number` pada interface `Unit` dan `UnitFormData`
-
-**Perbaikan di `UnitsManager.tsx`:**
-- Sertakan `wifi_cost` pada payload create/update
+**Update `App.tsx`:**
+- Tambah route `/merchant/tenants/:tenantId` -> `TenantDetail`
 
 ---
 
-## 4. UnitsManager: Gallery + List Toggle
+## 3. Tombol "Foto" di Detail Property Tidak Berfungsi
 
-**Masalah:** List unit di dialog UnitsManager hanya tampil sebagai card 2 kolom. User ingin toggle gallery (3 kolom dengan foto) dan list.
+**Masalah:** Button "Foto" di header PropertyDetail (line 250) tidak punya handler — hanya render button tanpa onClick.
 
-**Perbaikan di `UnitsManager.tsx`:**
-- Tambah state `viewMode: 'list' | 'gallery'` + toggle button (LayoutGrid / List icons)
-- **Gallery mode:** 3 kolom card dengan thumbnail foto unit sebagai header, info unit di bawah
-- **List mode:** List sederhana (current layout, tapi 1 kolom)
-- Gallery default 3 kolom di desktop, 2 di tablet, 1 di mobile
-
----
-
-## 5. Duplicate Property (Fitur Baru)
-
-**Masalah:** Fitur duplicate sudah ada untuk unit tapi belum untuk property.
-
-**Perbaikan di `PropertyCard.tsx`:**
-- Tambah menu item "Duplikat" di DropdownMenu (three-dot), dengan icon Copy
-
-**Perbaikan di `PropertyTable.tsx`:**
-- Tambah menu item "Duplikat" di DropdownMenu row actions
-
-**Perbaikan di `Properties.tsx`:**
-- Tambah handler `handleDuplicate(property)`:
-  - Copy semua field kecuali `id`, `created_at`, `updated_at`
-  - Set `name` = `{original.name} (Copy)`
-  - Buka PropertyFormDialog dengan data pre-filled
-  - Tidak menduplikasi units (hanya properti)
-
-**Props tambahan:**
-- `PropertyCard` dan `PropertyTable` terima `onDuplicate` callback
+**Perbaikan di `PropertyDetail.tsx` (line 250):**
+- onClick: buka `PropertyFormDialog` di step 3 (Media) — karena step index 3 adalah "Media"
+- Implementasi: `onClick={() => { setEditInitialStep(3); setShowEditDialog(true); }}`
+- Ini memanfaatkan state `editInitialStep` yang sudah ada
 
 ---
 
-## 6. PropertyDetail: Tab Unit — Gallery/List + Thumbnail
+## 4. Maintenance Tab: Dialog Form, Bukan Redirect
 
-**Masalah:** Tab "Unit" di PropertyDetail hanya tampilkan tabel. User ingin gallery view dengan thumbnail.
+**Masalah:** Tombol "Tambah Maintenance" di tab maintenance (line 574) melakukan `navigate(...)` ke halaman maintenance — seharusnya buka dialog form langsung.
 
-**Perbaikan di `PropertyDetail.tsx` (Units tab):**
-- Tambah state `unitViewMode: 'list' | 'gallery'` + toggle buttons
-- **List mode:** Tabel seperti sekarang (dengan pagination)
-- **Gallery mode:** Grid 3 kolom, card dengan thumbnail foto unit, info status, harga. Infinite scroll.
-- Pagination untuk list, infinite load untuk gallery
+**Perbaikan di `PropertyDetail.tsx`:**
+- Import `CreateMaintenanceDialog` dari `@/features/maintenance/components/CreateMaintenanceDialog`
+- Import `useCreateMerchantMaintenanceRequest` hook
+- Tambah state: `showCreateMaintenanceDialog`
+- Tombol "Tambah Maintenance": `onClick={() => setShowCreateMaintenanceDialog(true)}`
+- Render `CreateMaintenanceDialog` dengan property pre-selected
+- Modifikasi `CreateMaintenanceDialog` agar menerima prop `preselectedPropertyId` — jika diberikan, auto-select property dan hide property selector
 
----
-
-## 7. PropertyDetail: Tab Tenant — Fix Redirect + Gallery
-
-**Masalah:** Klik tenant card redirect ke `/merchant/contracts/:id` (contract), bukan ke tenant detail.
-
-**Perbaikan di `PropertyDetail.tsx` (Tenants tab, line 380):**
-- Ganti `navigate(`/merchant/contracts/${contract.id}`)` menjadi `navigate(`/merchant/tenants`)` dengan filter atau ke tenant profile
-- Karena tidak ada `/merchant/tenants/:id` route, opsi terbaik: navigate ke `/merchant/tenants` (tenant list) — ATAU buat tenant detail page
-
-**Sebenarnya:** Tenant tidak punya halaman detail individual di sistem ini. Yang ada adalah contract detail. Solusi realistis:
-- Ubah onClick untuk navigasi ke tenant page (filtered), bukan contract
-- Tambahkan link kecil "Lihat Kontrak" terpisah di card agar user bisa akses keduanya
-
-**Gallery view untuk tenant:** Tambah toggle gallery/list. Gallery menampilkan avatar, nama, email, unit, status kontrak dalam card 3 kolom.
+**Perbaikan di `CreateMaintenanceDialog.tsx`:**
+- Tambah prop opsional `preselectedPropertyId?: string`
+- Jika `preselectedPropertyId` diberikan:
+  - Set `propertyId` = preselectedPropertyId saat mount
+  - Sembunyikan field "Properti" (sudah otomatis terpilih)
+- Pola contextual module yang sama berlaku juga untuk unit detail maintenance tab
 
 ---
 
-## 8. PropertyDetail: Tab Maintenance — Tombol Add
+## 5. Skor Risiko Otomatis (Bukan Input Manual)
 
-**Masalah:** Tab maintenance hanya menampilkan list, tidak ada tombol untuk membuat request baru.
+**Masalah:** Di `PropertyCompliance.tsx` (line 170-171), `overall_risk_score` diinput manual oleh user. Seharusnya dihitung otomatis berdasarkan dropdown risk yang dipilih.
 
-**Perbaikan di `PropertyDetail.tsx` (Maintenance tab):**
-- Tambah tombol "Tambah Maintenance" di atas list
-- onClick: navigate ke `/merchant/maintenance` dengan query param `?propertyId={id}` agar pre-filter/pre-select property
-- Atau buka dialog create maintenance langsung (jika component tersedia)
+**Perbaikan di `PropertyCompliance.tsx` - `DisasterRiskTab`:**
+- Hapus input manual "Skor Risiko (0-100)"
+- Tambah fungsi `calculateRiskScore(form)`:
 
----
+```typescript
+function calculateRiskScore(form: { risk_zone: string; flood_risk: string; earthquake_risk: string; landslide_risk: string; fire_risk: string }): number {
+  const WEIGHTS = { risk_zone: 0.30, flood_risk: 0.25, earthquake_risk: 0.20, landslide_risk: 0.15, fire_risk: 0.10 };
+  const SCORES = { low: 15, medium: 45, high: 75, critical: 95 };
+  return Math.round(
+    (SCORES[form.risk_zone] || 0) * WEIGHTS.risk_zone +
+    (SCORES[form.flood_risk] || 0) * WEIGHTS.flood_risk +
+    (SCORES[form.earthquake_risk] || 0) * WEIGHTS.earthquake_risk +
+    (SCORES[form.landslide_risk] || 0) * WEIGHTS.landslide_risk +
+    (SCORES[form.fire_risk] || 0) * WEIGHTS.fire_risk
+  );
+}
+```
 
-## 9. Pagination di Semua List, Infinite Load di Gallery
-
-**Prinsip:**
-- Mode **list/table**: pagination standar (page numbers)
-- Mode **gallery**: infinite scroll (load more saat scroll bottom)
-
-**File yang perlu pagination:**
-- PropertyDetail units tab (list mode): tambah pagination
-- PropertyDetail tenants tab: tambah pagination
-- PropertyDetail maintenance tab: tambah pagination
-- UnitsManager dialog: tambah pagination (list mode)
-
-**Infinite scroll untuk gallery:**
-- Gunakan `IntersectionObserver` hook sederhana
-- Load 9 items per batch (3x3 grid)
-
----
-
-## 10. Kualitas Data & Riwayat: Fitur Terpisah
-
-**Masalah:** "Kualitas Data" (`DataQualityHistory`) saat ini tertanam di tab Compliance pada PropertyDetail. User menginginkan ini jadi fitur/tools terpisah.
-
-**Perbaikan:**
-- **PropertyDetail.tsx:** Hapus `<LazyDataQuality>` dari tab `compliance`
-- **Tambah tab baru** "Kualitas Data" di dropdown "Lainnya" (progressive disclosure) — atau jadikan tab ke-6 yang visible
-- Update `getInitialTab()` untuk mengenali `data-quality` sebagai valid tab
-- Tambah `TabsContent value="data-quality"` yang render `<LazyDataQuality propertyId={id} />`
+- Bobot berdasarkan best practice risk assessment: zona risiko keseluruhan paling dominan (30%), banjir (25%), gempa (20%), longsor (15%), kebakaran (10%)
+- Skor per level: low=15, medium=45, high=75, critical=95
+- Tampilkan skor hasil perhitungan sebagai read-only indicator (bukan input)
+- Update `form.overall_risk_score` secara reaktif saat dropdown berubah menggunakan `useEffect`
 
 ---
 
-## 11. Penjaga (Guardians) Kembali ke Sidebar
+## 6. Penjaga di Atas Penyewa di Sidebar
 
-**Masalah:** Guardians sebelumnya di-redirect ke `/merchant/properties`. User ingin manajemen penjaga di semua properti tersedia dari sidebar.
+**Masalah:** Saat ini urutan di group "Operasional": Penyewa, Kontrak, Maintenance, Penjaga. User ingin Penjaga di atas Penyewa.
 
 **Perbaikan di `navigation-config.ts`:**
-- Tambah item "Penjaga" di group "Operasional":
-  ```
-  Operasional
-    Penyewa
-    Kontrak
-    Maintenance
-    Penjaga      <-- baru
-  ```
-- Icon: `UserCheck`
-- Path: `/merchant/guardians`
+```typescript
+{
+  label: "Operasional",
+  items: [
+    { path: "/merchant/guardians", icon: UserCheck, label: "Penjaga" },
+    { path: "/merchant/tenants", icon: Users, label: "Penyewa", ... },
+    { path: "/merchant/contracts", icon: ClipboardList, label: "Kontrak" },
+    { path: "/merchant/maintenance", icon: Wrench, label: "Maintenance" },
+  ],
+},
+```
 
-**Perbaikan di `App.tsx`:**
-- Ubah route `guardians` dari `<Navigate to="/merchant/properties" replace />` kembali ke `<MerchantGuardians />`
+---
 
-**Perbaikan di `Guardians.tsx`:**
-- Ketika `propertyId` tidak diberikan (standalone mode): tampilkan semua penjaga dari semua properti (current behavior)
-- Ketika `propertyId` diberikan (embedded di PropertyDetail): filter per properti
+## 7. Tambah "Laporan" ke Sidebar (Group Wawasan)
+
+**Masalah:** "Laporan" tersembunyi di dalam InsightsHub. User ingin akses langsung dari sidebar.
+
+**Perbaikan di `navigation-config.ts`:**
+```typescript
+{
+  label: "Wawasan",
+  items: [
+    { path: "/merchant/insights", icon: BarChart3, label: "Analitik",
+      activePatterns: ["/merchant/analytics", "/merchant/ai-insights", "/merchant/analytics-dashboard", "/merchant/comparative-portfolio", "/merchant/ml-analytics", "/merchant/dss-advisor", "/merchant/market-intelligence", "/merchant/financial-risk", "/merchant/tenant-quality"] },
+    { path: "/merchant/reports", icon: FileText, label: "Laporan",
+      activePatterns: ["/merchant/report-templates"] },
+  ],
+},
+```
+
+- Hapus `/merchant/reports` dan `/merchant/report-templates` dari activePatterns milik "Analitik"
 
 ---
 
@@ -184,25 +144,12 @@ Perbaikan menyeluruh pada form properti/unit, list views, dan penambahan fitur b
 
 | File | Perubahan |
 |------|-----------|
-| **DB Migration** | Tambah kolom `wifi_cost` di tabel `units` |
-| `src/features/properties/types/schema.ts` | Tambah `wifi_cost` field |
-| `src/features/properties/types/index.ts` | Tambah `wifi_cost` pada Unit interface |
-| `src/features/properties/components/PropertyFormDialog.tsx` | Fix overflow-x, spacing konsisten |
-| `src/features/properties/components/UnitFormDialog.tsx` | Fix overflow-x, tambah wifi cost field untuk patungan |
-| `src/features/properties/components/UnitsManager.tsx` | Sticky header, gallery/list toggle, pagination, wifi_cost payload |
-| `src/features/properties/components/PropertyCard.tsx` | Tambah onDuplicate prop + menu item |
-| `src/features/properties/components/PropertyTable.tsx` | Tambah onDuplicate prop + menu item |
-| `src/pages/merchant/Properties.tsx` | Handler duplicate property |
-| `src/pages/merchant/PropertyDetail.tsx` | Unit gallery/list + pagination, tenant fix redirect + gallery, maintenance add button, data quality tab terpisah, tenant pagination |
-| `src/shared/components/layouts/navigation-config.ts` | Tambah "Penjaga" ke group Operasional |
-| `src/App.tsx` | Restore route guardians |
-
----
-
-## Risiko & Catatan
-
-- **DB Migration** diperlukan untuk `wifi_cost` column — low risk (nullable, default 0)
-- **Duplicate property** tidak menduplikasi units untuk menghindari duplikasi data berlebihan
-- **Infinite scroll** menggunakan `IntersectionObserver` native — tidak perlu library tambahan
-- **Tenant redirect** — karena tidak ada halaman tenant detail individual, navigasi akan ke tenant list
+| `PropertyFormDialog.tsx` | Hapus level badges, ganti `*` dengan span merah |
+| `UnitFormDialog.tsx` | Ganti `*` dengan span merah |
+| `PropertyDetail.tsx` | Fix tombol foto, maintenance dialog, tenant dialog |
+| `CreateMaintenanceDialog.tsx` | Tambah prop `preselectedPropertyId` |
+| `PropertyCompliance.tsx` | Skor risiko auto-calculate |
+| `navigation-config.ts` | Reorder Penjaga, tambah Laporan |
+| `TenantDetail.tsx` (baru) | Halaman detail tenant lengkap |
+| `App.tsx` | Tambah route tenant detail |
 
