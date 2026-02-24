@@ -1,138 +1,79 @@
 
-# Perbaikan: Add Payment, Detail Payment/Invoice Lengkap, Laporan, dan Seed Data
+# Fix Maintenance Page: Data Not Loading + Design Maximization
+
+## Root Cause Analysis
+
+The maintenance page shows "No maintenance requests" because the Supabase query in `maintenanceService.getMerchantRequests()` uses a foreign key hint that doesn't exist:
+
+```typescript
+tenant:profiles!maintenance_requests_tenant_user_id_fkey(full_name, email)
+```
+
+The `maintenance_requests` table has NO foreign key from `tenant_user_id` to `profiles`. Only these FKs exist:
+- `maintenance_requests_assigned_vendor_id_fkey` -> vendors
+- `maintenance_requests_merchant_id_fkey` -> merchants  
+- `maintenance_requests_unit_id_fkey` -> units
+
+This causes the PostgREST query to fail silently, returning an error that react-query catches, resulting in empty data (`[]`).
+
+The same bug affects `getRequestById()` which uses the same invalid FK hint.
 
 ---
 
-## 1. Merchant Bisa Add Payment (Fitur Baru)
+## Fix 1: Database Migration - Add Missing Foreign Key
 
-**Masalah:** Saat ini merchant hanya bisa menandai pembayaran sebagai "paid" (MarkPaidDialog), tetapi tidak bisa membuat pembayaran baru secara manual.
+Add a FK constraint from `maintenance_requests.tenant_user_id` to `profiles.user_id` so the PostgREST hint works correctly.
 
-**Buat `CreatePaymentDialog.tsx`:**
-- File baru: `src/features/payments/components/CreatePaymentDialog.tsx`
-- Form fields:
-  - Kontrak (dropdown dari active contracts, menampilkan unit + tenant)
-  - Jumlah (Rp)
-  - Tipe Pembayaran (rent, deposit, utility, other)
-  - Metode Pembayaran (bank_transfer, cash, card, eft, other)
-  - Referensi (opsional)
-  - Tanggal Jatuh Tempo
-  - Bukti Pembayaran (file upload opsional ke bucket `payment-proofs`)
-- Submit: insert ke tabel `payments` dengan status `pending` (atau `paid` jika bukti & metode disertakan)
-- Auto-fill `merchant_id`, `tenant_user_id`, `contract_id` dari kontrak yang dipilih
-
-**Update `useMerchantPayments.ts`:**
-- Tambah mutation `createPayment` untuk insert payment baru
-
-**Update `Payments.tsx`:**
-- Tambah tombol "Tambah Pembayaran" (Plus icon) di header sebelah Refresh
-- onClick: buka `CreatePaymentDialog`
+```sql
+ALTER TABLE maintenance_requests 
+ADD CONSTRAINT maintenance_requests_tenant_user_id_fkey 
+FOREIGN KEY (tenant_user_id) REFERENCES profiles(user_id);
+```
 
 ---
 
-## 2. Detail Pembayaran Lebih Lengkap + Bukti Foto
+## Fix 2: Design Maximization - Maintenance Page
 
-**Masalah:** `PaymentDetail.tsx` hanya menampilkan amount, type, due date, method, reference. Tidak ada info tenant, kontrak, unit, atau bukti pembayaran.
+Redesign `Maintenance.tsx` to match the "Warm Luxury Futurism" aesthetic with a proper PageHeader, better layout structure, and consistent styling.
 
-**Perbaikan di `PaymentDetail.tsx`:**
-- Fetch data relasi: join payments dengan contracts (untuk unit info), profiles (untuk tenant name/email)
-- Tambah query terpisah atau update query payments dengan select relasi
+**Changes to `Maintenance.tsx`:**
+- Add `PageHeader` with icon, title "Maintenance", and breadcrumbs
+- Wrap content sections properly with spacing
+- Add priority filter alongside status filter
+- Add category filter
+- Better button placement (gradient CTA in header area)
 
-**Konten tambahan yang ditampilkan:**
-- **Info Penyewa:** Nama, email, phone (dari profiles via tenant_user_id)
-- **Info Kontrak:** Nomor kontrak, unit, property (dari contracts via contract_id)
-- **Bukti Pembayaran:** Jika `proof_photo_url` ada, tampilkan gambar dalam card dengan lightbox zoom
-- **Timeline:** Created at, Due date, Paid at dalam visual timeline
-- **Rincian Lengkap:** Semua field yang ada di DB (created_at, updated_at)
+**Changes to `MaintenanceStats.tsx`:**
+- Add urgentCount stat card
+- Show SLA breach count
+- Add trend indicators
 
-**Update `useMerchantPayments.ts`:**
-- Update query payments untuk join: `select('*, contracts(unit_id, units(unit_number, properties(name))), profiles:tenant_user_id(full_name, email, phone)')` -- atau buat query terpisah di detail page
+**Changes to `MaintenanceRequestTable.tsx`:**
+- Better mobile responsiveness
+- Add row hover states with priority accent
+- Improve empty state messaging
 
-**Alternatif:** Buat hook `usePaymentDetail(paymentId)` khusus untuk detail page agar bisa fetch relasi tanpa mengubah list query.
-
----
-
-## 3. Detail Invoice Lebih Lengkap
-
-**Masalah:** `InvoiceDetail.tsx` tidak menampilkan info tenant, kontrak, unit, atau line items.
-
-**Perbaikan di `InvoiceDetail.tsx`:**
-- Fetch relasi: tenant profile (nama, email), contract info (unit, property)
-- Tampilkan `line_items` (JSONB column) jika ada, sebagai tabel item baris
-
-**Konten tambahan:**
-- **Info Penyewa:** Card dengan nama, email tenant
-- **Info Kontrak & Unit:** Property name, unit number
-- **Line Items:** Tabel dengan item, qty, harga jika `line_items` tersedia
-- **Timeline Visual:** Created -> Issued -> Due -> Paid (dengan tanggal masing-masing)
-- **Grace Period Info:** Jika `grace_period_active`, tampilkan badge
-- **Overdue Info:** Jika `overdue_since`, tampilkan durasi overdue
-- **Original Amount vs Current:** Jika `original_amount` berbeda dari `amount`, tampilkan perubahan (biasanya karena late fee)
+**Changes to `MaintenanceFilters.tsx`:**
+- Add priority filter dropdown
+- Add category filter dropdown
+- Add date range filter
 
 ---
 
-## 4. Ringkasan Analitik Dipindahkan ke Page Laporan
+## Files to Modify
 
-**Masalah:** User menginginkan ringkasan analitik (ROI, revenue summary, occupancy) yang sebelumnya ada di InsightsHub sekarang ada di page Laporan.
-
-**Perbaikan di `Reports.tsx`:**
-- Tambah tab baru "ROI & Ringkasan" atau masukkan ke tab "Overview"
-- Hitung dan tampilkan:
-  - **ROI per properti**: (revenue - costs) / costs * 100
-  - **Total Revenue vs Target**
-  - **Average Occupancy Rate**
-  - **Average Payment Collection Time**
-  - **Maintenance Cost Ratio**
-- Data sudah tersedia dari `useReportsData` hook yang sudah digunakan
-
-**Konten ROI:**
-- Card ROI per properti (jika ada data renovation_cost / purchase_price)
-- Yield analysis: annual revenue / property value
-- Net Operating Income summary
+| File | Change |
+|------|--------|
+| **DB Migration** | Add FK `tenant_user_id` -> `profiles.user_id` |
+| `Maintenance.tsx` | Add PageHeader, better layout, priority/category filters |
+| `MaintenanceStats.tsx` | Add urgent + SLA breach stats |
+| `MaintenanceFilters.tsx` | Add priority, category, date filters |
+| `MaintenanceRequestTable.tsx` | Better mobile layout, priority accent rows |
 
 ---
 
-## 5. Seed Data: Maintenance, Penjaga, dan Data Pelengkap
+## Technical Notes
 
-**Masalah:** Data maintenance hanya 4 records, property_guardians kosong (0 records), dan beberapa data pelengkap perlu ditambah.
-
-**Seed data via SQL INSERT (menggunakan insert tool):**
-
-**Property Guardians (4-6 records):**
-- 3 penjaga untuk property `ee91fa84-fcb4-4a01-a9d6-b26afc30e75e`
-- Variasi: aktif, pensiun
-- Data: nama, phone, alamat, ID number, gaji, frekuensi gaji, tanggal mulai
-
-**Maintenance Requests tambahan (4-6 records baru):**
-- Variasi kategori: plumbing, electrical, structural, cleaning, pest_control
-- Variasi priority: urgent, high, medium, low
-- Variasi status: pending, in_progress, completed
-- Beberapa dengan vendor assigned, beberapa tanpa
-
-**Maintenance Timeline Entries:**
-- Entries untuk setiap maintenance request baru
-
-**Payments tambahan (jika kurang):**
-- Pastikan ada payments dengan proof_photo_url untuk testing
-
----
-
-## Daftar File yang Diubah/Dibuat
-
-| File | Perubahan |
-|------|-----------|
-| `CreatePaymentDialog.tsx` (baru) | Dialog form tambah pembayaran |
-| `useMerchantPayments.ts` | Tambah createPayment mutation |
-| `Payments.tsx` | Tambah tombol "Tambah Pembayaran" |
-| `PaymentDetail.tsx` | Redesign lengkap dengan relasi + bukti foto |
-| `InvoiceDetail.tsx` | Redesign lengkap dengan relasi + line items + timeline |
-| `Reports.tsx` | Tambah section ROI & ringkasan analitik |
-| **Seed SQL** | Insert guardians, maintenance, timeline entries |
-
----
-
-## Catatan Teknis
-
-- Untuk detail payment/invoice yang join relasi, buat hook terpisah `usePaymentDetail` dan `useInvoiceDetail` agar tidak mempengaruhi performa list query
-- Bukti pembayaran ditampilkan dengan click-to-zoom menggunakan Dialog + img fullscreen
-- Seed data menggunakan ID merchant dan property yang sudah ada di database
-- ROI calculation memerlukan data `purchase_price` atau `renovation_cost` dari properties -- jika tidak tersedia, tampilkan yield berdasarkan revenue saja
+- The FK migration is non-destructive: all existing `tenant_user_id` values either reference valid `profiles.user_id` or are NULL
+- The `getRequestById()` method in `maintenanceService.ts` uses the same broken FK hint and will also be fixed automatically by the migration
+- No code changes needed in `maintenanceService.ts` since the FK hint syntax is correct -- it just needs the actual constraint to exist
