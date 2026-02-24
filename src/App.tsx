@@ -125,7 +125,13 @@ const VendorAssignedProperties = lazy(() => import("@/pages/vendor/AssignedPrope
 const PaymentFailed = lazy(() => import("@/pages/payment/Failed"));
 const PaymentSuccess = lazy(() => import("@/pages/payment/Success"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-background">
@@ -144,17 +150,17 @@ const App = () => (
           <BrowserRouter>
             <AuthProvider>
               <InactivityMonitor />
-              <Suspense fallback={<PageLoader />}>
-                <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/auth" element={<Auth />} />
-                  <Route path="/onboarding" element={<Onboarding />} />
-                  <Route path="/reset-password" element={<ResetPassword />} />
-                  <Route path="/update-password" element={<UpdatePassword />} />
-                  <Route path="/admin-setup" element={<AdminSetup />} />
-                  <Route path="/invite/:token" element={<Invite />} />
-                  <Route path="/referral" element={<ReferralInvite />} />
-                  <Route path="/admin/login" element={<AdminLogin />} />
+              <Routes>
+                  {/* Standalone pages - wrapped in their own Suspense with full-screen loader */}
+                  <Route path="/" element={<Suspense fallback={<PageLoader />}><Index /></Suspense>} />
+                  <Route path="/auth" element={<Suspense fallback={<PageLoader />}><Auth /></Suspense>} />
+                  <Route path="/onboarding" element={<Suspense fallback={<PageLoader />}><Onboarding /></Suspense>} />
+                  <Route path="/reset-password" element={<Suspense fallback={<PageLoader />}><ResetPassword /></Suspense>} />
+                  <Route path="/update-password" element={<Suspense fallback={<PageLoader />}><UpdatePassword /></Suspense>} />
+                  <Route path="/admin-setup" element={<Suspense fallback={<PageLoader />}><AdminSetup /></Suspense>} />
+                  <Route path="/invite/:token" element={<Suspense fallback={<PageLoader />}><Invite /></Suspense>} />
+                  <Route path="/referral" element={<Suspense fallback={<PageLoader />}><ReferralInvite /></Suspense>} />
+                  <Route path="/admin/login" element={<Suspense fallback={<PageLoader />}><AdminLogin /></Suspense>} />
                   
                   {/* Admin Routes */}
                   <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
@@ -271,7 +277,7 @@ const App = () => (
                   <Route path="/unauthorized" element={<Unauthorized />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
-            </Suspense>
+
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
