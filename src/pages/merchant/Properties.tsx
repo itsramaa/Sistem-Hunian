@@ -141,6 +141,20 @@ export default function MerchantProperties() {
 
   const handleEdit = (property: Property) => { setEditingProperty(property); setShowAddDialog(true); };
 
+  const handleDuplicate = (property: Property) => {
+    const duplicated = {
+      ...property,
+      id: '' as any,
+      name: `${property.name} (Copy)`,
+      created_at: '' as any,
+      updated_at: '' as any,
+      total_units: 0 as any,
+      occupied_units: 0 as any,
+    } as Property;
+    setEditingProperty(duplicated);
+    setShowAddDialog(true);
+  };
+
   const handleDeleteClick = async (property: Property) => {
     setDeleteLoading(property.id);
     try {
@@ -406,7 +420,7 @@ export default function MerchantProperties() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {paginatedProperties.map((property, index) => (
                         <div key={property.id} className="animate-in fade-in-0 slide-in-from-bottom-4" style={{ animationDelay: `${index * 60}ms`, animationFillMode: 'both' }}>
-                          <PropertyCard property={property} onEdit={handleEdit} onDelete={handleDeleteClick} onManageUnits={setUnitsProperty} onManagePhotos={handleOpenImages} isDeleting={deleteLoading === property.id} />
+                          <PropertyCard property={property} onEdit={handleEdit} onDelete={handleDeleteClick} onManageUnits={setUnitsProperty} onManagePhotos={handleOpenImages} onDuplicate={handleDuplicate} isDeleting={deleteLoading === property.id} />
                         </div>
                       ))}
                     </div>
@@ -430,7 +444,7 @@ export default function MerchantProperties() {
                     )}
                   </>
                 ) : (
-                  <PropertyTable properties={paginatedProperties} onEdit={handleEdit} onDelete={handleDeleteClick} onManageUnits={setUnitsProperty} onManagePhotos={handleOpenImages} deleteLoadingId={deleteLoading} page={page} totalPages={totalPages} totalProperties={filteredProperties.length} onPageChange={setPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} />
+                  <PropertyTable properties={paginatedProperties} onEdit={handleEdit} onDelete={handleDeleteClick} onManageUnits={setUnitsProperty} onManagePhotos={handleOpenImages} onDuplicate={handleDuplicate} deleteLoadingId={deleteLoading} page={page} totalPages={totalPages} totalProperties={filteredProperties.length} onPageChange={setPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} />
                 )}
               </>
             )}

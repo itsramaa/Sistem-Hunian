@@ -5,7 +5,7 @@ import { Button } from '@/shared/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
-import { Building2, ChevronLeft, ChevronRight, DoorOpen, Edit, Image as ImageIcon, MoreHorizontal, RefreshCw, Trash2 } from 'lucide-react';
+import { Building2, ChevronLeft, ChevronRight, Copy, DoorOpen, Edit, Image as ImageIcon, MoreHorizontal, RefreshCw, Trash2 } from 'lucide-react';
 
 interface PropertyTableProps {
   properties: Property[];
@@ -13,6 +13,7 @@ interface PropertyTableProps {
   onDelete: (property: Property) => void;
   onManageUnits: (property: Property) => void;
   onManagePhotos: (property: Property) => void;
+  onDuplicate?: (property: Property) => void;
   deleteLoadingId?: string | null;
   page: number;
   totalPages: number;
@@ -47,7 +48,7 @@ function getPageNumbers(current: number, total: number): (number | 'ellipsis')[]
 }
 
 export function PropertyTable({ 
-  properties, onEdit, onDelete, onManageUnits, onManagePhotos,
+  properties, onEdit, onDelete, onManageUnits, onManagePhotos, onDuplicate,
   deleteLoadingId, page, totalPages, totalProperties, onPageChange, itemsPerPage, onItemsPerPageChange,
 }: PropertyTableProps) {
   const navigate = useNavigate();
@@ -118,6 +119,7 @@ export function PropertyTable({
                       <DropdownMenuItem onClick={() => onManageUnits(property)}><DoorOpen className="h-4 w-4 mr-2" />Manage Units</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => onManagePhotos(property)}><ImageIcon className="h-4 w-4 mr-2" />Manage Photos</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => onEdit(property)}><Edit className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
+                      {onDuplicate && <DropdownMenuItem onClick={() => onDuplicate(property)}><Copy className="h-4 w-4 mr-2" />Duplikat</DropdownMenuItem>}
                       <DropdownMenuItem onClick={() => onDelete(property)} className="text-destructive focus:text-destructive" disabled={deleteLoadingId === property.id}>
                         {deleteLoadingId === property.id ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
                         {deleteLoadingId === property.id ? 'Deleting...' : 'Delete'}

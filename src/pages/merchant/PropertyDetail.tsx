@@ -9,9 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Separator } from '@/shared/components/ui/separator';
 import { Progress } from '@/shared/components/ui/progress';
 import { 
-  ArrowLeft, Building2, ChevronRight, DoorOpen, Edit, Image as ImageIcon, MapPin, 
+  ArrowLeft, Building2, ChevronRight, DoorOpen, Edit, Image as ImageIcon, LayoutGrid, List, MapPin, 
   Sparkles, TrendingUp, Users, DollarSign, Calendar, Hash, Clock, Wrench, FileText, AlertTriangle,
-  Shield, UserCheck, MoreHorizontal
+  Shield, UserCheck, MoreHorizontal, Plus, Home, BarChart3
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from '@/shared/components/ui/dropdown-menu';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/shared/components/ui/carousel';
-import { Suspense, lazy, useState, useEffect, useCallback } from 'react';
+import { Suspense, lazy, useState, useEffect, useCallback, useRef } from 'react';
 import { ContentSkeleton } from '@/shared/components/ui/PageSkeleton';
 import { formatCurrency } from '@/shared/utils/currency';
 import { format } from 'date-fns';
@@ -63,6 +63,8 @@ function isNewProperty(createdAt: string): boolean {
   return created > sevenDaysAgo;
 }
 
+const ITEMS_PER_PAGE = 10;
+
 export default function PropertyDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -72,11 +74,26 @@ export default function PropertyDetail() {
   const [unitFilter, setUnitFilter] = useState<string>('all');
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editInitialStep, setEditInitialStep] = useState(0);
+  
+  // View modes
+  const [unitViewMode, setUnitViewMode] = useState<'list' | 'gallery'>('list');
+  const [tenantViewMode, setTenantViewMode] = useState<'list' | 'gallery'>('list');
+  
+  // Pagination
+  const [unitPage, setUnitPage] = useState(1);
+  const [tenantPage, setTenantPage] = useState(1);
+  const [maintenancePage, setMaintenancePage] = useState(1);
+  
+  // Infinite scroll
+  const [unitGalleryCount, setUnitGalleryCount] = useState(ITEMS_PER_PAGE);
+  const [tenantGalleryCount, setTenantGalleryCount] = useState(ITEMS_PER_PAGE);
+  const unitObserverRef = useRef<HTMLDivElement>(null);
+  const tenantObserverRef = useRef<HTMLDivElement>(null);
 
   // Read URL hash for initial tab
   const getInitialTab = useCallback(() => {
     const hash = window.location.hash.replace('#', '');
-    const validTabs = ['overview', 'units', 'tenants', 'financial', 'maintenance', 'guardians', 'compliance'];
+    const validTabs = ['overview', 'units', 'tenants', 'financial', 'maintenance', 'guardians', 'compliance', 'data-quality'];
     return validTabs.includes(hash) ? hash : 'overview';
   }, []);
   const [activeTab, setActiveTab] = useState(getInitialTab);
@@ -87,7 +104,6 @@ export default function PropertyDetail() {
       const step = parseInt(searchParams.get('step') || '0', 10);
       setEditInitialStep(isNaN(step) ? 0 : step);
       setShowEditDialog(true);
-      // Clean up URL params after opening
       searchParams.delete('edit');
       searchParams.delete('step');
       setSearchParams(searchParams, { replace: true });
@@ -149,12 +165,32 @@ export default function PropertyDetail() {
         .from('maintenance_requests')
         .select('id, title, status, priority, created_at, unit_id')
         .in('unit_id', unitIds)
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .order('created_at', { ascending: false });
       return (requests || []).map(r => ({ ...r, unit_number: unitMap[r.unit_id] }));
     },
     enabled: !!id,
   });
+
+  // Infinite scroll observers
+  useEffect(() => {
+    const el = unitObserverRef.current;
+    if (!el || unitViewMode !== 'gallery') return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) setUnitGalleryCount(prev => prev + ITEMS_PER_PAGE);
+    }, { threshold: 0.1 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [unitViewMode, unitGalleryCount]);
+
+  useEffect(() => {
+    const el = tenantObserverRef.current;
+    if (!el || tenantViewMode !== 'gallery') return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) setTenantGalleryCount(prev => prev + ITEMS_PER_PAGE);
+    }, { threshold: 0.1 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [tenantViewMode, tenantGalleryCount]);
 
   if (isLoading) return <PropertyDetailSkeleton />;
 
@@ -181,10 +217,18 @@ export default function PropertyDetail() {
   const activeContracts = propertyContracts.filter((c: any) => c.status === 'active');
   const pendingMaintenance = propertyMaintenance.filter((r: any) => r.status !== 'resolved' && r.status !== 'closed');
 
+  // Paginated data
+  const unitTotalPages = Math.ceil(filteredUnits.length / ITEMS_PER_PAGE);
+  const paginatedUnits = unitViewMode === 'list' ? filteredUnits.slice((unitPage - 1) * ITEMS_PER_PAGE, unitPage * ITEMS_PER_PAGE) : filteredUnits.slice(0, unitGalleryCount);
+  
+  const tenantTotalPages = Math.ceil(activeContracts.length / ITEMS_PER_PAGE);
+  const paginatedTenants = tenantViewMode === 'list' ? activeContracts.slice((tenantPage - 1) * ITEMS_PER_PAGE, tenantPage * ITEMS_PER_PAGE) : activeContracts.slice(0, tenantGalleryCount);
+
+  const maintenanceTotalPages = Math.ceil(propertyMaintenance.length / ITEMS_PER_PAGE);
+  const paginatedMaintenance = propertyMaintenance.slice((maintenancePage - 1) * ITEMS_PER_PAGE, maintenancePage * ITEMS_PER_PAGE);
+
   return (
     <div className="space-y-6">
-
-
       {/* Hero Header */}
       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
         <Button variant="ghost" size="icon" className="shrink-0 rounded-full bg-card/80 backdrop-blur-sm border border-border/40" onClick={() => navigate('/merchant/properties')}>
@@ -202,7 +246,7 @@ export default function PropertyDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" size="sm" className="rounded-xl"><Edit className="h-4 w-4 mr-1" />Edit</Button>
+          <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setShowEditDialog(true)}><Edit className="h-4 w-4 mr-1" />Edit</Button>
           <Button variant="outline" size="sm" className="rounded-xl"><ImageIcon className="h-4 w-4 mr-1" />Foto</Button>
         </div>
       </div>
@@ -254,7 +298,6 @@ export default function PropertyDetail() {
         ))}
       </div>
 
-      {/* Tabs + Sidebar */}
       {/* Edit Property Dialog */}
       <PropertyFormDialog
         open={showEditDialog}
@@ -280,12 +323,13 @@ export default function PropertyDetail() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className={`pill-tab-trigger inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full transition-colors ${
-                  activeTab === 'guardians' || activeTab === 'compliance'
+                  ['guardians', 'compliance', 'data-quality'].includes(activeTab)
                     ? 'bg-primary/15 text-primary border border-primary/30'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
                 }`}>
                   {activeTab === 'guardians' ? <><UserCheck className="h-3.5 w-3.5" />Staf</> :
                    activeTab === 'compliance' ? <><Shield className="h-3.5 w-3.5" />Kepatuhan</> :
+                   activeTab === 'data-quality' ? <><BarChart3 className="h-3.5 w-3.5" />Kualitas Data</> :
                    <><MoreHorizontal className="h-3.5 w-3.5" />Lainnya</>}
                 </button>
               </DropdownMenuTrigger>
@@ -295,6 +339,9 @@ export default function PropertyDetail() {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleTabChange('compliance')} className="gap-2">
                   <Shield className="h-4 w-4" />Kepatuhan
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleTabChange('data-quality')} className="gap-2">
+                  <BarChart3 className="h-4 w-4" />Kualitas Data
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -336,70 +383,181 @@ export default function PropertyDetail() {
 
           {/* Units Tab */}
           <TabsContent value="units" className="space-y-4 mt-4 animate-fade-in">
-            <div className="flex items-center gap-2 flex-wrap">
-              {['all', 'available', 'occupied', 'maintenance', 'reserved'].map(s => (
-                <Button key={s} variant={unitFilter === s ? 'default' : 'outline'} size="sm" onClick={() => setUnitFilter(s)} className={`capitalize rounded-full ${unitFilter === s ? 'gradient-cta text-primary-foreground' : ''}`}>
-                  {s === 'all' ? `Semua (${units.length})` : `${s} (${units.filter((u: any) => u.status === s).length})`}
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap">
+                {['all', 'available', 'occupied', 'maintenance', 'reserved'].map(s => (
+                  <Button key={s} variant={unitFilter === s ? 'default' : 'outline'} size="sm" onClick={() => { setUnitFilter(s); setUnitPage(1); setUnitGalleryCount(ITEMS_PER_PAGE); }} className={`capitalize rounded-full ${unitFilter === s ? 'gradient-cta text-primary-foreground' : ''}`}>
+                    {s === 'all' ? `Semua (${units.length})` : `${s} (${units.filter((u: any) => u.status === s).length})`}
+                  </Button>
+                ))}
+              </div>
+              <div className="flex items-center bg-muted/60 rounded-lg p-0.5">
+                <Button variant={unitViewMode === 'list' ? 'default' : 'ghost'} size="icon" className="h-7 w-7 rounded-md" onClick={() => setUnitViewMode('list')}>
+                  <List className="h-3.5 w-3.5" />
                 </Button>
-              ))}
+                <Button variant={unitViewMode === 'gallery' ? 'default' : 'ghost'} size="icon" className="h-7 w-7 rounded-md" onClick={() => setUnitViewMode('gallery')}>
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
-            <div className="glass-table">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b-0">
-                    <TableHead className="font-semibold text-xs uppercase tracking-wider">Unit</TableHead>
-                    <TableHead className="font-semibold text-xs uppercase tracking-wider">Tipe</TableHead>
-                    <TableHead className="font-semibold text-xs uppercase tracking-wider">Lantai</TableHead>
-                    <TableHead className="font-semibold text-xs uppercase tracking-wider">Ukuran</TableHead>
-                    <TableHead className="font-semibold text-xs uppercase tracking-wider">Sewa</TableHead>
-                    <TableHead className="font-semibold text-xs uppercase tracking-wider">Deposit</TableHead>
-                    <TableHead className="font-semibold text-xs uppercase tracking-wider">Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredUnits.map((unit: any) => (
-                    <TableRow key={unit.id} className="hover:bg-primary/5 transition-colors cursor-pointer" onClick={() => navigate(`/merchant/units/${unit.id}`)}>
-                      <TableCell className="font-medium">{unit.unit_number}</TableCell>
-                      <TableCell className="capitalize">{unit.unit_type || '—'}</TableCell>
-                      <TableCell>{unit.floor ?? '—'}</TableCell>
-                      <TableCell>{unit.size_sqm ? `${unit.size_sqm} m²` : '—'}</TableCell>
-                      <TableCell>{formatCurrency(unit.rent_amount || 0)}</TableCell>
-                      <TableCell>{unit.deposit_amount ? formatCurrency(unit.deposit_amount) : '—'}</TableCell>
-                      <TableCell><Badge variant="outline" className={`rounded-full ${statusColors[unit.status] || ''}`}>{unit.status}</Badge></TableCell>
-                    </TableRow>
+
+            {unitViewMode === 'list' ? (
+              <>
+                <div className="glass-table">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b-0">
+                        <TableHead className="font-semibold text-xs uppercase tracking-wider">Unit</TableHead>
+                        <TableHead className="font-semibold text-xs uppercase tracking-wider">Tipe</TableHead>
+                        <TableHead className="font-semibold text-xs uppercase tracking-wider">Lantai</TableHead>
+                        <TableHead className="font-semibold text-xs uppercase tracking-wider">Ukuran</TableHead>
+                        <TableHead className="font-semibold text-xs uppercase tracking-wider">Sewa</TableHead>
+                        <TableHead className="font-semibold text-xs uppercase tracking-wider">Deposit</TableHead>
+                        <TableHead className="font-semibold text-xs uppercase tracking-wider">Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedUnits.map((unit: any) => (
+                        <TableRow key={unit.id} className="hover:bg-primary/5 transition-colors cursor-pointer" onClick={() => navigate(`/merchant/units/${unit.id}`)}>
+                          <TableCell className="font-medium">{unit.unit_number}</TableCell>
+                          <TableCell className="capitalize">{unit.unit_type || '—'}</TableCell>
+                          <TableCell>{unit.floor ?? '—'}</TableCell>
+                          <TableCell>{unit.size_sqm ? `${unit.size_sqm} m²` : '—'}</TableCell>
+                          <TableCell>{formatCurrency(unit.rent_amount || 0)}</TableCell>
+                          <TableCell>{unit.deposit_amount ? formatCurrency(unit.deposit_amount) : '—'}</TableCell>
+                          <TableCell><Badge variant="outline" className={`rounded-full ${statusColors[unit.status] || ''}`}>{unit.status}</Badge></TableCell>
+                        </TableRow>
+                      ))}
+                      {paginatedUnits.length === 0 && <TableRow><TableCell colSpan={7} className="h-24 text-center text-muted-foreground">Tidak ada unit ditemukan.</TableCell></TableRow>}
+                    </TableBody>
+                  </Table>
+                </div>
+                {unitTotalPages > 1 && (
+                  <div className="flex items-center justify-between pt-2">
+                    <p className="text-xs text-muted-foreground">Hal {unitPage} dari {unitTotalPages}</p>
+                    <div className="flex gap-1">
+                      <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={unitPage <= 1} onClick={() => setUnitPage(p => p - 1)}>Prev</Button>
+                      <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={unitPage >= unitTotalPages} onClick={() => setUnitPage(p => p + 1)}>Next</Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {paginatedUnits.map((unit: any) => (
+                    <Card key={unit.id} className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40 hover:-translate-y-1 hover:shadow-lg hover:border-primary/30 transition-all duration-300 cursor-pointer overflow-hidden" onClick={() => navigate(`/merchant/units/${unit.id}`)}>
+                      {unit.photos && unit.photos.length > 0 ? (
+                        <div className="h-32 overflow-hidden"><img src={unit.photos[0]} alt={`Unit ${unit.unit_number}`} className="w-full h-full object-cover" loading="lazy" /></div>
+                      ) : (
+                        <div className="h-32 bg-gradient-to-br from-primary/5 via-primary/10 to-accent/10 flex items-center justify-center"><Home className="h-8 w-8 text-muted-foreground/30" /></div>
+                      )}
+                      <CardContent className="p-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="font-medium text-sm">Unit {unit.unit_number}</p>
+                          <Badge variant="outline" className={`rounded-full text-[10px] ${statusColors[unit.status] || ''}`}>{unit.status}</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground capitalize">{unit.unit_type} {unit.floor ? `• Lt ${unit.floor}` : ''}</p>
+                        <p className="font-semibold text-sm mt-1">{formatCurrency(unit.rent_amount || 0)}/bln</p>
+                      </CardContent>
+                    </Card>
                   ))}
-                  {filteredUnits.length === 0 && <TableRow><TableCell colSpan={7} className="h-24 text-center text-muted-foreground">Tidak ada unit ditemukan.</TableCell></TableRow>}
-                </TableBody>
-              </Table>
-            </div>
+                </div>
+                {unitGalleryCount < filteredUnits.length && (
+                  <div ref={unitObserverRef} className="h-10 flex items-center justify-center mt-4">
+                    <p className="text-xs text-muted-foreground animate-pulse">Memuat lebih banyak...</p>
+                  </div>
+                )}
+              </>
+            )}
           </TabsContent>
 
           {/* Tenants Tab */}
-          <TabsContent value="tenants" className="space-y-3 mt-4 animate-fade-in">
-            {activeContracts.length > 0 ? activeContracts.map((contract: any) => (
-              <Card key={contract.id} className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40 hover:border-primary/20 hover:shadow-sm transition-all cursor-pointer" onClick={() => navigate(`/merchant/contracts/${contract.id}`)}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-bold text-sm">
-                        {(contract.tenant?.full_name || 'T')[0].toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm">{contract.tenant?.full_name || 'Unknown'}</p>
-                        <p className="text-xs text-muted-foreground">{contract.tenant?.email || '—'}</p>
+          <TabsContent value="tenants" className="space-y-4 mt-4 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">{activeContracts.length} tenant aktif</p>
+              <div className="flex items-center bg-muted/60 rounded-lg p-0.5">
+                <Button variant={tenantViewMode === 'list' ? 'default' : 'ghost'} size="icon" className="h-7 w-7 rounded-md" onClick={() => setTenantViewMode('list')}>
+                  <List className="h-3.5 w-3.5" />
+                </Button>
+                <Button variant={tenantViewMode === 'gallery' ? 'default' : 'ghost'} size="icon" className="h-7 w-7 rounded-md" onClick={() => setTenantViewMode('gallery')}>
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+
+            {activeContracts.length > 0 ? (
+              tenantViewMode === 'list' ? (
+                <>
+                  <div className="space-y-3">
+                    {paginatedTenants.map((contract: any) => (
+                      <Card key={contract.id} className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40 hover:border-primary/20 hover:shadow-sm transition-all cursor-pointer" onClick={() => navigate(`/merchant/tenants`)}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-bold text-sm">
+                                {(contract.tenant?.full_name || 'T')[0].toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="font-medium text-sm">{contract.tenant?.full_name || 'Unknown'}</p>
+                                <p className="text-xs text-muted-foreground">{contract.tenant?.email || '—'}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <Badge variant="outline" className={`rounded-full text-xs ${statusColors[contract.status] || ''}`}>{contract.status}</Badge>
+                              <p className="text-sm font-medium mt-1">{formatCurrency(contract.rent_amount)}/bln</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="text-xs text-muted-foreground">
+                              {format(new Date(contract.start_date), 'dd MMM yyyy')} – {format(new Date(contract.end_date), 'dd MMM yyyy')}
+                            </div>
+                            <Button variant="link" size="sm" className="h-auto p-0 text-xs text-primary" onClick={(e) => { e.stopPropagation(); navigate(`/merchant/contracts/${contract.id}`); }}>
+                              Lihat Kontrak →
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                  {tenantTotalPages > 1 && (
+                    <div className="flex items-center justify-between pt-2">
+                      <p className="text-xs text-muted-foreground">Hal {tenantPage} dari {tenantTotalPages}</p>
+                      <div className="flex gap-1">
+                        <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={tenantPage <= 1} onClick={() => setTenantPage(p => p - 1)}>Prev</Button>
+                        <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={tenantPage >= tenantTotalPages} onClick={() => setTenantPage(p => p + 1)}>Next</Button>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <Badge variant="outline" className={`rounded-full text-xs ${statusColors[contract.status] || ''}`}>{contract.status}</Badge>
-                      <p className="text-sm font-medium mt-1">{formatCurrency(contract.rent_amount)}/bln</p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {paginatedTenants.map((contract: any) => (
+                      <Card key={contract.id} className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40 hover:-translate-y-1 hover:shadow-lg hover:border-primary/30 transition-all duration-300 cursor-pointer" onClick={() => navigate(`/merchant/tenants`)}>
+                        <CardContent className="p-4 text-center">
+                          <div className="h-14 w-14 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-bold text-xl mx-auto mb-3">
+                            {(contract.tenant?.full_name || 'T')[0].toUpperCase()}
+                          </div>
+                          <p className="font-medium text-sm">{contract.tenant?.full_name || 'Unknown'}</p>
+                          <p className="text-xs text-muted-foreground mb-2">{contract.tenant?.email || '—'}</p>
+                          <Badge variant="outline" className={`rounded-full text-xs ${statusColors[contract.status] || ''}`}>{contract.status}</Badge>
+                          <p className="font-semibold text-sm mt-2">{formatCurrency(contract.rent_amount)}/bln</p>
+                          <Button variant="link" size="sm" className="h-auto p-0 text-xs text-primary mt-1" onClick={(e) => { e.stopPropagation(); navigate(`/merchant/contracts/${contract.id}`); }}>
+                            Lihat Kontrak →
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                  {tenantGalleryCount < activeContracts.length && (
+                    <div ref={tenantObserverRef} className="h-10 flex items-center justify-center mt-4">
+                      <p className="text-xs text-muted-foreground animate-pulse">Memuat lebih banyak...</p>
                     </div>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {format(new Date(contract.start_date), 'dd MMM yyyy')} – {format(new Date(contract.end_date), 'dd MMM yyyy')}
-                  </div>
-                </CardContent>
-              </Card>
-            )) : (
+                  )}
+                </>
+              )
+            ) : (
               <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
                 <CardContent className="py-8 text-center">
                   <div className="gradient-icon-box w-12 h-12 mx-auto mb-3"><Users className="h-6 w-6 text-muted-foreground/40" /></div>
@@ -411,7 +569,13 @@ export default function PropertyDetail() {
 
           {/* Maintenance Tab */}
           <TabsContent value="maintenance" className="space-y-3 mt-4 animate-fade-in">
-            {propertyMaintenance.length > 0 ? propertyMaintenance.map((req: any) => (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">{propertyMaintenance.length} permintaan total</p>
+              <Button size="sm" className="rounded-xl gradient-cta text-primary-foreground" onClick={() => navigate(`/merchant/maintenance?propertyId=${id}`)}>
+                <Plus className="h-4 w-4 mr-1" />Tambah Maintenance
+              </Button>
+            </div>
+            {paginatedMaintenance.length > 0 ? paginatedMaintenance.map((req: any) => (
               <Card key={req.id} className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40 hover:border-primary/20 transition-all cursor-pointer" onClick={() => navigate(`/merchant/maintenance/${req.id}`)}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
@@ -438,6 +602,15 @@ export default function PropertyDetail() {
                 </CardContent>
               </Card>
             )}
+            {maintenanceTotalPages > 1 && (
+              <div className="flex items-center justify-between pt-2">
+                <p className="text-xs text-muted-foreground">Hal {maintenancePage} dari {maintenanceTotalPages}</p>
+                <div className="flex gap-1">
+                  <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={maintenancePage <= 1} onClick={() => setMaintenancePage(p => p - 1)}>Prev</Button>
+                  <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={maintenancePage >= maintenanceTotalPages} onClick={() => setMaintenancePage(p => p + 1)}>Next</Button>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           {/* Guardians Tab */}
@@ -452,6 +625,10 @@ export default function PropertyDetail() {
             <Suspense fallback={<ContentSkeleton />}>
               <LazyCompliance propertyId={id} />
             </Suspense>
+          </TabsContent>
+
+          {/* Data Quality Tab (separated) */}
+          <TabsContent value="data-quality" className="space-y-4 mt-4 animate-fade-in">
             <Suspense fallback={<ContentSkeleton />}>
               <LazyDataQuality propertyId={id} />
             </Suspense>

@@ -110,14 +110,14 @@ export function PropertyFormDialog({ open, onOpenChange, property, onSubmit, isL
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg w-[95vw] rounded-2xl">
+      <DialogContent className="max-w-lg w-[95vw] rounded-2xl overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>{property ? 'Edit Properti' : 'Tambah Properti Baru'}</DialogTitle>
           <DialogDescription>{property ? 'Perbarui detail properti' : 'Tambahkan properti baru ke portofolio Anda'}</DialogDescription>
         </DialogHeader>
 
         {/* Stepper */}
-        <div className="flex items-center justify-between px-2">
+        <div className="flex items-center justify-between px-2 overflow-x-auto flex-nowrap">
           {STEPS.map((s, i) => (
             <div key={i} className="flex items-center gap-1.5">
               <div className={cn(

@@ -4727,6 +4727,7 @@ export type Database = {
           water_cost: number | null
           water_cost_type: string | null
           water_included: boolean | null
+          wifi_cost: number | null
           wifi_cost_sharing: string | null
           wifi_included: boolean | null
           wifi_speed_mbps: number | null
@@ -4757,6 +4758,7 @@ export type Database = {
           water_cost?: number | null
           water_cost_type?: string | null
           water_included?: boolean | null
+          wifi_cost?: number | null
           wifi_cost_sharing?: string | null
           wifi_included?: boolean | null
           wifi_speed_mbps?: number | null
@@ -4787,6 +4789,7 @@ export type Database = {
           water_cost?: number | null
           water_cost_type?: string | null
           water_included?: boolean | null
+          wifi_cost?: number | null
           wifi_cost_sharing?: string | null
           wifi_included?: boolean | null
           wifi_speed_mbps?: number | null

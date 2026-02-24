@@ -43,7 +43,7 @@ export const UnitFormDialog = ({ open, onOpenChange, unit, properties, onSubmit,
       occupancy_type: "single",
       electricity_included: false, electricity_cost: 0, electricity_cost_type: "flat",
       water_included: false, water_cost: 0, water_cost_type: "flat",
-      wifi_included: false, wifi_speed_mbps: null, wifi_cost_sharing: "included",
+      wifi_included: false, wifi_speed_mbps: null, wifi_cost_sharing: "included", wifi_cost: 0,
       additional_costs: [],
     },
   });
@@ -80,6 +80,7 @@ export const UnitFormDialog = ({ open, onOpenChange, unit, properties, onSubmit,
         wifi_included: unit.wifi_included || false,
         wifi_speed_mbps: unit.wifi_speed_mbps || null,
         wifi_cost_sharing: unit.wifi_cost_sharing || "included",
+        wifi_cost: unit.wifi_cost || 0,
         additional_costs: unit.additional_costs || [],
       });
     } else {
@@ -90,7 +91,7 @@ export const UnitFormDialog = ({ open, onOpenChange, unit, properties, onSubmit,
         occupancy_type: "single",
         electricity_included: false, electricity_cost: 0, electricity_cost_type: "flat",
         water_included: false, water_cost: 0, water_cost_type: "flat",
-        wifi_included: false, wifi_speed_mbps: null, wifi_cost_sharing: "included",
+        wifi_included: false, wifi_speed_mbps: null, wifi_cost_sharing: "included", wifi_cost: 0,
         additional_costs: [],
       });
     }
@@ -112,14 +113,14 @@ export const UnitFormDialog = ({ open, onOpenChange, unit, properties, onSubmit,
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg w-[95vw] rounded-2xl">
+      <DialogContent className="max-w-lg w-[95vw] rounded-2xl overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>{unit ? 'Edit Unit' : 'Tambah Unit Baru'}</DialogTitle>
           <DialogDescription>{unit ? 'Perbarui detail unit' : 'Tambahkan unit baru ke properti Anda'}</DialogDescription>
         </DialogHeader>
 
         {/* Stepper */}
-        <div className="flex items-center justify-between px-2">
+        <div className="flex items-center justify-between px-2 overflow-x-auto flex-nowrap">
           {STEPS.map((s, i) => (
             <div key={i} className="flex items-center gap-1.5">
               <div className={cn('flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold transition-all duration-300',
@@ -273,19 +274,27 @@ export const UnitFormDialog = ({ open, onOpenChange, unit, properties, onSubmit,
                   <Label className="font-medium">WiFi Tersedia?</Label>
                   <Switch checked={wifiIncluded} onCheckedChange={(v) => setValue("wifi_included", v)} />
                 </div>
-                {wifiIncluded && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-xs">Kecepatan (Mbps)</Label>
-                      <Input type="number" min="0" {...register("wifi_speed_mbps")} placeholder="20" className={inputCls} />
+              {wifiIncluded && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">Kecepatan (Mbps)</Label>
+                        <Input type="number" min="0" {...register("wifi_speed_mbps")} placeholder="20" className={inputCls} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Pembayaran WiFi</Label>
+                        <Select value={watch("wifi_cost_sharing") || "included"} onValueChange={(v) => setValue("wifi_cost_sharing", v)}>
+                          <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
+                          <SelectContent>{WIFI_SHARING_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                    <div>
-                      <Label className="text-xs">Pembayaran WiFi</Label>
-                      <Select value={watch("wifi_cost_sharing") || "included"} onValueChange={(v) => setValue("wifi_cost_sharing", v)}>
-                        <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
-                        <SelectContent>{WIFI_SHARING_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
+                    {watch("wifi_cost_sharing") === "patungan" && (
+                      <div>
+                        <Label className="text-xs">Biaya WiFi per Penghuni (Rp)</Label>
+                        <Input type="number" min="0" {...register("wifi_cost")} placeholder="50000" className={inputCls} />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -21,6 +21,7 @@ export interface Unit {
   wifi_included?: boolean;
   wifi_speed_mbps?: number | null;
   wifi_cost_sharing?: string;
+  wifi_cost?: number;
   additional_costs?: AdditionalCost[];
   property?: {
     name: string;
@@ -109,6 +110,7 @@ export interface UnitFormData {
   wifi_included?: boolean;
   wifi_speed_mbps?: number | null;
   wifi_cost_sharing?: string;
+  wifi_cost?: number;
   additional_costs?: AdditionalCost[];
 }
 

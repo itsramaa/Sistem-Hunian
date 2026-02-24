@@ -54,6 +54,7 @@ export const unitSchema = z.object({
   wifi_included: z.boolean().default(false),
   wifi_speed_mbps: z.coerce.number().min(0).nullable().optional(),
   wifi_cost_sharing: z.string().default('included'),
+  wifi_cost: z.coerce.number().min(0).default(0),
   additional_costs: z.array(additionalCostSchema).default([]),
 });
 
