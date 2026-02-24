@@ -133,12 +133,44 @@ export function useMerchantPayments(merchantId: string | undefined) {
     },
   });
 
+  const createPaymentMutation = useMutation({
+    mutationFn: async (payload: {
+      contract_id: string;
+      tenant_user_id: string;
+      merchant_id: string;
+      amount: number;
+      payment_type: string;
+      payment_method: string | null;
+      reference: string | null;
+      due_date: string;
+      status: string;
+      proof_photo_url?: string | null;
+    }) => {
+      const { error } = await supabase
+        .from('payments')
+        .insert({
+          ...payload,
+          paid_at: payload.status === 'paid' ? new Date().toISOString() : null,
+        });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      toast({ title: 'Pembayaran dibuat', description: 'Pembayaran baru berhasil ditambahkan' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Gagal membuat pembayaran', description: error.message, variant: 'destructive' });
+    },
+  });
+
   return {
     payments,
     overdueInvoices,
     isLoading: paymentsLoading || overdueLoading,
     refetchPayments: () => queryClient.invalidateQueries({ queryKey: ['payments', merchantId] }),
     markPaid: markPaidMutation.mutate,
+    createPayment: createPaymentMutation.mutate,
+    isCreatingPayment: createPaymentMutation.isPending,
     sendReminder: sendReminderMutation.mutate,
     sendBulkReminder: sendBulkReminderMutation.mutate,
     isMarkingPaid: markPaidMutation.isPending,

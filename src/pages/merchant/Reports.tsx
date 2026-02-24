@@ -15,7 +15,7 @@ import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
-import { TrendingUp, TrendingDown, Building2, DollarSign, Wrench, Download, FileText, Table2, UserMinus, BarChart3, AlertTriangle, Loader2, RefreshCw } from 'lucide-react';
+import { TrendingUp, TrendingDown, Building2, DollarSign, Wrench, Download, FileText, Table2, UserMinus, BarChart3, AlertTriangle, Loader2, RefreshCw, PieChart as PieChartIcon } from 'lucide-react';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { StatsRowSkeleton, ChartSkeleton } from '@/shared/components/ui/PageSkeleton';
 import { subMonths } from 'date-fns';
@@ -163,6 +163,10 @@ export default function MerchantReports() {
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className="pill-tab-list">
           <TabsTrigger value="overview" className="pill-tab-trigger">Overview</TabsTrigger>
+          <TabsTrigger value="roi" className="pill-tab-trigger flex items-center gap-1.5">
+            <PieChartIcon className="h-3.5 w-3.5" />
+            ROI & Ringkasan
+          </TabsTrigger>
           <TabsTrigger value="forecasting" className="pill-tab-trigger flex items-center gap-1.5">
             <BarChart3 className="h-3.5 w-3.5" />
             Forecasting
@@ -265,6 +269,109 @@ export default function MerchantReports() {
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="roi" className="space-y-6">
+          {isLoading ? (
+            <StatsRowSkeleton count={4} />
+          ) : (
+            <>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {(() => {
+                  const totalCosts = properties.reduce((sum: number, p: any) => 
+                    sum + Number(p.construction_cost || 0) + Number(p.renovation_cost || 0), 0);
+                  const netIncome = totalRevenue - properties.reduce((sum: number, p: any) => 
+                    sum + (Number(p.monthly_maintenance_cost || 0) * 12), 0);
+                  const roi = totalCosts > 0 ? ((netIncome / totalCosts) * 100) : 0;
+                  const yieldRate = totalCosts > 0 ? ((totalRevenue / totalCosts) * 100) : 0;
+                  return [
+                    { label: 'ROI', value: `${roi.toFixed(1)}%`, sub: 'Return on Investment', icon: TrendingUp, color: 'text-success' },
+                    { label: 'Yield', value: `${yieldRate.toFixed(1)}%`, sub: 'Annual Yield Rate', icon: DollarSign, color: 'text-info' },
+                    { label: 'Net Operating Income', value: formatCurrency(netIncome), sub: 'Revenue - Maintenance', icon: DollarSign, color: 'text-primary' },
+                    { label: 'Total Investasi', value: formatCurrency(totalCosts), sub: 'Konstruksi + Renovasi', icon: Building2, color: 'text-warning' },
+                  ].map((item) => (
+                    <Card key={item.label} className="glass-stat-card hover-lift">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-muted-foreground font-medium">{item.label}</p>
+                            <p className="text-2xl font-bold mt-1">{item.value}</p>
+                          </div>
+                          <div className="gradient-icon-box">
+                            <item.icon className={`h-5 w-5 ${item.color}`} />
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">{item.sub}</p>
+                      </CardContent>
+                    </Card>
+                  ));
+                })()}
+              </div>
+
+              <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
+                <CardHeader className="flex flex-row items-center gap-3">
+                  <div className="gradient-icon-box"><TrendingUp className="h-5 w-5 text-primary" /></div>
+                  <CardTitle>ROI per Properti</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {properties.map((p: any) => {
+                      const cost = Number(p.construction_cost || 0) + Number(p.renovation_cost || 0);
+                      const propRevenue = totalRevenue / Math.max(properties.length, 1);
+                      const maintenanceCost = Number(p.monthly_maintenance_cost || 0) * 12;
+                      const propRoi = cost > 0 ? (((propRevenue - maintenanceCost) / cost) * 100) : 0;
+                      const yieldVal = cost > 0 ? ((propRevenue / cost) * 100) : 0;
+                      return (
+                        <div key={p.id} className="p-4 rounded-xl bg-muted/30 space-y-2">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="font-medium">{p.name}</p>
+                              <p className="text-xs text-muted-foreground capitalize">{p.property_type} · {p.units?.length || 0} unit</p>
+                            </div>
+                            <div className="text-right">
+                              <p className={`text-lg font-bold ${propRoi >= 0 ? 'text-success' : 'text-destructive'}`}>{propRoi.toFixed(1)}%</p>
+                              <p className="text-xs text-muted-foreground">ROI</p>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 text-xs">
+                            <div><span className="text-muted-foreground">Investasi:</span> {formatCurrency(cost)}</div>
+                            <div><span className="text-muted-foreground">Yield:</span> {yieldVal.toFixed(1)}%</div>
+                            <div><span className="text-muted-foreground">Maintenance:</span> {formatCurrency(maintenanceCost)}/thn</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {properties.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Tidak ada data properti</p>}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="grid lg:grid-cols-2 gap-6">
+                <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
+                  <CardHeader><CardTitle className="text-base">Ringkasan Okupansi</CardTitle></CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex justify-between"><span className="text-muted-foreground">Total Unit</span><span className="font-bold">{totalUnits}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Terisi</span><span className="font-bold text-success">{occupiedUnits}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Kosong</span><span className="font-bold text-warning">{totalUnits - occupiedUnits}</span></div>
+                    <div className="flex justify-between border-t border-border/40 pt-3"><span className="font-medium">Tingkat Okupansi</span><span className="text-lg font-bold">{occupancyRate}%</span></div>
+                  </CardContent>
+                </Card>
+                <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
+                  <CardHeader><CardTitle className="text-base">Ringkasan Pembayaran</CardTitle></CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex justify-between"><span className="text-muted-foreground">Total Revenue</span><span className="font-bold text-success">{formatCurrency(totalRevenue)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Pending</span><span className="font-bold text-warning">{formatCurrency(pendingPayments)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Maintenance Requests</span><span className="font-bold">{maintenanceRequests.length}</span></div>
+                    {(() => {
+                      const mCost = properties.reduce((sum: number, p: any) => sum + (Number(p.monthly_maintenance_cost || 0) * 12), 0);
+                      const ratio = totalRevenue > 0 ? ((mCost / totalRevenue) * 100) : 0;
+                      return <div className="flex justify-between border-t border-border/40 pt-3"><span className="font-medium">Rasio Biaya Maintenance</span><span className="text-lg font-bold">{ratio.toFixed(1)}%</span></div>;
+                    })()}
                   </CardContent>
                 </Card>
               </div>
