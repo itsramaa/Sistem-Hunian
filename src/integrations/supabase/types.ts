@@ -3142,6 +3142,7 @@ export type Database = {
           paid_at: string | null
           payment_method: string | null
           payment_type: string
+          proof_photo_url: string | null
           reference: string | null
           status: string
           tenant_user_id: string
@@ -3157,6 +3158,7 @@ export type Database = {
           paid_at?: string | null
           payment_method?: string | null
           payment_type?: string
+          proof_photo_url?: string | null
           reference?: string | null
           status?: string
           tenant_user_id: string
@@ -3172,6 +3174,7 @@ export type Database = {
           paid_at?: string | null
           payment_method?: string | null
           payment_type?: string
+          proof_photo_url?: string | null
           reference?: string | null
           status?: string
           tenant_user_id?: string

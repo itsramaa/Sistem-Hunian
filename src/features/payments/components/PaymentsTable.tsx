@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { TablePagination } from '@/shared/components/ui/TablePagination';
 import { formatCurrency } from '@/shared/utils/currency';
 import { format } from 'date-fns';
-import { Bell, Calendar, CheckCircle, Clock, DollarSign, Loader2, XCircle } from 'lucide-react';
+import { Bell, Calendar, CheckCircle, Clock, DollarSign, ImageIcon, Loader2, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Payment } from '../types';
 
@@ -68,6 +68,7 @@ export function PaymentsTable({
               <TableHead className="font-semibold text-xs uppercase tracking-wider">Method</TableHead>
               <TableHead className="font-semibold text-xs uppercase tracking-wider">Reference</TableHead>
               <TableHead className="font-semibold text-xs uppercase tracking-wider">Paid At</TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wider">Bukti</TableHead>
               <TableHead className="font-semibold text-xs uppercase tracking-wider">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -102,13 +103,14 @@ export function PaymentsTable({
             <TableHead className="font-semibold text-xs uppercase tracking-wider">Method</TableHead>
             <TableHead className="font-semibold text-xs uppercase tracking-wider">Reference</TableHead>
             <TableHead className="font-semibold text-xs uppercase tracking-wider">Paid At</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Bukti</TableHead>
             <TableHead className="font-semibold text-xs uppercase tracking-wider">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {payments.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={8} className="p-0">
+              <TableCell colSpan={9} className="p-0">
                 <EmptyState
                   icon={DollarSign}
                   title="No payments found"
@@ -128,10 +130,17 @@ export function PaymentsTable({
                       {payment.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="capitalize">{payment.payment_method || '-'}</TableCell>
+                <TableCell className="capitalize">{payment.payment_method || '-'}</TableCell>
                   <TableCell>{payment.reference || '-'}</TableCell>
                   <TableCell>
-                    {payment.paid_at ? format(new Date(payment.paid_at), 'MMM d, yyyy') : '-'}
+                     {payment.paid_at ? format(new Date(payment.paid_at), 'MMM d, yyyy') : '-'}
+                  </TableCell>
+                  <TableCell>
+                    {payment.proof_photo_url ? (
+                      <a href={payment.proof_photo_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 text-primary hover:underline text-xs">
+                        <ImageIcon className="h-3.5 w-3.5" />Bukti
+                      </a>
+                    ) : '-'}
                   </TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-2">

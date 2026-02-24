@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/shared/components/ui/button";
 import {
   Dialog,
@@ -18,12 +18,14 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import { Payment } from "../types";
+import { supabase } from "@/lib/integrations/supabase/client";
+import { ImageIcon, Upload, X } from "lucide-react";
 
 interface MarkPaidDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   payment: Payment | null;
-  onConfirm: (data: { paymentId: string; method: string; reference: string }) => void;
+  onConfirm: (data: { paymentId: string; method: string; reference: string; proofPhotoUrl?: string }) => void;
   loading: boolean;
 }
 
@@ -44,19 +46,62 @@ export function MarkPaidDialog({
 }: MarkPaidDialogProps) {
   const [method, setMethod] = useState("");
   const [reference, setReference] = useState("");
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofPreview, setProofPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
       setMethod("");
       setReference("");
+      setProofFile(null);
+      setProofPreview(null);
     }
   }, [open]);
 
-  const handleSubmit = () => {
-    if (payment && method) {
-      onConfirm({ paymentId: payment.id, method, reference });
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setProofFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setProofPreview(reader.result as string);
+      reader.readAsDataURL(file);
     }
   };
+
+  const handleSubmit = async () => {
+    if (!payment || !method) return;
+
+    let proofPhotoUrl: string | undefined;
+
+    if (proofFile) {
+      setUploading(true);
+      try {
+        const ext = proofFile.name.split('.').pop();
+        const filePath = `${payment.merchant_id}/${payment.id}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from('payment-proofs')
+          .upload(filePath, proofFile, { upsert: true });
+
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage
+          .from('payment-proofs')
+          .getPublicUrl(filePath);
+
+        proofPhotoUrl = urlData.publicUrl;
+      } catch (err) {
+        console.error('Failed to upload proof photo:', err);
+      } finally {
+        setUploading(false);
+      }
+    }
+
+    onConfirm({ paymentId: payment.id, method, reference, proofPhotoUrl });
+  };
+
+  const isSubmitting = loading || uploading;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -93,13 +138,46 @@ export function MarkPaidDialog({
               className="rounded-xl bg-background/60 border-border/50"
             />
           </div>
+          <div className="grid gap-2">
+            <Label>Bukti Pembayaran (Optional)</Label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            {proofPreview ? (
+              <div className="relative rounded-xl overflow-hidden border border-border/50">
+                <img src={proofPreview} alt="Bukti pembayaran" className="w-full h-40 object-cover" />
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-2 right-2 h-7 w-7 rounded-full"
+                  onClick={() => { setProofFile(null); setProofPreview(null); }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-xl h-24 border-dashed flex flex-col gap-1"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="h-5 w-5 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Upload foto bukti</span>
+              </Button>
+            )}
+          </div>
         </div>
         <DialogFooter className="flex-col-reverse sm:flex-row">
           <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!method || loading} className="gradient-cta text-primary-foreground rounded-xl">
-            {loading ? "Saving..." : "Confirm Payment"}
+          <Button onClick={handleSubmit} disabled={!method || isSubmitting} className="gradient-cta text-primary-foreground rounded-xl">
+            {isSubmitting ? "Saving..." : "Confirm Payment"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,4 +1,4 @@
-import { BarChart3, TrendingUp, FileText, Briefcase, Brain, Target, Globe, ShieldAlert, UserCheck } from "lucide-react";
+import { BarChart3, Briefcase, Brain, Target, Globe, ShieldAlert, UserCheck, TrendingUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/shared/components/ui/PageHeader";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/shared/components/ui/card";
@@ -13,20 +13,6 @@ interface InsightCard {
 }
 
 const performanceCards: InsightCard[] = [
-  {
-    title: "Ringkasan Analitik",
-    description: "Ikhtisar performa properti, okupansi, dan pendapatan",
-    icon: BarChart3,
-    path: "/merchant/analytics-dashboard",
-    accentClass: "from-primary/20 to-primary/5",
-  },
-  {
-    title: "Laporan",
-    description: "Laporan churn, pembayaran tepat waktu, dan proyeksi",
-    icon: FileText,
-    path: "/merchant/reports",
-    accentClass: "from-success/20 to-success/5",
-  },
   {
     title: "Template Laporan",
     description: "Template eksekutif, keuangan, dan analisis risiko",
@@ -108,7 +94,7 @@ export default function InsightsHub() {
 
   return (
     <div className="space-y-8">
-      <PageHeader icon={BarChart3} title="Analitik" description="Analitik performa dan intelijen AI untuk bisnis Anda" />
+      <PageHeader icon={BarChart3} title="Alat" description="Alat analitik dan intelijen AI untuk bisnis Anda" />
 
       {/* Performance Section */}
       <section className="space-y-4">

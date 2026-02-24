@@ -84,4 +84,5 @@ export interface Payment {
   contract_id: string;
   tenant_user_id: string;
   merchant_id: string;
+  proof_photo_url?: string | null;
 }

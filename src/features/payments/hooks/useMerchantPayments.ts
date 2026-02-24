@@ -47,7 +47,7 @@ export function useMerchantPayments(merchantId: string | undefined) {
   });
 
   const markPaidMutation = useMutation({
-    mutationFn: async ({ id, payment_method, reference }: { id: string; payment_method: string; reference: string }) => {
+    mutationFn: async ({ id, payment_method, reference, proof_photo_url }: { id: string; payment_method: string; reference: string; proof_photo_url?: string }) => {
       const payment = payments.find(p => p.id === id);
       if (!payment) throw new Error('Payment not found');
       
@@ -62,6 +62,7 @@ export function useMerchantPayments(merchantId: string | undefined) {
           payment_method,
           reference: reference || null,
           paid_at: new Date().toISOString(),
+          proof_photo_url: proof_photo_url || null,
         })
         .eq('id', id);
       

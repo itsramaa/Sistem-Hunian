@@ -58,8 +58,8 @@ export default function MerchantPayments() {
     setIsMarkPaidOpen(true);
   };
 
-  const handleMarkPaidConfirm = ({ paymentId, method, reference }: { paymentId: string; method: string; reference: string }) => {
-    markPaid({ id: paymentId, payment_method: method, reference }, {
+  const handleMarkPaidConfirm = ({ paymentId, method, reference, proofPhotoUrl }: { paymentId: string; method: string; reference: string; proofPhotoUrl?: string }) => {
+    markPaid({ id: paymentId, payment_method: method, reference, proof_photo_url: proofPhotoUrl }, {
       onSuccess: () => {
         setIsMarkPaidOpen(false);
         setSelectedPayment(null);

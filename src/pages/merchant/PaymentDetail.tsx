@@ -129,8 +129,8 @@ export default function MerchantPaymentDetail() {
         open={isMarkPaidOpen}
         onOpenChange={setIsMarkPaidOpen}
         payment={payment}
-        onConfirm={({ paymentId, method, reference }) => {
-          markPaid({ id: paymentId, payment_method: method, reference }, {
+        onConfirm={({ paymentId, method, reference, proofPhotoUrl }) => {
+          markPaid({ id: paymentId, payment_method: method, reference, proof_photo_url: proofPhotoUrl }, {
             onSuccess: () => setIsMarkPaidOpen(false),
           });
         }}

@@ -34,22 +34,27 @@ interface CreateMaintenanceDialogProps {
   onSubmit: (payload: CreateMerchantMaintenancePayload) => void;
   loading: boolean;
   preselectedPropertyId?: string;
+  preselectedUnitId?: string;
 }
 
-export function CreateMaintenanceDialog({ open, onOpenChange, onSubmit, loading, preselectedPropertyId }: CreateMaintenanceDialogProps) {
+export function CreateMaintenanceDialog({ open, onOpenChange, onSubmit, loading, preselectedPropertyId, preselectedUnitId }: CreateMaintenanceDialogProps) {
   const { merchant } = useAuth();
   const { properties } = useMerchantProperties(merchant?.id || '');
   const [propertyId, setPropertyId] = useState(preselectedPropertyId || '');
-  const [unitId, setUnitId] = useState('');
+  const [unitId, setUnitId] = useState(preselectedUnitId || '');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('other');
   const [priority, setPriority] = useState('medium');
 
-  // Sync preselectedPropertyId
+  // Sync preselected values
   useEffect(() => {
     if (preselectedPropertyId) setPropertyId(preselectedPropertyId);
   }, [preselectedPropertyId]);
+
+  useEffect(() => {
+    if (preselectedUnitId) setUnitId(preselectedUnitId);
+  }, [preselectedUnitId]);
 
   const { data: units = [] } = useQuery({
     queryKey: ['units-for-property', propertyId],
@@ -101,15 +106,17 @@ export function CreateMaintenanceDialog({ open, onOpenChange, onSubmit, loading,
             </div>
           )}
 
-          <div className="space-y-1.5">
-            <Label className="text-sm">Unit</Label>
-            <Select value={unitId} onValueChange={setUnitId} disabled={!propertyId}>
-              <SelectTrigger className="rounded-xl"><SelectValue placeholder="Pilih unit" /></SelectTrigger>
-              <SelectContent>
-                {units.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.unit_number}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+          {!preselectedUnitId && (
+            <div className="space-y-1.5">
+              <Label className="text-sm">Unit</Label>
+              <Select value={unitId} onValueChange={setUnitId} disabled={!propertyId}>
+                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Pilih unit" /></SelectTrigger>
+                <SelectContent>
+                  {units.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.unit_number}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label className="text-sm">Judul</Label>
