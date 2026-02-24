@@ -110,9 +110,17 @@ export default function MerchantContractDetail() {
                   <h3 className="font-semibold">Property</h3>
                 </div>
                 <div className="space-y-2 pl-[52px]">
-                  <p className="font-medium">{contract.unit?.property?.name}</p>
+                  {contract.unit?.property?.id ? (
+                    <Link to={`/merchant/properties/${contract.unit.property.id}`} className="font-medium hover:underline text-primary">{contract.unit.property.name}</Link>
+                  ) : (
+                    <p className="font-medium">{contract.unit?.property?.name}</p>
+                  )}
                   <p className="text-sm text-muted-foreground">{contract.unit?.property?.address}, {contract.unit?.property?.city}</p>
-                  <p className="text-sm text-muted-foreground">Unit {contract.unit?.unit_number}</p>
+                  {contract.unit?.id ? (
+                    <Link to={`/merchant/units/${contract.unit.id}`} className="text-sm hover:underline text-primary">Unit {contract.unit.unit_number}</Link>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Unit {contract.unit?.unit_number}</p>
+                  )}
                 </div>
               </div>
               <div className="space-y-4">

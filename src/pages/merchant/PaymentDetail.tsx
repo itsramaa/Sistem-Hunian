@@ -51,7 +51,7 @@ export default function MerchantPaymentDetail() {
           *,
           contracts(
             id, start_date, end_date, rent_amount,
-            units(unit_number, properties(name))
+            units(id, unit_number, properties(id, name))
           )
         `)
         .eq('id', paymentId)
@@ -152,17 +152,30 @@ export default function MerchantPaymentDetail() {
             <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6">
               <h3 className="font-semibold text-lg mb-4 flex items-center gap-2"><MapPin className="h-5 w-5 text-primary" /> Info Kontrak & Unit</h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {[
-                  { label: 'Properti', value: property?.name || '-' },
-                  { label: 'Unit', value: unit?.unit_number || '-' },
-                  { label: 'Sewa/Bulan', value: formatCurrency(contract.rent_amount) },
-                  { label: 'Periode', value: `${format(new Date(contract.start_date), 'dd/MM/yy')} - ${format(new Date(contract.end_date), 'dd/MM/yy')}` },
-                ].map((item, i) => (
-                  <div key={i} className="p-3 rounded-xl bg-muted/30">
-                    <p className="text-xs text-muted-foreground">{item.label}</p>
-                    <p className="font-medium mt-0.5 text-sm">{item.value}</p>
-                  </div>
-                ))}
+                <div className="p-3 rounded-xl bg-muted/30">
+                  <p className="text-xs text-muted-foreground">Properti</p>
+                  {property?.id ? (
+                    <Link to={`/merchant/properties/${property.id}`} className="font-medium mt-0.5 text-sm hover:underline text-primary">{property.name}</Link>
+                  ) : (
+                    <p className="font-medium mt-0.5 text-sm">{property?.name || '-'}</p>
+                  )}
+                </div>
+                <div className="p-3 rounded-xl bg-muted/30">
+                  <p className="text-xs text-muted-foreground">Unit</p>
+                  {unit?.id ? (
+                    <Link to={`/merchant/units/${unit.id}`} className="font-medium mt-0.5 text-sm hover:underline text-primary">{unit.unit_number}</Link>
+                  ) : (
+                    <p className="font-medium mt-0.5 text-sm">{unit?.unit_number || '-'}</p>
+                  )}
+                </div>
+                <div className="p-3 rounded-xl bg-muted/30">
+                  <p className="text-xs text-muted-foreground">Kontrak</p>
+                  <Link to={`/merchant/contracts/${contract.id}`} className="font-medium mt-0.5 text-sm hover:underline text-primary">Lihat Kontrak</Link>
+                </div>
+                <div className="p-3 rounded-xl bg-muted/30">
+                  <p className="text-xs text-muted-foreground">Periode</p>
+                  <p className="font-medium mt-0.5 text-sm">{format(new Date(contract.start_date), 'dd/MM/yy')} - {format(new Date(contract.end_date), 'dd/MM/yy')}</p>
+                </div>
               </div>
             </div>
           )}
