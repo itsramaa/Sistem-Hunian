@@ -374,7 +374,7 @@ export default function PropertyDetail() {
           {/* Compliance Tab */}
           <TabsContent value="compliance" className="space-y-4 mt-4 animate-fade-in">
             <Suspense fallback={<ContentSkeleton />}>
-              <LazyCompliance />
+              <LazyCompliance propertyId={id} />
             </Suspense>
             <Suspense fallback={<ContentSkeleton />}>
               <LazyDataQuality />

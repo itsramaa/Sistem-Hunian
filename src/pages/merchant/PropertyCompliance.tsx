@@ -21,14 +21,19 @@ import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
-export default function PropertyCompliance() {
+interface PropertyComplianceProps {
+  propertyId?: string;
+}
+
+export default function PropertyCompliance({ propertyId: propPropertyId }: PropertyComplianceProps = {}) {
   const { merchant } = useAuth();
-  const { properties, loading: propsLoading } = useMerchantProperties(merchant?.id || '');
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
+  const showPropertySelector = !propPropertyId;
+  const { properties, loading: propsLoading } = useMerchantProperties(showPropertySelector ? (merchant?.id || '') : '');
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>(propPropertyId || '');
 
   const { data: summary, isLoading } = useComplianceSummary(selectedPropertyId || undefined);
 
-  if (propsLoading) return <div className="flex items-center justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  if (showPropertySelector && propsLoading) return <div className="flex items-center justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
     <div className="space-y-6">
@@ -37,16 +42,18 @@ export default function PropertyCompliance() {
           <h1 className="text-2xl font-bold">Risiko & Kepatuhan</h1>
           <p className="text-muted-foreground">Kelola risiko bencana, asuransi, dokumen & keamanan properti</p>
         </div>
-        <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
-          <SelectTrigger className="w-64 rounded-xl">
-            <SelectValue placeholder="Pilih Properti" />
-          </SelectTrigger>
-          <SelectContent>
-            {properties?.map(p => (
-              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {showPropertySelector && (
+          <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
+            <SelectTrigger className="w-64 rounded-xl">
+              <SelectValue placeholder="Pilih Properti" />
+            </SelectTrigger>
+            <SelectContent>
+              {properties?.map(p => (
+                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {!selectedPropertyId ? (
