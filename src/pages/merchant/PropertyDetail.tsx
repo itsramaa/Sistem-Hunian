@@ -11,8 +11,14 @@ import { Progress } from '@/shared/components/ui/progress';
 import { 
   ArrowLeft, Building2, ChevronRight, DoorOpen, Edit, Image as ImageIcon, MapPin, 
   Sparkles, TrendingUp, Users, DollarSign, Calendar, Hash, Clock, Wrench, FileText, AlertTriangle,
-  Shield, UserCheck
+  Shield, UserCheck, MoreHorizontal
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/shared/components/ui/dropdown-menu';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/shared/components/ui/carousel';
 import { Suspense, lazy, useState, useEffect, useCallback } from 'react';
 import { ContentSkeleton } from '@/shared/components/ui/PageSkeleton';
@@ -270,12 +276,28 @@ export default function PropertyDetail() {
               Maintenance
               {pendingMaintenance.length > 0 && <Badge variant="secondary" className="ml-1.5 rounded-full text-xs">{pendingMaintenance.length}</Badge>}
             </TabsTrigger>
-            <TabsTrigger value="guardians" className="pill-tab-trigger">
-              <UserCheck className="h-3.5 w-3.5 mr-1" />Staf
-            </TabsTrigger>
-            <TabsTrigger value="compliance" className="pill-tab-trigger">
-              <Shield className="h-3.5 w-3.5 mr-1" />Kepatuhan
-            </TabsTrigger>
+            {/* Progressive Disclosure: low-frequency tabs in dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className={`pill-tab-trigger inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full transition-colors ${
+                  activeTab === 'guardians' || activeTab === 'compliance'
+                    ? 'bg-primary/15 text-primary border border-primary/30'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                }`}>
+                  {activeTab === 'guardians' ? <><UserCheck className="h-3.5 w-3.5" />Staf</> :
+                   activeTab === 'compliance' ? <><Shield className="h-3.5 w-3.5" />Kepatuhan</> :
+                   <><MoreHorizontal className="h-3.5 w-3.5" />Lainnya</>}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[160px]">
+                <DropdownMenuItem onClick={() => handleTabChange('guardians')} className="gap-2">
+                  <UserCheck className="h-4 w-4" />Staf
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleTabChange('compliance')} className="gap-2">
+                  <Shield className="h-4 w-4" />Kepatuhan
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </TabsList>
 
           {/* Overview Tab */}
