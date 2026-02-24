@@ -1,107 +1,138 @@
 
-
-# Perbaikan 6 Area: Unit Maintenance, Edit, Sidebar, Analitik, Pembayaran
-
----
-
-## 1. Tab Maintenance di UnitDetail: Tambah "Add Maintenance" Button + Dialog
-
-**Masalah:** Tab maintenance di `UnitDetail.tsx` hanya menampilkan list request tanpa tombol tambah, berbeda dari PropertyDetail yang sudah punya tombol + dialog.
-
-**Perbaikan di `UnitDetail.tsx`:**
-- Import `CreateMaintenanceDialog` dan `useCreateMerchantMaintenanceRequest`
-- Tambah state `showCreateMaintenanceDialog`
-- Di tab maintenance (line 333), tambah header bar dengan tombol "Tambah Maintenance" sebelum list
-- Render `CreateMaintenanceDialog` dengan `preselectedPropertyId={unit.property?.id}`
-
-**Perbaikan di `CreateMaintenanceDialog.tsx`:**
-- Tambah prop `preselectedUnitId?: string`
-- Jika diberikan, auto-select unit tersebut di dropdown unit dan disable/hide field unit
+# Perbaikan: Add Payment, Detail Payment/Invoice Lengkap, Laporan, dan Seed Data
 
 ---
 
-## 2. Button Edit di UnitDetail Tidak Berfungsi
+## 1. Merchant Bisa Add Payment (Fitur Baru)
 
-**Masalah:** Tombol "Edit" di header UnitDetail (line 128) hanya render `<Button>` tanpa `onClick` handler.
+**Masalah:** Saat ini merchant hanya bisa menandai pembayaran sebagai "paid" (MarkPaidDialog), tetapi tidak bisa membuat pembayaran baru secara manual.
 
-**Perbaikan di `UnitDetail.tsx`:**
-- Import `UnitFormDialog` dari `@/features/properties/components/UnitFormDialog`
-- Tambah state: `showEditDialog: boolean`
-- onClick tombol Edit: `() => setShowEditDialog(true)`
-- Render `<UnitFormDialog>` dengan data unit sebagai `editingUnit`, mode edit
-- onSuccess: refetch unit data
+**Buat `CreatePaymentDialog.tsx`:**
+- File baru: `src/features/payments/components/CreatePaymentDialog.tsx`
+- Form fields:
+  - Kontrak (dropdown dari active contracts, menampilkan unit + tenant)
+  - Jumlah (Rp)
+  - Tipe Pembayaran (rent, deposit, utility, other)
+  - Metode Pembayaran (bank_transfer, cash, card, eft, other)
+  - Referensi (opsional)
+  - Tanggal Jatuh Tempo
+  - Bukti Pembayaran (file upload opsional ke bucket `payment-proofs`)
+- Submit: insert ke tabel `payments` dengan status `pending` (atau `paid` jika bukti & metode disertakan)
+- Auto-fill `merchant_id`, `tenant_user_id`, `contract_id` dari kontrak yang dipilih
+
+**Update `useMerchantPayments.ts`:**
+- Tambah mutation `createPayment` untuk insert payment baru
+
+**Update `Payments.tsx`:**
+- Tambah tombol "Tambah Pembayaran" (Plus icon) di header sebelah Refresh
+- onClick: buka `CreatePaymentDialog`
 
 ---
 
-## 3. Sidebar: Laporan di Atas Analitik
+## 2. Detail Pembayaran Lebih Lengkap + Bukti Foto
 
-**Masalah:** Urutan saat ini: Analitik, Laporan. User ingin Laporan di atas.
+**Masalah:** `PaymentDetail.tsx` hanya menampilkan amount, type, due date, method, reference. Tidak ada info tenant, kontrak, unit, atau bukti pembayaran.
 
-**Perbaikan di `navigation-config.ts` (line 138-143):**
-```text
-Wawasan
-  Laporan        <-- pindah ke atas
-  Alat           <-- rename dari "Analitik"
-```
+**Perbaikan di `PaymentDetail.tsx`:**
+- Fetch data relasi: join payments dengan contracts (untuk unit info), profiles (untuk tenant name/email)
+- Tambah query terpisah atau update query payments dengan select relasi
+
+**Konten tambahan yang ditampilkan:**
+- **Info Penyewa:** Nama, email, phone (dari profiles via tenant_user_id)
+- **Info Kontrak:** Nomor kontrak, unit, property (dari contracts via contract_id)
+- **Bukti Pembayaran:** Jika `proof_photo_url` ada, tampilkan gambar dalam card dengan lightbox zoom
+- **Timeline:** Created at, Due date, Paid at dalam visual timeline
+- **Rincian Lengkap:** Semua field yang ada di DB (created_at, updated_at)
+
+**Update `useMerchantPayments.ts`:**
+- Update query payments untuk join: `select('*, contracts(unit_id, units(unit_number, properties(name))), profiles:tenant_user_id(full_name, email, phone)')` -- atau buat query terpisah di detail page
+
+**Alternatif:** Buat hook `usePaymentDetail(paymentId)` khusus untuk detail page agar bisa fetch relasi tanpa mengubah list query.
 
 ---
 
-## 4. Rename "Analitik" ke "Alat" + Hapus Card Ringkasan
+## 3. Detail Invoice Lebih Lengkap
 
-**Masalah:** Sidebar item "Analitik" seharusnya bernama "Alat". Card "Ringkasan Analitik" dan "Laporan" di InsightsHub harus dihapus karena sudah ada di page Laporan.
+**Masalah:** `InvoiceDetail.tsx` tidak menampilkan info tenant, kontrak, unit, atau line items.
 
-**Perbaikan di `navigation-config.ts`:**
-- Rename label "Analitik" menjadi "Alat"
+**Perbaikan di `InvoiceDetail.tsx`:**
+- Fetch relasi: tenant profile (nama, email), contract info (unit, property)
+- Tampilkan `line_items` (JSONB column) jika ada, sebagai tabel item baris
 
-**Perbaikan di `InsightsHub.tsx`:**
-- Hapus card "Ringkasan Analitik" (index 0 di `performanceCards`) dan card "Laporan" (index 1 di `performanceCards`)
-- Update PageHeader title dari "Analitik" menjadi "Alat"
-- Sisa performanceCards: "Template Laporan" dan "Portofolio Komparatif"
+**Konten tambahan:**
+- **Info Penyewa:** Card dengan nama, email tenant
+- **Info Kontrak & Unit:** Property name, unit number
+- **Line Items:** Tabel dengan item, qty, harga jika `line_items` tersedia
+- **Timeline Visual:** Created -> Issued -> Due -> Paid (dengan tanggal masing-masing)
+- **Grace Period Info:** Jika `grace_period_active`, tampilkan badge
+- **Overdue Info:** Jika `overdue_since`, tampilkan durasi overdue
+- **Original Amount vs Current:** Jika `original_amount` berbeda dari `amount`, tampilkan perubahan (biasanya karena late fee)
+
+---
+
+## 4. Ringkasan Analitik Dipindahkan ke Page Laporan
+
+**Masalah:** User menginginkan ringkasan analitik (ROI, revenue summary, occupancy) yang sebelumnya ada di InsightsHub sekarang ada di page Laporan.
 
 **Perbaikan di `Reports.tsx`:**
-- Tambahkan section "Ringkasan Analitik" di atas tab reports (ikhtisar performa properti, okupansi, dan pendapatan yang sebelumnya ada di InsightsHub sebagai card link)
-- Ini berupa summary stats cards (total revenue, occupancy rate, payment rate, dsb) yang sudah ada di report data
+- Tambah tab baru "ROI & Ringkasan" atau masukkan ke tab "Overview"
+- Hitung dan tampilkan:
+  - **ROI per properti**: (revenue - costs) / costs * 100
+  - **Total Revenue vs Target**
+  - **Average Occupancy Rate**
+  - **Average Payment Collection Time**
+  - **Maintenance Cost Ratio**
+- Data sudah tersedia dari `useReportsData` hook yang sudah digunakan
+
+**Konten ROI:**
+- Card ROI per properti (jika ada data renovation_cost / purchase_price)
+- Yield analysis: annual revenue / property value
+- Net Operating Income summary
 
 ---
 
-## 5. Pembayaran: Tambah Foto Bukti Pembayaran
+## 5. Seed Data: Maintenance, Penjaga, dan Data Pelengkap
 
-**Masalah:** Di `MarkPaidDialog` dan data pembayaran, tidak ada field untuk upload foto bukti transfer/pembayaran.
+**Masalah:** Data maintenance hanya 4 records, property_guardians kosong (0 records), dan beberapa data pelengkap perlu ditambah.
 
-**DB Migration:**
-- Tambah kolom `proof_photo_url` (text, nullable) di tabel `payments`
+**Seed data via SQL INSERT (menggunakan insert tool):**
 
-**Perbaikan di `MarkPaidDialog.tsx`:**
-- Tambah file input untuk upload foto bukti pembayaran
-- Upload ke Supabase Storage bucket `payment-proofs`
-- Simpan URL di `proof_photo_url` saat confirm payment
-- Preview foto yang dipilih sebelum submit
+**Property Guardians (4-6 records):**
+- 3 penjaga untuk property `ee91fa84-fcb4-4a01-a9d6-b26afc30e75e`
+- Variasi: aktif, pensiun
+- Data: nama, phone, alamat, ID number, gaji, frekuensi gaji, tanggal mulai
 
-**Perbaikan di `Payment` type (`types/index.ts`):**
-- Tambah `proof_photo_url?: string | null`
+**Maintenance Requests tambahan (4-6 records baru):**
+- Variasi kategori: plumbing, electrical, structural, cleaning, pest_control
+- Variasi priority: urgent, high, medium, low
+- Variasi status: pending, in_progress, completed
+- Beberapa dengan vendor assigned, beberapa tanpa
 
-**Perbaikan di `PaymentsTable.tsx`:**
-- Tampilkan ikon/indicator jika pembayaran punya bukti foto
-- Klik untuk preview foto bukti dalam dialog/lightbox
+**Maintenance Timeline Entries:**
+- Entries untuk setiap maintenance request baru
 
-**Perbaikan di `useMerchantPayments.ts`:**
-- Update mutation `markPaid` untuk menyertakan `proof_photo_url`
+**Payments tambahan (jika kurang):**
+- Pastikan ada payments dengan proof_photo_url untuk testing
 
 ---
 
-## Daftar File yang Diubah
+## Daftar File yang Diubah/Dibuat
 
 | File | Perubahan |
 |------|-----------|
-| **DB Migration** | Tambah kolom `proof_photo_url` di `payments` |
-| **Storage** | Buat bucket `payment-proofs` |
-| `UnitDetail.tsx` | Tambah maintenance dialog + fix edit button |
-| `CreateMaintenanceDialog.tsx` | Tambah prop `preselectedUnitId` |
-| `navigation-config.ts` | Reorder Laporan > Alat, rename Analitik > Alat |
-| `InsightsHub.tsx` | Hapus card Ringkasan Analitik dan Laporan, rename title |
-| `Reports.tsx` | Tambah section ringkasan analitik |
-| `MarkPaidDialog.tsx` | Tambah upload foto bukti bayar |
-| `features/payments/types/index.ts` | Tambah `proof_photo_url` |
-| `PaymentsTable.tsx` | Tampilkan indicator bukti foto |
-| `useMerchantPayments.ts` | Update markPaid dengan proof_photo_url |
+| `CreatePaymentDialog.tsx` (baru) | Dialog form tambah pembayaran |
+| `useMerchantPayments.ts` | Tambah createPayment mutation |
+| `Payments.tsx` | Tambah tombol "Tambah Pembayaran" |
+| `PaymentDetail.tsx` | Redesign lengkap dengan relasi + bukti foto |
+| `InvoiceDetail.tsx` | Redesign lengkap dengan relasi + line items + timeline |
+| `Reports.tsx` | Tambah section ROI & ringkasan analitik |
+| **Seed SQL** | Insert guardians, maintenance, timeline entries |
 
+---
+
+## Catatan Teknis
+
+- Untuk detail payment/invoice yang join relasi, buat hook terpisah `usePaymentDetail` dan `useInvoiceDetail` agar tidak mempengaruhi performa list query
+- Bukti pembayaran ditampilkan dengan click-to-zoom menggunakan Dialog + img fullscreen
+- Seed data menggunakan ID merchant dan property yang sudah ada di database
+- ROI calculation memerlukan data `purchase_price` atau `renovation_cost` dari properties -- jika tidak tersedia, tampilkan yield berdasarkan revenue saja
