@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/integrations/supabase/client';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
@@ -14,10 +15,15 @@ import { formatCurrency } from '@/shared/utils/currency';
 import { format, differenceInDays, isPast } from 'date-fns';
 import { 
   ArrowLeft, Building2, Calendar, ChevronRight, Clock, DoorOpen, Edit, 
-  Hash, ImageIcon, MapPin, Ruler, Wallet, Wrench, Users, FileText, 
+  Hash, ImageIcon, MapPin, Plus, Ruler, Wallet, Wrench, Users, FileText, 
   AlertTriangle, CheckCircle, XCircle, TrendingUp
 } from 'lucide-react';
 import { cn } from '@/shared/utils/utils';
+import { CreateMaintenanceDialog } from '@/features/maintenance/components/CreateMaintenanceDialog';
+import { useCreateMerchantMaintenanceRequest } from '@/features/maintenance/hooks/useMaintenance';
+import { UnitFormDialog } from '@/features/properties/components/UnitFormDialog';
+import { useUnits } from '@/features/properties/hooks/useUnits';
+import { UnitFormData } from '@/features/properties/types/schema';
 
 const statusColors: Record<string, string> = {
   available: 'bg-success/10 text-success border-success/30',
@@ -44,7 +50,6 @@ function useUnitDetail(unitId: string | undefined) {
       }
       const { data: maintenanceRequests } = await supabase.from('maintenance_requests').select('id, title, status, priority, created_at').eq('unit_id', unitId).order('created_at', { ascending: false }).limit(5);
       
-      // Fetch invoices for active contracts
       const activeContract = (contracts || []).find(c => c.status === 'active');
       let invoices: any[] = [];
       if (activeContract) {
@@ -71,7 +76,17 @@ function UnitDetailSkeleton() {
 export default function UnitDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: unit, isLoading, error } = useUnitDetail(id);
+
+  // Maintenance dialog state
+  const [showCreateMaintenanceDialog, setShowCreateMaintenanceDialog] = useState(false);
+  const { mutate: createMaintenance, isPending: isCreatingMaintenance } = useCreateMerchantMaintenanceRequest();
+
+  // Edit dialog state
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const propertyId = unit?.property?.id || '';
+  const { updateUnit, isUpdating } = useUnits(propertyId);
 
   if (isLoading) return <UnitDetailSkeleton />;
 
@@ -89,7 +104,6 @@ export default function UnitDetail() {
   const activeContract = unit.contracts?.find((c: any) => c.status === 'active');
   const activeTenant = activeContract ? unit.tenantProfiles?.[activeContract.tenant_user_id] : null;
   
-  // Payment summary
   const invoices = unit.invoices || [];
   const paidInvoices = invoices.filter((i: any) => i.status === 'paid');
   const overdueInvoices = invoices.filter((i: any) => i.status !== 'paid' && isPast(new Date(i.due_date)));
@@ -97,15 +111,18 @@ export default function UnitDetail() {
   const totalPaid = paidInvoices.reduce((s: number, i: any) => s + (i.total_amount || i.amount), 0);
   const totalOverdue = overdueInvoices.reduce((s: number, i: any) => s + (i.total_amount || i.amount), 0);
   
-  // Contract timeline
   const contractDaysLeft = activeContract ? differenceInDays(new Date(activeContract.end_date), new Date()) : 0;
   const contractTotalDays = activeContract ? differenceInDays(new Date(activeContract.end_date), new Date(activeContract.start_date)) : 1;
   const contractProgress = activeContract ? Math.min(100, Math.max(0, ((contractTotalDays - contractDaysLeft) / contractTotalDays) * 100)) : 0;
 
+  const handleEditSubmit = async (data: UnitFormData) => {
+    await updateUnit({ id: unit.id, payload: { ...data, property_id: propertyId } as any });
+    queryClient.invalidateQueries({ queryKey: ['unit-detail', id] });
+    setShowEditDialog(false);
+  };
+
   return (
     <div className="space-y-6">
-
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
         <Button variant="ghost" size="icon" className="shrink-0 rounded-full bg-card/80 backdrop-blur-sm border border-border/40" onClick={() => navigate(`/merchant/properties/${unit.property?.id}#units`)}>
@@ -125,7 +142,9 @@ export default function UnitDetail() {
             {unit.property?.city && <><span>•</span><span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{unit.property.city}</span></>}
           </div>
         </div>
-        <Button variant="outline" size="sm" className="rounded-xl"><Edit className="h-4 w-4 mr-1" />Edit</Button>
+        <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setShowEditDialog(true)}>
+          <Edit className="h-4 w-4 mr-1" />Edit
+        </Button>
       </div>
 
       {/* Photos */}
@@ -165,7 +184,7 @@ export default function UnitDetail() {
         ))}
       </div>
 
-      {/* Contract Timeline (if active) */}
+      {/* Contract Timeline */}
       {activeContract && (
         <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
           <CardContent className="p-4">
@@ -279,7 +298,6 @@ export default function UnitDetail() {
 
           {/* Payment Summary Tab */}
           <TabsContent value="payments" className="space-y-4 mt-4 animate-fade-in">
-            {/* Payment KPIs */}
             <div className="grid grid-cols-3 gap-3">
               <div className="rounded-xl bg-success/5 border border-success/20 p-3 text-center">
                 <CheckCircle className="h-4 w-4 text-success mx-auto mb-1" />
@@ -298,7 +316,6 @@ export default function UnitDetail() {
               </div>
             </div>
 
-            {/* Invoice List */}
             {invoices.length > 0 ? (
               <div className="space-y-2">
                 {invoices.map((inv: any) => {
@@ -331,6 +348,14 @@ export default function UnitDetail() {
           </TabsContent>
 
           <TabsContent value="maintenance" className="space-y-3 mt-4 animate-fade-in">
+            {/* Header with Add button */}
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-muted-foreground">Maintenance Requests</h3>
+              <Button size="sm" className="rounded-xl gradient-cta text-primary-foreground" onClick={() => setShowCreateMaintenanceDialog(true)}>
+                <Plus className="h-4 w-4 mr-1" />Tambah
+              </Button>
+            </div>
+
             {unit.maintenanceRequests?.length > 0 ? unit.maintenanceRequests.map((req: any) => (
               <Card key={req.id} className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40 hover:border-primary/20 transition-all cursor-pointer" onClick={() => navigate(`/merchant/maintenance/${req.id}`)}>
                 <CardContent className="p-4">
@@ -371,7 +396,6 @@ export default function UnitDetail() {
             </CardContent>
           </div>
 
-          {/* Payment Summary Sidebar */}
           {invoices.length > 0 && (
             <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
               <CardHeader><CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4" />Pembayaran</CardTitle></CardHeader>
@@ -392,6 +416,33 @@ export default function UnitDetail() {
           </div>
         </div>
       </div>
+
+      {/* Maintenance Dialog */}
+      <CreateMaintenanceDialog
+        open={showCreateMaintenanceDialog}
+        onOpenChange={setShowCreateMaintenanceDialog}
+        onSubmit={(payload) => {
+          createMaintenance(payload, {
+            onSuccess: () => {
+              setShowCreateMaintenanceDialog(false);
+              queryClient.invalidateQueries({ queryKey: ['unit-detail', id] });
+            },
+          });
+        }}
+        loading={isCreatingMaintenance}
+        preselectedPropertyId={unit.property?.id}
+        preselectedUnitId={unit.id}
+      />
+
+      {/* Edit Dialog */}
+      <UnitFormDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        unit={unit as any}
+        properties={unit.property ? [unit.property as any] : []}
+        onSubmit={handleEditSubmit}
+        isLoading={isUpdating}
+      />
     </div>
   );
 }
