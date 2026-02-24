@@ -256,6 +256,19 @@ export default function MerchantMaintenanceDetail() {
               {request.images && request.images.length > 0 && (
                 <PhotoGallery images={request.images} title="Foto Masalah" />
               )}
+
+              {/* Completion Photos */}
+              {request.completion_photos && request.completion_photos.length > 0 && (
+                <PhotoGallery images={request.completion_photos} title="Foto Penyelesaian" />
+              )}
+
+              {/* Completion Notes */}
+              {request.completion_notes && (
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Catatan Penyelesaian</p>
+                  <p className="text-sm bg-success/5 border border-success/20 rounded-xl p-3">{request.completion_notes}</p>
+                </div>
+              )}
             </div>
 
             {/* Cost Summary */}
@@ -323,14 +336,20 @@ export default function MerchantMaintenanceDetail() {
                   <User className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="font-medium">{request.tenant?.full_name || 'Dibuat oleh Merchant'}</p>
+                  {request.tenant?.user_id ? (
+                    <Link to={`/merchant/tenants/${request.tenant_user_id}`} className="font-medium hover:underline text-primary">
+                      {request.tenant.full_name}
+                    </Link>
+                  ) : (
+                    <p className="font-medium">{request.tenant?.full_name || 'Dibuat oleh Merchant'}</p>
+                  )}
                   <p className="text-sm text-muted-foreground">{request.tenant?.email || '—'}</p>
                 </div>
               </div>
-              {request.tenant?.phone_number && (
+              {request.tenant?.phone && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Phone className="h-4 w-4" />
-                  <span>{request.tenant.phone_number}</span>
+                  <span>{request.tenant.phone}</span>
                 </div>
               )}
             </div>
@@ -339,8 +358,20 @@ export default function MerchantMaintenanceDetail() {
             <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-4">
               <h3 className="font-semibold flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> Unit</h3>
               <div className="space-y-2">
-                <p className="font-medium">{request.unit?.property?.name}</p>
-                <p className="text-sm text-muted-foreground">Unit {request.unit?.unit_number}</p>
+                {request.unit?.property?.id ? (
+                  <Link to={`/merchant/properties/${request.unit.property.id}`} className="font-medium hover:underline text-primary">
+                    {request.unit.property.name}
+                  </Link>
+                ) : (
+                  <p className="font-medium">{request.unit?.property?.name}</p>
+                )}
+                {request.unit?.id ? (
+                  <Link to={`/merchant/units/${request.unit.id}`} className="text-sm hover:underline text-primary block">
+                    Unit {request.unit.unit_number}
+                  </Link>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Unit {request.unit?.unit_number}</p>
+                )}
                 <p className="text-sm text-muted-foreground">{request.unit?.property?.address}</p>
               </div>
               {contract && (

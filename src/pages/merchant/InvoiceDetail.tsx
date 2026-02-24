@@ -10,7 +10,7 @@ import { supabase } from '@/lib/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { format, differenceInDays } from 'date-fns';
 import { ArrowLeft, Bell, Calendar, CheckCircle, Clock, Download, FileText, Loader2, Mail, MapPin, Phone, Send, User, AlertTriangle } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 export default function MerchantInvoiceDetail() {
   const { invoiceId } = useParams<{ invoiceId: string }>();
@@ -139,7 +139,7 @@ export default function MerchantInvoiceDetail() {
             <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6">
               <h3 className="font-semibold text-lg mb-4 flex items-center gap-2"><User className="h-5 w-5 text-primary" /> Info Penyewa</h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="flex items-center gap-3"><User className="h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Nama</p><p className="font-medium">{tenant.full_name || '-'}</p></div></div>
+                <div className="flex items-center gap-3"><User className="h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Nama</p><Link to={`/merchant/tenants/${invoice.tenant_user_id}`} className="font-medium hover:underline text-primary">{tenant.full_name || '-'}</Link></div></div>
                 <div className="flex items-center gap-3"><Mail className="h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Email</p><p className="font-medium">{tenant.email || '-'}</p></div></div>
                 <div className="flex items-center gap-3"><Phone className="h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Telepon</p><p className="font-medium">{tenant.phone || '-'}</p></div></div>
               </div>
@@ -152,7 +152,7 @@ export default function MerchantInvoiceDetail() {
               <h3 className="font-semibold text-lg mb-4 flex items-center gap-2"><MapPin className="h-5 w-5 text-primary" /> Info Kontrak & Unit</h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {[
-                  { label: 'Properti', value: property?.name || '-' },
+                  { label: 'Properti', value: property?.name || '-', linkTo: contract?.units?.properties ? `/merchant/properties` : undefined },
                   { label: 'Unit', value: unit?.unit_number || '-' },
                   { label: 'Sewa/Bulan', value: formatCurrency(contract.rent_amount) },
                   { label: 'Periode', value: `${format(new Date(contract.start_date), 'dd/MM/yy')} - ${format(new Date(contract.end_date), 'dd/MM/yy')}` },

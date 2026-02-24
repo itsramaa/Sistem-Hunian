@@ -1,8 +1,13 @@
 import { FileUpload } from '@/shared/components/FileUpload';
+import { WebcamCaptureDialog } from '@/shared/components/WebcamCaptureDialog';
 import { Label } from '@/shared/components/ui/label';
 import { Button } from '@/shared/components/ui/button';
-import { X, Camera, ImageIcon } from 'lucide-react';
-import { useRef } from 'react';
+import { X, Video } from 'lucide-react';
+import { useState } from 'react';
+import { supabase } from '@/lib/integrations/supabase/client';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { toast } from 'sonner';
+import { useIsMobile } from '@/shared/hooks/use-mobile';
 
 interface MaintenancePhotoUploadProps {
   photos: string[];
@@ -13,10 +18,25 @@ interface MaintenancePhotoUploadProps {
 }
 
 export function MaintenancePhotoUpload({ photos, onChange, maxPhotos = 5, label = 'Issue Photos', description = 'Upload photos to help describe the issue (max 5)' }: MaintenancePhotoUploadProps) {
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
+  const isMobile = useIsMobile();
+  const [webcamOpen, setWebcamOpen] = useState(false);
 
   const handleRemovePhoto = (index: number) => { onChange(photos.filter((_, i) => i !== index)); };
+
+  const handleWebcamCapture = async (blob: Blob) => {
+    if (!user || photos.length >= maxPhotos) return;
+    try {
+      const filePath = `${user.id}/${Date.now()}.jpg`;
+      const { error } = await supabase.storage.from('maintenance-photos').upload(filePath, blob);
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from('maintenance-photos').getPublicUrl(filePath);
+      onChange([...photos, urlData.publicUrl]);
+      toast.success('Foto berhasil diambil');
+    } catch (err) {
+      toast.error('Gagal mengupload foto webcam');
+    }
+  };
 
   return (
     <div className="space-y-2">
@@ -42,11 +62,18 @@ export function MaintenancePhotoUpload({ photos, onChange, maxPhotos = 5, label 
 
       {photos.length < maxPhotos && (
         <div className="flex items-center gap-2">
-          <FileUpload bucket="maintenance-photos" onUploadComplete={(url) => { if (photos.length < maxPhotos) onChange([...photos, url]); }} accept="image/*" maxSize={5} capture="environment" />
+          <FileUpload bucket="maintenance-photos" onUploadComplete={(url) => { if (photos.length < maxPhotos) onChange([...photos, url]); }} accept="image/*" maxSize={5} capture="environment" buttonLabel="Kamera" buttonIcon="camera" />
           <FileUpload bucket="maintenance-photos" onUploadComplete={(url) => { if (photos.length < maxPhotos) onChange([...photos, url]); }} accept="image/*" maxSize={5} buttonLabel="Galeri" buttonIcon="gallery" />
+          {!isMobile && (
+            <Button type="button" variant="outline" size="sm" className="rounded-xl gap-1.5" onClick={() => setWebcamOpen(true)}>
+              <Video className="h-4 w-4" /> Webcam
+            </Button>
+          )}
           <span className="text-xs text-muted-foreground">{photos.length}/{maxPhotos}</span>
         </div>
       )}
+
+      <WebcamCaptureDialog open={webcamOpen} onOpenChange={setWebcamOpen} onCapture={handleWebcamCapture} />
     </div>
   );
 }

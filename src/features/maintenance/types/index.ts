@@ -18,11 +18,13 @@ export interface MaintenanceRequest {
   images: string[] | null;
   preferred_schedule: string | null;
   completion_notes?: string | null;
-  
+  completion_photos?: string[] | null;
   // Relations (optional as they might not always be fetched)
   unit?: {
+    id?: string;
     unit_number: string;
     property?: {
+      id?: string;
       name: string;
       address: string;
       merchant_id?: string;
@@ -32,10 +34,13 @@ export interface MaintenanceRequest {
   assigned_vendor?: {
     business_name: string;
     phone_number?: string;
+    rating?: number;
+    service_categories?: string[];
   };
   tenant?: {
+    user_id?: string;
     full_name: string;
-    phone_number?: string;
+    phone?: string;
     email?: string;
   };
 }

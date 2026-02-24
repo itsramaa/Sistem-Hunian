@@ -2,8 +2,10 @@ import { useRef, useState } from 'react';
 import { Button } from '@/shared/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
-import { Camera, ImageIcon, Loader2, ScanLine, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Camera, ImageIcon, Loader2, ScanLine, CheckCircle, AlertTriangle, Video } from 'lucide-react';
 import { supabase } from '@/lib/integrations/supabase/client';
+import { WebcamCaptureDialog } from '@/shared/components/WebcamCaptureDialog';
+import { useIsMobile } from '@/shared/hooks/use-mobile';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { toast } from 'sonner';
 import { Badge } from '@/shared/components/ui/badge';
@@ -38,12 +40,14 @@ export function OcrCameraButton({
   disabled = false,
 }: OcrCameraButtonProps) {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [results, setResults] = useState<Record<string, any> | null>(null);
   const [confidence, setConfidence] = useState<number>(0);
+  const [webcamOpen, setWebcamOpen] = useState(false);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -87,6 +91,33 @@ export function OcrCameraButton({
       setIsProcessing(false);
       if (cameraInputRef.current) cameraInputRef.current.value = '';
       if (galleryInputRef.current) galleryInputRef.current.value = '';
+    }
+  };
+
+  const handleWebcamCapture = async (blob: Blob) => {
+    if (!user) return;
+    setIsProcessing(true);
+    try {
+      const filePath = `${user.id}/${Date.now()}.jpg`;
+      const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, blob);
+      if (uploadError) throw uploadError;
+
+      const { data, error } = await supabase.functions.invoke(edgeFunction, {
+        body: { document_path: filePath, ...extraPayload },
+      });
+      if (error) throw error;
+
+      const extractedData = data?.extracted_data || data;
+      const score = data?.confidence_score || extractedData?.confidence || 0;
+      setResults(extractedData);
+      setConfidence(score);
+      setShowResults(true);
+      toast.success(`OCR selesai (${score}% akurasi)`);
+    } catch (err) {
+      console.error('OCR webcam error:', err);
+      toast.error(err instanceof Error ? err.message : 'OCR gagal memproses');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -182,8 +213,16 @@ export function OcrCameraButton({
             <ImageIcon className="mr-2 h-4 w-4" />
             Galeri / Dokumen
           </DropdownMenuItem>
+          {!isMobile && (
+            <DropdownMenuItem onClick={() => setWebcamOpen(true)}>
+              <Video className="mr-2 h-4 w-4" />
+              Webcam
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <WebcamCaptureDialog open={webcamOpen} onOpenChange={setWebcamOpen} onCapture={handleWebcamCapture} />
 
       <Dialog open={showResults} onOpenChange={setShowResults}>
         <DialogContent className="rounded-2xl max-w-md max-h-[80vh] overflow-y-auto">

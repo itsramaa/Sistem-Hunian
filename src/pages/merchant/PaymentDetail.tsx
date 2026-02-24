@@ -12,7 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { ArrowLeft, Bell, Calendar, CheckCircle, Clock, CreditCard, FileImage, Loader2, Mail, MapPin, Phone, User, XCircle } from 'lucide-react';
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMerchantPayments } from '@/features/payments/hooks/useMerchantPayments';
 
 const getStatusVariant = (status: string): "default" | "secondary" | "destructive" => {
@@ -140,7 +140,7 @@ export default function MerchantPaymentDetail() {
             <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6">
               <h3 className="font-semibold text-lg mb-4 flex items-center gap-2"><User className="h-5 w-5 text-primary" /> Info Penyewa</h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="flex items-center gap-3"><User className="h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Nama</p><p className="font-medium">{tenant.full_name || '-'}</p></div></div>
+                <div className="flex items-center gap-3"><User className="h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Nama</p><Link to={`/merchant/tenants/${payment.tenant_user_id}`} className="font-medium hover:underline text-primary">{tenant.full_name || '-'}</Link></div></div>
                 <div className="flex items-center gap-3"><Mail className="h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Email</p><p className="font-medium">{tenant.email || '-'}</p></div></div>
                 <div className="flex items-center gap-3"><Phone className="h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Telepon</p><p className="font-medium">{tenant.phone || '-'}</p></div></div>
               </div>

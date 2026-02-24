@@ -1,5 +1,5 @@
 import { StatCard } from '@/shared/components/ui/StatCard';
-import { Wrench, Clock, Loader, CheckCircle } from 'lucide-react';
+import { Wrench, Clock, Loader, CheckCircle, AlertTriangle } from 'lucide-react';
 
 interface MaintenanceStatsProps {
   total: number;
@@ -20,15 +20,18 @@ export function MaintenanceStats({
   slaBreach = 0,
   loading = false,
 }: MaintenanceStatsProps) {
+  const highPriority = urgent;
+
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
       <StatCard
-        title="Total Requests"
+        title="Total"
         value={total}
         icon={Wrench}
         accentColor="hsl(var(--primary))"
         loading={loading}
         index={0}
+        compact
       />
       <StatCard
         title="Pending"
@@ -37,6 +40,7 @@ export function MaintenanceStats({
         accentColor="hsl(var(--warning))"
         loading={loading}
         index={1}
+        compact
         subtitle={urgent > 0 ? `${urgent} urgent` : undefined}
       />
       <StatCard
@@ -46,6 +50,7 @@ export function MaintenanceStats({
         accentColor="hsl(var(--info))"
         loading={loading}
         index={2}
+        compact
         subtitle={slaBreach > 0 ? `${slaBreach} SLA breach` : undefined}
       />
       <StatCard
@@ -55,6 +60,17 @@ export function MaintenanceStats({
         accentColor="hsl(var(--success))"
         loading={loading}
         index={3}
+        compact
+      />
+      <StatCard
+        title="Priority"
+        value={highPriority}
+        icon={AlertTriangle}
+        accentColor="hsl(var(--destructive))"
+        loading={loading}
+        index={4}
+        compact
+        subtitle="urgent + high"
       />
     </div>
   );
