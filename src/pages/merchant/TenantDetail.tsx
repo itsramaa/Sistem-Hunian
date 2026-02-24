@@ -159,8 +159,8 @@ export default function TenantDetail() {
             <CardContent className="space-y-3 text-sm">
               <div className="flex items-center gap-2"><Mail className="h-3.5 w-3.5 text-muted-foreground" /><span>{profile?.email || '—'}</span></div>
               <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-muted-foreground" /><span>{profile?.phone || 'Belum diset'}</span></div>
-              <div className="flex items-center gap-2"><Building className="h-3.5 w-3.5 text-muted-foreground" /><span>{unit?.property?.name || '—'}</span></div>
-              <div className="flex items-center gap-2"><Home className="h-3.5 w-3.5 text-muted-foreground" /><span>Unit {unit?.unit_number || '—'}</span></div>
+              <div className="flex items-center gap-2"><Building className="h-3.5 w-3.5 text-muted-foreground" />{unit?.property?.id ? <Link to={`/merchant/properties/${unit.property.id}`} className="hover:underline text-primary">{unit.property.name}</Link> : <span>{unit?.property?.name || '—'}</span>}</div>
+              <div className="flex items-center gap-2"><Home className="h-3.5 w-3.5 text-muted-foreground" />{unit?.id ? <Link to={`/merchant/units/${unit.id}`} className="hover:underline text-primary">Unit {unit.unit_number}</Link> : <span>Unit {unit?.unit_number || '—'}</span>}</div>
             </CardContent>
           </Card>
 
@@ -259,7 +259,7 @@ export default function TenantDetail() {
               {payments.length > 0 ? (
                 <div className="space-y-2">
                   {payments.slice(0, 5).map((inv: any) => (
-                    <div key={inv.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50 text-sm">
+                    <Link key={inv.id} to={`/merchant/invoices/${inv.id}`} className="flex items-center justify-between p-2 rounded-lg bg-muted/50 text-sm hover:bg-muted/70 transition-colors">
                       <div>
                         <p className="font-medium text-xs">{inv.invoice_number}</p>
                         <p className="text-xs text-muted-foreground">{format(new Date(inv.due_date), 'dd MMM yyyy')}</p>
@@ -268,7 +268,7 @@ export default function TenantDetail() {
                         <p className="text-xs font-medium">{formatCurrency(inv.total_amount)}</p>
                         <Badge variant="outline" className={`text-[10px] rounded-full ${inv.status === 'paid' ? 'text-success border-success/30' : 'text-warning border-warning/30'}`}>{inv.status}</Badge>
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               ) : <p className="text-xs text-muted-foreground text-center py-4">Belum ada invoice</p>}

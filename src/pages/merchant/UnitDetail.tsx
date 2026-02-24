@@ -231,7 +231,7 @@ export default function UnitDetail() {
                       {(activeTenant.full_name || 'U')[0].toUpperCase()}
                     </div>
                     <div>
-                      <p className="font-medium">{activeTenant.full_name || 'Tidak diketahui'}</p>
+                      <Link to={`/merchant/tenants/${activeContract.id}`} className="font-medium hover:underline text-primary">{activeTenant.full_name || 'Tidak diketahui'}</Link>
                       <p className="text-sm text-muted-foreground">{activeTenant.email}</p>
                       {activeTenant.phone && <p className="text-sm text-muted-foreground">{activeTenant.phone}</p>}
                     </div>
@@ -324,7 +324,7 @@ export default function UnitDetail() {
                   const isOverdue = inv.status !== 'paid' && isPast(new Date(inv.due_date));
                   const isPaid = inv.status === 'paid';
                   return (
-                    <div key={inv.id} className={cn("rounded-xl p-3 border flex items-center justify-between", isPaid ? 'bg-success/5 border-success/20' : isOverdue ? 'bg-destructive/5 border-destructive/20' : 'bg-card/90 border-border/40')}>
+                    <Link key={inv.id} to={`/merchant/invoices/${inv.id}`} className={cn("rounded-xl p-3 border flex items-center justify-between hover:opacity-80 transition-opacity", isPaid ? 'bg-success/5 border-success/20' : isOverdue ? 'bg-destructive/5 border-destructive/20' : 'bg-card/90 border-border/40')}>
                       <div className="flex items-center gap-3">
                         {isPaid ? <CheckCircle className="h-4 w-4 text-success" /> : isOverdue ? <XCircle className="h-4 w-4 text-destructive" /> : <Clock className="h-4 w-4 text-warning" />}
                         <div>
@@ -335,7 +335,7 @@ export default function UnitDetail() {
                       <Badge variant="outline" className={cn("rounded-full text-xs capitalize", isPaid ? 'bg-success/10 text-success' : isOverdue ? 'bg-destructive/10 text-destructive' : 'bg-warning/10 text-warning')}>
                         {isPaid ? 'Lunas' : isOverdue ? 'Terlambat' : inv.status}
                       </Badge>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>

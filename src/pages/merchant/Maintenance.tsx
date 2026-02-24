@@ -61,14 +61,15 @@ export default function MerchantMaintenance() {
     return filteredRequests.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredRequests, page]);
 
+  const activeRequests = useMemo(() => requests.filter(r => r.status !== 'completed' && r.status !== 'cancelled'), [requests]);
+
   const stats = useMemo(() => ({
     total: requests.length,
-    pending: requests.filter(r => r.status === 'pending').length,
-    inProgress: requests.filter(r => r.status === 'in_progress').length,
-    completed: requests.filter(r => r.status === 'completed').length,
-    urgent: requests.filter(r => r.priority === 'urgent' && r.status !== 'completed' && r.status !== 'cancelled').length,
-    slaBreach: requests.filter(r => r.sla_deadline && new Date(r.sla_deadline) < new Date() && r.status !== 'completed' && r.status !== 'cancelled').length,
-  }), [requests]);
+    low: activeRequests.filter(r => r.priority === 'low').length,
+    medium: activeRequests.filter(r => r.priority === 'medium').length,
+    high: activeRequests.filter(r => r.priority === 'high').length,
+    urgent: activeRequests.filter(r => r.priority === 'urgent').length,
+  }), [requests, activeRequests]);
 
   const handleUpdateStatus = (data: UpdateMaintenanceStatusPayload) => {
     updateMutation.mutate(data, {
@@ -112,11 +113,10 @@ export default function MerchantMaintenance() {
 
       <MaintenanceStats
         total={stats.total}
-        pending={stats.pending}
-        inProgress={stats.inProgress}
-        completed={stats.completed}
+        low={stats.low}
+        medium={stats.medium}
+        high={stats.high}
         urgent={stats.urgent}
-        slaBreach={stats.slaBreach}
         loading={isLoading}
       />
 
@@ -129,10 +129,7 @@ export default function MerchantMaintenance() {
                 {tab.label}
                 {tab.value !== 'all' && (
                   <span className="ml-1.5 text-[10px] bg-muted/60 px-1.5 py-0.5 rounded-full">
-                    {tab.value === 'pending' ? stats.pending
-                      : tab.value === 'in_progress' ? stats.inProgress
-                      : tab.value === 'completed' ? stats.completed
-                      : requests.filter(r => r.status === 'cancelled').length}
+                    {requests.filter(r => r.status === tab.value).length}
                   </span>
                 )}
               </TabsTrigger>

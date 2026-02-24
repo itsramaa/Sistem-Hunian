@@ -53,8 +53,10 @@ export const contractService = {
       .select(`
         *,
         unit:units (
+          id,
           unit_number,
           property:properties (
+            id,
             name,
             address,
             city

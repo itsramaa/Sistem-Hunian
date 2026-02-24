@@ -1,6 +1,8 @@
 export interface ContractUnit {
+  id?: string;
   unit_number: string;
   property: {
+    id?: string;
     name: string;
     address: string;
     city?: string;

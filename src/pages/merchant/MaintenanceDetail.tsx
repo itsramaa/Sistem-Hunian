@@ -375,12 +375,15 @@ export default function MerchantMaintenanceDetail() {
                 <p className="text-sm text-muted-foreground">{request.unit?.property?.address}</p>
               </div>
               {contract && (
-                <div className={`p-3 rounded-xl text-sm flex items-center gap-2 ${
-                  contract.status === 'active' ? 'bg-success/10 text-success border border-success/20' : 'bg-warning/10 text-warning border border-warning/20'
-                }`}>
+                <Link 
+                  to={`/merchant/contracts/${contract.id || ''}`}
+                  className={`p-3 rounded-xl text-sm flex items-center gap-2 hover:opacity-80 transition-opacity ${
+                    contract.status === 'active' ? 'bg-success/10 text-success border border-success/20' : 'bg-warning/10 text-warning border border-warning/20'
+                  }`}
+                >
                   <FileText className="h-4 w-4" />
                   <span className="capitalize font-medium">Kontrak: {contract.status}</span>
-                </div>
+                </Link>
               )}
             </div>
 
@@ -397,6 +400,11 @@ export default function MerchantMaintenanceDetail() {
                     {request.assigned_vendor.phone_number && (
                       <p className="text-sm text-muted-foreground flex items-center gap-1">
                         <Phone className="h-3 w-3" /> {request.assigned_vendor.phone_number}
+                      </p>
+                    )}
+                    {request.assigned_vendor.rating != null && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Star className="h-3 w-3 text-warning" /> {request.assigned_vendor.rating.toFixed(1)}
                       </p>
                     )}
                   </div>

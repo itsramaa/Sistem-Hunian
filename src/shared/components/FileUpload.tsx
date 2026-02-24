@@ -1,16 +1,18 @@
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { supabase } from "@/lib/integrations/supabase/client";
 import { Button } from "@/shared/components/ui/button";
-import { Camera, FileText, Image as ImageIcon, Loader2, Upload, X } from "lucide-react";
+import { WebcamCaptureDialog } from "@/shared/components/WebcamCaptureDialog";
+import { useIsMobile } from "@/shared/hooks/use-mobile";
+import { Camera, FileText, Image as ImageIcon, Loader2, Upload, Video, X } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
 interface FileUploadProps {
-  bucket: "verification-documents" | "property-images" | "maintenance-photos";
+  bucket: "verification-documents" | "property-images" | "maintenance-photos" | "payment-proofs" | "contract-documents";
   folder?: string;
   onUploadComplete: (url: string, path: string) => void;
   accept?: string;
-  maxSize?: number; // in MB
+  maxSize?: number;
   className?: string;
   capture?: "environment" | "user";
   buttonLabel?: string;
@@ -29,9 +31,43 @@ export const FileUpload = ({
   buttonIcon,
 }: FileUploadProps) => {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [isUploading, setIsUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [webcamOpen, setWebcamOpen] = useState(false);
+
+  const uploadBlob = useCallback(async (blob: Blob, ext: string = 'jpg') => {
+    if (!user) return;
+    setIsUploading(true);
+    try {
+      const filePath = folder
+        ? `${user.id}/${folder}/${Date.now()}.${ext}`
+        : `${user.id}/${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, blob);
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
+      onUploadComplete(urlData.publicUrl, filePath);
+      toast.success("File uploaded successfully");
+    } catch (error) {
+      const err = error as Error;
+      console.error("Upload error:", err);
+      toast.error(err.message || "Failed to upload file");
+    } finally {
+      setIsUploading(false);
+    }
+  }, [bucket, folder, onUploadComplete, user]);
+
+  const handleWebcamCapture = useCallback(async (blob: Blob) => {
+    if (blob.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = (e) => setPreview(e.target?.result as string);
+      reader.readAsDataURL(blob);
+    }
+    await uploadBlob(blob, 'jpg');
+  }, [uploadBlob]);
 
   const handleFileSelect = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -85,24 +121,35 @@ export const FileUpload = ({
     setFileName(null);
   };
 
-  // Compact button mode when buttonLabel or buttonIcon is provided
+  // Compact button mode
   if (buttonLabel || buttonIcon) {
     const IconComp = buttonIcon === 'camera' ? Camera : buttonIcon === 'gallery' ? ImageIcon : Upload;
     return (
-      <div className={`relative inline-block ${className}`}>
-        <input
-          type="file"
-          accept={accept}
-          capture={capture}
-          onChange={handleFileSelect}
-          disabled={isUploading}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-        />
-        <Button type="button" variant="outline" size="sm" className="rounded-xl gap-1.5 pointer-events-none" disabled={isUploading}>
-          {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <IconComp className="h-4 w-4" />}
-          {buttonLabel || (buttonIcon === 'camera' ? 'Kamera' : buttonIcon === 'gallery' ? 'Galeri' : 'Upload')}
-        </Button>
-      </div>
+      <>
+        <div className={`relative inline-block ${className}`}>
+          <input
+            type="file"
+            accept={accept}
+            capture={capture}
+            onChange={handleFileSelect}
+            disabled={isUploading}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+          />
+          <Button type="button" variant="outline" size="sm" className="rounded-xl gap-1.5 pointer-events-none" disabled={isUploading}>
+            {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <IconComp className="h-4 w-4" />}
+            {buttonLabel || (buttonIcon === 'camera' ? 'Kamera' : buttonIcon === 'gallery' ? 'Galeri' : 'Upload')}
+          </Button>
+        </div>
+        {/* Show webcam button alongside camera on desktop */}
+        {buttonIcon === 'camera' && !isMobile && (
+          <>
+            <Button type="button" variant="outline" size="sm" className="rounded-xl gap-1.5" onClick={() => setWebcamOpen(true)} disabled={isUploading}>
+              <Video className="h-4 w-4" /> Webcam
+            </Button>
+            <WebcamCaptureDialog open={webcamOpen} onOpenChange={setWebcamOpen} onCapture={handleWebcamCapture} />
+          </>
+        )}
+      </>
     );
   }
 
@@ -156,6 +203,15 @@ export const FileUpload = ({
           )}
         </div>
       </div>
+      {/* Desktop webcam button for drop-zone mode */}
+      {!isMobile && accept.startsWith('image') && (
+        <div className="flex justify-center">
+          <Button type="button" variant="outline" size="sm" className="rounded-xl gap-1.5" onClick={() => setWebcamOpen(true)} disabled={isUploading}>
+            <Video className="h-4 w-4" /> Webcam
+          </Button>
+        </div>
+      )}
+      <WebcamCaptureDialog open={webcamOpen} onOpenChange={setWebcamOpen} onCapture={handleWebcamCapture} />
     </div>
   );
 };
@@ -176,7 +232,9 @@ export const ImageGalleryUpload = ({
   maxImages = 10,
 }: ImageGalleryUploadProps) => {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [isUploading, setIsUploading] = useState(false);
+  const [webcamOpen, setWebcamOpen] = useState(false);
 
   const handleFilesSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -213,6 +271,24 @@ export const ImageGalleryUpload = ({
     } catch (error) {
       const err = error as Error;
       toast.error(err.message || "Failed to upload images");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleWebcamCapture = async (blob: Blob) => {
+    if (!user || images.length >= maxImages) return;
+    setIsUploading(true);
+    try {
+      const filePath = `${user.id}/${folder}/${Date.now()}.jpg`;
+      const { error } = await supabase.storage.from(bucket).upload(filePath, blob);
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
+      onImagesChange([...images, urlData.publicUrl]);
+      toast.success('Photo captured and uploaded');
+    } catch (error) {
+      const err = error as Error;
+      toast.error(err.message || "Failed to upload webcam photo");
     } finally {
       setIsUploading(false);
     }
@@ -264,9 +340,17 @@ export const ImageGalleryUpload = ({
           </div>
         )}
       </div>
-      <p className="text-xs text-muted-foreground">
-        {images.length}/{maxImages} images • Click to add more
-      </p>
+      <div className="flex items-center gap-2">
+        <p className="text-xs text-muted-foreground">
+          {images.length}/{maxImages} images
+        </p>
+        {!isMobile && images.length < maxImages && (
+          <Button type="button" variant="outline" size="sm" className="rounded-xl gap-1.5 h-7 text-xs" onClick={() => setWebcamOpen(true)} disabled={isUploading}>
+            <Video className="h-3.5 w-3.5" /> Webcam
+          </Button>
+        )}
+      </div>
+      <WebcamCaptureDialog open={webcamOpen} onOpenChange={setWebcamOpen} onCapture={handleWebcamCapture} />
     </div>
   );
 };
