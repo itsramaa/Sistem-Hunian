@@ -1,100 +1,116 @@
 
-# Redesign Maintenance Page, Fix Photo Upload, Enhance Detail Pages
+# Redesign Maintenance Stats, Webcam Integration, Fix Bugs, and Complete Cross-References
 
-## 1. MaintenanceStats: 5 Cards (Smaller Size)
+## 1. MaintenanceStats: 5 Cards by Priority Level
 
-Change from 4-column to 5-column grid with smaller cards:
-- **Total** (all requests)
-- **Pending** (with urgent count as subtitle)
-- **In Progress** (with SLA breach as subtitle)
-- **Completed**
-- **Priority** (show count of urgent+high active requests)
+**Current:** Total, Pending, In Progress, Completed, Priority (urgent+high)
+**Change to:** Total, Low, Medium, High, Urgent
 
-Reduce card padding from `p-4` to `p-3`, icon from `h-10 w-10` to `h-8 w-8`, value from `text-2xl` to `text-xl`. Grid: `grid-cols-2 sm:grid-cols-3 md:grid-cols-5`.
+Update `MaintenanceStats.tsx`:
+- Change props interface to accept `low`, `medium`, `high`, `urgent` counts instead of `pending`/`inProgress`/`completed`
+- 5 compact cards: Total (primary), Low (muted), Medium (info), High (warning), Urgent (destructive)
+- Grid: `grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3` with `compact` prop on all
 
-**Files:** `MaintenanceStats.tsx`, `StatCard.tsx` (add optional `compact` prop)
+Update `Maintenance.tsx`:
+- Compute stats by priority: `low`, `medium`, `high`, `urgent` counts for active (non-completed, non-cancelled) requests
+- Pass updated props to `MaintenanceStats`
 
-## 2. react-webcam for Desktop Photo Upload
+## 2. Webcam Integration for All Photo Upload Points
 
-Install `react-webcam` package and create a shared `WebcamCaptureDialog` component that:
-- Opens a dialog with live webcam preview
-- Has "Capture" button to take snapshot
-- Returns the captured image as a Blob for upload
-- Includes front/rear camera toggle
+Currently webcam is only in `MaintenancePhotoUpload`, `OcrCameraButton`. Need to add to all `FileUpload` usages.
 
-Integrate into:
-- **`FileUpload.tsx`**: Add a third option "Webcam" alongside Camera/Gallery (compact button mode adds webcam button)
-- **`MaintenancePhotoUpload.tsx`**: Add "Webcam" button next to Kamera/Galeri
-- **`OcrCameraButton.tsx`**: Add "Webcam" option in dropdown alongside Kamera/Galeri
+**Add webcam to `FileUpload.tsx`:**
+- Import `WebcamCaptureDialog` and `useIsMobile`
+- In compact button mode: if `buttonIcon === 'camera'` and not mobile, show webcam button alongside
+- In drop-zone mode: add a "Webcam" button below the drop zone (desktop only)
+- Add `onWebcamCapture` handler that uploads blob to storage then calls `onUploadComplete`
 
-**New file:** `src/shared/components/WebcamCaptureDialog.tsx`
-**Modified:** `FileUpload.tsx`, `MaintenancePhotoUpload.tsx`, `OcrCameraButton.tsx`
+**Update `FileUpload` bucket type:**
+- Expand the union type to include `"payment-proofs" | "contract-documents"` so all upload contexts work
 
-## 3. Fix MaintenanceDetail Bug + Enhance
+**Verify all upload locations use camera/gallery/webcam pattern:**
+- `MaintenancePhotoUpload` - already has webcam
+- `OcrCameraButton` - already has webcam
+- `FileUpload` (used in property images, verification docs, etc.) - ADD webcam
+- `ImageGalleryUpload` - ADD webcam option
 
-The detail page uses `getRelevantContract` and accesses `request.tenant?.phone_number` but the query only fetches `full_name, email` from profiles. Also `assigned_vendor` only fetches `business_name` but template uses `phone_number`.
+## 3. Fix Maintenance Page Bugs
 
-**Fixes:**
-- Update `maintenanceService.getRequestById()` query to include `phone` from profiles and `phone_number, rating, service_categories` from vendors
-- Update `MaintenanceRequest` type to include `phone` in tenant and extra vendor fields
-- Add completion photos section (separate from issue photos)
-- Add review display section if maintenance is completed
-- Add clickable links: tenant name links to `/merchant/tenants/{id}`, unit links to `/merchant/units/{unit_id}`, property links to `/merchant/properties/{property_id}`
+**Bug 1: `MaintenanceDetail.tsx` line 397** - References `request.assigned_vendor.phone_number` but type uses `phone_number` while the vendor select might not return it.
+- The `getRequestById` query selects `phone_number` from vendors which is correct. Verify the type matches.
 
-**Files:** `maintenanceService.ts`, `types/index.ts`, `MaintenanceDetail.tsx`
+**Bug 2: `MaintenanceStats` props mismatch** - After changing to priority-based stats, the parent must pass correct props.
 
-## 4. Enhance All Detail Pages with Cross-References
+**Bug 3: `MaintenanceDetail` - `maintenance_expenses` table** - Used with `(supabase as any)` cast suggesting table may not exist. Check if this causes runtime errors and handle gracefully with try/catch or optional chaining.
 
-Add clickable navigation links to related entities across detail pages:
+## 4. Complete Cross-Reference Links on All Detail Pages
 
-### InvoiceDetail.tsx
-- Tenant name: clickable link to `/merchant/tenants/{tenant_user_id}`
-- Property name: clickable link to `/merchant/properties/{property_id}`
-- Unit number: clickable link to `/merchant/units/{unit_id}`
-- Contract: clickable link to `/merchant/contracts/{contract_id}`
-- Fetch `property_id` and `unit_id` from contract query (add to select)
+### InvoiceDetail.tsx (Currently partial)
+**Missing links:**
+- Property name (line 155): currently plain text in grid, add Link to `/merchant/properties/{property_id}` - need to fetch property_id from contract query
+- Unit number (line 156): add Link to `/merchant/units/{unit_id}` - need unit_id from contract
+- Contract reference: add Link to `/merchant/contracts/{contract.id}`
 
-### PaymentDetail.tsx
-- Same as Invoice: tenant, property, unit, contract all clickable
-- Add invoice reference link if `invoice_id` exists
+**Fix:** Update the contracts select to include `units(id, unit_number, properties(id, name))` and render as Links.
 
-### ContractDetail.tsx
-- Tenant name: clickable link to `/merchant/tenants/{tenant_user_id}`
-- Property/Unit: clickable links
-- Add maintenance requests count/link for this unit
+### PaymentDetail.tsx (Currently partial)
+**Missing links:**
+- Property name (line 156): plain text, add Link
+- Unit number: add Link
+- Contract: add Link to `/merchant/contracts/{contract.id}`
+- Invoice reference: if `payment.invoice_id` exists, add Link to `/merchant/invoices/{invoice_id}`
 
-### TenantDetail.tsx
-- Property/Unit references: clickable links
-- Contract references: clickable links
+**Fix:** Same pattern - update contract select to include IDs and render as Links.
 
-**Pattern:** Use `<Link>` from react-router-dom with hover underline styling:
-```tsx
-<Link to={`/merchant/tenants/${id}`} className="font-medium hover:underline text-primary">
-  {tenant.full_name}
-</Link>
-```
+### ContractDetail.tsx (Currently partial)
+**Missing links:**
+- Property name (line 113): plain text, add Link to `/merchant/properties/{property.id}` - need property ID from select
+- Unit number (line 115): plain text, add Link to `/merchant/units/{unit.id}` - need unit ID from select
 
-## Files Summary
+**Fix:** Update contract query to include `units(id, ...)` and `properties(id, ...)` and wrap in Links.
+
+### TenantDetail.tsx (Currently partial)
+**Missing links:**
+- Property name (line 162): plain text, wrap in Link
+- Unit number (line 163): plain text, wrap in Link
+- Invoice items (lines 261-274): clickable but only shows data, add navigate to `/merchant/invoices/{inv.id}`
+
+**Fix:** Add Links for property/unit in personal info card, and make invoice items clickable to invoice detail.
+
+### UnitDetail.tsx (Currently partial)
+**Missing links:**
+- Active tenant name (line 234): plain text, add Link to `/merchant/tenants/{activeContract.id}` (uses contract ID as tenant route)
+- Invoice items: should navigate to invoice detail page
+
+**Fix:** Wrap tenant name and invoice items in Links.
+
+### MaintenanceDetail.tsx
+**Missing links (already has tenant/property/unit):**
+- Vendor name: if vendor has a detail page, link to it. Check if `/merchant/vendors/{id}` exists. If not, skip.
+- Contract status badge: add Link to contract detail if contract ID is available
+
+**Fix:** Add contract ID to the query select and create a link from the contract badge.
+
+---
+
+## Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/shared/components/ui/StatCard.tsx` | Add `compact` prop for smaller cards |
-| `src/features/maintenance/components/MaintenanceStats.tsx` | 5-card grid with compact mode |
-| `src/shared/components/WebcamCaptureDialog.tsx` | New: react-webcam dialog component |
-| `src/shared/components/FileUpload.tsx` | Add webcam option |
-| `src/features/maintenance/components/MaintenancePhotoUpload.tsx` | Add webcam button |
-| `src/shared/components/OcrCameraButton.tsx` | Add webcam option in dropdown |
-| `src/features/maintenance/services/maintenanceService.ts` | Fix getRequestById query (add phone, vendor details) |
-| `src/features/maintenance/types/index.ts` | Update type for phone, vendor fields |
-| `src/pages/merchant/MaintenanceDetail.tsx` | Fix bug, add review section, clickable links |
-| `src/pages/merchant/InvoiceDetail.tsx` | Add clickable cross-reference links |
-| `src/pages/merchant/PaymentDetail.tsx` | Add clickable cross-reference links |
-| `src/pages/merchant/ContractDetail.tsx` | Add clickable cross-reference links |
+| `src/features/maintenance/components/MaintenanceStats.tsx` | 5 priority-based cards |
+| `src/pages/merchant/Maintenance.tsx` | Update stats computation by priority |
+| `src/shared/components/FileUpload.tsx` | Add webcam support + expand bucket types |
+| `src/pages/merchant/InvoiceDetail.tsx` | Add property/unit/contract Links |
+| `src/pages/merchant/PaymentDetail.tsx` | Add property/unit/contract/invoice Links |
+| `src/pages/merchant/ContractDetail.tsx` | Add property/unit Links |
+| `src/pages/merchant/TenantDetail.tsx` | Add property/unit Links + invoice navigation |
+| `src/pages/merchant/UnitDetail.tsx` | Add tenant Link + invoice navigation |
+| `src/pages/merchant/MaintenanceDetail.tsx` | Fix vendor phone bug + add contract link |
 
 ## Technical Notes
 
-- `react-webcam` needs to be installed as a new dependency
-- Webcam only shows on desktop (detect via `navigator.mediaDevices`); on mobile, native camera input is sufficient
-- Cross-reference links use existing route patterns already defined in the router
-- The maintenance detail bug is caused by the Supabase select query not including `phone` from profiles -- `phone_number` doesn't exist on profiles table, the field is `phone`
-- All detail page enhancements are additive -- existing functionality is preserved, just adding `<Link>` wrappers around text that currently displays names/titles
+- Cross-reference links follow existing pattern: `<Link to={...} className="font-medium hover:underline text-primary">`
+- Webcam only renders on desktop (detected via `useIsMobile()` hook)
+- `FileUpload` bucket type union expanded to support all storage buckets used across the app
+- Stats redesign doesn't change any database queries, only UI computation
+- All detail page queries may need expanded select fields to include entity IDs for linking (e.g., `properties(id, name)` instead of just `properties(name)`)
