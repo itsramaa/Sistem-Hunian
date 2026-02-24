@@ -70,6 +70,7 @@ export interface CreateMerchantMaintenancePayload {
   priority: string;
   unit_id: string;
   merchant_id: string;
+  images?: string[];
 }
 
 export interface UpdateMaintenanceStatusPayload {

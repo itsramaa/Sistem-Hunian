@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/shared/utils/utils';
 import { CreateMaintenanceDialog } from '@/features/maintenance/components/CreateMaintenanceDialog';
+import { UnitAssetInventory } from '@/features/properties/components/UnitAssetInventory';
 import { useCreateMerchantMaintenanceRequest } from '@/features/maintenance/hooks/useMaintenance';
 import { UnitFormDialog } from '@/features/properties/components/UnitFormDialog';
 import { useUnits } from '@/features/properties/hooks/useUnits';
@@ -217,6 +218,7 @@ export default function UnitDetail() {
               {overdueInvoices.length > 0 && <Badge variant="secondary" className="ml-1.5 rounded-full text-xs bg-destructive/10 text-destructive">{overdueInvoices.length}</Badge>}
             </TabsTrigger>
             <TabsTrigger value="maintenance" className="pill-tab-trigger">Maintenance</TabsTrigger>
+            <TabsTrigger value="inventory" className="pill-tab-trigger">Inventaris</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4 mt-4 animate-fade-in">
@@ -377,6 +379,10 @@ export default function UnitDetail() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          <TabsContent value="inventory" className="mt-4 animate-fade-in">
+            <UnitAssetInventory unitId={unit.id} merchantId={unit.property?.merchant_id || ''} />
           </TabsContent>
         </Tabs>
 

@@ -4647,6 +4647,72 @@ export type Database = {
           },
         ]
       }
+      unit_assets: {
+        Row: {
+          asset_name: string
+          barcode_data: string | null
+          brand: string | null
+          category: string | null
+          condition: string | null
+          created_at: string | null
+          id: string
+          merchant_id: string
+          model: string | null
+          notes: string | null
+          photo_url: string | null
+          serial_number: string | null
+          unit_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          asset_name: string
+          barcode_data?: string | null
+          brand?: string | null
+          category?: string | null
+          condition?: string | null
+          created_at?: string | null
+          id?: string
+          merchant_id: string
+          model?: string | null
+          notes?: string | null
+          photo_url?: string | null
+          serial_number?: string | null
+          unit_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          asset_name?: string
+          barcode_data?: string | null
+          brand?: string | null
+          category?: string | null
+          condition?: string | null
+          created_at?: string | null
+          id?: string
+          merchant_id?: string
+          model?: string | null
+          notes?: string | null
+          photo_url?: string | null
+          serial_number?: string | null
+          unit_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unit_assets_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unit_assets_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       unit_listings: {
         Row: {
           created_at: string | null

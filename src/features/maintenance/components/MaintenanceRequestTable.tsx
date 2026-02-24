@@ -157,10 +157,21 @@ export function MaintenanceRequestTable({
                     </span>
                   </TableCell>
                   <TableCell>
-                    <span className="font-medium">{request.title}</span>
-                    <span className="block text-xs text-muted-foreground truncate max-w-[200px]">
-                      {request.description}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {request.images && request.images.length > 0 && (
+                        <img
+                          src={request.images[0]}
+                          alt=""
+                          className="w-8 h-8 rounded-lg object-cover border border-border/40 shrink-0"
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <span className="font-medium block truncate">{request.title}</span>
+                        <span className="block text-xs text-muted-foreground truncate max-w-[200px]">
+                          {request.description}
+                        </span>
+                      </div>
+                    </div>
                   </TableCell>
                   <TableCell className="capitalize hidden lg:table-cell">{request.category}</TableCell>
                   <TableCell>
