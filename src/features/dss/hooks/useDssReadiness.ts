@@ -8,6 +8,7 @@ export interface ChecklistItem {
   completed: boolean;
   icon: string;
   link?: string;
+  action?: 'auto-generate';
 }
 
 export interface ReadinessLevel {
@@ -54,33 +55,40 @@ export function useDssReadiness(propertyId: string | undefined, merchantId: stri
         supabase.from("occupancy_snapshots").select("id").eq("property_id", propertyId).limit(1),
       ]);
 
+      const editLink = `/merchant/properties/${propertyId}?edit=true`;
+      const editStep2 = `/merchant/properties/${propertyId}?edit=true&step=2`;
+      const editStep3 = `/merchant/properties/${propertyId}?edit=true&step=3`;
+      const financialTab = `/merchant/properties/${propertyId}#financial`;
+      const complianceTab = `/merchant/properties/${propertyId}#compliance`;
+      const unitsTab = `/merchant/properties/${propertyId}#units`;
+
       // Level 1: Onboarding
       const l1Items: ChecklistItem[] = [
-        { key: "name", label: "Nama properti", level: 1, completed: !!property?.name, icon: "🏠", link: `/merchant/properties/${propertyId}` },
-        { key: "property_type", label: "Tipe properti", level: 1, completed: !!property?.property_type, icon: "🏗️", link: `/merchant/properties/${propertyId}` },
-        { key: "address", label: "Alamat lengkap", level: 1, completed: !!(property?.address && property?.province && property?.city), icon: "📍", link: `/merchant/properties/${propertyId}` },
-        { key: "units", label: "Minimal 1 unit", level: 1, completed: (units?.length || 0) > 0, icon: "🚪", link: `/merchant/properties/${propertyId}` },
+        { key: "name", label: "Nama properti", level: 1, completed: !!property?.name, icon: "🏠", link: editLink },
+        { key: "property_type", label: "Tipe properti", level: 1, completed: !!property?.property_type, icon: "🏗️", link: editLink },
+        { key: "address", label: "Alamat lengkap", level: 1, completed: !!(property?.address && property?.province && property?.city), icon: "📍", link: editLink },
+        { key: "units", label: "Minimal 1 unit", level: 1, completed: (units?.length || 0) > 0, icon: "🚪", link: unitsTab },
       ];
 
       // Level 2: Operasional
       const l2Items: ChecklistItem[] = [
-        { key: "amenities", label: "Fasilitas (min. 1)", level: 2, completed: (property?.amenities?.length || 0) > 0, icon: "🎯", link: `/merchant/properties/${propertyId}` },
-        { key: "images", label: "Foto properti (min. 1)", level: 2, completed: (property?.images?.length || 0) > 0, icon: "📸", link: `/merchant/properties/${propertyId}` },
+        { key: "amenities", label: "Fasilitas (min. 1)", level: 2, completed: (property?.amenities?.length || 0) > 0, icon: "🎯", link: editStep3 },
+        { key: "images", label: "Foto properti (min. 1)", level: 2, completed: (property?.images?.length || 0) > 0, icon: "📸", link: editStep3 },
         { key: "guardian", label: "Penjaga aktif", level: 2, completed: (guardians?.length || 0) > 0, icon: "👤", link: `/merchant/guardians` },
-        { key: "description", label: "Deskripsi properti", level: 2, completed: !!property?.description, icon: "📝", link: `/merchant/properties/${propertyId}` },
-        { key: "floor_count", label: "Jumlah lantai", level: 2, completed: !!property?.floor_count, icon: "🏢", link: `/merchant/properties/${propertyId}` },
-        { key: "building_condition", label: "Kondisi bangunan", level: 2, completed: !!property?.building_condition, icon: "🔧", link: `/merchant/properties/${propertyId}` },
+        { key: "description", label: "Deskripsi properti", level: 2, completed: !!property?.description, icon: "📝", link: editLink },
+        { key: "floor_count", label: "Jumlah lantai", level: 2, completed: !!property?.floor_count, icon: "🏢", link: editStep2 },
+        { key: "building_condition", label: "Kondisi bangunan", level: 2, completed: !!property?.building_condition, icon: "🔧", link: editStep2 },
       ];
 
       // Level 3: Financial
       const l3Items: ChecklistItem[] = [
-        { key: "construction_cost", label: "Biaya pembangunan", level: 3, completed: !!property?.construction_cost, icon: "💰", link: `/merchant/properties/${propertyId}` },
-        { key: "renovation_cost", label: "Biaya renovasi", level: 3, completed: !!property?.renovation_cost, icon: "🔨", link: `/merchant/properties/${propertyId}` },
-        { key: "funding_source", label: "Sumber pendanaan", level: 3, completed: !!property?.funding_source, icon: "🏦", link: `/merchant/properties/${propertyId}` },
-        { key: "monthly_amortization", label: "Amortisasi bulanan", level: 3, completed: property?.monthly_amortization != null, icon: "📊", link: `/merchant/properties/${propertyId}` },
-        { key: "monthly_maintenance_cost", label: "Biaya maintenance bulanan", level: 3, completed: property?.monthly_maintenance_cost != null, icon: "🛠️", link: `/merchant/properties/${propertyId}` },
-        { key: "avg_annual_unexpected_cost", label: "Biaya tak terduga tahunan", level: 3, completed: property?.avg_annual_unexpected_cost != null, icon: "⚠️", link: `/merchant/properties/${propertyId}` },
-        { key: "marketing_cost", label: "Biaya marketing", level: 3, completed: !!property?.marketing_cost, icon: "📢", link: `/merchant/properties/${propertyId}` },
+        { key: "construction_cost", label: "Biaya pembangunan", level: 3, completed: !!property?.construction_cost, icon: "💰", link: financialTab },
+        { key: "renovation_cost", label: "Biaya renovasi", level: 3, completed: !!property?.renovation_cost, icon: "🔨", link: financialTab },
+        { key: "funding_source", label: "Sumber pendanaan", level: 3, completed: !!property?.funding_source, icon: "🏦", link: financialTab },
+        { key: "monthly_amortization", label: "Amortisasi bulanan", level: 3, completed: property?.monthly_amortization != null, icon: "📊", link: financialTab },
+        { key: "monthly_maintenance_cost", label: "Biaya maintenance bulanan", level: 3, completed: property?.monthly_maintenance_cost != null, icon: "🛠️", link: financialTab },
+        { key: "avg_annual_unexpected_cost", label: "Biaya tak terduga tahunan", level: 3, completed: property?.avg_annual_unexpected_cost != null, icon: "⚠️", link: financialTab },
+        { key: "marketing_cost", label: "Biaya marketing", level: 3, completed: !!property?.marketing_cost, icon: "📢", link: editStep2 },
       ];
 
       // Level 4: DSS Required
@@ -89,13 +97,13 @@ export function useDssReadiness(propertyId: string | undefined, merchantId: stri
       const hasPBB = docTypes.some(t => t.includes("PBB"));
 
       const l4Items: ChecklistItem[] = [
-        { key: "all_financial", label: "Semua data financial (Level 3)", level: 4, completed: l3Items.every(i => i.completed), icon: "✅" },
-        { key: "tenant_metrics", label: "Data payment tenant", level: 4, completed: (tenantMetrics?.length || 0) > 0, icon: "👥", link: `/merchant/tenant-analytics` },
-        { key: "disaster_risk", label: "Profil risiko bencana", level: 4, completed: (disasterRisk?.length || 0) > 0, icon: "🌊", link: `/merchant/compliance` },
-        { key: "insurance", label: "Polis asuransi aktif (min. 1)", level: 4, completed: (insurance?.length || 0) > 0, icon: "🛡️", link: `/merchant/compliance` },
-        { key: "imb", label: "Dokumen IMB/PBG", level: 4, completed: hasIMB, icon: "📄", link: `/merchant/compliance` },
-        { key: "pbb", label: "Dokumen PBB", level: 4, completed: hasPBB, icon: "📋", link: `/merchant/compliance` },
-        { key: "occupancy", label: "Data occupancy (min. 1 bulan)", level: 4, completed: (occupancy?.length || 0) > 0, icon: "📈", link: `/merchant/properties/${propertyId}` },
+        { key: "all_financial", label: "Semua data financial (Level 3)", level: 4, completed: l3Items.every(i => i.completed), icon: "✅", link: financialTab },
+        { key: "tenant_metrics", label: "Data payment tenant", level: 4, completed: (tenantMetrics?.length || 0) > 0, icon: "👥", action: 'auto-generate' },
+        { key: "disaster_risk", label: "Profil risiko bencana", level: 4, completed: (disasterRisk?.length || 0) > 0, icon: "🌊", link: complianceTab },
+        { key: "insurance", label: "Polis asuransi aktif (min. 1)", level: 4, completed: (insurance?.length || 0) > 0, icon: "🛡️", link: complianceTab },
+        { key: "imb", label: "Dokumen IMB/PBG", level: 4, completed: hasIMB, icon: "📄", link: complianceTab },
+        { key: "pbb", label: "Dokumen PBB", level: 4, completed: hasPBB, icon: "📋", link: complianceTab },
+        { key: "occupancy", label: "Data occupancy (min. 1 bulan)", level: 4, completed: (occupancy?.length || 0) > 0, icon: "📈", action: 'auto-generate' },
       ];
 
       const calcScore = (items: ChecklistItem[]) => {

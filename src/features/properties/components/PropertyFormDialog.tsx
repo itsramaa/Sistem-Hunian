@@ -48,6 +48,7 @@ interface PropertyFormDialogProps {
   property?: Property | null;
   onSubmit: (data: PropertyFormData) => Promise<void>;
   isLoading: boolean;
+  initialStep?: number;
 }
 
 const STEPS = [
@@ -57,8 +58,8 @@ const STEPS = [
   { label: 'Media', icon: ImageIcon, levelBadge: 'Level 2 — Recommended', levelColor: 'bg-info/15 text-info border-info/30' },
 ];
 
-export function PropertyFormDialog({ open, onOpenChange, property, onSubmit, isLoading }: PropertyFormDialogProps) {
-  const [step, setStep] = useState(0);
+export function PropertyFormDialog({ open, onOpenChange, property, onSubmit, isLoading, initialStep = 0 }: PropertyFormDialogProps) {
+  const [step, setStep] = useState(initialStep);
   const { register, handleSubmit, setValue, watch, reset, trigger, formState: { errors } } = useForm<PropertyFormData>({
     resolver: zodResolver(propertySchema),
     defaultValues: {
@@ -91,7 +92,7 @@ export function PropertyFormDialog({ open, onOpenChange, property, onSubmit, isL
         latitude: null, longitude: null,
       });
     }
-    setStep(0);
+    setStep(initialStep);
   }, [property, reset, open]);
 
   const handleNext = async () => {

@@ -1,4 +1,4 @@
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { usePropertyDetail } from '@/features/properties/hooks/usePropertyDetail';
 import { PropertyDetailSkeleton } from '@/features/properties/components/PropertyDetailSkeleton';
 import { Badge } from '@/shared/components/ui/badge';
@@ -14,7 +14,7 @@ import {
   Shield, UserCheck
 } from 'lucide-react';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/shared/components/ui/carousel';
-import { Suspense, lazy, useState } from 'react';
+import { Suspense, lazy, useState, useEffect, useCallback } from 'react';
 import { ContentSkeleton } from '@/shared/components/ui/PageSkeleton';
 import { formatCurrency } from '@/shared/utils/currency';
 import { format } from 'date-fns';
@@ -26,6 +26,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/integrations/supabase/client';
 import { PropertyFinancialForm, FinancialFormData } from '@/features/properties/components/PropertyFinancialForm';
 import { PropertyFinancialMetrics } from '@/features/properties/components/PropertyFinancialMetrics';
+import { PropertyFormDialog, PropertyFormData } from '@/features/properties/components/PropertyFormDialog';
 import { propertyService } from '@/features/properties/services/propertyService';
 import { toast } from 'sonner';
 import { useDssReadiness } from '@/features/dss/hooks/useDssReadiness';
@@ -58,8 +59,50 @@ function isNewProperty(createdAt: string): boolean {
 export default function PropertyDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data: property, isLoading, error } = usePropertyDetail(id);
+  const queryClient = useQueryClient();
   const [unitFilter, setUnitFilter] = useState<string>('all');
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editInitialStep, setEditInitialStep] = useState(0);
+
+  // Read URL hash for initial tab
+  const getInitialTab = useCallback(() => {
+    const hash = window.location.hash.replace('#', '');
+    const validTabs = ['overview', 'units', 'tenants', 'financial', 'maintenance', 'guardians', 'compliance'];
+    return validTabs.includes(hash) ? hash : 'overview';
+  }, []);
+  const [activeTab, setActiveTab] = useState(getInitialTab);
+
+  // Handle ?edit=true&step=N to auto-open PropertyFormDialog
+  useEffect(() => {
+    if (property && searchParams.get('edit') === 'true') {
+      const step = parseInt(searchParams.get('step') || '0', 10);
+      setEditInitialStep(isNaN(step) ? 0 : step);
+      setShowEditDialog(true);
+      // Clean up URL params after opening
+      searchParams.delete('edit');
+      searchParams.delete('step');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [property, searchParams, setSearchParams]);
+
+  // Update hash when tab changes
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    window.history.replaceState(null, '', tab === 'overview' ? window.location.pathname : `${window.location.pathname}#${tab}`);
+  };
+
+  // Edit submit handler
+  const editMutation = useMutation({
+    mutationFn: (data: PropertyFormData) => propertyService.updateProperty(id!, data as any),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['property-detail', id] });
+      toast.success('Properti berhasil diperbarui');
+      setShowEditDialog(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   // Fetch contracts for this property's units
   const { data: propertyContracts = [] } = useQuery({
@@ -205,8 +248,18 @@ export default function PropertyDetail() {
       </div>
 
       {/* Tabs + Sidebar */}
+      {/* Edit Property Dialog */}
+      <PropertyFormDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        property={property as any}
+        onSubmit={async (data) => { await editMutation.mutateAsync(data); }}
+        isLoading={editMutation.isPending}
+        initialStep={editInitialStep}
+      />
+
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
-        <Tabs defaultValue="overview" className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="pill-tab-list w-full sm:w-auto flex-wrap">
             <TabsTrigger value="overview" className="pill-tab-trigger">Overview</TabsTrigger>
             <TabsTrigger value="units" className="pill-tab-trigger">Unit ({totalUnits})</TabsTrigger>
