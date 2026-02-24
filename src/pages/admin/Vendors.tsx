@@ -143,8 +143,8 @@ const AdminVendors = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Vendors</h1>
-            <p className="text-muted-foreground">Manage service vendors and verifications</p>
+            <h1 className="text-3xl font-bold text-foreground">Vendor</h1>
+            <p className="text-muted-foreground">Kelola vendor layanan dan verifikasi</p>
           </div>
         </div>
 
@@ -175,9 +175,9 @@ const AdminVendors = () => {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Vendors Directory</CardTitle>
+                  <CardTitle>Direktori Vendor</CardTitle>
                   <CardDescription>
-                    Manage vendor accounts and verification requests
+                    Kelola akun vendor dan permintaan verifikasi
                   </CardDescription>
                 </div>
               </div>

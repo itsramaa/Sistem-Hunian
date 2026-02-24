@@ -53,20 +53,20 @@ export default function Admin2FA() {
         }
       });
     } else {
-      toast.error('Please enter a valid 6-digit code');
+      toast.error('Harap masukkan kode 6 digit yang valid');
     }
   };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast.success('Copied to clipboard');
+    toast.success('Disalin ke papan klip');
   };
 
   if (isStatusLoading) {
      return (
        <AdminLayout
-         title="Two-Factor Authentication"
-         description="Add an extra layer of security to your admin account"
+         title="Autentikasi Dua Faktor"
+         description="Tambahkan lapisan keamanan ekstra ke akun admin Anda"
        >
          <div className="flex items-center justify-center h-64">
            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -77,8 +77,8 @@ export default function Admin2FA() {
 
   return (
     <AdminLayout
-      title="Two-Factor Authentication"
-      description="Add an extra layer of security to your admin account"
+      title="Autentikasi Dua Faktor"
+      description="Tambahkan lapisan keamanan ekstra ke akun admin Anda"
     >
       <div className="space-y-6 max-w-3xl">
         {/* Status Card */}
@@ -96,14 +96,14 @@ export default function Admin2FA() {
                   </div>
                 )}
                 <div>
-                  <CardTitle>2FA Status</CardTitle>
+                  <CardTitle>Status 2FA</CardTitle>
                   <CardDescription>
-                    {is2FAEnabled ? 'Your account is protected with two-factor authentication' : 'Two-factor authentication is not enabled'}
+                    {is2FAEnabled ? 'Akun Anda dilindungi dengan autentikasi dua faktor' : 'Autentikasi dua faktor belum diaktifkan'}
                   </CardDescription>
                 </div>
               </div>
               <Badge variant={is2FAEnabled ? 'default' : 'secondary'} className={is2FAEnabled ? 'bg-green-600' : ''}>
-                {is2FAEnabled ? 'Enabled' : 'Disabled'}
+                {is2FAEnabled ? 'Aktif' : 'Nonaktif'}
               </Badge>
             </div>
           </CardHeader>
@@ -111,18 +111,18 @@ export default function Admin2FA() {
             {!is2FAEnabled ? (
               <Alert variant="default" className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
                 <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                <AlertTitle>Security Recommendation</AlertTitle>
+                <AlertTitle>Rekomendasi Keamanan</AlertTitle>
                 <AlertDescription>
-                  Enable two-factor authentication to protect your admin account from unauthorized access.
-                  This adds an extra verification step when signing in.
+                  Aktifkan autentikasi dua faktor untuk melindungi akun admin Anda dari akses tidak sah.
+                  Ini menambahkan langkah verifikasi ekstra saat masuk.
                 </AlertDescription>
               </Alert>
             ) : (
               <Alert className="border-green-500 bg-green-50 dark:bg-green-950">
                 <ShieldCheck className="h-4 w-4 text-green-600" />
-                <AlertTitle>Account Protected</AlertTitle>
+                <AlertTitle>Akun Terlindungi</AlertTitle>
                 <AlertDescription>
-                  Your account requires a verification code from your authenticator app when signing in.
+                  Akun Anda memerlukan kode verifikasi dari aplikasi autentikator saat masuk.
                 </AlertDescription>
               </Alert>
             )}
@@ -134,10 +134,10 @@ export default function Admin2FA() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Smartphone className="h-5 w-5" />
-              Authenticator App
+              Aplikasi Autentikator
             </CardTitle>
             <CardDescription>
-              Use an authenticator app like Google Authenticator, Authy, or 1Password to generate verification codes
+              Gunakan aplikasi autentikator seperti Google Authenticator, Authy, atau 1Password untuk menghasilkan kode verifikasi
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -147,8 +147,8 @@ export default function Admin2FA() {
                   <div className="flex items-center gap-3">
                     <ShieldCheck className="h-5 w-5 text-green-600" />
                     <div>
-                      <p className="font-medium">Authenticator App</p>
-                      <p className="text-sm text-muted-foreground">Connected and active</p>
+                      <p className="font-medium">Aplikasi Autentikator</p>
+                      <p className="text-sm text-muted-foreground">Terhubung dan aktif</p>
                     </div>
                   </div>
                   <Button
@@ -157,18 +157,18 @@ export default function Admin2FA() {
                     onClick={() => disable2FA()}
                     disabled={isDisabling}
                   >
-                    {isDisabling ? 'Disabling...' : 'Disable 2FA'}
+                    {isDisabling ? 'Menonaktifkan...' : 'Nonaktifkan 2FA'}
                   </Button>
                 </div>
                 <Button variant="outline" className="w-full" onClick={handleStartSetup}>
                   <RefreshCw className="h-4 w-4 mr-2" />
-                  Regenerate Recovery Codes
+                  Regenerasi Kode Pemulihan
                 </Button>
               </div>
             ) : (
               <Button onClick={handleStartSetup} className="w-full">
                 <Shield className="h-4 w-4 mr-2" />
-                Set Up Two-Factor Authentication
+                Atur Autentikasi Dua Faktor
               </Button>
             )}
           </CardContent>
@@ -179,26 +179,26 @@ export default function Admin2FA() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Key className="h-5 w-5" />
-              Security Best Practices
+              Praktik Terbaik Keamanan
             </CardTitle>
           </CardHeader>
           <CardContent>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li className="flex items-start gap-2">
                 <span className="text-green-600">•</span>
-                Store your recovery codes in a secure location (password manager, encrypted file)
+                Simpan kode pemulihan Anda di lokasi yang aman (pengelola kata sandi, file terenkripsi)
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-green-600">•</span>
-                Never share your authenticator QR code or secret key with anyone
+                Jangan pernah membagikan kode QR atau kunci rahasia autentikator Anda dengan siapa pun
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-green-600">•</span>
-                If you lose access to your authenticator, use recovery codes to sign in
+                Jika Anda kehilangan akses ke autentikator Anda, gunakan kode pemulihan untuk masuk
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-green-600">•</span>
-                Regenerate recovery codes after using them
+                Regenerasi kode pemulihan setelah menggunakannya
               </li>
             </ul>
           </CardContent>
@@ -208,11 +208,11 @@ export default function Admin2FA() {
         <Dialog open={showSetupDialog} onOpenChange={setShowSetupDialog}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Set Up Two-Factor Authentication</DialogTitle>
+              <DialogTitle>Aktifkan Autentikasi Dua Faktor</DialogTitle>
               <DialogDescription>
                 {setupStep === 'generate'
-                  ? 'Scan the QR code or enter the secret key in your authenticator app'
-                  : 'Enter the 6-digit code from your authenticator app'}
+                  ? 'Pindai kode QR atau masukkan kunci rahasia di aplikasi autentikator Anda'
+                  : 'Masukkan kode 6 digit dari aplikasi autentikator Anda'}
               </DialogDescription>
             </DialogHeader>
 
@@ -223,15 +223,15 @@ export default function Admin2FA() {
                   <div className="w-48 h-48 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed">
                     <div className="text-center">
                       <Smartphone className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
-                      <p className="text-sm text-muted-foreground">QR Code</p>
-                      <p className="text-xs text-muted-foreground">(Scan with app)</p>
+                      <p className="text-sm text-muted-foreground">Kode QR</p>
+                      <p className="text-xs text-muted-foreground">(Pindai dengan aplikasi)</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Secret Key */}
                 <div className="space-y-2">
-                  <Label>Secret Key</Label>
+                  <Label>Kunci Rahasia</Label>
                   <div className="flex gap-2">
                     <Input
                       value={tempSecret || ''}
@@ -247,13 +247,13 @@ export default function Admin2FA() {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    If you can't scan the QR code, enter this key manually in your app
+                    Jika Anda tidak dapat memindai kode QR, masukkan kunci ini secara manual di aplikasi Anda
                   </p>
                 </div>
 
                 {/* Recovery Codes */}
                 <div className="space-y-2">
-                  <Label>Recovery Codes</Label>
+                  <Label>Kode Pemulihan</Label>
                   <div className="grid grid-cols-2 gap-2 p-3 bg-muted rounded-lg font-mono text-sm">
                     {recoveryCodes.map((code, i) => (
                       <span key={i}>{code}</span>
@@ -266,21 +266,21 @@ export default function Admin2FA() {
                     onClick={() => copyToClipboard(recoveryCodes.join('\n'))}
                   >
                     <Copy className="h-4 w-4 mr-2" />
-                    Copy All Codes
+                    Salin Semua Kode
                   </Button>
                   <p className="text-xs text-muted-foreground">
-                    Save these codes securely. You can use them to sign in if you lose your authenticator.
+                    Simpan kode-kode ini dengan aman. Anda dapat menggunakannya untuk masuk jika kehilangan autentikator.
                   </p>
                 </div>
 
                 <Button onClick={() => setSetupStep('verify')} className="w-full">
-                  Continue
+                  Lanjutkan
                 </Button>
               </div>
             ) : (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="code">Verification Code</Label>
+                  <Label htmlFor="code">Kode Verifikasi</Label>
                   <Input
                     id="code"
                     placeholder="000000"
@@ -290,19 +290,19 @@ export default function Admin2FA() {
                     maxLength={6}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Enter the 6-digit code shown in your authenticator app
+                    Masukkan kode 6 digit yang ditampilkan di aplikasi autentikator Anda
                   </p>
                 </div>
 
                 <DialogFooter className="flex gap-2">
                   <Button variant="outline" onClick={() => setSetupStep('generate')}>
-                    Back
+                    Kembali
                   </Button>
                   <Button
                     onClick={handleVerifyAndEnable}
                     disabled={verificationCode.length !== 6 || isEnabling}
                   >
-                    {isEnabling ? 'Enabling...' : 'Enable 2FA'}
+                    {isEnabling ? 'Mengaktifkan...' : 'Aktifkan 2FA'}
                   </Button>
                 </DialogFooter>
               </div>

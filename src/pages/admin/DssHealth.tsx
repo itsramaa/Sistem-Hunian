@@ -25,8 +25,8 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const chartConfig: ChartConfig = {
-  count: { label: "Count", color: "hsl(var(--primary))" },
-  errors: { label: "Errors", color: "hsl(var(--destructive))" },
+  count: { label: "Jumlah", color: "hsl(var(--primary))" },
+  errors: { label: "Error", color: "hsl(var(--destructive))" },
 };
 
 function DssHealth() {
@@ -38,7 +38,7 @@ function DssHealth() {
 
   if (metricsLoading || rlsLoading) {
     return (
-      <AdminLayout title="DSS Health Monitor" description="Real-time DSS layer health and RLS monitoring">
+      <AdminLayout title="Monitor Kesehatan DSS" description="Kesehatan layer DSS dan pemantauan RLS waktu nyata">
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
@@ -47,45 +47,45 @@ function DssHealth() {
   }
 
   return (
-    <AdminLayout title="DSS Health Monitor" description="Real-time DSS layer health, metrics, and security monitoring">
+    <AdminLayout title="Monitor Kesehatan DSS" description="Kesehatan layer DSS, metrik, dan pemantauan keamanan">
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="ocr">OCR Performance</TabsTrigger>
-          <TabsTrigger value="models">Model Runs</TabsTrigger>
-          <TabsTrigger value="validation">Validation Audit</TabsTrigger>
-          <TabsTrigger value="rls">RLS Monitor</TabsTrigger>
+          <TabsTrigger value="overview">Ringkasan</TabsTrigger>
+          <TabsTrigger value="ocr">Performa OCR</TabsTrigger>
+          <TabsTrigger value="models">Eksekusi Model</TabsTrigger>
+          <TabsTrigger value="validation">Audit Validasi</TabsTrigger>
+          <TabsTrigger value="rls">Monitor RLS</TabsTrigger>
         </TabsList>
 
         {/* ── Overview ────────────────────────────────────────── */}
         <TabsContent value="overview" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <MetricCard
-              title="OCR Success Rate"
+              title="Tingkat Keberhasilan OCR"
               value={`${metrics?.ocrSuccessRate.toFixed(1)}%`}
               icon={<ScanText className="h-4 w-4" />}
-              description={`${metrics?.totalOcrRuns || 0} total runs (30d)`}
+              description={`${metrics?.totalOcrRuns || 0} total eksekusi (30h)`}
               status={getHealthStatus(metrics?.ocrSuccessRate || 0, 90, 70)}
             />
             <MetricCard
-              title="Avg Processing Time"
+              title="Rata-rata Waktu Proses"
               value={`${((metrics?.ocrAvgProcessingMs || 0) / 1000).toFixed(1)}s`}
               icon={<Clock className="h-4 w-4" />}
-              description="Target: < 3s"
+              description="Target: < 3d"
               status={getHealthStatus(3000 - (metrics?.ocrAvgProcessingMs || 0), 0, -2000)}
             />
             <MetricCard
-              title="Model Error Rate"
+              title="Tingkat Kesalahan Model"
               value={`${metrics?.modelErrorRate.toFixed(1)}%`}
               icon={<Brain className="h-4 w-4" />}
-              description={`${metrics?.totalModelRuns || 0} model runs (30d)`}
+              description={`${metrics?.totalModelRuns || 0} eksekusi model (30h)`}
               status={getHealthStatus(100 - (metrics?.modelErrorRate || 0), 95, 85)}
             />
             <MetricCard
-              title="Validation Failures"
+              title="Kegagalan Validasi"
               value={`${metrics?.validationStats.failed || 0}`}
               icon={<ShieldAlert className="h-4 w-4" />}
-              description={`${metrics?.validationStats.total || 0} total validations`}
+              description={`${metrics?.validationStats.total || 0} total validasi`}
               status={(metrics?.validationStats.failed || 0) === 0 ? "healthy" : "warning"}
             />
           </div>
@@ -94,31 +94,31 @@ function DssHealth() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">RLS Denials (7d)</CardTitle>
+                <CardTitle className="text-sm font-medium">Penolakan RLS (7h)</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{rlsData?.deniedRequests || 0}</div>
                 <p className="text-xs text-muted-foreground">
-                  {rlsData?.denialRate.toFixed(2)}% denial rate
+                  {rlsData?.denialRate.toFixed(2)}% tingkat penolakan
                 </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Top Denied Table</CardTitle>
+                <CardTitle className="text-sm font-medium">Tabel Paling Sering Ditolak</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
                   {rlsData?.denialsByTable[0]?.table || "None"}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {rlsData?.denialsByTable[0]?.count || 0} denials
+                  {rlsData?.denialsByTable[0]?.count || 0} penolakan
                 </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Avg Confidence</CardTitle>
+                <CardTitle className="text-sm font-medium">Rata-rata Kepercayaan</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
@@ -136,7 +136,7 @@ function DssHealth() {
             {/* OCR by Type Chart */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">OCR by Document Type</CardTitle>
+                <CardTitle className="text-base">OCR Berdasarkan Tipe Dokumen</CardTitle>
               </CardHeader>
               <CardContent>
                 {metrics?.ocrByType && metrics.ocrByType.length > 0 ? (
@@ -149,7 +149,7 @@ function DssHealth() {
                     </BarChart>
                   </ChartContainer>
                 ) : (
-                  <p className="text-sm text-muted-foreground py-8 text-center">No OCR data yet</p>
+                  <p className="text-sm text-muted-foreground py-8 text-center">Belum ada data OCR</p>
                 )}
               </CardContent>
             </Card>
@@ -157,7 +157,7 @@ function DssHealth() {
             {/* OCR Status Distribution */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">OCR Status Distribution</CardTitle>
+                <CardTitle className="text-base">Distribusi Status OCR</CardTitle>
               </CardHeader>
               <CardContent>
                 {metrics?.recentOcrResults && metrics.recentOcrResults.length > 0 ? (
@@ -190,7 +190,7 @@ function DssHealth() {
                     </PieChart>
                   </ChartContainer>
                 ) : (
-                  <p className="text-sm text-muted-foreground py-8 text-center">No OCR data yet</p>
+                  <p className="text-sm text-muted-foreground py-8 text-center">Belum ada data OCR</p>
                 )}
               </CardContent>
             </Card>
@@ -199,18 +199,18 @@ function DssHealth() {
           {/* Recent OCR Results Table */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Recent OCR Results</CardTitle>
-              <CardDescription>Last 20 OCR processing runs</CardDescription>
+              <CardTitle className="text-base">Hasil OCR Terakhir</CardTitle>
+              <CardDescription>20 proses OCR terakhir</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Type</TableHead>
+                    <TableHead>Tipe</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Confidence</TableHead>
-                    <TableHead>Processing</TableHead>
-                    <TableHead>Date</TableHead>
+                    <TableHead>Kepercayaan</TableHead>
+                    <TableHead>Pemrosesan</TableHead>
+                    <TableHead>Tanggal</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -230,7 +230,7 @@ function DssHealth() {
                   {(!metrics?.recentOcrResults || metrics.recentOcrResults.length === 0) && (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                        No OCR results yet
+                        Belum ada hasil OCR
                       </TableCell>
                     </TableRow>
                   )}
@@ -244,18 +244,18 @@ function DssHealth() {
         <TabsContent value="models" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Model Runs by Function</CardTitle>
-              <CardDescription>Performance breakdown per AI function (30d)</CardDescription>
+              <CardTitle className="text-base">Eksekusi Model per Fungsi</CardTitle>
+              <CardDescription>Rincian performa per fungsi AI (30h)</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Function</TableHead>
-                    <TableHead>Runs</TableHead>
-                    <TableHead>Avg Time</TableHead>
-                    <TableHead>Errors</TableHead>
-                    <TableHead>Error Rate</TableHead>
+                    <TableHead>Fungsi</TableHead>
+                    <TableHead>Eksekusi</TableHead>
+                    <TableHead>Waktu Rata-rata</TableHead>
+                    <TableHead>Kesalahan</TableHead>
+                    <TableHead>Tingkat Kesalahan</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -275,7 +275,7 @@ function DssHealth() {
                   {(!metrics?.modelRunsByFunction || metrics.modelRunsByFunction.length === 0) && (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                        No model runs yet
+                        Belum ada eksekusi model
                       </TableCell>
                     </TableRow>
                   )}
@@ -301,7 +301,7 @@ function DssHealth() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2 text-success">
-                  <CheckCircle2 className="h-4 w-4" /> Passed
+                  <CheckCircle2 className="h-4 w-4" /> Lulus
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -311,7 +311,7 @@ function DssHealth() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2 text-destructive">
-                  <XCircle className="h-4 w-4" /> Failed
+                  <XCircle className="h-4 w-4" /> Gagal
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -321,7 +321,7 @@ function DssHealth() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2 text-warning">
-                  <AlertTriangle className="h-4 w-4" /> Warnings
+                  <AlertTriangle className="h-4 w-4" /> Peringatan
                 </CardTitle>
               </CardHeader>
               <CardContent>

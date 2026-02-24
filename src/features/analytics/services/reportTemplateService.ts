@@ -127,7 +127,7 @@ export async function fetchRiskAssessment(merchantId: string): Promise<RiskAsses
 
   // Fetch property names separately
   const propertyIds = profiles.map((p: any) => p.property_id);
-  let propertyNames: Record<string, string> = {};
+  const propertyNames: Record<string, string> = {};
   if (propertyIds.length > 0) {
     const { data: props } = await db.from("properties").select("id, name").in("id", propertyIds);
     (props || []).forEach((p: any) => { propertyNames[p.id] = p.name; });

@@ -50,7 +50,7 @@ export default function AdminEscrow() {
   const [selectedReview, setSelectedReview] = useState<PendingDisbursement | null>(null);
   const [selectedTransaction, setSelectedTransaction] = useState<EscrowTransaction | null>(null);
   const [disbursementAmount, setDisbursementAmount] = useState('');
-  const [disbursementDescription, setDisbursementDescription] = useState('Admin disbursement');
+  const [disbursementDescription, setDisbursementDescription] = useState('Pencairan admin');
   const [reviewNotes, setReviewNotes] = useState('');
   const [showConfirmDisbursement, setShowConfirmDisbursement] = useState(false);
   const { toast } = useToast();
@@ -64,8 +64,8 @@ export default function AdminEscrow() {
     if (amount > selectedAccount.balance) {
       toast({
         variant: 'destructive',
-        title: 'Insufficient Balance',
-        description: `Disbursement amount exceeds available balance of ${formatCurrency(selectedAccount.balance)}`,
+        title: 'Saldo Tidak Cukup',
+        description: `Jumlah pencairan melebihi saldo tersedia sebesar ${formatCurrency(selectedAccount.balance)}`,
       });
       return;
     }
@@ -74,8 +74,8 @@ export default function AdminEscrow() {
     if (minAmount > 0 && amount < minAmount) {
       toast({
         variant: 'destructive',
-        title: 'Below Minimum',
-        description: `Disbursement must be at least ${formatCurrency(minAmount)}`,
+        title: 'Di Bawah Minimum',
+        description: `Pencairan harus setidaknya ${formatCurrency(minAmount)}`,
       });
       return;
     }
@@ -98,7 +98,7 @@ export default function AdminEscrow() {
         setShowConfirmDisbursement(false);
         setSelectedAccount(null);
         setDisbursementAmount('');
-        setDisbursementDescription('Admin disbursement');
+        setDisbursementDescription('Pencairan admin');
       }
     });
   };
@@ -109,7 +109,7 @@ export default function AdminEscrow() {
     approveReview.mutate({
       id: selectedReview.id,
       status: 'approved',
-      notes: notes || 'Approved by admin',
+      notes: notes || 'Disetujui oleh admin',
       amount: selectedReview.net_amount,
       escrow_account_id: selectedReview.escrow_account_id,
       bank_account_id: selectedReview.bank_account_id,
@@ -131,8 +131,8 @@ export default function AdminEscrow() {
     if (!notes.trim()) {
       toast({
         variant: 'destructive',
-        title: 'Notes Required',
-        description: 'Please provide a reason for rejection',
+        title: 'Catatan Diperlukan',
+        description: 'Harap berikan alasan penolakan',
       });
       return;
     }
@@ -154,7 +154,7 @@ export default function AdminEscrow() {
 
   const openDisbursementDialog = (account: EscrowAccount) => {
     setSelectedAccount(account);
-    setDisbursementDescription('Admin disbursement');
+    setDisbursementDescription('Pencairan admin');
     setShowDisbursementDialog(true);
   };
 
@@ -180,7 +180,7 @@ export default function AdminEscrow() {
 
   if (guardLoading) {
     return (
-      <AdminLayout title="Escrow Management" description="Monitor balances and manage disbursements">
+      <AdminLayout title="Manajemen Escrow" description="Pantau saldo dan kelola pencairan">
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
@@ -189,7 +189,7 @@ export default function AdminEscrow() {
   }
 
   return (
-    <AdminLayout title="Escrow Management" description="Monitor balances and manage disbursements">
+    <AdminLayout title="Manajemen Escrow" description="Pantau saldo dan kelola pencairan">
       <div className="space-y-6">
 
         {/* Stats */}
@@ -203,10 +203,10 @@ export default function AdminEscrow() {
         {/* Main Content */}
         <Tabs defaultValue="accounts" className="w-full">
           <TabsList>
-            <TabsTrigger value="accounts">Escrow Accounts</TabsTrigger>
-            <TabsTrigger value="transactions">Transactions</TabsTrigger>
+            <TabsTrigger value="accounts">Akun Escrow</TabsTrigger>
+            <TabsTrigger value="transactions">Transaksi</TabsTrigger>
             <TabsTrigger value="reviews" className="relative">
-              Manual Reviews
+              Tinjauan Manual
               {pendingReviews.length > 0 && (
                 <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-[10px] text-destructive-foreground flex items-center justify-center">
                   {pendingReviews.length}
@@ -218,7 +218,7 @@ export default function AdminEscrow() {
           <TabsContent value="accounts" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Merchant Accounts</CardTitle>
+                <CardTitle>Akun Merchant</CardTitle>
               </CardHeader>
               <CardContent>
                 <AdminEscrowAccountsTable
@@ -234,7 +234,7 @@ export default function AdminEscrow() {
             <Card>
               <CardHeader>
                 <div className="flex flex-col gap-4">
-                  <CardTitle>Transaction History</CardTitle>
+                  <CardTitle>Riwayat Transaksi</CardTitle>
                   <AdminEscrowFilters
                     searchQuery={searchQuery}
                     onSearchChange={setSearchQuery}
@@ -260,9 +260,9 @@ export default function AdminEscrow() {
           <TabsContent value="reviews" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Pending Manual Reviews</CardTitle>
+                <CardTitle>Tinjauan Manual Tertunda</CardTitle>
                 <CardDescription>
-                  Disbursements requiring manual approval due to large amounts or security flags
+                  Pencairan yang memerlukan persetujuan manual karena jumlah besar atau tanda keamanan
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -289,8 +289,8 @@ export default function AdminEscrow() {
           open={showConfirmDisbursement}
           onOpenChange={setShowConfirmDisbursement}
           onConfirm={confirmDisbursement}
-          title="Confirm Disbursement"
-          description={`Are you sure you want to disburse ${disbursementAmount ? formatCurrency(parseFloat(disbursementAmount)) : '0'} to ${selectedAccount?.merchant?.business_name}? This action cannot be undone.`}
+          title="Konfirmasi Pencairan"
+          description={`Apakah Anda yakin ingin mencairkan ${disbursementAmount ? formatCurrency(parseFloat(disbursementAmount)) : '0'} ke ${selectedAccount?.merchant?.business_name}? Tindakan ini tidak dapat dibatalkan.`}
         />
 
         {/* Review Dialog */}

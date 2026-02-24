@@ -71,7 +71,7 @@ export default function MerchantInvoiceDetail() {
         </Button>
         <div className="text-center py-16">
           <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h2 className="text-xl font-semibold">Invoice not found</h2>
+          <h2 className="text-xl font-semibold">Faktur tidak ditemukan</h2>
         </div>
       </div>
     );
@@ -79,9 +79,13 @@ export default function MerchantInvoiceDetail() {
 
   return (
     <div className="space-y-6">
-      <Button variant="ghost" onClick={() => navigate('/merchant/invoices')} className="gap-2 px-3 py-1.5 rounded-full bg-card/80 backdrop-blur-sm border border-border/40 hover:bg-card">
-        <ArrowLeft className="h-4 w-4" /> Back to Invoices
-      </Button>
+      <Button 
+          variant="ghost" 
+          onClick={() => navigate('/merchant/invoices')}
+          className="gap-2 px-3 py-1.5 rounded-full bg-card/80 backdrop-blur-sm border border-border/40 hover:bg-card"
+        >
+          <ArrowLeft className="h-4 w-4" /> Kembali ke Faktur
+        </Button>
 
       <div className="flex items-center justify-between">
         <PageHeader icon={FileText} title={invoice.invoice_number} description="Invoice Details" />
@@ -148,17 +152,17 @@ export default function MerchantInvoiceDetail() {
 
           {/* Actions */}
           <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-3">
-            <h3 className="font-semibold text-lg mb-2">Actions</h3>
+            <h3 className="font-semibold text-lg mb-2">Aksi</h3>
             
             <Button variant="outline" className="w-full rounded-xl gap-2" onClick={handleDownload} disabled={generatePdfMutation.isPending}>
               {generatePdfMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              Download PDF
+              Unduh PDF
             </Button>
 
             {invoice.status === 'draft' && (
               <Button className="w-full rounded-xl gap-2 gradient-cta text-primary-foreground" onClick={handleSend} disabled={sendInvoiceMutation.isPending}>
                 {sendInvoiceMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                Send Invoice
+                Kirim Faktur
               </Button>
             )}
 
@@ -166,11 +170,11 @@ export default function MerchantInvoiceDetail() {
               <>
                 <Button variant="outline" className="w-full rounded-xl gap-2" onClick={handleRemind} disabled={sendReminderMutation.isPending}>
                   {sendReminderMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
-                  Send Reminder
+                  Kirim Pengingat
                 </Button>
                 <Button className="w-full rounded-xl gap-2 gradient-cta text-primary-foreground" onClick={handleMarkPaid} disabled={markAsPaidMutation.isPending}>
                   {markAsPaidMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
-                  Mark as Paid
+                  Tandai Sudah Bayar
                 </Button>
               </>
             )}

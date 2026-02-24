@@ -49,8 +49,8 @@ const AdminOrders = () => {
 
   return (
     <AdminLayout
-      title="Order Management"
-      description="Monitor marketplace orders and vendor performance"
+      title="Manajemen Pesanan"
+      description="Pantau pesanan marketplace dan performa vendor"
     >
       <div className="space-y-6">
         {/* Stats Cards */}
@@ -58,9 +58,9 @@ const AdminOrders = () => {
 
         <Tabs defaultValue="orders" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="orders">Orders List</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics & Trends</TabsTrigger>
-            <TabsTrigger value="vendors">Vendor Performance</TabsTrigger>
+            <TabsTrigger value="orders">Daftar Pesanan</TabsTrigger>
+            <TabsTrigger value="analytics">Analitik & Tren</TabsTrigger>
+            <TabsTrigger value="vendors">Performa Vendor</TabsTrigger>
           </TabsList>
 
           <TabsContent value="orders" className="space-y-4">
@@ -74,8 +74,8 @@ const AdminOrders = () => {
             {error ? (
               <div className="text-center py-12">
                 <AlertTriangle className="h-12 w-12 mx-auto text-destructive mb-4" />
-                <p className="text-destructive mb-4">Failed to load orders</p>
-                <Button variant="outline" onClick={() => refetch()}>Retry</Button>
+                <p className="text-destructive mb-4">Gagal memuat pesanan</p>
+                <Button variant="outline" onClick={() => refetch()}>Coba Lagi</Button>
               </div>
             ) : isLoading ? (
               <div className="flex justify-center py-12">
@@ -88,7 +88,7 @@ const AdminOrders = () => {
                 {/* Pagination */}
                 <div className="flex items-center justify-between mt-4">
                   <p className="text-sm text-muted-foreground">
-                    Showing {(page - 1) * PAGE_SIZE + 1} - {Math.min(page * PAGE_SIZE, totalCount)} of {totalCount}
+                    Menampilkan {(page - 1) * PAGE_SIZE + 1} - {Math.min(page * PAGE_SIZE, totalCount)} dari {totalCount}
                   </p>
                   <div className="flex gap-2">
                     <Button
@@ -97,7 +97,7 @@ const AdminOrders = () => {
                       disabled={page === 1}
                       onClick={() => setPage(p => p - 1)}
                     >
-                      Previous
+                      Sebelumnya
                     </Button>
                     <Button
                       variant="outline"
@@ -105,7 +105,7 @@ const AdminOrders = () => {
                       disabled={!hasMore}
                       onClick={() => setPage(p => p + 1)}
                     >
-                      Next
+                      Selanjutnya
                     </Button>
                   </div>
                 </div>

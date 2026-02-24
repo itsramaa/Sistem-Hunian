@@ -38,15 +38,15 @@ export default function MerchantEscrow() {
 
   return (
     <div className="space-y-6">
-      <PageHeader icon={Vault} title="Escrow Account" description="Manage your escrow balance and disbursements" />
+      <PageHeader icon={Vault} title="Rekening Escrow" description="Kelola saldo escrow dan pencairan dana Anda" />
 
       {/* Non-verified merchant warning */}
       {!isVerified && (
         <Alert variant="destructive" className="border-warning bg-warning/10">
           <ShieldAlert className="h-4 w-4" />
-          <AlertTitle>Verification Required</AlertTitle>
+          <AlertTitle>Verifikasi Diperlukan</AlertTitle>
           <AlertDescription>
-            Your account is not verified. Disbursement requests will require manual review and may take 1-3 business days to process.
+            Akun Anda belum diverifikasi. Permintaan pencairan dana memerlukan peninjauan manual dan mungkin memakan waktu 1-3 hari kerja untuk diproses.
           </AlertDescription>
         </Alert>
       )}
@@ -175,8 +175,8 @@ export default function MerchantEscrow() {
       {/* Transaction History */}
       <Card>
         <CardHeader>
-          <CardTitle>Transaction History</CardTitle>
-          <CardDescription>Recent escrow transactions</CardDescription>
+          <CardTitle>Riwayat Transaksi</CardTitle>
+          <CardDescription>Transaksi escrow terbaru</CardDescription>
         </CardHeader>
         <CardContent>
           <EscrowFilters

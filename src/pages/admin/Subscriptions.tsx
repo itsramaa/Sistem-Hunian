@@ -73,8 +73,8 @@ const AdminSubscriptions = () => {
 
   return (
     <AdminLayout
-      title="Subscription Management"
-      description="Manage merchant subscriptions and billing"
+      title="Manajemen Langganan"
+      description="Kelola langganan merchant dan tagihan"
     >
       <div className="space-y-6">
         <AdminSubscriptionStats stats={stats as SubscriptionStats | undefined} isLoading={statsLoading} />
@@ -84,19 +84,19 @@ const AdminSubscriptions = () => {
           <TabsList className="grid w-full grid-cols-2 lg:w-[400px] lg:grid-cols-4">
             <TabsTrigger value="merchants" className="gap-2">
               <CreditCard className="h-4 w-4" />
-              <span className="hidden sm:inline">Merchants</span>
+              <span className="hidden sm:inline">Merchant</span>
             </TabsTrigger>
             <TabsTrigger value="invoices" className="gap-2">
               <Receipt className="h-4 w-4" />
-              <span className="hidden sm:inline">Invoices</span>
+              <span className="hidden sm:inline">Faktur</span>
             </TabsTrigger>
             <TabsTrigger value="cancellations" className="gap-2">
               <XCircle className="h-4 w-4" />
-              <span className="hidden sm:inline">Cancel</span>
+              <span className="hidden sm:inline">Batalkan</span>
             </TabsTrigger>
             <TabsTrigger value="pending" className="gap-2">
               <Clock className="h-4 w-4" />
-              <span className="hidden sm:inline">Pending</span>
+              <span className="hidden sm:inline">Menunggu</span>
             </TabsTrigger>
           </TabsList>
 
@@ -105,11 +105,11 @@ const AdminSubscriptions = () => {
             <Card>
               <CardHeader>
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <CardTitle>Merchant Subscriptions</CardTitle>
+                  <CardTitle>Langganan Merchant</CardTitle>
                   <div className="relative w-full md:w-64">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Search merchants..."
+                      placeholder="Cari merchant..."
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       className="pl-9"
@@ -131,7 +131,7 @@ const AdminSubscriptions = () => {
           <TabsContent value="invoices">
             <Card>
               <CardHeader>
-                <CardTitle>Subscription Invoices</CardTitle>
+                <CardTitle>Faktur Langganan</CardTitle>
               </CardHeader>
               <CardContent>
                 <AdminSubscriptionInvoicesTable invoices={invoices} isLoading={isLoadingInvoices} />
@@ -143,7 +143,7 @@ const AdminSubscriptions = () => {
           <TabsContent value="cancellations">
             <Card>
               <CardHeader>
-                <CardTitle>Cancellation Feedback</CardTitle>
+                <CardTitle>Umpan Balik Pembatalan</CardTitle>
               </CardHeader>
               <CardContent>
                 <AdminSubscriptionCancellationsTable cancellations={cancellations} isLoading={isLoadingCancellations} />
@@ -155,7 +155,7 @@ const AdminSubscriptions = () => {
           <TabsContent value="pending">
             <Card>
               <CardHeader>
-                <CardTitle>Pending Subscription Changes</CardTitle>
+                <CardTitle>Perubahan Langganan Menunggu</CardTitle>
               </CardHeader>
               <CardContent>
                 <AdminSubscriptionPendingChangesTable pendingChanges={pendingChanges} isLoading={isLoadingPending} />
@@ -168,7 +168,7 @@ const AdminSubscriptions = () => {
         <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Update Subscription Plan</DialogTitle>
+              <DialogTitle>Perbarui Paket Langganan</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
@@ -176,10 +176,10 @@ const AdminSubscriptions = () => {
                 <Input value={selectedMerchant?.business_name || ''} disabled />
               </div>
               <div className="space-y-2">
-                <Label>New Plan</Label>
+                <Label>Paket Baru</Label>
                 <Select value={newTier} onValueChange={setNewTier}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select plan" />
+                    <SelectValue placeholder="Pilih paket" />
                   </SelectTrigger>
                   <SelectContent>
                     {tiers?.map((tier) => (
@@ -193,11 +193,11 @@ const AdminSubscriptions = () => {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowUpgradeDialog(false)}>
-                Cancel
+                Batal
               </Button>
               <Button onClick={handleUpdateSubscription} disabled={isUpdating}>
                 {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Update Plan
+                Perbarui Paket
               </Button>
             </DialogFooter>
           </DialogContent>

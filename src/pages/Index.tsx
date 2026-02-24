@@ -11,27 +11,27 @@ import { JsonLd, softwareApplicationSchema, organizationSchema } from '@/shared/
 const features = [
   {
     icon: Shield,
-    title: 'Secure Payments',
-    description: 'Protected escrow system ensures safe transactions for all parties.',
+    title: 'Pembayaran Aman',
+    description: 'Sistem escrow yang aman memastikan transaksi aman untuk semua pihak.',
   },
   {
     icon: Wallet,
-    title: 'Automated Invoicing',
-    description: 'Generate and send invoices automatically each month.',
+    title: 'Tagihan Otomatis',
+    description: 'Buat dan kirim tagihan secara otomatis setiap bulan.',
   },
   {
     icon: Users,
-    title: 'Tenant Management',
-    description: 'Easily manage tenants, contracts, and maintenance requests.',
+    title: 'Manajemen Penyewa',
+    description: 'Kelola penyewa, kontrak, dan permintaan perbaikan dengan mudah.',
   },
 ];
 
 const benefits = [
-  'No setup fees or hidden costs',
-  'Free tier for small property owners',
-  'Secure escrow-based payments',
-  'Automated rent collection',
-  '24/7 customer support',
+  'Tanpa biaya pendaftaran atau biaya tersembunyi',
+  'Paket gratis untuk pemilik properti kecil',
+  'Pembayaran berbasis escrow yang aman',
+  'Penagihan sewa otomatis',
+  'Dukungan pelanggan 24/7',
 ];
 
 export default function Index() {
@@ -71,10 +71,10 @@ export default function Index() {
           </div>
           <div className="flex items-center gap-4">
             <Link to="/auth">
-              <Button variant="ghost">Login</Button>
+              <Button variant="ghost">Masuk</Button>
             </Link>
             <Link to="/auth">
-              <Button>Get Started</Button>
+              <Button>Mulai Sekarang</Button>
             </Link>
           </div>
         </div>
@@ -90,25 +90,25 @@ export default function Index() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
               </span>
-              Now available across Indonesia
+              Tersedia di seluruh Indonesia
             </div>
             <h1 className="text-4xl md:text-6xl font-display font-bold tracking-tight max-w-4xl mx-auto">
-              Simplify Property Management in{' '}
+              Sederhanakan Manajemen Properti di{' '}
               <span className="text-primary">Indonesia</span>
             </h1>
             <p className="mt-6 text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-              The all-in-one platform for property owners, tenants, and vendors. 
-              Manage rentals, payments, and maintenance with ease.
+              Platform serba ada untuk pemilik properti, penyewa, dan vendor. 
+              Kelola sewa, pembayaran, dan pemeliharaan dengan mudah.
             </p>
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link to="/auth">
                 <Button size="lg" className="w-full sm:w-auto text-base">
-                  Start Free Trial
+                  Mulai Uji Coba Gratis
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
               <Button variant="outline" size="lg" className="w-full sm:w-auto text-base">
-                Watch Demo
+                Lihat Demo
               </Button>
             </div>
             <div className="mt-12 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 text-sm text-muted-foreground">
@@ -126,9 +126,9 @@ export default function Index() {
         <section className="py-20 bg-muted/30">
           <div className="container mx-auto px-4">
             <div className="text-center mb-12">
-              <h2 className="text-3xl font-display font-bold">Everything you need</h2>
+              <h2 className="text-3xl font-display font-bold">Segala yang Anda butuhkan</h2>
               <p className="mt-4 text-muted-foreground max-w-2xl mx-auto">
-                Powerful features to manage your properties efficiently and grow your rental business
+                Fitur canggih untuk mengelola properti Anda secara efisien dan mengembangkan bisnis sewa Anda
               </p>
             </div>
             <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
@@ -155,19 +155,19 @@ export default function Index() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto text-center">
               <div>
                 <p className="text-4xl font-display font-bold text-primary">500+</p>
-                <p className="mt-2 text-muted-foreground">Property Owners</p>
+                <p className="mt-2 text-muted-foreground">Pemilik Properti</p>
               </div>
               <div>
                 <p className="text-4xl font-display font-bold text-primary">2,500+</p>
-                <p className="mt-2 text-muted-foreground">Active Tenants</p>
+                <p className="mt-2 text-muted-foreground">Penyewa Aktif</p>
               </div>
               <div>
                 <p className="text-4xl font-display font-bold text-primary">Rp 5B+</p>
-                <p className="mt-2 text-muted-foreground">Transactions</p>
+                <p className="mt-2 text-muted-foreground">Transaksi</p>
               </div>
               <div>
                 <p className="text-4xl font-display font-bold text-primary">15+</p>
-                <p className="mt-2 text-muted-foreground">Cities</p>
+                <p className="mt-2 text-muted-foreground">Kota</p>
               </div>
             </div>
           </div>
@@ -177,14 +177,14 @@ export default function Index() {
         <section className="py-20 bg-muted/30">
           <div className="container mx-auto px-4">
             <Card className="gradient-primary text-primary-foreground p-8 md:p-12 text-center border-0">
-              <h2 className="text-3xl font-display font-bold">Ready to get started?</h2>
+              <h2 className="text-3xl font-display font-bold">Siap untuk memulai?</h2>
               <p className="mt-4 text-primary-foreground/80 max-w-xl mx-auto">
-                Join thousands of property owners who trust SiHuni to manage their rentals.
+                Bergabunglah dengan ribuan pemilik properti yang mempercayai SiHuni untuk mengelola sewa mereka.
               </p>
               <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
                 <Link to="/auth">
                   <Button size="lg" variant="secondary" className="w-full sm:w-auto">
-                    Create Free Account
+                    Buat Akun Gratis
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </Link>
@@ -205,7 +205,7 @@ export default function Index() {
               <span className="font-display font-semibold">SiHuni</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              © 2024 SiHuni. All rights reserved.
+              © 2024 SiHuni. Hak cipta dilindungi undang-undang.
             </p>
           </div>
         </div>

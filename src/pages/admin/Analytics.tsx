@@ -49,7 +49,7 @@ const AdminAnalytics = () => {
       <AdminLayout>
         <div className="flex flex-col items-center justify-center h-64 gap-2">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading analytics data...</p>
+          <p className="text-muted-foreground">Memuat data analitik...</p>
         </div>
       </AdminLayout>
     );
@@ -59,12 +59,12 @@ const AdminAnalytics = () => {
     return (
       <AdminLayout>
         <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error Loading Analytics</AlertTitle>
-          <AlertDescription>
-            Failed to load analytics data. Please try again.
-          </AlertDescription>
-        </Alert>
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Gagal Memuat Analitik</AlertTitle>
+        <AlertDescription>
+          Gagal memuat data analitik. Silakan coba lagi.
+        </AlertDescription>
+      </Alert>
       </AdminLayout>
     );
   }
@@ -113,7 +113,7 @@ const AdminAnalytics = () => {
   const monthlyTenantData = getMonthlyData();
 
   const chartConfig = {
-    count: { label: "Count", color: "hsl(var(--destructive))" },
+    count: { label: "Jumlah", color: "hsl(var(--destructive))" },
   };
 
   const churnReasons = () => {
@@ -141,24 +141,24 @@ const AdminAnalytics = () => {
     const pending = payments.filter(p => p.status === 'pending').length;
 
     return [
-      { name: 'On Time', value: onTime, fill: 'hsl(var(--success))' },
-      { name: 'Late', value: late, fill: 'hsl(var(--warning))' },
-      { name: 'Pending', value: pending, fill: 'hsl(var(--muted))' },
+      { name: 'Tepat Waktu', value: onTime, fill: 'hsl(var(--success))' },
+      { name: 'Terlambat', value: late, fill: 'hsl(var(--warning))' },
+      { name: 'Menunggu', value: pending, fill: 'hsl(var(--muted))' },
     ];
   };
 
   // Merchant status distribution
   const merchantStatus = [
-    { name: 'Verified', value: distributionStats?.merchantStatus?.verified || 0, fill: 'hsl(var(--success))' },
-    { name: 'Pending', value: distributionStats?.merchantStatus?.pending || 0, fill: 'hsl(var(--warning))' },
-    { name: 'Rejected', value: distributionStats?.merchantStatus?.rejected || 0, fill: 'hsl(var(--destructive))' },
+    { name: 'Terverifikasi', value: distributionStats?.merchantStatus?.verified || 0, fill: 'hsl(var(--success))' },
+    { name: 'Menunggu', value: distributionStats?.merchantStatus?.pending || 0, fill: 'hsl(var(--warning))' },
+    { name: 'Ditolak', value: distributionStats?.merchantStatus?.rejected || 0, fill: 'hsl(var(--destructive))' },
   ];
 
   // Maintenance request status
   const maintenanceData = [
-    { name: 'Pending', count: distributionStats?.maintenanceStatus?.pending || 0 },
-    { name: 'In Progress', count: distributionStats?.maintenanceStatus?.in_progress || 0 },
-    { name: 'Completed', count: distributionStats?.maintenanceStatus?.completed || 0 },
+    { name: 'Menunggu', count: distributionStats?.maintenanceStatus?.pending || 0 },
+    { name: 'Sedang Diproses', count: distributionStats?.maintenanceStatus?.in_progress || 0 },
+    { name: 'Selesai', count: distributionStats?.maintenanceStatus?.completed || 0 },
   ];
 
   const formatCurrency = (amount: number) => {
@@ -169,32 +169,32 @@ const AdminAnalytics = () => {
 
   const handleExportCSV = async () => {
     const data = [
-      { metric: 'Total Revenue', value: formatCurrency(totalRevenue) },
-      { metric: 'Total Merchants', value: totalMerchants },
-      { metric: 'Total Properties', value: totalProperties },
-      { metric: 'Total Units', value: totalUnits },
-      { metric: 'Active Tenants', value: activeTenants },
-      { metric: 'Occupancy Rate', value: `${occupancyRate}%` },
+      { metric: 'Total Pendapatan', value: formatCurrency(totalRevenue) },
+      { metric: 'Total Pemilik Properti', value: totalMerchants },
+      { metric: 'Total Properti', value: totalProperties },
+      { metric: 'Total Unit', value: totalUnits },
+      { metric: 'Penyewa Aktif', value: activeTenants },
+      { metric: 'Tingkat Hunian', value: `${occupancyRate}%` },
     ];
-    exportToCSV(data, 'platform-analytics');
+    exportToCSV(data, 'analitik-platform');
     await logExport('analytics', 'csv', data.length, { dateRange });
   };
 
   const handleExportPDF = async () => {
     const data = [
-      { metric: 'Total Revenue', value: formatCurrency(totalRevenue) },
-      { metric: 'Total Merchants', value: totalMerchants },
-      { metric: 'Active Tenants', value: activeTenants },
-      { metric: 'Occupancy Rate', value: `${occupancyRate}%` },
+      { metric: 'Total Pendapatan', value: formatCurrency(totalRevenue) },
+      { metric: 'Total Pemilik Properti', value: totalMerchants },
+      { metric: 'Penyewa Aktif', value: activeTenants },
+      { metric: 'Tingkat Hunian', value: `${occupancyRate}%` },
     ];
-    exportToPDF(data, 'Platform Analytics Report', 'platform-analytics');
+    exportToPDF(data, 'Laporan Analitik Platform', 'analitik-platform');
     await logExport('analytics', 'pdf', data.length, { dateRange });
   };
 
   return (
     <AdminLayout
-      title="Platform Analytics"
-      description="Overview of platform performance and metrics"
+      title="Analitik Platform"
+      description="Ringkasan kinerja dan metrik platform"
       actions={
         <div className="flex gap-2 flex-wrap">
           <DateRangePicker
@@ -225,11 +225,11 @@ const AdminAnalytics = () => {
             </TabsTrigger>
             <TabsTrigger value="tenants" className="flex items-center gap-2">
               <UserCheck className="h-4 w-4" />
-              Tenants
+              Penyewa
             </TabsTrigger>
             <TabsTrigger value="subscriptions" className="flex items-center gap-2">
               <CreditCard className="h-4 w-4" />
-              MRR/Churn
+              Langganan
             </TabsTrigger>
           </TabsList>
 

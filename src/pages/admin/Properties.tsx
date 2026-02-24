@@ -30,10 +30,10 @@ export default function AdminProperties() {
       { id, status: newStatus },
       {
         onSuccess: () => {
-          toast.success(`Property status updated to ${newStatus}`);
+          toast.success(`Status properti diperbarui menjadi ${newStatus}`);
         },
         onError: (error) => {
-          toast.error(`Failed to update status: ${error.message}`);
+          toast.error(`Gagal memperbarui status: ${error.message}`);
         },
       }
     );
@@ -48,8 +48,8 @@ export default function AdminProperties() {
   if (isLoading) {
     return (
       <AdminLayout
-        title="Properties Management"
-        description="Monitor and manage property listings."
+        title="Manajemen Properti"
+        description="Pantau dan kelola daftar properti."
       >
         <div className="flex items-center justify-center h-96">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -60,8 +60,8 @@ export default function AdminProperties() {
 
   return (
     <AdminLayout
-      title="Properties Management"
-      description="Monitor and manage property listings."
+      title="Manajemen Properti"
+      description="Pantau dan kelola daftar properti."
     >
       <div className="space-y-6">
         <AdminPropertiesStats properties={properties} />

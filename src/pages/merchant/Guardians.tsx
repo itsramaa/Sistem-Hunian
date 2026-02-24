@@ -9,7 +9,9 @@ import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/shared/components/ui/alert-dialog';
-import { Edit, Loader2, Plus, Trash2, UserCheck, Users } from 'lucide-react';
+import { Input } from '@/shared/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { Edit, Loader2, Plus, Search, Trash2, UserCheck, Users } from 'lucide-react';
 import { SALARY_FREQUENCY_OPTIONS } from '@/features/properties/constants';
 
 export default function Guardians() {
@@ -24,6 +26,8 @@ export default function Guardians() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<PropertyGuardian | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
 
   const handleSubmit = async (data: GuardianFormData) => {
     if (editing) {
@@ -97,6 +101,29 @@ export default function Guardians() {
       <Card className="rounded-2xl">
         <CardHeader><CardTitle className="text-lg">Daftar Penjaga</CardTitle></CardHeader>
         <CardContent>
+          <div className="flex gap-2 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Cari penjaga..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 rounded-xl border-border/40 bg-card/50"
+              />
+            </div>
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger className="w-[180px] rounded-xl border-border/40 bg-card/50">
+                <SelectValue placeholder="Filter Peran" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Peran</SelectItem>
+                <SelectItem value="security">Keamanan</SelectItem>
+                <SelectItem value="cleaner">Kebersihan</SelectItem>
+                <SelectItem value="manager">Manajer</SelectItem>
+                <SelectItem value="maintenance">Pemeliharaan</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           {isLoading ? (
             <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
           ) : guardians.length === 0 ? (

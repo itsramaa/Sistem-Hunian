@@ -37,8 +37,8 @@ const AdminSettings = () => {
     updateSetting(
       { key: 'general', value: values },
       {
-        onSuccess: () => toast.success("General settings updated successfully"),
-        onError: () => toast.error("Failed to update general settings")
+        onSuccess: () => toast.success("Pengaturan umum berhasil diperbarui"),
+        onError: () => toast.error("Gagal memperbarui pengaturan umum")
       }
     );
   };
@@ -47,8 +47,8 @@ const AdminSettings = () => {
     updateSetting(
       { key: 'notifications', value: values },
       {
-        onSuccess: () => toast.success("Notification settings updated successfully"),
-        onError: () => toast.error("Failed to update notification settings")
+        onSuccess: () => toast.success("Pengaturan notifikasi berhasil diperbarui"),
+        onError: () => toast.error("Gagal memperbarui pengaturan notifikasi")
       }
     );
   };
@@ -57,8 +57,8 @@ const AdminSettings = () => {
     updateSetting(
       { key: 'security', value: values },
       {
-        onSuccess: () => toast.success("Security settings updated successfully"),
-        onError: () => toast.error("Failed to update security settings")
+        onSuccess: () => toast.success("Pengaturan keamanan berhasil diperbarui"),
+        onError: () => toast.error("Gagal memperbarui pengaturan keamanan")
       }
     );
   };
@@ -75,8 +75,8 @@ const AdminSettings = () => {
 
   return (
     <AdminLayout
-      title="Platform Settings"
-      description="Manage global platform configuration and preferences."
+      title="Pengaturan Platform"
+      description="Kelola konfigurasi dan preferensi platform global."
     >
       <div className="flex flex-col md:flex-row gap-8">
         <Tabs defaultValue="general" className="w-full flex flex-col md:flex-row gap-8">
@@ -88,8 +88,8 @@ const AdminSettings = () => {
               >
                 <Globe className="h-4 w-4" />
                 <div className="flex flex-col items-start text-left">
-                  <span className="font-medium">General</span>
-                  <span className="text-xs font-normal opacity-70 hidden md:block">Basic platform details</span>
+                  <span className="font-medium">Umum</span>
+                  <span className="text-xs font-normal opacity-70 hidden md:block">Detail dasar platform</span>
                 </div>
               </TabsTrigger>
               <TabsTrigger 
@@ -98,8 +98,8 @@ const AdminSettings = () => {
               >
                 <Bell className="h-4 w-4" />
                 <div className="flex flex-col items-start text-left">
-                  <span className="font-medium">Notifications</span>
-                  <span className="text-xs font-normal opacity-70 hidden md:block">Email and alerts</span>
+                  <span className="font-medium">Notifikasi</span>
+                  <span className="text-xs font-normal opacity-70 hidden md:block">Email dan peringatan</span>
                 </div>
               </TabsTrigger>
               <TabsTrigger 
@@ -108,8 +108,8 @@ const AdminSettings = () => {
               >
                 <Shield className="h-4 w-4" />
                 <div className="flex flex-col items-start text-left">
-                  <span className="font-medium">Security</span>
-                  <span className="text-xs font-normal opacity-70 hidden md:block">Access control & logs</span>
+                  <span className="font-medium">Keamanan</span>
+                  <span className="text-xs font-normal opacity-70 hidden md:block">Kontrol akses & log</span>
                 </div>
               </TabsTrigger>
             </TabsList>

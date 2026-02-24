@@ -64,7 +64,7 @@ export default function MerchantMaintenance() {
         setSelectedRequest(null);
       },
       onError: (error: Error) => {
-        toast({ title: 'Failed to update request', description: error.message, variant: 'destructive' });
+        toast({ title: 'Gagal memperbarui permintaan', description: error.message, variant: 'destructive' });
       }
     });
   };

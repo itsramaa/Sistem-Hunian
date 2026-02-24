@@ -36,25 +36,25 @@ export default function AdminUsers() {
 
   const handleAddAdmin = (newAdminData: Omit<AdminUser, "id" | "status" | "lastLogin">) => {
     // In a real app, this would call a mutation to invite the user via Supabase Auth
-    toast.info("To add a new admin, please use the Supabase Dashboard or implement an Edge Function for secure invites.");
+    toast.info("Untuk menambahkan admin baru, silakan gunakan Dashboard Supabase atau implementasikan Edge Function untuk undangan yang aman.");
     setIsDialogOpen(false);
   };
 
   const handleDeleteAdmin = (id: string) => {
     // In a real app, this would call a mutation to remove the admin role
-    toast.info("To remove an admin, please use the Supabase Dashboard or implement an Edge Function for secure role management.");
+    toast.info("Untuk menghapus admin, silakan gunakan Dashboard Supabase atau implementasikan Edge Function untuk manajemen peran yang aman.");
   };
 
   const handleEmailUser = (email: string) => {
-    toast.info(`Opening email client for ${email}`);
+    toast.info(`Membuka klien email untuk ${email}`);
     window.location.href = `mailto:${email}`;
   };
 
   if (isLoading) {
     return (
       <AdminLayout
-        title="Admin Management"
-        description="Manage internal team access and permissions."
+        title="Manajemen Admin"
+        description="Kelola akses dan izin tim internal."
       >
         <div className="flex items-center justify-center h-96">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -65,13 +65,13 @@ export default function AdminUsers() {
 
   return (
     <AdminLayout
-      title="Admin Management"
-      description="Manage internal team access and permissions."
+      title="Manajemen Admin"
+      description="Kelola akses dan izin tim internal."
       actions={
         <>
           <Button onClick={() => setIsDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            Invite Admin
+            Undang Admin
           </Button>
           <InviteAdminDialog 
             open={isDialogOpen} 

@@ -25,6 +25,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/shared/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useOcrResults, useUpdateOcrResult } from "@/features/dss/hooks/useOcrDocuments";
 import { OcrDocumentViewer } from "@/features/dss/components/OcrDocumentViewer";
@@ -193,22 +194,29 @@ export default function DocumentCenter() {
           </SheetHeader>
 
           {selectedResult && (
-            <div className="mt-6 space-y-6">
-              {/* Document preview */}
-              <OcrDocumentViewer
-                documentUrl={selectedResult.document_url}
-                extractedFields={selectedResult.extracted_data as Record<string, unknown> | undefined}
-              />
-
-              {/* Editor */}
-              <OcrResultEditor
-                extractedData={selectedResult.extracted_data as Record<string, unknown> | null}
-                originalData={selectedResult.extracted_data as Record<string, unknown> | null}
-                reviewNotes={selectedResult.review_notes}
-                status={selectedResult.status}
-                onSave={handleSave}
-                saving={updateMutation.isPending}
-              />
+            <div className="mt-4 space-y-4">
+              <Tabs defaultValue="preview">
+                <TabsList>
+                  <TabsTrigger value="preview">Pratinjau dokumen</TabsTrigger>
+                  <TabsTrigger value="editor">Editor</TabsTrigger>
+                </TabsList>
+                <TabsContent value="preview" className="mt-4">
+                  <OcrDocumentViewer
+                    documentUrl={selectedResult.document_url}
+                    extractedFields={selectedResult.extracted_data as Record<string, unknown> | undefined}
+                  />
+                </TabsContent>
+                <TabsContent value="editor" className="mt-4">
+                  <OcrResultEditor
+                    extractedData={selectedResult.extracted_data as Record<string, unknown> | null}
+                    originalData={selectedResult.extracted_data as Record<string, unknown> | null}
+                    reviewNotes={selectedResult.review_notes}
+                    status={selectedResult.status}
+                    onSave={handleSave}
+                    saving={updateMutation.isPending}
+                  />
+                </TabsContent>
+              </Tabs>
             </div>
           )}
         </SheetContent>

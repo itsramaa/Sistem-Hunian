@@ -33,21 +33,21 @@ const onboardingSchema = z.object({
 type OnboardingFormData = z.infer<typeof onboardingSchema>;
 
 const roleOptions: { value: SelectableRole; label: string; icon: typeof Building2; description: string; emoji: string }[] = [
-  { 
-    value: 'merchant', 
-    label: 'Pemilik Properti', 
-    icon: Building2, 
-    description: 'Kelola properti, tenant, tagihan, dan laporan dalam satu platform',
-    emoji: '🏠',
-  },
-  { 
-    value: 'vendor', 
-    label: 'Vendor Jasa', 
-    icon: Wrench, 
-    description: 'Terima order jasa dari pemilik properti dan kelola penghasilan',
-    emoji: '🔧',
-  },
-];
+    { 
+      value: 'merchant', 
+      label: 'Pemilik Properti', 
+      icon: Building2, 
+      description: 'Kelola properti, penyewa, tagihan, dan laporan dalam satu platform',
+      emoji: '🏠',
+    },
+    { 
+      value: 'vendor', 
+      label: 'Vendor Jasa', 
+      icon: Wrench, 
+      description: 'Terima pesanan jasa dari pemilik properti dan kelola penghasilan',
+      emoji: '🔧',
+    },
+  ];
 
 // Floating orbs background
 function FloatingOrbs() {
@@ -231,7 +231,7 @@ export default function Onboarding() {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Anda harus login terlebih dahulu',
+        description: 'Anda harus masuk terlebih dahulu',
       });
       return;
     }

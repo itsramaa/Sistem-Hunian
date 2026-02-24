@@ -47,18 +47,18 @@ export default function AdminDashboard() {
   return (
     <AdminLayout
       title="Dashboard"
-      description="Overview of your platform's performance and recent activities."
+      description="Ringkasan performa platform dan aktivitas terbaru Anda."
       actions={
         <div className="flex items-center gap-2">
           <Select value={dateRange} onValueChange={(v: any) => setDateRange(v)}>
             <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select date range" />
+              <SelectValue placeholder="Pilih rentang waktu" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="7d">Last 7 days</SelectItem>
-              <SelectItem value="30d">Last 30 days</SelectItem>
-              <SelectItem value="all">All time</SelectItem>
+              <SelectItem value="today">Hari Ini</SelectItem>
+              <SelectItem value="7d">7 Hari Terakhir</SelectItem>
+              <SelectItem value="30d">30 Hari Terakhir</SelectItem>
+              <SelectItem value="all">Semua Waktu</SelectItem>
             </SelectContent>
           </Select>
           <Button 
@@ -69,16 +69,16 @@ export default function AdminDashboard() {
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
-          <Button>Download Report</Button>
+          <Button>Unduh Laporan</Button>
         </div>
       }
     >
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="reports">Reports</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="overview">Ringkasan</TabsTrigger>
+          <TabsTrigger value="analytics">Analitik</TabsTrigger>
+          <TabsTrigger value="reports">Laporan</TabsTrigger>
+          <TabsTrigger value="notifications">Notifikasi</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="space-y-4">
           <AdminStatsCards statsData={statsData} isLoading={isLoading} />

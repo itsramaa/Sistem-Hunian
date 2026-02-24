@@ -98,7 +98,7 @@ export const tenantAnalyticsService = {
 
   async fetchOccupancyMetrics(merchantId: string, propertyId?: string): Promise<OccupancyMetrics> {
     // Current occupancy
-    let unitsQuery = supabase.from('units').select('id, status, rent_amount, property_id')
+    const unitsQuery = supabase.from('units').select('id, status, rent_amount, property_id')
       .eq('property_id', propertyId ? propertyId : '');
 
     if (!propertyId) {

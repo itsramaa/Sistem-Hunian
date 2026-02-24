@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, Fragment } from "react";
 import { useLocation, Link } from "react-router-dom";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/shared/components/ui/sidebar";
 import { Separator } from "@/shared/components/ui/separator";
@@ -14,13 +14,14 @@ import {
 import { useIsMobile } from "@/shared/hooks/use-mobile";
 import { AppSidebar } from "@/shared/components/layouts/sidebar/app-sidebar";
 import { MobileLayout } from "@/shared/components/layouts/MobileLayout";
-import { UserRole, navigationConfig, getAllNavItems } from "@/shared/components/layouts/navigation-config";
+import { UserRole, navigationConfig } from "@/shared/components/layouts/navigation-config";
 import { FloatingActionButton } from "@/shared/components/layouts/FloatingActionButton";
 import { ChatbotDialog } from "@/features/chatbot/components/ChatbotDialog";
 import { useChatbotTracking } from "@/features/analytics/hooks/useAnalytics";
 import { Meta } from "@/shared/components/meta";
 import { ThemeToggle } from "@/shared/components/ui/ThemeToggle";
 import { SearchCommand } from "@/shared/components/layouts/SearchCommand";
+import { generateBreadcrumbs } from "@/shared/utils/breadcrumbUtils";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -33,31 +34,6 @@ interface DashboardLayoutProps {
     type: "create";
     onClick: () => void;
   };
-}
-
-// Helper to get breadcrumb label for role dashboard
-function getRoleDashboardLabel(role: UserRole): string {
-  switch (role) {
-    case "tenant": return "Beranda";
-    case "merchant": return "Dashboard";
-    case "vendor": return "Dashboard";
-    case "admin": return "Dashboard";
-    default: return "Dashboard";
-  }
-}
-
-// Helper to get current page label from navigation config
-function getCurrentPageLabel(role: UserRole, pathname: string): string | null {
-  const navItems = getAllNavItems(role);
-  const basePath = `/${role}`;
-  
-  // Find matching nav item
-  const matchedItem = navItems.find(item => {
-    if (item.path === basePath) return pathname === basePath;
-    return pathname.startsWith(item.path);
-  });
-  
-  return matchedItem?.label || null;
 }
 
 export function DashboardLayout({
@@ -88,7 +64,8 @@ export function DashboardLayout({
   };
   
   // Auto-detect page label from navigation config if no title provided
-  const pageLabel = title || getCurrentPageLabel(role, location.pathname);
+  const pageLabel = title || ""; // Legacy support, though we use breadcrumbs now
+  const breadcrumbs = generateBreadcrumbs(role, location.pathname);
 
   // Mobile: Use mobile layout with bottom nav (tenant) or simplified header (others)
   if (isMobile) {
@@ -122,29 +99,26 @@ export function DashboardLayout({
             <Separator orientation="vertical" className="mr-2 h-4" />
             <Breadcrumb>
               <BreadcrumbList>
-                <BreadcrumbItem className="hidden md:block">
-                  {isRootPage ? (
-                    <BreadcrumbPage className="text-sm font-medium">
-                      {getRoleDashboardLabel(role)}
-                    </BreadcrumbPage>
-                  ) : (
-                    <BreadcrumbLink asChild>
-                      <Link to={basePath} className="text-sm">
-                        {getRoleDashboardLabel(role)}
-                      </Link>
-                    </BreadcrumbLink>
-                  )}
-                </BreadcrumbItem>
-                {!isRootPage && pageLabel && (
-                  <>
-                    <BreadcrumbSeparator className="hidden md:block" />
-                    <BreadcrumbItem>
-                      <BreadcrumbPage className="text-sm font-medium">
-                        {pageLabel}
-                      </BreadcrumbPage>
+                {breadcrumbs.map((crumb, index) => (
+                  <Fragment key={crumb.path}>
+                    <BreadcrumbItem className={index === 0 ? "hidden md:block" : ""}>
+                      {crumb.isCurrent ? (
+                        <BreadcrumbPage className="text-sm font-medium">
+                          {crumb.label}
+                        </BreadcrumbPage>
+                      ) : (
+                        <BreadcrumbLink asChild>
+                          <Link to={crumb.path} className="text-sm">
+                            {crumb.label}
+                          </Link>
+                        </BreadcrumbLink>
+                      )}
                     </BreadcrumbItem>
-                  </>
-                )}
+                    {index < breadcrumbs.length - 1 && (
+                      <BreadcrumbSeparator className={index === 0 ? "hidden md:block" : ""} />
+                    )}
+                  </Fragment>
+                ))}
               </BreadcrumbList>
             </Breadcrumb>
           </div>

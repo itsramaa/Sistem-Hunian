@@ -133,14 +133,7 @@ export default function PropertyDetail() {
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-sm text-muted-foreground px-3 py-1.5 rounded-full bg-card/80 backdrop-blur-sm border border-border/40 w-fit">
-        <Link to="/merchant" className="hover:text-foreground transition-colors">Dashboard</Link>
-        <ChevronRight className="h-3.5 w-3.5" />
-        <Link to="/merchant/properties" className="hover:text-foreground transition-colors">Properti</Link>
-        <ChevronRight className="h-3.5 w-3.5" />
-        <span className="text-primary font-semibold truncate max-w-[150px]">{property.name}</span>
-      </div>
+
 
       {/* Hero Header */}
       <div className="flex flex-col sm:flex-row sm:items-start gap-4">

@@ -95,8 +95,8 @@ export default function Tenants() {
 
   return (
     <AdminLayout
-      title="Tenant Management"
-      description="Oversee tenant accounts across all merchants and properties."
+      title="Manajemen Penyewa"
+      description="Pantau akun penyewa di semua merchant dan properti."
     >
       <div className="space-y-6">
         <AdminTenantStats stats={stats} isLoading={isLoadingStats} />

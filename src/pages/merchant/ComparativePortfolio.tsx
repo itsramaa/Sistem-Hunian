@@ -267,8 +267,8 @@ function PortfolioTab({
       {/* Performance Ranking */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Performance Ranking</CardTitle>
-          <CardDescription>Skor komposit: Occupancy (40%) + ROI (30%) + Rent Percentile (30%)</CardDescription>
+          <CardTitle className="text-lg">Peringkat Performa</CardTitle>
+          <CardDescription>Skor komposit: Okupansi (40%) + ROI (30%) + Persentil Sewa (30%)</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">

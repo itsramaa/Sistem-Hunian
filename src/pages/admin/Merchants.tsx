@@ -141,17 +141,17 @@ export default function AdminMerchants() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-display font-bold">Merchant Management</h1>
-            <p className="text-muted-foreground">Review and manage merchant accounts</p>
+            <h1 className="text-2xl font-display font-bold">Manajemen Merchant</h1>
+            <p className="text-muted-foreground">Tinjau dan kelola akun merchant</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={handleExportMerchants}>
               <Download className="h-4 w-4 mr-2" />
-              Export CSV
+              Ekspor CSV
             </Button>
             <Button variant="outline" onClick={handleExportPDF}>
               <FileText className="h-4 w-4 mr-2" />
-              Export PDF
+              Ekspor PDF
             </Button>
           </div>
         </div>
@@ -195,7 +195,7 @@ export default function AdminMerchants() {
                 </div>
                 <Button onClick={() => setShowBulkApprovalDialog(true)}>
                   <CheckCircle className="h-4 w-4 mr-2" />
-                  Bulk Approve ({selectedMerchantIds.length})
+                  Setujui Sekaligus ({selectedMerchantIds.length})
                 </Button>
               </div>
             </CardContent>
@@ -205,7 +205,7 @@ export default function AdminMerchants() {
         {/* Merchants Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Merchants ({filteredMerchants.length})</CardTitle>
+            <CardTitle>Merchant ({filteredMerchants.length})</CardTitle>
           </CardHeader>
           <CardContent>
             {error ? (

@@ -76,10 +76,10 @@ export default function MerchantInvoices() {
 
   return (
     <div className="space-y-6">
-      <PageHeader icon={FileText} title="Invoices" description="Manage and track your invoices">
+      <PageHeader icon={FileText} title="Faktur" description="Kelola dan lacak faktur Anda">
         <Button onClick={() => setIsCreateOpen(true)} className="gradient-cta rounded-xl">
           <Plus className="h-4 w-4 mr-2" />
-          Create Invoice
+          Buat Faktur
         </Button>
       </PageHeader>
 
@@ -87,12 +87,12 @@ export default function MerchantInvoices() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="pill-tab-list">
-          <TabsTrigger value="all" className="pill-tab-trigger">All ({invoices.length})</TabsTrigger>
-          <TabsTrigger value="draft" className="pill-tab-trigger">Draft ({statusCounts.draft})</TabsTrigger>
-          <TabsTrigger value="sent" className="pill-tab-trigger">Sent ({statusCounts.sent})</TabsTrigger>
-          <TabsTrigger value="paid" className="pill-tab-trigger">Paid ({statusCounts.paid})</TabsTrigger>
+          <TabsTrigger value="all" className="pill-tab-trigger">Semua ({invoices.length})</TabsTrigger>
+          <TabsTrigger value="draft" className="pill-tab-trigger">Draf ({statusCounts.draft})</TabsTrigger>
+          <TabsTrigger value="sent" className="pill-tab-trigger">Terkirim ({statusCounts.sent})</TabsTrigger>
+          <TabsTrigger value="paid" className="pill-tab-trigger">Lunas ({statusCounts.paid})</TabsTrigger>
           <TabsTrigger value="overdue" className="pill-tab-trigger">
-            Overdue
+            Jatuh Tempo
             {statusCounts.overdue > 0 && (
               <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs rounded-full">{statusCounts.overdue}</Badge>
             )}

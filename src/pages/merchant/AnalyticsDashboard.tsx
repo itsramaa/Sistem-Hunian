@@ -178,7 +178,7 @@ export default function AnalyticsDashboard() {
     <div className="space-y-6 print:space-y-4">
       <PageHeader icon={BarChart3} title="Dashboard Analitik" description="Visualisasi komprehensif performa properti">
         <Button variant="outline" size="sm" onClick={handleExportPDF} className="print:hidden">
-          <Download className="h-4 w-4 mr-2" /> Export PDF
+          <Download className="h-4 w-4 mr-2" /> Ekspor PDF
         </Button>
       </PageHeader>
 

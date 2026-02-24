@@ -13,8 +13,8 @@ import { toast } from "sonner";
 import * as z from "zod";
 
 const formSchema = z.object({
-  email: z.string().email({ message: "Invalid email address" }),
-  password: z.string().min(1, { message: "Password is required" }),
+  email: z.string().email({ message: "Format email tidak valid" }),
+  password: z.string().min(1, { message: "Password diperlukan" }),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -47,13 +47,13 @@ export default function AdminLogin() {
         throw signInError;
       }
 
-      toast.success("Welcome back, Administrator");
+      toast.success("Selamat datang kembali, Administrator");
       navigate(from, { replace: true });
     } catch (err) {
       console.error("Login error:", err);
-      const message = err instanceof Error ? err.message : "Failed to login";
+      const message = err instanceof Error ? err.message : "Gagal masuk";
       setError(message);
-      toast.error("Login failed", {
+      toast.error("Gagal masuk", {
         description: message,
       });
     }
@@ -68,9 +68,9 @@ export default function AdminLogin() {
               <Shield className="h-8 w-8 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold tracking-tight">Admin Access</CardTitle>
+          <CardTitle className="text-2xl font-bold tracking-tight">Akses Admin</CardTitle>
           <CardDescription>
-            Enter your secure credentials to access the dashboard
+            Masukkan kredensial aman Anda untuk mengakses dashboard
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -88,7 +88,7 @@ export default function AdminLogin() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email Address</FormLabel>
+                    <FormLabel>Alamat Email</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -111,7 +111,7 @@ export default function AdminLogin() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel>Kata Sandi</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -133,10 +133,10 @@ export default function AdminLogin() {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Authenticating...
+                    Mengautentikasi...
                   </>
                 ) : (
-                  "Sign In"
+                  "Masuk"
                 )}
               </Button>
             </form>

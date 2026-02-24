@@ -70,11 +70,11 @@ export default function MerchantContractDetail() {
   return (
     <div className="space-y-6">
       <Button variant="ghost" onClick={() => navigate('/merchant/contracts')} className="gap-2 px-3 py-1.5 rounded-full bg-card/80 backdrop-blur-sm border border-border/40 hover:bg-card">
-        <ArrowLeft className="h-4 w-4" /> Back to Contracts
-      </Button>
+          <ArrowLeft className="h-4 w-4" /> Kembali ke Kontrak
+        </Button>
 
       <div className="flex items-center justify-between flex-wrap gap-4">
-        <PageHeader icon={FileText} title="Contract Details" description={`${contract.unit?.property?.name || 'Property'} - Unit ${contract.unit?.unit_number}`} />
+        <PageHeader icon={FileText} title="Detail Kontrak" description={`${contract.unit?.property?.name || 'Properti'} - Unit ${contract.unit?.unit_number}`} />
         <ContractStatusBadge status={contract.status} />
       </div>
 

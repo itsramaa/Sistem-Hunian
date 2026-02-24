@@ -270,6 +270,21 @@
   .custom-scrollbar-dark::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--sidebar-accent-foreground) / 0.3);
   }
+
+  /* Hide scrollbar utility */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Fade mask for horizontal scrolling lists */
+  .mask-linear-fade {
+    mask-image: linear-gradient(to right, black 85%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+  }
 }
 
 /* Floating orb animation */

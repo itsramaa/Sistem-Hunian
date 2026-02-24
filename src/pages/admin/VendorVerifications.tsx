@@ -25,10 +25,10 @@ export default function AdminVendorVerifications() {
       { id: verification.id, status: 'verified' },
       {
         onSuccess: () => {
-          toast.success('Verification approved successfully');
+          toast.success('Verifikasi berhasil disetujui');
         },
         onError: (error) => {
-          toast.error(`Failed to approve: ${error.message}`);
+          toast.error(`Gagal menyetujui: ${error.message}`);
         }
       }
     );
@@ -36,7 +36,7 @@ export default function AdminVendorVerifications() {
 
   const handleReject = () => {
     if (!selectedVerification || !rejectionReason.trim()) {
-      toast.error('Please provide a rejection reason');
+      toast.error('Mohon berikan alasan penolakan');
       return;
     }
     updateVerification(
@@ -47,13 +47,13 @@ export default function AdminVendorVerifications() {
       },
       {
         onSuccess: () => {
-          toast.success('Verification rejected');
+          toast.success('Verifikasi ditolak');
           setShowRejectDialog(false);
           setSelectedVerification(null);
           setRejectionReason('');
         },
         onError: (error) => {
-          toast.error(`Failed to reject: ${error.message}`);
+          toast.error(`Gagal menolak: ${error.message}`);
         }
       }
     );
@@ -88,8 +88,8 @@ export default function AdminVendorVerifications() {
 
   return (
     <AdminLayout 
-      title="Vendor Verifications" 
-      description="Review and manage vendor document submissions"
+      title="Verifikasi Vendor" 
+      description="Tinjau dan kelola pengajuan dokumen vendor"
     >
       <div className="space-y-6">
         <VendorVerificationStats stats={stats} isLoading={isLoading} />
@@ -114,24 +114,24 @@ export default function AdminVendorVerifications() {
         <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Reject Verification</DialogTitle>
+              <DialogTitle>Tolak Verifikasi</DialogTitle>
               <DialogDescription>
-                Provide a reason for rejecting this verification request. This will be visible to the vendor.
+                Berikan alasan penolakan permintaan verifikasi ini. Ini akan terlihat oleh vendor.
               </DialogDescription>
             </DialogHeader>
             <Textarea
-              placeholder="Enter rejection reason..."
+              placeholder="Masukkan alasan penolakan..."
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
               className="min-h-[100px]"
             />
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowRejectDialog(false)}>
-                Cancel
+                Batal
               </Button>
               <Button variant="destructive" onClick={handleReject} disabled={isUpdating}>
                 {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Reject Verification
+                Tolak Verifikasi
               </Button>
             </DialogFooter>
           </DialogContent>

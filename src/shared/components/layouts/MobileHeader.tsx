@@ -1,10 +1,11 @@
-import { ReactNode } from "react";
+import { ReactNode, Fragment } from "react";
 import { ArrowLeft, Settings, ChevronRight } from "lucide-react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Button } from "@/shared/components/ui/button";
 import { NotificationsDropdown } from "@/features/notifications/components/NotificationsDropdown";
-import { UserRole, navigationConfig, getAllNavItems } from "@/shared/components/layouts/navigation-config";
+import { UserRole, navigationConfig } from "@/shared/components/layouts/navigation-config";
 import { ThemeToggle } from "@/shared/components/ui/ThemeToggle";
+import { generateBreadcrumbs, getRoleDashboardLabel } from "@/shared/utils/breadcrumbUtils";
 
 interface MobileHeaderProps {
   role: UserRole;
@@ -12,30 +13,6 @@ interface MobileHeaderProps {
   description?: string;
   actions?: ReactNode;
   showBack?: boolean;
-}
-
-// Helper to get current page label from navigation config
-function getCurrentPageLabel(role: UserRole, pathname: string): string | null {
-  const navItems = getAllNavItems(role);
-  const basePath = `/${role}`;
-  
-  const matchedItem = navItems.find(item => {
-    if (item.path === basePath) return pathname === basePath;
-    return pathname.startsWith(item.path);
-  });
-  
-  return matchedItem?.label || null;
-}
-
-// Helper to get breadcrumb label for role dashboard
-function getRoleDashboardLabel(role: UserRole): string {
-  switch (role) {
-    case "tenant": return "Beranda";
-    case "merchant": return "Dashboard";
-    case "vendor": return "Dashboard";
-    case "admin": return "Dashboard";
-    default: return "Dashboard";
-  }
 }
 
 export function MobileHeader({
@@ -51,8 +28,13 @@ export function MobileHeader({
   const basePath = `/${role}`;
   const isRootPage = location.pathname === basePath || location.pathname === `${basePath}/`;
 
-  // Auto-detect page label from navigation config if no title provided
-  const pageLabel = title || getCurrentPageLabel(role, location.pathname);
+  // Generate breadcrumbs
+  const crumbs = generateBreadcrumbs(role, location.pathname);
+  
+  // If title is provided, override the last crumb's label
+  if (title && crumbs.length > 0) {
+    crumbs[crumbs.length - 1].label = title;
+  }
 
   // For tenant with bottom nav, main pages don't show back button
   const bottomNavPaths = config.bottomNav?.map((item) => item.path) || [];
@@ -78,21 +60,22 @@ export function MobileHeader({
         )}
 
         {/* Breadcrumb-style title */}
-        <div className="flex-1 min-w-0 flex items-center gap-1">
-          {!isRootPage && (
-            <>
-              <Link 
-                to={basePath} 
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {getRoleDashboardLabel(role)}
-              </Link>
-              <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-            </>
-          )}
-          {pageLabel && (
-            <span className="text-sm font-medium truncate">{pageLabel}</span>
-          )}
+        <div className="flex-1 min-w-0 flex items-center gap-1 overflow-x-auto no-scrollbar mask-linear-fade">
+          {crumbs.map((crumb, index) => (
+            <Fragment key={crumb.path}>
+              {index > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
+              {crumb.isCurrent ? (
+                <span className="text-sm font-medium whitespace-nowrap">{crumb.label}</span>
+              ) : (
+                <Link 
+                  to={crumb.path} 
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
+                >
+                  {crumb.label}
+                </Link>
+              )}
+            </Fragment>
+          ))}
         </div>
 
         {/* Actions */}

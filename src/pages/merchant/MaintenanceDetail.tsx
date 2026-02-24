@@ -85,9 +85,9 @@ export default function MerchantMaintenanceDetail() {
           <Link to="/merchant/maintenance"><ArrowLeft className="h-4 w-4" /> Back</Link>
         </Button>
         <div className="text-center py-16">
-          <Wrench className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h2 className="text-xl font-semibold">Maintenance request not found</h2>
-        </div>
+        <Wrench className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+        <h2 className="text-xl font-semibold">Permintaan pemeliharaan tidak ditemukan</h2>
+      </div>
       </div>
     );
   }
@@ -122,26 +122,26 @@ export default function MerchantMaintenanceDetail() {
           <div className="lg:col-span-2 space-y-6">
             {/* Request Details */}
             <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-4">
-              <h3 className="font-semibold text-lg">Request Details</h3>
+              <h3 className="font-semibold text-lg">Rincian Permintaan</h3>
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Description</p>
-                <p className="text-sm">{request.description || 'No description provided'}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Deskripsi</p>
+                <p className="text-sm">{request.description || 'Tidak ada deskripsi'}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-muted/20 rounded-xl p-4">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Category</p>
-                  <p className="font-semibold capitalize">{request.category}</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Kategori</p>
+                  <p className="font-semibold capitalize">{request.category.replace('_', ' ')}</p>
                 </div>
                 <div className="bg-muted/20 rounded-xl p-4">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Priority</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Prioritas</p>
                   <p className="font-semibold capitalize">{request.priority}</p>
                 </div>
               </div>
 
               {request.images && request.images.length > 0 && (
                 <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Attached Photos</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Foto Terlampir</p>
                   <div className="grid grid-cols-3 gap-2">
                     {request.images.map((img, idx) => (
                       <a key={idx} href={img} target="_blank" rel="noopener noreferrer">

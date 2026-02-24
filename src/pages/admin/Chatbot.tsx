@@ -92,12 +92,12 @@ const AdminChatbot = () => {
 
   return (
     <AdminLayout
-      title="Chatbot Knowledge Base"
-      description="Manage FAQ entries and AI chatbot responses"
+      title="Basis Pengetahuan Chatbot"
+      description="Kelola entri FAQ dan respons chatbot AI"
       actions={
         <Button onClick={() => setIsDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          Add Entry
+          Tambah Entri
         </Button>
       }
     >

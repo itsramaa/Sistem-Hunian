@@ -120,17 +120,17 @@ export default function MerchantContracts() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="pill-tab-list">
-          <TabsTrigger value="draft" className="pill-tab-trigger">Draft ({draftContracts.length})</TabsTrigger>
-          <TabsTrigger value="active" className="pill-tab-trigger">Active ({activeContracts.length})</TabsTrigger>
-          <TabsTrigger value="expiring" className="pill-tab-trigger">
-            Expiring Soon
-            {expiringContracts.length > 0 && (
-              <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs rounded-full">{expiringContracts.length}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="pending" className="pill-tab-trigger">Awaiting Signature ({pendingSignature.length})</TabsTrigger>
-          <TabsTrigger value="past" className="pill-tab-trigger">Past ({pastContracts.length})</TabsTrigger>
-        </TabsList>
+        <TabsTrigger value="draft" className="pill-tab-trigger">Draf ({draftContracts.length})</TabsTrigger>
+        <TabsTrigger value="active" className="pill-tab-trigger">Aktif ({activeContracts.length})</TabsTrigger>
+        <TabsTrigger value="expiring" className="pill-tab-trigger">
+          Segera Berakhir
+          {expiringContracts.length > 0 && (
+            <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs rounded-full">{expiringContracts.length}</Badge>
+          )}
+        </TabsTrigger>
+        <TabsTrigger value="pending" className="pill-tab-trigger">Menunggu Tanda Tangan ({pendingSignature.length})</TabsTrigger>
+        <TabsTrigger value="past" className="pill-tab-trigger">Riwayat ({pastContracts.length})</TabsTrigger>
+      </TabsList>
 
         <TabsContent value="draft" className="mt-4">
           <ContractsTable contracts={getPaginatedData(draftContracts, draftPage)} isLoading={isLoading} tenantProfiles={profileMap} onView={openViewDialog} onSign={openSignDialog} onDelete={handleDeleteContract} canDelete={() => true} page={draftPage} totalPages={Math.ceil(draftContracts.length / ITEMS_PER_PAGE)} totalContracts={draftContracts.length} onPageChange={setDraftPage} itemsPerPage={ITEMS_PER_PAGE} />

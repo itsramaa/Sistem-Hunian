@@ -23,7 +23,7 @@ const Billing = () => {
           <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
             <Wallet className="h-4 w-4 text-primary" />
           </div>
-          <h3 className="text-lg font-semibold">Payout Settings</h3>
+          <h3 className="text-lg font-semibold">Pengaturan Pembayaran</h3>
         </div>
         <DisbursementScheduleSettings />
       </div>

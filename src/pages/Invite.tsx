@@ -34,7 +34,7 @@ const Invite = () => {
   const { data: invitation, isLoading, error } = useQuery({
     queryKey: ['invitation', token],
     queryFn: async () => {
-      if (!token) throw new Error('No token provided');
+      if (!token) throw new Error('Token tidak ditemukan');
 
       // Use edge function to bypass RLS for unauthenticated users
       const { data: response, error: fnError } = await supabase.functions.invoke('get-tenant-invitation', {
@@ -81,19 +81,19 @@ const Invite = () => {
     // Validate full name
     const nameResult = fullNameSchema.safeParse(formData.fullName);
     if (!nameResult.success) {
-      errors.fullName = nameResult.error.errors[0]?.message || 'Nama tidak valid';
+      errors.fullName = 'Nama lengkap minimal 2 karakter';
     }
 
     // Validate email
     const emailResult = emailSchema.safeParse(formData.email);
     if (!emailResult.success) {
-      errors.email = emailResult.error.errors[0]?.message || 'Email tidak valid';
+      errors.email = 'Format email tidak valid';
     }
 
     // Validate password with strong policy
     const passwordResult = strongPasswordSchema.safeParse(formData.password);
     if (!passwordResult.success) {
-      errors.password = passwordResult.error.errors[0]?.message || 'Password tidak memenuhi syarat';
+      errors.password = 'Password minimal 8 karakter, harus mengandung huruf besar, kecil, angka, dan simbol';
     }
 
     setValidationErrors(errors);
@@ -102,7 +102,7 @@ const Invite = () => {
 
   const createAccount = useMutation({
     mutationFn: async () => {
-      if (!invitation) throw new Error('Invitation not found');
+      if (!invitation) throw new Error('Undangan tidak ditemukan');
 
       if (!validateForm()) {
         throw new Error('Mohon perbaiki error pada form');
@@ -478,7 +478,7 @@ const Invite = () => {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label>Password</Label>
+                    <Label>Kata Sandi</Label>
                     <Input
                       type="password"
                       value={formData.password}
@@ -486,7 +486,7 @@ const Invite = () => {
                         setFormData({ ...formData, password: e.target.value });
                         setValidationErrors(prev => ({ ...prev, password: '' }));
                       }}
-                      placeholder="Buat password yang kuat"
+                      placeholder="Buat kata sandi yang kuat"
                       className={validationErrors.password ? 'border-destructive' : ''}
                     />
                     <PasswordStrengthMeter password={formData.password} />

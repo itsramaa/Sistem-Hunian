@@ -168,7 +168,7 @@ export default function DataQualityHistory() {
               {currentCheck && !currentCheck.is_final_validated && !hasCriticalErrors && (
                 <Button variant="outline" onClick={() => markFinal.mutate(currentCheck.id)} disabled={markFinal.isPending}>
                   <CheckCircle className="h-4 w-4 mr-2" />
-                  Mark Final Validated
+                  Tandai Validasi Final
                 </Button>
               )}
               {currentCheck?.is_final_validated && (
@@ -239,7 +239,7 @@ export default function DataQualityHistory() {
                                 <div className="flex items-center gap-2 mb-1">
                                   <Badge variant="outline" className="text-xs">{v.rule}</Badge>
                                   <Badge className={`text-xs ${severityColor[v.severity]}`}>{v.severity}</Badge>
-                                  {isOverridden && <Badge variant="secondary" className="text-xs">Overridden</Badge>}
+                                  {isOverridden && <span className="text-xs text-muted-foreground ml-2">(Ditimpa)</span>}
                                 </div>
                                 <p className="text-sm">{v.message}</p>
                                 {v.suggestion && <p className="text-xs text-muted-foreground mt-1">💡 {v.suggestion}</p>}

@@ -22,19 +22,19 @@ const PlatformConfig = () => {
 
   return (
     <AdminLayout
-      title="Platform Configuration"
-      description="Manage platform fees, commissions, and global settings"
+      title="Konfigurasi Platform"
+      description="Kelola biaya platform, komisi, dan pengaturan global"
     >
       <div className="space-y-6">
         <Tabs defaultValue="fees" className="space-y-4">
           <TabsList>
             <TabsTrigger value="fees" className="gap-2">
               <DollarSign className="h-4 w-4" />
-              Fees & Commissions
+              Biaya & Komisi
             </TabsTrigger>
             <TabsTrigger value="features" className="gap-2">
               <Settings className="h-4 w-4" />
-              Feature Toggles
+              Fitur Toggle
             </TabsTrigger>
           </TabsList>
 

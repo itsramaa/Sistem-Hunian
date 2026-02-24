@@ -76,8 +76,8 @@ const AdminDisputes = () => {
 
   return (
     <AdminLayout
-      title="Disputes"
-      description="Manage and resolve disputes between parties"
+      title="Sengketa"
+      description="Kelola dan selesaikan sengketa antar pihak"
     >
       <div className="space-y-6">
         <AdminDisputeStats
@@ -99,8 +99,8 @@ const AdminDisputes = () => {
             {error ? (
               <div className="text-center py-12">
                 <AlertTriangle className="h-12 w-12 mx-auto text-destructive mb-4" />
-                <p className="text-destructive mb-4">Failed to load disputes</p>
-                <Button variant="outline" onClick={() => refetch()}>Retry</Button>
+                <p className="text-destructive mb-4">Gagal memuat data sengketa</p>
+                <Button variant="outline" onClick={() => refetch()}>Coba Lagi</Button>
               </div>
             ) : isLoading ? (
               <div className="flex justify-center py-12">
@@ -119,7 +119,7 @@ const AdminDisputes = () => {
                 {/* Pagination */}
                 <div className="flex items-center justify-between mt-4">
                   <p className="text-sm text-muted-foreground">
-                    Showing {(page - 1) * PAGE_SIZE + 1} - {Math.min(page * PAGE_SIZE, totalCount)} of {totalCount}
+                    Menampilkan {(page - 1) * PAGE_SIZE + 1} - {Math.min(page * PAGE_SIZE, totalCount)} dari {totalCount}
                   </p>
                   <div className="flex gap-2">
                     <Button
@@ -128,7 +128,7 @@ const AdminDisputes = () => {
                       disabled={page === 1}
                       onClick={() => setPage(p => p - 1)}
                     >
-                      Previous
+                      Sebelumnya
                     </Button>
                     <Button
                       variant="outline"
@@ -136,7 +136,7 @@ const AdminDisputes = () => {
                       disabled={!hasMore}
                       onClick={() => setPage(p => p + 1)}
                     >
-                      Next
+                      Berikutnya
                     </Button>
                   </div>
                 </div>
@@ -144,7 +144,7 @@ const AdminDisputes = () => {
             ) : (
               <div className="text-center py-12 text-muted-foreground">
                 <AlertTriangle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No disputes found</p>
+                <p>Tidak ada sengketa ditemukan</p>
               </div>
             )}
           </CardContent>

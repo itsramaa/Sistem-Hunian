@@ -35,7 +35,7 @@ export default function Auth() {
 
   return (
     <>
-      <Meta noindex title="Login" description="Masuk ke akun SiHuni Anda" />
+      <Meta noindex title="Masuk" description="Masuk ke akun SiHuni Anda" />
       <AuthForm />
     </>
   );

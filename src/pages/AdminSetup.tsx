@@ -16,10 +16,10 @@ import { strongPasswordSchema } from '@/shared/utils/validations/auth';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 const adminSchema = z.object({
-  email: z.string().email('Please enter a valid email'),
+  email: z.string().email('Mohon masukkan email yang valid'),
   password: strongPasswordSchema,
-  fullName: z.string().min(2, 'Name must be at least 2 characters'),
-  secretKey: z.string().min(1, 'Secret key is required'),
+  fullName: z.string().min(2, 'Nama minimal 2 karakter'),
+  secretKey: z.string().min(1, 'Kunci rahasia diperlukan'),
 });
 
 type AdminFormData = z.infer<typeof adminSchema>;
@@ -48,8 +48,8 @@ export default function AdminSetup() {
       if (!isValidSecret) {
         toast({
           variant: 'destructive',
-          title: 'Invalid Secret Key',
-          description: 'The secret key you entered is incorrect.',
+          title: 'Kunci Rahasia Tidak Valid',
+          description: 'Kunci rahasia yang Anda masukkan salah.',
         });
         setIsLoading(false);
         return;
@@ -72,8 +72,8 @@ export default function AdminSetup() {
         if (signUpError.message.includes('already registered')) {
           toast({
             variant: 'destructive',
-            title: 'User Already Exists',
-            description: 'This email is already registered. Please log in and contact support to be made an admin.',
+            title: 'Pengguna Sudah Ada',
+            description: 'Email ini sudah terdaftar. Silakan masuk dan hubungi dukungan untuk dijadikan admin.',
           });
           return;
         }
@@ -81,21 +81,21 @@ export default function AdminSetup() {
       }
 
       if (!authData.user) {
-        throw new Error('Failed to create user');
+        throw new Error('Gagal membuat pengguna');
       }
 
       setIsComplete(true);
       toast({
-        title: 'Admin Account Created!',
-        description: 'You can now log in with your admin credentials.',
+        title: 'Akun Admin Dibuat!',
+        description: 'Anda sekarang dapat masuk dengan kredensial admin Anda.',
       });
     } catch (error) {
       console.error('Error creating admin:', error);
       const err = error as Error;
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: err.message || 'Failed to create admin account',
+        title: 'Kesalahan',
+        description: err.message || 'Gagal membuat akun admin',
       });
     } finally {
       setIsLoading(false);
@@ -110,13 +110,13 @@ export default function AdminSetup() {
             <div className="mx-auto w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-4">
               <CheckCircle className="h-8 w-8 text-success" />
             </div>
-            <h2 className="text-2xl font-display font-bold mb-2">Admin Account Created!</h2>
+            <h2 className="text-2xl font-display font-bold mb-2">Akun Admin Dibuat!</h2>
             <p className="text-muted-foreground mb-6">
-              Your admin account has been successfully created. You can now log in to access the admin dashboard.
+              Akun admin Anda telah berhasil dibuat. Anda sekarang dapat masuk untuk mengakses dashboard admin.
             </p>
             <Link to="/auth">
               <Button className="w-full">
-                Go to Login
+                Pergi ke Halaman Masuk
               </Button>
             </Link>
           </CardContent>
@@ -132,18 +132,18 @@ export default function AdminSetup() {
           <div className="mx-auto w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-2">
             <Shield className="w-6 h-6 text-primary" />
           </div>
-          <CardTitle className="text-2xl font-display">Admin Setup</CardTitle>
+          <CardTitle className="text-2xl font-display">Pengaturan Admin</CardTitle>
           <CardDescription>
-            Create an admin account for SiHuni platform management
+            Buat akun admin untuk manajemen platform SiHuni
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
+              <Label htmlFor="fullName">Nama Lengkap</Label>
               <Input
                 id="fullName"
-                placeholder="Admin User"
+                placeholder="Pengguna Admin"
                 {...form.register('fullName')}
               />
               {form.formState.errors.fullName && (
@@ -165,7 +165,7 @@ export default function AdminSetup() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Kata Sandi</Label>
               <Input
                 id="password"
                 type="password"
@@ -178,31 +178,31 @@ export default function AdminSetup() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="secretKey">Admin Secret Key</Label>
+              <Label htmlFor="secretKey">Kunci Rahasia Admin</Label>
               <Input
                 id="secretKey"
                 type="password"
-                placeholder="Enter the admin secret key"
+                placeholder="Masukkan kunci rahasia admin"
                 {...form.register('secretKey')}
               />
               {form.formState.errors.secretKey && (
                 <p className="text-sm text-destructive">{form.formState.errors.secretKey.message}</p>
               )}
               <p className="text-xs text-muted-foreground">
-                Contact system administrator for the secret key
+                Hubungi administrator sistem untuk kunci rahasia
               </p>
             </div>
 
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create Admin Account
+              Buat Akun Admin
             </Button>
           </form>
 
           <div className="mt-6 text-center">
             <Link to="/auth" className="text-sm text-muted-foreground hover:text-foreground">
               <ArrowLeft className="inline h-4 w-4 mr-1" />
-              Back to Login
+              Kembali ke Masuk
             </Link>
           </div>
         </CardContent>

@@ -119,7 +119,7 @@ export default function ForumModeration() {
     // Ideally we should use a ConfirmDialog but for now let's just update directly or keep the logic
     // The original code had showVisibilityConfirm state but didn't use the ConfirmDialog component in the rendered JSX (it was imported but not used in the truncated part)
     // Let's implement direct toggle for now to simplify, or use window.confirm
-    if (window.confirm(`Are you sure you want to ${currentlyVisible ? 'hide' : 'show'} this content?`)) {
+    if (window.confirm(`Apakah Anda yakin ingin ${currentlyVisible ? 'menyembunyikan' : 'menampilkan'} konten ini?`)) {
        updateVisibility({
         type,
         id,
@@ -134,7 +134,7 @@ export default function ForumModeration() {
 
   if (guardLoading || isLoading) {
     return (
-      <AdminLayout title="Forum Moderation" description="Manage reports, moderate content, and maintain community standards">
+      <AdminLayout title="Moderasi Forum" description="Kelola laporan, moderasi konten, dan jaga standar komunitas">
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
@@ -143,7 +143,7 @@ export default function ForumModeration() {
   }
 
   return (
-    <AdminLayout title="Forum Moderation" description="Manage reports, moderate content, and maintain community standards">
+    <AdminLayout title="Moderasi Forum" description="Kelola laporan, moderasi konten, dan jaga standar komunitas">
       <div className="space-y-6">
 
         {/* Error State */}
@@ -151,7 +151,7 @@ export default function ForumModeration() {
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              Failed to load reports: {error instanceof Error ? error.message : 'Unknown error'}
+              Gagal memuat laporan: {error instanceof Error ? error.message : 'Kesalahan tidak diketahui'}
             </AlertDescription>
           </Alert>
         )}
@@ -163,15 +163,15 @@ export default function ForumModeration() {
           <TabsList>
             <TabsTrigger value="reports" className="flex items-center gap-2">
               <Flag className="h-4 w-4" />
-              Reports {(stats?.pending || 0) > 0 && <Badge variant="destructive">{stats?.pending || 0}</Badge>}
+              Laporan {(stats?.pending || 0) > 0 && <Badge variant="destructive">{stats?.pending || 0}</Badge>}
             </TabsTrigger>
             <TabsTrigger value="posts" className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
-              Posts
+              Postingan
             </TabsTrigger>
             <TabsTrigger value="comments" className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
-              Comments
+              Komentar
             </TabsTrigger>
           </TabsList>
 
@@ -180,20 +180,20 @@ export default function ForumModeration() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle>Reports</CardTitle>
-                  <CardDescription>Review and act on user reports</CardDescription>
+                  <CardTitle>Laporan</CardTitle>
+                  <CardDescription>Tinjau dan tindak lanjuti laporan pengguna</CardDescription>
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Filter by status" />
+                    <SelectValue placeholder="Filter berdasarkan status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="reviewed">Reviewed</SelectItem>
-                    <SelectItem value="resolved">Resolved</SelectItem>
-                    <SelectItem value="dismissed">Dismissed</SelectItem>
-                    <SelectItem value="action_taken">Action Taken</SelectItem>
+                    <SelectItem value="all">Semua Status</SelectItem>
+                    <SelectItem value="pending">Menunggu</SelectItem>
+                    <SelectItem value="reviewed">Ditinjau</SelectItem>
+                    <SelectItem value="resolved">Diselesaikan</SelectItem>
+                    <SelectItem value="dismissed">Diabaikan</SelectItem>
+                    <SelectItem value="action_taken">Tindakan Diambil</SelectItem>
                   </SelectContent>
                 </Select>
               </CardHeader>
@@ -216,8 +216,8 @@ export default function ForumModeration() {
           <TabsContent value="posts" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Forum Posts</CardTitle>
-                <CardDescription>Moderate user posts</CardDescription>
+                <CardTitle>Postingan Forum</CardTitle>
+                <CardDescription>Moderasi postingan pengguna</CardDescription>
               </CardHeader>
               <CardContent>
                 <ForumPostsTable 
@@ -236,8 +236,8 @@ export default function ForumModeration() {
           <TabsContent value="comments" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Forum Comments</CardTitle>
-                <CardDescription>Moderate user comments</CardDescription>
+                <CardTitle>Komentar Forum</CardTitle>
+                <CardDescription>Moderasi komentar pengguna</CardDescription>
               </CardHeader>
               <CardContent>
                 <ForumCommentsTable 

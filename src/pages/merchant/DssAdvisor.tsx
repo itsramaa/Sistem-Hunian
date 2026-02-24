@@ -111,10 +111,10 @@ export default function DssAdvisor() {
   };
 
   const tabConfig = [
-    { value: "pricing", label: "Pricing", icon: <DollarSign className="h-3.5 w-3.5" /> },
-    { value: "collection", label: "Collection", icon: <FileWarning className="h-3.5 w-3.5" /> },
-    { value: "maintenance", label: "Maintenance", icon: <Wrench className="h-3.5 w-3.5" /> },
-    { value: "investment", label: "Investment", icon: <TrendingUp className="h-3.5 w-3.5" /> },
+    { value: "pricing", label: "Penasihat Harga", icon: <DollarSign className="h-3.5 w-3.5" /> },
+    { value: "collection", label: "Penasihat Penagihan", icon: <FileWarning className="h-3.5 w-3.5" /> },
+    { value: "maintenance", label: "Penasihat Pemeliharaan", icon: <Wrench className="h-3.5 w-3.5" /> },
+    { value: "investment", label: "Penasihat Investasi", icon: <TrendingUp className="h-3.5 w-3.5" /> },
   ];
 
   // Recommendation stats
@@ -209,8 +209,8 @@ export default function DssAdvisor() {
                       {tab.icon}
                     </div>
                     <div>
-                      <CardTitle>{tab.label} Advisor</CardTitle>
-                      <CardDescription>Generate AI-powered {tab.label.toLowerCase()} recommendations</CardDescription>
+                      <CardTitle>{tab.label}</CardTitle>
+                      <CardDescription>Hasilkan rekomendasi {tab.label.toLowerCase()} berbasis AI</CardDescription>
                     </div>
                   </div>
                   <Button onClick={handleGenerate} disabled={isGenerating} className="gradient-cta rounded-xl shadow-sm gap-2">

@@ -79,10 +79,10 @@ const AdminReferrals = () => {
 
   if (guardLoading || loadingReferrals || loadingStats) {
     return (
-      <AdminLayout title="Referral Management" description="Monitor and manage referral program">
+      <AdminLayout title="Manajemen Referral" description="Pantau dan kelola program referral">
         <div className="flex flex-col items-center justify-center h-64 gap-2">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          <p className="text-muted-foreground">Loading referrals...</p>
+          <p className="text-muted-foreground">Memuat referral...</p>
         </div>
       </AdminLayout>
     );
@@ -90,11 +90,11 @@ const AdminReferrals = () => {
 
   if (referralsError) {
     return (
-      <AdminLayout title="Referral Management" description="Monitor and manage referral program">
+      <AdminLayout title="Manajemen Referral" description="Pantau dan kelola program referral">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Failed to load referrals: {referralsError instanceof Error ? referralsError.message : 'Unknown error'}
+            Gagal memuat referral: {referralsError instanceof Error ? referralsError.message : 'Kesalahan tidak diketahui'}
           </AlertDescription>
         </Alert>
       </AdminLayout>
@@ -102,7 +102,7 @@ const AdminReferrals = () => {
   }
 
   return (
-    <AdminLayout title="Referral Management" description="Monitor and manage referral program">
+    <AdminLayout title="Manajemen Referral" description="Pantau dan kelola program referral">
       <div className="space-y-6">
         <AdminReferralStats stats={displayStats} isLoading={loadingStats} />
 

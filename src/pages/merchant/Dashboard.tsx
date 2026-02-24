@@ -51,9 +51,9 @@ export default function MerchantDashboard() {
       <Alert variant="destructive" className="rounded-xl">
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          Failed to load dashboard data. Please try again.
+          Gagal memuat data dashboard. Silakan coba lagi.
           <Button variant="outline" size="sm" onClick={() => refetch()} className="ml-2 rounded-xl">
-            Retry
+            Coba Lagi
           </Button>
         </AlertDescription>
       </Alert>
@@ -61,10 +61,10 @@ export default function MerchantDashboard() {
   }
 
   const quickActions = [
-    { icon: Plus, label: 'Add Property', path: '/merchant/properties', color: 'from-primary/20 to-primary/5' },
-    { icon: FileText, label: 'Create Invoice', path: '/merchant/invoices', color: 'from-success/20 to-success/5' },
-    { icon: ScrollText, label: 'Create Contract', path: '/merchant/contracts', color: 'from-warning/20 to-warning/5' },
-    { icon: TrendingUp, label: 'View Reports', path: '/merchant/reports', color: 'from-accent/20 to-accent/5' },
+    { icon: Plus, label: 'Tambah Properti', path: '/merchant/properties', color: 'from-primary/20 to-primary/5' },
+    { icon: FileText, label: 'Buat Tagihan', path: '/merchant/invoices', color: 'from-success/20 to-success/5' },
+    { icon: ScrollText, label: 'Buat Kontrak', path: '/merchant/contracts', color: 'from-warning/20 to-warning/5' },
+    { icon: TrendingUp, label: 'Lihat Laporan', path: '/merchant/reports', color: 'from-accent/20 to-accent/5' },
   ];
 
   return (
@@ -73,7 +73,7 @@ export default function MerchantDashboard() {
       <PageHeader
         icon={LayoutDashboard}
         title="Dashboard"
-        description={`Welcome back, ${merchant?.business_name || 'Merchant'}! Here's your business overview.`}
+        description={`Selamat datang kembali, ${merchant?.business_name || 'Merchant'}! Berikut ringkasan bisnis Anda.`}
       >
         <Button
           variant="outline"
@@ -81,10 +81,10 @@ export default function MerchantDashboard() {
           onClick={() => refetch()}
           disabled={isRefetching}
           className="gap-2 rounded-xl"
-          aria-label="Refresh dashboard data"
+          aria-label="Segarkan data dashboard"
         >
           <RefreshCw className={`h-4 w-4 ${isRefetching ? 'animate-spin' : ''}`} />
-          Refresh
+          Segarkan
         </Button>
       </PageHeader>
 
@@ -93,7 +93,7 @@ export default function MerchantDashboard() {
 
       {/* Section 3: KPI Strip */}
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold tracking-tight">Business Overview</h2>
+        <h2 className="text-lg font-semibold tracking-tight">Ringkasan Bisnis</h2>
         <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
           <Card
             className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 cursor-pointer animate-fade-in"
@@ -101,7 +101,7 @@ export default function MerchantDashboard() {
             onClick={() => navigate('/merchant/properties')}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Properties</CardTitle>
+              <CardTitle className="text-sm font-medium">Total Properti</CardTitle>
               <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
                 <Building2 className="h-4 w-4 text-primary" />
               </div>
@@ -109,7 +109,7 @@ export default function MerchantDashboard() {
             <CardContent>
               <div className="text-2xl font-bold">{stats?.properties.total || 0}</div>
               <p className="text-xs text-muted-foreground">
-                {stats?.properties.totalUnits || 0} total units managed
+                {stats?.properties.totalUnits || 0} total unit dikelola
               </p>
             </CardContent>
           </Card>
@@ -120,7 +120,7 @@ export default function MerchantDashboard() {
             onClick={() => navigate('/merchant/properties')}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Occupancy Rate</CardTitle>
+              <CardTitle className="text-sm font-medium">Tingkat Hunian</CardTitle>
               <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-success/20 to-success/5 flex items-center justify-center">
                 <Home className="h-4 w-4 text-success" />
               </div>
@@ -137,7 +137,7 @@ export default function MerchantDashboard() {
                 }`}
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                {stats?.properties.occupiedUnits || 0} occupied / {stats?.properties.totalUnits || 0} total
+                {stats?.properties.occupiedUnits || 0} terisi / {stats?.properties.totalUnits || 0} total
               </p>
             </CardContent>
           </Card>
@@ -148,7 +148,7 @@ export default function MerchantDashboard() {
             onClick={() => navigate('/merchant/tenants')}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Tenants</CardTitle>
+              <CardTitle className="text-sm font-medium">Penyewa Aktif</CardTitle>
               <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-warning/20 to-warning/5 flex items-center justify-center">
                 <Users className="h-4 w-4 text-warning" />
               </div>
@@ -179,7 +179,7 @@ export default function MerchantDashboard() {
                     0%
                   </span>
                 )}
-                from last month
+                dari bulan lalu
               </div>
             </CardContent>
           </Card>
@@ -190,7 +190,7 @@ export default function MerchantDashboard() {
             onClick={() => navigate('/merchant/payments')}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Escrow Balance</CardTitle>
+              <CardTitle className="text-sm font-medium">Saldo Escrow</CardTitle>
               <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-accent/20 to-accent/5 flex items-center justify-center">
                 <Wallet className="h-4 w-4 text-accent" />
               </div>
@@ -200,7 +200,7 @@ export default function MerchantDashboard() {
                 {formatCurrency(stats?.financials.balance || 0)}
               </div>
               <p className="text-xs text-muted-foreground">
-                {formatCurrency(stats?.financials.pendingBalance || 0)} pending
+                {formatCurrency(stats?.financials.pendingBalance || 0)} tertunda
               </p>
             </CardContent>
           </Card>
@@ -209,7 +209,7 @@ export default function MerchantDashboard() {
 
       {/* Section 4: Quick Actions + Subscription */}
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold tracking-tight">Actions & Subscription</h2>
+        <h2 className="text-lg font-semibold tracking-tight">Aksi & Langganan</h2>
         <div className="grid gap-4 lg:grid-cols-7">
           <Card className="lg:col-span-4 bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader>
@@ -218,8 +218,8 @@ export default function MerchantDashboard() {
                   <LayoutDashboard className="h-4 w-4 text-primary" />
                 </div>
                 <div>
-                  <CardTitle>Quick Actions</CardTitle>
-                  <CardDescription>Jump to common tasks</CardDescription>
+                  <CardTitle>Aksi Cepat</CardTitle>
+                  <CardDescription>Lompat ke tugas umum</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -249,13 +249,13 @@ export default function MerchantDashboard() {
 
       {/* Section 5: Interactive Charts */}
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold tracking-tight">Performance Analytics</h2>
+        <h2 className="text-lg font-semibold tracking-tight">Analitik Performa</h2>
         <InteractiveDashboardCharts />
       </section>
 
       {/* Section 6: Property Overview + Financial Summary */}
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold tracking-tight">Detailed Breakdown</h2>
+        <h2 className="text-lg font-semibold tracking-tight">Rincian Detail</h2>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
           <Card className="col-span-4 bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader>
@@ -264,8 +264,8 @@ export default function MerchantDashboard() {
                   <Building2 className="h-4 w-4 text-primary" />
                 </div>
                 <div>
-                  <CardTitle>Property Overview</CardTitle>
-                  <CardDescription>Occupancy breakdown by property</CardDescription>
+                  <CardTitle>Ringkasan Properti</CardTitle>
+                  <CardDescription>Rincian hunian per properti</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -281,7 +281,7 @@ export default function MerchantDashboard() {
                       <div className="flex items-center justify-between text-sm">
                         <div className="font-medium">{property.name}</div>
                         <div className="text-muted-foreground">
-                          {property.occupied_units}/{property.total_units} Units ({Math.round(occupancy)}%)
+                          {property.occupied_units}/{property.total_units} Unit ({Math.round(occupancy)}%)
                         </div>
                       </div>
                       <Progress value={occupancy} className="h-2 rounded-full" />
@@ -291,9 +291,9 @@ export default function MerchantDashboard() {
 
                 {(!stats?.properties.list || stats.properties.list.length === 0) && (
                   <div className="text-center py-8 text-muted-foreground">
-                    No properties found.
+                    Tidak ada properti ditemukan.
                     <Button variant="link" onClick={() => navigate('/merchant/properties')} className="px-1">
-                      Add your first property
+                      Tambahkan properti pertama Anda
                     </Button>
                   </div>
                 )}
@@ -308,8 +308,8 @@ export default function MerchantDashboard() {
                   <Wallet className="h-4 w-4 text-success" />
                 </div>
                 <div>
-                  <CardTitle>Financial Summary</CardTitle>
-                  <CardDescription>Revenue performance this month</CardDescription>
+                  <CardTitle>Ringkasan Keuangan</CardTitle>
+                  <CardDescription>Performa pendapatan bulan ini</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -318,7 +318,7 @@ export default function MerchantDashboard() {
                 <div className="rounded-xl bg-card/80 backdrop-blur-sm border border-border/40 p-4">
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
-                      <p className="text-sm font-medium text-muted-foreground">Monthly Revenue</p>
+                      <p className="text-sm font-medium text-muted-foreground">Pendapatan Bulanan</p>
                       <p className="text-2xl font-bold">
                         {formatCurrency(stats?.financials.monthlyRevenue || 0)}
                       </p>
@@ -337,12 +337,12 @@ export default function MerchantDashboard() {
                     </div>
                   </div>
                   <div className="mt-4 text-xs text-muted-foreground">
-                    vs {formatCurrency(stats?.financials.lastMonthRevenue || 0)} last month
+                    vs {formatCurrency(stats?.financials.lastMonthRevenue || 0)} bulan lalu
                   </div>
                 </div>
 
                 <Button className="w-full gradient-cta rounded-xl shadow-md" onClick={() => navigate('/merchant/reports')}>
-                  View Detailed Reports
+                  Lihat Laporan Detail
                 </Button>
               </div>
             </CardContent>
@@ -352,7 +352,7 @@ export default function MerchantDashboard() {
 
       {/* Section 7: Vacancy Management */}
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold tracking-tight">Vacancy Management</h2>
+        <h2 className="text-lg font-semibold tracking-tight">Manajemen Kekosongan</h2>
         <Collapsible open={vacancyOpen} onOpenChange={setVacancyOpen}>
           <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CollapsibleTrigger asChild>
@@ -363,8 +363,8 @@ export default function MerchantDashboard() {
                       <Home className="h-4 w-4 text-warning" />
                     </div>
                     <div>
-                      <CardTitle>Vacancy Management</CardTitle>
-                      <CardDescription>Track and manage vacant units</CardDescription>
+                      <CardTitle>Manajemen Kekosongan</CardTitle>
+                      <CardDescription>Lacak dan kelola unit kosong</CardDescription>
                     </div>
                   </div>
                   <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform duration-200 ${vacancyOpen ? 'rotate-180' : ''}`} />

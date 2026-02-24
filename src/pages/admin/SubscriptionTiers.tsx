@@ -34,18 +34,18 @@ export default function AdminSubscriptionTiers() {
           onSuccess: () => {
             setIsDialogOpen(false);
             setEditingTier(null);
-            toast.success("Subscription tier updated successfully");
+            toast.success("Tingkatan langganan berhasil diperbarui");
           },
-          onError: (err) => toast.error(`Failed to update tier: ${err.message}`),
+          onError: (err) => toast.error(`Gagal memperbarui tingkatan: ${err.message}`),
         }
       );
     } else {
       createTier(data, {
         onSuccess: () => {
           setIsDialogOpen(false);
-          toast.success("Subscription tier created successfully");
+          toast.success("Tingkatan langganan berhasil dibuat");
         },
-        onError: (err) => toast.error(`Failed to create tier: ${err.message}`),
+        onError: (err) => toast.error(`Gagal membuat tingkatan: ${err.message}`),
       });
     }
   };
@@ -61,9 +61,9 @@ export default function AdminSubscriptionTiers() {
         onSuccess: () => {
           setDeleteConfirmOpen(false);
           setTierToDelete(null);
-          toast.success("Subscription tier deleted successfully");
+          toast.success("Tingkatan langganan berhasil dihapus");
         },
-        onError: (err) => toast.error(`Failed to delete tier: ${err.message}`),
+        onError: (err) => toast.error(`Gagal menghapus tingkatan: ${err.message}`),
       });
     }
   };
@@ -80,12 +80,12 @@ export default function AdminSubscriptionTiers() {
 
   return (
     <AdminLayout
-      title="Subscription Tiers"
-      description="Manage merchant subscription packages and pricing"
+      title="Tingkatan Langganan"
+      description="Kelola paket langganan merchant dan harga"
       actions={
         <Button onClick={() => handleOpenDialog()} className="gap-2">
           <Plus className="h-4 w-4" />
-          Add New Tier
+          Tambah Tingkatan Baru
         </Button>
       }
     >
@@ -115,9 +115,9 @@ export default function AdminSubscriptionTiers() {
         open={deleteConfirmOpen}
         onOpenChange={setDeleteConfirmOpen}
         onConfirm={handleConfirmDelete}
-        title="Delete Subscription Tier"
-        description={`Are you sure you want to delete "${tierToDelete?.display_name}"? This action cannot be undone.`}
-        confirmLabel={isDeleting ? "Deleting..." : "Delete Tier"}
+        title="Hapus Tingkatan Langganan"
+        description={`Apakah Anda yakin ingin menghapus "${tierToDelete?.display_name}"? Tindakan ini tidak dapat dibatalkan.`}
+        confirmLabel={isDeleting ? "Menghapus..." : "Hapus Tingkatan"}
         variant="destructive"
         isLoading={isDeleting}
       />

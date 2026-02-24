@@ -30,7 +30,7 @@ export default function AuditLogs() {
   }, isAdmin);
 
   const handleExport = () => {
-    toast.success("Export started");
+    toast.success("Ekspor dimulai");
     logExport("audit_log", "csv", 0);
   };
 
@@ -74,21 +74,21 @@ export default function AuditLogs() {
 
   return (
     <AdminLayout
-      title="Audit Logs"
-      description="Track and monitor all system activities and changes"
+      title="Log Audit"
+      description="Lacak dan pantau semua aktivitas dan perubahan sistem"
       actions={
         <Button onClick={handleExport} variant="outline">
           <Download className="mr-2 h-4 w-4" />
-          Export Logs
+          Ekspor Log
         </Button>
       }
     >
       <div className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>System Activity</CardTitle>
+            <CardTitle>Aktivitas Sistem</CardTitle>
             <CardDescription>
-              Filter and search through system audit logs.
+              Filter dan cari melalui log audit sistem.
             </CardDescription>
           </CardHeader>
           <CardContent>

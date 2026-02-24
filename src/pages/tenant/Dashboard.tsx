@@ -165,7 +165,7 @@ export default function TenantDashboard() {
                   </p>
                   <p className="text-xs text-muted-foreground">{activeContract.unit.property?.address}</p>
                 </div>
-                <Badge variant="outline" className="bg-success/10 text-success border-success/20">Active</Badge>
+                <Badge variant="outline" className="bg-success/10 text-success border-success/20">Aktif</Badge>
               </div>
             </CardContent>
           </Card>
@@ -345,7 +345,7 @@ export default function TenantDashboard() {
                         <div>
                           <p className="font-medium text-sm">{invoice.invoice_number}</p>
                           <p className="text-xs text-muted-foreground">
-                            Due: {format(parseISO(invoice.due_date), 'dd MMM yyyy')}
+                            Jatuh Tempo: {format(parseISO(invoice.due_date), 'dd MMM yyyy')}
                           </p>
                         </div>
                       </div>
@@ -357,7 +357,7 @@ export default function TenantDashboard() {
                           variant={isOverdue ? 'destructive' : 'secondary'}
                           className="text-[10px] px-1.5 py-0"
                         >
-                          {isOverdue ? 'Overdue' : invoice.status === 'sent' ? 'Terkirim' : 'Pending'}
+                          {isOverdue ? 'Terlambat' : invoice.status === 'sent' ? 'Terkirim' : 'Menunggu'}
                         </Badge>
                       </div>
                     </Link>

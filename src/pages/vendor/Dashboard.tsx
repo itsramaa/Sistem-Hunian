@@ -109,26 +109,26 @@ export default function VendorDashboard() {
 
   const handleRefresh = () => {
     refetchJobs();
-    toast.success('Dashboard refreshed');
+    toast.success('Dashboard diperbarui');
   };
 
   const stats = [
     {
-      title: 'Pending Jobs',
+      title: 'Pekerjaan Tertunda',
       value: pendingJobs,
       icon: Clock,
       color: 'text-warning',
       bgColor: 'bg-warning/10',
     },
     {
-      title: 'Active Jobs',
+      title: 'Pekerjaan Aktif',
       value: activeJobs,
       icon: Briefcase,
       color: 'text-primary',
       bgColor: 'bg-primary/10',
     },
     {
-      title: 'Completed',
+      title: 'Selesai',
       value: completedJobs,
       icon: CheckCircle2,
       color: 'text-success',
@@ -167,16 +167,16 @@ export default function VendorDashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground">
-              Welcome back, {profile?.full_name || vendor?.business_name || 'Vendor'}!
+              Selamat datang kembali, {profile?.full_name || vendor?.business_name || 'Vendor'}!
             </h1>
             <p className="text-muted-foreground">
-              Manage your jobs and track your earnings
+              Kelola pekerjaan dan pantau pendapatan Anda
             </p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleRefresh}>
               <RefreshCcw className="h-4 w-4 mr-2" />
-              Refresh
+              Segarkan
             </Button>
             {vendor?.verification_status !== 'verified' && (
               <Button 
@@ -185,7 +185,7 @@ export default function VendorDashboard() {
                 onClick={() => navigate('/vendor/profile')}
               >
                 <AlertCircle className="h-4 w-4 mr-2" />
-                Complete Verification
+                Lengkapi Verifikasi
               </Button>
             )}
           </div>
@@ -198,13 +198,13 @@ export default function VendorDashboard() {
               <div className="flex items-center gap-3">
                 <AlertCircle className="h-5 w-5 text-destructive" />
                 <div>
-                  <p className="font-medium text-destructive">Error loading dashboard data</p>
+                  <p className="font-medium text-destructive">Gagal memuat data dashboard</p>
                   <p className="text-sm text-muted-foreground">
-                    Please try refreshing the page or contact support if the issue persists.
+                    Silakan coba segarkan halaman atau hubungi dukungan jika masalah berlanjut.
                   </p>
                 </div>
                 <Button variant="outline" size="sm" onClick={handleRefresh} className="ml-auto">
-                  Retry
+                  Coba Lagi
                 </Button>
               </div>
             </CardContent>
@@ -218,9 +218,9 @@ export default function VendorDashboard() {
               <div className="flex items-center gap-3">
                 <AlertCircle className="h-5 w-5 text-warning" />
                 <div>
-                  <p className="font-medium text-warning">Verification Pending</p>
+                  <p className="font-medium text-warning">Verifikasi Tertunda</p>
                   <p className="text-sm text-muted-foreground">
-                    Your profile is under review. You'll be able to receive jobs once verified.
+                    Profil Anda sedang ditinjau. Anda akan dapat menerima pekerjaan setelah diverifikasi.
                   </p>
                 </div>
               </div>
@@ -256,11 +256,11 @@ export default function VendorDashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>Recent Jobs</CardTitle>
-                <CardDescription>Your latest job assignments</CardDescription>
+                <CardTitle>Pekerjaan Terbaru</CardTitle>
+                <CardDescription>Tugas pekerjaan terbaru Anda</CardDescription>
               </div>
               <Button variant="ghost" size="sm" onClick={() => navigate('/vendor/jobs')}>
-                View All <ArrowRight className="h-4 w-4 ml-1" />
+                Lihat Semua <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             </CardHeader>
             <CardContent>
@@ -294,8 +294,8 @@ export default function VendorDashboard() {
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <Briefcase className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No jobs yet</p>
-                  <p className="text-sm">Jobs assigned to you will appear here</p>
+                  <p>Belum ada pekerjaan</p>
+                  <p className="text-sm">Pekerjaan yang ditugaskan kepada Anda akan muncul di sini</p>
                 </div>
               )}
             </CardContent>
@@ -317,8 +317,8 @@ export default function VendorDashboard() {
         {/* Service Categories */}
         <Card>
           <CardHeader>
-            <CardTitle>Your Services</CardTitle>
-            <CardDescription>Categories you specialize in</CardDescription>
+            <CardTitle>Layanan Anda</CardTitle>
+            <CardDescription>Kategori spesialisasi Anda</CardDescription>
           </CardHeader>
           <CardContent>
             {vendor?.service_categories && vendor.service_categories.length > 0 ? (
@@ -331,13 +331,13 @@ export default function VendorDashboard() {
               </div>
             ) : (
               <div className="text-center py-4 text-muted-foreground">
-                <p>No service categories set</p>
+                <p>Belum ada kategori layanan yang diatur</p>
                 <Button 
                   variant="link" 
                   className="mt-2"
                   onClick={() => navigate('/vendor/profile')}
                 >
-                  Add your specializations
+                  Tambahkan spesialisasi Anda
                 </Button>
               </div>
             )}

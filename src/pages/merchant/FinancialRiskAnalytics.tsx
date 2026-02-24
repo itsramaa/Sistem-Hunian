@@ -305,7 +305,7 @@ export default function FinancialRiskAnalytics() {
                                 <td className="text-right py-2.5 px-4">{formatRupiah(s.resulting_npv)}</td>
                                 <td className="text-center py-2.5 pl-4">
                                   <Badge variant={s.impact_level === "high" ? "destructive" : s.impact_level === "medium" ? "default" : "secondary"} className="text-xs rounded-full">
-                                    {s.impact_level}
+                                    {s.impact_level === "high" ? "Tinggi" : s.impact_level === "medium" ? "Sedang" : "Rendah"}
                                   </Badge>
                                 </td>
                               </tr>
