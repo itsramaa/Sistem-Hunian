@@ -13,9 +13,18 @@ import { useToast } from '@/shared/hooks/use-toast';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/shared/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { Plus, Wrench } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 10;
+
+const STATUS_TABS = [
+  { value: 'all', label: 'Semua' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'completed', label: 'Selesai' },
+  { value: 'cancelled', label: 'Dibatalkan' },
+];
 
 export default function MerchantMaintenance() {
   const { merchant } = useAuth();
@@ -111,16 +120,37 @@ export default function MerchantMaintenance() {
         loading={isLoading}
       />
 
-      <MaintenanceFilters
-        searchTerm={searchQuery}
-        onSearchChange={setSearchQuery}
-        statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
-        priorityFilter={priorityFilter}
-        onPriorityFilterChange={setPriorityFilter}
-        categoryFilter={categoryFilter}
-        onCategoryFilterChange={setCategoryFilter}
-      />
+      {/* Tab quick-filter by status */}
+      <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-4 space-y-4">
+        <Tabs value={statusFilter} onValueChange={setStatusFilter}>
+          <TabsList className="pill-tab-list w-full sm:w-auto">
+            {STATUS_TABS.map(tab => (
+              <TabsTrigger key={tab.value} value={tab.value} className="pill-tab-trigger">
+                {tab.label}
+                {tab.value !== 'all' && (
+                  <span className="ml-1.5 text-[10px] bg-muted/60 px-1.5 py-0.5 rounded-full">
+                    {tab.value === 'pending' ? stats.pending
+                      : tab.value === 'in_progress' ? stats.inProgress
+                      : tab.value === 'completed' ? stats.completed
+                      : requests.filter(r => r.status === 'cancelled').length}
+                  </span>
+                )}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+
+        <MaintenanceFilters
+          searchTerm={searchQuery}
+          onSearchChange={setSearchQuery}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          priorityFilter={priorityFilter}
+          onPriorityFilterChange={setPriorityFilter}
+          categoryFilter={categoryFilter}
+          onCategoryFilterChange={setCategoryFilter}
+        />
+      </div>
 
       <MaintenanceRequestTable 
         requests={paginatedRequests}

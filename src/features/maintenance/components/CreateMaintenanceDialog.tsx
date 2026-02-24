@@ -11,6 +11,7 @@ import { useMerchantProperties } from '@/features/properties/hooks/useMerchantPr
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/integrations/supabase/client';
 import { CreateMerchantMaintenancePayload } from '../types';
+import { MaintenancePhotoUpload } from './MaintenancePhotoUpload';
 
 const CATEGORIES = [
   { value: 'plumbing', label: 'Plumbing' },
@@ -46,8 +47,8 @@ export function CreateMaintenanceDialog({ open, onOpenChange, onSubmit, loading,
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('other');
   const [priority, setPriority] = useState('medium');
+  const [photos, setPhotos] = useState<string[]>([]);
 
-  // Sync preselected values
   useEffect(() => {
     if (preselectedPropertyId) setPropertyId(preselectedPropertyId);
   }, [preselectedPropertyId]);
@@ -75,6 +76,7 @@ export function CreateMaintenanceDialog({ open, onOpenChange, onSubmit, loading,
       priority,
       unit_id: unitId,
       merchant_id: merchant.id,
+      images: photos.length > 0 ? photos : undefined,
     });
   };
 
@@ -85,11 +87,12 @@ export function CreateMaintenanceDialog({ open, onOpenChange, onSubmit, loading,
     setDescription('');
     setCategory('other');
     setPriority('medium');
+    setPhotos([]);
   };
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v); }}>
-      <DialogContent className="rounded-2xl max-w-md">
+      <DialogContent className="rounded-2xl max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Tambah Maintenance</DialogTitle>
         </DialogHeader>
@@ -148,6 +151,14 @@ export function CreateMaintenanceDialog({ open, onOpenChange, onSubmit, loading,
               </Select>
             </div>
           </div>
+
+          <MaintenancePhotoUpload
+            photos={photos}
+            onChange={setPhotos}
+            maxPhotos={5}
+            label="Foto Masalah"
+            description="Upload foto untuk membantu mendeskripsikan masalah (maks 5)"
+          />
 
           <Button type="submit" disabled={loading || !unitId || !title} className="w-full rounded-xl gradient-cta">
             {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}

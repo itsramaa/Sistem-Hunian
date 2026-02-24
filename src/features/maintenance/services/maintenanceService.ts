@@ -156,6 +156,7 @@ export const maintenanceService = {
         priority: payload.priority,
         unit_id: payload.unit_id,
         merchant_id: payload.merchant_id,
+        images: payload.images || null,
       } as any)
       .select()
       .single();
