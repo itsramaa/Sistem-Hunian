@@ -205,7 +205,7 @@ const App = () => (
                     <Route path="settings" element={<MerchantSettings />} />
                     <Route path="units" element={<Navigate to="/merchant/properties" replace />} />
                     <Route path="units/:id" element={<MerchantUnitDetail />} />
-                    <Route path="guardians" element={<Navigate to="/merchant/properties" replace />} />
+                    <Route path="guardians" element={<MerchantGuardians />} />
                     <Route path="escrow" element={<MerchantEscrow />} />
                     <Route path="referrals" element={<MerchantReferrals />} />
                     <Route path="billing" element={<MerchantBilling />} />

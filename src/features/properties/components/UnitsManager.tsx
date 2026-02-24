@@ -10,8 +10,8 @@ import { Card, CardContent } from '@/shared/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { useToast } from '@/shared/hooks/use-toast';
-import { AlertTriangle, Copy, Edit, Home, Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { AlertTriangle, Copy, Edit, Home, LayoutGrid, List, Plus, Trash2 } from 'lucide-react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUnits } from '../hooks/useUnits';
 import { Unit, Property } from '../types';
@@ -34,13 +34,19 @@ const statusColors: Record<string, string> = {
   reserved: 'bg-primary/10 text-primary border-primary/30',
 };
 
+const ITEMS_PER_PAGE = 9;
+
 export function UnitsManager({ propertyId, propertyName, propertyType, open, onOpenChange, onUnitsChanged }: UnitsManagerProps) {
   const [showUnitDialog, setShowUnitDialog] = useState(false);
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
   const [deleteUnit_target, setDeleteUnit_target] = useState<Unit | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'gallery'>('list');
+  const [page, setPage] = useState(1);
+  const [galleryCount, setGalleryCount] = useState(ITEMS_PER_PAGE);
   const { toast } = useToast();
   const navigate = useNavigate();
   const { data: limits } = useSubscriptionLimits();
+  const observerRef = useRef<HTMLDivElement>(null);
   
   const { 
     units, 
@@ -60,6 +66,24 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
     name: propertyName,
     property_type: (propertyType || 'kost') as any,
   } as Property];
+
+  // Infinite scroll for gallery
+  const handleObserver = useCallback((entries: IntersectionObserverEntry[]) => {
+    const [entry] = entries;
+    if (entry.isIntersecting && galleryCount < units.length) {
+      setGalleryCount(prev => Math.min(prev + ITEMS_PER_PAGE, units.length));
+    }
+  }, [galleryCount, units.length]);
+
+  useEffect(() => {
+    const el = observerRef.current;
+    if (!el || viewMode !== 'gallery') return;
+    const observer = new IntersectionObserver(handleObserver, { threshold: 0.1 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [handleObserver, viewMode]);
+
+  useEffect(() => { setGalleryCount(ITEMS_PER_PAGE); setPage(1); }, [viewMode]);
 
   const handleUnitSubmit = async (data: UnitFormData) => {
     try {
@@ -84,6 +108,7 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
         wifi_included: data.wifi_included || false,
         wifi_speed_mbps: data.wifi_speed_mbps || null,
         wifi_cost_sharing: data.wifi_cost_sharing || 'included',
+        wifi_cost: data.wifi_cost || 0,
         additional_costs: (data.additional_costs || []).map(c => ({ name: c.name || '', amount: c.amount || 0 })),
       };
 
@@ -106,14 +131,8 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
     setShowUnitDialog(true);
   };
 
-  const handleEdit = (unit: Unit) => {
-    setEditingUnit(unit);
-    setShowUnitDialog(true);
-  };
-
-  const handleDelete = (unit: Unit) => {
-    setDeleteUnit_target(unit);
-  };
+  const handleEdit = (unit: Unit) => { setEditingUnit(unit); setShowUnitDialog(true); };
+  const handleDelete = (unit: Unit) => { setDeleteUnit_target(unit); };
 
   const confirmDelete = async () => {
     if (!deleteUnit_target) return;
@@ -126,82 +145,78 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
     }
   };
 
-  const handleDialogClose = () => {
-    setShowUnitDialog(false);
-    setEditingUnit(null);
-  };
+  const handleDialogClose = () => { setShowUnitDialog(false); setEditingUnit(null); };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
+
+  // Pagination for list mode
+  const totalPages = Math.ceil(units.length / ITEMS_PER_PAGE);
+  const paginatedUnits = viewMode === 'list' ? units.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE) : units.slice(0, galleryCount);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] rounded-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <div className="gradient-icon-box">
-              <Home className="h-5 w-5 text-primary" />
-            </div>
-            Units - {propertyName}
-          </DialogTitle>
-          <DialogDescription>
-            Kelola unit untuk properti ini
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[90vh] w-[95vw] rounded-2xl flex flex-col overflow-hidden">
+        {/* Sticky Header */}
+        <div className="shrink-0">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="gradient-icon-box">
+                <Home className="h-5 w-5 text-primary" />
+              </div>
+              Units - {propertyName}
+            </DialogTitle>
+            <DialogDescription>Kelola unit untuk properti ini</DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-4 mt-4">
-          {/* Subscription Limit Warning */}
           {limits && !limits.canAddUnit && (
-            <Alert variant="destructive" className="rounded-xl bg-destructive/5 backdrop-blur-sm border border-destructive/30">
+            <Alert variant="destructive" className="rounded-xl bg-destructive/5 backdrop-blur-sm border border-destructive/30 mt-3">
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Batas Unit Tercapai</AlertTitle>
-              <AlertDescription>
-                Anda telah mencapai batas {limits.maxUnits} unit pada paket {limits.tierName}.
-              </AlertDescription>
+              <AlertDescription>Anda telah mencapai batas {limits.maxUnits} unit pada paket {limits.tierName}.</AlertDescription>
             </Alert>
           )}
 
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center mt-3">
             <p className="text-sm text-muted-foreground">
               {units.length} unit total
               {limits && ` (${limits.maxUnits - limits.currentUnits} tersisa)`}
             </p>
-            <Button 
-              onClick={() => {
-                if (limits && !limits.canAddUnit) {
-                  toast({
-                    variant: 'destructive',
-                    title: 'Batas unit tercapai',
-                    description: 'Silakan upgrade langganan untuk menambah unit.',
-                  });
-                  return;
-                }
-                setShowUnitDialog(true);
-              }} 
-              size="sm"
-              disabled={limits && !limits.canAddUnit}
-              className="rounded-xl gradient-cta"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Tambah Unit
-            </Button>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center bg-muted/60 rounded-lg p-0.5">
+                <Button variant={viewMode === 'list' ? 'default' : 'ghost'} size="icon" className="h-7 w-7 rounded-md" onClick={() => setViewMode('list')}>
+                  <List className="h-3.5 w-3.5" />
+                </Button>
+                <Button variant={viewMode === 'gallery' ? 'default' : 'ghost'} size="icon" className="h-7 w-7 rounded-md" onClick={() => setViewMode('gallery')}>
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <Button 
+                onClick={() => {
+                  if (limits && !limits.canAddUnit) {
+                    toast({ variant: 'destructive', title: 'Batas unit tercapai', description: 'Silakan upgrade langganan untuk menambah unit.' });
+                    return;
+                  }
+                  setShowUnitDialog(true);
+                }} 
+                size="sm"
+                disabled={limits && !limits.canAddUnit}
+                className="rounded-xl gradient-cta"
+              >
+                <Plus className="h-4 w-4 mr-2" />Tambah Unit
+              </Button>
+            </div>
           </div>
+        </div>
 
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto mt-4 -mx-6 px-6">
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {[1, 2, 3, 4].map((i) => (
                 <div key={i} className="rounded-2xl bg-card/60 border border-border/30 p-4 space-y-3">
                   <div className="flex items-center gap-3">
                     <Skeleton className="w-10 h-10 rounded-xl" />
-                    <div className="space-y-1.5">
-                      <Skeleton className="h-4 w-24" />
-                      <Skeleton className="h-3 w-32" />
-                    </div>
+                    <div className="space-y-1.5"><Skeleton className="h-4 w-24" /><Skeleton className="h-3 w-32" /></div>
                   </div>
                   <Skeleton className="h-8 w-full" />
                 </div>
@@ -217,57 +232,95 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {units.map((unit) => (
-                <Card 
-                  key={unit.id} 
-                  className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40 hover:-translate-y-1 hover:shadow-lg hover:border-primary/30 transition-all duration-300 cursor-pointer"
-                  onClick={() => navigate(`/merchant/units/${unit.id}`)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="gradient-icon-box">
-                          <Home className="h-5 w-5 text-primary" />
+            <>
+              <div className={viewMode === 'gallery' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3' : 'space-y-2'}>
+                {paginatedUnits.map((unit) => (
+                  viewMode === 'gallery' ? (
+                    <Card 
+                      key={unit.id} 
+                      className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40 hover:-translate-y-1 hover:shadow-lg hover:border-primary/30 transition-all duration-300 cursor-pointer overflow-hidden"
+                      onClick={() => navigate(`/merchant/units/${unit.id}`)}
+                    >
+                      {/* Thumbnail */}
+                      {unit.photos && unit.photos.length > 0 ? (
+                        <div className="h-32 overflow-hidden">
+                          <img src={unit.photos[0]} alt={`Unit ${unit.unit_number}`} className="w-full h-full object-cover" loading="lazy" />
                         </div>
-                        <div>
-                          <p className="font-medium">Unit {unit.unit_number}</p>
-                          <p className="text-xs text-muted-foreground capitalize">
-                            {unit.unit_type} {unit.floor ? `• Lantai ${unit.floor}` : ''}
-                          </p>
-                        </div>
-                      </div>
-                      <Badge variant="outline" className={`rounded-full ${statusColors[unit.status || 'available']}`}>
-                        {unit.status}
-                      </Badge>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Sewa</p>
-                        <p className="font-medium">{formatCurrency(unit.rent_amount)}/bln</p>
-                      </div>
-                      {unit.size_sqm && (
-                        <div className="text-right">
-                          <p className="text-sm text-muted-foreground">Ukuran</p>
-                          <p className="font-medium">{unit.size_sqm} m²</p>
+                      ) : (
+                        <div className="h-32 bg-gradient-to-br from-primary/5 via-primary/10 to-accent/10 flex items-center justify-center">
+                          <Home className="h-8 w-8 text-muted-foreground/30" />
                         </div>
                       )}
-                    </div>
-                    <div className="mt-3 flex gap-2" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="outline" size="sm" onClick={() => handleEdit(unit)} className="rounded-xl">
-                        <Edit className="h-3 w-3 mr-1" />Edit
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleDuplicate(unit)} className="rounded-xl">
-                        <Copy className="h-3 w-3 mr-1" />Duplikat
-                      </Button>
-                      <Button variant="outline" size="sm" className="text-destructive hover:text-destructive rounded-xl" onClick={() => handleDelete(unit)}>
-                        <Trash2 className="h-3 w-3 mr-1" />Hapus
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                      <CardContent className="p-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="font-medium text-sm">Unit {unit.unit_number}</p>
+                          <Badge variant="outline" className={`rounded-full text-[10px] ${statusColors[unit.status || 'available']}`}>{unit.status}</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground capitalize mb-2">{unit.unit_type} {unit.floor ? `• Lt ${unit.floor}` : ''}</p>
+                        <p className="font-semibold text-sm">{formatCurrency(unit.rent_amount)}/bln</p>
+                        <div className="mt-2 flex gap-1" onClick={(e) => e.stopPropagation()}>
+                          <Button variant="outline" size="sm" className="h-7 text-xs rounded-lg flex-1" onClick={() => handleEdit(unit)}>
+                            <Edit className="h-3 w-3 mr-1" />Edit
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-7 text-xs rounded-lg" onClick={() => handleDuplicate(unit)}>
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-7 text-xs rounded-lg text-destructive hover:text-destructive" onClick={() => handleDelete(unit)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Card 
+                      key={unit.id} 
+                      className="rounded-xl bg-card/90 backdrop-blur-sm border border-border/40 hover:border-primary/30 transition-all cursor-pointer"
+                      onClick={() => navigate(`/merchant/units/${unit.id}`)}
+                    >
+                      <CardContent className="p-3 flex items-center justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="gradient-icon-box w-9 h-9 shrink-0">
+                            <Home className="h-4 w-4 text-primary" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm">Unit {unit.unit_number}</p>
+                            <p className="text-xs text-muted-foreground capitalize truncate">{unit.unit_type} {unit.floor ? `• Lt ${unit.floor}` : ''} • {formatCurrency(unit.rent_amount)}/bln</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <Badge variant="outline" className={`rounded-full text-[10px] ${statusColors[unit.status || 'available']}`}>{unit.status}</Badge>
+                          <Button variant="outline" size="sm" className="h-7 text-xs rounded-lg" onClick={() => handleEdit(unit)}>
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-7 text-xs rounded-lg" onClick={() => handleDuplicate(unit)}>
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-7 text-xs rounded-lg text-destructive hover:text-destructive" onClick={() => handleDelete(unit)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                ))}
+              </div>
+
+              {/* Pagination for list / Infinite scroll sentinel for gallery */}
+              {viewMode === 'list' && totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/40">
+                  <p className="text-xs text-muted-foreground">Hal {page} dari {totalPages}</p>
+                  <div className="flex gap-1">
+                    <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Prev</Button>
+                    <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next</Button>
+                  </div>
+                </div>
+              )}
+              {viewMode === 'gallery' && galleryCount < units.length && (
+                <div ref={observerRef} className="h-10 flex items-center justify-center mt-4">
+                  <p className="text-xs text-muted-foreground animate-pulse">Memuat lebih banyak...</p>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -284,9 +337,7 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
           <AlertDialogContent className="rounded-2xl bg-card/95 backdrop-blur-xl border border-border/40">
             <AlertDialogHeader>
               <AlertDialogTitle>Hapus Unit?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Apakah Anda yakin ingin menghapus unit "{deleteUnit_target?.unit_number}"? Tindakan ini tidak dapat dibatalkan.
-              </AlertDialogDescription>
+              <AlertDialogDescription>Apakah Anda yakin ingin menghapus unit "{deleteUnit_target?.unit_number}"? Tindakan ini tidak dapat dibatalkan.</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel className="rounded-xl">Batal</AlertDialogCancel>

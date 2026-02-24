@@ -4,7 +4,7 @@ import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
-import { Building2, DoorOpen, Edit, Image as ImageIcon, MapPin, MoreHorizontal, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
+import { Building2, Copy, DoorOpen, Edit, Image as ImageIcon, MapPin, MoreHorizontal, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
 
 interface PropertyCardProps {
   property: Property;
@@ -12,6 +12,7 @@ interface PropertyCardProps {
   onDelete: (property: Property) => void;
   onManageUnits: (property: Property) => void;
   onManagePhotos: (property: Property) => void;
+  onDuplicate?: (property: Property) => void;
   isDeleting?: boolean;
   style?: React.CSSProperties;
 }
@@ -46,6 +47,7 @@ export function PropertyCard({
   onDelete, 
   onManageUnits, 
   onManagePhotos,
+  onDuplicate,
   isDeleting,
   style,
 }: PropertyCardProps) {
@@ -155,6 +157,11 @@ export function PropertyCard({
                 <DropdownMenuItem onClick={() => onEdit(property)}>
                   <Edit className="h-4 w-4 mr-2" />Edit
                 </DropdownMenuItem>
+                {onDuplicate && (
+                  <DropdownMenuItem onClick={() => onDuplicate(property)}>
+                    <Copy className="h-4 w-4 mr-2" />Duplikat
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={() => onDelete(property)} className="text-destructive" disabled={isDeleting}>
                   {isDeleting ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
                   {isDeleting ? 'Checking...' : 'Delete'}

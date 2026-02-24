@@ -124,6 +124,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/merchant/tenants", icon: Users, label: "Penyewa", activePatterns: ["/merchant/move-outs", "/merchant/tenant-analytics"] },
           { path: "/merchant/contracts", icon: ClipboardList, label: "Kontrak" },
           { path: "/merchant/maintenance", icon: Wrench, label: "Maintenance" },
+          { path: "/merchant/guardians", icon: UserCheck, label: "Penjaga" },
         ],
       },
       {

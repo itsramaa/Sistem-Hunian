@@ -1,0 +1,1 @@
+ALTER TABLE public.units ADD COLUMN IF NOT EXISTS wifi_cost numeric DEFAULT 0;
