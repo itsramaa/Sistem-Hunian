@@ -9,21 +9,20 @@ This document maps the **Merchant (Pemilik Properti)** sidebar navigation to the
 
 ---
 
-## Sidebar Structure (9 Items, 5 Groups)
+## Sidebar Structure (8 Items, 4 Groups)
 
 ```text
 Merchant Portal/
 ├── Utama
-│   └── Dashboard
-├── Aset
-│   ├── Properti              (standalone list page)
-│   └── Penyewa               (standalone list page)
+│   ├── Dashboard
+│   └── Properti              (standalone list page)
+├── Operasional
+│   ├── Penyewa               (standalone list page)
+│   ├── Kontrak               (standalone list page)
+│   └── Maintenance           (standalone list page)
 ├── Keuangan
 │   ├── Tagihan               (standalone list page)
-│   ├── Pembayaran            (standalone list page)
-│   └── Kontrak               (standalone list page)
-├── Operasional
-│   └── Maintenance           (standalone list page)
+│   └── Pembayaran            (standalone list page)
 └── Wawasan
     └── Analitik              (card-based landing → sub-pages)
 ```
@@ -77,7 +76,8 @@ interface NavItem {
 | **Path** | `/merchant/properties` |
 | **Page** | `pages/merchant/Properties.tsx` |
 | **Detail** | `/merchant/properties/:id` → `pages/merchant/PropertyDetail.tsx` |
-| **Related** | Units (`/merchant/units`), Guardians (`/merchant/guardians`) — accessible from Property Detail |
+| **Related** | Units (`/merchant/units`) — accessible from Property Detail |
+| **Detail Tabs** | 5 primary tabs + "Lainnya" dropdown (Staf, Kepatuhan) |
 
 ---
 
@@ -91,28 +91,7 @@ interface NavItem {
 
 ---
 
-### 4. Tagihan (standalone)
-
-| | |
-|---|---|
-| **Path** | `/merchant/invoices` |
-| **Page** | `pages/merchant/Invoices.tsx` |
-| **Detail** | `/merchant/invoices/:id` → `pages/merchant/InvoiceDetail.tsx` |
-
----
-
-### 5. Pembayaran (standalone)
-
-| | |
-|---|---|
-| **Path** | `/merchant/payments` |
-| **Page** | `pages/merchant/Payments.tsx` |
-| **Detail** | `/merchant/payments/:id` → `pages/merchant/PaymentDetail.tsx` |
-| **Related** | Escrow (`/merchant/escrow`) |
-
----
-
-### 6. Kontrak (standalone)
+### 4. Kontrak (standalone)
 
 | | |
 |---|---|
@@ -122,13 +101,34 @@ interface NavItem {
 
 ---
 
-### 7. Maintenance (standalone)
+### 5. Maintenance (standalone)
 
 | | |
 |---|---|
 | **Path** | `/merchant/maintenance` |
 | **Page** | `pages/merchant/Maintenance.tsx` |
 | **Detail** | `/merchant/maintenance/:id` → `pages/merchant/MaintenanceDetail.tsx` |
+
+---
+
+### 6. Tagihan (standalone)
+
+| | |
+|---|---|
+| **Path** | `/merchant/invoices` |
+| **Page** | `pages/merchant/Invoices.tsx` |
+| **Detail** | `/merchant/invoices/:id` → `pages/merchant/InvoiceDetail.tsx` |
+
+---
+
+### 7. Pembayaran (standalone)
+
+| | |
+|---|---|
+| **Path** | `/merchant/payments` |
+| **Page** | `pages/merchant/Payments.tsx` |
+| **Detail** | `/merchant/payments/:id` → `pages/merchant/PaymentDetail.tsx` |
+| **Related** | Escrow (`/merchant/escrow`) |
 
 ---
 
@@ -155,18 +155,32 @@ interface NavItem {
 
 ---
 
+## PropertyDetail Tab Structure (Progressive Disclosure)
+
+```text
+Primary Tabs (always visible):
+  Overview | Unit | Tenant | Keuangan | Maintenance
+
+"Lainnya" Dropdown (progressive disclosure):
+  ├─ Staf (Guardians)
+  └─ Kepatuhan (Compliance + Data Quality)
+```
+
+Deep links via URL hash (`#guardians`, `#compliance`) auto-select the correct tab.
+
+---
+
 ## Contextual / Secondary Pages (no sidebar item)
 
 | Page | Path | Access Point |
 |---|---|---|
 | Units | `/merchant/units` | Properties page / Property Detail |
 | Unit Detail | `/merchant/units/:id` | Units list |
-| Guardians | `/merchant/guardians` | Properties page / Property Detail |
 | Move-Outs | `/merchant/move-outs` | Tenants page |
 | Move-Out Detail | `/merchant/move-outs/:id` | Move-Outs list |
 | Tenant Analytics | `/merchant/tenant-analytics` | InsightsHub or Tenants page |
-| Compliance | `/merchant/compliance` | Property Detail |
-| Data Quality | `/merchant/data-quality` | Property Detail |
+| Compliance | `/merchant/compliance` | Property Detail (Lainnya dropdown) |
+| Data Quality | `/merchant/data-quality` | Property Detail (Lainnya dropdown) |
 | Documents | `/merchant/documents` | Secondary nav or Dashboard |
 | OCR Tutorial | `/merchant/ocr-tutorial` | Documents page |
 | Escrow | `/merchant/escrow` | Payments page or Dashboard |

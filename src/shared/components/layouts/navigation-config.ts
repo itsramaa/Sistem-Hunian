@@ -115,13 +115,15 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
         label: "Utama",
         items: [
           { path: "/merchant", icon: LayoutDashboard, label: "Dashboard" },
+          { path: "/merchant/properties", icon: Building2, label: "Properti", activePatterns: ["/merchant/units"] },
         ],
       },
       {
-        label: "Aset",
+        label: "Operasional",
         items: [
-          { path: "/merchant/properties", icon: Building2, label: "Properti", activePatterns: ["/merchant/units", "/merchant/guardians"] },
           { path: "/merchant/tenants", icon: Users, label: "Penyewa", activePatterns: ["/merchant/move-outs", "/merchant/tenant-analytics"] },
+          { path: "/merchant/contracts", icon: ClipboardList, label: "Kontrak" },
+          { path: "/merchant/maintenance", icon: Wrench, label: "Maintenance" },
         ],
       },
       {
@@ -129,13 +131,6 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
         items: [
           { path: "/merchant/invoices", icon: FileText, label: "Tagihan" },
           { path: "/merchant/payments", icon: Wallet, label: "Pembayaran", activePatterns: ["/merchant/escrow"] },
-          { path: "/merchant/contracts", icon: ClipboardList, label: "Kontrak" },
-        ],
-      },
-      {
-        label: "Operasional",
-        items: [
-          { path: "/merchant/maintenance", icon: Wrench, label: "Maintenance" },
         ],
       },
       {
