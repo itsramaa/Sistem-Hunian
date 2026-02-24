@@ -421,7 +421,7 @@ export default function PropertyDetail() {
           {/* Guardians Tab */}
           <TabsContent value="guardians" className="mt-4 animate-fade-in">
             <Suspense fallback={<ContentSkeleton />}>
-              <LazyGuardians />
+              <LazyGuardians propertyId={id} />
             </Suspense>
           </TabsContent>
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { useGuardians, useCreateGuardian, useUpdateGuardian, useDeleteGuardian } from '@/features/properties/hooks/useGuardians';
+import { useGuardians, useGuardiansByProperty, useCreateGuardian, useUpdateGuardian, useDeleteGuardian } from '@/features/properties/hooks/useGuardians';
 import { useMerchantProperties } from '@/features/properties/hooks/useMerchantProperties';
 import { GuardianFormDialog, GuardianFormData } from '@/features/properties/components/GuardianFormDialog';
 import { PropertyGuardian } from '@/features/properties/types';
@@ -14,10 +14,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Edit, Loader2, Plus, Search, Trash2, UserCheck, Users } from 'lucide-react';
 import { SALARY_FREQUENCY_OPTIONS } from '@/features/properties/constants';
 
-export default function Guardians() {
+interface GuardiansProps {
+  propertyId?: string;
+}
+
+export default function Guardians({ propertyId }: GuardiansProps) {
   const { merchant } = useAuth();
   const merchantId = merchant?.id;
-  const { data: guardians = [], isLoading } = useGuardians(merchantId);
+
+  // Use property-filtered query when propertyId is provided
+  const allGuardiansQuery = useGuardians(propertyId ? undefined : merchantId);
+  const propertyGuardiansQuery = useGuardiansByProperty(propertyId);
+  
+  const guardians = propertyId 
+    ? (propertyGuardiansQuery.data || []) 
+    : (allGuardiansQuery.data || []);
+  const isLoading = propertyId ? propertyGuardiansQuery.isLoading : allGuardiansQuery.isLoading;
+
   const { properties } = useMerchantProperties(merchantId || '');
   const createMutation = useCreateGuardian();
   const updateMutation = useUpdateGuardian();
@@ -33,7 +46,11 @@ export default function Guardians() {
     if (editing) {
       await updateMutation.mutateAsync({ id: editing.id, ...data } as any);
     } else {
-      await createMutation.mutateAsync({ ...data, merchant_id: merchantId! } as any);
+      // When embedded in property context, pre-set the property_id
+      const payload = propertyId 
+        ? { ...data, merchant_id: merchantId!, property_id: propertyId }
+        : { ...data, merchant_id: merchantId! };
+      await createMutation.mutateAsync(payload as any);
     }
     setFormOpen(false);
     setEditing(null);
@@ -54,12 +71,21 @@ export default function Guardians() {
   const formatCurrency = (v: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v);
   const freqLabel = (v: string) => SALARY_FREQUENCY_OPTIONS.find(o => o.value === v)?.label || v;
 
+  // Filter guardians
+  const filtered = guardians.filter((g: any) => {
+    const matchesSearch = !searchQuery || g.name?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesRole = roleFilter === 'all' || g.role === roleFilter;
+    return matchesSearch && matchesRole;
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Manajemen Penjaga</h1>
-          <p className="text-muted-foreground text-sm">Kelola data penjaga seluruh properti Anda</p>
+          <p className="text-muted-foreground text-sm">
+            {propertyId ? 'Kelola penjaga properti ini' : 'Kelola data penjaga seluruh properti Anda'}
+          </p>
         </div>
         <Button onClick={() => { setEditing(null); setFormOpen(true); }} className="rounded-xl gradient-cta text-primary-foreground">
           <Plus className="h-4 w-4 mr-2" />Tambah Penjaga
@@ -126,7 +152,7 @@ export default function Guardians() {
           </div>
           {isLoading ? (
             <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-          ) : guardians.length === 0 ? (
+          ) : filtered.length === 0 ? (
             <p className="text-center py-8 text-muted-foreground">Belum ada penjaga. Klik "Tambah Penjaga" untuk memulai.</p>
           ) : (
             <div className="overflow-x-auto">
@@ -134,7 +160,8 @@ export default function Guardians() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nama</TableHead>
-                    <TableHead>Properti</TableHead>
+                    {/* Hide property column when embedded in property context */}
+                    {!propertyId && <TableHead>Properti</TableHead>}
                     <TableHead>Telepon</TableHead>
                     <TableHead>Gaji</TableHead>
                     <TableHead>Frekuensi</TableHead>
@@ -143,10 +170,10 @@ export default function Guardians() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {guardians.map((g: any) => (
+                  {filtered.map((g: any) => (
                     <TableRow key={g.id}>
                       <TableCell className="font-medium">{g.name}</TableCell>
-                      <TableCell>{g.property_name || '-'}</TableCell>
+                      {!propertyId && <TableCell>{g.property_name || '-'}</TableCell>}
                       <TableCell>{g.phone || '-'}</TableCell>
                       <TableCell>{formatCurrency(g.salary || 0)}</TableCell>
                       <TableCell>{freqLabel(g.salary_frequency)}</TableCell>
@@ -174,9 +201,13 @@ export default function Guardians() {
         open={formOpen}
         onOpenChange={(o) => { setFormOpen(o); if (!o) setEditing(null); }}
         guardian={editing}
-        properties={(properties || []).map(p => ({ id: p.id, name: p.name }))}
+        properties={propertyId 
+          ? (properties || []).filter(p => p.id === propertyId).map(p => ({ id: p.id, name: p.name }))
+          : (properties || []).map(p => ({ id: p.id, name: p.name }))
+        }
         onSubmit={handleSubmit}
         isLoading={createMutation.isPending || updateMutation.isPending}
+        defaultPropertyId={propertyId}
       />
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>

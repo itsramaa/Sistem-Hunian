@@ -74,7 +74,7 @@ export function useDssReadiness(propertyId: string | undefined, merchantId: stri
       const l2Items: ChecklistItem[] = [
         { key: "amenities", label: "Fasilitas (min. 1)", level: 2, completed: (property?.amenities?.length || 0) > 0, icon: "🎯", link: editStep3 },
         { key: "images", label: "Foto properti (min. 1)", level: 2, completed: (property?.images?.length || 0) > 0, icon: "📸", link: editStep3 },
-        { key: "guardian", label: "Penjaga aktif", level: 2, completed: (guardians?.length || 0) > 0, icon: "👤", link: `/merchant/guardians` },
+        { key: "guardian", label: "Penjaga aktif", level: 2, completed: (guardians?.length || 0) > 0, icon: "👤", link: `/merchant/properties/${propertyId}#guardians` },
         { key: "description", label: "Deskripsi properti", level: 2, completed: !!property?.description, icon: "📝", link: editLink },
         { key: "floor_count", label: "Jumlah lantai", level: 2, completed: !!property?.floor_count, icon: "🏢", link: editStep2 },
         { key: "building_condition", label: "Kondisi bangunan", level: 2, completed: !!property?.building_condition, icon: "🔧", link: editStep2 },
