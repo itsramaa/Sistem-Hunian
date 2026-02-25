@@ -23,8 +23,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/shared/utils/utils';
 import { CreateMaintenanceDialog } from '@/features/maintenance/components/CreateMaintenanceDialog';
-import { CustomAmenities } from '@/features/properties/components/CustomAmenities';
-import { FacilityManagementDialog } from '@/features/properties/components/FacilityManagementDialog';
+import { FacilityTypePicker } from '@/features/inventory/components/FacilityTypePicker';
 import { CreateContractDialog } from '@/features/contracts/components/CreateContractDialog';
 import { CreateInvoiceDialog } from '@/features/payments/components/CreateInvoiceDialog';
 import { useCreateMerchantMaintenanceRequest } from '@/features/maintenance/hooks/useMaintenance';
@@ -594,10 +593,10 @@ export default function UnitDetail() {
                 {saveAmenitiesMutation.isPending ? 'Menyimpan...' : 'Simpan'}
               </Button>
             </div>
-            <CustomAmenities
-              selectedAmenities={inventoryAmenities.length > 0 ? inventoryAmenities : (unit.amenities || [])}
-              onAmenitiesChange={setInventoryAmenities}
-              type="unit"
+            <FacilityTypePicker
+              selectedTypeIds={inventoryAmenities.length > 0 ? inventoryAmenities : (unit.amenities || [])}
+              onSelectionChange={setInventoryAmenities}
+              scope="unit"
             />
           </TabsContent>
         </Tabs>
@@ -703,15 +702,6 @@ export default function UnitDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Facility Management Dialog */}
-      {unit.property?.merchant_id && (
-        <FacilityManagementDialog
-          open={showFacilityManageDialog}
-          onOpenChange={setShowFacilityManageDialog}
-          merchantId={unit.property.merchant_id}
-          categoryFilter="unit"
-        />
-      )}
 
       {/* Contract Dialog */}
       <CreateContractDialog

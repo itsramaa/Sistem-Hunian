@@ -14,7 +14,7 @@ import { unitSchema, UnitFormData } from "../types/schema";
 import { Unit, Property } from "../types";
 import { getUnitTypesForProperty, MAX_REASONABLE_SIZE } from "../utils/unit-utils";
 import { OCCUPANCY_TYPE_OPTIONS, COST_TYPE_OPTIONS, WIFI_SHARING_OPTIONS } from "../constants";
-import { CustomAmenities } from "./CustomAmenities";
+import { FacilityTypePicker } from "@/features/inventory/components/FacilityTypePicker";
 import { cn } from "@/shared/utils/utils";
 
 interface UnitFormDialogProps {
@@ -308,10 +308,10 @@ export const UnitFormDialog = ({ open, onOpenChange, unit, properties, onSubmit,
 
               {/* Fasilitas Kamar */}
               <div>
-                <CustomAmenities
-                  selectedAmenities={watch("amenities") || []}
-                  onAmenitiesChange={(a) => setValue("amenities", a)}
-                  type="unit"
+                <FacilityTypePicker
+                  selectedTypeIds={watch("amenities") || []}
+                  onSelectionChange={(a) => setValue("amenities", a)}
+                  scope="unit"
                 />
               </div>
             </div>

@@ -34,8 +34,7 @@ import { useCreateMerchantMaintenanceRequest } from '@/features/maintenance/hook
 import { UnitFormDialog } from '@/features/properties/components/UnitFormDialog';
 import { useUnits } from '@/features/properties/hooks/useUnits';
 import { AddTenantDialog } from '@/features/users/components/tenant/AddTenantDialog';
-import { CustomAmenities } from '@/features/properties/components/CustomAmenities';
-import { FacilityManagementDialog } from '@/features/properties/components/FacilityManagementDialog';
+import { FacilityTypePicker } from '@/features/inventory/components/FacilityTypePicker';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 
 const LazyGuardians = lazy(() => import('@/pages/merchant/Guardians'));
@@ -126,7 +125,6 @@ export default function PropertyDetail() {
 
   // Fasilitas edit dialog
   const [showFacilitiesDialog, setShowFacilitiesDialog] = useState(false);
-  const [showFacilityManageDialog, setShowFacilityManageDialog] = useState(false);
   const [editingAmenities, setEditingAmenities] = useState<string[]>([]);
 
   // Tenant creation mutation
@@ -475,13 +473,8 @@ export default function PropertyDetail() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-base">Fasilitas</CardTitle>
                 <div className="flex items-center gap-2">
-                  {merchant?.id && (
-                    <Button variant="ghost" size="sm" className="rounded-xl gap-1 text-xs h-7" onClick={() => setShowFacilityManageDialog(true)}>
-                      <Plus className="h-3.5 w-3.5" /> Tambah
-                    </Button>
-                  )}
                   <Button variant="outline" size="sm" className="rounded-xl gap-1 text-xs h-7" onClick={() => { setEditingAmenities(property.amenities || []); setShowFacilitiesDialog(true); }}>
-                    <Settings2 className="h-3.5 w-3.5" /> Edit
+                    <Settings2 className="h-3.5 w-3.5" /> Edit Fasilitas
                   </Button>
                 </div>
               </CardHeader>
@@ -929,11 +922,11 @@ export default function PropertyDetail() {
           <DialogHeader>
             <DialogTitle>Edit Fasilitas Properti</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <CustomAmenities
-              selectedAmenities={editingAmenities}
-              onAmenitiesChange={setEditingAmenities}
-              type="property"
+           <div className="py-4">
+            <FacilityTypePicker
+              selectedTypeIds={editingAmenities}
+              onSelectionChange={setEditingAmenities}
+              scope="property"
             />
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -949,15 +942,6 @@ export default function PropertyDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Facility Management Dialog */}
-      {merchant?.id && (
-        <FacilityManagementDialog
-          open={showFacilityManageDialog}
-          onOpenChange={setShowFacilityManageDialog}
-          merchantId={merchant.id}
-          categoryFilter="umum"
-        />
-      )}
     </div>
   );
 }

@@ -196,20 +196,20 @@ export default function MerchantDashboard() {
             style={{ animationDelay: '240ms', animationFillMode: 'both' }}
             onClick={() => navigate('/merchant/payments')}
             role="button"
-            aria-label={`Saldo Escrow: ${formatCurrency(stats?.financials.balance || 0)}. Klik untuk riwayat pembayaran.`}
+            aria-label={`Pendapatan Bulan Ini: ${formatCurrency(stats?.financials.monthlyRevenue || 0)}. Klik untuk riwayat pembayaran.`}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Saldo Escrow</CardTitle>
+              <CardTitle className="text-sm font-medium">Pendapatan Bulan Ini</CardTitle>
               <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-accent/20 to-accent/5 flex items-center justify-center" aria-hidden="true">
                 <Wallet className="h-4 w-4 text-accent" />
               </div>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {formatCurrency(stats?.financials.balance || 0)}
+                {formatCurrency(stats?.financials.monthlyRevenue || 0)}
               </div>
               <p className="text-xs text-muted-foreground">
-                {formatCurrency(stats?.financials.pendingBalance || 0)} tertunda
+                vs {formatCurrency(stats?.financials.lastMonthRevenue || 0)} bulan lalu
               </p>
             </CardContent>
           </Card>

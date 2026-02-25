@@ -15,7 +15,7 @@ import { PROPERTY_TYPES, BUILDING_CONDITIONS, LAND_OWNERSHIP_OPTIONS } from "../
 import { ProvincesCitiesSelect } from "./ProvincesCitiesSelect";
 import { LocationPicker } from "./LocationPicker";
 import { UnitPhotoUpload } from "./UnitPhotoUpload";
-import { CustomAmenities } from "./CustomAmenities";
+import { FacilityTypePicker } from "@/features/inventory/components/FacilityTypePicker";
 import { GuardianFormDialog, GuardianFormData } from "./GuardianFormDialog";
 import { useGuardians, useCreateGuardian } from "../hooks/useGuardians";
 import { useAuth } from "@/features/auth/hooks/useAuth";
@@ -251,7 +251,7 @@ export function PropertyFormDialog({ open, onOpenChange, property, onSubmit, isL
 
                 {/* Fasilitas */}
                 <div className="border-t border-border/30 pt-4 mt-4">
-                  <CustomAmenities selectedAmenities={watch('amenities') || []} onAmenitiesChange={(a) => setValue('amenities', a)} type="property" />
+                  <FacilityTypePicker selectedTypeIds={watch('amenities') || []} onSelectionChange={(a) => setValue('amenities', a)} scope="property" />
                 </div>
 
                 <div className="border-t border-border/30 pt-4 mt-4">
