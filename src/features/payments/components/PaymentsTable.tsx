@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 import { Bell, Calendar, CheckCircle, Clock, DollarSign, ImageIcon, Loader2, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Payment } from '../types';
+import { formatLabel } from '@/shared/utils/utils';
 
 interface PaymentsTableProps {
   payments: Payment[];
@@ -61,15 +62,15 @@ export function PaymentsTable({
         <Table>
           <TableHeader>
             <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b-0">
-              <TableHead className="font-semibold text-xs uppercase tracking-wider">Type</TableHead>
-              <TableHead className="font-semibold text-xs uppercase tracking-wider">Amount</TableHead>
-              <TableHead className="font-semibold text-xs uppercase tracking-wider">Due Date</TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wider">Tipe</TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wider">Jumlah</TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wider">Jatuh Tempo</TableHead>
               <TableHead className="font-semibold text-xs uppercase tracking-wider">Status</TableHead>
-              <TableHead className="font-semibold text-xs uppercase tracking-wider">Method</TableHead>
-              <TableHead className="font-semibold text-xs uppercase tracking-wider">Reference</TableHead>
-              <TableHead className="font-semibold text-xs uppercase tracking-wider">Paid At</TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wider">Metode</TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wider">Referensi</TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wider">Dibayar Pada</TableHead>
               <TableHead className="font-semibold text-xs uppercase tracking-wider">Bukti</TableHead>
-              <TableHead className="font-semibold text-xs uppercase tracking-wider">Actions</TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wider">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -96,15 +97,15 @@ export function PaymentsTable({
       <Table>
         <TableHeader>
           <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b-0">
-            <TableHead className="font-semibold text-xs uppercase tracking-wider">Type</TableHead>
-            <TableHead className="font-semibold text-xs uppercase tracking-wider">Amount</TableHead>
-            <TableHead className="font-semibold text-xs uppercase tracking-wider">Due Date</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Tipe</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Jumlah</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Jatuh Tempo</TableHead>
             <TableHead className="font-semibold text-xs uppercase tracking-wider">Status</TableHead>
-            <TableHead className="font-semibold text-xs uppercase tracking-wider">Method</TableHead>
-            <TableHead className="font-semibold text-xs uppercase tracking-wider">Reference</TableHead>
-            <TableHead className="font-semibold text-xs uppercase tracking-wider">Paid At</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Metode</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Referensi</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Dibayar Pada</TableHead>
             <TableHead className="font-semibold text-xs uppercase tracking-wider">Bukti</TableHead>
-            <TableHead className="font-semibold text-xs uppercase tracking-wider">Actions</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider text-right">Aksi</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -113,27 +114,27 @@ export function PaymentsTable({
               <TableCell colSpan={9} className="p-0">
                 <EmptyState
                   icon={DollarSign}
-                  title="No payments found"
-                  description="Payments will appear here once invoices are created."
+                  title="Pembayaran tidak ditemukan"
+                  description="Pembayaran akan muncul di sini setelah tagihan dibuat."
                 />
               </TableCell>
             </TableRow>
           ) : (
             payments.map((payment) => (
               <TableRow key={payment.id} className="hover:bg-primary/5 cursor-pointer transition-colors" onClick={() => navigate(`/merchant/payments/${payment.id}`)}>
-                <TableCell className="font-medium capitalize">{payment.payment_type}</TableCell>
+                <TableCell className="font-medium">{formatLabel(payment.payment_type)}</TableCell>
                   <TableCell>{formatCurrency(Number(payment.amount))}</TableCell>
-                  <TableCell>{format(new Date(payment.due_date), 'MMM d, yyyy')}</TableCell>
+                  <TableCell>{format(new Date(payment.due_date), 'dd MMM yyyy')}</TableCell>
                   <TableCell>
                     <Badge variant={getStatusColor(payment.status)} className="gap-1">
                       {getStatusIcon(payment.status)}
-                      {payment.status}
+                      {formatLabel(payment.status)}
                     </Badge>
                   </TableCell>
-                <TableCell className="capitalize">{payment.payment_method || '-'}</TableCell>
+                <TableCell>{formatLabel(payment.payment_method) || '-'}</TableCell>
                   <TableCell>{payment.reference || '-'}</TableCell>
                   <TableCell>
-                     {payment.paid_at ? format(new Date(payment.paid_at), 'MMM d, yyyy') : '-'}
+                     {payment.paid_at ? format(new Date(payment.paid_at), 'dd MMM yyyy') : '-'}
                   </TableCell>
                   <TableCell>
                     {payment.proof_photo_url ? (
@@ -152,7 +153,7 @@ export function PaymentsTable({
                             className="rounded-xl"
                             onClick={() => onMarkPaid(payment)}
                           >
-                            Mark Paid
+                            Tandai Lunas
                           </Button>
                           <Button
                             variant="ghost"
@@ -160,7 +161,7 @@ export function PaymentsTable({
                             className="rounded-xl"
                             onClick={() => onSendReminder(payment.id)}
                             disabled={sendingReminderId === payment.id}
-                            aria-label="Send payment reminder"
+                            aria-label="Kirim pengingat pembayaran"
                           >
                             {sendingReminderId === payment.id ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
@@ -184,7 +185,7 @@ export function PaymentsTable({
           totalItems={totalPayments}
           itemsPerPage={itemsPerPage}
           onPageChange={onPageChange}
-          itemLabel="payments"
+          itemLabel="pembayaran"
         />
     </div>
   );

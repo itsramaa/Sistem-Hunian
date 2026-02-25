@@ -104,7 +104,7 @@ export default function AnalyticsDashboard() {
         const end = new Date(c.end_date);
         return c.status === "active" && start <= m.end && end >= m.start;
       }).length;
-      return { name: m.label, occupancy: Math.round((active / totalUnits) * 100) };
+      return { name: m.label, okupansi: Math.round((active / totalUnits) * 100) };
     });
   }, [contracts, filteredUnits]);
 
@@ -256,7 +256,7 @@ export default function AnalyticsDashboard() {
                 <XAxis dataKey="name" className="text-xs" />
                 <YAxis unit="%" className="text-xs" />
                 <Tooltip formatter={(v: number) => [`${v}%`, "Hunian"]} />
-                <Line type="monotone" dataKey="occupancy" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4 }} />
+                <Line type="monotone" dataKey="okupansi" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4 }} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>

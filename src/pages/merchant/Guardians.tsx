@@ -69,7 +69,24 @@ export default function Guardians({ propertyId }: GuardiansProps) {
     .reduce((sum: number, g: any) => sum + (g.salary || 0), 0);
 
   const formatCurrency = (v: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v);
-  const freqLabel = (v: string) => SALARY_FREQUENCY_OPTIONS.find(o => o.value === v)?.label || v;
+  
+  const freqLabel = (v: string) => {
+    const option = SALARY_FREQUENCY_OPTIONS.find(o => o.value === v);
+    if (!option) return v;
+    switch(v) {
+      case 'monthly': return 'Bulanan';
+      case 'weekly': return 'Mingguan';
+      case 'daily': return 'Harian';
+      default: return option.label;
+    }
+  };
+
+  const roleLabels: Record<string, string> = {
+    security: 'Keamanan',
+    cleaner: 'Kebersihan',
+    manager: 'Manajer',
+    maintenance: 'Pemeliharaan'
+  };
 
   // Filter guardians
   const filtered = guardians.filter((g: any) => {
@@ -84,37 +101,37 @@ export default function Guardians({ propertyId }: GuardiansProps) {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Manajemen Penjaga</h1>
           <p className="text-muted-foreground text-sm">
-            {propertyId ? 'Kelola penjaga properti ini' : 'Kelola data penjaga seluruh properti Anda'}
+            {propertyId ? 'Kelola penjaga untuk properti ini' : 'Kelola data staf dan penjaga di seluruh properti Anda'}
           </p>
         </div>
-        <Button onClick={() => { setEditing(null); setFormOpen(true); }} className="rounded-xl gradient-cta text-primary-foreground">
-          <Plus className="h-4 w-4 mr-2" />Tambah Penjaga
+        <Button onClick={() => { setEditing(null); setFormOpen(true); }} className="rounded-xl gradient-cta text-primary-foreground shadow-md" aria-label="Tambah staf penjaga baru">
+          <Plus className="h-4 w-4 mr-2" aria-hidden="true" />Tambah Penjaga
         </Button>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border-border/40 shadow-sm">
           <CardContent className="pt-5 flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-primary/10"><Users className="h-5 w-5 text-primary" /></div>
+            <div className="p-2.5 rounded-xl bg-primary/10" aria-hidden="true"><Users className="h-5 w-5 text-primary" /></div>
             <div>
               <p className="text-sm text-muted-foreground">Total Penjaga</p>
               <p className="text-xl font-bold">{guardians.length}</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border-border/40 shadow-sm">
           <CardContent className="pt-5 flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-success/10"><UserCheck className="h-5 w-5 text-success" /></div>
+            <div className="p-2.5 rounded-xl bg-success/10" aria-hidden="true"><UserCheck className="h-5 w-5 text-success" /></div>
             <div>
               <p className="text-sm text-muted-foreground">Aktif</p>
               <p className="text-xl font-bold">{activeCount}</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border-border/40 shadow-sm">
           <CardContent className="pt-5 flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-warning/10"><span className="text-warning text-lg">💰</span></div>
+            <div className="p-2.5 rounded-xl bg-warning/10" aria-hidden="true"><span className="text-warning text-lg">💰</span></div>
             <div>
               <p className="text-sm text-muted-foreground">Total Gaji Aktif/bln</p>
               <p className="text-xl font-bold">{formatCurrency(totalSalary)}</p>
@@ -124,68 +141,82 @@ export default function Guardians({ propertyId }: GuardiansProps) {
       </div>
 
       {/* Table */}
-      <Card className="rounded-2xl">
-        <CardHeader><CardTitle className="text-lg">Daftar Penjaga</CardTitle></CardHeader>
-        <CardContent>
-          <div className="flex gap-2 mb-6">
+      <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border-border/40 shadow-sm overflow-hidden">
+        <CardHeader className="bg-muted/30 border-b border-border/40"><CardTitle className="text-lg">Daftar Penjaga</CardTitle></CardHeader>
+        <CardContent className="p-0 sm:p-6">
+          <div className="flex flex-col sm:flex-row gap-3 mb-6 p-4 sm:p-0" role="search" aria-label="Filter daftar penjaga">
             <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" aria-hidden="true" />
               <Input
-                placeholder="Cari penjaga..."
+                placeholder="Cari nama penjaga..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 rounded-xl border-border/40 bg-card/50"
+                aria-label="Cari berdasarkan nama"
               />
             </div>
             <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-[180px] rounded-xl border-border/40 bg-card/50">
-                <SelectValue placeholder="Filter Peran" />
+              <SelectTrigger className="w-full sm:w-[200px] rounded-xl border-border/40 bg-card/50" aria-label="Filter berdasarkan peran staf">
+                <SelectValue placeholder="Semua Peran" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua Peran</SelectItem>
-                <SelectItem value="security">Keamanan</SelectItem>
-                <SelectItem value="cleaner">Kebersihan</SelectItem>
-                <SelectItem value="manager">Manajer</SelectItem>
-                <SelectItem value="maintenance">Pemeliharaan</SelectItem>
+                {Object.entries(roleLabels).map(([val, label]) => (
+                  <SelectItem key={val} value={val}>{label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
+
           {isLoading ? (
-            <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            <div className="flex flex-col items-center justify-center py-12" role="status">
+              <Loader2 className="h-8 w-8 animate-spin text-primary/40 mb-3" aria-hidden="true" />
+              <p className="text-sm text-muted-foreground">Memuat data penjaga...</p>
+            </div>
           ) : filtered.length === 0 ? (
-            <p className="text-center py-8 text-muted-foreground">Belum ada penjaga. Klik "Tambah Penjaga" untuk memulai.</p>
+            <div className="text-center py-12" role="status">
+              <Users className="h-12 w-12 text-muted-foreground/20 mx-auto mb-3" aria-hidden="true" />
+              <p className="text-muted-foreground font-medium">Data tidak ditemukan.</p>
+              <p className="text-sm text-muted-foreground mt-1">Coba sesuaikan pencarian atau tambah penjaga baru.</p>
+            </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" role="region" aria-label="Tabel staf penjaga">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Nama</TableHead>
-                    {/* Hide property column when embedded in property context */}
-                    {!propertyId && <TableHead>Properti</TableHead>}
-                    <TableHead>Telepon</TableHead>
-                    <TableHead>Gaji</TableHead>
-                    <TableHead>Frekuensi</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Aksi</TableHead>
+                  <TableRow className="bg-muted/30 border-b-0">
+                    <TableHead className="font-semibold uppercase tracking-wider text-[10px]">Nama</TableHead>
+                    {!propertyId && <TableHead className="font-semibold uppercase tracking-wider text-[10px]">Properti</TableHead>}
+                    <TableHead className="font-semibold uppercase tracking-wider text-[10px]">Peran</TableHead>
+                    <TableHead className="font-semibold uppercase tracking-wider text-[10px]">Telepon</TableHead>
+                    <TableHead className="font-semibold uppercase tracking-wider text-[10px]">Gaji</TableHead>
+                    <TableHead className="font-semibold uppercase tracking-wider text-[10px]">Status</TableHead>
+                    <TableHead className="text-right font-semibold uppercase tracking-wider text-[10px]">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.map((g: any) => (
-                    <TableRow key={g.id}>
-                      <TableCell className="font-medium">{g.name}</TableCell>
-                      {!propertyId && <TableCell>{g.property_name || '-'}</TableCell>}
-                      <TableCell>{g.phone || '-'}</TableCell>
-                      <TableCell>{formatCurrency(g.salary || 0)}</TableCell>
-                      <TableCell>{freqLabel(g.salary_frequency)}</TableCell>
+                    <TableRow key={g.id} className="transition-colors hover:bg-primary/5 border-b border-border/30">
+                      <TableCell className="font-bold text-sm">{g.name}</TableCell>
+                      {!propertyId && <TableCell className="text-sm">{g.property_name || '-'}</TableCell>}
+                      <TableCell className="text-sm">{roleLabels[g.role] || g.role}</TableCell>
+                      <TableCell className="text-sm font-mono">{g.phone || '-'}</TableCell>
+                      <TableCell className="text-sm font-medium">
+                        {formatCurrency(g.salary || 0)}
+                        <span className="text-[10px] text-muted-foreground ml-1">/{freqLabel(g.salary_frequency)}</span>
+                      </TableCell>
                       <TableCell>
-                        <Badge variant={g.status === 'active' ? 'default' : 'secondary'} className="rounded-full">
-                          {g.status === 'active' ? 'Aktif' : 'Tidak Aktif'}
+                        <Badge variant={g.status === 'active' ? 'default' : 'secondary'} className="rounded-full text-[10px] font-bold uppercase tracking-tight">
+                          {g.status === 'active' ? 'Aktif' : 'Non-Aktif'}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-1 justify-end">
-                          <Button size="icon" variant="ghost" onClick={() => { setEditing(g); setFormOpen(true); }}><Edit className="h-4 w-4" /></Button>
-                          <Button size="icon" variant="ghost" className="text-destructive" onClick={() => setDeleteId(g.id)}><Trash2 className="h-4 w-4" /></Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary" onClick={() => { setEditing(g); setFormOpen(true); }} aria-label={`Edit data ${g.name}`}>
+                            <Edit className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10" onClick={() => setDeleteId(g.id)} aria-label={`Hapus data ${g.name}`}>
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>

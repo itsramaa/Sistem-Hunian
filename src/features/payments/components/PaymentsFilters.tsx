@@ -22,7 +22,7 @@ export function PaymentsFilters({
       <div className="relative flex-1">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search by reference or type..."
+          placeholder="Cari berdasarkan referensi atau tipe..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           className="pl-10 rounded-xl bg-background/60 border-border/50"
@@ -30,13 +30,13 @@ export function PaymentsFilters({
       </div>
       <Select value={statusFilter} onValueChange={onStatusFilterChange}>
         <SelectTrigger className="w-full sm:w-[180px] rounded-xl bg-background/60 border-border/50">
-          <SelectValue placeholder="Filter by status" />
+          <SelectValue placeholder="Filter status" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Status</SelectItem>
-          <SelectItem value="pending">Pending</SelectItem>
-          <SelectItem value="paid">Paid</SelectItem>
-          <SelectItem value="overdue">Overdue</SelectItem>
+          <SelectItem value="all">Semua Status</SelectItem>
+          <SelectItem value="pending">Menunggu</SelectItem>
+          <SelectItem value="paid">Lunas</SelectItem>
+          <SelectItem value="overdue">Terlambat</SelectItem>
         </SelectContent>
       </Select>
     </div>

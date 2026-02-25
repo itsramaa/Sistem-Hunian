@@ -128,6 +128,20 @@ export default function PropertyDetail() {
     window.history.replaceState(null, '', tab === 'overview' ? window.location.pathname : `${window.location.pathname}#${tab}`);
   };
 
+  const statusLabels: Record<string, string> = {
+    active: 'Aktif',
+    inactive: 'Nonaktif',
+    maintenance: 'Pemeliharaan',
+    available: 'Tersedia',
+    occupied: 'Terisi',
+    reserved: 'Dipesan',
+  };
+
+  const typeLabels: Record<string, string> = {
+    kost: 'Kost',
+    kontrakan: 'Kontrakan / Ruko'
+  };
+
   // Edit submit handler
   const editMutation = useMutation({
     mutationFn: (data: PropertyFormData) => propertyService.updateProperty(id!, data as any),
@@ -154,7 +168,7 @@ export default function PropertyDetail() {
         .order('created_at', { ascending: false });
       
       const tenantIds = [...new Set((contracts || []).map(c => c.tenant_user_id))];
-      let profiles: Record<string, any> = {};
+      const profiles: Record<string, any> = {};
       if (tenantIds.length > 0) {
         const { data: profileData } = await supabase.from('profiles').select('user_id, full_name, email').in('user_id', tenantIds);
         (profileData || []).forEach(p => { profiles[p.user_id] = p; });
@@ -208,11 +222,11 @@ export default function PropertyDetail() {
 
   if (error || !property) {
     return (
-      <div className="text-center py-12">
-        <div className="gradient-icon-box w-20 h-20 mx-auto mb-4"><Building2 className="h-10 w-10 text-muted-foreground" /></div>
+      <div className="text-center py-12" role="alert">
+        <div className="gradient-icon-box w-20 h-20 mx-auto mb-4" aria-hidden="true"><Building2 className="h-10 w-10 text-muted-foreground" /></div>
         <h3 className="text-lg font-medium mb-2">Properti tidak ditemukan</h3>
         <p className="text-sm text-muted-foreground mb-4">Properti yang Anda cari tidak ada atau telah dihapus.</p>
-        <Button asChild className="rounded-xl"><Link to="/merchant/properties">Kembali</Link></Button>
+        <Button asChild className="rounded-xl" aria-label="Kembali ke daftar properti"><Link to="/merchant/properties">Kembali</Link></Button>
       </div>
     );
   }
@@ -243,64 +257,87 @@ export default function PropertyDetail() {
     <div className="space-y-6">
       {/* Hero Header */}
       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-        <Button variant="ghost" size="icon" className="shrink-0 rounded-full bg-card/80 backdrop-blur-sm border border-border/40" onClick={() => navigate('/merchant/properties')}>
-          <ArrowLeft className="h-5 w-5" />
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="shrink-0 rounded-full bg-card/80 backdrop-blur-sm border border-border/40" 
+          onClick={() => navigate('/merchant/properties')}
+          aria-label="Kembali ke daftar properti"
+        >
+          <ArrowLeft className="h-5 w-5" aria-hidden="true" />
         </Button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl font-display font-bold truncate">{property.name}</h1>
-            {isNew && <Badge className="bg-accent text-accent-foreground text-xs rounded-full"><Sparkles className="h-3 w-3 mr-1" />Baru</Badge>}
+            <h1 className="text-3xl font-display font-bold tracking-tight">{property.name}</h1>
+            <Badge variant="outline" className={`rounded-full px-3 ${statusColors[property.status]}`} role="status">
+              {statusLabels[property.status] || property.status}
+            </Badge>
+            {isNew && <Badge className="bg-primary/20 text-primary border-primary/30 rounded-full flex items-center gap-1"><Sparkles className="h-3 w-3" aria-hidden="true" /> Baru</Badge>}
           </div>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <Badge variant="outline" className={`rounded-full ${statusColors[property.status]}`}>{property.status}</Badge>
             <Badge variant="secondary" className="rounded-full">{typeLabels[property.property_type] || property.property_type}</Badge>
-            <span className="text-sm text-muted-foreground flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{property.city}, {property.province}</span>
+            <span className="text-sm text-muted-foreground flex items-center gap-1">
+              <MapPin className="h-3.5 w-3.5" aria-hidden="true" />{property.city}, {property.province}
+            </span>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setShowEditDialog(true)}><Edit className="h-4 w-4 mr-1" />Edit</Button>
-          <Button variant="outline" size="sm" className="rounded-xl" onClick={() => { setEditInitialStep(3); setShowEditDialog(true); }}><ImageIcon className="h-4 w-4 mr-1" />Foto</Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="rounded-xl gap-2" onClick={() => setShowEditDialog(true)} aria-label="Edit informasi properti">
+            <Edit className="h-4 w-4" aria-hidden="true" /> Edit Properti
+          </Button>
         </div>
       </div>
 
       {/* Image Gallery */}
       {property.images && property.images.length > 0 ? (
-        <div className="relative">
+        <div className="relative" role="region" aria-label="Galeri foto properti">
           <Carousel className="w-full">
             <CarouselContent>
               {property.images.map((img: string, i: number) => (
                 <CarouselItem key={i} className="basis-full md:basis-1/2 lg:basis-1/3">
-                  <div className="h-64 rounded-2xl overflow-hidden"><img src={img} alt={`${property.name} - ${i + 1}`} className="w-full h-full object-cover" loading="lazy" /></div>
+                  <div className="h-64 rounded-2xl overflow-hidden">
+                    <img src={img} alt={`${property.name} - Foto ke-${i + 1}`} className="w-full h-full object-cover" loading="lazy" />
+                  </div>
                 </CarouselItem>
               ))}
             </CarouselContent>
-            {property.images.length > 1 && <><CarouselPrevious className="-left-3" /><CarouselNext className="-right-3" /></>}
+            {property.images.length > 1 && (
+              <>
+                <CarouselPrevious className="-left-3" aria-label="Foto sebelumnya" />
+                <CarouselNext className="-right-3" aria-label="Foto selanjutnya" />
+              </>
+            )}
           </Carousel>
-          <Badge variant="secondary" className="absolute top-3 right-3 rounded-full"><ImageIcon className="h-3 w-3 mr-1" />{property.images.length} foto</Badge>
+          <Badge variant="secondary" className="absolute top-3 right-3 rounded-full">
+            <ImageIcon className="h-3 w-3 mr-1" aria-hidden="true" />{property.images.length} foto
+          </Badge>
         </div>
       ) : (
-        <div className="h-48 rounded-2xl bg-gradient-to-br from-primary/5 via-primary/10 to-accent/10 flex items-center justify-center">
-          <div className="text-center"><Building2 className="h-12 w-12 text-muted-foreground/40 mx-auto mb-2" /><p className="text-sm text-muted-foreground">Belum ada foto</p></div>
+        <div className="h-48 rounded-2xl bg-gradient-to-br from-primary/5 via-primary/10 to-accent/10 flex items-center justify-center" role="img" aria-label="Belum ada foto untuk properti ini">
+          <div className="text-center">
+            <Building2 className="h-12 w-12 text-muted-foreground/40 mx-auto mb-2" aria-hidden="true" />
+            <p className="text-sm text-muted-foreground">Belum ada foto</p>
+          </div>
         </div>
       )}
 
       {/* KPI Strip */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-5" role="region" aria-label="Statistik properti">
         {[
           { icon: DoorOpen, iconColor: 'text-primary', label: 'Unit', value: `${occupiedUnits}/${totalUnits}`, sub: 'terisi / total' },
           { icon: TrendingUp, iconColor: 'text-info', label: 'Hunian', value: `${Math.round(occupancyRate)}%`, bar: true },
           { icon: DollarSign, iconColor: 'text-success', label: 'Pendapatan', value: formatCurrency(revenuePotential), sub: 'dari unit terisi' },
-          { icon: Wrench, iconColor: 'text-warning', label: 'Maintenance', value: `${pendingMaintenance.length}`, sub: 'tiket aktif' },
+          { icon: Wrench, iconColor: 'text-warning', label: 'Pemeliharaan', value: `${pendingMaintenance.length}`, sub: 'tiket aktif' },
           { icon: FileText, iconColor: 'text-accent-foreground', label: 'Kontrak', value: `${activeContracts.length}`, sub: 'kontrak aktif' },
         ].map((stat, i) => (
           <div key={i} className="glass-stat-card p-4 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-              <stat.icon className={`h-4 w-4 ${stat.iconColor}`} />{stat.label}
+              <stat.icon className={`h-4 w-4 ${stat.iconColor}`} aria-hidden="true" />{stat.label}
             </div>
             <p className="text-2xl font-bold font-display">{stat.value}</p>
             {stat.sub && <p className="text-xs text-muted-foreground">{stat.sub}</p>}
             {stat.bar && (
-              <div className="flex gap-1 mt-1">
+              <div className="flex gap-1 mt-1" aria-hidden="true">
                 {Array.from({ length: 4 }, (_, j) => (
                   <div key={j} className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${j < Math.round(occupancyRate / 25) ? getOccupancyColor(occupancyRate) : 'bg-muted/60'}`} />
                 ))}
@@ -322,38 +359,41 @@ export default function PropertyDetail() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="pill-tab-list w-full sm:w-auto flex-wrap">
-            <TabsTrigger value="overview" className="pill-tab-trigger">Overview</TabsTrigger>
+          <TabsList className="pill-tab-list w-full sm:w-auto flex-wrap" aria-label="Navigasi detail properti">
+            <TabsTrigger value="overview" className="pill-tab-trigger">Ringkasan</TabsTrigger>
             <TabsTrigger value="units" className="pill-tab-trigger">Unit ({totalUnits})</TabsTrigger>
-            <TabsTrigger value="tenants" className="pill-tab-trigger">Tenant ({activeContracts.length})</TabsTrigger>
+            <TabsTrigger value="tenants" className="pill-tab-trigger">Penyewa ({activeContracts.length})</TabsTrigger>
             <TabsTrigger value="financial" className="pill-tab-trigger">Keuangan</TabsTrigger>
             <TabsTrigger value="maintenance" className="pill-tab-trigger">
-              Maintenance
+              Pemeliharaan
               {pendingMaintenance.length > 0 && <Badge variant="secondary" className="ml-1.5 rounded-full text-xs">{pendingMaintenance.length}</Badge>}
             </TabsTrigger>
             {/* Progressive Disclosure: low-frequency tabs in dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className={`pill-tab-trigger inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full transition-colors ${
-                  ['guardians', 'compliance', 'data-quality'].includes(activeTab)
-                    ? 'bg-primary/15 text-primary border border-primary/30'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-                }`}>
-                  {activeTab === 'guardians' ? <><UserCheck className="h-3.5 w-3.5" />Staf</> :
-                   activeTab === 'compliance' ? <><Shield className="h-3.5 w-3.5" />Kepatuhan</> :
-                   activeTab === 'data-quality' ? <><BarChart3 className="h-3.5 w-3.5" />Kualitas Data</> :
-                   <><MoreHorizontal className="h-3.5 w-3.5" />Lainnya</>}
+                <button 
+                  className={`pill-tab-trigger inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full transition-colors ${
+                    ['guardians', 'compliance', 'data-quality'].includes(activeTab)
+                      ? 'bg-primary/15 text-primary border border-primary/30'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                  }`}
+                  aria-label="Menu lainnya"
+                >
+                  {activeTab === 'guardians' ? <><UserCheck className="h-3.5 w-3.5" aria-hidden="true" />Staf</> :
+                   activeTab === 'compliance' ? <><Shield className="h-3.5 w-3.5" aria-hidden="true" />Kepatuhan</> :
+                   activeTab === 'data-quality' ? <><BarChart3 className="h-3.5 w-3.5" aria-hidden="true" />Kualitas Data</> :
+                   <><MoreHorizontal className="h-3.5 w-3.5" aria-hidden="true" />Lainnya</>}
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-[160px]">
                 <DropdownMenuItem onClick={() => handleTabChange('guardians')} className="gap-2">
-                  <UserCheck className="h-4 w-4" />Staf
+                  <UserCheck className="h-4 w-4" aria-hidden="true" />Staf
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleTabChange('compliance')} className="gap-2">
-                  <Shield className="h-4 w-4" />Kepatuhan
+                  <Shield className="h-4 w-4" aria-hidden="true" />Kepatuhan
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleTabChange('data-quality')} className="gap-2">
-                  <BarChart3 className="h-4 w-4" />Kualitas Data
+                  <BarChart3 className="h-4 w-4" aria-hidden="true" />Kualitas Data
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -362,7 +402,11 @@ export default function PropertyDetail() {
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-4 mt-4 animate-fade-in">
             <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
-              <CardHeader><CardTitle className="text-base flex items-center gap-2"><MapPin className="h-4 w-4 text-muted-foreground" />Alamat</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-muted-foreground" aria-hidden="true" />Alamat
+                </CardTitle>
+              </CardHeader>
               <CardContent>
                 <p className="text-sm">{property.address}</p>
                 <p className="text-sm text-muted-foreground">{property.city}, {property.province} {property.postal_code}</p>
@@ -396,19 +440,38 @@ export default function PropertyDetail() {
           {/* Units Tab */}
           <TabsContent value="units" className="space-y-4 mt-4 animate-fade-in">
             <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap" role="group" aria-label="Filter status unit">
                 {['all', 'available', 'occupied', 'maintenance', 'reserved'].map(s => (
-                  <Button key={s} variant={unitFilter === s ? 'default' : 'outline'} size="sm" onClick={() => { setUnitFilter(s); setUnitPage(1); setUnitGalleryCount(ITEMS_PER_PAGE); }} className={`capitalize rounded-full ${unitFilter === s ? 'gradient-cta text-primary-foreground' : ''}`}>
-                    {s === 'all' ? `Semua (${units.length})` : `${s} (${units.filter((u: any) => u.status === s).length})`}
+                  <Button 
+                    key={s} 
+                    variant={unitFilter === s ? 'default' : 'outline'} 
+                    size="sm" 
+                    onClick={() => { setUnitFilter(s); setUnitPage(1); setUnitGalleryCount(ITEMS_PER_PAGE); }} 
+                    className={`capitalize rounded-full ${unitFilter === s ? 'gradient-cta text-primary-foreground' : ''}`}
+                    aria-label={`Filter unit ${statusLabels[s] || s}`}
+                  >
+                    {s === 'all' ? `Semua (${units.length})` : `${statusLabels[s] || s} (${units.filter((u: any) => u.status === s).length})`}
                   </Button>
                 ))}
               </div>
-              <div className="flex items-center bg-muted/60 rounded-lg p-0.5">
-                <Button variant={unitViewMode === 'list' ? 'default' : 'ghost'} size="icon" className="h-7 w-7 rounded-md" onClick={() => setUnitViewMode('list')}>
-                  <List className="h-3.5 w-3.5" />
+              <div className="flex items-center bg-muted/60 rounded-lg p-0.5" role="group" aria-label="Mode tampilan unit">
+                <Button 
+                  variant={unitViewMode === 'list' ? 'default' : 'ghost'} 
+                  size="icon" 
+                  className="h-7 w-7 rounded-md" 
+                  onClick={() => setUnitViewMode('list')}
+                  aria-label="Tampilan daftar"
+                >
+                  <List className="h-3.5 w-3.5" aria-hidden="true" />
                 </Button>
-                <Button variant={unitViewMode === 'gallery' ? 'default' : 'ghost'} size="icon" className="h-7 w-7 rounded-md" onClick={() => setUnitViewMode('gallery')}>
-                  <LayoutGrid className="h-3.5 w-3.5" />
+                <Button 
+                  variant={unitViewMode === 'gallery' ? 'default' : 'ghost'} 
+                  size="icon" 
+                  className="h-7 w-7 rounded-md" 
+                  onClick={() => setUnitViewMode('gallery')}
+                  aria-label="Tampilan galeri"
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
                 </Button>
               </div>
             </div>
@@ -437,7 +500,7 @@ export default function PropertyDetail() {
                           <TableCell>{unit.size_sqm ? `${unit.size_sqm} m²` : '—'}</TableCell>
                           <TableCell>{formatCurrency(unit.rent_amount || 0)}</TableCell>
                           <TableCell>{unit.deposit_amount ? formatCurrency(unit.deposit_amount) : '—'}</TableCell>
-                          <TableCell><Badge variant="outline" className={`rounded-full ${statusColors[unit.status] || ''}`}>{unit.status}</Badge></TableCell>
+                          <TableCell><Badge variant="outline" className={`rounded-full ${statusColors[unit.status] || ''}`}>{statusLabels[unit.status] || unit.status}</Badge></TableCell>
                         </TableRow>
                       ))}
                       {paginatedUnits.length === 0 && <TableRow><TableCell colSpan={7} className="h-24 text-center text-muted-foreground">Tidak ada unit ditemukan.</TableCell></TableRow>}
@@ -448,8 +511,8 @@ export default function PropertyDetail() {
                   <div className="flex items-center justify-between pt-2">
                     <p className="text-xs text-muted-foreground">Hal {unitPage} dari {unitTotalPages}</p>
                     <div className="flex gap-1">
-                      <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={unitPage <= 1} onClick={() => setUnitPage(p => p - 1)}>Prev</Button>
-                      <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={unitPage >= unitTotalPages} onClick={() => setUnitPage(p => p + 1)}>Next</Button>
+                      <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={unitPage <= 1} onClick={() => setUnitPage(p => p - 1)} aria-label="Halaman sebelumnya">Prev</Button>
+                      <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={unitPage >= unitTotalPages} onClick={() => setUnitPage(p => p + 1)} aria-label="Halaman selanjutnya">Next</Button>
                     </div>
                   </div>
                 )}
@@ -462,12 +525,12 @@ export default function PropertyDetail() {
                       {unit.photos && unit.photos.length > 0 ? (
                         <div className="h-32 overflow-hidden"><img src={unit.photos[0]} alt={`Unit ${unit.unit_number}`} className="w-full h-full object-cover" loading="lazy" /></div>
                       ) : (
-                        <div className="h-32 bg-gradient-to-br from-primary/5 via-primary/10 to-accent/10 flex items-center justify-center"><Home className="h-8 w-8 text-muted-foreground/30" /></div>
+                        <div className="h-32 bg-gradient-to-br from-primary/5 via-primary/10 to-accent/10 flex items-center justify-center" aria-hidden="true"><Home className="h-8 w-8 text-muted-foreground/30" /></div>
                       )}
                       <CardContent className="p-3">
                         <div className="flex items-center justify-between mb-1">
                           <p className="font-medium text-sm">Unit {unit.unit_number}</p>
-                          <Badge variant="outline" className={`rounded-full text-[10px] ${statusColors[unit.status] || ''}`}>{unit.status}</Badge>
+                          <Badge variant="outline" className={`rounded-full text-[10px] ${statusColors[unit.status] || ''}`}>{statusLabels[unit.status] || unit.status}</Badge>
                         </div>
                         <p className="text-xs text-muted-foreground capitalize">{unit.unit_type} {unit.floor ? `• Lt ${unit.floor}` : ''}</p>
                         <p className="font-semibold text-sm mt-1">{formatCurrency(unit.rent_amount || 0)}/bln</p>
@@ -477,7 +540,7 @@ export default function PropertyDetail() {
                 </div>
                 {unitGalleryCount < filteredUnits.length && (
                   <div ref={unitObserverRef} className="h-10 flex items-center justify-center mt-4">
-                    <p className="text-xs text-muted-foreground animate-pulse">Memuat lebih banyak...</p>
+                    <p className="text-xs text-muted-foreground animate-pulse" role="status">Memuat lebih banyak...</p>
                   </div>
                 )}
               </>
@@ -487,13 +550,25 @@ export default function PropertyDetail() {
           {/* Tenants Tab */}
           <TabsContent value="tenants" className="space-y-4 mt-4 animate-fade-in">
             <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">{activeContracts.length} tenant aktif</p>
-              <div className="flex items-center bg-muted/60 rounded-lg p-0.5">
-                <Button variant={tenantViewMode === 'list' ? 'default' : 'ghost'} size="icon" className="h-7 w-7 rounded-md" onClick={() => setTenantViewMode('list')}>
-                  <List className="h-3.5 w-3.5" />
+              <p className="text-sm text-muted-foreground">{activeContracts.length} penyewa aktif</p>
+              <div className="flex items-center bg-muted/60 rounded-lg p-0.5" role="group" aria-label="Mode tampilan penyewa">
+                <Button 
+                  variant={tenantViewMode === 'list' ? 'default' : 'ghost'} 
+                  size="icon" 
+                  className="h-7 w-7 rounded-md" 
+                  onClick={() => setTenantViewMode('list')}
+                  aria-label="Tampilan daftar"
+                >
+                  <List className="h-3.5 w-3.5" aria-hidden="true" />
                 </Button>
-                <Button variant={tenantViewMode === 'gallery' ? 'default' : 'ghost'} size="icon" className="h-7 w-7 rounded-md" onClick={() => setTenantViewMode('gallery')}>
-                  <LayoutGrid className="h-3.5 w-3.5" />
+                <Button 
+                  variant={tenantViewMode === 'gallery' ? 'default' : 'ghost'} 
+                  size="icon" 
+                  className="h-7 w-7 rounded-md" 
+                  onClick={() => setTenantViewMode('gallery')}
+                  aria-label="Tampilan galeri"
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
                 </Button>
               </div>
             </div>
@@ -516,16 +591,16 @@ export default function PropertyDetail() {
                         <CardContent className="p-4">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-3">
-                              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-bold text-sm">
+                              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-bold text-sm" aria-hidden="true">
                                 {(contract.tenant?.full_name || 'T')[0].toUpperCase()}
                               </div>
                               <div>
-                                <p className="font-medium text-sm">{contract.tenant?.full_name || 'Unknown'}</p>
+                                <p className="font-medium text-sm">{contract.tenant?.full_name || 'Tidak Diketahui'}</p>
                                 <p className="text-xs text-muted-foreground">{contract.tenant?.email || '—'}</p>
                               </div>
                             </div>
                             <div className="text-right">
-                              <Badge variant="outline" className={`rounded-full text-xs ${statusColors[contract.status] || ''}`}>{contract.status}</Badge>
+                              <Badge variant="outline" className={`rounded-full text-xs ${statusColors[contract.status] || ''}`}>{statusLabels[contract.status] || contract.status}</Badge>
                               <p className="text-sm font-medium mt-1">{formatCurrency(contract.rent_amount)}/bln</p>
                             </div>
                           </div>
@@ -533,7 +608,7 @@ export default function PropertyDetail() {
                             <div className="text-xs text-muted-foreground">
                               {format(new Date(contract.start_date), 'dd MMM yyyy')} – {format(new Date(contract.end_date), 'dd MMM yyyy')}
                             </div>
-                            <Button variant="link" size="sm" className="h-auto p-0 text-xs text-primary" onClick={(e) => { e.stopPropagation(); navigate(`/merchant/contracts/${contract.id}`); }}>
+                            <Button variant="link" size="sm" className="h-auto p-0 text-xs text-primary" onClick={(e) => { e.stopPropagation(); navigate(`/merchant/contracts/${contract.id}`); }} aria-label={`Lihat kontrak penyewa ${contract.tenant?.full_name}`}>
                               Lihat Kontrak →
                             </Button>
                           </div>
@@ -545,8 +620,8 @@ export default function PropertyDetail() {
                     <div className="flex items-center justify-between pt-2">
                       <p className="text-xs text-muted-foreground">Hal {tenantPage} dari {tenantTotalPages}</p>
                       <div className="flex gap-1">
-                        <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={tenantPage <= 1} onClick={() => setTenantPage(p => p - 1)}>Prev</Button>
-                        <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={tenantPage >= tenantTotalPages} onClick={() => setTenantPage(p => p + 1)}>Next</Button>
+                        <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={tenantPage <= 1} onClick={() => setTenantPage(p => p - 1)} aria-label="Halaman sebelumnya">Prev</Button>
+                        <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={tenantPage >= tenantTotalPages} onClick={() => setTenantPage(p => p + 1)} aria-label="Halaman selanjutnya">Next</Button>
                       </div>
                     </div>
                   )}
@@ -566,14 +641,14 @@ export default function PropertyDetail() {
                         setShowTenantDialog(true);
                       }}>
                         <CardContent className="p-4 text-center">
-                          <div className="h-14 w-14 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-bold text-xl mx-auto mb-3">
+                          <div className="h-14 w-14 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-bold text-xl mx-auto mb-3" aria-hidden="true">
                             {(contract.tenant?.full_name || 'T')[0].toUpperCase()}
                           </div>
-                          <p className="font-medium text-sm">{contract.tenant?.full_name || 'Unknown'}</p>
+                          <p className="font-medium text-sm">{contract.tenant?.full_name || 'Tidak Diketahui'}</p>
                           <p className="text-xs text-muted-foreground mb-2">{contract.tenant?.email || '—'}</p>
-                          <Badge variant="outline" className={`rounded-full text-xs ${statusColors[contract.status] || ''}`}>{contract.status}</Badge>
+                          <Badge variant="outline" className={`rounded-full text-xs ${statusColors[contract.status] || ''}`}>{statusLabels[contract.status] || contract.status}</Badge>
                           <p className="font-semibold text-sm mt-2">{formatCurrency(contract.rent_amount)}/bln</p>
-                          <Button variant="link" size="sm" className="h-auto p-0 text-xs text-primary mt-1" onClick={(e) => { e.stopPropagation(); navigate(`/merchant/contracts/${contract.id}`); }}>
+                          <Button variant="link" size="sm" className="h-auto p-0 text-xs text-primary mt-1" onClick={(e) => { e.stopPropagation(); navigate(`/merchant/contracts/${contract.id}`); }} aria-label={`Lihat kontrak penyewa ${contract.tenant?.full_name}`}>
                             Lihat Kontrak →
                           </Button>
                         </CardContent>
@@ -582,7 +657,7 @@ export default function PropertyDetail() {
                   </div>
                   {tenantGalleryCount < activeContracts.length && (
                     <div ref={tenantObserverRef} className="h-10 flex items-center justify-center mt-4">
-                      <p className="text-xs text-muted-foreground animate-pulse">Memuat lebih banyak...</p>
+                      <p className="text-xs text-muted-foreground animate-pulse" role="status">Memuat lebih banyak...</p>
                     </div>
                   )}
                 </>
@@ -590,8 +665,8 @@ export default function PropertyDetail() {
             ) : (
               <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
                 <CardContent className="py-8 text-center">
-                  <div className="gradient-icon-box w-12 h-12 mx-auto mb-3"><Users className="h-6 w-6 text-muted-foreground/40" /></div>
-                  <p className="text-sm text-muted-foreground">Belum ada tenant aktif di properti ini.</p>
+                  <div className="gradient-icon-box w-12 h-12 mx-auto mb-3" aria-hidden="true"><Users className="h-6 w-6 text-muted-foreground/40" /></div>
+                  <p className="text-sm text-muted-foreground">Belum ada penyewa aktif di properti ini.</p>
                 </CardContent>
               </Card>
             )}
@@ -601,8 +676,8 @@ export default function PropertyDetail() {
           <TabsContent value="maintenance" className="space-y-3 mt-4 animate-fade-in">
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">{propertyMaintenance.length} permintaan total</p>
-              <Button size="sm" className="rounded-xl gradient-cta text-primary-foreground" onClick={() => setShowCreateMaintenanceDialog(true)}>
-                <Plus className="h-4 w-4 mr-1" />Tambah Maintenance
+              <Button size="sm" className="rounded-xl gradient-cta text-primary-foreground" onClick={() => setShowCreateMaintenanceDialog(true)} aria-label="Tambah permintaan pemeliharaan baru">
+                <Plus className="h-4 w-4 mr-1" aria-hidden="true" />Tambah Pemeliharaan
               </Button>
             </div>
             {paginatedMaintenance.length > 0 ? paginatedMaintenance.map((req: any) => (
@@ -610,7 +685,7 @@ export default function PropertyDetail() {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Wrench className="h-4 w-4 text-muted-foreground" />
+                      <Wrench className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                       <div>
                         <span className="font-medium text-sm">{req.title}</span>
                         <p className="text-xs text-muted-foreground">Unit {req.unit_number}</p>
@@ -627,8 +702,8 @@ export default function PropertyDetail() {
             )) : (
               <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
                 <CardContent className="py-8 text-center">
-                  <div className="gradient-icon-box w-12 h-12 mx-auto mb-3"><Wrench className="h-6 w-6 text-muted-foreground/40" /></div>
-                  <p className="text-sm text-muted-foreground">Tidak ada permintaan maintenance.</p>
+                  <div className="gradient-icon-box w-12 h-12 mx-auto mb-3" aria-hidden="true"><Wrench className="h-6 w-6 text-muted-foreground/40" /></div>
+                  <p className="text-sm text-muted-foreground">Tidak ada permintaan pemeliharaan.</p>
                 </CardContent>
               </Card>
             )}
@@ -636,8 +711,8 @@ export default function PropertyDetail() {
               <div className="flex items-center justify-between pt-2">
                 <p className="text-xs text-muted-foreground">Hal {maintenancePage} dari {maintenanceTotalPages}</p>
                 <div className="flex gap-1">
-                  <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={maintenancePage <= 1} onClick={() => setMaintenancePage(p => p - 1)}>Prev</Button>
-                  <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={maintenancePage >= maintenanceTotalPages} onClick={() => setMaintenancePage(p => p + 1)}>Next</Button>
+                  <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={maintenancePage <= 1} onClick={() => setMaintenancePage(p => p - 1)} aria-label="Halaman sebelumnya">Prev</Button>
+                  <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={maintenancePage >= maintenanceTotalPages} onClick={() => setMaintenancePage(p => p + 1)} aria-label="Halaman selanjutnya">Next</Button>
                 </div>
               </div>
             )}
@@ -667,17 +742,26 @@ export default function PropertyDetail() {
 
         {/* Sidebar */}
         <div className="space-y-4">
-          <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
-            <CardHeader><CardTitle className="text-base">Info Properti</CardTitle></CardHeader>
+          <section className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40" aria-labelledby="property-info-title">
+            <CardHeader><CardTitle id="property-info-title" className="text-base">Info Properti</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <div className="flex items-center gap-2 text-muted-foreground"><Hash className="h-3.5 w-3.5" /><span className="truncate font-mono text-xs">{property.id}</span></div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Hash className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="truncate font-mono text-xs" aria-label={`ID Properti: ${property.id}`}>{property.id}</span>
+              </div>
               <Separator />
-              <div className="flex items-center gap-2 text-muted-foreground"><Calendar className="h-3.5 w-3.5" /><span>Dibuat {format(new Date(property.created_at), 'dd MMM yyyy')}</span></div>
-              <div className="flex items-center gap-2 text-muted-foreground"><Calendar className="h-3.5 w-3.5" /><span>Update {format(new Date(property.updated_at), 'dd MMM yyyy')}</span></div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Dibuat {format(new Date(property.created_at), 'dd MMM yyyy')}</span>
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Update {format(new Date(property.updated_at), 'dd MMM yyyy')}</span>
+              </div>
             </CardContent>
-          </div>
-          <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
-            <CardHeader><CardTitle className="text-base">Ringkasan</CardTitle></CardHeader>
+          </section>
+          <section className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40" aria-labelledby="summary-title">
+            <CardHeader><CardTitle id="summary-title" className="text-base">Ringkasan</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">Total Unit</span><span className="font-medium">{totalUnits}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Terisi</span><span className="font-medium text-success">{occupiedUnits}</span></div>
@@ -688,7 +772,7 @@ export default function PropertyDetail() {
               <div className="flex justify-between"><span className="text-muted-foreground">Rata-rata Sewa</span><span className="font-medium">{formatCurrency(avgRent)}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Fasilitas</span><span className="font-medium">{property.amenities?.length || 0}</span></div>
             </CardContent>
-          </div>
+          </section>
         </div>
       </div>
 

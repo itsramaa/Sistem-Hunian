@@ -25,7 +25,7 @@ const passwordSchema = z.object({
   newPassword: strongPasswordSchema,
   confirmPassword: z.string(),
 }).refine((data) => data.newPassword === data.confirmPassword, {
-  message: "Passwords don't match",
+  message: "Kata sandi tidak cocok",
   path: ["confirmPassword"],
 });
 
@@ -46,7 +46,8 @@ const Settings = () => {
   const handleThemeChange = (value: string) => {
     if (VALID_THEMES.includes(value as typeof VALID_THEMES[number])) {
       setTheme(value as any);
-      toast.success(`Theme changed to ${value}`);
+      const themeLabels: Record<string, string> = { light: 'Terang', dark: 'Gelap', system: 'Sistem' };
+      toast.success(`Tema diubah menjadi ${themeLabels[value]}`);
     }
   };
 
@@ -63,16 +64,16 @@ const Settings = () => {
     setIsChangingPassword(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.email) throw new Error("User email not found");
+      if (!user?.email) throw new Error("Email pengguna tidak ditemukan");
       const { error: signInError } = await supabase.auth.signInWithPassword({ email: user.email, password: passwordForm.currentPassword });
-      if (signInError) { setPasswordErrors({ currentPassword: "Current password is incorrect" }); return; }
+      if (signInError) { setPasswordErrors({ currentPassword: "Kata sandi saat ini salah" }); return; }
       const { error: updateError } = await supabase.auth.updateUser({ password: passwordForm.newPassword });
       if (updateError) throw updateError;
       setPasswordSuccess(true);
       setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-      toast.success("Password changed successfully");
+      toast.success("Kata sandi berhasil diubah");
     } catch (error) {
-      toast.error((error as Error).message || "Failed to change password");
+      toast.error((error as Error).message || "Gagal mengubah kata sandi");
     } finally {
       setIsChangingPassword(false);
     }
@@ -80,36 +81,36 @@ const Settings = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader icon={SettingsIcon} title="Settings" description="Configure your account preferences" />
+      <PageHeader icon={SettingsIcon} title="Pengaturan" description="Konfigurasi preferensi akun Anda" />
       <Tabs defaultValue={defaultTab} className="space-y-6">
         <TabsList className="inline-flex rounded-full bg-card/80 backdrop-blur-sm border border-border/40 p-1">
           <TabsTrigger value="theme" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
             <Palette className="h-4 w-4" />
-            <span className="hidden sm:inline">Theme</span>
+            <span className="hidden sm:inline">Tema</span>
           </TabsTrigger>
           <TabsTrigger value="notifications" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
             <Bell className="h-4 w-4" />
-            <span className="hidden sm:inline">Notifications</span>
+            <span className="hidden sm:inline">Notifikasi</span>
           </TabsTrigger>
           <TabsTrigger value="security" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
             <Lock className="h-4 w-4" />
-            <span className="hidden sm:inline">Security</span>
+            <span className="hidden sm:inline">Keamanan</span>
           </TabsTrigger>
           <TabsTrigger value="banking" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
             <CreditCard className="h-4 w-4" />
-            <span className="hidden sm:inline">Banking</span>
+            <span className="hidden sm:inline">Perbankan</span>
           </TabsTrigger>
           <TabsTrigger value="disbursement" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
             <CreditCard className="h-4 w-4" />
-            <span className="hidden sm:inline">Disbursement</span>
+            <span className="hidden sm:inline">Pencairan</span>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="theme" className="space-y-6">
           <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader>
-              <CardTitle>Appearance</CardTitle>
-              <CardDescription>Customize how SiHuni looks on your device</CardDescription>
+              <CardTitle>Tampilan</CardTitle>
+              <CardDescription>Sesuaikan tampilan SiHuni di perangkat Anda</CardDescription>
             </CardHeader>
             <CardContent>
               <RadioGroup value={theme} onValueChange={handleThemeChange} className="grid grid-cols-3 gap-4">
@@ -119,7 +120,7 @@ const Settings = () => {
                     <div className="w-full aspect-video rounded-xl bg-background border mb-3 flex items-center justify-center">
                       <div className="w-1/2 h-3/4 bg-muted rounded-lg" />
                     </div>
-                    <span className="text-sm font-medium">Light</span>
+                    <span className="text-sm font-medium">Terang</span>
                   </Label>
                 </div>
                 <div>
@@ -128,7 +129,7 @@ const Settings = () => {
                     <div className="w-full aspect-video rounded-xl bg-zinc-900 border border-zinc-800 mb-3 flex items-center justify-center">
                       <div className="w-1/2 h-3/4 bg-zinc-800 rounded-lg" />
                     </div>
-                    <span className="text-sm font-medium">Dark</span>
+                    <span className="text-sm font-medium">Gelap</span>
                   </Label>
                 </div>
                 <div>
@@ -137,7 +138,7 @@ const Settings = () => {
                     <div className="w-full aspect-video rounded-xl bg-gradient-to-r from-background to-zinc-900 border mb-3 flex items-center justify-center">
                       <div className="w-1/2 h-3/4 bg-gradient-to-r from-muted to-zinc-800 rounded-lg" />
                     </div>
-                    <span className="text-sm font-medium">System</span>
+                    <span className="text-sm font-medium">Sistem</span>
                   </Label>
                 </div>
               </RadioGroup>
@@ -153,51 +154,51 @@ const Settings = () => {
           <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center" aria-hidden="true">
                   <Lock className="h-4 w-4 text-primary" />
                 </div>
-                Change Password
+                Ubah Kata Sandi
               </CardTitle>
               <CardDescription>
-                Update your password to keep your account secure
+                Perbarui kata sandi Anda untuk menjaga keamanan akun
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {passwordSuccess && (
-                <div className="flex items-center gap-2 p-3 rounded-xl bg-success/10 border border-success/20 text-success">
-                  <CheckCircle className="h-4 w-4" />
-                  <span className="text-sm">Password changed successfully</span>
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-success/10 border border-success/20 text-success" role="status">
+                  <CheckCircle className="h-4 w-4" aria-hidden="true" />
+                  <span className="text-sm">Kata sandi berhasil diubah</span>
                 </div>
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="currentPassword">Current Password</Label>
-                <Input id="currentPassword" type="password" value={passwordForm.currentPassword} onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })} placeholder="Enter your current password" className="rounded-xl bg-background/60 border-border/50" />
+                <Label htmlFor="currentPassword">Kata Sandi Saat Ini</Label>
+                <Input id="currentPassword" type="password" value={passwordForm.currentPassword} onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })} placeholder="Masukkan kata sandi saat ini" className="rounded-xl bg-background/60 border-border/50" />
                 {passwordErrors.currentPassword && (
-                  <p className="text-sm text-destructive flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{passwordErrors.currentPassword}</p>
+                  <p className="text-sm text-destructive flex items-center gap-1" role="alert"><AlertTriangle className="h-3 w-3" aria-hidden="true" />{passwordErrors.currentPassword}</p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="newPassword">New Password</Label>
-                <Input id="newPassword" type="password" value={passwordForm.newPassword} onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} placeholder="Enter new password" className="rounded-xl bg-background/60 border-border/50" />
+                <Label htmlFor="newPassword">Kata Sandi Baru</Label>
+                <Input id="newPassword" type="password" value={passwordForm.newPassword} onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} placeholder="Masukkan kata sandi baru" className="rounded-xl bg-background/60 border-border/50" />
                 {passwordErrors.newPassword && (
-                  <p className="text-sm text-destructive flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{passwordErrors.newPassword}</p>
+                  <p className="text-sm text-destructive flex items-center gap-1" role="alert"><AlertTriangle className="h-3 w-3" aria-hidden="true" />{passwordErrors.newPassword}</p>
                 )}
-                <p className="text-xs text-muted-foreground">Must be at least 8 characters with uppercase, lowercase, and number</p>
+                <p className="text-xs text-muted-foreground">Minimal 8 karakter dengan huruf besar, huruf kecil, dan angka</p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                <Input id="confirmPassword" type="password" value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} placeholder="Confirm new password" className="rounded-xl bg-background/60 border-border/50" />
+                <Label htmlFor="confirmPassword">Konfirmasi Kata Sandi Baru</Label>
+                <Input id="confirmPassword" type="password" value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} placeholder="Konfirmasi kata sandi baru" className="rounded-xl bg-background/60 border-border/50" />
                 {passwordErrors.confirmPassword && (
-                  <p className="text-sm text-destructive flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{passwordErrors.confirmPassword}</p>
+                  <p className="text-sm text-destructive flex items-center gap-1" role="alert"><AlertTriangle className="h-3 w-3" aria-hidden="true" />{passwordErrors.confirmPassword}</p>
                 )}
               </div>
 
               <Button onClick={handlePasswordChange} disabled={isChangingPassword} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-md">
                 {isChangingPassword && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Change Password
+                Ubah Kata Sandi
               </Button>
             </CardContent>
           </Card>

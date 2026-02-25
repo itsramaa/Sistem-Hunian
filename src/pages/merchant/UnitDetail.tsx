@@ -44,7 +44,7 @@ function useUnitDetail(unitId: string | undefined) {
       if (error) throw error;
       const { data: contracts } = await supabase.from('contracts').select(`id, status, start_date, end_date, rent_amount, deposit_amount, tenant_user_id`).eq('unit_id', unitId).order('created_at', { ascending: false });
       const tenantIds = [...new Set((contracts || []).map(c => c.tenant_user_id))];
-      let tenantProfiles: Record<string, any> = {};
+      const tenantProfiles: Record<string, any> = {};
       if (tenantIds.length > 0) {
         const { data: profiles } = await supabase.from('profiles').select('user_id, full_name, email, phone').in('user_id', tenantIds);
         (profiles || []).forEach(p => { tenantProfiles[p.user_id] = p; });
@@ -93,11 +93,11 @@ export default function UnitDetail() {
 
   if (error || !unit) {
     return (
-      <div className="text-center py-12">
-        <div className="gradient-icon-box w-20 h-20 mx-auto mb-4"><DoorOpen className="h-10 w-10 text-muted-foreground" /></div>
+      <div className="text-center py-12" role="alert">
+        <div className="gradient-icon-box w-20 h-20 mx-auto mb-4" aria-hidden="true"><DoorOpen className="h-10 w-10 text-muted-foreground" /></div>
         <h3 className="text-lg font-medium mb-2">Unit tidak ditemukan</h3>
         <p className="text-sm text-muted-foreground mb-4">Unit yang Anda cari tidak ada atau telah dihapus.</p>
-        <Button asChild className="rounded-xl"><Link to="/merchant/properties">Kembali ke Properti</Link></Button>
+        <Button asChild className="rounded-xl" aria-label="Kembali ke daftar properti"><Link to="/merchant/properties">Kembali ke Properti</Link></Button>
       </div>
     );
   }
@@ -126,59 +126,89 @@ export default function UnitDetail() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-        <Button variant="ghost" size="icon" className="shrink-0 rounded-full bg-card/80 backdrop-blur-sm border border-border/40" onClick={() => navigate(`/merchant/properties/${unit.property?.id}#units`)}>
-          <ArrowLeft className="h-5 w-5" />
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="shrink-0 rounded-full bg-card/80 backdrop-blur-sm border border-border/40" 
+          onClick={() => navigate(`/merchant/properties/${unit.property?.id}#units`)}
+          aria-label="Kembali ke daftar unit di properti ini"
+        >
+          <ArrowLeft className="h-5 w-5" aria-hidden="true" />
         </Button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-bold">Unit {unit.unit_number}</h1>
-            <Badge variant="outline" className={cn("capitalize rounded-full", statusColors[unit.status])}>{statusLabels[unit.status] || unit.status}</Badge>
+            <Badge variant="outline" className={cn("capitalize rounded-full", statusColors[unit.status])} role="status">
+              {statusLabels[unit.status] || unit.status}
+            </Badge>
           </div>
           <div className="flex items-center gap-2 mt-1 flex-wrap text-sm text-muted-foreground">
-            <span className="flex items-center gap-1"><Building2 className="h-3.5 w-3.5" />
-              <Link to={`/merchant/properties/${unit.property?.id}`} className="hover:text-foreground hover:underline transition-colors">{unit.property?.name}</Link>
+            <span className="flex items-center gap-1">
+              <Building2 className="h-3.5 w-3.5" aria-hidden="true" />
+              <Link to={`/merchant/properties/${unit.property?.id}`} className="hover:text-foreground hover:underline transition-colors" aria-label={`Lihat properti ${unit.property?.name}`}>
+                {unit.property?.name}
+              </Link>
             </span>
-            <span>•</span>
+            <span aria-hidden="true">•</span>
             <span className="capitalize">{unit.unit_type?.replace(/_/g, ' ') || '—'}</span>
-            {unit.property?.city && <><span>•</span><span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{unit.property.city}</span></>}
+            {unit.property?.city && (
+              <>
+                <span aria-hidden="true">•</span>
+                <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" aria-hidden="true" />{unit.property.city}</span>
+              </>
+            )}
           </div>
         </div>
-        <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setShowEditDialog(true)}>
-          <Edit className="h-4 w-4 mr-1" />Edit
+        <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setShowEditDialog(true)} aria-label="Edit rincian unit">
+          <Edit className="h-4 w-4" aria-hidden="true" /> Edit
         </Button>
       </div>
 
       {/* Photos */}
       {unit.photos && unit.photos.length > 0 ? (
-        <div className="relative">
+        <div className="relative" role="region" aria-label="Galeri foto unit">
           <Carousel className="w-full">
             <CarouselContent>
               {unit.photos.map((img: string, i: number) => (
                 <CarouselItem key={i} className="basis-full md:basis-1/2 lg:basis-1/3">
-                  <div className="h-56 rounded-2xl overflow-hidden"><img src={img} alt={`Unit ${unit.unit_number} - ${i + 1}`} className="w-full h-full object-cover" loading="lazy" /></div>
+                  <div className="h-56 rounded-2xl overflow-hidden">
+                    <img src={img} alt={`Unit ${unit.unit_number} - Foto ke-${i + 1}`} className="w-full h-full object-cover" loading="lazy" />
+                  </div>
                 </CarouselItem>
               ))}
             </CarouselContent>
-            {unit.photos.length > 1 && <><CarouselPrevious className="-left-3" /><CarouselNext className="-right-3" /></>}
+            {unit.photos.length > 1 && (
+              <>
+                <CarouselPrevious className="-left-3" aria-label="Foto sebelumnya" />
+                <CarouselNext className="-right-3" aria-label="Foto selanjutnya" />
+              </>
+            )}
           </Carousel>
-          <Badge variant="secondary" className="absolute top-3 right-3 rounded-full"><ImageIcon className="h-3 w-3 mr-1" />{unit.photos.length} foto</Badge>
+          <Badge variant="secondary" className="absolute top-3 right-3 rounded-full">
+            <ImageIcon className="h-3 w-3 mr-1" aria-hidden="true" />{unit.photos.length} foto
+          </Badge>
         </div>
       ) : (
-        <div className="h-40 rounded-2xl bg-gradient-to-br from-primary/5 via-muted/50 to-accent/10 flex items-center justify-center">
-          <div className="text-center"><DoorOpen className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" /><p className="text-sm text-muted-foreground">Belum ada foto</p></div>
+        <div className="h-40 rounded-2xl bg-gradient-to-br from-primary/5 via-muted/50 to-accent/10 flex items-center justify-center" role="img" aria-label="Belum ada foto untuk unit ini">
+          <div className="text-center">
+            <DoorOpen className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" aria-hidden="true" />
+            <p className="text-sm text-muted-foreground">Belum ada foto</p>
+          </div>
         </div>
       )}
 
       {/* Stats Cards */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4" role="region" aria-label="Statistik unit">
         {[
           { icon: Wallet, color: 'text-primary', label: 'Harga Sewa', value: formatCurrency(unit.rent_amount || 0), sub: 'per bulan' },
           { icon: Wallet, color: 'text-success', label: 'Deposit', value: unit.deposit_amount ? formatCurrency(unit.deposit_amount) : '—' },
           { icon: Ruler, color: 'text-info', label: 'Ukuran', value: unit.size_sqm ? `${unit.size_sqm} m²` : '—', sub: unit.floor != null ? `Lantai ${unit.floor}` : undefined },
-          { icon: FileText, color: 'text-warning', label: 'Kontrak', value: `${unit.contracts?.length || 0}`, sub: activeContract ? 'aktif' : 'tidak aktif' },
+          { icon: FileText, color: 'text-warning', label: 'Kontrak', value: `${unit.contracts?.length || 0}`, sub: activeContract ? 'Aktif' : 'Tidak Aktif' },
         ].map((stat, i) => (
           <div key={i} className="glass-stat-card p-4 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1"><stat.icon className={`h-4 w-4 ${stat.color}`} />{stat.label}</div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+              <stat.icon className={`h-4 w-4 ${stat.color}`} aria-hidden="true" />{stat.label}
+            </div>
             <p className="text-xl font-bold font-display">{stat.value}</p>
             {stat.sub && <p className="text-xs text-muted-foreground">{stat.sub}</p>}
           </div>
@@ -191,15 +221,19 @@ export default function UnitDetail() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-primary" />
+                <FileText className="h-4 w-4 text-primary" aria-hidden="true" />
                 <span className="text-sm font-semibold">Kontrak Aktif</span>
               </div>
-              <Badge variant="outline" className={cn("rounded-full text-xs", contractDaysLeft <= 30 ? 'bg-warning/10 text-warning border-warning/30' : 'bg-success/10 text-success border-success/30')}>
+              <Badge 
+                variant="outline" 
+                className={cn("rounded-full text-xs", contractDaysLeft <= 30 ? 'bg-warning/10 text-warning border-warning/30' : 'bg-success/10 text-success border-success/30')}
+                role="status"
+              >
                 {contractDaysLeft > 0 ? `${contractDaysLeft} hari tersisa` : 'Berakhir'}
               </Badge>
             </div>
-            <Progress value={contractProgress} className="h-2 mb-2" />
-            <div className="flex justify-between text-xs text-muted-foreground">
+            <Progress value={contractProgress} className="h-2 mb-2" aria-label={`Progres kontrak: ${Math.round(contractProgress)}%`} />
+            <div className="flex justify-between text-xs text-muted-foreground" aria-hidden="true">
               <span>{format(new Date(activeContract.start_date), 'dd MMM yyyy')}</span>
               <span>{format(new Date(activeContract.end_date), 'dd MMM yyyy')}</span>
             </div>
@@ -210,28 +244,34 @@ export default function UnitDetail() {
       {/* Tabs */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="pill-tab-list w-full sm:w-auto">
-            <TabsTrigger value="overview" className="pill-tab-trigger">Overview</TabsTrigger>
+          <TabsList className="pill-tab-list w-full sm:w-auto" aria-label="Navigasi detail unit">
+            <TabsTrigger value="overview" className="pill-tab-trigger">Ringkasan</TabsTrigger>
             <TabsTrigger value="contracts" className="pill-tab-trigger">Kontrak ({unit.contracts?.length || 0})</TabsTrigger>
             <TabsTrigger value="payments" className="pill-tab-trigger">
               Pembayaran
               {overdueInvoices.length > 0 && <Badge variant="secondary" className="ml-1.5 rounded-full text-xs bg-destructive/10 text-destructive">{overdueInvoices.length}</Badge>}
             </TabsTrigger>
-            <TabsTrigger value="maintenance" className="pill-tab-trigger">Maintenance</TabsTrigger>
+            <TabsTrigger value="maintenance" className="pill-tab-trigger">Pemeliharaan</TabsTrigger>
             <TabsTrigger value="inventory" className="pill-tab-trigger">Inventaris</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4 mt-4 animate-fade-in">
             {activeTenant && (
               <Card className="rounded-2xl border-l-4 border-l-success bg-card/90 backdrop-blur-sm border-border/40">
-                <CardHeader><CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" />Penghuni Aktif</CardTitle></CardHeader>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Users className="h-4 w-4" aria-hidden="true" /> Penghuni Aktif
+                  </CardTitle>
+                </CardHeader>
                 <CardContent>
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-bold ring-2 ring-success/20">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-bold ring-2 ring-success/20" aria-hidden="true">
                       {(activeTenant.full_name || 'U')[0].toUpperCase()}
                     </div>
                     <div>
-                      <Link to={`/merchant/tenants/${activeContract.id}`} className="font-medium hover:underline text-primary">{activeTenant.full_name || 'Tidak diketahui'}</Link>
+                      <Link to={`/merchant/tenants/${activeContract.id}`} className="font-medium hover:underline text-primary" aria-label={`Lihat profil penghuni ${activeTenant.full_name}`}>
+                        {activeTenant.full_name || 'Tidak diketahui'}
+                      </Link>
                       <p className="text-sm text-muted-foreground">{activeTenant.email}</p>
                       {activeTenant.phone && <p className="text-sm text-muted-foreground">{activeTenant.phone}</p>}
                     </div>
@@ -254,14 +294,18 @@ export default function UnitDetail() {
               <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
                 <CardHeader><CardTitle className="text-base">Fasilitas</CardTitle></CardHeader>
                 <CardContent>
-                  <div className="flex flex-wrap gap-2">{unit.amenities.map((a: string) => <Badge key={a} variant="secondary" className="rounded-full">{a.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}</Badge>)}</div>
+                  <div className="flex flex-wrap gap-2">
+                    {unit.amenities.map((a: string) => (
+                      <Badge key={a} variant="secondary" className="rounded-full">{a.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}</Badge>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
             )}
             {!activeTenant && !unit.description && (!unit.amenities || unit.amenities.length === 0) && (
               <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
                 <CardContent className="py-8 text-center">
-                  <div className="gradient-icon-box w-12 h-12 mx-auto mb-3"><DoorOpen className="h-6 w-6 text-muted-foreground/40" /></div>
+                  <div className="gradient-icon-box w-12 h-12 mx-auto mb-3" aria-hidden="true"><DoorOpen className="h-6 w-6 text-muted-foreground/40" /></div>
                   <p className="text-sm text-muted-foreground">Unit kosong. Tidak ada informasi tambahan.</p>
                 </CardContent>
               </Card>
@@ -272,12 +316,20 @@ export default function UnitDetail() {
             {unit.contracts?.length > 0 ? unit.contracts.map((contract: any) => {
               const tenant = unit.tenantProfiles?.[contract.tenant_user_id];
               return (
-                <Card key={contract.id} className={cn("rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40 hover:border-primary/20 hover:shadow-sm transition-all cursor-pointer", contract.status === 'active' && 'border-l-4 border-l-success shadow-[0_0_0_1px_hsl(var(--success)/0.2)]')} onClick={() => navigate(`/merchant/contracts/${contract.id}`)}>
+                <Card 
+                  key={contract.id} 
+                  className={cn("rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40 hover:border-primary/20 hover:shadow-sm transition-all cursor-pointer", contract.status === 'active' && 'border-l-4 border-l-success shadow-[0_0_0_1px_hsl(var(--success)/0.2)]')} 
+                  onClick={() => navigate(`/merchant/contracts/${contract.id}`)}
+                  role="button"
+                  aria-label={`Kontrak dengan ${tenant?.full_name || 'Tidak Diketahui'}`}
+                >
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className={cn("capitalize text-xs rounded-full", contract.status === 'active' ? 'bg-success/10 text-success' : '')}>{contract.status}</Badge>
-                        <span className="text-sm font-medium">{tenant?.full_name || 'Unknown Tenant'}</span>
+                        <Badge variant="outline" className={cn("capitalize text-xs rounded-full", contract.status === 'active' ? 'bg-success/10 text-success' : '')} role="status">
+                          {statusLabels[contract.status] || contract.status}
+                        </Badge>
+                        <span className="text-sm font-medium">{tenant?.full_name || 'Penyewa Tidak Diketahui'}</span>
                       </div>
                       <span className="text-sm font-medium">{formatCurrency(contract.rent_amount)}/bln</span>
                     </div>
@@ -291,7 +343,7 @@ export default function UnitDetail() {
             }) : (
               <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
                 <CardContent className="py-8 text-center">
-                  <div className="gradient-icon-box w-12 h-12 mx-auto mb-3"><FileText className="h-6 w-6 text-muted-foreground/40" /></div>
+                  <div className="gradient-icon-box w-12 h-12 mx-auto mb-3" aria-hidden="true"><FileText className="h-6 w-6 text-muted-foreground/40" /></div>
                   <p className="text-sm text-muted-foreground">Belum ada kontrak untuk unit ini.</p>
                 </CardContent>
               </Card>
@@ -300,39 +352,45 @@ export default function UnitDetail() {
 
           {/* Payment Summary Tab */}
           <TabsContent value="payments" className="space-y-4 mt-4 animate-fade-in">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-3" role="region" aria-label="Ringkasan pembayaran">
               <div className="rounded-xl bg-success/5 border border-success/20 p-3 text-center">
-                <CheckCircle className="h-4 w-4 text-success mx-auto mb-1" />
+                <CheckCircle className="h-4 w-4 text-success mx-auto mb-1" aria-hidden="true" />
                 <p className="text-lg font-bold font-display text-success">{paidInvoices.length}</p>
                 <p className="text-xs text-muted-foreground">Lunas</p>
               </div>
               <div className="rounded-xl bg-warning/5 border border-warning/20 p-3 text-center">
-                <Clock className="h-4 w-4 text-warning mx-auto mb-1" />
+                <Clock className="h-4 w-4 text-warning mx-auto mb-1" aria-hidden="true" />
                 <p className="text-lg font-bold font-display text-warning">{pendingInvoices.length}</p>
                 <p className="text-xs text-muted-foreground">Pending</p>
               </div>
               <div className="rounded-xl bg-destructive/5 border border-destructive/20 p-3 text-center">
-                <AlertTriangle className="h-4 w-4 text-destructive mx-auto mb-1" />
+                <AlertTriangle className="h-4 w-4 text-destructive mx-auto mb-1" aria-hidden="true" />
                 <p className="text-lg font-bold font-display text-destructive">{overdueInvoices.length}</p>
                 <p className="text-xs text-muted-foreground">Terlambat</p>
               </div>
             </div>
 
             {invoices.length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-2" role="list" aria-label="Daftar faktur unit">
                 {invoices.map((inv: any) => {
                   const isOverdue = inv.status !== 'paid' && isPast(new Date(inv.due_date));
                   const isPaid = inv.status === 'paid';
                   return (
-                    <Link key={inv.id} to={`/merchant/invoices/${inv.id}`} className={cn("rounded-xl p-3 border flex items-center justify-between hover:opacity-80 transition-opacity", isPaid ? 'bg-success/5 border-success/20' : isOverdue ? 'bg-destructive/5 border-destructive/20' : 'bg-card/90 border-border/40')}>
+                    <Link 
+                      key={inv.id} 
+                      to={`/merchant/invoices/${inv.id}`} 
+                      className={cn("rounded-xl p-3 border flex items-center justify-between hover:opacity-80 transition-opacity", isPaid ? 'bg-success/5 border-success/20' : isOverdue ? 'bg-destructive/5 border-destructive/20' : 'bg-card/90 border-border/40')}
+                      role="listitem"
+                      aria-label={`Faktur senilai ${formatCurrency(inv.total_amount || inv.amount)}`}
+                    >
                       <div className="flex items-center gap-3">
-                        {isPaid ? <CheckCircle className="h-4 w-4 text-success" /> : isOverdue ? <XCircle className="h-4 w-4 text-destructive" /> : <Clock className="h-4 w-4 text-warning" />}
+                        {isPaid ? <CheckCircle className="h-4 w-4 text-success" aria-hidden="true" /> : isOverdue ? <XCircle className="h-4 w-4 text-destructive" aria-hidden="true" /> : <Clock className="h-4 w-4 text-warning" aria-hidden="true" />}
                         <div>
                           <p className="text-sm font-medium">{formatCurrency(inv.total_amount || inv.amount)}</p>
                           <p className="text-xs text-muted-foreground">Jatuh tempo: {format(new Date(inv.due_date), 'dd MMM yyyy')}</p>
                         </div>
                       </div>
-                      <Badge variant="outline" className={cn("rounded-full text-xs capitalize", isPaid ? 'bg-success/10 text-success' : isOverdue ? 'bg-destructive/10 text-destructive' : 'bg-warning/10 text-warning')}>
+                      <Badge variant="outline" className={cn("rounded-full text-xs capitalize", isPaid ? 'bg-success/10 text-success' : isOverdue ? 'bg-destructive/10 text-destructive' : 'bg-warning/10 text-warning')} role="status">
                         {isPaid ? 'Lunas' : isOverdue ? 'Terlambat' : inv.status}
                       </Badge>
                     </Link>
@@ -342,7 +400,7 @@ export default function UnitDetail() {
             ) : (
               <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
                 <CardContent className="py-8 text-center">
-                  <div className="gradient-icon-box w-12 h-12 mx-auto mb-3"><Wallet className="h-6 w-6 text-muted-foreground/40" /></div>
+                  <div className="gradient-icon-box w-12 h-12 mx-auto mb-3" aria-hidden="true"><Wallet className="h-6 w-6 text-muted-foreground/40" /></div>
                   <p className="text-sm text-muted-foreground">Belum ada data pembayaran.</p>
                 </CardContent>
               </Card>
@@ -352,30 +410,37 @@ export default function UnitDetail() {
           <TabsContent value="maintenance" className="space-y-3 mt-4 animate-fade-in">
             {/* Header with Add button */}
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-muted-foreground">Maintenance Requests</h3>
-              <Button size="sm" className="rounded-xl gradient-cta text-primary-foreground" onClick={() => setShowCreateMaintenanceDialog(true)}>
-                <Plus className="h-4 w-4 mr-1" />Tambah
+              <h3 className="text-sm font-semibold text-muted-foreground">Permintaan Pemeliharaan</h3>
+              <Button size="sm" className="rounded-xl gradient-cta text-primary-foreground" onClick={() => setShowCreateMaintenanceDialog(true)} aria-label="Tambah permintaan pemeliharaan baru">
+                <Plus className="h-4 w-4 mr-1" aria-hidden="true" />Tambah
               </Button>
             </div>
 
-            {unit.maintenanceRequests?.length > 0 ? unit.maintenanceRequests.map((req: any) => (
-              <Card key={req.id} className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40 hover:border-primary/20 transition-all cursor-pointer" onClick={() => navigate(`/merchant/maintenance/${req.id}`)}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2"><Wrench className="h-4 w-4 text-muted-foreground" /><span className="font-medium text-sm">{req.title}</span></div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="capitalize text-xs rounded-full">{req.priority}</Badge>
-                      <Badge variant="outline" className="capitalize text-xs rounded-full">{req.status}</Badge>
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">{format(new Date(req.created_at), 'dd MMM yyyy')}</p>
-                </CardContent>
-              </Card>
-            )) : (
+            {unit.maintenanceRequests?.length > 0 ? (
+              <div role="list" aria-label="Daftar pemeliharaan unit">
+                {unit.maintenanceRequests.map((req: any) => (
+                  <Card key={req.id} className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40 hover:border-primary/20 transition-all cursor-pointer mb-3" onClick={() => navigate(`/merchant/maintenance/${req.id}`)} role="listitem">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Wrench className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                          <span className="font-medium text-sm">{req.title}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="capitalize text-xs rounded-full">{priorityLabels[req.priority] || req.priority}</Badge>
+                          <Badge variant="outline" className="capitalize text-xs rounded-full">{req.status}</Badge>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">{format(new Date(req.created_at), 'dd MMM yyyy')}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
               <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
                 <CardContent className="py-8 text-center">
-                  <div className="gradient-icon-box w-12 h-12 mx-auto mb-3"><Wrench className="h-6 w-6 text-muted-foreground/40" /></div>
-                  <p className="text-sm text-muted-foreground">Tidak ada permintaan maintenance.</p>
+                  <div className="gradient-icon-box w-12 h-12 mx-auto mb-3" aria-hidden="true"><Wrench className="h-6 w-6 text-muted-foreground/40" /></div>
+                  <p className="text-sm text-muted-foreground">Tidak ada permintaan pemeliharaan.</p>
                 </CardContent>
               </Card>
             )}
@@ -388,38 +453,51 @@ export default function UnitDetail() {
 
         {/* Sidebar */}
         <div className="space-y-4">
-          <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
-            <CardHeader><CardTitle className="text-base">Info Unit</CardTitle></CardHeader>
+          <section className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40" aria-labelledby="unit-info-title">
+            <CardHeader><CardTitle id="unit-info-title" className="text-base">Info Unit</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <div className="flex items-center gap-2 text-muted-foreground"><Hash className="h-3.5 w-3.5" /><span className="truncate font-mono text-xs">{unit.id}</span></div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Hash className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="truncate font-mono text-xs" aria-label={`ID Unit: ${unit.id}`}>{unit.id}</span>
+              </div>
               <Separator />
               <div className="flex justify-between"><span className="text-muted-foreground">Tipe</span><span className="font-medium capitalize">{unit.unit_type?.replace(/_/g, ' ') || '—'}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Lantai</span><span className="font-medium">{unit.floor ?? '—'}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Ukuran</span><span className="font-medium">{unit.size_sqm ? `${unit.size_sqm} m²` : '—'}</span></div>
               <Separator />
-              <div className="flex items-center gap-2 text-muted-foreground"><Calendar className="h-3.5 w-3.5" /><span>Dibuat {unit.created_at ? format(new Date(unit.created_at), 'dd MMM yyyy') : '—'}</span></div>
-              <div className="flex items-center gap-2 text-muted-foreground"><Clock className="h-3.5 w-3.5" /><span>Update {unit.updated_at ? format(new Date(unit.updated_at), 'dd MMM yyyy') : '—'}</span></div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Dibuat {unit.created_at ? format(new Date(unit.created_at), 'dd MMM yyyy') : '—'}</span>
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Update {unit.updated_at ? format(new Date(unit.updated_at), 'dd MMM yyyy') : '—'}</span>
+              </div>
             </CardContent>
-          </div>
+          </section>
 
           {invoices.length > 0 && (
-            <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
-              <CardHeader><CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4" />Pembayaran</CardTitle></CardHeader>
+            <section className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40" aria-labelledby="payment-info-title">
+              <CardHeader>
+                <CardTitle id="payment-info-title" className="text-base flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" aria-hidden="true" />Pembayaran
+                </CardTitle>
+              </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-muted-foreground">Total Dibayar</span><span className="font-medium text-success">{formatCurrency(totalPaid)}</span></div>
                 {totalOverdue > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Tunggakan</span><span className="font-medium text-destructive">{formatCurrency(totalOverdue)}</span></div>}
               </CardContent>
-            </div>
+            </section>
           )}
 
-          <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
-            <CardHeader><CardTitle className="text-base">Properti</CardTitle></CardHeader>
+          <section className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40" aria-labelledby="property-info-title">
+            <CardHeader><CardTitle id="property-info-title" className="text-base">Properti</CardTitle></CardHeader>
             <CardContent className="text-sm">
-              <Link to={`/merchant/properties/${unit.property?.id}`} className="font-medium hover:underline text-primary">{unit.property?.name}</Link>
+              <Link to={`/merchant/properties/${unit.property?.id}`} className="font-medium hover:underline text-primary" aria-label={`Lihat properti ${unit.property?.name}`}>{unit.property?.name}</Link>
               <p className="text-muted-foreground mt-1 text-xs capitalize">{unit.property?.property_type}</p>
               {unit.property?.address && <p className="text-muted-foreground text-xs mt-1">{unit.property.address}</p>}
             </CardContent>
-          </div>
+          </section>
         </div>
       </div>
 

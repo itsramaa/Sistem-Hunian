@@ -60,10 +60,10 @@ export function MerchantNotificationSettings() {
 
   const handleSave = () => {
     if (preferences.whatsapp_enabled && !isValidPhoneNumber(preferences.whatsapp_number)) {
-      toast.error('Please enter a valid phone number for WhatsApp');
+      toast.error('Harap masukkan nomor telepon yang valid untuk WhatsApp');
       return;
     }
-    toast.success('Notification preferences saved');
+    toast.success('Preferensi notifikasi disimpan');
   };
 
   return (
@@ -72,33 +72,33 @@ export function MerchantNotificationSettings() {
       <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center" aria-hidden="true">
               <MessageCircle className="h-4 w-4 text-primary" />
             </div>
-            Notification Channels
+            Saluran Notifikasi
           </CardTitle>
           <CardDescription>
-            Choose how to send payment reminders to tenants
+            Pilih cara mengirim pengingat pembayaran ke penyewa
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Email Channel */}
           <div className="flex items-center justify-between p-4 rounded-xl bg-card/80 backdrop-blur-sm border border-border/40">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5" aria-hidden="true">
                 <Mail className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <p className="font-medium">Email Notifications</p>
-                <p className="text-sm text-muted-foreground">Send reminders via email</p>
+                <p className="font-medium">Notifikasi Email</p>
+                <p className="text-sm text-muted-foreground">Kirim pengingat melalui email</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="rounded-full bg-success/10 text-success">
-                <CheckCircle className="h-3 w-3 mr-1" />
-                Active
+                <CheckCircle className="h-3 w-3 mr-1" aria-hidden="true" />
+                Aktif
               </Badge>
-              <Switch checked={preferences.email_enabled} onCheckedChange={(checked) => setPreferences({ ...preferences, email_enabled: checked })} />
+              <Switch checked={preferences.email_enabled} onCheckedChange={(checked) => setPreferences({ ...preferences, email_enabled: checked })} aria-label="Aktifkan Notifikasi Email" />
             </div>
           </div>
 
@@ -106,36 +106,36 @@ export function MerchantNotificationSettings() {
           <div className="space-y-4">
             <div className="flex items-center justify-between p-4 rounded-xl bg-card/80 backdrop-blur-sm border border-border/40">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-gradient-to-br from-success/20 to-success/5">
+                <div className="p-2 rounded-xl bg-gradient-to-br from-success/20 to-success/5" aria-hidden="true">
                   <MessageCircle className="h-5 w-5 text-success" />
                 </div>
                 <div>
-                  <p className="font-medium">WhatsApp Notifications</p>
-                  <p className="text-sm text-muted-foreground">Send reminders via WhatsApp</p>
+                  <p className="font-medium">Notifikasi WhatsApp</p>
+                  <p className="text-sm text-muted-foreground">Kirim pengingat melalui WhatsApp</p>
                 </div>
               </div>
-              <Switch checked={preferences.whatsapp_enabled} onCheckedChange={(checked) => setPreferences({ ...preferences, whatsapp_enabled: checked })} />
+              <Switch checked={preferences.whatsapp_enabled} onCheckedChange={(checked) => setPreferences({ ...preferences, whatsapp_enabled: checked })} aria-label="Aktifkan Notifikasi WhatsApp" />
             </div>
 
             {preferences.whatsapp_enabled && (
               <div className="ml-4 p-4 rounded-xl border-dashed border border-border/50 bg-background/40 backdrop-blur-sm space-y-3">
                 <div className="space-y-2">
-                  <Label>WhatsApp Business Number</Label>
+                  <Label htmlFor="whatsapp_number">Nomor WhatsApp Bisnis</Label>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input placeholder="+62 812 3456 7890" value={preferences.whatsapp_number} onChange={(e) => setPreferences({ ...preferences, whatsapp_number: e.target.value })} className="pl-10 rounded-xl bg-background/60 border-border/50" />
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                      <Input id="whatsapp_number" placeholder="+62 812 3456 7890" value={preferences.whatsapp_number} onChange={(e) => setPreferences({ ...preferences, whatsapp_number: e.target.value })} className="pl-10 rounded-xl bg-background/60 border-border/50" />
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    This number will be used to send WhatsApp messages to tenants
+                    Nomor ini akan digunakan untuk mengirim pesan WhatsApp ke penyewa
                   </p>
                 </div>
 
                 {preferences.whatsapp_number && !isValidPhoneNumber(preferences.whatsapp_number) && (
-                  <div className="flex items-center gap-2 text-sm text-warning">
-                    <AlertCircle className="h-4 w-4" />
-                    Please enter a valid phone number
+                  <div className="flex items-center gap-2 text-sm text-warning" role="alert">
+                    <AlertCircle className="h-4 w-4" aria-hidden="true" />
+                    Harap masukkan nomor telepon yang valid
                   </div>
                 )}
               </div>
@@ -147,23 +147,23 @@ export function MerchantNotificationSettings() {
       {/* Reminder Schedule */}
       <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
         <CardHeader>
-          <CardTitle>Payment Reminder Schedule</CardTitle>
-          <CardDescription>Configure when to send automatic payment reminders</CardDescription>
+          <CardTitle>Jadwal Pengingat Pembayaran</CardTitle>
+          <CardDescription>Konfigurasi kapan harus mengirim pengingat pembayaran otomatis</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {[
-            { key: 'reminder_h7', label: '7 days before due', description: 'Early reminder a week before payment is due' },
-            { key: 'reminder_h3', label: '3 days before due', description: 'Reminder 3 days before payment is due' },
-            { key: 'reminder_h1', label: '1 day before due', description: 'Final reminder the day before payment is due' },
-            { key: 'reminder_due', label: 'On due date', description: 'Reminder on the exact due date' },
-            { key: 'reminder_overdue', label: 'Overdue (daily)', description: 'Daily reminders for overdue payments' },
+            { key: 'reminder_h7', label: '7 hari sebelum jatuh tempo', description: 'Pengingat dini seminggu sebelum pembayaran jatuh tempo' },
+            { key: 'reminder_h3', label: '3 hari sebelum jatuh tempo', description: 'Pengingat 3 hari sebelum pembayaran jatuh tempo' },
+            { key: 'reminder_h1', label: '1 hari sebelum jatuh tempo', description: 'Pengingat terakhir sehari sebelum pembayaran jatuh tempo' },
+            { key: 'reminder_due', label: 'Pada tanggal jatuh tempo', description: 'Pengingat tepat pada tanggal jatuh tempo' },
+            { key: 'reminder_overdue', label: 'Terlambat (harian)', description: 'Pengingat harian untuk pembayaran yang terlambat' },
           ].map((item) => (
             <div key={item.key} className="flex items-center justify-between p-4 rounded-xl bg-card/80 backdrop-blur-sm border border-border/40">
               <div>
                 <p className="font-medium">{item.label}</p>
                 <p className="text-sm text-muted-foreground">{item.description}</p>
               </div>
-              <Switch checked={preferences[item.key as keyof NotificationPreferences] as boolean} onCheckedChange={(checked) => setPreferences({ ...preferences, [item.key]: checked })} />
+              <Switch checked={preferences[item.key as keyof NotificationPreferences] as boolean} onCheckedChange={(checked) => setPreferences({ ...preferences, [item.key]: checked })} aria-label={`Aktifkan pengingat ${item.label}`} />
             </div>
           ))}
         </CardContent>
@@ -172,22 +172,22 @@ export function MerchantNotificationSettings() {
       {/* Notification Events */}
       <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
         <CardHeader>
-          <CardTitle>Event Notifications</CardTitle>
-          <CardDescription>Get notified about important events</CardDescription>
+          <CardTitle>Notifikasi Peristiwa</CardTitle>
+          <CardDescription>Dapatkan notifikasi tentang peristiwa penting</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {[
-            { label: 'Payment Received', description: 'When a tenant makes a payment' },
-            { label: 'Maintenance Requests', description: 'New maintenance requests from tenants' },
-            { label: 'Contract Expiry', description: 'Contracts expiring in 30 days' },
-            { label: 'Weekly Reports', description: 'Weekly summary of your properties' },
+            { label: 'Pembayaran Diterima', description: 'Saat penyewa melakukan pembayaran' },
+            { label: 'Permintaan Perbaikan', description: 'Permintaan perbaikan baru dari penyewa' },
+            { label: 'Kontrak Berakhir', description: 'Kontrak yang akan berakhir dalam 30 hari' },
+            { label: 'Laporan Mingguan', description: 'Ringkasan mingguan properti Anda' },
           ].map((item, index) => (
             <div key={index} className="flex items-center justify-between p-4 rounded-xl bg-card/80 backdrop-blur-sm border border-border/40">
               <div>
                 <p className="font-medium">{item.label}</p>
                 <p className="text-sm text-muted-foreground">{item.description}</p>
               </div>
-              <Switch defaultChecked />
+              <Switch defaultChecked aria-label={`Aktifkan notifikasi ${item.label}`} />
             </div>
           ))}
         </CardContent>
@@ -196,7 +196,7 @@ export function MerchantNotificationSettings() {
       <div className="flex justify-end">
         <Button onClick={handleSave} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-md">
           <Save className="h-4 w-4 mr-2" />
-          Save Preferences
+          Simpan Preferensi
         </Button>
       </div>
     </div>

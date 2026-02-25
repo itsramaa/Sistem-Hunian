@@ -20,8 +20,8 @@ const ITEMS_PER_PAGE = 10;
 
 const STATUS_TABS = [
   { value: 'all', label: 'Semua' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'in_progress', label: 'In Progress' },
+  { value: 'pending', label: 'Tertunda' },
+  { value: 'in_progress', label: 'Dalam Proses' },
   { value: 'completed', label: 'Selesai' },
   { value: 'cancelled', label: 'Dibatalkan' },
 ];
@@ -74,7 +74,7 @@ export default function MerchantMaintenance() {
   const handleUpdateStatus = (data: UpdateMaintenanceStatusPayload) => {
     updateMutation.mutate(data, {
       onSuccess: () => {
-        toast({ title: 'Request updated successfully' });
+        toast({ title: 'Permintaan berhasil diperbarui' });
         setSelectedRequest(null);
       },
       onError: (error: Error) => {
@@ -86,11 +86,11 @@ export default function MerchantMaintenance() {
   const handleCreateMerchantMaintenance = (data: CreateMerchantMaintenancePayload) => {
     createMerchantMutation.mutate(data, {
       onSuccess: () => {
-        toast({ title: 'Maintenance berhasil dibuat' });
+        toast({ title: 'Pemeliharaan berhasil dibuat' });
         setShowCreateDialog(false);
       },
       onError: (error: Error) => {
-        toast({ title: 'Gagal membuat maintenance', description: error.message, variant: 'destructive' });
+        toast({ title: 'Gagal membuat pemeliharaan', description: error.message, variant: 'destructive' });
       }
     });
   };
@@ -103,11 +103,11 @@ export default function MerchantMaintenance() {
     <div className="space-y-6">
       <PageHeader
         icon={Wrench}
-        title="Maintenance"
+        title="Pemeliharaan"
         description="Kelola permintaan pemeliharaan properti Anda"
       >
         <Button onClick={() => setShowCreateDialog(true)} className="rounded-xl gradient-cta">
-          <Plus className="h-4 w-4 mr-1" />Tambah Maintenance
+          <Plus className="h-4 w-4 mr-1" />Tambah Pemeliharaan
         </Button>
       </PageHeader>
 

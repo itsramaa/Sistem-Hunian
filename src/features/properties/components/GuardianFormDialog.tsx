@@ -77,16 +77,17 @@ export function GuardianFormDialog({ open, onOpenChange, guardian, properties, o
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg w-[95vw] rounded-2xl">
+      <DialogContent className="max-w-lg w-[95vw] rounded-2xl" aria-describedby="guardian-form-description">
         <DialogHeader>
           <DialogTitle>{guardian ? 'Edit Penjaga' : 'Tambah Penjaga Baru'}</DialogTitle>
+          <p id="guardian-form-description" className="sr-only">Formulir untuk mengisi data diri dan detail pekerjaan penjaga properti</p>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
           <div>
-            <Label>Properti *</Label>
+            <Label htmlFor="property-id">Properti *</Label>
             <Select value={watch('property_id')} onValueChange={(v) => setValue('property_id', v, { shouldValidate: true })}>
-              <SelectTrigger className={cn(inputCls, errors.property_id && 'border-destructive')}>
+              <SelectTrigger id="property-id" className={cn(inputCls, errors.property_id && 'border-destructive')}>
                 <SelectValue placeholder="Pilih properti" />
               </SelectTrigger>
               <SelectContent>
@@ -98,30 +99,30 @@ export function GuardianFormDialog({ open, onOpenChange, guardian, properties, o
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Nama Penjaga *</Label>
-              <Input {...register('name')} className={cn(inputCls, errors.name && 'border-destructive')} placeholder="Nama lengkap" />
+              <Label htmlFor="guardian-name">Nama Penjaga *</Label>
+              <Input id="guardian-name" {...register('name')} className={cn(inputCls, errors.name && 'border-destructive')} placeholder="Nama lengkap" />
               {errors.name && <p className="text-sm text-destructive mt-1">{errors.name.message}</p>}
             </div>
             <div>
-              <Label>No. Telepon</Label>
-              <Input {...register('phone')} className={inputCls} placeholder="08xxxxxxxxxx" />
+              <Label htmlFor="guardian-phone">No. Telepon</Label>
+              <Input id="guardian-phone" {...register('phone')} className={inputCls} placeholder="08xxxxxxxxxx" />
             </div>
           </div>
 
           <div>
-            <Label>Alamat</Label>
-            <Input {...register('address')} className={inputCls} placeholder="Alamat penjaga" />
+            <Label htmlFor="guardian-address">Alamat</Label>
+            <Input id="guardian-address" {...register('address')} className={inputCls} placeholder="Alamat penjaga" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>No. KTP</Label>
-              <Input {...register('id_number')} className={inputCls} placeholder="No. KTP" />
+              <Label htmlFor="guardian-id">No. KTP</Label>
+              <Input id="guardian-id" {...register('id_number')} className={inputCls} placeholder="No. KTP" />
             </div>
             <div>
-              <Label>Status</Label>
+              <Label htmlFor="guardian-status">Status</Label>
               <Select value={watch('status')} onValueChange={(v) => setValue('status', v)}>
-                <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
+                <SelectTrigger id="guardian-status" className={inputCls}><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">Aktif</SelectItem>
                   <SelectItem value="inactive">Tidak Aktif</SelectItem>
@@ -132,13 +133,13 @@ export function GuardianFormDialog({ open, onOpenChange, guardian, properties, o
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Gaji (Rp)</Label>
-              <Input type="number" min={0} {...register('salary')} className={inputCls} />
+              <Label htmlFor="guardian-salary">Gaji (Rp)</Label>
+              <Input id="guardian-salary" type="number" min={0} {...register('salary')} className={inputCls} />
             </div>
             <div>
-              <Label>Frekuensi Gaji</Label>
+              <Label htmlFor="salary-frequency">Frekuensi Gaji</Label>
               <Select value={watch('salary_frequency')} onValueChange={(v) => setValue('salary_frequency', v)}>
-                <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
+                <SelectTrigger id="salary-frequency" className={inputCls}><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {SALARY_FREQUENCY_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
                 </SelectContent>
@@ -148,25 +149,25 @@ export function GuardianFormDialog({ open, onOpenChange, guardian, properties, o
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Tanggal Mulai</Label>
-              <Input type="date" {...register('start_date')} className={inputCls} />
+              <Label htmlFor="start-date">Tanggal Mulai</Label>
+              <Input id="start-date" type="date" {...register('start_date')} className={inputCls} />
             </div>
             <div>
-              <Label>Tanggal Selesai</Label>
-              <Input type="date" {...register('end_date')} className={inputCls} />
+              <Label htmlFor="end-date">Tanggal Selesai</Label>
+              <Input id="end-date" type="date" {...register('end_date')} className={inputCls} />
             </div>
           </div>
 
           <div>
-            <Label>Catatan</Label>
-            <Textarea {...register('notes')} className={inputCls} placeholder="Catatan tambahan..." rows={2} />
+            <Label htmlFor="guardian-notes">Catatan</Label>
+            <Textarea id="guardian-notes" {...register('notes')} className={inputCls} placeholder="Catatan tambahan..." rows={2} />
           </div>
         </form>
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">Batal</Button>
           <Button onClick={handleSubmit(onSubmit)} disabled={isLoading} className="rounded-xl gradient-cta text-primary-foreground">
-            {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />}
             {guardian ? 'Simpan Perubahan' : 'Tambah Penjaga'}
           </Button>
         </DialogFooter>

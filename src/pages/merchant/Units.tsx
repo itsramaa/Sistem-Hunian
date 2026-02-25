@@ -96,7 +96,7 @@ export default function MerchantUnits() {
     <>
       <PageHeader icon={DoorOpen} title="Unit Saya" description="Kelola semua unit di properti Anda">
         <Button variant="outline" onClick={() => setShowImportDialog(true)} disabled={properties.length === 0} className="gap-2 rounded-xl">
-          <Upload className="h-4 w-4" /> Import CSV
+          <Upload className="h-4 w-4" /> Impor CSV
         </Button>
         <Button disabled={properties.length === 0} onClick={handleCreate} className="gap-2 gradient-cta text-primary-foreground hover:opacity-90 rounded-xl">
           <Plus className="h-4 w-4" />Tambah Unit

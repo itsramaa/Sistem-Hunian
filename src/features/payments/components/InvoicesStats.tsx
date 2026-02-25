@@ -19,7 +19,7 @@ export const InvoicesStats = ({ invoices, loading = false }: InvoicesStatsProps)
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       <StatCard
-        title="Total Invoiced"
+        title="Total Ditagihkan"
         value={formatCurrency(stats.total)}
         icon={FileText}
         accentColor="hsl(var(--primary))"
@@ -27,7 +27,7 @@ export const InvoicesStats = ({ invoices, loading = false }: InvoicesStatsProps)
         index={0}
       />
       <StatCard
-        title="Paid"
+        title="Lunas"
         value={formatCurrency(stats.paid)}
         icon={CheckCircle}
         accentColor="hsl(var(--success))"
@@ -35,7 +35,7 @@ export const InvoicesStats = ({ invoices, loading = false }: InvoicesStatsProps)
         index={1}
       />
       <StatCard
-        title="Pending"
+        title="Menunggu"
         value={formatCurrency(stats.pending)}
         icon={Clock}
         accentColor="hsl(var(--warning))"
@@ -43,7 +43,7 @@ export const InvoicesStats = ({ invoices, loading = false }: InvoicesStatsProps)
         index={2}
       />
       <StatCard
-        title="Drafts"
+        title="Draf"
         value={stats.draft}
         icon={FileText}
         accentColor="hsl(var(--muted-foreground))"

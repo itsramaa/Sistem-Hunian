@@ -51,11 +51,11 @@ export function BankAccountManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
-      toast({ title: 'Account added', description: 'Bank account has been added successfully.' });
+      toast({ title: 'Rekening ditambahkan', description: 'Rekening bank telah berhasil ditambahkan.' });
       setIsDialogOpen(false);
       setFormData({ bank_name: '', account_name: '', account_number: '', branch_code: '' });
     },
-    onError: () => toast({ variant: 'destructive', title: 'Error', description: 'Failed to add bank account.' }),
+    onError: () => toast({ variant: 'destructive', title: 'Kesalahan', description: 'Gagal menambahkan rekening bank.' }),
   });
 
   const deleteAccount = useMutation({
@@ -65,9 +65,9 @@ export function BankAccountManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
-      toast({ title: 'Account deleted', description: 'Bank account has been removed.' });
+      toast({ title: 'Rekening dihapus', description: 'Rekening bank telah dihapus.' });
     },
-    onError: () => toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete bank account.' }),
+    onError: () => toast({ variant: 'destructive', title: 'Kesalahan', description: 'Gagal menghapus rekening bank.' }),
   });
 
   const setPrimary = useMutation({
@@ -78,15 +78,15 @@ export function BankAccountManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
-      toast({ title: 'Primary account updated' });
+      toast({ title: 'Rekening utama diperbarui' });
     },
-    onError: () => toast({ variant: 'destructive', title: 'Error', description: 'Failed to update primary account.' }),
+    onError: () => toast({ variant: 'destructive', title: 'Kesalahan', description: 'Gagal memperbarui rekening utama.' }),
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.bank_name || !formData.account_name || !formData.account_number) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Please fill in all required fields.' });
+      toast({ variant: 'destructive', title: 'Kesalahan', description: 'Harap isi semua kolom yang diperlukan.' });
       return;
     }
     addAccount.mutate(formData);
@@ -98,30 +98,30 @@ export function BankAccountManager() {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <div className="p-2 rounded-xl bg-primary/10">
+              <div className="p-2 rounded-xl bg-primary/10" aria-hidden="true">
                 <Building2 className="h-5 w-5 text-primary" />
               </div>
-              Bank Accounts
+              Rekening Bank
             </CardTitle>
-            <CardDescription>Manage your bank accounts for disbursements</CardDescription>
+            <CardDescription>Kelola rekening bank Anda untuk pencairan dana</CardDescription>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gradient-cta rounded-xl">
-                <Plus className="h-4 w-4 mr-2" />Add Account
+                <Plus className="h-4 w-4 mr-2" />Tambah Rekening
               </Button>
             </DialogTrigger>
             <DialogContent className="rounded-2xl">
               <DialogHeader>
-                <DialogTitle>Add Bank Account</DialogTitle>
-                <DialogDescription>Add a new bank account for receiving disbursements</DialogDescription>
+                <DialogTitle>Tambah Rekening Bank</DialogTitle>
+                <DialogDescription>Tambahkan rekening bank baru untuk menerima pencairan dana</DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 {[
-                  { id: 'bank_name', label: 'Bank Name *', placeholder: 'e.g., BCA, Mandiri, BNI' },
-                  { id: 'account_name', label: 'Account Holder Name *', placeholder: 'Name as it appears on the account' },
-                  { id: 'account_number', label: 'Account Number *', placeholder: 'Enter account number' },
-                  { id: 'branch_code', label: 'Branch Code (Optional)', placeholder: 'Enter branch code' },
+                  { id: 'bank_name', label: 'Nama Bank *', placeholder: 'misal: BCA, Mandiri, BNI' },
+                  { id: 'account_name', label: 'Nama Pemilik Rekening *', placeholder: 'Nama sesuai buku tabungan' },
+                  { id: 'account_number', label: 'Nomor Rekening *', placeholder: 'Masukkan nomor rekening' },
+                  { id: 'branch_code', label: 'Kode Cabang (Opsional)', placeholder: 'Masukkan kode cabang' },
                 ].map(field => (
                   <div key={field.id} className="space-y-2">
                     <Label htmlFor={field.id}>{field.label}</Label>
@@ -135,9 +135,9 @@ export function BankAccountManager() {
                   </div>
                 ))}
                 <div className="flex gap-2 justify-end">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="rounded-xl">Cancel</Button>
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="rounded-xl">Batal</Button>
                   <Button type="submit" disabled={addAccount.isPending} className="gradient-cta rounded-xl">
-                    {addAccount.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Add Account
+                    {addAccount.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Tambah Rekening
                   </Button>
                 </div>
               </form>
@@ -147,22 +147,23 @@ export function BankAccountManager() {
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="flex items-center justify-center h-32"><Loader2 className="h-6 w-6 animate-spin" /></div>
+          <div className="flex items-center justify-center h-32" aria-label="Memuat data rekening"><Loader2 className="h-6 w-6 animate-spin" /></div>
         ) : accounts.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            <Building2 className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            <p>No bank accounts added yet</p>
-            <p className="text-sm">Add a bank account to receive disbursements</p>
+            <Building2 className="h-12 w-12 mx-auto mb-2 opacity-50" aria-hidden="true" />
+            <p>Belum ada rekening bank yang ditambahkan</p>
+            <p className="text-sm">Tambahkan rekening bank untuk menerima pencairan dana</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3" role="list" aria-label="Daftar Rekening Bank">
             {accounts.map((account) => (
               <div
                 key={account.id}
+                role="listitem"
                 className="flex items-center justify-between p-4 rounded-xl border border-border/40 bg-card/80 backdrop-blur-sm hover:border-primary/30 transition-all"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center" aria-hidden="true">
                     <Building2 className="h-5 w-5 text-primary" />
                   </div>
                   <div>
@@ -170,7 +171,7 @@ export function BankAccountManager() {
                       <span className="font-medium">{account.bank_name}</span>
                       {account.is_primary && (
                         <Badge variant="secondary" className="text-xs rounded-full">
-                          <Star className="h-3 w-3 mr-1" />Primary
+                          <Star className="h-3 w-3 mr-1" />Utama
                         </Badge>
                       )}
                     </div>
@@ -181,24 +182,24 @@ export function BankAccountManager() {
                 <div className="flex items-center gap-2">
                   {!account.is_primary && (
                     <Button variant="ghost" size="sm" onClick={() => setPrimary.mutate(account.id)} disabled={setPrimary.isPending} className="rounded-xl">
-                      Set as Primary
+                      Jadikan Utama
                     </Button>
                   )}
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive rounded-xl">
+                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive rounded-xl" aria-label={`Hapus rekening ${account.bank_name}`}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent className="rounded-2xl">
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Bank Account</AlertDialogTitle>
-                        <AlertDialogDescription>Are you sure? This action cannot be undone.</AlertDialogDescription>
+                        <AlertDialogTitle>Hapus Rekening Bank</AlertDialogTitle>
+                        <AlertDialogDescription>Apakah Anda yakin? Tindakan ini tidak dapat dibatalkan.</AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                        <AlertDialogCancel className="rounded-xl">Batal</AlertDialogCancel>
                         <AlertDialogAction onClick={() => deleteAccount.mutate(account.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl">
-                          Delete
+                          Hapus
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>

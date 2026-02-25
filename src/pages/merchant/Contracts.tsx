@@ -109,9 +109,9 @@ export default function MerchantContracts() {
 
   return (
     <div className="space-y-6">
-      <PageHeader icon={FileText} title="Contracts" description={`Manage rental agreements · ${activeContracts.length} active contracts`}>
+      <PageHeader icon={FileText} title="Kontrak" description={`Kelola perjanjian sewa · ${activeContracts.length} kontrak aktif`}>
         <Button onClick={() => setShowCreateDialog(true)} className="gradient-cta rounded-xl shadow-md">
-          <Plus className="h-4 w-4 mr-2" />Create Contract
+          <Plus className="h-4 w-4 mr-2" />Buat Kontrak
         </Button>
       </PageHeader>
 
@@ -128,7 +128,7 @@ export default function MerchantContracts() {
             <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs rounded-full">{expiringContracts.length}</Badge>
           )}
         </TabsTrigger>
-        <TabsTrigger value="pending" className="pill-tab-trigger">Menunggu Tanda Tangan ({pendingSignature.length})</TabsTrigger>
+        <TabsTrigger value="pending" className="pill-tab-trigger">Menunggu TTD ({pendingSignature.length})</TabsTrigger>
         <TabsTrigger value="past" className="pill-tab-trigger">Riwayat ({pastContracts.length})</TabsTrigger>
       </TabsList>
 
@@ -150,7 +150,7 @@ export default function MerchantContracts() {
       </Tabs>
 
       <CreateContractDialog open={showCreateDialog} onOpenChange={setShowCreateDialog} availableUnits={availableUnits} merchantTenants={merchantTenants as any} onSubmit={createContractAction} loading={createContractMutation.isPending} />
-      <SignContractDialog open={signDialogOpen} onOpenChange={setSignDialogOpen} contract={selectedContract} tenantName={selectedContract ? profileMap.get(selectedContract.tenant_user_id)?.full_name || 'Unknown' : ''} onSign={handleSignContract} loading={signContractMutation.isPending} signatureDataUrl={signatureDataUrl || ''} onSaveSignature={handleSaveSignature} />
+      <SignContractDialog open={signDialogOpen} onOpenChange={setSignDialogOpen} contract={selectedContract} tenantName={selectedContract ? profileMap.get(selectedContract.tenant_user_id)?.full_name || 'Tidak Diketahui' : ''} onSign={handleSignContract} loading={signContractMutation.isPending} signatureDataUrl={signatureDataUrl || ''} onSaveSignature={handleSaveSignature} />
       <DeleteContractDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen} contract={selectedContract} onConfirm={handleConfirmDelete} loading={deleteContractMutation.isPending} />
     </div>
   );

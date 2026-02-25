@@ -9,22 +9,22 @@ export function MaintenancePriorityBadge({ priority }: MaintenancePriorityBadgeP
     switch (priority) {
       case 'urgent':
         return {
-          label: 'Urgent',
+          label: 'Mendesak',
           className: 'bg-red-100 text-red-800 border-red-200 rounded-full',
         };
       case 'high':
         return {
-          label: 'High',
+          label: 'Tinggi',
           className: 'bg-orange-100 text-orange-800 border-orange-200 rounded-full',
         };
       case 'medium':
         return {
-          label: 'Medium',
+          label: 'Sedang',
           className: 'bg-yellow-100 text-yellow-800 border-yellow-200 rounded-full',
         };
       case 'low':
         return {
-          label: 'Low',
+          label: 'Rendah',
           className: 'bg-green-100 text-green-800 border-green-200 rounded-full',
         };
       default:

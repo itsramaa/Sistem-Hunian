@@ -30,7 +30,7 @@ export function MaintenanceStats({
         compact
       />
       <StatCard
-        title="Low"
+        title="Rendah"
         value={low}
         icon={ChevronDown}
         accentColor="hsl(var(--muted-foreground))"
@@ -39,7 +39,7 @@ export function MaintenanceStats({
         compact
       />
       <StatCard
-        title="Medium"
+        title="Sedang"
         value={medium}
         icon={ChevronUp}
         accentColor="hsl(var(--info))"
@@ -48,7 +48,7 @@ export function MaintenanceStats({
         compact
       />
       <StatCard
-        title="High"
+        title="Tinggi"
         value={high}
         icon={AlertTriangle}
         accentColor="hsl(var(--warning))"
@@ -57,7 +57,7 @@ export function MaintenanceStats({
         compact
       />
       <StatCard
-        title="Urgent"
+        title="Mendesak"
         value={urgent}
         icon={Flame}
         accentColor="hsl(var(--destructive))"

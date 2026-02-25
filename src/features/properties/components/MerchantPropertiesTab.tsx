@@ -2,6 +2,7 @@ import { Badge } from '@/shared/components/ui/badge';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { AlertCircle, Building2, Home, MapPin } from 'lucide-react';
 import { useMerchantProperties } from '@/features/properties/hooks/useMerchantProperties';
+import { formatLabel } from '@/shared/utils/utils';
 
 interface MerchantPropertiesTabProps {
   merchantId: string;
@@ -44,7 +45,7 @@ export function MerchantPropertiesTab({ merchantId }: MerchantPropertiesTabProps
         <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/10 to-accent/5 flex items-center justify-center mx-auto mb-3">
           <Building2 className="h-8 w-8 text-muted-foreground" />
         </div>
-        <p className="text-muted-foreground">No properties registered</p>
+        <p className="text-muted-foreground">Belum ada properti terdaftar</p>
       </div>
     );
   }
@@ -69,29 +70,29 @@ export function MerchantPropertiesTab({ merchantId }: MerchantPropertiesTabProps
                 </div>
               </div>
             </div>
-            <Badge variant="outline" className="capitalize text-xs rounded-full">
-              {property.property_type}
+            <Badge variant="outline" className="text-xs rounded-full">
+              {formatLabel(property.property_type)}
             </Badge>
           </div>
           
           <div className="flex items-center gap-4 mt-3 text-sm">
             <div className="flex items-center gap-1">
               <Home className="h-3 w-3 text-muted-foreground" />
-              <span className="text-muted-foreground">Units:</span>
+              <span className="text-muted-foreground">Unit:</span>
               <span className="font-medium">{property.occupied_units || 0}/{property.total_units || 0}</span>
             </div>
             <Badge 
               variant="secondary" 
               className={`text-xs rounded-full ${property.status === 'active' ? 'bg-success/10 text-success' : ''}`}
             >
-              {property.status || 'active'}
+              {formatLabel(property.status) || 'Aktif'}
             </Badge>
           </div>
         </div>
       ))}
       
       <div className="text-xs text-muted-foreground text-center pt-2 rounded-xl bg-muted/30 p-3">
-        Total: {properties.length} properties, {properties.reduce((acc, p) => acc + (p.total_units || 0), 0)} units
+        Total: {properties.length} properti, {properties.reduce((acc, p) => acc + (p.total_units || 0), 0)} unit
       </div>
     </div>
   );

@@ -11,16 +11,16 @@ export const MoveOutStatusBadge = ({ notice, inspection }: MoveOutStatusBadgePro
   const daysUntil = differenceInDays(new Date(notice.intended_move_out_date), new Date());
 
   if (notice.status === "completed") {
-    return <Badge className="rounded-full bg-success text-success-foreground">Completed</Badge>;
+    return <Badge className="rounded-full bg-success text-success-foreground">Selesai</Badge>;
   }
   if (inspection?.status === "completed") {
-    return <Badge variant="secondary" className="rounded-full">Inspection Done</Badge>;
+    return <Badge variant="secondary" className="rounded-full">Inspeksi Selesai</Badge>;
   }
   if (inspection?.status === "scheduled") {
-    return <Badge variant="outline" className="rounded-full">Inspection Scheduled</Badge>;
+    return <Badge variant="outline" className="rounded-full">Inspeksi Terjadwal</Badge>;
   }
   if (daysUntil <= 7) {
-    return <Badge variant="destructive" className="rounded-full">Urgent - {daysUntil} days</Badge>;
+    return <Badge variant="destructive" className="rounded-full">Mendesak - {daysUntil} hari</Badge>;
   }
-  return <Badge variant="secondary" className="rounded-full">{daysUntil} days left</Badge>;
+  return <Badge variant="secondary" className="rounded-full">{daysUntil} hari tersisa</Badge>;
 };

@@ -38,22 +38,22 @@ export function TrialCountdownWidget() {
 
   if (isExpired) {
     return (
-      <Card className="rounded-2xl border-destructive bg-destructive/10">
+      <Card className="rounded-2xl border-destructive bg-destructive/10" role="alert">
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-destructive/20">
+            <div className="p-2 rounded-xl bg-destructive/20" aria-hidden="true">
               <AlertTriangle className="h-5 w-5 text-destructive" />
             </div>
             <div className="flex-1">
-              <p className="font-semibold text-destructive">Trial Expired</p>
+              <p className="font-semibold text-destructive">Trial Berakhir</p>
               <p className="text-sm text-muted-foreground">
-                Upgrade now to continue using all features
+                Upgrade sekarang untuk terus menggunakan semua fitur
               </p>
             </div>
             <Button size="sm" className="rounded-xl" asChild>
               <Link to="/merchant/settings?tab=verification">
-                Upgrade Now
-                <ArrowRight className="h-4 w-4 ml-1" />
+                Upgrade Sekarang
+                <ArrowRight className="h-4 w-4 ml-1" aria-hidden="true" />
               </Link>
             </Button>
           </div>
@@ -63,10 +63,10 @@ export function TrialCountdownWidget() {
   }
 
   return (
-    <Card className={`rounded-2xl ${isUrgent ? "border-warning bg-warning/10" : "border-primary/30 bg-primary/5"}`}>
+    <Card className={`rounded-2xl ${isUrgent ? "border-warning bg-warning/10" : "border-primary/30 bg-primary/5"}`} role="status">
       <CardContent className="p-4">
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-xl ${isUrgent ? "bg-warning/20" : "bg-primary/20"}`}>
+          <div className={`p-2 rounded-xl ${isUrgent ? "bg-warning/20" : "bg-primary/20"}`} aria-hidden="true">
             <Clock className={`h-5 w-5 ${isUrgent ? "text-warning" : "text-primary"}`} />
           </div>
           <div className="flex-1">
@@ -75,19 +75,19 @@ export function TrialCountdownWidget() {
                 {daysRemaining}
               </span>
               <span className="text-sm text-muted-foreground">
-                days {hoursRemaining > 0 && `${hoursRemaining}h`} remaining
+                hari {hoursRemaining > 0 && `${hoursRemaining}j`} tersisa
               </span>
             </div>
             <p className="text-sm text-muted-foreground">
               {isUrgent 
-                ? "Your trial is ending soon. Upgrade to keep access." 
-                : "Trial period - Upgrade anytime to unlock all features"}
+                ? "Masa trial Anda segera berakhir. Upgrade untuk mempertahankan akses." 
+                : "Periode Trial - Upgrade kapan saja untuk membuka semua fitur"}
             </p>
           </div>
           <Button variant={isUrgent ? "default" : "outline"} size="sm" className="rounded-xl" asChild>
             <Link to="/merchant/settings?tab=verification">
-              {isUrgent ? "Upgrade Now" : "View Plans"}
-              <ArrowRight className="h-4 w-4 ml-1" />
+              {isUrgent ? "Upgrade Sekarang" : "Lihat Paket"}
+              <ArrowRight className="h-4 w-4 ml-1" aria-hidden="true" />
             </Link>
           </Button>
         </div>

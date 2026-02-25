@@ -42,7 +42,7 @@ export function TenantsTable({ tenants, mode = "merchant", isLoading = false, on
       suspended: { className: 'bg-destructive/10 text-destructive border-destructive/30', label: 'Ditangguhkan' },
       pending: { className: 'bg-warning/10 text-warning border-warning/30', label: 'Menunggu' },
       pending_signature: { className: 'bg-warning/10 text-warning border-warning/30', label: 'Menunggu Tanda Tangan' },
-      notice: { className: 'bg-orange-500/10 text-orange-600 border-orange-500/30', label: 'Notice' },
+      notice: { className: 'bg-orange-500/10 text-orange-600 border-orange-500/30', label: 'Pemberitahuan' },
       expired: { className: 'bg-muted text-muted-foreground border-muted', label: 'Kedaluwarsa' },
       evicted: { className: 'bg-destructive/10 text-destructive border-destructive/30', label: 'Diusir' },
       terminated: { className: 'bg-destructive/10 text-destructive border-destructive/30', label: 'Diakhiri' },
@@ -72,7 +72,7 @@ export function TenantsTable({ tenants, mode = "merchant", isLoading = false, on
         <Table>
           <TableHeader>
             <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b-0">
-              <TableHead className="font-semibold text-xs uppercase tracking-wider">Tenant</TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wider">Penyewa</TableHead>
               <TableHead className="hidden md:table-cell font-semibold text-xs uppercase tracking-wider">Properti & Unit</TableHead>
               <TableHead className="font-semibold text-xs uppercase tracking-wider">Status</TableHead>
               <TableHead className="hidden sm:table-cell text-right font-semibold text-xs uppercase tracking-wider">Sewa</TableHead>
@@ -101,7 +101,7 @@ export function TenantsTable({ tenants, mode = "merchant", isLoading = false, on
         <Table>
           <TableHeader>
             <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b-0">
-              <TableHead className="font-semibold text-xs uppercase tracking-wider">Tenant</TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wider">Penyewa</TableHead>
               <TableHead className="hidden md:table-cell font-semibold text-xs uppercase tracking-wider">Properti & Unit</TableHead>
               {mode === "admin" && <TableHead className="hidden lg:table-cell font-semibold text-xs uppercase tracking-wider">Merchant</TableHead>}
               <TableHead className="font-semibold text-xs uppercase tracking-wider">Status</TableHead>
@@ -133,8 +133,8 @@ export function TenantsTable({ tenants, mode = "merchant", isLoading = false, on
                           {getInitials(tenant.profile?.full_name)}
                         </div>
                         <div className="min-w-0">
-                          <p className="font-medium truncate">{tenant.profile?.full_name || 'Unknown'}</p>
-                          <p className="text-xs text-muted-foreground truncate">{tenant.profile?.email || 'No Email'}</p>
+                          <p className="font-medium truncate">{tenant.profile?.full_name || 'Tidak Diketahui'}</p>
+                          <p className="text-xs text-muted-foreground truncate">{tenant.profile?.email || 'Tanpa Email'}</p>
                           <div className="md:hidden text-xs text-muted-foreground mt-0.5">{property} {unit !== '—' ? `• ${unit}` : ''}</div>
                         </div>
                       </div>
@@ -144,7 +144,7 @@ export function TenantsTable({ tenants, mode = "merchant", isLoading = false, on
                     </TableCell>
                     {mode === "admin" && (
                       <TableCell className="hidden lg:table-cell">
-                        <div><p className="font-medium">{(tenant as AdminTenant).merchant_profile?.full_name || 'Unknown'}</p><p className="text-xs text-muted-foreground">{(tenant as AdminTenant).merchant_profile?.email}</p></div>
+                        <div><p className="font-medium">{(tenant as AdminTenant).merchant_profile?.full_name || 'Tidak Diketahui'}</p><p className="text-xs text-muted-foreground">{(tenant as AdminTenant).merchant_profile?.email}</p></div>
                       </TableCell>
                     )}
                     <TableCell>{getStatusBadge(tenant.status)}</TableCell>
@@ -182,7 +182,7 @@ export function TenantsTable({ tenants, mode = "merchant", isLoading = false, on
         </Table>
       </div>
 
-      {(totalPages > 1 || (totalCount && itemsPerPage)) && onPageChange && (
+      {(totalPages > 1 || (totalCount && totalCount > itemsPerPage)) && onPageChange && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-2">
           <div className="text-sm text-muted-foreground">
             {totalCount ? (<>Menampilkan {((page - 1) * itemsPerPage) + 1} - {Math.min(page * itemsPerPage, totalCount)} dari {totalCount}</>) : (<>{page} / {totalPages}</>)}
@@ -191,8 +191,10 @@ export function TenantsTable({ tenants, mode = "merchant", isLoading = false, on
             <Button variant="ghost" size="sm" onClick={() => onPageChange(page - 1)} disabled={page <= 1} className="h-8 rounded-full">
               <ChevronLeft className="h-4 w-4" /><span className="hidden sm:inline">Sebelumnya</span>
             </Button>
-            <span className="text-sm font-medium px-3 py-1 rounded-full bg-primary/10 text-primary">{page}/{totalPages}</span>
-            <Button variant="ghost" size="sm" onClick={() => onPageChange(page + 1)} disabled={page >= totalPages} className="h-8 rounded-full">
+            <span className="text-sm font-medium px-3 py-1 rounded-full bg-primary/10 text-primary">
+              {page}/{totalCount ? Math.ceil(totalCount / itemsPerPage) : totalPages}
+            </span>
+            <Button variant="ghost" size="sm" onClick={() => onPageChange(page + 1)} disabled={page >= (totalCount ? Math.ceil(totalCount / itemsPerPage) : totalPages)} className="h-8 rounded-full">
               <span className="hidden sm:inline">Selanjutnya</span><ChevronRight className="h-4 w-4" />
             </Button>
           </div>

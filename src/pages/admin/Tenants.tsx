@@ -46,11 +46,11 @@ export default function Tenants() {
   const { mutate: updateTenantStatus } = useMutation({
     mutationFn: (params: { id: string; status: string }) => adminTenantService.updateTenantStatus(params.id, params.status),
     onSuccess: () => {
-      toast.success(`Tenant status updated successfully.`);
+      toast.success(`Status penyewa berhasil diperbarui.`);
       refetch();
     },
     onError: (error) => {
-      toast.error(`Failed to update tenant status: ${error.message}`);
+      toast.error(`Gagal memperbarui status penyewa: ${error.message}`);
     },
   });
 

@@ -13,7 +13,7 @@ import { TrendingUp, TrendingDown, DollarSign, Home, Users, ArrowUpRight } from 
 import { supabase } from '@/lib/integrations/supabase/client';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { format, subMonths, startOfMonth, endOfMonth, eachMonthOfInterval } from 'date-fns';
-import { cn } from '@/shared/utils/utils';
+import { cn, formatLabel } from '@/shared/utils/utils';
 
 interface InteractiveDashboardChartsProps {
   className?: string;
@@ -78,7 +78,7 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
         statusMap.set(p.status, { count: existing.count + 1, amount: existing.amount + Number(p.amount) });
       });
       return Array.from(statusMap.entries()).map(([status, data]) => ({
-        name: status.charAt(0).toUpperCase() + status.slice(1), value: data.count, amount: data.amount,
+        name: formatLabel(status), value: data.count, amount: data.amount,
       }));
     },
     enabled: !!merchant?.id,
@@ -101,11 +101,11 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     return (
-      <div className="bg-popover/95 backdrop-blur-sm border border-border/40 rounded-xl shadow-lg p-3">
+      <div className="bg-popover/95 backdrop-blur-sm border border-border/40 rounded-xl shadow-lg p-3" role="tooltip">
         <p className="font-medium mb-1">{label}</p>
         {payload.map((entry: any, index: number) => (
           <p key={index} style={{ color: entry.color }} className="text-sm">
-            {entry.name}: {entry.name === 'Revenue' ? formatCurrency(entry.value) : entry.value}
+            {entry.name === 'Revenue' ? 'Pendapatan' : entry.name === 'Occupied' ? 'Terisi' : entry.name === 'Vacant' ? 'Kosong' : entry.name}: {entry.name === 'Revenue' ? formatCurrency(entry.value) : entry.value}
           </p>
         ))}
       </div>
@@ -113,7 +113,7 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
   };
 
   return (
-    <div className={cn("space-y-6", className)}>
+    <div className={cn("space-y-6", className)} role="region" aria-label="Grafik Analitik Performa">
       {/* Quick Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card 
@@ -122,21 +122,24 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
             selectedMetric === 'revenue' && "ring-2 ring-primary"
           )}
           onClick={() => setSelectedMetric(selectedMetric === 'revenue' ? null : 'revenue')}
+          role="button"
+          aria-pressed={selectedMetric === 'revenue'}
+          aria-label="Filter grafik berdasarkan Total Pendapatan"
         >
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center" aria-hidden="true">
                 <DollarSign className="h-5 w-5 text-primary" />
               </div>
               {revenueTrend !== 0 && (
                 <Badge variant={revenueTrend > 0 ? 'default' : 'destructive'} className="rounded-full gap-1">
-                  {revenueTrend > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                  {revenueTrend > 0 ? <TrendingUp className="h-3 w-3" aria-hidden="true" /> : <TrendingDown className="h-3 w-3" aria-hidden="true" />}
                   {Math.abs(revenueTrend)}%
                 </Badge>
               )}
             </div>
             <p className="text-2xl font-bold mt-2">{formatCurrency(totalRevenue)}</p>
-            <p className="text-sm text-muted-foreground">Total Revenue</p>
+            <p className="text-sm text-muted-foreground">Total Pendapatan</p>
           </CardContent>
         </Card>
 
@@ -146,16 +149,19 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
             selectedMetric === 'occupancy' && "ring-2 ring-primary"
           )}
           onClick={() => setSelectedMetric(selectedMetric === 'occupancy' ? null : 'occupancy')}
+          role="button"
+          aria-pressed={selectedMetric === 'occupancy'}
+          aria-label="Filter grafik berdasarkan Rata-rata Hunian"
         >
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-success/20 to-success/5 flex items-center justify-center">
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-success/20 to-success/5 flex items-center justify-center" aria-hidden="true">
                 <Home className="h-5 w-5 text-success" />
               </div>
-              <Badge variant="secondary" className="rounded-full">{occupancyData.length} properties</Badge>
+              <Badge variant="secondary" className="rounded-full">{occupancyData.length} properti</Badge>
             </div>
             <p className="text-2xl font-bold mt-2">{avgOccupancy}%</p>
-            <p className="text-sm text-muted-foreground">Avg Occupancy</p>
+            <p className="text-sm text-muted-foreground">Rata-rata Hunian</p>
           </CardContent>
         </Card>
 
@@ -165,27 +171,30 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
             selectedMetric === 'payments' && "ring-2 ring-primary"
           )}
           onClick={() => setSelectedMetric(selectedMetric === 'payments' ? null : 'payments')}
+          role="button"
+          aria-pressed={selectedMetric === 'payments'}
+          aria-label="Filter grafik berdasarkan Total Pembayaran"
         >
           <CardContent className="pt-6">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-warning/20 to-warning/5 flex items-center justify-center">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-warning/20 to-warning/5 flex items-center justify-center" aria-hidden="true">
               <Users className="h-5 w-5 text-warning" />
             </div>
             <p className="text-2xl font-bold mt-2">
               {revenueData.reduce((sum, d) => sum + d.count, 0)}
             </p>
-            <p className="text-sm text-muted-foreground">Total Payments</p>
+            <p className="text-sm text-muted-foreground">Total Pembayaran</p>
           </CardContent>
         </Card>
 
         <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
           <CardContent className="pt-6">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-accent/20 to-accent/5 flex items-center justify-center">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-accent/20 to-accent/5 flex items-center justify-center" aria-hidden="true">
               <ArrowUpRight className="h-5 w-5 text-accent" />
             </div>
             <p className="text-2xl font-bold mt-2">
               {formatCurrency(revenueData[revenueData.length - 1]?.revenue || 0)}
             </p>
-            <p className="text-sm text-muted-foreground">This Month</p>
+            <p className="text-sm text-muted-foreground">Bulan Ini</p>
           </CardContent>
         </Card>
       </div>
@@ -194,18 +203,18 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
       <Tabs defaultValue="revenue" className="space-y-4">
         <div className="flex items-center justify-between">
           <TabsList className="rounded-full bg-card/80 backdrop-blur-sm border border-border/40 p-1">
-            <TabsTrigger value="revenue" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Revenue</TabsTrigger>
-            <TabsTrigger value="occupancy" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Occupancy</TabsTrigger>
-            <TabsTrigger value="status" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Payment Status</TabsTrigger>
+            <TabsTrigger value="revenue" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Pendapatan</TabsTrigger>
+            <TabsTrigger value="occupancy" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Hunian</TabsTrigger>
+            <TabsTrigger value="status" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Status Pembayaran</TabsTrigger>
           </TabsList>
           <Select value={timeRange} onValueChange={(v: any) => setTimeRange(v)}>
-            <SelectTrigger className="w-32 rounded-xl bg-background/60 border-border/50">
+            <SelectTrigger className="w-40 rounded-xl bg-background/60 border-border/50" aria-label="Pilih rentang waktu">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="6m">Last 6 months</SelectItem>
-              <SelectItem value="12m">Last 12 months</SelectItem>
-              <SelectItem value="all">All time</SelectItem>
+              <SelectItem value="6m">6 bulan terakhir</SelectItem>
+              <SelectItem value="12m">12 bulan terakhir</SelectItem>
+              <SelectItem value="all">Semua waktu</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -213,8 +222,8 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
         <TabsContent value="revenue">
           <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader>
-              <CardTitle>Revenue Trend</CardTitle>
-              <CardDescription>Monthly revenue over time</CardDescription>
+              <CardTitle>Tren Pendapatan</CardTitle>
+              <CardDescription>Pendapatan bulanan dari waktu ke waktu</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-[300px]">
@@ -241,8 +250,8 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
         <TabsContent value="occupancy">
           <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader>
-              <CardTitle>Property Occupancy</CardTitle>
-              <CardDescription>Occupied vs vacant units by property</CardDescription>
+              <CardTitle>Hunian Properti</CardTitle>
+              <CardDescription>Unit terisi vs kosong per properti</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-[300px]">
@@ -252,7 +261,7 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
                     <XAxis type="number" />
                     <YAxis dataKey="name" type="category" width={100} className="text-xs" />
                     <Tooltip content={<CustomTooltip />} />
-                    <Legend />
+                    <Legend formatter={(value) => value === 'Occupied' ? 'Terisi' : 'Kosong'} />
                     <Bar dataKey="occupied" name="Occupied" stackId="a" fill="hsl(var(--success))" />
                     <Bar dataKey="vacant" name="Vacant" stackId="a" fill="hsl(var(--muted-foreground))" />
                   </BarChart>
@@ -265,8 +274,8 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
         <TabsContent value="status">
           <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader>
-              <CardTitle>Payment Status Distribution</CardTitle>
-              <CardDescription>Breakdown of payment statuses</CardDescription>
+              <CardTitle>Distribusi Status Pembayaran</CardTitle>
+              <CardDescription>Rincian status pembayaran tagihan</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-[300px] flex items-center justify-center">

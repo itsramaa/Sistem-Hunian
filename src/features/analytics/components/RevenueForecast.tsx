@@ -99,17 +99,17 @@ export function RevenueForecast() {
   };
 
   return (
-    <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
+    <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40" role="region" aria-label="Prediksi Pendapatan">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2.5">
             <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-              <TrendingUp className="h-4.5 w-4.5 text-primary" />
+              <TrendingUp className="h-4.5 w-4.5 text-primary" aria-hidden="true" />
             </div>
-            Revenue Forecast
+            Prediksi Pendapatan
           </CardTitle>
-          <div className="text-right rounded-xl bg-primary/10 px-4 py-2.5">
-            <p className="text-xs text-muted-foreground">Next 6 months projection</p>
+          <div className="text-right rounded-xl bg-primary/10 px-4 py-2.5" role="status" aria-live="polite">
+            <p className="text-xs text-muted-foreground">Proyeksi 6 bulan ke depan</p>
             <p className="text-lg font-bold text-primary">{formatCurrencyLocal(totalForecast)}</p>
           </div>
         </div>
@@ -130,16 +130,16 @@ export function RevenueForecast() {
               </defs>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted/50" />
               <XAxis dataKey="month" className="text-xs" />
-              <YAxis tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`} className="text-xs" />
+              <YAxis tickFormatter={(value) => `${(value / 1000000).toFixed(0)}jt`} className="text-xs" />
               <Tooltip formatter={(value: number) => [formatCurrencyLocal(value), '']} contentStyle={tooltipStyle} />
               <Legend />
-              <Area type="monotone" dataKey="actual" name="Actual Revenue" stroke="hsl(var(--primary))" fill="url(#colorActual)" strokeWidth={2} connectNulls={false} />
-              <Area type="monotone" dataKey="forecast" name="Projected Revenue" stroke="hsl(var(--accent))" fill="url(#colorForecast)" strokeWidth={2} strokeDasharray="5 5" connectNulls={false} />
+              <Area type="monotone" dataKey="actual" name="Pendapatan Aktual" stroke="hsl(var(--primary))" fill="url(#colorActual)" strokeWidth={2} connectNulls={false} />
+              <Area type="monotone" dataKey="forecast" name="Proyeksi Pendapatan" stroke="hsl(var(--accent))" fill="url(#colorForecast)" strokeWidth={2} strokeDasharray="5 5" connectNulls={false} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
         <p className="text-xs text-muted-foreground text-center mt-4">
-          Forecast based on {contracts.length} active contracts. Actual results may vary.
+          Prediksi berdasarkan {contracts.length} kontrak aktif. Hasil aktual dapat bervariasi.
         </p>
       </CardContent>
     </Card>

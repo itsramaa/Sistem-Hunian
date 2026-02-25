@@ -94,12 +94,12 @@ export default function InsightsHub() {
 
   return (
     <div className="space-y-8">
-      <PageHeader icon={BarChart3} title="Alat" description="Alat analitik dan intelijen AI untuk bisnis Anda" />
+      <PageHeader icon={BarChart3} title="Alat & Intelijen" description="Alat analitik dan intelijen AI untuk mengoptimalkan bisnis Anda" />
 
       {/* Performance Section */}
-      <section className="space-y-4">
+      <section className="space-y-4" role="region" aria-labelledby="performance-heading">
         <div className="flex items-center gap-2">
-          <span className="text-lg font-semibold">📊 Performa</span>
+          <span id="performance-heading" className="text-lg font-semibold">📊 Performa</span>
           <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Standar</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -110,9 +110,9 @@ export default function InsightsHub() {
       </section>
 
       {/* Intelligence Section */}
-      <section className="space-y-4">
+      <section className="space-y-4" role="region" aria-labelledby="intelligence-heading">
         <div className="flex items-center gap-2">
-          <span className="text-lg font-semibold">🧠 Intelijen AI</span>
+          <span id="intelligence-heading" className="text-lg font-semibold">🧠 Intelijen AI</span>
           <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Premium</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

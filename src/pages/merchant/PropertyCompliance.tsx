@@ -164,6 +164,14 @@ function DisasterRiskTab({ propertyId, merchantId, profile }: { propertyId: stri
     setSaving(false);
   };
 
+  const riskFields: Record<string, string> = {
+    risk_zone: 'Zona Risiko',
+    flood_risk: 'Risiko Banjir',
+    earthquake_risk: 'Risiko Gempa',
+    landslide_risk: 'Risiko Tanah Longsor',
+    fire_risk: 'Risiko Kebakaran',
+  };
+
   return (
     <Card className="rounded-2xl">
       <CardHeader>
@@ -175,7 +183,7 @@ function DisasterRiskTab({ propertyId, merchantId, profile }: { propertyId: stri
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {(['risk_zone', 'flood_risk', 'earthquake_risk', 'landslide_risk', 'fire_risk'] as const).map(field => (
             <div key={field} className="space-y-1.5">
-              <Label className="text-xs capitalize">{field.replace(/_/g, ' ')}</Label>
+              <Label className="text-xs">{riskFields[field]}</Label>
               <Select value={form[field]} onValueChange={v => setForm(f => ({ ...f, [field]: v }))}>
                 <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -238,12 +246,20 @@ function InsuranceTab({ propertyId, merchantId, policies }: { propertyId: string
     setSaving(false);
   };
 
+  const policyTypeLabels: Record<string, string> = {
+    comprehensive: 'Komprehensif',
+    fire: 'Kebakaran',
+    flood: 'Banjir',
+    earthquake: 'Gempa Bumi',
+    liability: 'Tanggung Jawab Hukum',
+  };
+
   return (
     <Card className="rounded-2xl">
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
           <CardTitle className="text-lg">Polis Asuransi</CardTitle>
-          <CardDescription>Kelola polis dan coverage properti</CardDescription>
+          <CardDescription>Kelola polis dan cakupan asuransi properti</CardDescription>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button size="sm" className="rounded-xl"><Plus className="h-4 w-4 mr-1" />Tambah Polis</Button></DialogTrigger>
@@ -259,7 +275,7 @@ function InsuranceTab({ propertyId, merchantId, policies }: { propertyId: string
                   <Label className="text-xs">Tipe</Label>
                   <Select value={form.policy_type} onValueChange={v => setForm(f => ({ ...f, policy_type: v }))}>
                     <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                    <SelectContent>{POLICY_TYPES.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}</SelectContent>
+                    <SelectContent>{POLICY_TYPES.map(t => <SelectItem key={t} value={t} className="capitalize">{policyTypeLabels[t] || t}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
@@ -296,11 +312,11 @@ function InsuranceTab({ propertyId, merchantId, policies }: { propertyId: string
               <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
                 <div>
                   <p className="font-medium">{p.provider} — {p.policy_number}</p>
-                  <p className="text-xs text-muted-foreground capitalize">{p.policy_type} • {p.start_date} s/d {p.end_date}</p>
+                  <p className="text-xs text-muted-foreground">{policyTypeLabels[p.policy_type] || p.policy_type} • {p.start_date} s/d {p.end_date}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-semibold">Rp {p.coverage_amount.toLocaleString('id-ID')}</p>
-                  <Badge variant="outline" className={p.status === 'active' ? 'text-success border-success/30' : 'text-destructive border-destructive/30'}>{p.status}</Badge>
+                  <Badge variant="outline" className={p.status === 'active' ? 'text-success border-success/30' : 'text-destructive border-destructive/30'}>{p.status === 'active' ? 'Aktif' : p.status}</Badge>
                 </div>
               </div>
             ))}
@@ -416,6 +432,23 @@ function SecurityTab({ propertyId, merchantId, incidents }: { propertyId: string
 
   const severityColor: Record<string, string> = { low: 'text-muted-foreground', medium: 'text-warning', high: 'text-destructive', critical: 'text-destructive' };
 
+  const incidentTypeLabels: Record<string, string> = {
+    theft: 'Pencurian',
+    vandalism: 'Vandalisme',
+    fire: 'Kebakaran',
+    flood: 'Banjir',
+    break_in: 'Pembobolan',
+    harassment: 'Pelecehan',
+    other: 'Lainnya',
+  };
+
+  const statusLabels: Record<string, string> = {
+    open: 'Terbuka',
+    investigating: 'Investigasi',
+    resolved: 'Selesai',
+    closed: 'Ditutup',
+  };
+
   return (
     <Card className="rounded-2xl">
       <CardHeader className="flex flex-row items-center justify-between">
@@ -434,13 +467,13 @@ function SecurityTab({ propertyId, merchantId, incidents }: { propertyId: string
                   <Label className="text-xs">Tipe</Label>
                   <Select value={form.incident_type} onValueChange={v => setForm(f => ({ ...f, incident_type: v }))}>
                     <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                    <SelectContent>{INCIDENT_TYPES.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}</SelectContent>
+                    <SelectContent>{INCIDENT_TYPES.map(t => <SelectItem key={t} value={t} className="capitalize">{incidentTypeLabels[t] || t}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Severity</Label>
+                  <Label className="text-xs">Tingkat Keparahan</Label>
                   <Select value={form.severity} onValueChange={v => setForm(f => ({ ...f, severity: v }))}>
                     <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
                     <SelectContent>{SEVERITY_LEVELS.map(l => <SelectItem key={l} value={l}>{RISK_LABEL[l]}</SelectItem>)}</SelectContent>
@@ -466,14 +499,14 @@ function SecurityTab({ propertyId, merchantId, incidents }: { propertyId: string
             {incidents.map(i => (
               <div key={i.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
                 <div>
-                  <p className="font-medium capitalize">{i.incident_type}</p>
+                  <p className="font-medium capitalize">{incidentTypeLabels[i.incident_type] || i.incident_type}</p>
                   <p className="text-xs text-muted-foreground">{new Date(i.incident_date).toLocaleDateString('id-ID')} • {i.location_detail || 'Lokasi tidak dicatat'}</p>
                   {i.description && <p className="text-xs mt-1">{i.description}</p>}
                 </div>
                 <div className="text-right space-y-1">
                   <Badge variant="outline" className={severityColor[i.severity]}>{RISK_LABEL[i.severity]}</Badge>
                   {i.damage_cost > 0 && <p className="text-xs text-destructive font-medium">Rp {i.damage_cost.toLocaleString('id-ID')}</p>}
-                  <Badge variant="secondary" className="text-xs">{i.status}</Badge>
+                  <Badge variant="secondary" className="text-xs">{statusLabels[i.status] || i.status}</Badge>
                 </div>
               </div>
             ))}

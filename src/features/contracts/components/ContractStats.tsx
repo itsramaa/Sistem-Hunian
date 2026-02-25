@@ -19,7 +19,7 @@ export function ContractStats({
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       <StatCard
-        title="Total Contracts"
+        title="Total Kontrak"
         value={totalContracts}
         icon={FileText}
         accentColor="hsl(var(--primary))"
@@ -27,7 +27,7 @@ export function ContractStats({
         index={0}
       />
       <StatCard
-        title="Active"
+        title="Aktif"
         value={activeCount}
         icon={CheckCircle}
         accentColor="hsl(var(--success))"
@@ -35,7 +35,7 @@ export function ContractStats({
         index={1}
       />
       <StatCard
-        title="Awaiting Signature"
+        title="Menunggu TTD"
         value={pendingSignatureCount}
         icon={PenLine}
         accentColor="hsl(var(--warning))"
@@ -43,7 +43,7 @@ export function ContractStats({
         index={2}
       />
       <StatCard
-        title="Past Contracts"
+        title="Riwayat Kontrak"
         value={pastCount}
         icon={Users}
         accentColor="hsl(var(--muted-foreground))"

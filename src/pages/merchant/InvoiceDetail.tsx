@@ -116,19 +116,31 @@ export default function MerchantInvoiceDetail() {
     { label: 'Dibayar', date: invoice.paid_at, icon: CheckCircle, done: !!invoice.paid_at },
   ];
 
+  const statusLabels: Record<string, string> = {
+    pending: 'Tertunda',
+    issued: 'Diterbitkan',
+    paid: 'Lunas',
+    void: 'Dibatalkan',
+    overdue: 'Terlambat',
+  };
+
   return (
     <div className="space-y-6">
-      <Button variant="ghost" onClick={() => navigate('/merchant/invoices')}
-        className="gap-2 px-3 py-1.5 rounded-full bg-card/80 backdrop-blur-sm border border-border/40 hover:bg-card">
-        <ArrowLeft className="h-4 w-4" /> Kembali ke Faktur
+      <Button 
+        variant="ghost" 
+        onClick={() => navigate('/merchant/invoices')}
+        className="gap-2 px-3 py-1.5 rounded-full bg-card/80 backdrop-blur-sm border border-border/40 hover:bg-card"
+        aria-label="Kembali ke daftar faktur"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Kembali ke Faktur
       </Button>
 
       <div className="flex items-center justify-between flex-wrap gap-4">
         <PageHeader icon={FileText} title={invoice.invoice_number} description="Detail Faktur" />
-        <div className="flex items-center gap-2">
-          {invoice.grace_period_active && <Badge variant="outline" className="rounded-full">Grace Period</Badge>}
-          {overdueDays > 0 && <Badge variant="destructive" className="rounded-full gap-1"><AlertTriangle className="h-3 w-3" /> Overdue {overdueDays} hari</Badge>}
-          <Badge variant={getInvoiceStatusColor(invoice.status)} className="text-sm px-4 py-1.5 rounded-full capitalize">{invoice.status}</Badge>
+        <div className="flex items-center gap-2" role="status" aria-label="Status faktur">
+          {invoice.grace_period_active && <Badge variant="outline" className="rounded-full">Masa Tenggang</Badge>}
+          {overdueDays > 0 && <Badge variant="destructive" className="rounded-full gap-1"><AlertTriangle className="h-3 w-3" aria-hidden="true" /> Terlambat {overdueDays} hari</Badge>}
+          <Badge variant={getInvoiceStatusColor(invoice.status)} className="text-sm px-4 py-1.5 rounded-full capitalize">{statusLabels[invoice.status] || invoice.status}</Badge>
         </div>
       </div>
 
@@ -137,11 +149,31 @@ export default function MerchantInvoiceDetail() {
           {/* Tenant Info */}
           {tenant && (
             <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6">
-              <h3 className="font-semibold text-lg mb-4 flex items-center gap-2"><User className="h-5 w-5 text-primary" /> Info Penyewa</h3>
+              <h3 className="font-semibold text-lg mb-4 flex items-center gap-2"><User className="h-5 w-5 text-primary" aria-hidden="true" /> Info Penyewa</h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="flex items-center gap-3"><User className="h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Nama</p><Link to={`/merchant/tenants/${invoice.tenant_user_id}`} className="font-medium hover:underline text-primary">{tenant.full_name || '-'}</Link></div></div>
-                <div className="flex items-center gap-3"><Mail className="h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Email</p><p className="font-medium">{tenant.email || '-'}</p></div></div>
-                <div className="flex items-center gap-3"><Phone className="h-4 w-4 text-muted-foreground" /><div><p className="text-xs text-muted-foreground">Telepon</p><p className="font-medium">{tenant.phone || '-'}</p></div></div>
+                <div className="flex items-center gap-3">
+                  <User className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Nama</p>
+                    <Link to={`/merchant/tenants/${invoice.tenant_user_id}`} className="font-medium hover:underline text-primary" aria-label={`Lihat profil penyewa ${tenant.full_name}`}>
+                      {tenant.full_name || '-'}
+                    </Link>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Mail className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Email</p>
+                    <p className="font-medium">{tenant.email || '-'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Phone className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Telepon</p>
+                    <p className="font-medium">{tenant.phone || '-'}</p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -149,12 +181,14 @@ export default function MerchantInvoiceDetail() {
           {/* Contract & Unit */}
           {contract && (
             <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6">
-              <h3 className="font-semibold text-lg mb-4 flex items-center gap-2"><MapPin className="h-5 w-5 text-primary" /> Info Kontrak & Unit</h3>
+              <h3 className="font-semibold text-lg mb-4 flex items-center gap-2"><MapPin className="h-5 w-5 text-primary" aria-hidden="true" /> Info Kontrak & Unit</h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="p-3 rounded-xl bg-muted/30">
                   <p className="text-xs text-muted-foreground">Properti</p>
                   {property?.id ? (
-                    <Link to={`/merchant/properties/${property.id}`} className="font-medium mt-0.5 text-sm hover:underline text-primary">{property.name}</Link>
+                    <Link to={`/merchant/properties/${property.id}`} className="font-medium mt-0.5 text-sm hover:underline text-primary" aria-label={`Lihat properti ${property.name}`}>
+                      {property.name}
+                    </Link>
                   ) : (
                     <p className="font-medium mt-0.5 text-sm">{property?.name || '-'}</p>
                   )}
@@ -162,14 +196,18 @@ export default function MerchantInvoiceDetail() {
                 <div className="p-3 rounded-xl bg-muted/30">
                   <p className="text-xs text-muted-foreground">Unit</p>
                   {unit?.id ? (
-                    <Link to={`/merchant/units/${unit.id}`} className="font-medium mt-0.5 text-sm hover:underline text-primary">{unit.unit_number}</Link>
+                    <Link to={`/merchant/units/${unit.id}`} className="font-medium mt-0.5 text-sm hover:underline text-primary" aria-label={`Lihat unit ${unit.unit_number}`}>
+                      {unit.unit_number}
+                    </Link>
                   ) : (
                     <p className="font-medium mt-0.5 text-sm">{unit?.unit_number || '-'}</p>
                   )}
                 </div>
                 <div className="p-3 rounded-xl bg-muted/30">
                   <p className="text-xs text-muted-foreground">Kontrak</p>
-                  <Link to={`/merchant/contracts/${contract.id}`} className="font-medium mt-0.5 text-sm hover:underline text-primary">Lihat Kontrak</Link>
+                  <Link to={`/merchant/contracts/${contract.id}`} className="font-medium mt-0.5 text-sm hover:underline text-primary" aria-label="Lihat detail kontrak">
+                    Lihat Kontrak
+                  </Link>
                 </div>
                 <div className="p-3 rounded-xl bg-muted/30">
                   <p className="text-xs text-muted-foreground">Periode</p>
@@ -255,10 +293,10 @@ export default function MerchantInvoiceDetail() {
           {/* Timeline */}
           <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6">
             <h3 className="font-semibold text-lg mb-4">Timeline</h3>
-            <div className="space-y-4">
+            <div className="space-y-4" role="list" aria-label="Riwayat status faktur">
               {timelineSteps.map((step, i) => (
-                <div key={i} className={`flex items-start gap-3 ${!step.done ? 'opacity-40' : ''}`}>
-                  <div className={`mt-0.5 p-1.5 rounded-full ${step.done ? 'bg-primary/10' : 'bg-muted/30'}`}>
+                <div key={i} className={`flex items-start gap-3 ${!step.done ? 'opacity-40' : ''}`} role="listitem">
+                  <div className={`mt-0.5 p-1.5 rounded-full ${step.done ? 'bg-primary/10' : 'bg-muted/30'}`} aria-hidden="true">
                     <step.icon className={`h-3.5 w-3.5 ${step.done ? 'text-primary' : 'text-muted-foreground'}`} />
                   </div>
                   <div>
@@ -275,24 +313,46 @@ export default function MerchantInvoiceDetail() {
           {/* Actions */}
           <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-3">
             <h3 className="font-semibold text-lg mb-2">Aksi</h3>
-            <Button variant="outline" className="w-full rounded-xl gap-2" onClick={handleDownload} disabled={generatePdfMutation.isPending}>
-              {generatePdfMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            <Button 
+              variant="outline" 
+              className="w-full rounded-xl gap-2" 
+              onClick={handleDownload} 
+              disabled={generatePdfMutation.isPending}
+              aria-label="Unduh faktur dalam format PDF"
+            >
+              {generatePdfMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" aria-hidden="true" />}
               Unduh PDF
             </Button>
             {invoice.status === 'draft' && (
-              <Button className="w-full rounded-xl gap-2 gradient-cta text-primary-foreground" onClick={handleSend} disabled={sendInvoiceMutation.isPending}>
-                {sendInvoiceMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              <Button 
+                className="w-full rounded-xl gap-2 gradient-cta text-primary-foreground" 
+                onClick={handleSend} 
+                disabled={sendInvoiceMutation.isPending}
+                aria-label="Kirim faktur ke penyewa"
+              >
+                {sendInvoiceMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" aria-hidden="true" />}
                 Kirim Faktur
               </Button>
             )}
             {(invoice.status === 'sent' || invoice.status === 'overdue') && (
               <>
-                <Button variant="outline" className="w-full rounded-xl gap-2" onClick={handleRemind} disabled={sendReminderMutation.isPending}>
-                  {sendReminderMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
+                <Button 
+                  variant="outline" 
+                  className="w-full rounded-xl gap-2" 
+                  onClick={handleRemind} 
+                  disabled={sendReminderMutation.isPending}
+                  aria-label="Kirim pengingat pembayaran ke penyewa"
+                >
+                  {sendReminderMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" aria-hidden="true" />}
                   Kirim Pengingat
                 </Button>
-                <Button className="w-full rounded-xl gap-2 gradient-cta text-primary-foreground" onClick={handleMarkPaid} disabled={markAsPaidMutation.isPending}>
-                  {markAsPaidMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                <Button 
+                  className="w-full rounded-xl gap-2 gradient-cta text-primary-foreground" 
+                  onClick={handleMarkPaid} 
+                  disabled={markAsPaidMutation.isPending}
+                  aria-label="Tandai faktur ini sebagai sudah dibayar"
+                >
+                  {markAsPaidMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" aria-hidden="true" />}
                   Tandai Sudah Bayar
                 </Button>
               </>

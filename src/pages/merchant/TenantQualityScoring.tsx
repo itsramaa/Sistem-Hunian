@@ -285,16 +285,16 @@ export default function TenantQualityScoring() {
                 {/* Payment Reliability */}
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4 text-primary" /> Payment Reliability</CardTitle>
+                    <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4 text-primary" /> Reliabilitas Pembayaran</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="flex justify-between text-sm"><span className="text-muted-foreground">Score</span><span className="font-bold">{result.payment_reliability.score}/100</span></div>
-                    <div className="flex justify-between text-sm"><span className="text-muted-foreground">On-time Ratio</span><span className="font-medium">{(result.payment_reliability.on_time_ratio * 100).toFixed(1)}%</span></div>
-                    <div className="flex justify-between text-sm"><span className="text-muted-foreground">Avg Days Late</span><span className="font-medium">{result.payment_reliability.avg_days_late.toFixed(1)}</span></div>
-                    <div className="flex justify-between text-sm"><span className="text-muted-foreground">Trend</span><Badge variant="outline" className="capitalize">{result.payment_reliability.trend}</Badge></div>
+                    <div className="flex justify-between text-sm"><span className="text-muted-foreground">Skor</span><span className="font-bold">{result.payment_reliability.score}/100</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-muted-foreground">Rasio Tepat Waktu</span><span className="font-medium">{(result.payment_reliability.on_time_ratio * 100).toFixed(1)}%</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-muted-foreground">Rerata Hari Telat</span><span className="font-medium">{result.payment_reliability.avg_days_late.toFixed(1)}</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-muted-foreground">Tren</span><Badge variant="outline" className="capitalize">{result.payment_reliability.trend}</Badge></div>
                     <div className="flex justify-between text-sm"><span className="text-muted-foreground">Prediksi 6 Bulan</span>
                       <Badge className={result.payment_reliability.prediction_next_6_months === "reliable" ? "bg-success/15 text-success" : result.payment_reliability.prediction_next_6_months === "moderate_risk" ? "bg-warning/15 text-warning" : "bg-destructive/15 text-destructive"}>
-                        {result.payment_reliability.prediction_next_6_months.replace(/_/g, " ")}
+                        {result.payment_reliability.prediction_next_6_months === "reliable" ? "Terpercaya" : result.payment_reliability.prediction_next_6_months === "moderate_risk" ? "Risiko Sedang" : "Risiko Tinggi"}
                       </Badge>
                     </div>
                   </CardContent>
@@ -303,14 +303,14 @@ export default function TenantQualityScoring() {
                 {/* Risk Profile */}
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2"><Shield className="h-4 w-4 text-primary" /> Risk Profile</CardTitle>
+                    <CardTitle className="text-base flex items-center gap-2"><Shield className="h-4 w-4 text-primary" /> Profil Risiko</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="flex justify-between items-center"><span className="text-sm text-muted-foreground">Level</span><Badge className={RISK_COLORS[result.risk_profile.level]}>{result.risk_profile.level}</Badge></div>
-                    <div className="flex justify-between text-sm"><span className="text-muted-foreground">Churn Probability</span><span className="font-medium">{(result.risk_profile.churn_probability * 100).toFixed(1)}%</span></div>
+                    <div className="flex justify-between items-center"><span className="text-sm text-muted-foreground">Level</span><Badge className={RISK_COLORS[result.risk_profile.level]}>{result.risk_profile.level === 'low' ? 'Rendah' : result.risk_profile.level === 'medium' ? 'Sedang' : result.risk_profile.level === 'high' ? 'Tinggi' : 'Kritis'}</Badge></div>
+                    <div className="flex justify-between text-sm"><span className="text-muted-foreground">Probabilitas Churn</span><span className="font-medium">{(result.risk_profile.churn_probability * 100).toFixed(1)}%</span></div>
                     {result.risk_profile.flags.length > 0 && (
                       <div className="space-y-1.5 pt-2 border-t">
-                        <span className="text-xs font-semibold text-muted-foreground uppercase">Flags</span>
+                        <span className="text-xs font-semibold text-muted-foreground uppercase">Penanda</span>
                         {result.risk_profile.flags.map((f, i) => (
                           <div key={i} className="flex items-start gap-2 text-xs">
                             <AlertTriangle className={`h-3 w-3 mt-0.5 shrink-0 ${f.severity === "critical" || f.severity === "high" ? "text-destructive" : "text-warning"}`} />
@@ -326,18 +326,19 @@ export default function TenantQualityScoring() {
               {/* Screening Recommendation */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Screening Recommendation</CardTitle>
+                  <CardTitle className="text-base">Rekomendasi Screening</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {(() => {
                     const cfg = DECISION_CONFIG[result.screening_recommendation.decision] || DECISION_CONFIG.review;
                     const Icon = cfg.icon;
+                    const labels: Record<string, string> = { approve: "SETUJUI", approve_with_conditions: "SETUJUI DENGAN KONDISI", review: "TINJAU KEMBALI", reject: "TOLAK" };
                     return (
                       <div className="flex items-center gap-3">
                         <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${cfg.color}`}><Icon className="h-5 w-5" /></div>
                         <div>
-                          <Badge className={`text-sm ${cfg.color}`}>{result.screening_recommendation.decision.replace(/_/g, " ").toUpperCase()}</Badge>
-                          <p className="text-sm text-muted-foreground mt-1">Deposit multiplier: {result.screening_recommendation.suggested_deposit_multiplier}x</p>
+                          <Badge className={`text-sm ${cfg.color}`}>{labels[result.screening_recommendation.decision] || result.screening_recommendation.decision.toUpperCase()}</Badge>
+                          <p className="text-sm text-muted-foreground mt-1">Multiplier deposit yang disarankan: {result.screening_recommendation.suggested_deposit_multiplier}x</p>
                         </div>
                       </div>
                     );
@@ -358,16 +359,16 @@ export default function TenantQualityScoring() {
               {result.behavioral_insights.length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">Behavioral Insights</CardTitle>
+                    <CardTitle className="text-base">Wawasan Perilaku</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       {result.behavioral_insights.map((bi, i) => (
                         <div key={i} className="rounded-xl border p-3 space-y-1">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold text-muted-foreground uppercase">{bi.category}</span>
+                            <span className="text-xs font-semibold text-muted-foreground uppercase">{bi.category === 'payment' ? 'Pembayaran' : bi.category === 'maintenance' ? 'Pemeliharaan' : bi.category === 'communication' ? 'Komunikasi' : bi.category}</span>
                             <Badge variant="outline" className={bi.impact === "positive" ? "text-success border-success/30" : bi.impact === "negative" ? "text-destructive border-destructive/30" : "text-muted-foreground"}>
-                              {bi.impact}
+                              {bi.impact === 'positive' ? 'Positif' : bi.impact === 'negative' ? 'Negatif' : 'Netral'}
                             </Badge>
                           </div>
                           <p className="text-sm">{bi.observation}</p>

@@ -72,13 +72,13 @@ const MerchantMoveOuts = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader icon={DoorOpen} title="Move Outs" description="Manage move-out notices and vacancies" />
+      <PageHeader icon={DoorOpen} title="Pindah Keluar" description="Kelola pemberitahuan pindah keluar dan unit kosong" />
 
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={Clock} title="Upcoming" value={upcomingMoveOuts.length} accentColor="hsl(var(--warning))" index={0} />
-        <StatCard icon={AlertTriangle} title="Pending Approval" value={earlyTermRequests?.length || 0} accentColor="hsl(var(--destructive))" index={1} />
-        <StatCard icon={CheckCircle2} title="Completed" value={completedMoveOuts.length} accentColor="hsl(var(--success))" index={2} />
-        <StatCard icon={Users} title="Total Notices" value={moveOutNotices?.length || 0} accentColor="hsl(var(--primary))" index={3} />
+        <StatCard icon={Clock} title="Mendatang" value={upcomingMoveOuts.length} accentColor="hsl(var(--warning))" index={0} />
+        <StatCard icon={AlertTriangle} title="Perlu Persetujuan" value={earlyTermRequests?.length || 0} accentColor="hsl(var(--destructive))" index={1} />
+        <StatCard icon={CheckCircle2} title="Selesai" value={completedMoveOuts.length} accentColor="hsl(var(--success))" index={2} />
+        <StatCard icon={Users} title="Total Pemberitahuan" value={moveOutNotices?.length || 0} accentColor="hsl(var(--primary))" index={3} />
       </div>
 
       <MoveOutsFilters searchTerm={searchQuery} onSearchChange={setSearchQuery} />
@@ -86,16 +86,16 @@ const MerchantMoveOuts = () => {
       <Tabs defaultValue="upcoming" className="space-y-6">
         <TabsList className="bg-muted/50 backdrop-blur-sm rounded-full p-1 border border-border/40">
           <TabsTrigger value="upcoming" className="gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <Clock className="h-4 w-4" />Upcoming ({filteredUpcoming.length})
+            <Clock className="h-4 w-4" />Mendatang ({filteredUpcoming.length})
           </TabsTrigger>
           <TabsTrigger value="pending-approval" className="gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <AlertTriangle className="h-4 w-4" />Pending Approval ({earlyTermRequests?.length || 0})
+            <AlertTriangle className="h-4 w-4" />Persetujuan ({earlyTermRequests?.length || 0})
           </TabsTrigger>
           <TabsTrigger value="completed" className="gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <CheckCircle2 className="h-4 w-4" />Completed ({filteredCompleted.length})
+            <CheckCircle2 className="h-4 w-4" />Selesai ({filteredCompleted.length})
           </TabsTrigger>
           <TabsTrigger value="vacancies" className="gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <Home className="h-4 w-4" />Vacancies
+            <Home className="h-4 w-4" />Unit Kosong
           </TabsTrigger>
         </TabsList>
 

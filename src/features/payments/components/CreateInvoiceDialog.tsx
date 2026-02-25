@@ -101,21 +101,22 @@ export const CreateInvoiceDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg rounded-2xl">
+      <DialogContent className="max-w-lg rounded-2xl" aria-describedby="create-invoice-description">
         <DialogHeader>
-          <DialogTitle>Create Invoice</DialogTitle>
+          <DialogTitle>Buat Faktur</DialogTitle>
+          <p id="create-invoice-description" className="sr-only">Formulir untuk membuat faktur baru bagi penyewa</p>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Tenant / Contract</Label>
+            <Label htmlFor="contract-select">Penyewa / Kontrak</Label>
             <Select value={selectedContractId} onValueChange={setSelectedContractId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a tenant" />
+              <SelectTrigger id="contract-select">
+                <SelectValue placeholder="Pilih penyewa" />
               </SelectTrigger>
               <SelectContent>
                 {contracts.map((contract) => (
                   <SelectItem key={contract.id} value={contract.id}>
-                    {contract.unit?.property?.name || 'Unknown Property'} - Unit {contract.unit?.unit_number}
+                    {contract.unit?.property?.name || 'Properti Tidak Diketahui'} - Unit {contract.unit?.unit_number}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -123,15 +124,16 @@ export const CreateInvoiceDialog = ({
           </div>
 
           {selectedContract && (
-            <div className="p-3 bg-gradient-to-br from-muted/50 to-muted/30 rounded-2xl text-sm">
-              <p>Monthly Rent: {formatCurrency(selectedContract.rent_amount)}</p>
+            <div className="p-3 bg-gradient-to-br from-muted/50 to-muted/30 rounded-2xl text-sm" role="status" aria-live="polite">
+              <p>Sewa Bulanan: {formatCurrency(selectedContract.rent_amount)}</p>
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Amount</Label>
+              <Label htmlFor="invoice-amount">Jumlah</Label>
               <Input
+                id="invoice-amount"
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
@@ -139,8 +141,9 @@ export const CreateInvoiceDialog = ({
               />
             </div>
             <div className="space-y-2">
-              <Label>Tax Amount</Label>
+              <Label htmlFor="tax-amount">Jumlah Pajak</Label>
               <Input
+                id="tax-amount"
                 type="number"
                 value={taxAmount}
                 onChange={(e) => setTaxAmount(e.target.value)}
@@ -150,8 +153,8 @@ export const CreateInvoiceDialog = ({
           </div>
 
           {amount && (
-            <div className="p-3 bg-primary/10 rounded-2xl">
-              <p className="text-sm text-muted-foreground">Total Amount</p>
+            <div className="p-3 bg-primary/10 rounded-2xl" role="status" aria-live="polite">
+              <p className="text-sm text-muted-foreground">Total Keseluruhan</p>
               <p className="text-xl font-bold">
                 {formatCurrency(totalAmount)}
               </p>
@@ -159,8 +162,9 @@ export const CreateInvoiceDialog = ({
           )}
 
           <div className="space-y-2">
-            <Label>Due Date</Label>
+            <Label htmlFor="due-date">Tanggal Jatuh Tempo</Label>
             <Input
+              id="due-date"
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
@@ -168,18 +172,19 @@ export const CreateInvoiceDialog = ({
           </div>
 
           <div className="space-y-2">
-            <Label>Description</Label>
+            <Label htmlFor="description">Deskripsi</Label>
             <Textarea
+              id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Invoice details..."
+              placeholder="Detail faktur..."
               rows={3}
             />
           </div>
 
           <DialogFooter className="flex-col-reverse sm:flex-row">
             <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">
-              Cancel
+              Batal
             </Button>
             <Button 
               onClick={handleSubmit} 
@@ -188,11 +193,11 @@ export const CreateInvoiceDialog = ({
             >
               {isCreating ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                  Membuat...
                 </>
               ) : (
-                'Create Invoice'
+                'Buat Faktur'
               )}
             </Button>
           </DialogFooter>

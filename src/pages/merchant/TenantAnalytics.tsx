@@ -128,13 +128,13 @@ export default function TenantAnalytics() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: 'Total Tenant', value: demographics?.totalTenants ?? '-', icon: Users, bg: 'from-primary/20 to-primary/5' },
-          { label: 'Occupancy Rate', value: occupancy ? `${Math.round(occupancy.currentOccupancyRate)}%` : '-', icon: TrendingUp, bg: 'from-success/20 to-success/5' },
-          { label: 'Rata-rata Sewa', value: occupancy ? `${Math.round(occupancy.avgTenureMonths)} bln` : '-', icon: CalendarClock, bg: 'from-chart-2/20 to-chart-2/5' },
-          { label: 'Skor Bayar Avg', value: avgPaymentScore || '-', icon: Award, bg: 'from-warning/20 to-warning/5' },
+          { label: 'Tingkat Hunian', value: occupancy ? `${Math.round(occupancy.currentOccupancyRate)}%` : '-', icon: TrendingUp, bg: 'from-success/20 to-success/5' },
+          { label: 'Rerata Lama Sewa', value: occupancy ? `${Math.round(occupancy.avgTenureMonths)} bln` : '-', icon: CalendarClock, bg: 'from-chart-2/20 to-chart-2/5' },
+          { label: 'Rerata Skor Bayar', value: avgPaymentScore || '-', icon: Award, bg: 'from-warning/20 to-warning/5' },
         ].map(kpi => (
           <Card key={kpi.label} className="glass-stat-card">
             <CardContent className="p-4 flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${kpi.bg} flex items-center justify-center shrink-0`}>
+              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${kpi.bg} flex items-center justify-center shrink-0`} aria-hidden="true">
                 <kpi.icon className="h-5 w-5 text-primary" />
               </div>
               <div className="min-w-0">

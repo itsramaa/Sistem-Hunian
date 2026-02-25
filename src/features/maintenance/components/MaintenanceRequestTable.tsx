@@ -46,11 +46,11 @@ const PRIORITY_ROW_ACCENT: Record<string, string> = {
 };
 
 const TABLE_HEADERS = [
-  { label: 'Request', className: '' },
-  { label: 'Priority', className: '' },
+  { label: 'Permintaan', className: '' },
+  { label: 'Prioritas', className: '' },
   { label: 'Status', className: '' },
   { label: 'SLA', className: 'hidden lg:table-cell' },
-  { label: 'Created', className: '' },
+  { label: 'Dibuat', className: '' },
   { label: '', className: 'text-right w-[50px]' },
 ];
 
@@ -173,14 +173,14 @@ export function MaintenanceRequestTable({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="rounded-xl">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuLabel>Aksi</DropdownMenuLabel>
                         <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/merchant/maintenance/${request.id}`); }}>
                           <Eye className="mr-2 h-4 w-4" />
-                          View Details
+                          Lihat Detail
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(request); }}>
                           <Edit className="mr-2 h-4 w-4" />
-                          Update Status
+                          Perbarui Status
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -198,7 +198,7 @@ export function MaintenanceRequestTable({
         totalItems={totalRequests}
         itemsPerPage={itemsPerPage}
         onPageChange={onPageChange}
-        itemLabel="requests"
+        itemLabel="permintaan"
       />
     </div>
   );

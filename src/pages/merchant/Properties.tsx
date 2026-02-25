@@ -115,13 +115,13 @@ export default function MerchantProperties() {
           latitude: data.latitude || null, longitude: data.longitude || null,
         };
         await createProperty(payload);
-        toast({ title: 'Property Created', description: 'New property has been added successfully' });
+        toast({ title: 'Properti Dibuat', description: 'Properti baru telah berhasil ditambahkan' });
       }
       setShowAddDialog(false);
       setEditingProperty(null);
     } catch (error) {
       console.error('Error saving property:', error);
-      toast({ variant: 'destructive', title: 'Error', description: (error as Error).message || 'Failed to save property' });
+      toast({ variant: 'destructive', title: 'Kesalahan', description: (error as Error).message || 'Gagal menyimpan properti' });
     }
   };
 
@@ -131,11 +131,11 @@ export default function MerchantProperties() {
     if (!imagesProperty) return;
     try {
       await updateProperty({ id: imagesProperty.id, payload: { images: propertyImages } });
-      toast({ title: 'Images saved', description: 'Property images updated successfully' });
+      toast({ title: 'Gambar disimpan', description: 'Gambar properti berhasil diperbarui' });
       setImagesProperty(null);
     } catch (error) {
       const err = error as Error;
-      toast({ variant: 'destructive', title: 'Error', description: err.message || 'Failed to save images' });
+      toast({ variant: 'destructive', title: 'Kesalahan', description: err.message || 'Gagal menyimpan gambar' });
     }
   };
 
@@ -145,7 +145,7 @@ export default function MerchantProperties() {
     const duplicated = {
       ...property,
       id: '' as any,
-      name: `${property.name} (Copy)`,
+      name: `${property.name} (Salinan)`,
       created_at: '' as any,
       updated_at: '' as any,
       total_units: 0 as any,
@@ -159,11 +159,11 @@ export default function MerchantProperties() {
     setDeleteLoading(property.id);
     try {
       const check = await checkCanDelete(property.id);
-      if (!check.canDelete) { toast({ variant: 'destructive', title: 'Cannot Delete Property', description: check.reason }); return; }
+      if (!check.canDelete) { toast({ variant: 'destructive', title: 'Tidak Dapat Menghapus Properti', description: check.reason }); return; }
       setDeleteDialogProperty(property);
     } catch (error) {
       console.error('Error checking delete:', error);
-      toast({ variant: 'destructive', title: 'Error', description: (error as Error).message || 'Failed to check property' });
+      toast({ variant: 'destructive', title: 'Kesalahan', description: (error as Error).message || 'Gagal memeriksa properti' });
     } finally { setDeleteLoading(null); }
   };
 
@@ -172,11 +172,11 @@ export default function MerchantProperties() {
     setDeleteLoading(deleteDialogProperty.id);
     try {
       await deleteProperty(deleteDialogProperty.id);
-      toast({ title: 'Property Deleted', description: 'Property has been deleted successfully' });
+      toast({ title: 'Properti Dihapus', description: 'Properti telah berhasil dihapus' });
       setDeleteDialogProperty(null);
     } catch (error) {
       console.error('Error deleting property:', error);
-      toast({ variant: 'destructive', title: 'Error Deleting Property', description: (error as Error).message || 'Failed to delete property' });
+      toast({ variant: 'destructive', title: 'Kesalahan Menghapus Properti', description: (error as Error).message || 'Gagal menghapus properti' });
     } finally { setDeleteLoading(null); }
   };
 
@@ -380,10 +380,10 @@ export default function MerchantProperties() {
             {error && (
               <Alert variant="destructive" className="mb-4 rounded-xl">
                 <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
+                <AlertTitle>Kesalahan</AlertTitle>
                 <AlertDescription className="flex items-center justify-between">
                   <span>{(error as Error).message}</span>
-                  <Button variant="outline" size="sm" onClick={() => refetch()}><RefreshCw className="h-4 w-4 mr-2" />Retry</Button>
+                  <Button variant="outline" size="sm" onClick={() => refetch()}><RefreshCw className="h-4 w-4 mr-2" />Coba Lagi</Button>
                 </AlertDescription>
               </Alert>
             )}

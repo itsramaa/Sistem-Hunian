@@ -18,10 +18,11 @@ export function MoveOutsFilters({
       <div className="relative flex-1">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search by tenant or unit..."
+          placeholder="Cari berdasarkan penyewa atau unit..."
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
           className="pl-10 rounded-xl bg-background/60 border-border/50"
+          aria-label="Cari pindah keluar"
         />
       </div>
     </div>

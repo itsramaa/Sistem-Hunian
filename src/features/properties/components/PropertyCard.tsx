@@ -5,6 +5,7 @@ import { Button } from '@/shared/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { Building2, Copy, DoorOpen, Edit, Image as ImageIcon, MapPin, MoreHorizontal, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
+import { formatLabel } from '@/shared/utils/utils';
 
 interface PropertyCardProps {
   property: Property;
@@ -108,9 +109,9 @@ export function PropertyCard({
               <Building2 className="h-4.5 w-4.5 text-primary" />
             </div>
             <div className="min-w-0">
-              <h3 className="font-semibold text-sm truncate">{property.name}</h3>
-              <p className="text-xs text-muted-foreground capitalize">{property.property_type}</p>
-            </div>
+                <h3 className="font-semibold text-sm truncate">{property.name}</h3>
+                <p className="text-xs text-muted-foreground">{formatLabel(property.property_type)}</p>
+              </div>
           </div>
           <div className="flex items-center gap-0.5">
             <div className="hidden group-hover:flex items-center gap-0.5 mr-0.5">
@@ -129,7 +130,7 @@ export function PropertyCard({
                       <DoorOpen className="h-3.5 w-3.5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Manage Units</TooltipContent>
+                  <TooltipContent>Kelola Unit</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -137,7 +138,7 @@ export function PropertyCard({
                       <ImageIcon className="h-3.5 w-3.5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Photos</TooltipContent>
+                  <TooltipContent>Foto</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
@@ -149,10 +150,10 @@ export function PropertyCard({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => onManageUnits(property)}>
-                  <DoorOpen className="h-4 w-4 mr-2" />Manage Units
+                  <DoorOpen className="h-4 w-4 mr-2" />Kelola Unit
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onManagePhotos(property)}>
-                  <ImageIcon className="h-4 w-4 mr-2" />Manage Photos
+                  <ImageIcon className="h-4 w-4 mr-2" />Kelola Foto
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onEdit(property)}>
                   <Edit className="h-4 w-4 mr-2" />Edit
@@ -164,7 +165,7 @@ export function PropertyCard({
                 )}
                 <DropdownMenuItem onClick={() => onDelete(property)} className="text-destructive" disabled={isDeleting}>
                   {isDeleting ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                  {isDeleting ? 'Checking...' : 'Delete'}
+                  {isDeleting ? 'Memeriksa...' : 'Hapus'}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -195,11 +196,11 @@ export function PropertyCard({
         {/* Occupancy + Status */}
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-muted-foreground">Occupancy</p>
-            <p className="font-semibold text-sm">{property.occupied_units}/{property.total_units} units</p>
+            <p className="text-xs text-muted-foreground">Hunian</p>
+            <p className="font-semibold text-sm">{property.occupied_units}/{property.total_units} unit</p>
           </div>
-          <Badge variant="outline" className={`rounded-full text-[10px] ${statusColors[property.status]}`}>
-            {property.status}
+          <Badge variant="outline" className={`rounded-full text-[10px] ${statusColors[property.status || 'active']}`}>
+            {formatLabel(property.status)}
           </Badge>
         </div>
 

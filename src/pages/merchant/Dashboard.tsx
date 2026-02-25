@@ -99,10 +99,12 @@ export default function MerchantDashboard() {
             className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 cursor-pointer animate-fade-in"
             style={{ animationDelay: '0ms', animationFillMode: 'both' }}
             onClick={() => navigate('/merchant/properties')}
+            role="button"
+            aria-label={`Total Properti: ${stats?.properties.total || 0}. Klik untuk melihat daftar properti.`}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Properti</CardTitle>
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center" aria-hidden="true">
                 <Building2 className="h-4 w-4 text-primary" />
               </div>
             </CardHeader>
@@ -118,10 +120,12 @@ export default function MerchantDashboard() {
             className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 cursor-pointer animate-fade-in"
             style={{ animationDelay: '80ms', animationFillMode: 'both' }}
             onClick={() => navigate('/merchant/properties')}
+            role="button"
+            aria-label={`Tingkat Hunian: ${Math.round(stats?.properties.occupancyRate || 0)}%. Klik untuk detail properti.`}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Tingkat Hunian</CardTitle>
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-success/20 to-success/5 flex items-center justify-center">
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-success/20 to-success/5 flex items-center justify-center" aria-hidden="true">
                 <Home className="h-4 w-4 text-success" />
               </div>
             </CardHeader>
@@ -135,6 +139,7 @@ export default function MerchantDashboard() {
                   (stats?.properties.occupancyRate || 0) >= 80 ? '[&>div]:bg-success' :
                   (stats?.properties.occupancyRate || 0) >= 50 ? '[&>div]:bg-warning' : '[&>div]:bg-destructive'
                 }`}
+                aria-label="Progres tingkat hunian"
               />
               <p className="mt-1 text-xs text-muted-foreground">
                 {stats?.properties.occupiedUnits || 0} terisi / {stats?.properties.totalUnits || 0} total
@@ -146,10 +151,12 @@ export default function MerchantDashboard() {
             className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 cursor-pointer animate-fade-in"
             style={{ animationDelay: '160ms', animationFillMode: 'both' }}
             onClick={() => navigate('/merchant/tenants')}
+            role="button"
+            aria-label={`Penyewa Aktif: ${stats?.tenants.active || 0}. Klik untuk melihat daftar penyewa.`}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Penyewa Aktif</CardTitle>
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-warning/20 to-warning/5 flex items-center justify-center">
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-warning/20 to-warning/5 flex items-center justify-center" aria-hidden="true">
                 <Users className="h-4 w-4 text-warning" />
               </div>
             </CardHeader>
@@ -159,23 +166,23 @@ export default function MerchantDashboard() {
                 {stats?.tenants.growth ? (
                   stats.tenants.growth > 0 ? (
                     <span className="text-success flex items-center mr-1">
-                      <ArrowUpRight className="h-3 w-3 mr-0.5" />
+                      <ArrowUpRight className="h-3 w-3 mr-0.5" aria-hidden="true" />
                       {Math.abs(Math.round(stats.tenants.growth))}%
                     </span>
                   ) : stats.tenants.growth < 0 ? (
                     <span className="text-destructive flex items-center mr-1">
-                      <ArrowDownRight className="h-3 w-3 mr-0.5" />
+                      <ArrowDownRight className="h-3 w-3 mr-0.5" aria-hidden="true" />
                       {Math.abs(Math.round(stats.tenants.growth))}%
                     </span>
                   ) : (
                     <span className="text-muted-foreground flex items-center mr-1">
-                      <Minus className="h-3 w-3 mr-0.5" />
+                      <Minus className="h-3 w-3 mr-0.5" aria-hidden="true" />
                       0%
                     </span>
                   )
                 ) : (
                   <span className="text-muted-foreground flex items-center mr-1">
-                    <Minus className="h-3 w-3 mr-0.5" />
+                    <Minus className="h-3 w-3 mr-0.5" aria-hidden="true" />
                     0%
                   </span>
                 )}
@@ -188,10 +195,12 @@ export default function MerchantDashboard() {
             className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 cursor-pointer animate-fade-in"
             style={{ animationDelay: '240ms', animationFillMode: 'both' }}
             onClick={() => navigate('/merchant/payments')}
+            role="button"
+            aria-label={`Saldo Escrow: ${formatCurrency(stats?.financials.balance || 0)}. Klik untuk riwayat pembayaran.`}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Saldo Escrow</CardTitle>
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-accent/20 to-accent/5 flex items-center justify-center">
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-accent/20 to-accent/5 flex items-center justify-center" aria-hidden="true">
                 <Wallet className="h-4 w-4 text-accent" />
               </div>
             </CardHeader>

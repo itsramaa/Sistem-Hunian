@@ -98,12 +98,12 @@ export default function DocumentCenter() {
 
   return (
     <div className="space-y-6 p-4 md:p-6">
-      <PageHeader icon={FileSearch} title="Pusat Dokumen" description="Kelola dan review hasil OCR dokumen" />
+      <PageHeader icon={FileSearch} title="Pusat Dokumen" description="Kelola dan tinjau hasil OCR dokumen properti Anda" />
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3" role="search" aria-label="Filter dokumen">
         <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[180px] rounded-xl bg-background/60 border-border/50" aria-label="Filter berdasarkan tipe dokumen">
             <SelectValue placeholder="Tipe Dokumen" />
           </SelectTrigger>
           <SelectContent>
@@ -115,7 +115,7 @@ export default function DocumentCenter() {
         </Select>
 
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[180px] rounded-xl bg-background/60 border-border/50" aria-label="Filter berdasarkan status dokumen">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -129,34 +129,34 @@ export default function DocumentCenter() {
 
       {/* Table */}
       {isLoading ? (
-        <div className="text-sm text-muted-foreground py-12 text-center">Memuat data...</div>
+        <div className="text-sm text-muted-foreground py-12 text-center" role="status">Memuat data dokumen...</div>
       ) : !results?.length ? (
-        <div className="text-sm text-muted-foreground py-12 text-center">Belum ada dokumen OCR</div>
+        <div className="text-sm text-muted-foreground py-12 text-center" role="status">Belum ada dokumen OCR yang ditemukan.</div>
       ) : (
-        <div className="rounded-xl border border-border bg-card">
+        <div className="rounded-xl border border-border/40 bg-card/90 backdrop-blur-sm overflow-hidden" role="region" aria-label="Daftar Dokumen OCR">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Tipe Dokumen</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Confidence</TableHead>
-                <TableHead>Tanggal Upload</TableHead>
-                <TableHead className="text-right">Aksi</TableHead>
+              <TableRow className="bg-muted/50 border-b-0">
+                <TableHead className="font-semibold">Tipe Dokumen</TableHead>
+                <TableHead className="font-semibold">Status</TableHead>
+                <TableHead className="font-semibold">Tingkat Kepercayaan</TableHead>
+                <TableHead className="font-semibold">Tanggal Unggah</TableHead>
+                <TableHead className="text-right font-semibold">Aksi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {results.map((row) => {
                 const st = STATUS_LABELS[row.status] || { label: row.status, variant: "outline" as const };
                 return (
-                  <TableRow key={row.id} className="cursor-pointer" onClick={() => setSelectedId(row.id)}>
+                  <TableRow key={row.id} className="cursor-pointer hover:bg-primary/5 transition-colors" onClick={() => setSelectedId(row.id)}>
                     <TableCell className="font-medium">
                       {DOC_TYPE_LABELS[row.document_type] || row.document_type}
                       {row.requires_review && (
-                        <Badge variant="secondary" className="ml-2 text-[10px]">Review</Badge>
+                        <Badge variant="secondary" className="ml-2 text-[10px] rounded-full">Perlu Review</Badge>
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={st.variant}>{st.label}</Badge>
+                      <Badge variant={st.variant} className="rounded-full">{st.label}</Badge>
                     </TableCell>
                     <TableCell>
                       {row.confidence_score != null ? (
@@ -168,9 +168,9 @@ export default function DocumentCenter() {
                     <TableCell className="text-sm text-muted-foreground">
                       {format(new Date(row.created_at), "dd MMM yyyy HH:mm", { locale: localeId })}
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Eye className="h-4 w-4" />
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" onClick={() => setSelectedId(row.id)} aria-label={`Lihat detail dokumen ${DOC_TYPE_LABELS[row.document_type] || row.document_type}`}>
+                        <Eye className="h-4 w-4" aria-hidden="true" />
                       </Button>
                     </TableCell>
                   </TableRow>

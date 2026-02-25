@@ -142,8 +142,9 @@ export default function Support() {
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Email (opsional)</Label>
+                    <Label htmlFor="support_email">Email (opsional)</Label>
                     <Input
+                      id="support_email"
                       type="email"
                       placeholder="email@example.com"
                       value={email}
@@ -152,9 +153,9 @@ export default function Support() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Subjek <span className="text-destructive">*</span></Label>
+                    <Label htmlFor="support_subject">Subjek <span className="text-destructive">*</span></Label>
                     <Select value={subject} onValueChange={setSubject}>
-                      <SelectTrigger className="rounded-xl bg-background/60 border-border/50">
+                      <SelectTrigger id="support_subject" className="rounded-xl bg-background/60 border-border/50">
                         <SelectValue placeholder="Pilih topik..." />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl backdrop-blur-xl bg-popover/95 border border-border/40">
@@ -167,8 +168,9 @@ export default function Support() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Pesan <span className="text-destructive">*</span></Label>
+                    <Label htmlFor="support_message">Pesan <span className="text-destructive">*</span></Label>
                     <Textarea
+                      id="support_message"
                       placeholder="Jelaskan pertanyaan atau masalah Anda..."
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
@@ -176,7 +178,7 @@ export default function Support() {
                     />
                   </div>
                   <Button type="submit" className="gradient-cta rounded-xl w-full sm:w-auto">
-                    <Send className="h-4 w-4 mr-2" />
+                    <Send className="h-4 w-4 mr-2" aria-hidden="true" />
                     Kirim Pesan
                   </Button>
                 </form>
@@ -261,17 +263,17 @@ export default function Support() {
             </CardHeader>
             <CardContent className="space-y-3">
               {[
-                { label: "API & Platform", icon: Globe, status: "Operational" },
-                { label: "Database", icon: Database, status: "Operational" },
-                { label: "Payment Gateway", icon: CreditCard, status: "Operational" },
+                { label: "API & Platform", icon: Globe, status: "Operasional" },
+                { label: "Database", icon: Database, status: "Operasional" },
+                { label: "Payment Gateway", icon: CreditCard, status: "Operasional" },
               ].map((item) => (
-                <div key={item.label} className="flex items-center justify-between p-2.5 rounded-xl bg-card/80 border border-border/40">
+                <div key={item.label} className="flex items-center justify-between p-2.5 rounded-xl bg-card/80 border border-border/40" role="status">
                   <div className="flex items-center gap-2">
-                    <item.icon className="h-4 w-4 text-muted-foreground" />
+                    <item.icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                     <span className="text-sm">{item.label}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
+                    <div className="h-2 w-2 rounded-full bg-success animate-pulse" aria-hidden="true" />
                     <span className="text-xs text-success font-medium">{item.status}</span>
                   </div>
                 </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, Play, CheckCircle, AlertTriangle, XCircle, History, RotateCcw, Info } from 'lucide-react';
+import { Shield, Play, CheckCircle, AlertTriangle, XCircle, History, RotateCcw, Info, Loader2 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
@@ -128,23 +128,23 @@ export default function DataQualityHistory({ propertyId: propPropertyId }: DataQ
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-primary/10">
+        <div className="p-2 rounded-lg bg-primary/10" aria-hidden="true">
           <Shield className="h-6 w-6 text-primary" />
         </div>
         <div>
           <h1 className="text-2xl font-bold">Kualitas Data & Riwayat</h1>
-          <p className="text-muted-foreground text-sm">Validasi, versioning, dan audit trail data properti</p>
+          <p className="text-muted-foreground text-sm">Validasi, versi, dan jejak audit data properti Anda</p>
         </div>
-        <Badge variant="outline" className="ml-auto">Data Governance</Badge>
+        <Badge variant="outline" className="ml-auto rounded-full">Tata Kelola Data</Badge>
       </div>
 
       {/* Property Selector */}
       {showPropertySelector && (
-        <Card>
+        <Card className="rounded-2xl border-border/40 bg-card/90 backdrop-blur-sm shadow-sm">
           <CardContent className="pt-4">
-            <Label>Pilih Properti</Label>
+            <Label htmlFor="property-select" className="text-sm font-medium mb-1.5 block">Pilih Properti</Label>
             <Select value={selectedPropertyId} onValueChange={(v) => { setSelectedPropertyId(v); setResult(null); setSelectedEntity(null); }}>
-              <SelectTrigger className="mt-1">
+              <SelectTrigger id="property-select" className="rounded-xl bg-background/50" aria-label="Pilih properti untuk pemeriksaan kualitas">
                 <SelectValue placeholder="Pilih properti..." />
               </SelectTrigger>
               <SelectContent>
@@ -158,28 +158,28 @@ export default function DataQualityHistory({ propertyId: propPropertyId }: DataQ
       )}
 
       {selectedPropertyId && (
-        <Tabs defaultValue="validation">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="validation">Validasi & Kualitas</TabsTrigger>
-            <TabsTrigger value="history">Riwayat Perubahan</TabsTrigger>
-            <TabsTrigger value="restore">Restore Data</TabsTrigger>
+        <Tabs defaultValue="validation" className="space-y-4">
+          <TabsList className="pill-tab-list" aria-label="Menu kualitas data">
+            <TabsTrigger value="validation" className="pill-tab-trigger">Validasi & Kualitas</TabsTrigger>
+            <TabsTrigger value="history" className="pill-tab-trigger">Riwayat Perubahan</TabsTrigger>
+            <TabsTrigger value="restore" className="pill-tab-trigger">Pulihkan Data</TabsTrigger>
           </TabsList>
 
           {/* TAB 1: Validation */}
           <TabsContent value="validation" className="space-y-4">
-            <div className="flex gap-3 items-center">
-              <Button onClick={handleRunValidation} disabled={qualityCheck.isPending}>
-                <Play className="h-4 w-4 mr-2" />
+            <div className="flex flex-wrap gap-3 items-center">
+              <Button onClick={handleRunValidation} disabled={qualityCheck.isPending} className="rounded-xl gradient-cta shadow-sm">
+                {qualityCheck.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" /> : <Play className="h-4 w-4 mr-2" aria-hidden="true" />}
                 {qualityCheck.isPending ? 'Memproses...' : 'Jalankan Validasi'}
               </Button>
               {currentCheck && !currentCheck.is_final_validated && !hasCriticalErrors && (
-                <Button variant="outline" onClick={() => markFinal.mutate(currentCheck.id)} disabled={markFinal.isPending}>
-                  <CheckCircle className="h-4 w-4 mr-2" />
+                <Button variant="outline" onClick={() => markFinal.mutate(currentCheck.id)} disabled={markFinal.isPending} className="rounded-xl border-primary/30 hover:bg-primary/5">
+                  <CheckCircle className="h-4 w-4 mr-2" aria-hidden="true" />
                   Tandai Validasi Final
                 </Button>
               )}
               {currentCheck?.is_final_validated && (
-                <Badge className="bg-primary/20 text-primary">✓ Final Validated</Badge>
+                <Badge className="bg-success/20 text-success border-success/30 rounded-full px-3 py-1">✓ Validasi Final Selesai</Badge>
               )}
             </div>
 
@@ -187,8 +187,8 @@ export default function DataQualityHistory({ propertyId: propPropertyId }: DataQ
               <>
                 {/* Score Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Card>
-                    <CardHeader className="pb-2"><CardTitle className="text-sm">Skor Properti</CardTitle></CardHeader>
+                  <Card className="rounded-2xl border-border/40 bg-card/90 backdrop-blur-sm shadow-sm">
+                    <CardHeader className="pb-2"><CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Skor Properti</CardTitle></CardHeader>
                     <CardContent>
                       <span className={`text-3xl font-bold ${scoreColor(displayResult.property_score)}`}>
                         {displayResult.property_score}
@@ -196,8 +196,8 @@ export default function DataQualityHistory({ propertyId: propPropertyId }: DataQ
                       <span className="text-muted-foreground text-sm">/100</span>
                     </CardContent>
                   </Card>
-                  <Card>
-                    <CardHeader className="pb-2"><CardTitle className="text-sm">Skor Agregat</CardTitle></CardHeader>
+                  <Card className="rounded-2xl border-border/40 bg-card/90 backdrop-blur-sm shadow-sm">
+                    <CardHeader className="pb-2"><CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Skor Agregat</CardTitle></CardHeader>
                     <CardContent>
                       <span className={`text-3xl font-bold ${scoreColor(displayResult.aggregate_score)}`}>
                         {displayResult.aggregate_score}
@@ -205,55 +205,80 @@ export default function DataQualityHistory({ propertyId: propPropertyId }: DataQ
                       <span className="text-muted-foreground text-sm">/100</span>
                     </CardContent>
                   </Card>
-                  <Card>
-                    <CardHeader className="pb-2"><CardTitle className="text-sm">Total Temuan</CardTitle></CardHeader>
+                  <Card className="rounded-2xl border-border/40 bg-card/90 backdrop-blur-sm shadow-sm">
+                    <CardHeader className="pb-2"><CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Temuan</CardTitle></CardHeader>
                     <CardContent>
-                      <div className="flex gap-3 text-sm">
-                        <span className="text-destructive font-medium">
-                          {displayResult.validations.filter(v => v.status === 'error').length} Error
-                        </span>
-                        <span className="text-accent-foreground font-medium">
-                          {displayResult.validations.filter(v => v.status === 'warning').length} Warning
-                        </span>
+                      <div className="flex gap-4 text-sm">
+                        <div className="flex flex-col">
+                          <span className="text-destructive font-bold text-lg">
+                            {displayResult.validations.filter(v => v.status === 'error').length}
+                          </span>
+                          <span className="text-muted-foreground text-xs">Error</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-warning font-bold text-lg">
+                            {displayResult.validations.filter(v => v.status === 'warning').length}
+                          </span>
+                          <span className="text-muted-foreground text-xs">Peringatan</span>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
                 </div>
 
                 {displayResult.summary && (
-                  <Card>
-                    <CardContent className="pt-4 flex gap-2 items-start">
-                      <Info className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" />
+                  <Card className="rounded-xl border-primary/20 bg-primary/5">
+                    <CardContent className="pt-4 flex gap-3 items-start">
+                      <Info className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" aria-hidden="true" />
                       <p className="text-sm text-muted-foreground">{displayResult.summary}</p>
                     </CardContent>
                   </Card>
                 )}
 
                 {/* Validation Table */}
-                <Card>
-                  <CardHeader><CardTitle className="text-base">Hasil Validasi</CardTitle></CardHeader>
-                  <CardContent>
+                <Card className="rounded-2xl border-border/40 bg-card/90 backdrop-blur-sm shadow-sm overflow-hidden" role="region" aria-label="Hasil Rincian Validasi">
+                  <CardHeader className="bg-muted/30 border-b border-border/40"><CardTitle className="text-base">Rincian Validasi</CardTitle></CardHeader>
+                  <CardContent className="p-0">
                     {displayResult.validations.length === 0 ? (
-                      <p className="text-muted-foreground text-sm">Tidak ada temuan.</p>
+                      <div className="p-8 text-center" role="status">
+                        <CheckCircle className="h-10 w-10 text-success/40 mx-auto mb-3" aria-hidden="true" />
+                        <p className="text-muted-foreground text-sm font-medium">Semua data valid. Tidak ada masalah ditemukan.</p>
+                      </div>
                     ) : (
-                      <div className="space-y-2">
+                      <div className="divide-y divide-border/30">
                         {displayResult.validations.map((v, i) => {
                           const isOverridden = currentCheck?.overrides?.some((o: any) => o.rule === v.rule);
                           return (
-                            <div key={i} className={`flex items-start gap-3 p-3 rounded-lg border ${isOverridden ? 'opacity-50' : ''}`}>
-                              {statusIcon[v.status]}
+                            <div key={i} className={`flex items-start gap-4 p-4 transition-colors hover:bg-muted/20 ${isOverridden ? 'opacity-60 grayscale-[0.5]' : ''}`}>
+                              <div className="mt-0.5" aria-hidden="true">
+                                {v.status === 'error' ? <XCircle className="h-5 w-5 text-destructive" /> : 
+                                 v.status === 'warning' ? <AlertTriangle className="h-5 w-5 text-warning" /> : 
+                                 <CheckCircle className="h-5 w-5 text-success" />}
+                              </div>
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <Badge variant="outline" className="text-xs">{v.rule}</Badge>
-                                  <Badge className={`text-xs ${severityColor[v.severity]}`}>{v.severity}</Badge>
-                                  {isOverridden && <span className="text-xs text-muted-foreground ml-2">(Ditimpa)</span>}
+                                <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                                  <Badge variant="outline" className="text-[10px] font-mono tracking-tighter rounded-md uppercase px-1.5">{v.rule}</Badge>
+                                  <Badge className={`text-[10px] font-bold uppercase rounded-md px-1.5 ${
+                                    v.severity === 'critical' ? 'bg-destructive text-destructive-foreground' :
+                                    v.severity === 'high' ? 'bg-destructive/15 text-destructive border-destructive/20' :
+                                    v.severity === 'medium' ? 'bg-warning/15 text-warning border-warning/20' :
+                                    'bg-muted text-muted-foreground'
+                                  }`}>
+                                    {v.severity === 'critical' ? 'Kritis' : v.severity === 'high' ? 'Tinggi' : v.severity === 'medium' ? 'Sedang' : 'Rendah'}
+                                  </Badge>
+                                  {isOverridden && <Badge variant="secondary" className="text-[10px] font-medium rounded-md px-1.5">Ditimpa</Badge>}
                                 </div>
-                                <p className="text-sm">{v.message}</p>
-                                {v.suggestion && <p className="text-xs text-muted-foreground mt-1">💡 {v.suggestion}</p>}
+                                <p className="text-sm font-medium text-foreground leading-relaxed">{v.message}</p>
+                                {v.suggestion && (
+                                  <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground bg-muted/40 p-1.5 rounded-lg border border-border/20 w-fit">
+                                    <span aria-hidden="true">💡</span>
+                                    <span className="font-medium">Saran:</span> {v.suggestion}
+                                  </div>
+                                )}
                               </div>
                               {v.status === 'error' && currentCheck && !isOverridden && (
-                                <Button size="sm" variant="ghost" onClick={() => setOverrideDialog({ checkId: currentCheck.id, rule: v.rule })}>
-                                  Override
+                                <Button size="sm" variant="ghost" onClick={() => setOverrideDialog({ checkId: currentCheck.id, rule: v.rule })} className="text-xs h-8 rounded-lg hover:bg-primary/5 hover:text-primary">
+                                  Timpa (Override)
                                 </Button>
                               )}
                             </div>
@@ -269,35 +294,40 @@ export default function DataQualityHistory({ propertyId: propPropertyId }: DataQ
 
           {/* TAB 2: History */}
           <TabsContent value="history" className="space-y-4">
-            <Card>
-              <CardHeader><CardTitle className="text-base flex items-center gap-2"><History className="h-4 w-4" /> Riwayat Perubahan</CardTitle></CardHeader>
-              <CardContent>
+            <Card className="rounded-2xl border-border/40 bg-card/90 backdrop-blur-sm shadow-sm overflow-hidden" role="region" aria-label="Riwayat Jejak Audit">
+              <CardHeader className="bg-muted/30 border-b border-border/40"><CardTitle className="text-base flex items-center gap-2"><History className="h-4 w-4" aria-hidden="true" /> Jejak Audit</CardTitle></CardHeader>
+              <CardContent className="p-0">
                 {(!auditLogs || auditLogs.length === 0) ? (
-                  <p className="text-muted-foreground text-sm">Belum ada riwayat perubahan.</p>
+                  <div className="p-12 text-center" role="status">
+                    <History className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" aria-hidden="true" />
+                    <p className="text-muted-foreground text-sm">Belum ada riwayat perubahan yang tercatat.</p>
+                  </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="divide-y divide-border/30">
                     {auditLogs.map((log: any) => (
-                      <div key={log.id} className="border rounded-lg p-3">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline" className="text-xs">{log.action}</Badge>
-                          <Badge variant="secondary" className="text-xs">{log.entity_type}</Badge>
-                          <span className="text-xs text-muted-foreground ml-auto">
+                      <div key={log.id} className="p-4 transition-colors hover:bg-muted/20">
+                        <div className="flex items-center gap-3 mb-2">
+                          <Badge variant="outline" className="text-[10px] font-bold uppercase rounded-md bg-background/50">{log.action === 'insert' ? 'Tambah' : log.action === 'update' ? 'Ubah' : 'Hapus'}</Badge>
+                          <Badge variant="secondary" className="text-[10px] font-bold uppercase rounded-md px-1.5">{log.entity_type === 'property' ? 'Properti' : 'Unit'}</Badge>
+                          <span className="text-xs text-muted-foreground ml-auto font-medium">
                             {format(new Date(log.created_at), 'dd MMM yyyy HH:mm', { locale: idLocale })}
                           </span>
                         </div>
                         {log.old_data && log.new_data && (
-                          <details className="mt-2">
-                            <summary className="text-xs text-primary cursor-pointer">Lihat detail perubahan</summary>
-                            <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                              <div>
-                                <p className="font-medium text-muted-foreground mb-1">Sebelum:</p>
-                                <pre className="bg-muted p-2 rounded text-xs overflow-auto max-h-32">
+                          <details className="group">
+                            <summary className="text-xs text-primary font-medium cursor-pointer hover:underline list-none flex items-center gap-1">
+                              <span className="group-open:rotate-90 transition-transform">▶</span> Lihat detail perubahan
+                            </summary>
+                            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-[10px]">
+                              <div className="space-y-1.5">
+                                <p className="font-bold text-muted-foreground uppercase tracking-tight pl-1">Sebelum:</p>
+                                <pre className="bg-muted/60 p-3 rounded-xl border border-border/30 overflow-auto max-h-48 font-mono shadow-inner">
                                   {JSON.stringify(log.old_data, null, 2)}
                                 </pre>
                               </div>
-                              <div>
-                                <p className="font-medium text-muted-foreground mb-1">Sesudah:</p>
-                                <pre className="bg-muted p-2 rounded text-xs overflow-auto max-h-32">
+                              <div className="space-y-1.5">
+                                <p className="font-bold text-muted-foreground uppercase tracking-tight pl-1">Sesudah:</p>
+                                <pre className="bg-muted/60 p-3 rounded-xl border border-border/30 overflow-auto max-h-48 font-mono shadow-inner">
                                   {JSON.stringify(log.new_data, null, 2)}
                                 </pre>
                               </div>
@@ -314,16 +344,17 @@ export default function DataQualityHistory({ propertyId: propPropertyId }: DataQ
 
           {/* TAB 3: Restore */}
           <TabsContent value="restore" className="space-y-4">
-            <Card>
-              <CardContent className="pt-4 space-y-3">
-                <Label>Pilih Entity</Label>
+            <Card className="rounded-2xl border-border/40 bg-card/90 backdrop-blur-sm shadow-sm">
+              <CardContent className="pt-4 space-y-4">
+                <Label className="text-sm font-semibold mb-1 block">Pilih Entitas untuk Dipulihkan</Label>
                 <div className="flex gap-2 flex-wrap">
                   <Button
                     size="sm"
                     variant={selectedEntity?.type === 'property' && selectedEntity?.id === selectedPropertyId ? 'default' : 'outline'}
                     onClick={() => setSelectedEntity({ type: 'property', id: selectedPropertyId })}
+                    className="rounded-lg h-9"
                   >
-                    Properti
+                    Properti Utama
                   </Button>
                   {units?.map(u => (
                     <Button
@@ -331,6 +362,7 @@ export default function DataQualityHistory({ propertyId: propPropertyId }: DataQ
                       size="sm"
                       variant={selectedEntity?.id === u.id ? 'default' : 'outline'}
                       onClick={() => setSelectedEntity({ type: 'unit', id: u.id })}
+                      className="rounded-lg h-9"
                     >
                       Unit {u.unit_number}
                     </Button>
@@ -340,32 +372,45 @@ export default function DataQualityHistory({ propertyId: propPropertyId }: DataQ
             </Card>
 
             {selectedEntity && (
-              <Card>
-                <CardHeader><CardTitle className="text-base flex items-center gap-2"><RotateCcw className="h-4 w-4" /> Daftar Versi</CardTitle></CardHeader>
-                <CardContent>
+              <Card className="rounded-2xl border-border/40 bg-card/90 backdrop-blur-sm shadow-sm overflow-hidden" role="region" aria-label="Daftar Versi Tersedia">
+                <CardHeader className="bg-muted/30 border-b border-border/40"><CardTitle className="text-base flex items-center gap-2"><RotateCcw className="h-4 w-4" aria-hidden="true" /> Versi Tersimpan</CardTitle></CardHeader>
+                <CardContent className="p-0">
                   {versions.isLoading ? (
-                    <p className="text-muted-foreground text-sm">Memuat...</p>
+                    <div className="p-12 text-center" role="status">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary/40 mx-auto" aria-hidden="true" />
+                      <p className="text-muted-foreground text-sm mt-3">Memuat daftar versi...</p>
+                    </div>
                   ) : !versions.data?.length ? (
-                    <p className="text-muted-foreground text-sm">Belum ada versi tersimpan.</p>
+                    <div className="p-12 text-center" role="status">
+                      <RotateCcw className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" aria-hidden="true" />
+                      <p className="text-muted-foreground text-sm">Belum ada snapshot versi yang tersimpan untuk entitas ini.</p>
+                    </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="divide-y divide-border/30">
                       {versions.data.map(v => (
-                        <div key={v.id} className="border rounded-lg p-3">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Badge variant="outline">v{v.version_number}</Badge>
-                            <span className="text-xs text-muted-foreground">
+                        <div key={v.id} className="p-4 transition-colors hover:bg-muted/20">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Badge variant="outline" className="font-mono text-xs rounded-md bg-background/50">v{v.version_number}</Badge>
+                            <span className="text-xs text-muted-foreground font-medium">
                               {format(new Date(v.created_at), 'dd MMM yyyy HH:mm', { locale: idLocale })}
                             </span>
-                            <Button size="sm" variant="outline" className="ml-auto" onClick={() => setRestoreConfirm(v.id)}>
-                              <RotateCcw className="h-3 w-3 mr-1" />
-                              Restore
+                            <Button size="sm" variant="outline" className="ml-auto rounded-lg h-8 text-xs border-primary/30 hover:bg-primary/5 hover:text-primary gap-1.5" onClick={() => setRestoreConfirm(v.id)}>
+                              <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                              Pulihkan
                             </Button>
                           </div>
-                          {v.change_summary && <p className="text-sm">{v.change_summary}</p>}
-                          {v.change_reason && <p className="text-xs text-muted-foreground">Alasan: {v.change_reason}</p>}
-                          <details className="mt-2">
-                            <summary className="text-xs text-primary cursor-pointer">Preview data</summary>
-                            <pre className="mt-1 bg-muted p-2 rounded text-xs overflow-auto max-h-40">
+                          {v.change_summary && <p className="text-sm font-medium mb-1">{v.change_summary}</p>}
+                          {v.change_reason && (
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
+                              <span className="font-bold uppercase text-[9px] tracking-tight text-muted-foreground/60">Alasan:</span>
+                              {v.change_reason}
+                            </div>
+                          )}
+                          <details className="group">
+                            <summary className="text-[10px] text-primary font-bold uppercase tracking-wider cursor-pointer hover:underline list-none flex items-center gap-1">
+                              <span className="group-open:rotate-90 transition-transform">▶</span> Preview Data Snapshot
+                            </summary>
+                            <pre className="mt-3 bg-muted/60 p-3 rounded-xl border border-border/30 text-[10px] overflow-auto max-h-48 font-mono shadow-inner">
                               {JSON.stringify(v.snapshot_data, null, 2)}
                             </pre>
                           </details>
@@ -382,31 +427,56 @@ export default function DataQualityHistory({ propertyId: propPropertyId }: DataQ
 
       {/* Override Dialog */}
       <Dialog open={!!overrideDialog} onOpenChange={() => { setOverrideDialog(null); setOverrideReason(''); }}>
-        <DialogContent>
+        <DialogContent className="rounded-2xl max-w-md">
           <DialogHeader><DialogTitle>Override Validasi</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">Berikan alasan mengapa error ini dapat diabaikan:</p>
-            <Textarea value={overrideReason} onChange={e => setOverrideReason(e.target.value)} placeholder="Alasan override..." />
+          <div className="space-y-4 py-2">
+            <div className="p-3 bg-warning/10 border border-warning/20 rounded-xl flex gap-3 items-start">
+              <AlertTriangle className="h-5 w-5 text-warning shrink-0" aria-hidden="true" />
+              <p className="text-xs text-warning leading-relaxed">
+                Tindakan ini akan mengabaikan kesalahan validasi. Pastikan data benar-benar valid secara manual sebelum melanjutkan.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="override-reason" className="text-sm font-semibold">Alasan Penimpaan</Label>
+              <Textarea 
+                id="override-reason"
+                value={overrideReason} 
+                onChange={e => setOverrideReason(e.target.value)} 
+                placeholder="Jelaskan mengapa validasi ini dapat diabaikan (misal: pengecualian khusus bisnis)..." 
+                className="rounded-xl min-h-[100px] bg-muted/30 focus:bg-background transition-colors"
+                aria-required="true"
+              />
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setOverrideDialog(null); setOverrideReason(''); }}>Batal</Button>
-            <Button onClick={handleOverride} disabled={!overrideReason.trim() || overrideMutation.isPending}>Simpan</Button>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" onClick={() => { setOverrideDialog(null); setOverrideReason(''); }} className="rounded-xl">Batal</Button>
+            <Button onClick={handleOverride} disabled={!overrideReason.trim() || overrideMutation.isPending} className="rounded-xl gradient-cta shadow-sm">
+              {overrideMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Simpan & Abaikan
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Restore Confirmation */}
       <AlertDialog open={!!restoreConfirm} onOpenChange={() => setRestoreConfirm(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Restore Data?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Data akan dikembalikan ke versi yang dipilih. Perubahan saat ini akan disimpan sebagai versi baru sebelum restore.
+            <AlertDialogTitle className="flex items-center gap-2 text-warning">
+              <RotateCcw className="h-5 w-5" aria-hidden="true" />
+              Pulihkan Data ke Versi Ini?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm leading-relaxed pt-2">
+              Data saat ini akan digantikan sepenuhnya oleh data dari snapshot versi yang dipilih. 
+              Sistem akan secara otomatis membuat versi baru (backup) dari data Anda saat ini sebelum proses pemulihan dilakukan.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRestore} disabled={restoreMutation.isPending}>Restore</AlertDialogAction>
+          <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+            <AlertDialogCancel className="rounded-xl">Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRestore} disabled={restoreMutation.isPending} className="rounded-xl gradient-cta border-none shadow-sm">
+              {restoreMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Ya, Pulihkan Sekarang
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

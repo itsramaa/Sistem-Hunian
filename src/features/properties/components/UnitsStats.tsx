@@ -22,12 +22,12 @@ const statCards = [
 
 export const UnitsStats = ({ stats }: UnitsStatsProps) => {
   return (
-    <div className="space-y-4 mb-6">
+    <div className="space-y-4 mb-6" role="region" aria-label="Statistik Unit">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map(({ key, label, icon: Icon, iconColor }) => (
           <div key={key} className="glass-stat-card p-4 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
             <div className="flex items-center gap-3">
-              <div className="gradient-icon-box w-10 h-10">
+              <div className="gradient-icon-box w-10 h-10" aria-hidden="true">
                 <Icon className={cn("h-5 w-5", iconColor)} />
               </div>
               <div className="min-w-0">
@@ -43,10 +43,10 @@ export const UnitsStats = ({ stats }: UnitsStatsProps) => {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="glass-stat-card p-4 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
           <div className="flex items-center gap-3">
-            <div className="gradient-icon-box w-10 h-10">
+            <div className="gradient-icon-box w-10 h-10" aria-hidden="true">
               <Wallet className="h-5 w-5 text-accent-foreground" />
             </div>
-            <div>
+            <div role="status" aria-live="polite">
               <p className="text-xs text-muted-foreground">Pendapatan Bulanan</p>
               <p className="text-xl font-bold font-display">{formatCurrency(stats.totalMonthlyRent)}</p>
               <p className="text-xs text-muted-foreground">dari unit terisi</p>
@@ -55,14 +55,14 @@ export const UnitsStats = ({ stats }: UnitsStatsProps) => {
         </div>
         <div className="glass-stat-card p-4 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
           <div className="flex items-center gap-3">
-            <div className="gradient-icon-box w-10 h-10">
+            <div className="gradient-icon-box w-10 h-10" aria-hidden="true">
               <TrendingUp className="h-5 w-5 text-primary" />
             </div>
-            <div className="flex-1">
+            <div className="flex-1" role="status" aria-live="polite">
               <p className="text-xs text-muted-foreground">Tingkat Hunian</p>
               <p className="text-xl font-bold font-display">{Math.round(stats.occupancyRate)}%</p>
               {/* Segmented occupancy bar */}
-              <div className="flex gap-1 mt-1">
+              <div className="flex gap-1 mt-1" aria-hidden="true">
                 {Array.from({ length: 4 }, (_, i) => (
                   <div
                     key={i}

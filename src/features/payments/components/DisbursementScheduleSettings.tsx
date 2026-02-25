@@ -51,79 +51,81 @@ export function DisbursementScheduleSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['merchant-settings'] });
       queryClient.invalidateQueries({ queryKey: ['auth'] });
-      toast.success('Payment settings updated');
+      toast.success('Pengaturan pembayaran diperbarui');
     },
-    onError: () => toast.error('Failed to update settings'),
+    onError: () => toast.error('Gagal memperbarui pengaturan'),
   });
 
   return (
     <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <div className="p-2 rounded-xl bg-primary/10">
+          <div className="p-2 rounded-xl bg-primary/10" aria-hidden="true">
             <CalendarDays className="h-5 w-5 text-primary" />
           </div>
-          Payment Schedule
+          Jadwal Pembayaran
         </CardTitle>
         <CardDescription>
-          Configure when you receive disbursements from tenant payments
+          Konfigurasi kapan Anda menerima pencairan dana dari pembayaran penyewa
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          <Label>Disbursement Frequency</Label>
+          <Label htmlFor="disbursement_frequency">Frekuensi Pencairan</Label>
           <Select value={schedule} onValueChange={setSchedule}>
-            <SelectTrigger className="rounded-xl bg-background/60 border-border/50">
+            <SelectTrigger id="disbursement_frequency" className="rounded-xl bg-background/60 border-border/50">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="daily">Daily</SelectItem>
-              <SelectItem value="weekly">Weekly (Every Monday)</SelectItem>
-              <SelectItem value="biweekly">Bi-weekly (1st & 15th)</SelectItem>
-              <SelectItem value="monthly">Monthly</SelectItem>
+              <SelectItem value="daily">Harian</SelectItem>
+              <SelectItem value="weekly">Mingguan (Setiap Senin)</SelectItem>
+              <SelectItem value="biweekly">Dua Mingguan (Tgl 1 & 15)</SelectItem>
+              <SelectItem value="monthly">Bulanan</SelectItem>
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            How often funds are transferred to your bank account
+            Seberapa sering dana ditransfer ke rekening bank Anda
           </p>
         </div>
 
         <div className="space-y-2">
-          <Label>Invoice Generation Day</Label>
+          <Label htmlFor="billing_day">Hari Pembuatan Faktur</Label>
           <Select value={billingDay} onValueChange={setBillingDay}>
-            <SelectTrigger className="rounded-xl bg-background/60 border-border/50">
+            <SelectTrigger id="billing_day" className="rounded-xl bg-background/60 border-border/50">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1">1st of each month</SelectItem>
-              <SelectItem value="15">15th of each month</SelectItem>
-              <SelectItem value="25">25th of each month</SelectItem>
+              <SelectItem value="1">Tanggal 1 setiap bulan</SelectItem>
+              <SelectItem value="15">Tanggal 15 setiap bulan</SelectItem>
+              <SelectItem value="25">Tanggal 25 setiap bulan</SelectItem>
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            When monthly invoices are automatically generated for tenants
+            Kapan faktur bulanan dibuat secara otomatis untuk penyewa
           </p>
         </div>
 
         <div className="space-y-2">
-          <Label className="flex items-center gap-2">
-            <Wallet className="h-4 w-4" />
-            Minimum Disbursement Amount
+          <Label htmlFor="min_amount" className="flex items-center gap-2">
+            <Wallet className="h-4 w-4" aria-hidden="true" />
+            Jumlah Pencairan Minimum
           </Label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm" aria-hidden="true">
               Rp
             </span>
             <Input
+              id="min_amount"
               type="text"
               value={formatCurrency(minAmount)}
               onChange={handleMinAmountChange}
               className="pl-10 rounded-xl bg-background/60 border-border/50"
               placeholder={MINIMUM_PAYOUT_AMOUNT.toLocaleString('id-ID')}
+              aria-label="Masukkan jumlah pencairan minimum dalam Rupiah"
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            Auto disbursement will only process if your escrow balance exceeds this amount
+            Pencairan otomatis hanya akan diproses jika saldo escrow Anda melebihi jumlah ini
           </p>
         </div>
 
@@ -137,7 +139,7 @@ export function DisbursementScheduleSettings() {
           ) : (
             <Save className="h-4 w-4 mr-2" />
           )}
-          Save Payment Settings
+          Simpan Pengaturan Pembayaran
         </Button>
       </CardContent>
     </Card>

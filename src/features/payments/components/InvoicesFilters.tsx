@@ -23,7 +23,7 @@ export function InvoicesFilters({
       <div className="relative flex-1">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search invoices..."
+          placeholder="Cari tagihan..."
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
           className="pl-10 rounded-xl bg-background/60 border-border/50"
@@ -31,15 +31,15 @@ export function InvoicesFilters({
       </div>
       <Select value={statusFilter} onValueChange={onStatusFilterChange}>
         <SelectTrigger className="w-full sm:w-[180px] rounded-xl bg-background/60 border-border/50">
-          <SelectValue placeholder="Filter by status" />
+          <SelectValue placeholder="Filter status" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Status</SelectItem>
+          <SelectItem value="all">Semua Status</SelectItem>
           <SelectItem value="draft">Draft</SelectItem>
-          <SelectItem value="sent">Sent</SelectItem>
-          <SelectItem value="paid">Paid</SelectItem>
-          <SelectItem value="overdue">Overdue</SelectItem>
-          <SelectItem value="cancelled">Cancelled</SelectItem>
+          <SelectItem value="sent">Terkirim</SelectItem>
+          <SelectItem value="paid">Lunas</SelectItem>
+          <SelectItem value="overdue">Terlambat</SelectItem>
+          <SelectItem value="cancelled">Dibatalkan</SelectItem>
         </SelectContent>
       </Select>
     </div>

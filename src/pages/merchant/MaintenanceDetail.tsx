@@ -34,14 +34,15 @@ function PhotoGallery({ images, title }: { images: string[]; title: string }) {
   return (
     <div>
       <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">{title}</p>
-      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2" role="region" aria-label={`Galeri foto ${title}`}>
         {images.map((img, idx) => (
           <button
             key={idx}
             onClick={() => setSelectedImg(img)}
             className="aspect-square rounded-xl overflow-hidden border border-border/40 hover:ring-2 hover:ring-primary/30 transition-all"
+            aria-label={`Lihat foto ${title} ke-${idx + 1} dalam ukuran penuh`}
           >
-            <img src={img} alt={`${title} ${idx + 1}`} className="w-full h-full object-cover" />
+            <img src={img} alt={`${title} ${idx + 1}`} className="w-full h-full object-cover" aria-hidden="true" />
           </button>
         ))}
       </div>
@@ -51,18 +52,22 @@ function PhotoGallery({ images, title }: { images: string[]; title: string }) {
         <div
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
           onClick={() => setSelectedImg(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Tampilan foto ukuran penuh"
         >
           <img
             src={selectedImg}
-            alt="Full size"
+            alt="Foto ukuran penuh"
             className="max-w-full max-h-[90vh] object-contain rounded-2xl"
             onClick={(e) => e.stopPropagation()}
           />
           <button
             onClick={() => setSelectedImg(null)}
             className="absolute top-4 right-4 bg-white/10 text-white rounded-full p-2 hover:bg-white/20"
+            aria-label="Tutup tampilan foto"
           >
-            <XCircle className="h-6 w-6" />
+            <XCircle className="h-6 w-6" aria-hidden="true" />
           </button>
         </div>
       )}
@@ -86,15 +91,16 @@ function SLAProgressBar({ createdAt, slaDeadline, status }: { createdAt: string;
     <div className="space-y-2">
       <div className="flex items-center justify-between text-xs">
         <span className="text-muted-foreground flex items-center gap-1">
-          <Clock className="h-3 w-3" /> SLA Progress
+          <Clock className="h-3 w-3" aria-hidden="true" /> Progres SLA
         </span>
-        <span className={isOverdue ? 'text-destructive font-medium' : hoursLeft <= 4 ? 'text-warning font-medium' : 'text-muted-foreground'}>
-          {isOverdue ? `Overdue ${Math.abs(hoursLeft)}j` : `${hoursLeft}j tersisa`}
+        <span className={isOverdue ? 'text-destructive font-medium' : hoursLeft <= 4 ? 'text-warning font-medium' : 'text-muted-foreground'} role="status">
+          {isOverdue ? `Terlambat ${Math.abs(hoursLeft)}j` : `${hoursLeft}j tersisa`}
         </span>
       </div>
       <Progress
         value={progress}
         className={`h-2 ${isOverdue ? '[&>div]:bg-destructive' : progress > 75 ? '[&>div]:bg-warning' : '[&>div]:bg-success'}`}
+        aria-label={`Progres SLA: ${Math.round(progress)}%`}
       />
     </div>
   );
@@ -149,11 +155,11 @@ export default function MerchantMaintenanceDetail() {
       { ...data, actor_id: merchant.user_id, actor_role: 'merchant' },
       {
         onSuccess: () => {
-          toast({ title: 'Status updated successfully' });
+          toast({ title: 'Status berhasil diperbarui' });
           setIsUpdateDialogOpen(false);
         },
         onError: (error) => {
-          toast({ title: 'Failed to update status', description: error.message, variant: 'destructive' });
+          toast({ title: 'Gagal memperbarui status', description: error.message, variant: 'destructive' });
         },
       }
     );
@@ -162,13 +168,13 @@ export default function MerchantMaintenanceDetail() {
   const handleOcrReceiptExtracted = (data: Record<string, any>) => {
     toast({
       title: 'Struk berhasil di-scan',
-      description: `Total: ${formatCurrency(data.total_amount || 0)} - ${data.vendor_name || 'Unknown vendor'}`,
+      description: `Total: ${formatCurrency(data.total_amount || 0)} - ${data.vendor_name || 'Vendor tidak diketahui'}`,
     });
   };
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6" role="status" aria-label="Memuat detail pemeliharaan">
         <Skeleton className="h-10 w-48 rounded-xl" />
         <Skeleton className="h-20 rounded-2xl" />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -185,11 +191,11 @@ export default function MerchantMaintenanceDetail() {
   if (!request) {
     return (
       <div className="space-y-6">
-        <Button variant="ghost" asChild className="gap-2 rounded-xl">
-          <Link to="/merchant/maintenance"><ArrowLeft className="h-4 w-4" /> Back</Link>
+        <Button variant="ghost" asChild className="gap-2 rounded-xl" aria-label="Kembali ke daftar pemeliharaan">
+          <Link to="/merchant/maintenance"><ArrowLeft className="h-4 w-4" aria-hidden="true" /> Kembali</Link>
         </Button>
-        <div className="text-center py-16">
-          <Wrench className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+        <div className="text-center py-16" role="alert">
+          <Wrench className="h-12 w-12 mx-auto text-muted-foreground mb-4" aria-hidden="true" />
           <h2 className="text-xl font-semibold">Permintaan pemeliharaan tidak ditemukan</h2>
         </div>
       </div>
@@ -200,14 +206,14 @@ export default function MerchantMaintenanceDetail() {
     <>
       <div className="space-y-6">
         {/* Header */}
-        <Button variant="ghost" asChild className="gap-2 rounded-xl">
-          <Link to="/merchant/maintenance"><ArrowLeft className="h-4 w-4" /> Kembali</Link>
+        <Button variant="ghost" asChild className="gap-2 rounded-xl" aria-label="Kembali ke daftar pemeliharaan">
+          <Link to="/merchant/maintenance"><ArrowLeft className="h-4 w-4" aria-hidden="true" /> Kembali</Link>
         </Button>
 
         {/* Title + Quick Actions */}
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
-            <div className="gradient-icon-box w-12 h-12"><Wrench className="h-6 w-6 text-primary" /></div>
+            <div className="gradient-icon-box w-12 h-12" aria-hidden="true"><Wrench className="h-6 w-6 text-primary" /></div>
             <div>
               <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-2xl font-display font-bold">{request.title}</h1>
@@ -216,12 +222,12 @@ export default function MerchantMaintenanceDetail() {
               <p className="text-sm text-muted-foreground">#{id?.slice(0, 8)} • SLA: {getSLAText(request.priority)}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap" role="status" aria-label="Status permintaan">
             <SLABadge slaDeadline={request.sla_deadline} status={request.status} />
             <MaintenanceStatusBadge status={request.status} />
             {request.status !== 'completed' && request.status !== 'cancelled' && (
-              <Button className="gradient-cta rounded-xl" onClick={() => setIsUpdateDialogOpen(true)}>
-                Update Status
+              <Button className="gradient-cta rounded-xl" onClick={() => setIsUpdateDialogOpen(true)} aria-label="Perbarui status pemeliharaan">
+                Perbarui Status
               </Button>
             )}
           </div>
@@ -275,7 +281,7 @@ export default function MerchantMaintenanceDetail() {
             <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <DollarSign className="h-5 w-5 text-primary" /> Ringkasan Biaya
+                  <DollarSign className="h-5 w-5 text-primary" aria-hidden="true" /> Ringkasan Biaya
                 </h3>
                 <OcrCameraButton
                   label="Scan Struk"
@@ -283,12 +289,12 @@ export default function MerchantMaintenanceDetail() {
                   edgeFunction="ocr-maintenance-receipt"
                   extraPayload={{ maintenance_request_id: request.id }}
                   onExtracted={handleOcrReceiptExtracted}
-                  icon={<Receipt className="h-4 w-4" />}
+                  icon={<Receipt className="h-4 w-4" aria-hidden="true" />}
                   size="sm"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4" role="region" aria-label="Informasi biaya">
                 <div className="bg-muted/20 rounded-xl p-4">
                   <p className="text-xs text-muted-foreground mb-1">Harga Disepakati</p>
                   <p className="text-lg font-bold">{vendorJob?.agreed_price ? formatCurrency(vendorJob.agreed_price) : '—'}</p>
@@ -302,15 +308,17 @@ export default function MerchantMaintenanceDetail() {
               {expenses.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground uppercase tracking-wider">Detail Pengeluaran</p>
-                  {expenses.map((exp: any) => (
-                    <div key={exp.id} className="flex items-center justify-between py-2 border-b border-border/20 last:border-0">
-                      <div>
-                        <p className="text-sm font-medium">{exp.vendor_name || 'Vendor tidak diketahui'}</p>
-                        <p className="text-xs text-muted-foreground">{exp.receipt_date ? format(new Date(exp.receipt_date), 'dd MMM yyyy') : '—'}</p>
+                  <div role="list" aria-label="Daftar pengeluaran">
+                    {expenses.map((exp: any) => (
+                      <div key={exp.id} className="flex items-center justify-between py-2 border-b border-border/20 last:border-0" role="listitem">
+                        <div>
+                          <p className="text-sm font-medium">{exp.vendor_name || 'Vendor tidak diketahui'}</p>
+                          <p className="text-xs text-muted-foreground">{exp.receipt_date ? format(new Date(exp.receipt_date), 'dd MMM yyyy') : '—'}</p>
+                        </div>
+                        <p className="font-semibold">{formatCurrency(exp.total_amount)}</p>
                       </div>
-                      <p className="font-semibold">{formatCurrency(exp.total_amount)}</p>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -330,14 +338,14 @@ export default function MerchantMaintenanceDetail() {
           <div className="space-y-6">
             {/* Tenant Info */}
             <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-4">
-              <h3 className="font-semibold flex items-center gap-2"><User className="h-4 w-4 text-primary" /> Tenant</h3>
+              <h3 className="font-semibold flex items-center gap-2"><User className="h-4 w-4 text-primary" aria-hidden="true" /> Penyewa</h3>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center" aria-hidden="true">
                   <User className="h-5 w-5 text-primary" />
                 </div>
                 <div>
                   {request.tenant?.user_id ? (
-                    <Link to={`/merchant/tenants/${request.tenant_user_id}`} className="font-medium hover:underline text-primary">
+                    <Link to={`/merchant/tenants/${request.tenant_user_id}`} className="font-medium hover:underline text-primary" aria-label={`Lihat profil penyewa ${request.tenant.full_name}`}>
                       {request.tenant.full_name}
                     </Link>
                   ) : (
@@ -348,7 +356,7 @@ export default function MerchantMaintenanceDetail() {
               </div>
               {request.tenant?.phone && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Phone className="h-4 w-4" />
+                  <Phone className="h-4 w-4" aria-hidden="true" />
                   <span>{request.tenant.phone}</span>
                 </div>
               )}
@@ -356,17 +364,17 @@ export default function MerchantMaintenanceDetail() {
 
             {/* Unit Info */}
             <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-4">
-              <h3 className="font-semibold flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> Unit</h3>
+              <h3 className="font-semibold flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" aria-hidden="true" /> Unit</h3>
               <div className="space-y-2">
                 {request.unit?.property?.id ? (
-                  <Link to={`/merchant/properties/${request.unit.property.id}`} className="font-medium hover:underline text-primary">
+                  <Link to={`/merchant/properties/${request.unit.property.id}`} className="font-medium hover:underline text-primary" aria-label={`Lihat properti ${request.unit.property.name}`}>
                     {request.unit.property.name}
                   </Link>
                 ) : (
                   <p className="font-medium">{request.unit?.property?.name}</p>
                 )}
                 {request.unit?.id ? (
-                  <Link to={`/merchant/units/${request.unit.id}`} className="text-sm hover:underline text-primary block">
+                  <Link to={`/merchant/units/${request.unit.id}`} className="text-sm hover:underline text-primary block" aria-label={`Lihat unit ${request.unit.unit_number}`}>
                     Unit {request.unit.unit_number}
                   </Link>
                 ) : (
@@ -380,9 +388,10 @@ export default function MerchantMaintenanceDetail() {
                   className={`p-3 rounded-xl text-sm flex items-center gap-2 hover:opacity-80 transition-opacity ${
                     contract.status === 'active' ? 'bg-success/10 text-success border border-success/20' : 'bg-warning/10 text-warning border border-warning/20'
                   }`}
+                  aria-label={`Lihat kontrak status ${contract.status}`}
                 >
-                  <FileText className="h-4 w-4" />
-                  <span className="capitalize font-medium">Kontrak: {contract.status}</span>
+                  <FileText className="h-4 w-4" aria-hidden="true" />
+                  <span className="capitalize font-medium">Kontrak: {contract.status === 'active' ? 'Aktif' : contract.status === 'notice' ? 'Pemberitahuan' : contract.status}</span>
                 </Link>
               )}
             </div>
@@ -390,21 +399,21 @@ export default function MerchantMaintenanceDetail() {
             {/* Vendor Info */}
             {request.assigned_vendor && (
               <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-4">
-                <h3 className="font-semibold flex items-center gap-2"><Wrench className="h-4 w-4 text-primary" /> Vendor</h3>
+                <h3 className="font-semibold flex items-center gap-2"><Wrench className="h-4 w-4 text-primary" aria-hidden="true" /> Vendor</h3>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center" aria-hidden="true">
                     <Wrench className="h-5 w-5 text-accent-foreground" />
                   </div>
                   <div>
                     <p className="font-medium">{request.assigned_vendor.business_name}</p>
                     {request.assigned_vendor.phone_number && (
                       <p className="text-sm text-muted-foreground flex items-center gap-1">
-                        <Phone className="h-3 w-3" /> {request.assigned_vendor.phone_number}
+                        <Phone className="h-3 w-3" aria-hidden="true" /> {request.assigned_vendor.phone_number}
                       </p>
                     )}
                     {request.assigned_vendor.rating != null && (
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Star className="h-3 w-3 text-warning" /> {request.assigned_vendor.rating.toFixed(1)}
+                        <Star className="h-3 w-3 text-warning" aria-hidden="true" /> {request.assigned_vendor.rating.toFixed(1)}
                       </p>
                     )}
                   </div>
@@ -431,20 +440,20 @@ export default function MerchantMaintenanceDetail() {
               <h3 className="font-semibold">Info Waktu</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex items-center gap-2 text-muted-foreground">
-                  <Calendar className="h-4 w-4" />
+                  <Calendar className="h-4 w-4" aria-hidden="true" />
                   <span>Dibuat {format(new Date(request.created_at), 'dd MMM yyyy, HH:mm')}</span>
                 </div>
                 {request.resolved_at && (
-                  <div className="flex items-center gap-2 text-success">
-                    <CheckCircle className="h-4 w-4" />
+                  <div className="flex items-center gap-2 text-success" role="status">
+                    <CheckCircle className="h-4 w-4" aria-hidden="true" />
                     <span>Selesai {format(new Date(request.resolved_at), 'dd MMM yyyy, HH:mm')}</span>
                   </div>
                 )}
               </div>
 
               {!isContractActive && contract && (
-                <div className="flex items-start gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20">
-                  <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20" role="alert">
+                  <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" aria-hidden="true" />
                   <div className="text-sm">
                     <p className="font-medium text-destructive">Peringatan Kontrak</p>
                     <p className="text-muted-foreground">Kontrak berstatus <strong>{contract.status}</strong>.</p>
@@ -454,10 +463,10 @@ export default function MerchantMaintenanceDetail() {
 
               {request.status === 'completed' && (
                 <div className="p-4 bg-success/10 rounded-xl border border-success/20 text-center">
-                  <p className="text-success font-medium flex items-center justify-center gap-2">
-                    <CheckCircle className="h-5 w-5" /> Selesai
+                  <p className="text-success font-medium flex items-center justify-center gap-2" role="status">
+                    <CheckCircle className="h-5 w-5" aria-hidden="true" /> Selesai
                   </p>
-                  <Button variant="outline" className="mt-3 w-full rounded-xl" onClick={() => setIsUpdateDialogOpen(true)}>
+                  <Button variant="outline" className="mt-3 w-full rounded-xl" onClick={() => setIsUpdateDialogOpen(true)} aria-label="Perbarui rincian pemeliharaan">
                     Update Detail
                   </Button>
                 </div>
@@ -465,14 +474,14 @@ export default function MerchantMaintenanceDetail() {
 
               {request.status === 'cancelled' && (
                 <div className="p-4 bg-destructive/10 rounded-xl border border-destructive/20 text-center">
-                  <p className="text-destructive font-medium flex items-center justify-center gap-2">
-                    <XCircle className="h-5 w-5" /> Dibatalkan
+                  <p className="text-destructive font-medium flex items-center justify-center gap-2" role="status">
+                    <XCircle className="h-5 w-5" aria-hidden="true" /> Dibatalkan
                   </p>
                 </div>
               )}
 
               {request.status !== 'completed' && request.status !== 'cancelled' && (
-                <Button className="w-full gradient-cta rounded-xl" onClick={() => setIsUpdateDialogOpen(true)}>
+                <Button className="w-full gradient-cta rounded-xl" onClick={() => setIsUpdateDialogOpen(true)} aria-label="Perbarui status atau tugaskan vendor">
                   Update Status / Assign Vendor
                 </Button>
               )}

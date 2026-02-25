@@ -37,10 +37,10 @@ export function EarningsBreakdown({ data, isLoading }: EarningsBreakdownProps) {
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Loading...</CardTitle>
+            <CardTitle>Memuat...</CardTitle>
           </CardHeader>
           <CardContent className="h-[300px] flex items-center justify-center">
-            <div className="animate-pulse text-muted-foreground">Loading data...</div>
+            <div className="animate-pulse text-muted-foreground">Memuat data...</div>
           </CardContent>
         </Card>
       </div>
@@ -48,19 +48,19 @@ export function EarningsBreakdown({ data, isLoading }: EarningsBreakdownProps) {
   }
 
   const pieData = [
-    { name: 'Net Earnings', value: data.totalNet },
-    { name: 'Platform Fee', value: data.totalFees },
+    { name: 'Penghasilan Neto', value: data.totalNet },
+    { name: 'Biaya Platform', value: data.totalFees },
   ];
   const keepPercent = 100 - VENDOR_PLATFORM_FEE_PERCENT * 100;
 
   const getTrendIcon = () => {
     if (!data.comparison) return null;
     if (data.comparison.percentChange > 0) {
-      return <TrendingUp className="h-5 w-5 text-success" />;
+      return <TrendingUp className="h-5 w-5 text-success" aria-hidden="true" />;
     } else if (data.comparison.percentChange < 0) {
-      return <TrendingDown className="h-5 w-5 text-destructive" />;
+      return <TrendingDown className="h-5 w-5 text-destructive" aria-hidden="true" />;
     }
-    return <Minus className="h-5 w-5 text-muted-foreground" />;
+    return <Minus className="h-5 w-5 text-muted-foreground" aria-hidden="true" />;
   };
 
   return (
@@ -71,11 +71,11 @@ export function EarningsBreakdown({ data, isLoading }: EarningsBreakdownProps) {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Gross Earnings</p>
+                <p className="text-sm text-muted-foreground">Penghasilan Bruto</p>
                 <p className="text-2xl font-bold">{formatCurrency(data.totalGross)}</p>
               </div>
               <div className="p-3 rounded-full bg-muted">
-                <DollarSign className="h-5 w-5 text-muted-foreground" />
+                <DollarSign className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
               </div>
             </div>
           </CardContent>
@@ -85,11 +85,11 @@ export function EarningsBreakdown({ data, isLoading }: EarningsBreakdownProps) {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Platform Fee ({formatFeePercentage()})</p>
+                <p className="text-sm text-muted-foreground">Biaya Platform ({formatFeePercentage()})</p>
                 <p className="text-2xl font-bold text-destructive">-{formatCurrency(data.totalFees)}</p>
               </div>
               <div className="p-3 rounded-full bg-destructive/10">
-                <ArrowDownRight className="h-5 w-5 text-destructive" />
+                <ArrowDownRight className="h-5 w-5 text-destructive" aria-hidden="true" />
               </div>
             </div>
           </CardContent>
@@ -99,22 +99,22 @@ export function EarningsBreakdown({ data, isLoading }: EarningsBreakdownProps) {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Net Earnings</p>
+                <p className="text-sm text-muted-foreground">Penghasilan Neto</p>
                 <p className="text-2xl font-bold text-success">{formatCurrency(data.totalNet)}</p>
               </div>
               <div className="p-3 rounded-full bg-success/10">
-                <ArrowUpRight className="h-5 w-5 text-success" />
+                <ArrowUpRight className="h-5 w-5 text-success" aria-hidden="true" />
               </div>
             </div>
             {data.comparison && (
               <div className={cn(
                 'flex items-center gap-1 mt-2 text-sm',
                 data.comparison.percentChange >= 0 ? 'text-success' : 'text-destructive'
-              )}>
+              )} role="status" aria-live="polite">
                 {getTrendIcon()}
                 <span>
                   {data.comparison.percentChange >= 0 ? '+' : ''}
-                  {data.comparison.percentChange.toFixed(1)}% vs last period
+                  {data.comparison.percentChange.toFixed(1)}% vs periode sebelumnya
                 </span>
               </div>
             )}
@@ -124,9 +124,9 @@ export function EarningsBreakdown({ data, isLoading }: EarningsBreakdownProps) {
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Pie Chart - Earnings vs Fees */}
-        <Card>
+        <Card role="region" aria-label="Distribusi Penghasilan">
           <CardHeader>
-            <CardTitle>Earnings Distribution</CardTitle>
+            <CardTitle>Distribusi Penghasilan</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
@@ -156,7 +156,7 @@ export function EarningsBreakdown({ data, isLoading }: EarningsBreakdownProps) {
             </ResponsiveContainer>
             <div className="text-center mt-4">
               <p className="text-sm text-muted-foreground">
-                You keep <span className="font-semibold text-success">{keepPercent.toFixed(0)}%</span> of every transaction
+                Anda menyimpan <span className="font-semibold text-success">{keepPercent.toFixed(0)}%</span> dari setiap transaksi
               </p>
             </div>
           </CardContent>
@@ -164,9 +164,9 @@ export function EarningsBreakdown({ data, isLoading }: EarningsBreakdownProps) {
 
         {/* Bar Chart - By Category */}
         {data.byCategory.length > 0 && (
-          <Card>
+          <Card role="region" aria-label="Penghasilan Berdasarkan Kategori">
             <CardHeader>
-              <CardTitle>Earnings by Category</CardTitle>
+              <CardTitle>Penghasilan Berdasarkan Kategori</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={250}>
@@ -192,9 +192,9 @@ export function EarningsBreakdown({ data, isLoading }: EarningsBreakdownProps) {
 
       {/* Monthly Trend */}
       {data.byMonth.length > 0 && (
-        <Card>
+        <Card role="region" aria-label="Tren Bulanan">
           <CardHeader>
-            <CardTitle>Monthly Trend</CardTitle>
+            <CardTitle>Tren Bulanan</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -211,8 +211,8 @@ export function EarningsBreakdown({ data, isLoading }: EarningsBreakdownProps) {
                   }}
                 />
                 <Legend />
-                <Bar dataKey="gross" name="Gross" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="net" name="Net" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="gross" name="Bruto" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="net" name="Neto" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

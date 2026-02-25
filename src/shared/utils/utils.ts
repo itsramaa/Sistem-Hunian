@@ -25,3 +25,18 @@ export const formatYear = (year: number): string => {
   }
   return year.toString().padStart(4, '0');
 };
+
+/**
+ * Format string label by removing underscores and converting to Title Case
+ * Example: "high_banget" -> "High Banget"
+ * @param label - The string label to format
+ * @returns Formatted label string
+ */
+export function formatLabel(label: string | null | undefined): string {
+  if (!label) return '-';
+  
+  return label
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}

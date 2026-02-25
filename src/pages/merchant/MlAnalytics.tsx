@@ -42,18 +42,18 @@ export default function MlAnalytics() {
     try {
       const result = await revenueForecast.mutateAsync({ forecastMonths: 6 });
       setForecastResult(result.forecast);
-      toast.success("Revenue forecast generated!");
+      toast.success("Perkiraan pendapatan berhasil dibuat!");
     } catch (e: any) {
-      toast.error(e.message || "Failed to generate forecast");
+      toast.error(e.message || "Gagal membuat perkiraan");
     }
   };
 
   const handleBatchRisk = async () => {
     try {
       await refreshRisk.mutateAsync({ batch: true });
-      toast.success("Risk scores updated!");
+      toast.success("Skor risiko berhasil diperbarui!");
     } catch (e: any) {
-      toast.error(e.message || "Failed to refresh risk scores");
+      toast.error(e.message || "Gagal memperbarui skor risiko");
     }
   };
 
@@ -61,9 +61,9 @@ export default function MlAnalytics() {
     try {
       const result = await churnPrediction.mutateAsync({ windowMonths: 3 });
       setChurnResult(result.churn);
-      toast.success("Churn prediction generated!");
+      toast.success("Prediksi churn berhasil dibuat!");
     } catch (e: any) {
-      toast.error(e.message || "Failed to predict churn");
+      toast.error(e.message || "Gagal memprediksi churn");
     }
   };
 
@@ -92,25 +92,25 @@ export default function MlAnalytics() {
     const hoursAgo = (Date.now() - new Date(run.last_run_at).getTime()) / (1000 * 60 * 60);
     if (hoursAgo < 24) return { label: "Terkini", variant: "default" as const, color: "text-success", run };
     if (hoursAgo < 24 * 7) return { label: "Perlu Update", variant: "secondary" as const, color: "text-warning", run };
-    return { label: "Kadaluarsa", variant: "destructive" as const, color: "text-destructive", run };
+    return { label: "Kedaluwarsa", variant: "destructive" as const, color: "text-destructive", run };
   };
 
   const modelConfigs = [
-    { name: "Revenue Forecast", fn: "ml-revenue-forecast", icon: TrendingUp },
-    { name: "Tenant Risk Score", fn: "ml-tenant-risk-score", icon: AlertTriangle },
-    { name: "Churn Prediction", fn: "ml-churn-prediction", icon: Users },
-    { name: "Optimal Pricing", fn: "ml-optimal-pricing", icon: DollarSign },
-    { name: "Price Intelligence", fn: "ml-price-intelligence", icon: BarChart3 },
-    { name: "Occupancy Forecast", fn: "ml-occupancy-forecast", icon: Target },
+    { name: "Perkiraan Pendapatan", fn: "ml-revenue-forecast", icon: TrendingUp },
+    { name: "Skor Risiko Tenant", fn: "ml-tenant-risk-score", icon: AlertTriangle },
+    { name: "Prediksi Churn", fn: "ml-churn-prediction", icon: Users },
+    { name: "Harga Optimal", fn: "ml-optimal-pricing", icon: DollarSign },
+    { name: "Intelijen Harga", fn: "ml-price-intelligence", icon: BarChart3 },
+    { name: "Perkiraan Hunian", fn: "ml-occupancy-forecast", icon: Target },
   ];
 
   return (
     <div className="space-y-6">
-      <PageHeader icon={Brain} title="ML Analytics" description="AI-powered predictive analytics for your properties">
+      <PageHeader icon={Brain} title="Analitik ML" description="Analitik prediktif berbasis AI untuk properti Anda">
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="rounded-full bg-primary/10 text-primary border-primary/30 gap-1.5">
             <Sparkles className="h-3 w-3" />
-            AI-Powered
+            Berbasis AI
           </Badge>
         </div>
       </PageHeader>
@@ -160,10 +160,10 @@ export default function MlAnalytics() {
       <Tabs defaultValue="forecast" className="space-y-6">
         <TabsList className="pill-tab-list">
           <TabsTrigger value="forecast" className="pill-tab-trigger gap-1.5">
-            <TrendingUp className="h-3.5 w-3.5" />Forecast
+            <TrendingUp className="h-3.5 w-3.5" />Perkiraan
           </TabsTrigger>
           <TabsTrigger value="risk" className="pill-tab-trigger gap-1.5">
-            <AlertTriangle className="h-3.5 w-3.5" />Risk
+            <AlertTriangle className="h-3.5 w-3.5" />Risiko
             {(riskScores || []).filter((s: any) => s.risk_level === 'high' || s.risk_level === 'critical').length > 0 && (
               <Badge variant="destructive" className="rounded-full ml-1 h-5 min-w-5 text-[10px] px-1.5">
                 {(riskScores || []).filter((s: any) => s.risk_level === 'high' || s.risk_level === 'critical').length}
@@ -174,7 +174,7 @@ export default function MlAnalytics() {
             <Users className="h-3.5 w-3.5" />Churn
           </TabsTrigger>
           <TabsTrigger value="pricing" className="pill-tab-trigger gap-1.5">
-            <DollarSign className="h-3.5 w-3.5" />Pricing
+            <DollarSign className="h-3.5 w-3.5" />Harga
           </TabsTrigger>
         </TabsList>
 
@@ -187,13 +187,13 @@ export default function MlAnalytics() {
                     <TrendingUp className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <CardTitle>Revenue Forecast</CardTitle>
-                    <CardDescription>Predict monthly revenue with confidence intervals</CardDescription>
+                    <CardTitle>Perkiraan Pendapatan</CardTitle>
+                    <CardDescription>Prediksi pendapatan bulanan dengan interval kepercayaan</CardDescription>
                   </div>
                 </div>
                 <Button onClick={handleForecast} disabled={revenueForecast.isPending} className="gradient-cta rounded-xl shadow-sm gap-2">
                   {revenueForecast.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                  Generate Forecast
+                  Buat Perkiraan
                 </Button>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -203,7 +203,7 @@ export default function MlAnalytics() {
                     <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/10">
                       <Target className="h-5 w-5 text-primary" />
                       <div>
-                        <p className="text-sm font-medium">Trend: <Badge variant="outline" className="rounded-full ml-1">{forecastResult.trend}</Badge></p>
+                        <p className="text-sm font-medium">Tren: <Badge variant="outline" className="rounded-full ml-1">{forecastResult.trend}</Badge></p>
                         <p className="text-xs text-muted-foreground mt-0.5">{forecastResult.summary}</p>
                       </div>
                     </div>
@@ -226,8 +226,8 @@ export default function MlAnalytics() {
                     <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mx-auto mb-4">
                       <TrendingUp className="h-7 w-7 text-primary" />
                     </div>
-                    <p className="text-sm font-medium">No forecast generated yet</p>
-                    <p className="text-xs text-muted-foreground mt-1">Click "Generate Forecast" to predict future revenue</p>
+                    <p className="text-sm font-medium">Belum ada perkiraan yang dibuat</p>
+                    <p className="text-xs text-muted-foreground mt-1">Klik "Buat Perkiraan" untuk memprediksi pendapatan masa depan</p>
                   </div>
                 )}
               </CardContent>
@@ -241,14 +241,14 @@ export default function MlAnalytics() {
             {(riskScores || []).length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {[
-                  { label: "Low Risk", count: riskSummary.low || 0, color: "text-success", bg: "from-success/20 to-success/5" },
-                  { label: "Medium Risk", count: riskSummary.medium || 0, color: "text-warning", bg: "from-warning/20 to-warning/5" },
-                  { label: "High Risk", count: riskSummary.high || 0, color: "text-destructive", bg: "from-destructive/20 to-destructive/5" },
-                  { label: "Critical", count: riskSummary.critical || 0, color: "text-destructive", bg: "from-destructive/20 to-destructive/5" },
+                  { label: "Risiko Rendah", count: riskSummary.low || 0, color: "text-success", bg: "from-success/20 to-success/5" },
+                  { label: "Risiko Sedang", count: riskSummary.medium || 0, color: "text-warning", bg: "from-warning/20 to-warning/5" },
+                  { label: "Risiko Tinggi", count: riskSummary.high || 0, color: "text-destructive", bg: "from-destructive/20 to-destructive/5" },
+                  { label: "Kritis", count: riskSummary.critical || 0, color: "text-destructive", bg: "from-destructive/20 to-destructive/5" },
                 ].map((item) => (
                   <Card key={item.label} className="glass-stat-card">
                     <CardContent className="p-4 flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${item.bg} flex items-center justify-center`}>
+                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${item.bg} flex items-center justify-center`} aria-hidden="true">
                         <AlertTriangle className={`h-5 w-5 ${item.color}`} />
                       </div>
                       <div>
@@ -264,47 +264,51 @@ export default function MlAnalytics() {
             <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
               <CardHeader className="flex flex-row items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="gradient-icon-box">
+                  <div className="gradient-icon-box" aria-hidden="true">
                     <AlertTriangle className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <CardTitle>Tenant Risk Scores</CardTitle>
-                    <CardDescription>AI-assessed risk levels per tenant</CardDescription>
+                    <CardTitle>Skor Risiko Tenant</CardTitle>
+                    <CardDescription>Tingkat risiko yang dinilai AI per tenant</CardDescription>
                   </div>
                 </div>
                 <Button variant="outline" size="sm" onClick={handleBatchRisk} disabled={refreshRisk.isPending} className="rounded-xl gap-1.5">
                   {refreshRisk.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                  Refresh All
+                  Perbarui Semua
                 </Button>
               </CardHeader>
               <CardContent>
                 {riskLoading ? (
-                  <div className="flex items-center justify-center py-12">
+                  <div className="flex items-center justify-center py-12" role="status">
                     <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <span className="sr-only">Memuat skor risiko...</span>
                   </div>
                 ) : (riskScores || []).length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/20 flex items-center justify-center mx-auto mb-4">
+                  <div className="text-center py-12" role="status">
+                    <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/20 flex items-center justify-center mx-auto mb-4" aria-hidden="true">
                       <AlertTriangle className="h-7 w-7 text-muted-foreground" />
                     </div>
-                    <p className="text-sm font-medium">No risk scores yet</p>
-                    <p className="text-xs text-muted-foreground mt-1">Click "Refresh All" to generate risk assessments</p>
+                    <p className="text-sm font-medium">Belum ada skor risiko</p>
+                    <p className="text-xs text-muted-foreground mt-1">Klik "Perbarui Semua" untuk menghasilkan penilaian risiko</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {(riskScores || []).map((s: any) => (
-                      <div key={s.id} className="flex items-center justify-between rounded-xl bg-card/80 backdrop-blur-sm border border-border/40 p-3 gap-3 hover:border-primary/20 transition-colors">
-                        <span className="text-sm font-mono">{s.tenant_user_id?.slice(0, 8)}...</span>
-                        <div className="flex-1 max-w-[120px]">
-                          <Progress value={s.risk_score} className={`h-2 rounded-full ${
-                            s.risk_score >= 75 ? '[&>div]:bg-destructive' :
-                            s.risk_score >= 50 ? '[&>div]:bg-warning' : '[&>div]:bg-success'
-                          }`} />
+                    {(riskScores || []).map((s: any) => {
+                      const labels: Record<string, string> = { low: "Rendah", medium: "Sedang", high: "Tinggi", critical: "Kritis" };
+                      return (
+                        <div key={s.id} className="flex items-center justify-between rounded-xl bg-card/80 backdrop-blur-sm border border-border/40 p-3 gap-3 hover:border-primary/20 transition-colors">
+                          <span className="text-sm font-mono">{s.tenant_user_id?.slice(0, 8)}...</span>
+                          <div className="flex-1 max-w-[120px]">
+                            <Progress value={s.risk_score} className={`h-2 rounded-full ${
+                              s.risk_score >= 75 ? '[&>div]:bg-destructive' :
+                              s.risk_score >= 50 ? '[&>div]:bg-warning' : '[&>div]:bg-success'
+                            }`} aria-label={`Skor risiko: ${s.risk_score}/100`} />
+                          </div>
+                          <span className="font-bold text-sm">{s.risk_score}/100</span>
+                          <Badge className={`rounded-full border ${riskLevelColor(s.risk_level)}`}>{labels[s.risk_level] || s.risk_level}</Badge>
                         </div>
-                        <span className="font-bold text-sm">{s.risk_score}/100</span>
-                        <Badge className={`rounded-full border ${riskLevelColor(s.risk_level)}`}>{s.risk_level}</Badge>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -321,13 +325,13 @@ export default function MlAnalytics() {
                     <Users className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <CardTitle>Churn Prediction</CardTitle>
-                    <CardDescription>Predict which tenants may leave</CardDescription>
+                    <CardTitle>Prediksi Churn</CardTitle>
+                    <CardDescription>Prediksi tenant mana yang mungkin akan pindah</CardDescription>
                   </div>
                 </div>
                 <Button onClick={handleChurn} disabled={churnPrediction.isPending} className="gradient-cta rounded-xl shadow-sm gap-2">
                   {churnPrediction.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                  Predict Churn
+                  Prediksi Churn
                 </Button>
               </CardHeader>
               <CardContent>
@@ -337,7 +341,7 @@ export default function MlAnalytics() {
                       <Target className="h-5 w-5 text-primary" />
                       <div>
                         <p className="text-sm text-muted-foreground">{churnResult.summary}</p>
-                        <p className="text-sm font-medium mt-1">High risk tenants: <Badge variant="destructive" className="rounded-full">{churnResult.high_risk_count}</Badge></p>
+                        <p className="text-sm font-medium mt-1">Tenant risiko tinggi: <Badge variant="destructive" className="rounded-full">{churnResult.high_risk_count}</Badge></p>
                       </div>
                     </div>
                     <div className="grid gap-2">
@@ -346,7 +350,7 @@ export default function MlAnalytics() {
                           <div className="flex justify-between items-center">
                             <span className="text-sm font-mono">{p.tenant_user_id?.slice(0, 8)}...</span>
                             <Badge variant={p.churn_probability > 0.6 ? "destructive" : "outline"} className="rounded-full">
-                              {Math.round(p.churn_probability * 100)}% churn risk
+                              {Math.round(p.churn_probability * 100)}% risiko churn
                             </Badge>
                           </div>
                           {p.retention_suggestions?.length > 0 && (
@@ -361,8 +365,8 @@ export default function MlAnalytics() {
                     <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mx-auto mb-4">
                       <Users className="h-7 w-7 text-primary" />
                     </div>
-                    <p className="text-sm font-medium">No churn analysis yet</p>
-                    <p className="text-xs text-muted-foreground mt-1">Click "Predict Churn" to identify at-risk tenants</p>
+                    <p className="text-sm font-medium">Belum ada analisis churn</p>
+                    <p className="text-xs text-muted-foreground mt-1">Klik "Prediksi Churn" untuk mengidentifikasi tenant yang berisiko</p>
                   </div>
                 )}
               </CardContent>
@@ -378,8 +382,8 @@ export default function MlAnalytics() {
                   <DollarSign className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <CardTitle>Optimal Pricing</CardTitle>
-                  <CardDescription>AI-suggested rental prices per unit</CardDescription>
+                  <CardTitle>Harga Optimal</CardTitle>
+                  <CardDescription>Saran harga sewa per unit dari AI</CardDescription>
                 </div>
               </CardHeader>
               <CardContent>
@@ -390,7 +394,7 @@ export default function MlAnalytics() {
                       {pricingResult.unit_suggestions?.map((u: any) => (
                         <div key={u.unit_id} className="flex items-center justify-between rounded-xl bg-card/80 backdrop-blur-sm border border-border/40 p-3 hover:border-primary/20 transition-colors">
                           <span className="text-sm font-mono">{u.unit_id?.slice(0, 8)}</span>
-                          <span className="text-sm text-muted-foreground">Current: Rp {u.current_price?.toLocaleString("id-ID")}</span>
+                          <span className="text-sm text-muted-foreground">Sekarang: Rp {u.current_price?.toLocaleString("id-ID")}</span>
                           <span className="text-sm font-bold text-primary">→ Rp {u.suggested_price?.toLocaleString("id-ID")}</span>
                         </div>
                       ))}
@@ -401,8 +405,8 @@ export default function MlAnalytics() {
                     <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mx-auto mb-4">
                       <DollarSign className="h-7 w-7 text-primary" />
                     </div>
-                    <p className="text-sm font-medium">No pricing analysis yet</p>
-                    <p className="text-xs text-muted-foreground mt-1">Select a property from the Properties page, then use "Analyze Pricing"</p>
+                    <p className="text-sm font-medium">Belum ada analisis harga</p>
+                    <p className="text-xs text-muted-foreground mt-1">Pilih properti dari halaman Properti, lalu gunakan "Analisis Harga"</p>
                   </div>
                 )}
               </CardContent>

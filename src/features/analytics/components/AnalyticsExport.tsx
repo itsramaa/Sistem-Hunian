@@ -114,7 +114,7 @@ export function AnalyticsExport({ vendorId }: AnalyticsExportProps) {
     const sections: string[] = [];
 
     if (data.orders && (data.orders as Array<Record<string, unknown>>).length > 0) {
-      const headers = ['Order Number', 'Status', 'Total Price', 'Created At', 'Completed At'];
+      const headers = ['Nomor Pesanan', 'Status', 'Total Harga', 'Dibuat Pada', 'Selesai Pada'];
       const rows = (data.orders as Array<Record<string, unknown>>).map((o) => [
         o.order_number as string,
         o.status as string,
@@ -122,23 +122,23 @@ export function AnalyticsExport({ vendorId }: AnalyticsExportProps) {
         format(new Date(o.created_at as string), 'yyyy-MM-dd HH:mm'),
         o.completed_at ? format(new Date(o.completed_at as string), 'yyyy-MM-dd HH:mm') : '-',
       ]);
-      sections.push('ORDERS\n' + [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n'));
+      sections.push('PESANAN\n' + [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n'));
     }
 
     if (data.products && (data.products as Array<Record<string, unknown>>).length > 0) {
-      const headers = ['Name', 'Category', 'Price', 'Available', 'Created At'];
+      const headers = ['Nama', 'Kategori', 'Harga', 'Tersedia', 'Dibuat Pada'];
       const rows = (data.products as Array<Record<string, unknown>>).map((p) => [
         p.name as string,
         p.category as string,
         (p.price as number).toString(),
-        p.is_available ? 'Yes' : 'No',
+        p.is_available ? 'Ya' : 'Tidak',
         format(new Date(p.created_at as string), 'yyyy-MM-dd'),
       ]);
-      sections.push('PRODUCTS\n' + [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n'));
+      sections.push('PRODUK\n' + [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n'));
     }
 
     if (data.earnings && (data.earnings as Array<Record<string, unknown>>).length > 0) {
-      const headers = ['Gross Amount', 'Fee', 'Net Amount', 'Status', 'Date'];
+      const headers = ['Jumlah Bruto', 'Biaya', 'Jumlah Neto', 'Status', 'Tanggal'];
       const rows = (data.earnings as Array<Record<string, unknown>>).map((e) => [
         (e.amount as number).toString(),
         (e.fee_amount as number).toString(),
@@ -146,7 +146,7 @@ export function AnalyticsExport({ vendorId }: AnalyticsExportProps) {
         e.status as string,
         format(new Date(e.created_at as string), 'yyyy-MM-dd'),
       ]);
-      sections.push('EARNINGS\n' + [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n'));
+      sections.push('PENGHASILAN\n' + [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n'));
     }
 
     return sections.join('\n\n');
@@ -155,7 +155,7 @@ export function AnalyticsExport({ vendorId }: AnalyticsExportProps) {
   const handleExport = async () => {
     const hasSelection = options.includeSales || options.includeOrders || options.includeProducts || options.includeEarnings;
     if (!hasSelection) {
-      toast.error('Please select at least one data type to export');
+      toast.error('Silakan pilih setidaknya satu tipe data untuk diekspor');
       return;
     }
 
@@ -169,7 +169,7 @@ export function AnalyticsExport({ vendorId }: AnalyticsExportProps) {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `vendor-analytics-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+        link.download = `analisis-vendor-${format(new Date(), 'yyyy-MM-dd')}.csv`;
         link.click();
         URL.revokeObjectURL(url);
       } else {
@@ -179,15 +179,15 @@ export function AnalyticsExport({ vendorId }: AnalyticsExportProps) {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `vendor-analytics-${format(new Date(), 'yyyy-MM-dd')}.txt`;
+        link.download = `analisis-vendor-${format(new Date(), 'yyyy-MM-dd')}.txt`;
         link.click();
         URL.revokeObjectURL(url);
       }
 
-      toast.success('Analytics exported successfully');
+      toast.success('Analisis berhasil diekspor');
       setDialogOpen(false);
     } catch (error) {
-      toast.error('Failed to export analytics');
+      toast.error('Gagal mengekspor analisis');
     } finally {
       setIsExporting(false);
     }
@@ -196,23 +196,23 @@ export function AnalyticsExport({ vendorId }: AnalyticsExportProps) {
   return (
     <>
       <Button variant="outline" onClick={() => setDialogOpen(true)}>
-        <Download className="h-4 w-4 mr-2" />
-        Export
+        <Download className="h-4 w-4 mr-2" aria-hidden="true" />
+        Ekspor
       </Button>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" aria-describedby="export-description">
           <DialogHeader>
-            <DialogTitle>Export Analytics</DialogTitle>
-            <DialogDescription>
-              Choose the data and format for your export
+            <DialogTitle>Ekspor Analisis</DialogTitle>
+            <DialogDescription id="export-description">
+              Pilih data dan format untuk ekspor Anda
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-6 py-4">
             {/* Date Range */}
             <div className="space-y-3">
-              <Label>Date Range</Label>
+              <Label>Rentang Waktu</Label>
               <RadioGroup
                 value={options.dateRange}
                 onValueChange={(v) => setOptions({ ...options, dateRange: v as DateRangeOption })}
@@ -220,26 +220,26 @@ export function AnalyticsExport({ vendorId }: AnalyticsExportProps) {
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="7d" id="7d" />
-                  <Label htmlFor="7d" className="font-normal">Last 7 days</Label>
+                  <Label htmlFor="7d" className="font-normal">7 hari terakhir</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="30d" id="30d" />
-                  <Label htmlFor="30d" className="font-normal">Last 30 days</Label>
+                  <Label htmlFor="30d" className="font-normal">30 hari terakhir</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="90d" id="90d" />
-                  <Label htmlFor="90d" className="font-normal">Last 90 days</Label>
+                  <Label htmlFor="90d" className="font-normal">90 hari terakhir</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="all" id="all" />
-                  <Label htmlFor="all" className="font-normal">All time</Label>
+                  <Label htmlFor="all" className="font-normal">Semua waktu</Label>
                 </div>
               </RadioGroup>
             </div>
 
             {/* Data Selection */}
             <div className="space-y-3">
-              <Label>Include in Export</Label>
+              <Label>Sertakan dalam Ekspor</Label>
               <div className="space-y-2">
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -247,7 +247,7 @@ export function AnalyticsExport({ vendorId }: AnalyticsExportProps) {
                     checked={options.includeOrders}
                     onCheckedChange={(c) => setOptions({ ...options, includeOrders: !!c })}
                   />
-                  <Label htmlFor="orders" className="font-normal">Orders</Label>
+                  <Label htmlFor="orders" className="font-normal">Pesanan</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -255,7 +255,7 @@ export function AnalyticsExport({ vendorId }: AnalyticsExportProps) {
                     checked={options.includeProducts}
                     onCheckedChange={(c) => setOptions({ ...options, includeProducts: !!c })}
                   />
-                  <Label htmlFor="products" className="font-normal">Products</Label>
+                  <Label htmlFor="products" className="font-normal">Produk</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -263,14 +263,14 @@ export function AnalyticsExport({ vendorId }: AnalyticsExportProps) {
                     checked={options.includeEarnings}
                     onCheckedChange={(c) => setOptions({ ...options, includeEarnings: !!c })}
                   />
-                  <Label htmlFor="earnings" className="font-normal">Earnings</Label>
+                  <Label htmlFor="earnings" className="font-normal">Penghasilan</Label>
                 </div>
               </div>
             </div>
 
             {/* Format */}
             <div className="space-y-3">
-              <Label>Export Format</Label>
+              <Label>Format Ekspor</Label>
               <RadioGroup
                 value={options.format}
                 onValueChange={(v) => setOptions({ ...options, format: v as ExportFormat })}
@@ -279,15 +279,15 @@ export function AnalyticsExport({ vendorId }: AnalyticsExportProps) {
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="csv" id="csv" />
                   <Label htmlFor="csv" className="font-normal flex items-center gap-1">
-                    <FileSpreadsheet className="h-4 w-4" />
+                    <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />
                     CSV
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="pdf" id="pdf" />
                   <Label htmlFor="pdf" className="font-normal flex items-center gap-1">
-                    <FileText className="h-4 w-4" />
-                    Text Report
+                    <FileText className="h-4 w-4" aria-hidden="true" />
+                    Laporan Teks
                   </Label>
                 </div>
               </RadioGroup>
@@ -296,18 +296,18 @@ export function AnalyticsExport({ vendorId }: AnalyticsExportProps) {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancel
+              Batal
             </Button>
             <Button onClick={handleExport} disabled={isExporting}>
               {isExporting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Exporting...
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
+                  Mengekspor...
                 </>
               ) : (
                 <>
-                  <Download className="h-4 w-4 mr-2" />
-                  Export
+                  <Download className="h-4 w-4 mr-2" aria-hidden="true" />
+                  Ekspor
                 </>
               )}
             </Button>

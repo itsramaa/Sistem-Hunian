@@ -31,7 +31,7 @@ export function PaymentsStats({ payments, loading = false }: PaymentsStatsProps)
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       <StatCard
-        title="Total Collected"
+        title="Total Terkumpul"
         value={formatCurrency(stats.totalCollected)}
         icon={CheckCircle}
         accentColor="hsl(var(--success))"
@@ -39,7 +39,7 @@ export function PaymentsStats({ payments, loading = false }: PaymentsStatsProps)
         index={0}
       />
       <StatCard
-        title="Pending"
+        title="Menunggu"
         value={formatCurrency(stats.pending)}
         icon={Clock}
         accentColor="hsl(var(--warning))"
@@ -47,7 +47,7 @@ export function PaymentsStats({ payments, loading = false }: PaymentsStatsProps)
         index={1}
       />
       <StatCard
-        title="Overdue"
+        title="Jatuh Tempo"
         value={formatCurrency(stats.overdue)}
         icon={AlertTriangle}
         accentColor="hsl(var(--destructive))"
@@ -55,7 +55,7 @@ export function PaymentsStats({ payments, loading = false }: PaymentsStatsProps)
         index={2}
       />
       <StatCard
-        title="This Month"
+        title="Bulan Ini"
         value={formatCurrency(stats.thisMonth)}
         icon={Calendar}
         accentColor="hsl(var(--primary))"

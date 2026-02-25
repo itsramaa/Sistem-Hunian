@@ -152,7 +152,7 @@ export default function MerchantPayments() {
         <Tabs defaultValue="history" className="space-y-4">
           <TabsList className="pill-tab-list">
             <TabsTrigger value="history" className="pill-tab-trigger">
-              Payment History
+              Riwayat Pembayaran
               {filteredPayments.filter(p => p.status === 'pending').length > 0 && (
                 <Badge variant="secondary" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs rounded-full">
                   {filteredPayments.filter(p => p.status === 'pending').length}
@@ -160,7 +160,7 @@ export default function MerchantPayments() {
               )}
             </TabsTrigger>
             <TabsTrigger value="overdue" className="pill-tab-trigger relative">
-              Overdue Invoices
+              Tagihan Terlambat
               {overdueInvoices.length > 0 && (
                 <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs rounded-full">
                   {overdueInvoices.length}

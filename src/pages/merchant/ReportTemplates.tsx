@@ -32,19 +32,19 @@ import { toast } from "sonner";
 type TemplateType = "executive" | "property" | "financial" | "risk" | "investment";
 
 const TEMPLATES: { type: TemplateType; icon: typeof FileText; title: string; description: string; needsProperty: boolean }[] = [
-  { type: "executive", icon: BarChart3, title: "Executive Summary", description: "Ringkasan KPI: revenue, okupansi, risiko, ROI", needsProperty: false },
-  { type: "property", icon: FileText, title: "Analisis Properti Detail", description: "Detail unit, kontrak, dan maintenance per properti", needsProperty: true },
-  { type: "financial", icon: DollarSign, title: "Kinerja Keuangan", description: "P&L, ROI, dan analisis investasi semua properti", needsProperty: false },
-  { type: "risk", icon: Shield, title: "Penilaian Risiko", description: "Risiko bencana, tenant, dan kepatuhan", needsProperty: false },
-  { type: "investment", icon: TrendingUp, title: "Peluang Investasi", description: "Ranking ROI dan rekomendasi investasi", needsProperty: false },
+  { type: "executive", icon: BarChart3, title: "Ringkasan Eksekutif", description: "KPI utama: pendapatan, hunian, risiko, dan ROI", needsProperty: false },
+  { type: "property", icon: FileText, title: "Analisis Properti Detail", description: "Rincian unit, kontrak, dan pemeliharaan per properti", needsProperty: true },
+  { type: "financial", icon: DollarSign, title: "Kinerja Keuangan", description: "Laba Rugi (P&L), ROI, dan analisis investasi properti", needsProperty: false },
+  { type: "risk", icon: Shield, title: "Penilaian Risiko", description: "Evaluasi risiko bencana, penyewa, dan kepatuhan", needsProperty: false },
+  { type: "investment", icon: TrendingUp, title: "Peluang Investasi", description: "Peringkat ROI dan rekomendasi pengembangan aset", needsProperty: false },
 ];
 
 const METRICS = [
   { key: "revenue", label: "Pendapatan" },
-  { key: "occupancy", label: "Okupansi" },
-  { key: "roi", label: "ROI" },
+  { key: "occupancy", label: "Tingkat Hunian" },
+  { key: "roi", label: "ROI (Balik Modal)" },
   { key: "risk", label: "Skor Risiko" },
-  { key: "maintenance", label: "Maintenance" },
+  { key: "maintenance", label: "Pemeliharaan" },
 ];
 
 const DIMENSIONS = [
@@ -106,26 +106,26 @@ export default function ReportTemplates() {
             [{ metric: "Total Properti", value: String(d.totalProperties) },
              { metric: "Total Unit", value: String(d.totalUnits) },
              { metric: "Unit Terisi", value: String(d.occupiedUnits) },
-             { metric: "Okupansi", value: `${d.occupancyRate.toFixed(1)}%` },
-             { metric: "Total Revenue", value: formatRupiah(d.totalRevenue) },
-             { metric: "Maintenance Pending", value: String(d.pendingMaintenance) },
-             { metric: "Avg Risk Score", value: d.avgRiskScore.toFixed(1) }] as any,
+             { metric: "Tingkat Hunian", value: `${d.occupancyRate.toFixed(1)}%` },
+             { metric: "Total Pendapatan", value: formatRupiah(d.totalRevenue) },
+             { metric: "Pemeliharaan Tertunda", value: String(d.pendingMaintenance) },
+             { metric: "Rata-rata Skor Risiko", value: d.avgRiskScore.toFixed(1) }] as any,
             [{ key: "metric", label: "Metrik" }, { key: "value", label: "Nilai" }]
           );
           if (exportType === "pdf") {
-            exportToPDF("Executive Summary Report", html, "executive_summary");
+            exportToPDF("Laporan Ringkasan Eksekutif", html, "executive_summary");
           } else {
             exportToExcel(
               [{ metric: "Total Properti", value: d.totalProperties },
                { metric: "Total Unit", value: d.totalUnits },
-               { metric: "Okupansi", value: `${d.occupancyRate.toFixed(1)}%` },
-               { metric: "Total Revenue", value: d.totalRevenue },
-               { metric: "Maintenance Pending", value: d.pendingMaintenance }] as any,
+               { metric: "Tingkat Hunian", value: `${d.occupancyRate.toFixed(1)}%` },
+               { metric: "Total Pendapatan", value: d.totalRevenue },
+               { metric: "Pemeliharaan Tertunda", value: d.pendingMaintenance }] as any,
               "executive_summary",
               [{ key: "metric", label: "Metrik" }, { key: "value", label: "Nilai" }]
             );
           }
-          toast.success("Report berhasil di-generate!");
+          toast.success("Laporan berhasil dibuat!");
           break;
         }
         case "property": {
@@ -139,7 +139,7 @@ export default function ReportTemplates() {
             { label: "Total Unit", value: String(d.property.total_units) },
             { label: "Terisi", value: String(d.property.occupied_units) },
             { label: "Kontrak Aktif", value: String(d.activeContracts) },
-            { label: "Maintenance Total", value: String(d.maintenanceRequests.total) },
+            { label: "Total Pemeliharaan", value: String(d.maintenanceRequests.total) },
           ];
           const html = generateReportHTML(rows as any, [
             { key: "unit", label: "Unit" }, { key: "status", label: "Status" }, { key: "rent", label: "Sewa" },
@@ -151,7 +151,7 @@ export default function ReportTemplates() {
               { key: "unit", label: "Unit" }, { key: "status", label: "Status" }, { key: "rent", label: "Sewa" },
             ]);
           }
-          toast.success("Report berhasil di-generate!");
+          toast.success("Laporan berhasil dibuat!");
           break;
         }
         case "financial": {
@@ -161,18 +161,18 @@ export default function ReportTemplates() {
             name: p.name, revenue: formatRupiah(p.revenue), roi: `${p.roi.toFixed(1)}%`,
           }));
           const summary = [
-            { label: "Total Revenue", value: formatRupiah(d.totalRevenue) },
-            { label: "Total Expenses", value: formatRupiah(d.totalExpenses) },
-            { label: "Net Income", value: formatRupiah(d.totalNetIncome) },
+            { label: "Total Pendapatan", value: formatRupiah(d.totalRevenue) },
+            { label: "Total Pengeluaran", value: formatRupiah(d.totalExpenses) },
+            { label: "Pendapatan Bersih", value: formatRupiah(d.totalNetIncome) },
           ];
           const html = generateReportHTML(rows as any, [
-            { key: "name", label: "Properti" }, { key: "revenue", label: "Revenue" }, { key: "roi", label: "ROI" },
+            { key: "name", label: "Properti" }, { key: "revenue", label: "Pendapatan" }, { key: "roi", label: "ROI" },
           ], summary);
           if (exportType === "pdf") exportToPDF("Laporan Kinerja Keuangan", html, "financial_performance");
           else exportToExcel(rows as any, "financial_performance", [
-            { key: "name", label: "Properti" }, { key: "revenue", label: "Revenue" }, { key: "roi", label: "ROI" },
+            { key: "name", label: "Properti" }, { key: "revenue", label: "Pendapatan" }, { key: "roi", label: "ROI" },
           ]);
-          toast.success("Report berhasil di-generate!");
+          toast.success("Laporan berhasil dibuat!");
           break;
         }
         case "risk": {
@@ -188,7 +188,7 @@ export default function ReportTemplates() {
           ]);
           if (exportType === "pdf") exportToPDF("Laporan Penilaian Risiko", html, "risk_assessment");
           else exportToExcel(rows as any, "risk_assessment");
-          toast.success("Report berhasil di-generate!");
+          toast.success("Laporan berhasil dibuat!");
           break;
         }
         case "investment": {
@@ -200,17 +200,17 @@ export default function ReportTemplates() {
           }));
           const html = generateReportHTML(rows as any, [
             { key: "name", label: "Properti" }, { key: "roi", label: "ROI" },
-            { key: "occupancy", label: "Okupansi" }, { key: "avgRent", label: "Avg Rent" },
+            { key: "occupancy", label: "Tingkat Hunian" }, { key: "avgRent", label: "Rata-rata Sewa" },
             { key: "recommendation", label: "Rekomendasi" },
           ]);
           if (exportType === "pdf") exportToPDF("Laporan Peluang Investasi", html, "investment_opportunity");
           else exportToExcel(rows as any, "investment_opportunity");
-          toast.success("Report berhasil di-generate!");
+          toast.success("Laporan berhasil dibuat!");
           break;
         }
       }
     } catch (error) {
-      toast.error("Gagal generate report");
+      toast.error("Gagal membuat laporan");
     }
     setGenerating(false);
   };
@@ -258,7 +258,7 @@ export default function ReportTemplates() {
 
       setCustomPreview(rows);
     } catch (error) {
-      toast.error("Gagal membangun report");
+      toast.error("Gagal membangun laporan");
     }
     setBuildingCustom(false);
   };
@@ -268,7 +268,7 @@ export default function ReportTemplates() {
     const columns = Object.keys(customPreview[0]).map(k => ({ key: k as keyof typeof customPreview[0], label: k.charAt(0).toUpperCase() + k.slice(1) }));
     if (exportType === "pdf") {
       const html = generateReportHTML(customPreview, columns);
-      exportToPDF("Custom Report", html, "custom_report");
+      exportToPDF("Laporan Kustom", html, "custom_report");
     } else {
       exportToCSV(customPreview, "custom_report", columns);
     }
@@ -278,18 +278,18 @@ export default function ReportTemplates() {
     const updated = [...reminders, { schedule, template }];
     setReminders(updated);
     localStorage.setItem("report_reminders", JSON.stringify(updated));
-    toast.success(`Reminder ${schedule} untuk ${template} ditambahkan`);
+    toast.success(`Pengingat ${schedule} untuk ${template} ditambahkan`);
   };
 
   return (
     <div className="space-y-6">
-      <PageHeader icon={FileText} title="Template Laporan" description="Generate laporan standar atau buat laporan kustom" />
+      <PageHeader icon={FileText} title="Laporan" description="Hasilkan laporan standar atau buat laporan kustom untuk bisnis Anda" />
 
       <Tabs defaultValue="templates" className="space-y-4">
-        <TabsList className="pill-tab-list">
-          <TabsTrigger value="templates" className="pill-tab-trigger gap-1.5"><FileText className="h-3.5 w-3.5" /> Template Standar</TabsTrigger>
-          <TabsTrigger value="builder" className="pill-tab-trigger gap-1.5"><BarChart3 className="h-3.5 w-3.5" /> Report Builder</TabsTrigger>
-          <TabsTrigger value="schedule" className="pill-tab-trigger gap-1.5"><Calendar className="h-3.5 w-3.5" /> Jadwal</TabsTrigger>
+        <TabsList className="pill-tab-list" aria-label="Menu pelaporan">
+          <TabsTrigger value="templates" className="pill-tab-trigger gap-1.5"><FileText className="h-3.5 w-3.5" aria-hidden="true" /> Template Standar</TabsTrigger>
+          <TabsTrigger value="builder" className="pill-tab-trigger gap-1.5"><BarChart3 className="h-3.5 w-3.5" aria-hidden="true" /> Pembuat Laporan</TabsTrigger>
+          <TabsTrigger value="schedule" className="pill-tab-trigger gap-1.5"><Calendar className="h-3.5 w-3.5" aria-hidden="true" /> Jadwal Pengingat</TabsTrigger>
         </TabsList>
 
         {/* Tab 1: Standard Templates */}
@@ -299,7 +299,7 @@ export default function ReportTemplates() {
               <Card key={tmpl.type} className="rounded-2xl bg-card/90 backdrop-blur-sm border-border/40 hover:shadow-md transition-shadow">
                 <CardHeader className="pb-2">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-primary/10">
+                    <div className="p-2 rounded-xl bg-primary/10" aria-hidden="true">
                       <tmpl.icon className="h-5 w-5 text-primary" />
                     </div>
                     <div>
@@ -310,21 +310,26 @@ export default function ReportTemplates() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {tmpl.needsProperty && (
-                    <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Pilih properti" /></SelectTrigger>
-                      <SelectContent>
-                        {(properties || []).map(p => (
-                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`prop-select-${tmpl.type}`} className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-1">Pilih Properti</Label>
+                      <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
+                        <SelectTrigger id={`prop-select-${tmpl.type}`} className="h-8 text-xs rounded-lg bg-background/50" aria-label="Pilih properti untuk laporan">
+                          <SelectValue placeholder="Pilih properti" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(properties || []).map(p => (
+                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   )}
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="flex-1 text-xs gap-1" onClick={() => handleGenerate(tmpl.type, "pdf")} disabled={generating}>
-                      {generating && selectedTemplate === tmpl.type ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />} PDF
+                    <Button size="sm" variant="outline" className="flex-1 text-xs gap-1.5 rounded-lg border-primary/20 hover:bg-primary/5 hover:text-primary" onClick={() => handleGenerate(tmpl.type, "pdf")} disabled={generating}>
+                      {generating && selectedTemplate === tmpl.type ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <Download className="h-3 w-3" aria-hidden="true" />} PDF
                     </Button>
-                    <Button size="sm" variant="outline" className="flex-1 text-xs gap-1" onClick={() => handleGenerate(tmpl.type, "excel")} disabled={generating}>
-                      {generating && selectedTemplate === tmpl.type ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />} Excel
+                    <Button size="sm" variant="outline" className="flex-1 text-xs gap-1.5 rounded-lg border-primary/20 hover:bg-primary/5 hover:text-primary" onClick={() => handleGenerate(tmpl.type, "excel")} disabled={generating}>
+                      {generating && selectedTemplate === tmpl.type ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : <Download className="h-3 w-3" aria-hidden="true" />} Excel
                     </Button>
                   </div>
                 </CardContent>
@@ -335,14 +340,14 @@ export default function ReportTemplates() {
 
         {/* Tab 2: Custom Report Builder */}
         <TabsContent value="builder" className="space-y-4">
-          <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border-border/40">
-            <CardHeader><CardTitle className="text-base">Report Builder</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label className="text-sm font-medium mb-2 block">Pilih Metrik</Label>
-                <div className="flex flex-wrap gap-3">
+          <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border-border/40 shadow-sm overflow-hidden">
+            <CardHeader className="bg-muted/30 border-b border-border/40"><CardTitle className="text-base">Pembuat Laporan Kustom</CardTitle></CardHeader>
+            <CardContent className="space-y-6 pt-6">
+              <div className="space-y-3">
+                <Label className="text-sm font-semibold mb-2 block">1. Pilih Metrik Utama</Label>
+                <div className="flex flex-wrap gap-4 p-4 rounded-xl bg-muted/30 border border-border/30">
                   {METRICS.map(m => (
-                    <label key={m.key} className="flex items-center gap-2 text-sm">
+                    <label key={m.key} className="flex items-center gap-2.5 text-sm cursor-pointer hover:text-primary transition-colors">
                       <Checkbox
                         checked={selectedMetrics.includes(m.key)}
                         onCheckedChange={(checked) => {
@@ -350,6 +355,7 @@ export default function ReportTemplates() {
                             checked ? [...prev, m.key] : prev.filter(k => k !== m.key)
                           );
                         }}
+                        className="rounded-md"
                       />
                       {m.label}
                     </label>
@@ -357,10 +363,12 @@ export default function ReportTemplates() {
                 </div>
               </div>
 
-              <div>
-                <Label className="text-sm font-medium mb-2 block">Dimensi</Label>
+              <div className="space-y-3">
+                <Label htmlFor="dimension-select" className="text-sm font-semibold mb-2 block">2. Pilih Dimensi Data</Label>
                 <Select value={selectedDimension} onValueChange={setSelectedDimension}>
-                  <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="dimension-select" className="w-full sm:w-64 rounded-xl bg-background/50">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {DIMENSIONS.map(d => (
                       <SelectItem key={d.key} value={d.key}>{d.label}</SelectItem>
@@ -369,42 +377,54 @@ export default function ReportTemplates() {
                 </Select>
               </div>
 
-              <div className="flex gap-2">
-                <Button onClick={handleCustomBuild} disabled={buildingCustom} className="gradient-cta">
-                  {buildingCustom ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <BarChart3 className="h-4 w-4 mr-2" />}
-                  Generate Preview
+              <div className="flex gap-2 pt-2 border-t border-border/30">
+                <Button onClick={handleCustomBuild} disabled={buildingCustom} className="gradient-cta rounded-xl shadow-sm">
+                  {buildingCustom ? <Loader2 className="h-4 w-4 animate-spin mr-2" aria-hidden="true" /> : <BarChart3 className="h-4 w-4 mr-2" aria-hidden="true" />}
+                  Tampilkan Pratinjau
                 </Button>
               </div>
 
               {customPreview && customPreview.length > 0 && (
-                <div className="space-y-3">
-                  <div className="overflow-x-auto">
+                <div className="space-y-4 pt-4 border-t border-border/30 animate-in fade-in duration-500">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Pratinjau Laporan</h3>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => handleExportCustom("pdf")} className="gap-1.5 rounded-lg text-xs border-primary/30 hover:bg-primary/5 hover:text-primary">
+                        <Download className="h-3 w-3" aria-hidden="true" /> Ekspor PDF
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleExportCustom("csv")} className="gap-1.5 rounded-lg text-xs border-primary/30 hover:bg-primary/5 hover:text-primary">
+                        <Download className="h-3 w-3" aria-hidden="true" /> Ekspor CSV
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto rounded-xl border border-border/40">
                     <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b text-muted-foreground">
+                      <thead className="bg-muted/50 border-b border-border/40">
+                        <tr>
                           {Object.keys(customPreview[0]).map(key => (
-                            <th key={key} className="text-left py-2 px-3">{key.charAt(0).toUpperCase() + key.slice(1)}</th>
+                            <th key={key} className="text-left py-3 px-4 font-bold text-[10px] uppercase tracking-wider">
+                              {key === 'name' ? 'Nama' : 
+                               key === 'revenue' ? 'Pendapatan' : 
+                               key === 'occupancy' ? 'Okupansi' : 
+                               key === 'roi' ? 'ROI' : 
+                               key === 'riskScore' ? 'Skor Risiko' : 
+                               key === 'maintenance' ? 'Pemeliharaan' : key}
+                            </th>
                           ))}
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody className="divide-y divide-border/30 bg-card/40">
                         {customPreview.map((row, i) => (
-                          <tr key={i} className="border-b border-border/30">
-                            {Object.values(row).map((val, j) => (
-                              <td key={j} className="py-2 px-3">{String(val ?? "")}</td>
+                          <tr key={i} className="hover:bg-primary/5 transition-colors">
+                            {Object.entries(row).map(([key, val], j) => (
+                              <td key={j} className="py-3 px-4 font-medium text-xs">
+                                {key === 'revenue' ? formatRupiah(Number(val)) : String(val ?? "-")}
+                              </td>
                             ))}
                           </tr>
                         ))}
                       </tbody>
                     </table>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => handleExportCustom("pdf")} className="gap-1">
-                      <Download className="h-3 w-3" /> Export PDF
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleExportCustom("csv")} className="gap-1">
-                      <Download className="h-3 w-3" /> Export CSV
-                    </Button>
                   </div>
                 </div>
               )}
@@ -414,49 +434,70 @@ export default function ReportTemplates() {
 
         {/* Tab 3: Schedule & Limitations */}
         <TabsContent value="schedule" className="space-y-4">
-          <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border-border/40">
-            <CardHeader><CardTitle className="text-base flex items-center gap-2"><Clock className="h-4 w-4" /> Jadwal Reminder Report</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="p-3 rounded-xl bg-muted/50 border border-border/40 flex items-start gap-2">
-                <AlertCircle className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                <p className="text-xs text-muted-foreground">
-                  Automated report generation memerlukan infrastruktur cron job. Saat ini tersedia sebagai reminder manual — Anda akan diingatkan untuk generate report pada jadwal yang ditentukan.
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-muted/50 border border-border/40 flex items-start gap-2">
-                <AlertCircle className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                <p className="text-xs text-muted-foreground">
-                  Email report ke stakeholder memerlukan integrasi email pihak ketiga yang belum tersedia di platform ini.
-                </p>
+          <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border-border/40 shadow-sm">
+            <CardHeader><CardTitle className="text-base flex items-center gap-2"><Clock className="h-4 w-4" aria-hidden="true" /> Jadwal Pengingat Laporan</CardTitle></CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="p-4 rounded-2xl bg-muted/40 border border-border/40 flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-background shadow-sm" aria-hidden="true">
+                    <AlertCircle className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold uppercase tracking-tight">Catatan Sistem</p>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Laporan otomatis memerlukan infrastruktur terjadwal. Saat ini tersedia sebagai pengingat manual di dashboard Anda.
+                    </p>
+                  </div>
+                </div>
+                <div className="p-4 rounded-2xl bg-muted/40 border border-border/40 flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-background shadow-sm" aria-hidden="true">
+                    <AlertCircle className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold uppercase tracking-tight">Pengiriman Email</p>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Fitur kirim laporan otomatis ke email pemangku kepentingan akan tersedia pada pembaruan mendatang.
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                {TEMPLATES.map(t => (
-                  <div key={t.type} className="flex gap-1">
-                    <Button size="sm" variant="outline" className="text-xs" onClick={() => addReminder("Mingguan", t.title)}>
-                      <Calendar className="h-3 w-3 mr-1" /> {t.title} — Mingguan
+              <div className="space-y-3">
+                <Label className="text-sm font-semibold">Tambah Pengingat Mingguan</Label>
+                <div className="flex flex-wrap gap-2">
+                  {TEMPLATES.map(t => (
+                    <Button key={t.type} size="sm" variant="outline" className="text-xs rounded-lg border-primary/20 hover:bg-primary/5 hover:text-primary gap-1.5" onClick={() => addReminder("Mingguan", t.title)}>
+                      <Calendar className="h-3 w-3" aria-hidden="true" /> {t.title}
                     </Button>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
 
               {reminders.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Reminder Aktif</Label>
-                  {reminders.map((r, i) => (
-                    <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-muted/30 border border-border/30">
-                      <div className="flex items-center gap-2 text-sm">
-                        <CheckSquare className="h-3.5 w-3.5 text-primary" />
-                        <span>{r.template}</span>
-                        <Badge variant="secondary" className="text-xs rounded-full">{r.schedule}</Badge>
+                <div className="space-y-3 pt-4 border-t border-border/30">
+                  <Label className="text-sm font-semibold flex items-center gap-2">
+                    <CheckSquare className="h-4 w-4 text-primary" aria-hidden="true" /> Pengingat Aktif
+                  </Label>
+                  <div className="grid gap-2">
+                    {reminders.map((r, i) => (
+                      <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-card/60 border border-border/30 group hover:border-primary/30 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center" aria-hidden="true">
+                            <Calendar className="h-4 w-4 text-primary" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold">{r.template}</p>
+                            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{r.schedule}</p>
+                          </div>
+                        </div>
+                        <Button size="sm" variant="ghost" className="text-xs h-8 rounded-lg text-destructive hover:bg-destructive/10" onClick={() => {
+                          const updated = reminders.filter((_, idx) => idx !== i);
+                          setReminders(updated);
+                          localStorage.setItem("report_reminders", JSON.stringify(updated));
+                        }}>Hapus</Button>
                       </div>
-                      <Button size="sm" variant="ghost" className="text-xs h-6" onClick={() => {
-                        const updated = reminders.filter((_, idx) => idx !== i);
-                        setReminders(updated);
-                        localStorage.setItem("report_reminders", JSON.stringify(updated));
-                      }}>Hapus</Button>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
             </CardContent>

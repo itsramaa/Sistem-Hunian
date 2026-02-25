@@ -28,7 +28,6 @@ export const COST_TYPE_OPTIONS = [
 export const WIFI_SHARING_OPTIONS = [
   { value: 'included', label: 'Sudah Termasuk Sewa' },
   { value: 'patungan', label: 'Patungan' },
-  { value: 'separate', label: 'Bayar Sendiri' },
 ] as const;
 
 export const SALARY_FREQUENCY_OPTIONS = [

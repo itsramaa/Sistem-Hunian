@@ -58,10 +58,10 @@ export default function MerchantContractDetail() {
   if (!contract) {
     return (
       <div className="space-y-6">
-        <Button variant="ghost" onClick={() => navigate('/merchant/contracts')} className="gap-2"><ArrowLeft className="h-4 w-4" /> Back</Button>
+        <Button variant="ghost" onClick={() => navigate('/merchant/contracts')} className="gap-2"><ArrowLeft className="h-4 w-4" /> Kembali</Button>
         <div className="text-center py-16">
           <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h2 className="text-xl font-semibold">Contract not found</h2>
+          <h2 className="text-xl font-semibold">Kontrak tidak ditemukan</h2>
         </div>
       </div>
     );
@@ -69,27 +69,36 @@ export default function MerchantContractDetail() {
 
   return (
     <div className="space-y-6">
-      <Button variant="ghost" onClick={() => navigate('/merchant/contracts')} className="gap-2 px-3 py-1.5 rounded-full bg-card/80 backdrop-blur-sm border border-border/40 hover:bg-card">
-          <ArrowLeft className="h-4 w-4" /> Kembali ke Kontrak
-        </Button>
+      <Button 
+        variant="ghost" 
+        onClick={() => navigate('/merchant/contracts')} 
+        className="gap-2 px-3 py-1.5 rounded-full bg-card/80 backdrop-blur-sm border border-border/40 hover:bg-card"
+        aria-label="Kembali ke daftar kontrak"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Kembali ke Kontrak
+      </Button>
 
       <div className="flex items-center justify-between flex-wrap gap-4">
-        <PageHeader icon={FileText} title="Detail Kontrak" description={`${contract.unit?.property?.name || 'Properti'} - Unit ${contract.unit?.unit_number}`} />
+        <PageHeader 
+          icon={FileText} 
+          title="Detail Kontrak" 
+          description={`${contract.unit?.property?.name || 'Properti'} - Unit ${contract.unit?.unit_number}`} 
+        />
         <ContractStatusBadge status={contract.status} />
       </div>
 
       {/* KPI Strip */}
       {kpis && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" role="region" aria-label="Ringkasan kontrak">
           {[
-            { label: 'Contract Value', value: formatCurrency(kpis.totalValue), icon: DollarSign },
-            { label: 'Monthly Rent', value: formatCurrency(contract.rent_amount), icon: TrendingUp },
-            { label: 'Duration', value: `${kpis.totalMonths} months`, icon: Calendar },
-            { label: 'Days Remaining', value: kpis.daysRemaining > 0 ? `${kpis.daysRemaining} days` : 'Expired', icon: Timer },
+            { label: 'Nilai Kontrak', value: formatCurrency(kpis.totalValue), icon: DollarSign },
+            { label: 'Sewa Bulanan', value: formatCurrency(contract.rent_amount), icon: TrendingUp },
+            { label: 'Durasi', value: `${kpis.totalMonths} bulan`, icon: Calendar },
+            { label: 'Sisa Hari', value: kpis.daysRemaining > 0 ? `${kpis.daysRemaining} hari` : 'Kedaluwarsa', icon: Timer },
           ].map((kpi, i) => (
             <div key={i} className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-4 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
               <div className="flex items-center gap-2 mb-2">
-                <div className="gradient-icon-box w-8 h-8"><kpi.icon className="h-4 w-4 text-primary" /></div>
+                <div className="gradient-icon-box w-8 h-8" aria-hidden="true"><kpi.icon className="h-4 w-4 text-primary" /></div>
                 <span className="text-xs text-muted-foreground uppercase tracking-wider">{kpi.label}</span>
               </div>
               <p className="text-xl font-bold">{kpi.value}</p>
@@ -106,18 +115,22 @@ export default function MerchantContractDetail() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="gradient-icon-box w-10 h-10"><Home className="h-5 w-5 text-primary" /></div>
-                  <h3 className="font-semibold">Property</h3>
+                  <div className="gradient-icon-box w-10 h-10" aria-hidden="true"><Home className="h-5 w-5 text-primary" /></div>
+                  <h3 className="font-semibold">Properti</h3>
                 </div>
                 <div className="space-y-2 pl-[52px]">
                   {contract.unit?.property?.id ? (
-                    <Link to={`/merchant/properties/${contract.unit.property.id}`} className="font-medium hover:underline text-primary">{contract.unit.property.name}</Link>
+                    <Link to={`/merchant/properties/${contract.unit.property.id}`} className="font-medium hover:underline text-primary" aria-label={`Lihat properti ${contract.unit.property.name}`}>
+                      {contract.unit.property.name}
+                    </Link>
                   ) : (
                     <p className="font-medium">{contract.unit?.property?.name}</p>
                   )}
                   <p className="text-sm text-muted-foreground">{contract.unit?.property?.address}, {contract.unit?.property?.city}</p>
                   {contract.unit?.id ? (
-                    <Link to={`/merchant/units/${contract.unit.id}`} className="text-sm hover:underline text-primary">Unit {contract.unit.unit_number}</Link>
+                    <Link to={`/merchant/units/${contract.unit.id}`} className="text-sm hover:underline text-primary" aria-label={`Lihat unit ${contract.unit.unit_number}`}>
+                      Unit {contract.unit.unit_number}
+                    </Link>
                   ) : (
                     <p className="text-sm text-muted-foreground">Unit {contract.unit?.unit_number}</p>
                   )}
@@ -125,11 +138,13 @@ export default function MerchantContractDetail() {
               </div>
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="gradient-icon-box w-10 h-10"><User className="h-5 w-5 text-primary" /></div>
-                  <h3 className="font-semibold">Tenant</h3>
+                  <div className="gradient-icon-box w-10 h-10" aria-hidden="true"><User className="h-5 w-5 text-primary" /></div>
+                  <h3 className="font-semibold">Penyewa</h3>
                 </div>
                 <div className="space-y-2 pl-[52px]">
-                  <Link to={`/merchant/tenants/${contract.tenant_user_id}`} className="font-medium hover:underline text-primary">{tenantProfile?.full_name || 'Unknown'}</Link>
+                  <Link to={`/merchant/tenants/${contract.tenant_user_id}`} className="font-medium hover:underline text-primary" aria-label={`Lihat profil penyewa ${tenantProfile?.full_name || 'Tidak Diketahui'}`}>
+                    {tenantProfile?.full_name || 'Tidak Diketahui'}
+                  </Link>
                   <p className="text-sm text-muted-foreground">{tenantProfile?.email}</p>
                   {tenantProfile?.phone && <p className="text-sm text-muted-foreground">{tenantProfile.phone}</p>}
                 </div>
@@ -138,13 +153,13 @@ export default function MerchantContractDetail() {
           </div>
 
           {/* Contract Details Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4" role="region" aria-label="Rincian kontrak">
             {[
-              { label: 'Start Date', value: format(new Date(contract.start_date), 'MMM dd, yyyy') },
-              { label: 'End Date', value: format(new Date(contract.end_date), 'MMM dd, yyyy') },
-              { label: 'Monthly Rent', value: formatCurrency(contract.rent_amount) },
+              { label: 'Tanggal Mulai', value: format(new Date(contract.start_date), 'dd MMM yyyy') },
+              { label: 'Tanggal Selesai', value: format(new Date(contract.end_date), 'dd MMM yyyy') },
+              { label: 'Sewa Bulanan', value: formatCurrency(contract.rent_amount) },
               { label: 'Deposit', value: formatCurrency(contract.deposit_amount || 0) },
-              { label: 'Signatures', value: <SignatureStatusBadge contract={contract} /> },
+              { label: 'Status Tanda Tangan', value: <SignatureStatusBadge contract={contract} /> },
             ].map((item, i) => (
               <div key={i} className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-4 hover:bg-primary/5 transition-all">
                 <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">{item.label}</p>
@@ -155,21 +170,21 @@ export default function MerchantContractDetail() {
 
           {/* Signatures */}
           <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-4">
-            <h3 className="font-semibold text-lg">Signatures</h3>
+            <h3 className="font-semibold text-lg">Tanda Tangan</h3>
             <div className="grid grid-cols-2 gap-4">
               {[
-                { label: 'Tenant Signature', url: contract.tenant_signature_url, date: contract.tenant_signed_at },
-                { label: 'Merchant Signature', url: contract.merchant_signature_url, date: contract.merchant_signed_at },
+                { label: 'Tanda Tangan Penyewa', url: contract.tenant_signature_url, date: contract.tenant_signed_at },
+                { label: 'Tanda Tangan Merchant', url: contract.merchant_signature_url, date: contract.merchant_signed_at },
               ].map((sig, i) => (
                 <div key={i} className={`rounded-xl border p-4 ${sig.url ? 'border-green-500/30 bg-green-500/5' : 'border-border/40 bg-muted/20'}`}>
                   <p className="text-sm text-muted-foreground mb-2">{sig.label}</p>
                   {sig.url ? (
                     <>
                       <img src={sig.url} alt={sig.label} className="max-h-16 object-contain" />
-                      <p className="text-xs text-muted-foreground mt-2">Signed: {sig.date && format(new Date(sig.date), 'MMM dd, yyyy h:mm a')}</p>
+                      <p className="text-xs text-muted-foreground mt-2">Ditandatangani: {sig.date && format(new Date(sig.date), 'dd MMM yyyy HH:mm')}</p>
                     </>
                   ) : (
-                    <p className="text-sm text-muted-foreground italic">Not signed yet</p>
+                    <p className="text-sm text-muted-foreground italic">Belum ditandatangani</p>
                   )}
                 </div>
               ))}
@@ -178,13 +193,13 @@ export default function MerchantContractDetail() {
 
           {/* Terms */}
           <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6">
-            <h3 className="font-semibold text-lg mb-3">Terms & Conditions</h3>
+            <h3 className="font-semibold text-lg mb-3">Syarat & Ketentuan</h3>
             {contract.terms ? (
               <div className="prose prose-sm max-w-none text-muted-foreground">
                 <p className="whitespace-pre-wrap">{contract.terms}</p>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground italic">No terms specified.</p>
+              <p className="text-sm text-muted-foreground italic">Tidak ada syarat yang ditentukan.</p>
             )}
           </div>
         </div>
@@ -194,9 +209,9 @@ export default function MerchantContractDetail() {
           {/* Contract Progress */}
           {kpis && (
             <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-4">
-              <h3 className="font-semibold text-lg">Contract Progress</h3>
-              <Progress value={kpis.progress} className="h-2" />
-              <div className="flex justify-between text-xs text-muted-foreground">
+              <h3 className="font-semibold text-lg">Kemajuan Kontrak</h3>
+              <Progress value={kpis.progress} className="h-2" aria-label={`Kemajuan kontrak: ${Math.round(kpis.progress)}%`} />
+              <div className="flex justify-between text-xs text-muted-foreground" aria-hidden="true">
                 <span>{format(new Date(contract.start_date), 'MMM yyyy')}</span>
                 <span>{Math.round(kpis.progress)}%</span>
                 <span>{format(new Date(contract.end_date), 'MMM yyyy')}</span>
@@ -206,11 +221,11 @@ export default function MerchantContractDetail() {
 
           {/* Quick Actions */}
           <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-3">
-            <h3 className="font-semibold text-lg mb-2">Actions</h3>
+            <h3 className="font-semibold text-lg mb-2">Aksi</h3>
             {contract.contract_document_url && (
-              <Button variant="outline" className="w-full rounded-xl gap-2" asChild>
+              <Button variant="outline" className="w-full rounded-xl gap-2" asChild aria-label="Unduh dokumen kontrak">
                 <a href={contract.contract_document_url} target="_blank" rel="noopener noreferrer">
-                  <Download className="h-4 w-4" /> Download Contract
+                  <Download className="h-4 w-4" aria-hidden="true" /> Unduh Kontrak
                 </a>
               </Button>
             )}
@@ -218,7 +233,11 @@ export default function MerchantContractDetail() {
 
           {/* Document Upload */}
           <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6">
-            <ContractDocumentUpload contractId={contract.id} currentDocumentUrl={contract.contract_document_url} onUploadComplete={() => {}} />
+            <ContractDocumentUpload 
+              contractId={contract.id} 
+              currentDocumentUrl={contract.contract_document_url} 
+              onUploadComplete={() => {}} 
+            />
           </div>
         </div>
       </div>

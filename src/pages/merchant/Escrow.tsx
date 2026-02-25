@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/aler
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Label } from '@/shared/components/ui/label';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { TabsPageSkeleton } from '@/shared/components/ui/PageSkeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
@@ -60,93 +61,100 @@ export default function MerchantEscrow() {
       />
 
       {/* On-Demand Disbursement */}
-      <Card className="border-primary/20">
+      <Card className="border-primary/20 bg-card/90 backdrop-blur-sm rounded-2xl overflow-hidden shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Send className="h-5 w-5" />
-            Request Disbursement Now
+            <div className="p-2 rounded-xl bg-primary/10" aria-hidden="true">
+              <Send className="h-5 w-5 text-primary" />
+            </div>
+            Ajukan Pencairan Sekarang
           </CardTitle>
           <CardDescription>
-            Get your available balance transferred immediately with a 0.5% fee
+            Cairkan saldo yang tersedia segera dengan biaya admin 0,5%
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-            <div>
-              <p className="text-sm text-muted-foreground">Available for Disbursement</p>
-              <p className="text-2xl font-bold text-success">{formatCurrency(balance)}</p>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between p-5 rounded-2xl bg-muted/30 border border-border/40 gap-4">
+            <div className="text-center sm:text-left">
+              <p className="text-sm text-muted-foreground uppercase tracking-wider font-bold">Tersedia untuk Dicairkan</p>
+              <p className="text-3xl font-bold text-success mt-1">{formatCurrency(balance)}</p>
               {balance > 0 && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Fee: {formatCurrency(feeAmount)} • You receive: {formatCurrency(netAmount)}
+                <p className="text-xs text-muted-foreground mt-1 font-medium">
+                  Biaya: {formatCurrency(feeAmount)} • Anda menerima: {formatCurrency(netAmount)}
                 </p>
               )}
             </div>
             <Button
               onClick={() => setDisbursementDialogOpen(true)}
               disabled={balance <= 0 || !bankAccount}
-              className="gradient-primary"
+              className="gradient-cta rounded-xl shadow-md w-full sm:w-auto"
+              aria-label="Cairkan dana sekarang"
             >
-              <Send className="h-4 w-4 mr-2" />
-              Request Now
+              <Send className="h-4 w-4 mr-2" aria-hidden="true" />
+              Cairkan Sekarang
             </Button>
           </div>
           {balance > 0 && balance < minDisbursementAmount && (
-            <Alert className="mt-3">
+            <Alert className="rounded-xl border-warning/30 bg-warning/5 text-warning-foreground">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Minimum disbursement amount is {formatCurrency(minDisbursementAmount)}. Current balance: {formatCurrency(balance)}
+              <AlertDescription className="text-xs font-medium">
+                Jumlah pencairan minimum adalah {formatCurrency(minDisbursementAmount)}. Saldo saat ini: {formatCurrency(balance)}
               </AlertDescription>
             </Alert>
           )}
           {!bankAccount && (
-            <Alert variant="destructive" className="mt-3">
+            <Alert variant="destructive" className="rounded-xl bg-destructive/5 text-destructive border-destructive/20">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Bank Account Required</AlertTitle>
-              <AlertDescription className="flex items-center justify-between">
-                <span>Please add a primary bank account before requesting disbursement.</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate('/merchant/settings?tab=bank')}
-                  className="ml-2"
-                >
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  Add Bank Account
-                </Button>
-              </AlertDescription>
+              <div className="flex-1">
+                <AlertTitle className="text-sm font-bold">Rekening Bank Diperlukan</AlertTitle>
+                <AlertDescription className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-1">
+                  <span className="text-xs">Harap tambahkan rekening bank utama sebelum mengajukan pencairan dana.</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate('/merchant/settings?tab=bank')}
+                    className="rounded-lg text-[10px] h-8 bg-background/50"
+                  >
+                    <CreditCard className="h-3 w-3 mr-1.5" />
+                    Tambah Rekening
+                  </Button>
+                </AlertDescription>
+              </div>
             </Alert>
           )}
         </CardContent>
       </Card>
 
       {/* Disbursement Schedule */}
-      <Card>
+      <Card className="bg-card/90 backdrop-blur-sm rounded-2xl overflow-hidden border-border/40 shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Disbursement Schedule
+            <div className="p-2 rounded-xl bg-accent/10" aria-hidden="true">
+              <Calendar className="h-5 w-5 text-accent" />
+            </div>
+            Jadwal Pencairan Otomatis
           </CardTitle>
           <CardDescription>
-            Choose when you want to receive your funds automatically
+            Pilih frekuensi pengiriman dana Anda secara otomatis
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Current Schedule</label>
+            <div className="space-y-2">
+              <Label htmlFor="disbursement_schedule" className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Jadwal Saat Ini</Label>
               <Select
                 value={merchantData?.disbursement_schedule || 'weekly'}
                 onValueChange={(value) => updateSchedule.mutate(value)}
               >
-                <SelectTrigger>
+                <SelectTrigger id="disbursement_schedule" className="rounded-xl bg-background/60 border-border/50 h-11">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="rounded-xl border-border/40 bg-popover/95 backdrop-blur-xl">
                   {DISBURSEMENT_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
+                    <SelectItem key={option.value} value={option.value} className="rounded-lg">
                       <div className="flex items-center gap-2">
-                        <span>{option.label}</span>
-                        <Badge variant="outline" className="text-xs">
+                        <span className="font-medium">{option.label}</span>
+                        <Badge variant="outline" className="text-[10px] rounded-full px-2 py-0 h-5 bg-primary/5 border-primary/20 text-primary">
                           {option.fee}
                         </Badge>
                       </div>
@@ -155,17 +163,17 @@ export default function MerchantEscrow() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="bg-muted/50 rounded-lg p-4">
-              <div className="flex items-start gap-2">
-                <Info className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="font-medium">
-                    {DISBURSEMENT_OPTIONS.find(o => o.value === (merchantData?.disbursement_schedule || 'weekly'))?.label}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {DISBURSEMENT_OPTIONS.find(o => o.value === (merchantData?.disbursement_schedule || 'weekly'))?.description}
-                  </p>
-                </div>
+            <div className="bg-muted/20 rounded-2xl p-5 border border-border/40 flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-background/50 border border-border/20 shadow-sm" aria-hidden="true">
+                <Info className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="font-bold text-sm">
+                  {DISBURSEMENT_OPTIONS.find(o => o.value === (merchantData?.disbursement_schedule || 'weekly'))?.label}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  {DISBURSEMENT_OPTIONS.find(o => o.value === (merchantData?.disbursement_schedule || 'weekly'))?.description}
+                </p>
               </div>
             </div>
           </div>

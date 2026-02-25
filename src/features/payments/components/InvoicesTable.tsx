@@ -57,12 +57,12 @@ export const InvoicesTable = ({
         <Table>
           <TableHeader>
             <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b-0">
-              <TableHead className="font-semibold text-xs uppercase tracking-wider">Invoice #</TableHead>
-              <TableHead className="font-semibold text-xs uppercase tracking-wider">Description</TableHead>
-              <TableHead className="font-semibold text-xs uppercase tracking-wider">Amount</TableHead>
-              <TableHead className="font-semibold text-xs uppercase tracking-wider">Due Date</TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wider">Faktur #</TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wider">Deskripsi</TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wider">Jumlah</TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wider">Jatuh Tempo</TableHead>
               <TableHead className="font-semibold text-xs uppercase tracking-wider">Status</TableHead>
-              <TableHead className="text-right font-semibold text-xs uppercase tracking-wider">Actions</TableHead>
+              <TableHead className="text-right font-semibold text-xs uppercase tracking-wider">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -82,13 +82,21 @@ export const InvoicesTable = ({
     );
   }
 
+  const statusLabels: Record<string, string> = {
+    draft: 'Draf',
+    sent: 'Terkirim',
+    paid: 'Lunas',
+    overdue: 'Jatuh Tempo',
+    cancelled: 'Dibatalkan'
+  };
+
   if (invoices.length === 0) {
     return (
       <div className="glass-table">
         <EmptyState
           icon={FileText}
-          title="No invoices found"
-          description="Create a new invoice to get started."
+          title="Tagihan tidak ditemukan"
+          description="Buat tagihan baru untuk memulai."
         />
       </div>
     );
@@ -99,12 +107,12 @@ export const InvoicesTable = ({
       <Table>
         <TableHeader>
           <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b-0">
-            <TableHead className="font-semibold text-xs uppercase tracking-wider">Invoice #</TableHead>
-            <TableHead className="font-semibold text-xs uppercase tracking-wider">Description</TableHead>
-            <TableHead className="font-semibold text-xs uppercase tracking-wider">Amount</TableHead>
-            <TableHead className="font-semibold text-xs uppercase tracking-wider">Due Date</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Faktur #</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Deskripsi</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Jumlah</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Jatuh Tempo</TableHead>
             <TableHead className="font-semibold text-xs uppercase tracking-wider">Status</TableHead>
-            <TableHead className="text-right font-semibold text-xs uppercase tracking-wider">Actions</TableHead>
+            <TableHead className="text-right font-semibold text-xs uppercase tracking-wider">Aksi</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -115,29 +123,29 @@ export const InvoicesTable = ({
                 {invoice.description || '-'}
               </TableCell>
               <TableCell>{formatCurrency(Number(invoice.total_amount))}</TableCell>
-              <TableCell>{format(new Date(invoice.due_date), 'MMM d, yyyy')}</TableCell>
+              <TableCell>{format(new Date(invoice.due_date), 'dd MMM yyyy')}</TableCell>
               <TableCell>
                 <Badge variant={getInvoiceStatusColor(invoice.status)}>
-                  {invoice.status}
+                  {statusLabels[invoice.status] || invoice.status}
                 </Badge>
               </TableCell>
               <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0">
-                      <span className="sr-only">Open menu</span>
-                      <MoreHorizontal className="h-4 w-4" />
+                    <Button variant="ghost" className="h-8 w-8 p-0" aria-label={`Menu aksi untuk faktur ${invoice.invoice_number}`}>
+                      <span className="sr-only">Buka menu</span>
+                      <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="rounded-xl">
-                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                    <DropdownMenuLabel>Aksi</DropdownMenuLabel>
                     <DropdownMenuItem onClick={() => onView(invoice)}>
-                      <Eye className="mr-2 h-4 w-4" />
-                      View Details
+                      <Eye className="mr-2 h-4 w-4" aria-hidden="true" />
+                      Lihat Detail
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => onDownload(invoice.id)}>
-                      <Download className="mr-2 h-4 w-4" />
-                      Download PDF
+                      <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+                      Unduh PDF
                     </DropdownMenuItem>
                     
                     {(invoice.status === 'draft' || invoice.status === 'sent' || invoice.status === 'overdue') && (
@@ -150,11 +158,11 @@ export const InvoicesTable = ({
                         disabled={sendingId === invoice.id}
                       >
                         {sendingId === invoice.id ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
                         ) : (
-                          <Send className="mr-2 h-4 w-4" />
+                          <Send className="mr-2 h-4 w-4" aria-hidden="true" />
                         )}
-                        Send Invoice
+                        Kirim Faktur
                       </DropdownMenuItem>
                     )}
 
@@ -164,11 +172,11 @@ export const InvoicesTable = ({
                         disabled={remindingId === invoice.id}
                       >
                         {remindingId === invoice.id ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
                         ) : (
-                          <Bell className="mr-2 h-4 w-4" />
+                          <Bell className="mr-2 h-4 w-4" aria-hidden="true" />
                         )}
-                        Send Reminder
+                        Kirim Pengingat
                       </DropdownMenuItem>
                     )}
                   </DropdownMenuContent>
@@ -185,7 +193,7 @@ export const InvoicesTable = ({
         totalItems={totalInvoices}
         itemsPerPage={itemsPerPage}
         onPageChange={onPageChange}
-        itemLabel="invoices"
+        itemLabel="tagihan"
       />
     </div>
   );

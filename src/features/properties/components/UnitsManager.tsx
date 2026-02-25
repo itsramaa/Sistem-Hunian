@@ -17,6 +17,7 @@ import { useUnits } from '../hooks/useUnits';
 import { Unit, Property } from '../types';
 import { UnitFormDialog } from './UnitFormDialog';
 import { UnitFormData } from '../types/schema';
+import { formatLabel } from '@/shared/utils/utils';
 
 interface UnitsManagerProps {
   propertyId: string;
@@ -126,7 +127,7 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
   };
 
   const handleDuplicate = (unit: Unit) => {
-    const duplicated = { ...unit, id: '', unit_number: `${unit.unit_number}-copy` };
+    const duplicated = { ...unit, id: '', unit_number: `${unit.unit_number}-salinan` };
     setEditingUnit(duplicated as any);
     setShowUnitDialog(true);
   };
@@ -153,6 +154,13 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
   const totalPages = Math.ceil(units.length / ITEMS_PER_PAGE);
   const paginatedUnits = viewMode === 'list' ? units.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE) : units.slice(0, galleryCount);
 
+  const statusLabels: Record<string, string> = {
+    available: 'Tersedia',
+    occupied: 'Terisi',
+    maintenance: 'Perbaikan',
+    reserved: 'Dipesan',
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] w-[95vw] rounded-2xl flex flex-col overflow-hidden">
@@ -163,7 +171,7 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
               <div className="gradient-icon-box">
                 <Home className="h-5 w-5 text-primary" />
               </div>
-              Units - {propertyName}
+              Unit - {propertyName}
             </DialogTitle>
             <DialogDescription>Kelola unit untuk properti ini</DialogDescription>
           </DialogHeader>
@@ -254,9 +262,9 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
                       <CardContent className="p-3">
                         <div className="flex items-center justify-between mb-1">
                           <p className="font-medium text-sm">Unit {unit.unit_number}</p>
-                          <Badge variant="outline" className={`rounded-full text-[10px] ${statusColors[unit.status || 'available']}`}>{unit.status}</Badge>
+                          <Badge variant="outline" className={`rounded-full text-[10px] ${statusColors[unit.status || 'available']}`}>{statusLabels[unit.status || ''] || unit.status}</Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground capitalize mb-2">{unit.unit_type} {unit.floor ? `• Lt ${unit.floor}` : ''}</p>
+                        <p className="text-xs text-muted-foreground mb-2">{formatLabel(unit.unit_type)} {unit.floor ? `• Lt ${unit.floor}` : ''}</p>
                         <p className="font-semibold text-sm">{formatCurrency(unit.rent_amount)}/bln</p>
                         <div className="mt-2 flex gap-1" onClick={(e) => e.stopPropagation()}>
                           <Button variant="outline" size="sm" className="h-7 text-xs rounded-lg flex-1" onClick={() => handleEdit(unit)}>
@@ -284,11 +292,11 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
                           </div>
                           <div className="min-w-0">
                             <p className="font-medium text-sm">Unit {unit.unit_number}</p>
-                            <p className="text-xs text-muted-foreground capitalize truncate">{unit.unit_type} {unit.floor ? `• Lt ${unit.floor}` : ''} • {formatCurrency(unit.rent_amount)}/bln</p>
+                            <p className="text-xs text-muted-foreground truncate">{formatLabel(unit.unit_type)} {unit.floor ? `• Lt ${unit.floor}` : ''} • {formatCurrency(unit.rent_amount)}/bln</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
-                          <Badge variant="outline" className={`rounded-full text-[10px] ${statusColors[unit.status || 'available']}`}>{unit.status}</Badge>
+                          <Badge variant="outline" className={`rounded-full text-[10px] ${statusColors[unit.status || 'available']}`}>{statusLabels[unit.status || ''] || unit.status}</Badge>
                           <Button variant="outline" size="sm" className="h-7 text-xs rounded-lg" onClick={() => handleEdit(unit)}>
                             <Edit className="h-3 w-3" />
                           </Button>
@@ -310,8 +318,8 @@ export function UnitsManager({ propertyId, propertyName, propertyType, open, onO
                 <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/40">
                   <p className="text-xs text-muted-foreground">Hal {page} dari {totalPages}</p>
                   <div className="flex gap-1">
-                    <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Prev</Button>
-                    <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next</Button>
+                    <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Sebaliknya</Button>
+                    <Button variant="outline" size="sm" className="h-7 rounded-lg" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Selanjutnya</Button>
                   </div>
                 </div>
               )}

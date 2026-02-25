@@ -69,63 +69,63 @@ export default function MerchantReports() {
 
   const kpiCards = [
     {
-      label: "Total Revenue",
+      label: "Total Pendapatan",
       value: formatCurrency(totalRevenue),
       icon: DollarSign,
       iconBg: "from-success/20 to-success/5",
       iconColor: "text-success",
       trend: revenueChange,
-      trendLabel: `${revenueChange >= 0 ? '+' : ''}${revenueChange}% from previous period`,
+      trendLabel: `${revenueChange >= 0 ? '+' : ''}${revenueChange}% dari periode sebelumnya`,
     },
     {
-      label: "Occupancy Rate",
+      label: "Tingkat Hunian",
       value: `${occupancyRate}%`,
       icon: Building2,
       iconBg: "from-info/20 to-info/5",
       iconColor: "text-info",
-      subtext: `${occupiedUnits} of ${totalUnits} units`,
+      subtext: `${occupiedUnits} dari ${totalUnits} unit`,
     },
     {
-      label: "Pending Payments",
+      label: "Pembayaran Tertunda",
       value: formatCurrency(pendingPayments),
       icon: DollarSign,
       iconBg: "from-warning/20 to-warning/5",
       iconColor: "text-warning",
-      subtext: `${payments.filter(p => p.status === 'pending').length} invoices due`,
+      subtext: `${payments.filter(p => p.status === 'pending').length} tagihan jatuh tempo`,
     },
     {
-      label: "Active Requests",
+      label: "Permintaan Aktif",
       value: `${maintenanceRequests.filter(r => r.status !== 'completed').length}`,
       icon: Wrench,
       iconBg: "from-accent/20 to-accent/5",
       iconColor: "text-accent-foreground",
-      subtext: `${maintenanceRequests.filter(r => r.status === 'completed').length} completed`,
+      subtext: `${maintenanceRequests.filter(r => r.status === 'completed').length} selesai`,
     },
   ];
 
   return (
     <div className="space-y-6">
-      <PageHeader icon={BarChart3} title="Reports & Analytics" description="Track your property performance">
+      <PageHeader icon={BarChart3} title="Laporan & Analitik" description="Pantau performa properti Anda">
         <div className="flex items-center gap-2 flex-wrap">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" disabled={!!exportLoading} className="rounded-xl">
                 {exportLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-                Export
+                Ekspor
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="rounded-xl">
               <DropdownMenuItem onClick={handleExportPDF} disabled={!!exportLoading}>
                 <FileText className="h-4 w-4 mr-2" />
-                Export as PDF
+                Ekspor sebagai PDF
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleExportPaymentsCSV} disabled={!!exportLoading}>
                 <Table2 className="h-4 w-4 mr-2" />
-                Export Payments (CSV)
+                Ekspor Pembayaran (CSV)
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleExportMaintenanceCSV} disabled={!!exportLoading}>
                 <Table2 className="h-4 w-4 mr-2" />
-                Export Maintenance (CSV)
+                Ekspor Pemeliharaan (CSV)
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -136,17 +136,17 @@ export default function MerchantReports() {
           {customDateRange.from && (
             <Button variant="ghost" size="sm" onClick={handleClearDateRange} className="rounded-xl">
               <RefreshCw className="h-4 w-4 mr-1" />
-              Reset
+              Atur Ulang
             </Button>
           )}
           <Select value={timeRange} onValueChange={setTimeRange} disabled={!!customDateRange.from}>
             <SelectTrigger className="w-[140px] rounded-xl bg-background/60 border-border/50">
-              <SelectValue placeholder="Time range" />
+              <SelectValue placeholder="Rentang waktu" />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="3">Last 3 months</SelectItem>
-              <SelectItem value="6">Last 6 months</SelectItem>
-              <SelectItem value="12">Last 12 months</SelectItem>
+              <SelectItem value="3">3 bulan terakhir</SelectItem>
+              <SelectItem value="6">6 bulan terakhir</SelectItem>
+              <SelectItem value="12">12 bulan terakhir</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -156,14 +156,14 @@ export default function MerchantReports() {
         <Alert variant="destructive" className="mb-4 rounded-xl">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            Failed to load some data. Please refresh the page to try again.
+            Gagal memuat data. Silakan segarkan halaman untuk mencoba lagi.
           </AlertDescription>
         </Alert>
       )}
 
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className="pill-tab-list">
-          <TabsTrigger value="overview" className="pill-tab-trigger">Overview</TabsTrigger>
+          <TabsTrigger value="overview" className="pill-tab-trigger">Ringkasan</TabsTrigger>
           <TabsTrigger value="dashboard" className="pill-tab-trigger flex items-center gap-1.5">
             <BarChart3 className="h-3.5 w-3.5" />
             Dashboard
@@ -174,15 +174,15 @@ export default function MerchantReports() {
           </TabsTrigger>
           <TabsTrigger value="forecasting" className="pill-tab-trigger flex items-center gap-1.5">
             <BarChart3 className="h-3.5 w-3.5" />
-            Forecasting
+            Perkiraan
           </TabsTrigger>
           <TabsTrigger value="churn" className="pill-tab-trigger flex items-center gap-1.5">
             <UserMinus className="h-3.5 w-3.5" />
-            Tenant Churn
+            Perputaran Tenant
           </TabsTrigger>
           <TabsTrigger value="maintenance" className="pill-tab-trigger flex items-center gap-1.5">
             <Wrench className="h-3.5 w-3.5" />
-            Maintenance
+            Pemeliharaan
           </TabsTrigger>
         </TabsList>
 
@@ -236,7 +236,7 @@ export default function MerchantReports() {
                     <div className="gradient-icon-box">
                       <TrendingUp className="h-5 w-5 text-primary" />
                     </div>
-                    <CardTitle>Revenue Trend</CardTitle>
+                    <CardTitle>Tren Pendapatan</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="h-[300px]">
@@ -246,10 +246,16 @@ export default function MerchantReports() {
                           <XAxis dataKey="month" className="text-xs" />
                           <YAxis tickFormatter={(value) => `Rp${(value / 1000000).toFixed(0)}jt`} className="text-xs" />
                           <Tooltip
-                            formatter={(value: number) => [formatCurrency(value), 'Revenue']}
+                            formatter={(value: number) => [formatCurrency(value), 'Pendapatan']}
                             contentStyle={tooltipStyle}
                           />
-                          <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.15)" strokeWidth={2} />
+                          <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" fill="url(#colorRev)" strokeWidth={2} />
+                          <defs>
+                            <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                              <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
@@ -259,23 +265,30 @@ export default function MerchantReports() {
                 <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
                   <CardHeader className="flex flex-row items-center gap-3">
                     <div className="gradient-icon-box">
-                      <Building2 className="h-5 w-5 text-primary" />
+                      <Building2 className="h-5 w-5 text-accent" />
                     </div>
-                    <CardTitle>Occupancy by Property Type</CardTitle>
+                    <CardTitle>Hunian berdasarkan Tipe Properti</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="h-[300px]">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={occupancyByType} layout="vertical">
-                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted/50" />
-                          <XAxis type="number" domain={[0, 100]} className="text-xs" />
-                          <YAxis dataKey="name" type="category" width={100} className="text-xs capitalize" />
-                          <Tooltip
-                            formatter={(value: number) => [`${value}%`, 'Occupancy']}
-                            contentStyle={tooltipStyle}
-                          />
-                          <Bar dataKey="occupancy" fill="hsl(var(--primary))" radius={[0, 8, 8, 0]} />
-                        </BarChart>
+                        <PieChart>
+                          <Pie
+                            data={occupancyByType}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="occupancy"
+                          >
+                            {occupancyByType.map((_, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip contentStyle={tooltipStyle} />
+                          <Legend />
+                        </PieChart>
                       </ResponsiveContainer>
                     </div>
                   </CardContent>
@@ -299,9 +312,9 @@ export default function MerchantReports() {
                   const roi = totalCosts > 0 ? ((netIncome / totalCosts) * 100) : 0;
                   const yieldRate = totalCosts > 0 ? ((totalRevenue / totalCosts) * 100) : 0;
                   return [
-                    { label: 'ROI', value: `${roi.toFixed(1)}%`, sub: 'Return on Investment', icon: TrendingUp, color: 'text-success' },
-                    { label: 'Yield', value: `${yieldRate.toFixed(1)}%`, sub: 'Annual Yield Rate', icon: DollarSign, color: 'text-info' },
-                    { label: 'Net Operating Income', value: formatCurrency(netIncome), sub: 'Revenue - Maintenance', icon: DollarSign, color: 'text-primary' },
+                    { label: 'ROI', value: `${roi.toFixed(1)}%`, sub: 'Laba atas Investasi', icon: TrendingUp, color: 'text-success' },
+                    { label: 'Yield', value: `${yieldRate.toFixed(1)}%`, sub: 'Tingkat Hasil Tahunan', icon: DollarSign, color: 'text-info' },
+                    { label: 'Net Operating Income', value: formatCurrency(netIncome), sub: 'Pendapatan - Pemeliharaan', icon: DollarSign, color: 'text-primary' },
                     { label: 'Total Investasi', value: formatCurrency(totalCosts), sub: 'Konstruksi + Renovasi', icon: Building2, color: 'text-warning' },
                   ].map((item) => (
                     <Card key={item.label} className="glass-stat-card hover-lift">
@@ -374,8 +387,8 @@ export default function MerchantReports() {
                   <CardHeader><CardTitle className="text-base">Ringkasan Pembayaran</CardTitle></CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex justify-between"><span className="text-muted-foreground">Total Revenue</span><span className="font-bold text-success">{formatCurrency(totalRevenue)}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">Pending</span><span className="font-bold text-warning">{formatCurrency(pendingPayments)}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">Maintenance Requests</span><span className="font-bold">{maintenanceRequests.length}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Tertunda</span><span className="font-bold text-warning">{formatCurrency(pendingPayments)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Permintaan Maintenance</span><span className="font-bold">{maintenanceRequests.length}</span></div>
                     {(() => {
                       const mCost = properties.reduce((sum: number, p: any) => sum + (Number(p.monthly_maintenance_cost || 0) * 12), 0);
                       const ratio = totalRevenue > 0 ? ((mCost / totalRevenue) * 100) : 0;
@@ -404,7 +417,7 @@ export default function MerchantReports() {
                 <div className="gradient-icon-box">
                   <Wrench className="h-5 w-5 text-primary" />
                 </div>
-                <CardTitle>Maintenance by Category</CardTitle>
+                <CardTitle>Pemeliharaan berdasarkan Kategori</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="h-[300px]">
@@ -436,7 +449,7 @@ export default function MerchantReports() {
                 <div className="gradient-icon-box">
                   <BarChart3 className="h-5 w-5 text-primary" />
                 </div>
-                <CardTitle>Maintenance Trend</CardTitle>
+                <CardTitle>Tren Pemeliharaan</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="h-[300px]">
@@ -447,8 +460,8 @@ export default function MerchantReports() {
                       <YAxis className="text-xs" />
                       <Tooltip contentStyle={tooltipStyle} />
                       <Legend />
-                      <Bar dataKey="pending" name="Pending" fill="hsl(var(--muted-foreground))" radius={[6, 6, 0, 0]} />
-                      <Bar dataKey="completed" name="Completed" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+                      <Bar dataKey="pending" name="Tertunda" fill="hsl(var(--muted-foreground))" radius={[6, 6, 0, 0]} />
+                      <Bar dataKey="completed" name="Selesai" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

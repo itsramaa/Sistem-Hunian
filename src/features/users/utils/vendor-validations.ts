@@ -14,7 +14,7 @@ export const validatePhoneNumber = (phone: string): { isValid: boolean; error?: 
   const cleanPhone = phone.replace(/[\s-]/g, '');
   
   if (!phoneRegex.test(cleanPhone)) {
-    return { isValid: false, error: 'Invalid phone format. Use +62xxxxxxxxxx or 08xxxxxxxxxx' };
+    return { isValid: false, error: 'Format nomor telepon tidak valid. Gunakan +62xxxxxxxxxx atau 08xxxxxxxxxx' };
   }
   return { isValid: true };
 };
@@ -22,16 +22,16 @@ export const validatePhoneNumber = (phone: string): { isValid: boolean; error?: 
 // Password validation
 export const validatePassword = (password: string): { isValid: boolean; error?: string } => {
   if (password.length < 12) {
-    return { isValid: false, error: 'Password must be at least 12 characters' };
+    return { isValid: false, error: 'Kata sandi harus minimal 12 karakter' };
   }
   if (!/[a-z]/.test(password)) {
-    return { isValid: false, error: 'Password must contain a lowercase letter' };
+    return { isValid: false, error: 'Kata sandi harus mengandung huruf kecil' };
   }
   if (!/[A-Z]/.test(password)) {
-    return { isValid: false, error: 'Password must contain an uppercase letter' };
+    return { isValid: false, error: 'Kata sandi harus mengandung huruf besar' };
   }
   if (!/[0-9]/.test(password)) {
-    return { isValid: false, error: 'Password must contain a number' };
+    return { isValid: false, error: 'Kata sandi harus mengandung angka' };
   }
   return { isValid: true };
 };
@@ -54,10 +54,10 @@ export interface ProductFormData {
 }
 
 export const productSchema = z.object({
-  name: z.string().min(1, 'Product name is required').max(100, 'Name too long'),
-  description: z.string().max(1000, 'Description too long').optional().nullable(),
-  category: z.string().min(1, 'Category is required'),
-  price: z.number().min(1, 'Price must be greater than 0'),
+  name: z.string().min(1, 'Nama produk wajib diisi').max(100, 'Nama terlalu panjang'),
+  description: z.string().max(1000, 'Deskripsi terlalu panjang').optional().nullable(),
+  category: z.string().min(1, 'Kategori wajib diisi'),
+  price: z.number().min(1, 'Harga harus lebih dari 0'),
   unit: z.string().default('unit'),
   is_available: z.boolean().default(true),
   min_order: z.number().min(1).default(1),
@@ -74,7 +74,7 @@ export const productSchema = z.object({
   }
   return true;
 }, {
-  message: 'Promo price must be less than regular price',
+  message: 'Harga promo harus kurang dari harga reguler',
   path: ['promo_price'],
 }).refine((data) => {
   // If promo_end and promo_start exist, end must be after start
@@ -83,52 +83,52 @@ export const productSchema = z.object({
   }
   return true;
 }, {
-  message: 'Promo end date must be after start date',
+  message: 'Tanggal akhir promo harus setelah tanggal mulai',
   path: ['promo_end'],
 });
 
 // Bank account validation schema
 export const bankAccountSchema = z.object({
-  bank_name: z.string().min(1, 'Bank name is required'),
-  account_name: z.string().min(1, 'Account holder name is required'),
+  bank_name: z.string().min(1, 'Nama bank wajib diisi'),
+  account_name: z.string().min(1, 'Nama pemilik rekening wajib diisi'),
   account_number: z.string()
-    .min(8, 'Account number must be at least 8 digits')
-    .max(20, 'Account number too long')
-    .regex(/^\d+$/, 'Account number must contain only digits'),
+    .min(8, 'Nomor rekening harus minimal 8 digit')
+    .max(20, 'Nomor rekening terlalu panjang')
+    .regex(/^\d+$/, 'Nomor rekening hanya boleh berisi angka'),
   branch_code: z.string().optional().nullable(),
 });
 
 // Password validation schema with strength requirements
 export const passwordSchema = z.object({
-  current_password: z.string().min(1, 'Current password is required').optional(),
+  current_password: z.string().min(1, 'Kata sandi saat ini wajib diisi').optional(),
   new_password: z.string()
-    .min(12, 'Password must be at least 12 characters')
-    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
-    .regex(/[0-9]/, 'Password must contain at least one number')
-    .regex(/[^A-Za-z0-9]/, 'Password must contain at least one special character'),
+    .min(12, 'Kata sandi harus minimal 12 karakter')
+    .regex(/[A-Z]/, 'Kata sandi harus mengandung minimal satu huruf besar')
+    .regex(/[a-z]/, 'Kata sandi harus mengandung minimal satu huruf kecil')
+    .regex(/[0-9]/, 'Kata sandi harus mengandung minimal satu angka')
+    .regex(/[^A-Za-z0-9]/, 'Kata sandi harus mengandung minimal satu karakter khusus'),
   confirm_password: z.string(),
 }).refine((data) => data.new_password === data.confirm_password, {
-  message: 'Passwords do not match',
+  message: 'Kata sandi tidak cocok',
   path: ['confirm_password'],
 });
 
 // Phone number validation (Indonesian format)
 export const phoneSchema = z.string()
-  .regex(/^(\+62|62|0)?8[1-9][0-9]{7,10}$/, 'Invalid Indonesian phone number format')
+  .regex(/^(\+62|62|0)?8[1-9][0-9]{7,10}$/, 'Format nomor telepon Indonesia tidak valid')
   .optional()
   .nullable()
   .or(z.literal(''));
 
 // Cancel reason validation
 export const cancelReasonSchema = z.string()
-  .min(10, 'Please provide a detailed reason (at least 10 characters)')
-  .max(500, 'Reason is too long');
+  .min(10, 'Mohon berikan alasan yang rinci (minimal 10 karakter)')
+  .max(500, 'Alasan terlalu panjang');
 
 // Decline reason validation for jobs
 export const declineReasonSchema = z.string()
-  .min(10, 'Please provide a reason for declining (at least 10 characters)')
-  .max(500, 'Reason is too long');
+  .min(10, 'Mohon berikan alasan penolakan (minimal 10 karakter)')
+  .max(500, 'Alasan terlalu panjang');
 
 // Re-export centralized state machine constants
 export const validJobStatusTransitions = VENDOR_JOB_STATUS_TRANSITIONS;

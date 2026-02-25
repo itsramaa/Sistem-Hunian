@@ -32,8 +32,8 @@ const propertySchema = z.object({
   guardian_name: z.string().max(100).optional().nullable(),
   guardian_phone: z.string().max(20).optional().nullable(),
   marketing_cost: z.coerce.number().min(0).optional().nullable(),
-  construction_year: z.coerce.number().min(1900).max(2100).optional().nullable(),
-  floor_count: z.coerce.number().int().min(1).max(100).default(1),
+  construction_year: z.coerce.number().min(1900, 'Tahun minimal 1900').max(2100, 'Tahun maksimal 2100').optional().nullable(),
+  floor_count: z.coerce.number().int().min(1, 'Minimal 1 lantai').max(100, 'Maksimal 100 lantai').default(1),
   building_condition: z.string().optional().nullable(),
   land_ownership: z.string().optional().nullable(),
   latitude: z.number().optional().nullable(),
@@ -110,14 +110,14 @@ export function PropertyFormDialog({ open, onOpenChange, property, onSubmit, isL
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg w-[95vw] rounded-2xl overflow-x-hidden">
+      <DialogContent className="max-w-lg w-[95vw] rounded-2xl overflow-x-hidden" aria-describedby="property-form-description">
         <DialogHeader>
           <DialogTitle>{property ? 'Edit Properti' : 'Tambah Properti Baru'}</DialogTitle>
-          <DialogDescription>{property ? 'Perbarui detail properti' : 'Tambahkan properti baru ke portofolio Anda'}</DialogDescription>
+          <DialogDescription id="property-form-description">{property ? 'Perbarui detail properti' : 'Tambahkan properti baru ke portofolio Anda'}</DialogDescription>
         </DialogHeader>
 
         {/* Stepper */}
-        <div className="flex items-center justify-between px-2 overflow-x-auto flex-nowrap">
+        <div className="flex items-center justify-between px-2 overflow-x-auto flex-nowrap" role="navigation" aria-label="Langkah pendaftaran properti">
           {STEPS.map((s, i) => (
             <div key={i} className="flex items-center gap-1.5">
               <div className={cn(
@@ -125,12 +125,12 @@ export function PropertyFormDialog({ open, onOpenChange, property, onSubmit, isL
                 i < step ? 'bg-success text-success-foreground shadow-sm' :
                 i === step ? 'gradient-cta text-primary-foreground shadow-md' :
                 'bg-muted text-muted-foreground'
-              )}>
-                {i < step ? <Check className="h-4 w-4" /> : i + 1}
+              )} aria-current={i === step ? 'step' : undefined}>
+                {i < step ? <Check className="h-4 w-4" aria-hidden="true" /> : i + 1}
               </div>
               <span className={cn('text-xs font-medium hidden sm:block', i === step ? 'text-foreground' : 'text-muted-foreground')}>{s.label}</span>
               {i < STEPS.length - 1 && (
-                <div className={cn('w-6 h-0.5 mx-0.5 rounded-full transition-colors', i < step ? 'bg-success' : 'bg-muted')} />
+                <div className={cn('w-6 h-0.5 mx-0.5 rounded-full transition-colors', i < step ? 'bg-success' : 'bg-muted')} aria-hidden="true" />
               )}
             </div>
           ))}
@@ -139,29 +139,31 @@ export function PropertyFormDialog({ open, onOpenChange, property, onSubmit, isL
         <form onSubmit={handleSubmit(async (data) => await onSubmit(data))} className="space-y-4 mt-2 max-h-[55vh] sm:max-h-[60vh] overflow-y-auto pr-1">
           {/* Step 0: Info Dasar */}
           {step === 0 && (
-            <div className="space-y-4">
+            <div className="space-y-4" role="group" aria-labelledby="step-basic-info">
+              <h3 id="step-basic-info" className="sr-only">Informasi Dasar</h3>
               <div>
-                <Label>Nama Properti <span className="text-destructive">*</span></Label>
-                <Input placeholder="Contoh: Kost Harmoni" {...register('name')} className={cn(inputCls, errors.name && 'border-destructive')} />
+                <Label htmlFor="property-name">Nama Properti <span className="text-destructive">*</span></Label>
+                <Input id="property-name" placeholder="Contoh: Kost Harmoni" {...register('name')} className={cn(inputCls, errors.name && 'border-destructive')} />
                 {errors.name && <p className="text-sm text-destructive mt-1">{errors.name.message}</p>}
               </div>
               <div>
-                <Label>Tipe Properti <span className="text-destructive">*</span></Label>
+                <Label htmlFor="property-type-select">Tipe Properti <span className="text-destructive">*</span></Label>
                 <Select value={watch('property_type')} onValueChange={(v: any) => setValue('property_type', v, { shouldValidate: true })}>
-                  <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="property-type-select" className={inputCls}><SelectValue /></SelectTrigger>
                   <SelectContent>{PROPERTY_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Deskripsi (Opsional)</Label>
-                <Textarea placeholder="Deskripsikan properti Anda..." {...register('description')} rows={3} className={inputCls} />
+                <Label htmlFor="property-desc">Deskripsi (Opsional)</Label>
+                <Textarea id="property-desc" placeholder="Deskripsikan properti Anda..." {...register('description')} rows={3} className={inputCls} />
               </div>
             </div>
           )}
 
           {/* Step 1: Lokasi */}
           {step === 1 && (
-            <div className="space-y-4">
+            <div className="space-y-4" role="group" aria-labelledby="step-location">
+              <h3 id="step-location" className="sr-only">Lokasi Properti</h3>
               <ProvincesCitiesSelect
                 provinceValue={watch('province')} cityValue={watch('city')}
                 onProvinceChange={(v) => setValue('province', v, { shouldValidate: true })}
@@ -169,7 +171,7 @@ export function PropertyFormDialog({ open, onOpenChange, property, onSubmit, isL
                 provinceError={errors.province?.message} cityError={errors.city?.message}
               />
               <div>
-                <Label>Alamat <span className="text-destructive">*</span></Label>
+                <Label htmlFor="property-address">Alamat <span className="text-destructive">*</span></Label>
                 <LocationPicker
                   value={watch('address')}
                   onChange={(a, lat, lng) => {
@@ -183,57 +185,58 @@ export function PropertyFormDialog({ open, onOpenChange, property, onSubmit, isL
                 {errors.address && <p className="text-sm text-destructive mt-1">{errors.address.message}</p>}
               </div>
               <div>
-                <Label>Kode Pos</Label>
-                <Input placeholder="Contoh: 12345" {...register('postal_code')} className={inputCls} />
+                <Label htmlFor="postal-code">Kode Pos</Label>
+                <Input id="postal-code" placeholder="Contoh: 12345" {...register('postal_code')} className={inputCls} />
               </div>
             </div>
           )}
 
           {/* Step 2: Detail Bangunan & Penjaga */}
           {step === 2 && (
-            <div className="space-y-4">
+            <div className="space-y-4" role="group" aria-labelledby="step-details">
+              <h3 id="step-details" className="sr-only">Detail Bangunan</h3>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>Tahun Pembangunan</Label>
-                  <Input type="number" placeholder="2020" {...register('construction_year')} className={inputCls} />
+                  <Label htmlFor="construction-year">Tahun Pembangunan</Label>
+                  <Input id="construction-year" type="number" placeholder="2020" {...register('construction_year')} className={inputCls} />
                 </div>
                 <div>
-                  <Label>Jumlah Lantai <span className="text-destructive">*</span></Label>
-                  <Input type="number" min={1} {...register('floor_count')} className={cn(inputCls, errors.floor_count && 'border-destructive')} />
+                  <Label htmlFor="floor-count">Jumlah Lantai <span className="text-destructive">*</span></Label>
+                  <Input id="floor-count" type="number" min={1} {...register('floor_count')} className={cn(inputCls, errors.floor_count && 'border-destructive')} />
                   {errors.floor_count && <p className="text-sm text-destructive mt-1">{errors.floor_count.message}</p>}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>Kondisi Bangunan</Label>
+                  <Label htmlFor="building-condition">Kondisi Bangunan</Label>
                   <Select value={watch('building_condition') || 'baik'} onValueChange={(v) => setValue('building_condition', v)}>
-                    <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="building-condition" className={inputCls}><SelectValue /></SelectTrigger>
                     <SelectContent>{BUILDING_CONDITIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label>Status Kepemilikan</Label>
+                  <Label htmlFor="land-ownership">Status Kepemilikan</Label>
                   <Select value={watch('land_ownership') || 'milik_sendiri'} onValueChange={(v) => setValue('land_ownership', v)}>
-                    <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="land-ownership" className={inputCls}><SelectValue /></SelectTrigger>
                     <SelectContent>{LAND_OWNERSHIP_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
               </div>
               <div>
-                <Label>Biaya Marketing (Rp/bulan)</Label>
-                <Input type="number" min={0} placeholder="0" {...register('marketing_cost')} className={inputCls} />
+                <Label htmlFor="marketing-cost">Biaya Marketing (Rp/bulan)</Label>
+                <Input id="marketing-cost" type="number" min={0} placeholder="0" {...register('marketing_cost')} className={inputCls} />
               </div>
 
               <div className="border-t border-border/30 pt-4 mt-4">
                 <p className="text-sm font-medium text-foreground mb-3">Info Penjaga (Opsional)</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label>Nama Penjaga</Label>
-                    <Input placeholder="Nama penjaga" {...register('guardian_name')} className={inputCls} />
+                    <Label htmlFor="guardian-name">Nama Penjaga</Label>
+                    <Input id="guardian-name" placeholder="Nama penjaga" {...register('guardian_name')} className={inputCls} />
                   </div>
                   <div>
-                    <Label>No. Telepon Penjaga</Label>
-                    <Input placeholder="08xxxxxxxxxx" {...register('guardian_phone')} className={inputCls} />
+                    <Label htmlFor="guardian-phone">No. Telepon Penjaga</Label>
+                    <Input id="guardian-phone" placeholder="08xxxxxxxxxx" {...register('guardian_phone')} className={inputCls} />
                   </div>
                 </div>
               </div>
@@ -242,7 +245,8 @@ export function PropertyFormDialog({ open, onOpenChange, property, onSubmit, isL
 
           {/* Step 3: Media & Fasilitas */}
           {step === 3 && (
-            <div className="space-y-4">
+            <div className="space-y-4" role="group" aria-labelledby="step-media">
+              <h3 id="step-media" className="sr-only">Media dan Fasilitas</h3>
               <div>
                 <Label>Foto Properti</Label>
                 <UnitPhotoUpload photos={watch('images') || []} onPhotosChange={(p) => setValue('images', p)} maxPhotos={10} />
@@ -256,13 +260,13 @@ export function PropertyFormDialog({ open, onOpenChange, property, onSubmit, isL
         </form>
 
         <DialogFooter className="gap-2 flex-col-reverse sm:flex-row">
-          {step > 0 && <Button type="button" variant="outline" onClick={() => setStep(s => s - 1)} className="rounded-xl"><ArrowLeft className="h-4 w-4 mr-1" />Kembali</Button>}
+          {step > 0 && <Button type="button" variant="outline" onClick={() => setStep(s => s - 1)} className="rounded-xl"><ArrowLeft className="h-4 w-4 mr-1" aria-hidden="true" />Kembali</Button>}
           {step < STEPS.length - 1 ? (
-            <Button type="button" onClick={handleNext} className="rounded-xl gradient-cta text-primary-foreground">Lanjut<ArrowRight className="h-4 w-4 ml-1" /></Button>
+            <Button type="button" onClick={handleNext} className="rounded-xl gradient-cta text-primary-foreground">Lanjut<ArrowRight className="h-4 w-4 ml-1" aria-hidden="true" /></Button>
           ) : (
             <Button onClick={handleSubmit(async (data) => await onSubmit(data))} disabled={isLoading} className="rounded-xl gradient-cta text-primary-foreground">
-              {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {property ? 'Update Properti' : 'Tambah Properti'}
+              {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />}
+              {property ? 'Simpan Perubahan' : 'Tambah Properti'}
             </Button>
           )}
         </DialogFooter>
