@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { PhotoLightbox } from '@/shared/components/PhotoLightbox';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/lib/integrations/supabase/client';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
@@ -12,20 +12,24 @@ import { Skeleton } from '@/shared/components/ui/skeleton';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/shared/components/ui/carousel';
 import { Card } from '@/shared/components/ui/card';
 import { Progress } from '@/shared/components/ui/progress';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { ImageGalleryUpload } from '@/shared/components/FileUpload';
 import { formatCurrency } from '@/shared/utils/currency';
 import { format, differenceInDays, isPast } from 'date-fns';
 import { 
-  ArrowLeft, Building2, Calendar, ChevronRight, Clock, DoorOpen, Edit, 
+  ArrowLeft, Building2, Calendar, Camera, ChevronRight, Clock, DoorOpen, Edit, 
   Hash, ImageIcon, MapPin, Plus, Ruler, Wallet, Wrench, Users, FileText, 
-  AlertTriangle, CheckCircle, XCircle, TrendingUp
+  AlertTriangle, CheckCircle, XCircle, TrendingUp, Zap, Droplets, Wifi
 } from 'lucide-react';
 import { cn } from '@/shared/utils/utils';
 import { CreateMaintenanceDialog } from '@/features/maintenance/components/CreateMaintenanceDialog';
-import { UnitAssetInventory } from '@/features/properties/components/UnitAssetInventory';
+import { CustomAmenities } from '@/features/properties/components/CustomAmenities';
+import { FacilityManagementDialog } from '@/features/properties/components/FacilityManagementDialog';
 import { useCreateMerchantMaintenanceRequest } from '@/features/maintenance/hooks/useMaintenance';
 import { UnitFormDialog } from '@/features/properties/components/UnitFormDialog';
 import { useUnits } from '@/features/properties/hooks/useUnits';
 import { UnitFormData } from '@/features/properties/types/schema';
+import { toast } from 'sonner';
 
 const statusColors: Record<string, string> = {
   available: 'bg-success/10 text-success border-success/30',
@@ -91,9 +95,42 @@ export default function UnitDetail() {
   const propertyId = unit?.property?.id || '';
   const { updateUnit, isUpdating } = useUnits(propertyId);
 
+  // Photo management dialog
+  const [showPhotoDialog, setShowPhotoDialog] = useState(false);
+
   // Lightbox
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  // Inventaris amenities
+  const [inventoryAmenities, setInventoryAmenities] = useState<string[]>([]);
+  const [showFacilityManageDialog, setShowFacilityManageDialog] = useState(false);
+
+  // Save unit amenities mutation
+  const saveAmenitiesMutation = useMutation({
+    mutationFn: async (amenities: string[]) => {
+      const { error } = await supabase.from('units').update({ amenities } as any).eq('id', id!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['unit-detail', id] });
+      toast.success('Fasilitas unit berhasil diperbarui');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Update unit photos mutation
+  const updatePhotosMutation = useMutation({
+    mutationFn: async (photos: string[]) => {
+      const { error } = await supabase.from('units').update({ photos } as any).eq('id', id!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['unit-detail', id] });
+      toast.success('Foto unit berhasil diperbarui');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   if (isLoading) return <UnitDetailSkeleton />;
 
@@ -126,6 +163,14 @@ export default function UnitDetail() {
     await updateUnit({ id: unit.id, payload: { ...data, property_id: propertyId } as any });
     queryClient.invalidateQueries({ queryKey: ['unit-detail', id] });
     setShowEditDialog(false);
+  };
+
+  // Helper for electricity/water display
+  const getUtilityLabel = (included: boolean, costType?: string, cost?: number) => {
+    if (included) return 'Termasuk Sewa';
+    if (costType === 'bayar_sendiri') return 'Bayar Sendiri';
+    if (costType === 'per_usage') return `Per Pemakaian${cost ? ` (${formatCurrency(cost)})` : ''}`;
+    return cost ? `Flat ${formatCurrency(cost)}/bln` : 'Tidak Termasuk';
   };
 
   return (
@@ -165,9 +210,14 @@ export default function UnitDetail() {
             )}
           </div>
         </div>
-        <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setShowEditDialog(true)} aria-label="Edit rincian unit">
-          <Edit className="h-4 w-4" aria-hidden="true" /> Edit
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setShowPhotoDialog(true)} aria-label="Kelola foto unit">
+            <Camera className="h-4 w-4" aria-hidden="true" /> Foto
+          </Button>
+          <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={() => setShowEditDialog(true)} aria-label="Edit rincian unit">
+            <Edit className="h-4 w-4" aria-hidden="true" /> Edit
+          </Button>
+        </div>
       </div>
 
       {/* Photos */}
@@ -271,6 +321,48 @@ export default function UnitDetail() {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4 mt-4 animate-fade-in">
+            {/* Unit Detail Info Card - always show */}
+            <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
+              <CardHeader><CardTitle className="text-base flex items-center gap-2"><DoorOpen className="h-4 w-4" /> Detail Unit</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Tipe Hunian</p>
+                      <p className="font-medium">{(unit as any).occupancy_type === 'sharing' ? 'Sharing (2+ orang)' : 'Single (1 orang)'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Listrik</p>
+                      <p className="font-medium">{getUtilityLabel((unit as any).electricity_included, (unit as any).electricity_cost_type, (unit as any).electricity_cost)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Droplets className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Air</p>
+                      <p className="font-medium">{getUtilityLabel((unit as any).water_included, (unit as any).water_cost_type, (unit as any).water_cost)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Wifi className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">WiFi</p>
+                      <p className="font-medium">
+                        {(unit as any).wifi_included 
+                          ? `${(unit as any).wifi_speed_mbps ? (unit as any).wifi_speed_mbps + ' Mbps' : 'Tersedia'} — ${(unit as any).wifi_cost_sharing === 'patungan' ? `Patungan ${(unit as any).wifi_cost ? formatCurrency((unit as any).wifi_cost) : ''}` : 'Termasuk'}`
+                          : 'Tidak Tersedia'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {activeTenant && (
               <Card className="rounded-2xl border-l-4 border-l-success bg-card/90 backdrop-blur-sm border-border/40">
                 <CardHeader>
@@ -284,7 +376,7 @@ export default function UnitDetail() {
                       {(activeTenant.full_name || 'U')[0].toUpperCase()}
                     </div>
                     <div>
-                      <Link to={`/merchant/tenants/${activeContract.id}`} className="font-medium hover:underline text-primary" aria-label={`Lihat profil penghuni ${activeTenant.full_name}`}>
+                      <Link to={`/merchant/tenants/${activeContract.id}`} className="font-medium hover:underline text-primary">
                         {activeTenant.full_name || 'Tidak diketahui'}
                       </Link>
                       <p className="text-sm text-muted-foreground">{activeTenant.email}</p>
@@ -317,17 +409,15 @@ export default function UnitDetail() {
                 </CardContent>
               </Card>
             )}
-            {!activeTenant && !unit.description && (!unit.amenities || unit.amenities.length === 0) && (
-              <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
-                <CardContent className="py-8 text-center">
-                  <div className="gradient-icon-box w-12 h-12 mx-auto mb-3" aria-hidden="true"><DoorOpen className="h-6 w-6 text-muted-foreground/40" /></div>
-                  <p className="text-sm text-muted-foreground">Unit kosong. Tidak ada informasi tambahan.</p>
-                </CardContent>
-              </Card>
-            )}
           </TabsContent>
 
           <TabsContent value="contracts" className="space-y-3 mt-4 animate-fade-in">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-muted-foreground">Kontrak Unit</h3>
+              <Button size="sm" className="rounded-xl gradient-cta text-primary-foreground" onClick={() => navigate(`/merchant/contracts?new=true&unit_id=${unit.id}`)}>
+                <Plus className="h-4 w-4 mr-1" />Tambah Kontrak
+              </Button>
+            </div>
             {unit.contracts?.length > 0 ? unit.contracts.map((contract: any) => {
               const tenant = unit.tenantProfiles?.[contract.tenant_user_id];
               return (
@@ -367,6 +457,12 @@ export default function UnitDetail() {
 
           {/* Payment Summary Tab */}
           <TabsContent value="payments" className="space-y-4 mt-4 animate-fade-in">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-muted-foreground">Pembayaran</h3>
+              <Button size="sm" className="rounded-xl gradient-cta text-primary-foreground" onClick={() => navigate(`/merchant/invoices?new=true&unit_id=${unit.id}`)}>
+                <Plus className="h-4 w-4 mr-1" />Tambah Pembayaran
+              </Button>
+            </div>
             <div className="grid grid-cols-3 gap-3" role="region" aria-label="Ringkasan pembayaran">
               <div className="rounded-xl bg-success/5 border border-success/20 p-3 text-center">
                 <CheckCircle className="h-4 w-4 text-success mx-auto mb-1" aria-hidden="true" />
@@ -396,7 +492,6 @@ export default function UnitDetail() {
                       to={`/merchant/invoices/${inv.id}`} 
                       className={cn("rounded-xl p-3 border flex items-center justify-between hover:opacity-80 transition-opacity", isPaid ? 'bg-success/5 border-success/20' : isOverdue ? 'bg-destructive/5 border-destructive/20' : 'bg-card/90 border-border/40')}
                       role="listitem"
-                      aria-label={`Faktur senilai ${formatCurrency(inv.total_amount || inv.amount)}`}
                     >
                       <div className="flex items-center gap-3">
                         {isPaid ? <CheckCircle className="h-4 w-4 text-success" aria-hidden="true" /> : isOverdue ? <XCircle className="h-4 w-4 text-destructive" aria-hidden="true" /> : <Clock className="h-4 w-4 text-warning" aria-hidden="true" />}
@@ -461,8 +556,23 @@ export default function UnitDetail() {
             )}
           </TabsContent>
 
-          <TabsContent value="inventory" className="mt-4 animate-fade-in">
-            <UnitAssetInventory unitId={unit.id} merchantId={unit.property?.merchant_id || ''} />
+          <TabsContent value="inventory" className="space-y-4 mt-4 animate-fade-in">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-muted-foreground">Fasilitas & Inventaris Unit</h3>
+              <Button 
+                size="sm" 
+                className="rounded-xl gradient-cta text-primary-foreground" 
+                onClick={() => saveAmenitiesMutation.mutate(inventoryAmenities)}
+                disabled={saveAmenitiesMutation.isPending}
+              >
+                {saveAmenitiesMutation.isPending ? 'Menyimpan...' : 'Simpan'}
+              </Button>
+            </div>
+            <CustomAmenities
+              selectedAmenities={inventoryAmenities.length > 0 ? inventoryAmenities : (unit.amenities || [])}
+              onAmenitiesChange={setInventoryAmenities}
+              type="unit"
+            />
           </TabsContent>
         </Tabs>
 
@@ -508,7 +618,7 @@ export default function UnitDetail() {
           <section className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40" aria-labelledby="property-info-title">
             <CardHeader><CardTitle id="property-info-title" className="text-base">Properti</CardTitle></CardHeader>
             <CardContent className="text-sm">
-              <Link to={`/merchant/properties/${unit.property?.id}`} className="font-medium hover:underline text-primary" aria-label={`Lihat properti ${unit.property?.name}`}>{unit.property?.name}</Link>
+              <Link to={`/merchant/properties/${unit.property?.id}`} className="font-medium hover:underline text-primary">{unit.property?.name}</Link>
               <p className="text-muted-foreground mt-1 text-xs capitalize">{unit.property?.property_type}</p>
               {unit.property?.address && <p className="text-muted-foreground text-xs mt-1">{unit.property.address}</p>}
             </CardContent>
@@ -542,6 +652,40 @@ export default function UnitDetail() {
         onSubmit={handleEditSubmit}
         isLoading={isUpdating}
       />
+
+      {/* Photo Management Dialog */}
+      <Dialog open={showPhotoDialog} onOpenChange={setShowPhotoDialog}>
+        <DialogContent className="max-w-lg w-[95vw] rounded-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Kelola Foto Unit</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <ImageGalleryUpload
+              bucket="property-images"
+              folder={`units/${unit.id}`}
+              images={unit.photos || []}
+              onImagesChange={async (newPhotos) => {
+                try {
+                  await updatePhotosMutation.mutateAsync(newPhotos);
+                } catch (err) {
+                  console.error('Failed to update unit photos:', err);
+                }
+              }}
+              maxImages={10}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Facility Management Dialog */}
+      {unit.property?.merchant_id && (
+        <FacilityManagementDialog
+          open={showFacilityManageDialog}
+          onOpenChange={setShowFacilityManageDialog}
+          merchantId={unit.property.merchant_id}
+          categoryFilter="unit"
+        />
+      )}
     </div>
   );
 }
