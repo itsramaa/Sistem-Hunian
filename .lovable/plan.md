@@ -1,123 +1,73 @@
+# Buat File merchant_database.md
 
+Membuat file dokumentasi `old-docs/merchant_database.md` yang berisi Mermaid class diagram lengkap untuk semua tabel dan relasi yang terintegrasi dengan merchant.
 
-# Asset Quantity, Facility Name Resolution, Tab Risiko, dan Sistem Peraturan
+## Tabel yang Akan Didokumentasikan
 
-## 1. Asset Quantity (Jumlah Aset)
+### Core Merchant
 
-**Masalah:** Form "Tambah Aset" hanya bisa menambah 1 aset per submit. Jika jumlah 0, tidak boleh di-assign.
+- `merchants` - Data utama merchant
 
-**Perubahan:**
-- **`AddAssetForm.tsx`**: Tambah field `quantity` (default 1, min 1). Saat save, loop insert N kali (atau batch insert). Jika quantity = 0, disable tombol submit.
-- **Inventory.tsx** (tab Aset): Tampilkan jumlah aset per tipe di tabel/badge.
-- **Validasi assign**: Saat assign aset ke property/unit, cek apakah ada aset `status = 'available'` untuk tipe tersebut. Jika 0, disable tombol assign / tampilkan pesan.
+### Verifikasi & Subscription
 
-## 2. Fasilitas Tampil Nama, Bukan ID
+- `merchant_verifications`, `merchant_verification_history`
+- `merchant_subscriptions`, `subscription_tiers`, `subscription_invoices`
+- `cancellation_feedback`, `pending_subscription_changes`
+- `merchant_feedback`
 
-**Masalah:** `property.amenities` menyimpan array UUID dari `facility_types`. Di PropertyDetail dan UnitDetail, badge menampilkan UUID mentah karena hanya melakukan string formatting (`a.replace(/_/g, ' ')`).
+### Properti & Unit
 
-**Perubahan:**
+- `properties`, `units`
+- `property_guardians`, `guardian_property_assignments`
+- `property_nearby_facilities`, `property_renovations`, `property_vendor_services`
+- `property_data_versions`, `property_facilities` (legacy)
+- `compliance_documents`, `disaster_risk_profiles`
+- `security_incidents`, `insurance_policies`, `insurance_claims`
 
-### PropertyDetail.tsx (line 482-486)
-- Fetch `facility_types` berdasarkan `property.amenities` (array of IDs)
-- Tampilkan `name` dari facility_type, bukan ID
-- Setiap badge bisa diklik untuk redirect ke `/merchant/inventory` (detail fasilitas)
+### Inventori (3-Tier)
 
-### UnitDetail.tsx (line 425-436)
-- Sama: resolve amenity IDs ke nama facility_type
-- Badge bisa diklik → redirect ke inventory
+- `facility_types`, `assets`, `facility_assignments`
+- `facilities` (legacy)
 
-### Implementasi:
-- Buat hook `useFacilityTypeNames(ids: string[])` yang fetch facility_types by IDs dan return map `{id: name}`
-- Gunakan di kedua halaman
+### Peraturan
 
-## 3. Tab Risiko (Pindahkan Compliance dari Overview)
+- `rule_types`, `rules`, `rule_acknowledgements`
 
-**Masalah:** Risiko & Kepatuhan saat ini ada di tab Ringkasan (overview). Perlu dipindahkan ke tab terpisah.
+### Kontrak & Tenant
 
-**Perubahan di PropertyDetail.tsx:**
-- Tambah tab baru "Risiko" di TabsList (setelah Pemeliharaan)
-- Pindahkan `<LazyCompliance propertyId={id} />` dari TabsContent overview ke TabsContent "risk"
-- Update `getInitialTab` valid tabs: tambah `'risk'`
+- `contracts`, `tenant_invitations`, `tenant_merchant_history`
+- `move_out_notices`, `move_out_inspections`, `move_out_tasks`, `move_out_timeline`
+- `deposit_refunds`, `deposit_disputes`
+- `early_termination_requests`, `disputes`
 
-## 4. Database: Tabel Peraturan (Rules)
+### Billing & Keuangan
 
-### Tabel Baru
+- `invoices`, `payments`, `payment_plans`, `payment_plan_installments`
+- `late_fee_records`, `collections_cases`
+- `payment_verifications`
+- `bank_accounts`, `disbursements`
+- `escrow_accounts`, `escrow_transactions`
 
-**`rule_types`** (master template):
-```text
-id              UUID PK DEFAULT gen_random_uuid()
-merchant_id     UUID FK merchants
-name            TEXT NOT NULL
-category        TEXT DEFAULT 'umum'
-default_scope   TEXT DEFAULT 'property'
-created_at      TIMESTAMPTZ DEFAULT now()
-updated_at      TIMESTAMPTZ DEFAULT now()
-UNIQUE(merchant_id, name)
-```
+### Maintenance
 
-**`rules`** (instance per properti/unit):
-```text
-id              UUID PK DEFAULT gen_random_uuid()
-merchant_id     UUID FK merchants
-property_id     UUID FK properties
-unit_id         UUID FK units (nullable)
-rule_type_id    UUID FK rule_types (nullable)
-title           TEXT NOT NULL
-description     TEXT
-is_active       BOOLEAN DEFAULT true
-is_overridable  BOOLEAN DEFAULT false
-effective_from  DATE DEFAULT CURRENT_DATE
-effective_until DATE (nullable)
-created_at      TIMESTAMPTZ DEFAULT now()
-updated_at      TIMESTAMPTZ DEFAULT now()
-```
+- `maintenance_requests`, `maintenance_updates`, `maintenance_timeline`
+- `maintenance_reviews`, `maintenance_expenses`
 
-**`rule_acknowledgements`** (tenant agreement tracking):
-```text
-id              UUID PK DEFAULT gen_random_uuid()
-rule_id         UUID FK rules ON DELETE CASCADE
-tenant_id       UUID NOT NULL
-acknowledged_at TIMESTAMPTZ DEFAULT now()
-```
+### Analytics & Metrics
 
-- RLS policies: merchant manages own rules via merchant_id
-- Triggers: `update_updated_at_column` on rules and rule_types
+- `occupancy_snapshots`, `tenant_payment_metrics`, `tenant_risk_scores`
+- `data_quality_checks`, `dss_recommendations`
+- `ml_model_runs`, `ocr_results`
 
-## 5. UI Peraturan di Property & Unit Detail
+### Vendor Integration
 
-### PropertyDetail.tsx -- Section Peraturan di Overview
-- Tambah card "Peraturan" di tab overview (setelah fasilitas, sebelum DSS)
-- Tampilkan semua rules yang `property_id = id` dan `unit_id IS NULL`
-- Setiap rule ditampilkan sebagai card mini dengan: title, description, badge aktif/nonaktif
-- Tombol "Tambah Peraturan" membuka inline form sederhana (title, description, is_overridable, effective_from)
-- Tombol edit/delete di setiap rule card
+- `vendor_jobs`
 
-### UnitDetail.tsx -- Section Peraturan di Overview
-- Tampilkan rules khusus unit (`unit_id = id`) + inherited rules dari properti (`property_id = unit.property.id AND unit_id IS NULL`)
-- Inherited rules ditandai badge "Dari Properti"
-- Bisa tambah rule override khusus unit
-- Tombol add/edit/delete
+### Lainnya
 
-### Komponen Baru
-- **`src/features/rules/components/RulesSection.tsx`**: Komponen reusable yang menampilkan list rules + inline form tambah/edit. Props: `propertyId`, `unitId?`, `merchantId`
-- **`src/features/rules/hooks/useRules.ts`**: Query dan mutation hooks untuk CRUD rules
+- `live_chat_conversations`, `referrals`, `referral_commissions`
+- `rls_alert_settings`
 
-## Files Summary
+## Output
 
-| File | Perubahan |
-|------|-----------|
-| **Database migration** | Buat `rule_types`, `rules`, `rule_acknowledgements` + RLS |
-| `src/features/inventory/components/AddAssetForm.tsx` | Tambah field quantity, batch insert |
-| `src/features/inventory/hooks/useFacilityTypeNames.ts` | **Baru**: Hook resolve IDs ke names |
-| `src/pages/merchant/PropertyDetail.tsx` | Resolve facility names, tambah tab Risiko, tambah RulesSection di overview |
-| `src/pages/merchant/UnitDetail.tsx` | Resolve facility names, tambah RulesSection di overview |
-| `src/features/rules/components/RulesSection.tsx` | **Baru**: Komponen list + CRUD rules |
-| `src/features/rules/hooks/useRules.ts` | **Baru**: Query/mutation hooks rules |
-
-## Technical Notes
-
-- Batch insert aset: loop N kali `supabase.from('assets').insert()` dalam satu mutation (Supabase mendukung array insert)
-- Facility name resolution: query `facility_types` WHERE `id IN (amenity_ids)` lalu map
-- Rules inherited: query WHERE `property_id = X AND unit_id IS NULL` untuk property-level, unit-specific query WHERE `unit_id = Y`
-- Rule acknowledgements digunakan nanti untuk tracking tenant agreement (phase 2)
-
+Satu file markdown berisi Mermaid classDiagram dengan semua tabel dan relasi FK yang terhubung ke merchant, dikelompokkan per domain, make sure semuanya tercoverage jangan sampai ada integrasi atau fitur merchant yang terlewat.
