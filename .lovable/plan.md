@@ -1,102 +1,129 @@
 
-# Phase 1 Implementation: Database Upgrade (ON DELETE + Indexes + Constraints + Data Types)
 
-## Analisis Status Saat Ini
+# Complete Phase 1 Partials + Phase 2 Implementation
 
-Setelah audit database, berikut temuan aktual:
+## Phase 1 Remaining (Partial Items)
 
-### ON DELETE Constraints (Script 1A)
-- **Sebagian besar FK sudah memiliki ON DELETE** (CASCADE/SET NULL/RESTRICT) dari upgrade sebelumnya
-- **14 FK masih NO ACTION** yang perlu diperbaiki:
-  - `dss_recommendations.ml_model_run_id` -> SET NULL
-  - `live_chat_conversations.merchant_id` -> CASCADE
-  - `maintenance_expenses.ocr_result_id` -> SET NULL
-  - `maintenance_requests.tenant_user_id` -> SET NULL
-  - `occupancy_snapshots.property_id` -> CASCADE
-  - `occupancy_snapshots.merchant_id` -> CASCADE
-  - `ocr_results.ml_model_run_id` -> SET NULL
-  - `property_renovations.merchant_id` -> CASCADE
-  - `tenant_payment_metrics.merchant_id` -> CASCADE
-  - `tenant_risk_scores.ml_model_run_id` -> SET NULL
-  - `unit_assets.merchant_id` -> CASCADE
-  - 3 FK ke `auth.users` (tidak bisa diubah - Supabase reserved schema)
-- **Checklist: PARTIAL** (sebagian besar sudah done, hanya 11 yang perlu difix, 3 skip karena auth.users)
+### 1A. Script 1D - Missing CHECK Constraints (5 constraints)
 
-### ENUM Types (Script 1B) -- SKIP
-- Konvensi proyek ini secara eksplisit menyatakan: "Status columns use text with CHECK constraints, NOT native Postgres Enums (except app_role)"
-- **CHECK constraints sudah ada** untuk: merchants.verification_status, properties.status, units.status, contracts.status, merchant_subscriptions.status, dll
-- **Script 1B akan di-SKIP** karena melanggar konvensi arsitektur yang sudah ditetapkan
-- **Checklist: SKIP** (by design, replaced by CHECK constraints)
+Database query confirmed 0 data violations, safe to add directly:
 
-### Indexes (Script 1C) -- FULLY IMPLEMENT
-- **FK indexes**: Beberapa sudah ada (dari migrasi sebelumnya), banyak yang belum
-- **Compound indexes**: Hampir semuanya belum ada
-- Akan dibuat menggunakan `CREATE INDEX IF NOT EXISTS` (idempotent, aman)
+| Table | Constraint | Rule |
+|-------|-----------|------|
+| `merchants` | `check_penalty_rate` | `penalty_rate BETWEEN 0 AND 1` |
+| `units` | `check_units_deposit_nonneg` | `deposit_amount >= 0` |
+| `referral_commissions` | `check_commission_nonneg` | `commission_amount >= 0` |
+| `payments` | `check_payment_amount_nonneg` | `amount >= 0` |
+| `payments` | `payments_status_check` | `status IN ('pending','paid','completed','failed','refunded')` |
 
-### CHECK Constraints (Script 1D) -- PARTIAL
-- Status CHECK sudah ada untuk sebagian besar tabel
-- **Yang belum ada**: numeric constraints (penalty_rate, rent_amount, deposit, size_sqm, total_units, latitude, longitude, price, amount, commission)
-- Perlu validasi data sebelum add constraint agar tidak gagal
+All using idempotent `DO $$ ... $$` blocks.
 
-### UNIQUE Constraints (Script 1E) -- PARTIAL
-- `merchants.merchant_code` - sudah ada
-- `referrals.referral_code` - sudah ada
-- `properties.property_code` - kolom TIDAK ADA, skip
-- `subscription_invoices.invoice_number` - kolom TIDAK ADA, skip
-- `contracts.contract_number` - kolom TIDAK ADA, skip
+### 1B. Script 1E - Missing Columns + UNIQUE Constraints (3 columns)
 
-### Data Types (Script 1F) -- IMPLEMENT
-- `properties.latitude` dan `longitude` masih `double precision` (float8), perlu diubah ke `numeric(10,8)` dan `numeric(11,8)`
+These columns don't exist yet and need to be created:
+
+| Table | Column | Generator | Format |
+|-------|--------|-----------|--------|
+| `properties` | `property_code` | Trigger function | `PROP-XXXXXX` |
+| `contracts` | `contract_number` | Trigger function | `CTR-YYYYMM-XXXX` |
+| `subscription_invoices` | `invoice_number` | Trigger function | `SINV-YYYYMM-XXXX` |
+
+Each column will:
+1. Be added as nullable TEXT
+2. Have a generation trigger (similar to existing `generate_merchant_code`)
+3. Backfill existing rows
+4. Add UNIQUE constraint
 
 ---
 
-## Rencana Implementasi
+## Phase 2: Normalization and Optimization
 
-### Step 1: Copy File ke old-docs/
-Copy `merchant_database_upgrade.md` ke `old-docs/`
+### 2A. Address Normalization
 
-### Step 2: Migration - Fix Remaining NO ACTION FKs (11 FKs)
-Untuk setiap FK: DROP constraint lama, ADD constraint baru dengan ON DELETE yang tepat.
+Create `addresses` table and add `address_id` FK to `merchants` and `properties`:
 
-### Step 3: Migration - Create All Indexes (30+ indexes)
-Semua indexes dari Script 1C menggunakan `CREATE INDEX IF NOT EXISTS` -- aman dan idempotent.
+```text
+addresses
+  id              UUID PK
+  street_address  TEXT
+  city            VARCHAR(100) NOT NULL
+  province        VARCHAR(100) NOT NULL
+  postal_code     VARCHAR(20)
+  latitude        NUMERIC(10,8)
+  longitude       NUMERIC(11,8)
+  created_at      TIMESTAMPTZ
+```
 
-### Step 4: Migration - Add Numeric CHECK Constraints
-Tambah CHECK constraints untuk numeric columns. Menggunakan `DO $$ ... $$` block untuk idempotent (cek sebelum add).
+- Add `address_id UUID` FK to `merchants` and `properties`
+- Create backward-compatible views (`v_merchants_with_addresses`, `v_properties_with_addresses`)
+- Migrate existing address data from both tables into `addresses` table
+- Keep old columns for backward compatibility (don't drop yet)
+- RLS: access through parent table's merchant_id
 
-Perlu data validation dulu -- jika ada data yang melanggar constraint, fix dulu.
+### 2B. Junction Tables - ADAPTED
 
-### Step 5: Migration - Fix Coordinate Data Types
-Ubah `latitude` dari `double precision` ke `numeric(10,8)` dan `longitude` ke `numeric(11,8)`.
+The original plan proposed converting `amenities TEXT[]` and `images TEXT[]` to junction tables. However:
 
-### Step 6: Update Checklist di File
-Update checklist di `old-docs/merchant_database_upgrade.md` dengan status aktual:
-- Script 1A: Partially done (11/14 fixed, 3 skip auth.users)
-- Script 1B: SKIP (by design convention)
-- Script 1C: DONE
-- Script 1D: Partially done (numeric only, status already exists)
-- Script 1E: Partially done (2/5 already exist, 3 columns don't exist)
-- Script 1F: DONE
+- **Amenities**: Already handled by 3-tier inventory system (`facility_types` + `facility_assignments` + `property_facilities`). The `amenities` array stores facility_type UUIDs and is resolved by `useFacilityTypeNames` hook across 17+ files. Converting would be a massive breaking change with no benefit. **SKIP - Already covered by inventory system.**
 
-### Step 7: Update Compliance Scorecard
-Update scorecard di file:
-- Foreign Keys (ON DELETE): 0% -> ~95% (3 auth.users FK cannot be changed)
-- Foreign Key Indexes: 0% -> 100%
-- Constraints: 40% -> ~75%
-- Indexing Strategy: 0% -> 100%
+- **Images**: `properties.images` and `units.photos` store Storage bucket URLs as TEXT arrays. This pattern is standard for Supabase Storage. **SKIP - Arrays are appropriate for ordered URL lists.**
+
+### 2C. Invoice Denormalization
+
+Invoices already has `merchant_id` and `tenant_user_id`. Add cached columns for faster queries without JOINs:
+
+- Add `property_id UUID`, `unit_id UUID`, `tenant_name TEXT`, `unit_number TEXT`
+- Backfill from contracts/units/profiles
+- Create trigger to auto-populate on INSERT
+- Add compound index on `(merchant_id, due_date DESC)` filtered for unpaid
 
 ---
 
-## File yang Diubah
+## Migration Execution Plan
 
-| File | Perubahan |
-|------|-----------|
-| `old-docs/merchant_database_upgrade.md` | Copy file + update checklist |
-| Database migration | Fix 11 NO ACTION FKs, 30+ indexes, numeric CHECK constraints, coordinate data types |
+### Migration 1: Phase 1 Completion
+- 5 CHECK constraints (idempotent DO blocks)
+- 3 new columns with generation triggers
+- Backfill existing data
+- 3 UNIQUE constraints
 
-## Catatan Penting
+### Migration 2: Phase 2A - Addresses
+- Create `addresses` table with indexes and RLS
+- Add `address_id` FK to merchants and properties
+- Migrate existing data
+- Create backward-compatible views
 
-- **ENUM types TIDAK diimplementasikan** karena melanggar konvensi proyek (gunakan text + CHECK constraint)
-- 3 FK ke `auth.users` tidak bisa diubah (reserved schema Supabase)
-- `property_code`, `contract_number`, `subscription_invoices.invoice_number` tidak ada di schema -- UNIQUE constraint di-skip
-- Phase 2 dan 3 TIDAK diimplementasikan di step ini (sesuai instruksi phase-gate)
+### Migration 2B: Phase 2C - Invoice Denormalization
+- Add denormalized columns to invoices
+- Backfill from contracts/units
+- Create auto-populate trigger
+- Add performance index
+
+### Code Changes
+- Update `old-docs/merchant_database_upgrade.md` checklist:
+  - Script 1D: PARTIAL -> DONE
+  - Script 1E: PARTIAL -> DONE
+  - Script 2A: unchecked -> DONE
+  - Script 2B: unchecked -> SKIP (covered by inventory system)
+  - Script 2C: unchecked -> DONE
+  - Phase 2 overall: mark complete
+
+---
+
+## Updated Compliance Scorecard
+
+| Dimension | Before | After |
+|-----------|--------|-------|
+| Constraints (UNIQUE/CHECK/NOT NULL) | ~75% | ~90% |
+| Normalization (1NF/2NF/3NF) | 65% | ~80% |
+| Overall Compliance | ~90% | ~93% |
+
+## Files Changed
+
+| File | Change |
+|------|--------|
+| Database migration (Phase 1 completion) | 5 CHECKs, 3 columns + triggers + UNIQUEs |
+| Database migration (Phase 2A) | addresses table + data migration |
+| Database migration (Phase 2C) | Invoice denormalization + trigger |
+| `old-docs/merchant_database_upgrade.md` | Update all checklists |
+
