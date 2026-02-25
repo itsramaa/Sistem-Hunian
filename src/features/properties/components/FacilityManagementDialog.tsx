@@ -17,6 +17,7 @@ interface Facility {
   id: string;
   name: string;
   category: string;
+  asset_type: string;
   purchase_price: number;
   purchase_date: string | null;
   useful_life_months: number;
@@ -32,6 +33,25 @@ interface FacilityManagementDialogProps {
   categoryFilter?: 'umum' | 'unit';
 }
 
+const ASSET_TYPE_OPTIONS = [
+  { value: 'elektronik', label: 'Elektronik (AC, TV, Water Heater)' },
+  { value: 'furnitur', label: 'Furnitur (Lemari, Meja, Kursi)' },
+  { value: 'infrastruktur', label: 'Infrastruktur (CCTV, Pompa Air)' },
+  { value: 'lainnya', label: 'Lainnya' },
+];
+
+const SALVAGE_VALUE_WEIGHTS: Record<string, number> = {
+  elektronik: 0.10,
+  furnitur: 0.05,
+  infrastruktur: 0.15,
+  lainnya: 0.10,
+};
+
+function calcSalvageValue(purchasePrice: number, assetType: string): number {
+  const weight = SALVAGE_VALUE_WEIGHTS[assetType] || 0.10;
+  return Math.round(purchasePrice * weight);
+}
+
 export function FacilityManagementDialog({ open, onOpenChange, merchantId, categoryFilter }: FacilityManagementDialogProps) {
   const queryClient = useQueryClient();
   const [editingFacility, setEditingFacility] = useState<Facility | null>(null);
@@ -40,12 +60,14 @@ export function FacilityManagementDialog({ open, onOpenChange, merchantId, categ
   // Form state
   const [name, setName] = useState('');
   const [category, setCategory] = useState<string>(categoryFilter || 'umum');
+  const [assetType, setAssetType] = useState('lainnya');
   const [purchasePrice, setPurchasePrice] = useState(0);
   const [purchaseDate, setPurchaseDate] = useState('');
   const [usefulLifeMonths, setUsefulLifeMonths] = useState(60);
-  const [salvageValue, setSalvageValue] = useState(0);
   const [brand, setBrand] = useState('');
   const [notes, setNotes] = useState('');
+
+  const computedSalvageValue = calcSalvageValue(purchasePrice, assetType);
 
   const { data: facilities = [], isLoading } = useQuery({
     queryKey: ['facilities', merchantId, categoryFilter],
@@ -90,17 +112,17 @@ export function FacilityManagementDialog({ open, onOpenChange, merchantId, categ
   });
 
   const resetForm = () => {
-    setName(''); setCategory(categoryFilter || 'umum'); setPurchasePrice(0);
-    setPurchaseDate(''); setUsefulLifeMonths(60); setSalvageValue(0);
+    setName(''); setCategory(categoryFilter || 'umum'); setAssetType('lainnya');
+    setPurchasePrice(0); setPurchaseDate(''); setUsefulLifeMonths(60);
     setBrand(''); setNotes('');
     setEditingFacility(null); setShowForm(false);
   };
 
   const startEdit = (f: Facility) => {
     setEditingFacility(f);
-    setName(f.name); setCategory(f.category); setPurchasePrice(f.purchase_price);
-    setPurchaseDate(f.purchase_date || ''); setUsefulLifeMonths(f.useful_life_months);
-    setSalvageValue(f.salvage_value); setBrand(f.brand || ''); setNotes(f.notes || '');
+    setName(f.name); setCategory(f.category); setAssetType(f.asset_type || 'lainnya');
+    setPurchasePrice(f.purchase_price); setPurchaseDate(f.purchase_date || '');
+    setUsefulLifeMonths(f.useful_life_months); setBrand(f.brand || ''); setNotes(f.notes || '');
     setShowForm(true);
   };
 
@@ -110,10 +132,11 @@ export function FacilityManagementDialog({ open, onOpenChange, merchantId, categ
       merchant_id: merchantId,
       name: name.trim(),
       category,
+      asset_type: assetType,
       purchase_price: purchasePrice,
       purchase_date: purchaseDate || null,
       useful_life_months: usefulLifeMonths,
-      salvage_value: salvageValue,
+      salvage_value: computedSalvageValue,
       brand: brand || null,
       notes: notes || null,
     });
@@ -125,6 +148,8 @@ export function FacilityManagementDialog({ open, onOpenChange, merchantId, categ
     const monthlyDep = (f.purchase_price - f.salvage_value) / f.useful_life_months;
     return Math.min(monthsElapsed * monthlyDep, f.purchase_price - f.salvage_value);
   };
+
+  const assetTypeLabel = (v: string) => ASSET_TYPE_OPTIONS.find(o => o.value === v)?.label?.split(' (')[0] || v;
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v); }}>
@@ -156,14 +181,21 @@ export function FacilityManagementDialog({ open, onOpenChange, merchantId, categ
                 </div>
               )}
               <div>
-                <Label>Merek</Label>
-                <Input value={brand} onChange={e => setBrand(e.target.value)} placeholder="Opsional" className="rounded-xl" />
+                <Label>Jenis Barang</Label>
+                <Select value={assetType} onValueChange={setAssetType}>
+                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {ASSET_TYPE_OPTIONS.map(o => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Harga Beli (Rp)</Label>
-                <Input type="number" min={0} value={purchasePrice} onChange={e => setPurchasePrice(Number(e.target.value))} className="rounded-xl" />
+                <Label>Merek</Label>
+                <Input value={brand} onChange={e => setBrand(e.target.value)} placeholder="Opsional" className="rounded-xl" />
               </div>
               <div>
                 <Label>Tanggal Beli</Label>
@@ -172,13 +204,21 @@ export function FacilityManagementDialog({ open, onOpenChange, merchantId, categ
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
+                <Label>Harga Beli (Rp)</Label>
+                <Input type="number" min={0} value={purchasePrice} onChange={e => setPurchasePrice(Number(e.target.value))} className="rounded-xl" />
+              </div>
+              <div>
                 <Label>Umur Pakai (bulan)</Label>
                 <Input type="number" min={1} value={usefulLifeMonths} onChange={e => setUsefulLifeMonths(Number(e.target.value))} className="rounded-xl" />
               </div>
-              <div>
-                <Label>Nilai Sisa (Rp)</Label>
-                <Input type="number" min={0} value={salvageValue} onChange={e => setSalvageValue(Number(e.target.value))} className="rounded-xl" />
-              </div>
+            </div>
+            {/* Auto-calculated salvage value display */}
+            <div className="rounded-xl bg-muted/50 border border-border/40 p-3">
+              <p className="text-xs text-muted-foreground mb-1">Nilai Sisa (otomatis berdasarkan jenis barang)</p>
+              <p className="text-sm font-semibold">{formatCurrency(computedSalvageValue)}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                {assetTypeLabel(assetType)}: {(SALVAGE_VALUE_WEIGHTS[assetType] || 0.10) * 100}% dari harga beli
+              </p>
             </div>
             <div>
               <Label>Catatan</Label>
@@ -216,6 +256,11 @@ export function FacilityManagementDialog({ open, onOpenChange, merchantId, categ
                             <Badge variant="outline" className="rounded-full text-[10px] shrink-0">
                               {f.category === 'umum' ? 'Umum' : 'Unit'}
                             </Badge>
+                            {f.asset_type && f.asset_type !== 'lainnya' && (
+                              <Badge variant="secondary" className="rounded-full text-[10px] shrink-0">
+                                {assetTypeLabel(f.asset_type)}
+                              </Badge>
+                            )}
                           </div>
                           {f.brand && <p className="text-xs text-muted-foreground">{f.brand}</p>}
                           <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
