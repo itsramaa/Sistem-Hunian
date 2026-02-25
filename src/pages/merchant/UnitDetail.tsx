@@ -25,10 +25,16 @@ import { cn } from '@/shared/utils/utils';
 import { CreateMaintenanceDialog } from '@/features/maintenance/components/CreateMaintenanceDialog';
 import { CustomAmenities } from '@/features/properties/components/CustomAmenities';
 import { FacilityManagementDialog } from '@/features/properties/components/FacilityManagementDialog';
+import { CreateContractDialog } from '@/features/contracts/components/CreateContractDialog';
+import { CreateInvoiceDialog } from '@/features/payments/components/CreateInvoiceDialog';
 import { useCreateMerchantMaintenanceRequest } from '@/features/maintenance/hooks/useMaintenance';
+import { useMerchantContracts } from '@/features/contracts/hooks/useMerchantContracts';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { UnitFormDialog } from '@/features/properties/components/UnitFormDialog';
 import { useUnits } from '@/features/properties/hooks/useUnits';
 import { UnitFormData } from '@/features/properties/types/schema';
+import { ContractFormData } from '@/features/contracts/types/schema';
+import { CreateContractPayload } from '@/features/contracts/types';
 import { toast } from 'sonner';
 
 const statusColors: Record<string, string> = {
@@ -84,6 +90,7 @@ export default function UnitDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { merchant } = useAuth();
   const { data: unit, isLoading, error } = useUnitDetail(id);
 
   // Maintenance dialog state
@@ -105,6 +112,25 @@ export default function UnitDetail() {
   // Inventaris amenities
   const [inventoryAmenities, setInventoryAmenities] = useState<string[]>([]);
   const [showFacilityManageDialog, setShowFacilityManageDialog] = useState(false);
+
+  // Contract dialog state
+  const [showContractDialog, setShowContractDialog] = useState(false);
+  const merchantId = merchant?.id || unit?.property?.merchant_id || '';
+  const { createContractMutation } = useMerchantContracts(merchantId || undefined);
+
+  // Invoice dialog state
+  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
+
+  // Fetch tenants for contract dialog
+  const { data: merchantTenants = [] } = useQuery({
+    queryKey: ['merchant-tenants-for-contract', merchantId],
+    queryFn: async () => {
+      if (!merchantId) return [];
+      const { data } = await supabase.from('profiles').select('user_id, full_name, email');
+      return (data || []).map(p => ({ user_id: p.user_id, full_name: p.full_name || '', email: p.email || '' }));
+    },
+    enabled: !!merchantId && showContractDialog,
+  });
 
   // Save unit amenities mutation
   const saveAmenitiesMutation = useMutation({
@@ -414,7 +440,7 @@ export default function UnitDetail() {
           <TabsContent value="contracts" className="space-y-3 mt-4 animate-fade-in">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-semibold text-muted-foreground">Kontrak Unit</h3>
-              <Button size="sm" className="rounded-xl gradient-cta text-primary-foreground" onClick={() => navigate(`/merchant/contracts?new=true&unit_id=${unit.id}`)}>
+              <Button size="sm" className="rounded-xl gradient-cta text-primary-foreground" onClick={() => setShowContractDialog(true)}>
                 <Plus className="h-4 w-4 mr-1" />Tambah Kontrak
               </Button>
             </div>
@@ -459,7 +485,7 @@ export default function UnitDetail() {
           <TabsContent value="payments" className="space-y-4 mt-4 animate-fade-in">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-semibold text-muted-foreground">Pembayaran</h3>
-              <Button size="sm" className="rounded-xl gradient-cta text-primary-foreground" onClick={() => navigate(`/merchant/invoices?new=true&unit_id=${unit.id}`)}>
+              <Button size="sm" className="rounded-xl gradient-cta text-primary-foreground" onClick={() => setShowInvoiceDialog(true)}>
                 <Plus className="h-4 w-4 mr-1" />Tambah Pembayaran
               </Button>
             </div>
@@ -686,6 +712,55 @@ export default function UnitDetail() {
           categoryFilter="unit"
         />
       )}
+
+      {/* Contract Dialog */}
+      <CreateContractDialog
+        open={showContractDialog}
+        onOpenChange={setShowContractDialog}
+        availableUnits={unit ? [{ id: unit.id, unit_number: unit.unit_number, propertyName: unit.property?.name || '' }] : []}
+        merchantTenants={merchantTenants}
+        onSubmit={(data: ContractFormData, resetForm: () => void) => {
+          if (!merchantId) return;
+          createContractMutation.mutate({
+            ...data,
+            merchant_id: merchantId,
+            status: 'draft',
+          } as CreateContractPayload, {
+            onSuccess: () => {
+              toast.success('Kontrak berhasil dibuat');
+              setShowContractDialog(false);
+              resetForm();
+              queryClient.invalidateQueries({ queryKey: ['unit-detail', id] });
+            },
+            onError: (e: Error) => toast.error(e.message),
+          });
+        }}
+        loading={createContractMutation.isPending}
+      />
+
+      {/* Invoice Dialog */}
+      <CreateInvoiceDialog
+        open={showInvoiceDialog}
+        onOpenChange={setShowInvoiceDialog}
+        contracts={(unit?.contracts || []).filter((c: any) => c.status === 'active').map((c: any) => ({
+          ...c,
+          merchant_id: merchantId,
+        }))}
+        merchantId={merchantId}
+        onCreate={async (data) => {
+          const { error } = await supabase.from('invoices').insert({
+            ...data,
+            invoice_number: '', // auto-generated by trigger
+            total_amount: data.amount + (data.tax_amount || 0),
+            status: 'pending',
+          });
+          if (error) throw error;
+          toast.success('Tagihan berhasil dibuat');
+          setShowInvoiceDialog(false);
+          queryClient.invalidateQueries({ queryKey: ['unit-detail', id] });
+        }}
+        isCreating={false}
+      />
     </div>
   );
 }

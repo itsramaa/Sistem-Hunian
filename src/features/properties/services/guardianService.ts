@@ -59,4 +59,36 @@ export const guardianService = {
 
     if (error) throw error;
   },
+
+  // Guardian Property Assignments
+  async fetchAssignments(guardianId: string): Promise<any[]> {
+    const { data, error } = await (supabase as any)
+      .from('guardian_property_assignments')
+      .select('*, properties:property_id(id, name)')
+      .eq('guardian_id', guardianId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async assignToProperty(guardianId: string, propertyId: string, role: string = 'primary'): Promise<any> {
+    const { data, error } = await (supabase as any)
+      .from('guardian_property_assignments')
+      .insert({ guardian_id: guardianId, property_id: propertyId, role })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async removeAssignment(assignmentId: string): Promise<void> {
+    const { error } = await (supabase as any)
+      .from('guardian_property_assignments')
+      .delete()
+      .eq('id', assignmentId);
+
+    if (error) throw error;
+  },
 };

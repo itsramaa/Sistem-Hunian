@@ -1270,6 +1270,7 @@ export type Database = {
       }
       facilities: {
         Row: {
+          asset_type: string | null
           brand: string | null
           category: string
           created_at: string | null
@@ -1284,6 +1285,7 @@ export type Database = {
           useful_life_months: number | null
         }
         Insert: {
+          asset_type?: string | null
           brand?: string | null
           category?: string
           created_at?: string | null
@@ -1298,6 +1300,7 @@ export type Database = {
           useful_life_months?: number | null
         }
         Update: {
+          asset_type?: string | null
           brand?: string | null
           category?: string
           created_at?: string | null
@@ -1523,6 +1526,51 @@ export type Database = {
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "forum_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guardian_property_assignments: {
+        Row: {
+          assigned_date: string
+          created_at: string
+          guardian_id: string
+          id: string
+          property_id: string
+          role: string
+          status: string
+        }
+        Insert: {
+          assigned_date?: string
+          created_at?: string
+          guardian_id: string
+          id?: string
+          property_id: string
+          role?: string
+          status?: string
+        }
+        Update: {
+          assigned_date?: string
+          created_at?: string
+          guardian_id?: string
+          id?: string
+          property_id?: string
+          role?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guardian_property_assignments_guardian_id_fkey"
+            columns: ["guardian_id"]
+            isOneToOne: false
+            referencedRelation: "property_guardians"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guardian_property_assignments_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
             referencedColumns: ["id"]
           },
         ]

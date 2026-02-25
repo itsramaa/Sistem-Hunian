@@ -56,3 +56,38 @@ export function useDeleteGuardian() {
     onError: (e: Error) => toast.error(e.message),
   });
 }
+
+export function useGuardianAssignments(guardianId?: string) {
+  return useQuery({
+    queryKey: ['guardian-assignments', guardianId],
+    queryFn: () => guardianService.fetchAssignments(guardianId!),
+    enabled: !!guardianId,
+  });
+}
+
+export function useAssignGuardianToProperty() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ guardianId, propertyId, role }: { guardianId: string; propertyId: string; role?: string }) =>
+      guardianService.assignToProperty(guardianId, propertyId, role),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['guardian-assignments'] });
+      qc.invalidateQueries({ queryKey: ['guardians'] });
+      toast.success('Penjaga berhasil di-assign ke properti');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useRemoveGuardianAssignment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (assignmentId: string) => guardianService.removeAssignment(assignmentId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['guardian-assignments'] });
+      qc.invalidateQueries({ queryKey: ['guardians'] });
+      toast.success('Assignment penjaga dihapus');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
