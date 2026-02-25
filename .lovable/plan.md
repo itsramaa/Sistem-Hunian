@@ -1,180 +1,123 @@
 
-# Redesign Sistem Inventori: 3-Konsep Terpisah + Hapus Escrow Merchant + Hapus CustomAmenities
 
-## Ringkasan
+# Asset Quantity, Facility Name Resolution, Tab Risiko, dan Sistem Peraturan
 
-Refaktor total sistem fasilitas/inventori menjadi arsitektur 3-tabel yang bersih:
-1. **facility_types** (Master Data) - Definisi tipe fasilitas
-2. **assets** (Barang Fisik Trackable) - Instance nyata dari barang tangible
-3. **facility_assignments** (Relasi Intangible) - Untuk WiFi, Parkiran, dll
+## 1. Asset Quantity (Jumlah Aset)
 
-Hapus semua fitur Escrow dari merchant, hapus `CustomAmenities` (fallback hardcoded AC, Water Heater, dll), dan konsolidasikan semuanya ke sistem inventori terpusat.
+**Masalah:** Form "Tambah Aset" hanya bisa menambah 1 aset per submit. Jika jumlah 0, tidak boleh di-assign.
 
----
+**Perubahan:**
+- **`AddAssetForm.tsx`**: Tambah field `quantity` (default 1, min 1). Saat save, loop insert N kali (atau batch insert). Jika quantity = 0, disable tombol submit.
+- **Inventory.tsx** (tab Aset): Tampilkan jumlah aset per tipe di tabel/badge.
+- **Validasi assign**: Saat assign aset ke property/unit, cek apakah ada aset `status = 'available'` untuk tipe tersebut. Jika 0, disable tombol assign / tampilkan pesan.
 
-## 1. Database Migration
+## 2. Fasilitas Tampil Nama, Bukan ID
+
+**Masalah:** `property.amenities` menyimpan array UUID dari `facility_types`. Di PropertyDetail dan UnitDetail, badge menampilkan UUID mentah karena hanya melakukan string formatting (`a.replace(/_/g, ' ')`).
+
+**Perubahan:**
+
+### PropertyDetail.tsx (line 482-486)
+- Fetch `facility_types` berdasarkan `property.amenities` (array of IDs)
+- Tampilkan `name` dari facility_type, bukan ID
+- Setiap badge bisa diklik untuk redirect ke `/merchant/inventory` (detail fasilitas)
+
+### UnitDetail.tsx (line 425-436)
+- Sama: resolve amenity IDs ke nama facility_type
+- Badge bisa diklik → redirect ke inventory
+
+### Implementasi:
+- Buat hook `useFacilityTypeNames(ids: string[])` yang fetch facility_types by IDs dan return map `{id: name}`
+- Gunakan di kedua halaman
+
+## 3. Tab Risiko (Pindahkan Compliance dari Overview)
+
+**Masalah:** Risiko & Kepatuhan saat ini ada di tab Ringkasan (overview). Perlu dipindahkan ke tab terpisah.
+
+**Perubahan di PropertyDetail.tsx:**
+- Tambah tab baru "Risiko" di TabsList (setelah Pemeliharaan)
+- Pindahkan `<LazyCompliance propertyId={id} />` dari TabsContent overview ke TabsContent "risk"
+- Update `getInitialTab` valid tabs: tambah `'risk'`
+
+## 4. Database: Tabel Peraturan (Rules)
 
 ### Tabel Baru
 
-**`facility_types`** (Master Data):
+**`rule_types`** (master template):
 ```text
-id              UUID PK
+id              UUID PK DEFAULT gen_random_uuid()
 merchant_id     UUID FK merchants
 name            TEXT NOT NULL
-scope           TEXT ('property' | 'unit')
-nature          TEXT ('tangible' | 'intangible')
-is_trackable    BOOLEAN DEFAULT false
-asset_type      TEXT ('elektronik' | 'furnitur' | 'infrastruktur' | 'lainnya')
-default_useful_life_months  INTEGER
-created_at      TIMESTAMPTZ
-updated_at      TIMESTAMPTZ
+category        TEXT DEFAULT 'umum'
+default_scope   TEXT DEFAULT 'property'
+created_at      TIMESTAMPTZ DEFAULT now()
+updated_at      TIMESTAMPTZ DEFAULT now()
 UNIQUE(merchant_id, name)
 ```
 
-**`assets`** (Barang Fisik - tangible & trackable):
+**`rules`** (instance per properti/unit):
 ```text
-id                UUID PK
-facility_type_id  UUID FK facility_types
-merchant_id       UUID FK merchants
-property_id       UUID FK properties (nullable)
-unit_id           UUID FK units (nullable)
-serial_number     TEXT (nullable)
-brand             TEXT (nullable)
-condition         TEXT ('good' | 'damaged' | 'lost') DEFAULT 'good'
-purchase_price    NUMERIC DEFAULT 0
-purchase_date     DATE (nullable)
-useful_life_months INTEGER DEFAULT 60
-salvage_value     NUMERIC DEFAULT 0
-status            TEXT ('available' | 'in_use' | 'maintenance') DEFAULT 'available'
-notes             TEXT (nullable)
-created_at        TIMESTAMPTZ
-updated_at        TIMESTAMPTZ
+id              UUID PK DEFAULT gen_random_uuid()
+merchant_id     UUID FK merchants
+property_id     UUID FK properties
+unit_id         UUID FK units (nullable)
+rule_type_id    UUID FK rule_types (nullable)
+title           TEXT NOT NULL
+description     TEXT
+is_active       BOOLEAN DEFAULT true
+is_overridable  BOOLEAN DEFAULT false
+effective_from  DATE DEFAULT CURRENT_DATE
+effective_until DATE (nullable)
+created_at      TIMESTAMPTZ DEFAULT now()
+updated_at      TIMESTAMPTZ DEFAULT now()
 ```
 
-**`facility_assignments`** (Intangible / non-asset):
+**`rule_acknowledgements`** (tenant agreement tracking):
 ```text
-id                UUID PK
-facility_type_id  UUID FK facility_types
-property_id       UUID FK properties (nullable)
-unit_id           UUID FK units (nullable)
-capacity          INTEGER (nullable) -- e.g. parkiran = 5 motor
-notes             TEXT (nullable)
-created_at        TIMESTAMPTZ
+id              UUID PK DEFAULT gen_random_uuid()
+rule_id         UUID FK rules ON DELETE CASCADE
+tenant_id       UUID NOT NULL
+acknowledged_at TIMESTAMPTZ DEFAULT now()
 ```
 
-### Migrasi Data
-- Migrate data dari `facilities` lama ke `facility_types` + `assets`
-- Drop tabel lama `facilities`, `property_facilities`, `unit_facilities` setelah migrasi
-- RLS policies untuk semua 3 tabel baru (merchant_id based)
+- RLS policies: merchant manages own rules via merchant_id
+- Triggers: `update_updated_at_column` on rules and rule_types
 
----
+## 5. UI Peraturan di Property & Unit Detail
 
-## 2. Hapus Escrow dari Merchant
+### PropertyDetail.tsx -- Section Peraturan di Overview
+- Tambah card "Peraturan" di tab overview (setelah fasilitas, sebelum DSS)
+- Tampilkan semua rules yang `property_id = id` dan `unit_id IS NULL`
+- Setiap rule ditampilkan sebagai card mini dengan: title, description, badge aktif/nonaktif
+- Tombol "Tambah Peraturan" membuka inline form sederhana (title, description, is_overridable, effective_from)
+- Tombol edit/delete di setiap rule card
 
-### File yang dihapus/diabaikan:
-- Hapus route `/merchant/escrow` dari `App.tsx`
-- Hapus menu "Escrow" dari sidebar `navigation-config.ts` (line 137)
-- Tidak perlu hapus file escrow karena admin masih pakai -- hanya hapus dari merchant routes & nav
+### UnitDetail.tsx -- Section Peraturan di Overview
+- Tampilkan rules khusus unit (`unit_id = id`) + inherited rules dari properti (`property_id = unit.property.id AND unit_id IS NULL`)
+- Inherited rules ditandai badge "Dari Properti"
+- Bisa tambah rule override khusus unit
+- Tombol add/edit/delete
 
-### File yang diubah:
-- `src/App.tsx`: Hapus lazy import `MerchantEscrow` dan route
-- `src/shared/components/layouts/navigation-config.ts`: Hapus item escrow dari grup Keuangan merchant
-- `src/pages/merchant/Dashboard.tsx`: Hapus card "Saldo Escrow" (line 197-204)
-
----
-
-## 3. Hapus `CustomAmenities` -- Ganti dengan Facility Type Picker
-
-### Hapus file:
-- `src/features/properties/components/CustomAmenities.tsx`
-
-### Buat pengganti:
-- **`src/features/inventory/components/FacilityTypePicker.tsx`**: Komponen picker yang menampilkan facility_types dari DB (tidak ada fallback hardcoded). Tampil sebagai badge toggle, diambil dari tabel `facility_types`. Ada tombol "Tambah Tipe Baru" yang langsung membuka inline form (bukan dialog kelola).
-
-### Update konsumen:
-- `PropertyFormDialog.tsx`: Ganti `CustomAmenities` dengan `FacilityTypePicker` -- saat user pilih facility type, otomatis buat `facility_assignment` atau `asset` tergantung nature
-- `UnitFormDialog.tsx`: Sama
-- `PropertySetupWizard.tsx`: Sama
-- `PropertyDetail.tsx`: Ganti referensi CustomAmenities dan FacilityManagementDialog
-- `UnitDetail.tsx`: Ganti tab inventaris
-
----
-
-## 4. Redesign Form Tambah Fasilitas (Langsung, Bukan Dialog)
-
-### Hapus file:
-- `src/features/properties/components/FacilityManagementDialog.tsx`
-
-### Halaman Inventori yang diperbarui:
-- **`src/pages/merchant/Inventory.tsx`**: Redesign total:
-  - Tab: **Tipe Fasilitas** | **Aset** | **Assignment**
-  - Tab Tipe Fasilitas: List + inline form "Tambah Tipe" (langsung di halaman, bukan dialog)
-  - Tab Aset: List semua barang fisik dengan filter property/unit, condition, status. Klik row buka detail.
-  - Tab Assignment: List semua intangible assignments
-  - Tombol "Tambah Aset" membuka form inline/expandable di halaman
-  - Tombol "Tambah Assignment" untuk intangible
-
-### Detail Aset:
-- Klik item di tabel Aset membuka halaman/panel detail dengan info lengkap: tipe, serial, brand, kondisi, harga beli, depresiasi, nilai buku, lokasi (property/unit), history
-
----
-
-## 5. Konsep Assign ke Property/Unit
-
-### Di halaman Inventory:
-- Form "Tambah Aset": pilih Tipe Fasilitas, lalu pilih Property dan/atau Unit tujuan
-- Form "Tambah Assignment": pilih Tipe Fasilitas intangible, pilih property/unit, isi capacity
-
-### Di PropertyDetail (Overview/Ringkasan):
-- Section "Fasilitas" menampilkan: assets yang di-assign ke property + facility_assignments property
-- Tombol "Assign Aset" membuka form picker (pilih dari assets yang available milik merchant)
-
-### Di UnitDetail (Inventaris tab):
-- Tampilkan assets di unit + facility_assignments unit
-- Tombol "Assign Aset" untuk assign existing asset ke unit
-- Tombol "Tambah Baru" untuk create + assign sekaligus
-
----
-
-## 6. Nilai Sisa Otomatis
-
-Logic tetap sama dari sebelumnya:
-- Elektronik: 10% dari harga beli
-- Furnitur: 5%
-- Infrastruktur: 15%
-- Lainnya: 10%
-
-Dihitung otomatis saat save asset berdasarkan `facility_type.asset_type`.
-
----
+### Komponen Baru
+- **`src/features/rules/components/RulesSection.tsx`**: Komponen reusable yang menampilkan list rules + inline form tambah/edit. Props: `propertyId`, `unitId?`, `merchantId`
+- **`src/features/rules/hooks/useRules.ts`**: Query dan mutation hooks untuk CRUD rules
 
 ## Files Summary
 
 | File | Perubahan |
 |------|-----------|
-| **Database migration** | Buat `facility_types`, `assets`, `facility_assignments`. Migrasi data dari `facilities` lama. RLS policies. |
-| `src/features/inventory/` | **Baru**: Folder fitur inventory |
-| `src/features/inventory/components/FacilityTypePicker.tsx` | **Baru**: Pengganti CustomAmenities |
-| `src/features/inventory/components/AddAssetForm.tsx` | **Baru**: Form inline tambah aset |
-| `src/features/inventory/components/AddAssignmentForm.tsx` | **Baru**: Form inline tambah assignment |
-| `src/features/inventory/components/AssetDetailPanel.tsx` | **Baru**: Detail view aset |
-| `src/pages/merchant/Inventory.tsx` | Redesign total dengan 3 tab |
-| `src/App.tsx` | Hapus MerchantEscrow route |
-| `src/shared/components/layouts/navigation-config.ts` | Hapus Escrow dari merchant nav |
-| `src/pages/merchant/Dashboard.tsx` | Hapus card Saldo Escrow |
-| `src/features/properties/components/CustomAmenities.tsx` | **Hapus** |
-| `src/features/properties/components/FacilityManagementDialog.tsx` | **Hapus** |
-| `src/features/properties/components/PropertyFormDialog.tsx` | Ganti CustomAmenities dengan FacilityTypePicker |
-| `src/features/properties/components/PropertySetupWizard.tsx` | Ganti CustomAmenities dengan FacilityTypePicker |
-| `src/features/properties/components/UnitFormDialog.tsx` | Ganti CustomAmenities dengan FacilityTypePicker |
-| `src/pages/merchant/PropertyDetail.tsx` | Ganti fasilitas section, hapus FacilityManagementDialog |
-| `src/pages/merchant/UnitDetail.tsx` | Ganti inventaris tab, hapus CustomAmenities |
+| **Database migration** | Buat `rule_types`, `rules`, `rule_acknowledgements` + RLS |
+| `src/features/inventory/components/AddAssetForm.tsx` | Tambah field quantity, batch insert |
+| `src/features/inventory/hooks/useFacilityTypeNames.ts` | **Baru**: Hook resolve IDs ke names |
+| `src/pages/merchant/PropertyDetail.tsx` | Resolve facility names, tambah tab Risiko, tambah RulesSection di overview |
+| `src/pages/merchant/UnitDetail.tsx` | Resolve facility names, tambah RulesSection di overview |
+| `src/features/rules/components/RulesSection.tsx` | **Baru**: Komponen list + CRUD rules |
+| `src/features/rules/hooks/useRules.ts` | **Baru**: Query/mutation hooks rules |
 
 ## Technical Notes
 
-- `facility_types` = **definisi**. Tidak punya harga, kondisi, serial. Hanya nama, scope, nature, trackable.
-- `assets` = **instance fisik**. Punya harga, kondisi, serial, lokasi. Hanya untuk tangible items.
-- `facility_assignments` = **relasi intangible**. Parkiran (capacity=5), WiFi, Keamanan 24 Jam. Tidak punya kondisi/harga.
-- Migrasi data: `facilities` lama yang punya `purchase_price > 0` jadi `assets`, sisanya jadi `facility_assignments`. Semua jadi `facility_types` master.
-- Fallback hardcoded (AC, Water Heater, Parkir, dll) dihapus total. Semua dari DB.
-- Escrow hanya dihapus dari merchant -- admin escrow tetap ada.
+- Batch insert aset: loop N kali `supabase.from('assets').insert()` dalam satu mutation (Supabase mendukung array insert)
+- Facility name resolution: query `facility_types` WHERE `id IN (amenity_ids)` lalu map
+- Rules inherited: query WHERE `property_id = X AND unit_id IS NULL` untuk property-level, unit-specific query WHERE `unit_id = Y`
+- Rule acknowledgements digunakan nanti untuk tracking tenant agreement (phase 2)
+
