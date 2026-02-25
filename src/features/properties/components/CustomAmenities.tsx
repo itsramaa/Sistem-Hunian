@@ -6,27 +6,36 @@ import { Label } from '@/shared/components/ui/label';
 import { Plus, X } from 'lucide-react';
 import { cn } from '@/shared/utils/utils';
 
-const DEFAULT_AMENITIES = [
-  { value: 'wifi', label: 'WiFi' },
-  { value: 'ac', label: 'AC' },
+const PROPERTY_AMENITIES = [
   { value: 'parking', label: 'Parkir' },
-  { value: 'laundry', label: 'Laundry' },
-  { value: 'kitchen', label: 'Dapur Bersama' },
   { value: 'security', label: 'Keamanan 24 Jam' },
   { value: 'cctv', label: 'CCTV' },
-  { value: 'water_heater', label: 'Water Heater' },
-  { value: 'gym', label: 'Gym' },
   { value: 'pool', label: 'Kolam Renang' },
-  { value: 'furnished', label: 'Furnished' },
+  { value: 'gym', label: 'Gym' },
+  { value: 'kitchen', label: 'Dapur Bersama' },
+  { value: 'laundry', label: 'Laundry' },
   { value: 'cleaning', label: 'Cleaning Service' },
+];
+
+const UNIT_AMENITIES = [
+  { value: 'ac', label: 'AC' },
+  { value: 'water_heater', label: 'Water Heater' },
+  { value: 'furnished', label: 'Furnished' },
+  { value: 'lemari', label: 'Lemari' },
+  { value: 'meja', label: 'Meja' },
+  { value: 'kamar_mandi_dalam', label: 'Kamar Mandi Dalam' },
+  { value: 'balkon', label: 'Balkon' },
 ];
 
 interface CustomAmenitiesProps {
   selectedAmenities: string[];
   onAmenitiesChange: (amenities: string[]) => void;
+  type?: 'property' | 'unit';
 }
 
-export function CustomAmenities({ selectedAmenities, onAmenitiesChange }: CustomAmenitiesProps) {
+export function CustomAmenities({ selectedAmenities, onAmenitiesChange, type = 'property' }: CustomAmenitiesProps) {
+  const DEFAULT_AMENITIES = type === 'property' ? PROPERTY_AMENITIES : UNIT_AMENITIES;
+  const sectionLabel = type === 'property' ? 'Fasilitas Umum' : 'Fasilitas Kamar';
   const [customInput, setCustomInput] = useState('');
   const [customAmenities, setCustomAmenities] = useState<string[]>([]);
 
@@ -73,7 +82,7 @@ export function CustomAmenities({ selectedAmenities, onAmenitiesChange }: Custom
 
   return (
     <div className="space-y-3">
-      <Label>Fasilitas</Label>
+      <Label>{sectionLabel}</Label>
       
       {/* Default amenities */}
       <div className="flex flex-wrap gap-2">

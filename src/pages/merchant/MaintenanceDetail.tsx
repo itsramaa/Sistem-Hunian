@@ -120,12 +120,16 @@ export default function MerchantMaintenanceDetail() {
   const { data: expenses = [] } = useQuery({
     queryKey: ['maintenance-expenses', id],
     queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from('maintenance_expenses')
-        .select('*')
-        .eq('maintenance_request_id', id!)
-        .order('created_at', { ascending: false });
-      return (data || []) as any[];
+      try {
+        const { data } = await (supabase as any)
+          .from('maintenance_expenses')
+          .select('*')
+          .eq('maintenance_request_id', id!)
+          .order('created_at', { ascending: false });
+        return (data || []) as any[];
+      } catch {
+        return [] as any[];
+      }
     },
     enabled: !!id,
   });

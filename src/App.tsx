@@ -219,7 +219,7 @@ const App = () => (
                     <Route path="ocr-tutorial" element={<MerchantOcrTutorial />} />
                     <Route path="tenant-analytics" element={<MerchantTenantAnalytics />} />
                     <Route path="compliance" element={<Navigate to="/merchant/properties" replace />} />
-                    <Route path="data-quality" element={<Navigate to="/merchant/properties" replace />} />
+                    <Route path="data-quality" element={<MerchantDataQuality />} />
                     {/* Insights sub-pages */}
                     <Route path="analytics-dashboard" element={<MerchantAnalyticsDashboard />} />
                     <Route path="report-templates" element={<MerchantReportTemplates />} />

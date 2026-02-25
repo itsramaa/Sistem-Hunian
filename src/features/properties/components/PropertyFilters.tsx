@@ -2,6 +2,7 @@ import { PROPERTY_TYPES } from '@/features/properties/constants';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { ArrowUpDown, Grid, List, RotateCcw, Search, X } from 'lucide-react';
 

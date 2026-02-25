@@ -131,14 +131,17 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
         label: "Keuangan",
         items: [
           { path: "/merchant/invoices", icon: FileText, label: "Tagihan" },
-          { path: "/merchant/payments", icon: Wallet, label: "Pembayaran", activePatterns: ["/merchant/escrow"] },
+          { path: "/merchant/payments", icon: Wallet, label: "Pembayaran" },
+          { path: "/merchant/escrow", icon: Calculator, label: "Escrow" },
         ],
       },
       {
         label: "Wawasan",
         items: [
           { path: "/merchant/reports", icon: FileText, label: "Laporan", activePatterns: ["/merchant/report-templates"] },
-          { path: "/merchant/insights", icon: BarChart3, label: "Alat", activePatterns: ["/merchant/analytics", "/merchant/ai-insights", "/merchant/analytics-dashboard", "/merchant/comparative-portfolio", "/merchant/ml-analytics", "/merchant/dss-advisor", "/merchant/market-intelligence", "/merchant/financial-risk", "/merchant/tenant-quality"] },
+          { path: "/merchant/insights", icon: BarChart3, label: "Alat", activePatterns: ["/merchant/analytics", "/merchant/ai-insights", "/merchant/analytics-dashboard", "/merchant/comparative-portfolio", "/merchant/ml-analytics", "/merchant/dss-advisor", "/merchant/market-intelligence", "/merchant/financial-risk", "/merchant/tenant-quality", "/merchant/data-quality"] },
+          { path: "/merchant/documents", icon: FileSearch, label: "Dokumen" },
+          { path: "/merchant/referrals", icon: Gift, label: "Referral" },
         ],
       },
     ],

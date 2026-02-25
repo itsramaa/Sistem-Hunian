@@ -1,4 +1,4 @@
-import { BarChart3, Briefcase, Brain, Target, Globe, ShieldAlert, UserCheck, TrendingUp } from "lucide-react";
+import { BarChart3, Briefcase, Brain, Target, Globe, ShieldAlert, UserCheck, TrendingUp, FileSearch } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/shared/components/ui/PageHeader";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/shared/components/ui/card";
@@ -64,6 +64,13 @@ const intelligenceCards: InsightCard[] = [
     icon: UserCheck,
     path: "/merchant/tenant-quality",
     accentClass: "from-accent/20 to-accent/5",
+  },
+  {
+    title: "Kualitas Data",
+    description: "Riwayat validasi dan skor kualitas data properti",
+    icon: FileSearch,
+    path: "/merchant/data-quality",
+    accentClass: "from-primary/20 to-primary/5",
   },
 ];
 
