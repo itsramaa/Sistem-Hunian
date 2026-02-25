@@ -252,8 +252,7 @@ export function PropertyFormDialog({ open, onOpenChange, property, onSubmit, isL
                 <UnitPhotoUpload photos={watch('images') || []} onPhotosChange={(p) => setValue('images', p)} maxPhotos={10} />
               </div>
               <div>
-                <Label>Fasilitas Umum</Label>
-                <CustomAmenities selectedAmenities={watch('amenities') || []} onAmenitiesChange={(a) => setValue('amenities', a)} />
+                <CustomAmenities selectedAmenities={watch('amenities') || []} onAmenitiesChange={(a) => setValue('amenities', a)} type="property" />
               </div>
             </div>
           )}

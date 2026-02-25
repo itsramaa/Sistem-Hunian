@@ -3,8 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/shared/components/ui/button';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { Label } from '@/shared/components/ui/label';
-import { FileUpload } from '@/shared/components/FileUpload';
-import { CheckCircle, Loader2, X } from 'lucide-react';
+import { MaintenancePhotoUpload } from './MaintenancePhotoUpload';
+import { CheckCircle, Loader2 } from 'lucide-react';
 
 interface CompletionDialogProps {
   open: boolean;
@@ -19,7 +19,6 @@ export function CompletionDialog({ open, onOpenChange, onConfirm, isLoading = fa
   const [completionPhotos, setCompletionPhotos] = useState<string[]>([]);
 
   const handleConfirm = () => { onConfirm(completionNotes, completionPhotos); };
-  const handleRemovePhoto = (index: number) => { setCompletionPhotos(photos => photos.filter((_, i) => i !== index)); };
   const handleClose = () => { setCompletionNotes(''); setCompletionPhotos([]); onOpenChange(false); };
 
   return (
@@ -38,27 +37,13 @@ export function CompletionDialog({ open, onOpenChange, onConfirm, isLoading = fa
             <Textarea value={completionNotes} onChange={(e) => setCompletionNotes(e.target.value)} placeholder="Describe the work done, any issues resolved, or recommendations..." rows={4} className="rounded-xl bg-background/60 border-border/50" />
           </div>
 
-          <div className="space-y-2">
-            <Label>Completion Photos (Optional)</Label>
-            <p className="text-sm text-muted-foreground mb-2">Upload photos of the completed work</p>
-            
-            {completionPhotos.length > 0 && (
-              <div className="grid grid-cols-3 gap-2 mb-2">
-                {completionPhotos.map((photo, index) => (
-                  <div key={index} className="relative group">
-                    <img src={photo} alt={`Completion photo ${index + 1}`} className="w-full h-20 object-cover rounded-xl border border-border/40" />
-                    <button type="button" onClick={() => handleRemovePhoto(index)} className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {completionPhotos.length < 5 && (
-              <FileUpload bucket="maintenance-photos" onUploadComplete={(url) => setCompletionPhotos(prev => [...prev, url])} accept="image/*" maxSize={5} />
-            )}
-          </div>
+          <MaintenancePhotoUpload
+            photos={completionPhotos}
+            onChange={setCompletionPhotos}
+            maxPhotos={5}
+            label="Completion Photos (Optional)"
+            description="Upload photos of the completed work"
+          />
         </div>
 
         <DialogFooter>

@@ -34,6 +34,7 @@ const statusColors: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = { available: 'Tersedia', occupied: 'Terisi', maintenance: 'Perbaikan', reserved: 'Dipesan' };
+const priorityLabels: Record<string, string> = { low: 'Rendah', medium: 'Sedang', high: 'Tinggi', urgent: 'Darurat' };
 
 function useUnitDetail(unitId: string | undefined) {
   return useQuery({

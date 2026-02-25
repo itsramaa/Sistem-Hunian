@@ -7,8 +7,10 @@ import { Textarea } from "@/shared/components/ui/textarea";
 import { Label } from "@/shared/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
 import { FileUpload } from "@/shared/components/FileUpload";
+import { WebcamCaptureDialog } from "@/shared/components/WebcamCaptureDialog";
+import { useIsMobile } from "@/shared/hooks/use-mobile";
 import { toast } from "sonner";
-import { Loader2, Send, Image, X } from "lucide-react";
+import { Loader2, Send, Image, Video, X } from "lucide-react";
 
 interface MaintenanceReplyFormProps {
   maintenanceRequestId: string;
@@ -19,11 +21,27 @@ interface MaintenanceReplyFormProps {
 
 export function MaintenanceReplyForm({ maintenanceRequestId, authorRole, currentStatus = "pending", onSuccess }: MaintenanceReplyFormProps) {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   const [content, setContent] = useState("");
   const [statusChange, setStatusChange] = useState<string>("");
   const [photos, setPhotos] = useState<string[]>([]);
   const [showPhotoUpload, setShowPhotoUpload] = useState(false);
+  const [webcamOpen, setWebcamOpen] = useState(false);
+
+  const handleWebcamCapture = async (blob: Blob) => {
+    if (!user) return;
+    try {
+      const filePath = `${user.id}/updates/${Date.now()}.jpg`;
+      const { error } = await supabase.storage.from('maintenance-photos').upload(filePath, blob);
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from('maintenance-photos').getPublicUrl(filePath);
+      setPhotos([...photos, urlData.publicUrl]);
+      toast.success('Foto berhasil diambil');
+    } catch {
+      toast.error('Gagal mengupload foto webcam');
+    }
+  };
 
   const addReplyMutation = useMutation({
     mutationFn: async () => {
@@ -85,10 +103,18 @@ export function MaintenanceReplyForm({ maintenanceRequestId, authorRole, current
             <Button type="button" variant="ghost" size="sm" onClick={() => setShowPhotoUpload(false)}>Cancel</Button>
           </div>
         ) : (
-          <Button type="button" variant="outline" size="sm" onClick={() => setShowPhotoUpload(true)} className="gap-2 rounded-xl">
-            <Image className="h-4 w-4" />Add Photo
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setShowPhotoUpload(true)} className="gap-2 rounded-xl">
+              <Image className="h-4 w-4" />Add Photo
+            </Button>
+            {!isMobile && (
+              <Button type="button" variant="outline" size="sm" className="rounded-xl gap-1.5" onClick={() => setWebcamOpen(true)}>
+                <Video className="h-4 w-4" /> Webcam
+              </Button>
+            )}
+          </div>
         )}
+        <WebcamCaptureDialog open={webcamOpen} onOpenChange={setWebcamOpen} onCapture={handleWebcamCapture} />
       </div>
 
       {canChangeStatus && (

@@ -161,7 +161,7 @@ export function PropertyTable({
           {onItemsPerPageChange && (
             <div className="flex items-center gap-2">
               <Label htmlFor="items-per-page" className="sr-only">Item per halaman</Label>
-              <Select id="items-per-page" value={String(itemsPerPage)} onValueChange={(v) => onItemsPerPageChange(Number(v))}>
+              <Select value={String(itemsPerPage)} onValueChange={(v) => onItemsPerPageChange(Number(v))}>
                 <SelectTrigger className="h-8 w-[70px] rounded-lg"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="9">9</SelectItem>

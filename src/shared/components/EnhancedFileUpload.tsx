@@ -3,10 +3,12 @@ import { supabase } from "@/lib/integrations/supabase/client";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Button } from "@/shared/components/ui/button";
 import { Progress } from "@/shared/components/ui/progress";
+import { WebcamCaptureDialog } from "@/shared/components/WebcamCaptureDialog";
+import { useIsMobile } from "@/shared/hooks/use-mobile";
 import { toast } from "sonner";
 import { 
   Upload, X, Loader2, FileText, Image as ImageIcon, 
-  Pause, Play, RotateCcw, CheckCircle2, AlertCircle 
+  Pause, Play, RotateCcw, CheckCircle2, AlertCircle, Video 
 } from "lucide-react";
 import { compressImage, shouldCompress, getOptimalOptions } from "@/shared/utils/imageCompression";
 
@@ -40,6 +42,8 @@ export const EnhancedFileUpload = ({
   enableCompression = true,
   showProgress = true,
 }: EnhancedFileUploadProps) => {
+  const isMobile = useIsMobile();
+  const [webcamOpen, setWebcamOpen] = useState(false);
   const { user } = useAuth();
   const [state, setState] = useState<UploadState>({
     status: 'idle',
@@ -328,6 +332,28 @@ export const EnhancedFileUpload = ({
           </Button>
         </div>
       )}
+
+      {/* Desktop webcam button */}
+      {!isMobile && accept.startsWith('image') && (
+        <div className="flex justify-center">
+          <Button type="button" variant="outline" size="sm" className="rounded-xl gap-1.5" onClick={() => setWebcamOpen(true)} disabled={state.status === 'uploading' || state.status === 'compressing'}>
+            <Video className="h-4 w-4" /> Webcam
+          </Button>
+        </div>
+      )}
+      <WebcamCaptureDialog open={webcamOpen} onOpenChange={setWebcamOpen} onCapture={async (blob) => {
+        if (!user) return;
+        try {
+          const filePath = folder ? `${user.id}/${folder}/${Date.now()}.jpg` : `${user.id}/${Date.now()}.jpg`;
+          const { error } = await supabase.storage.from(bucket).upload(filePath, blob);
+          if (error) throw error;
+          const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
+          onUploadComplete(urlData.publicUrl, filePath);
+          toast.success('Foto webcam berhasil diupload');
+        } catch (err) {
+          toast.error('Gagal mengupload foto webcam');
+        }
+      }} />
     </div>
   );
 };

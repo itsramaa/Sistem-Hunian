@@ -301,10 +301,10 @@ export const UnitFormDialog = ({ open, onOpenChange, unit, properties, onSubmit,
 
               {/* Fasilitas Kamar */}
               <div>
-                <Label>Fasilitas Kamar</Label>
                 <CustomAmenities
                   selectedAmenities={watch("amenities") || []}
                   onAmenitiesChange={(a) => setValue("amenities", a)}
+                  type="unit"
                 />
               </div>
             </div>
