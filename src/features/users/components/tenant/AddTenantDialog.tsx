@@ -8,10 +8,8 @@ import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Badge } from '@/shared/components/ui/badge';
 import { addTenantSchema, AddTenantFormData } from '@/features/users/types/addTenantSchema';
-import { useAvailableTenants } from '@/features/users/hooks/useMerchantTenants';
-import { useAuth } from '@/features/auth/hooks/useAuth';
 import { Property } from '@/features/properties/types';
-import { ArrowLeft, ArrowRight, Building2, Check, Home, Loader2, User, Users } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Building2, Check, Home, KeyRound, Loader2, User } from 'lucide-react';
 import { cn } from '@/shared/utils/utils';
 
 interface AddTenantDialogProps {
@@ -23,24 +21,20 @@ interface AddTenantDialogProps {
 }
 
 const STEPS = [
-  { label: 'Pilih Tenant', icon: Users, description: 'Pilih dari daftar' },
+  { label: 'Buat Akun', icon: KeyRound, description: 'Info login tenant' },
   { label: 'Unit', icon: Home, description: 'Property & unit' },
   { label: 'Kontrak', icon: Building2, description: 'Tanggal & harga' },
 ];
 
 export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLoading }: AddTenantDialogProps) {
   const [step, setStep] = useState(0);
-  const [selectedTenantUserId, setSelectedTenantUserId] = useState<string>('');
-  const [searchTenant, setSearchTenant] = useState('');
-
-  const { merchant } = useAuth();
-  const { data: allTenants = [], isLoading: tenantsLoading } = useAvailableTenants(merchant?.id);
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors }, trigger } = useForm<AddTenantFormData>({
     resolver: zodResolver(addTenantSchema),
     defaultValues: {
       full_name: '',
       email: '',
+      password: '',
       phone: '',
       property_id: '',
       unit_id: '',
@@ -56,33 +50,9 @@ export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLo
   const selectedProperty = properties.find(p => p.id === selectedPropertyId);
   const availableUnits = (selectedProperty as any)?.units?.filter((u: any) => u.status === 'available') || [];
 
-  const filteredTenants = allTenants.filter(t => {
-    const q = searchTenant.toLowerCase();
-    return (
-      t.full_name?.toLowerCase().includes(q) ||
-      t.email?.toLowerCase().includes(q) ||
-      t.phone?.toLowerCase().includes(q)
-    );
-  });
-
-  const handleSelectTenant = (userId: string) => {
-    setSelectedTenantUserId(userId);
-    const tenant = allTenants.find(t => t.user_id === userId);
-    if (tenant) {
-      setValue('full_name', tenant.full_name || '', { shouldValidate: true });
-      setValue('email', tenant.email || '', { shouldValidate: true });
-      setValue('phone', tenant.phone || '');
-    }
-  };
-
   const handleNext = async () => {
-    if (step === 0) {
-      if (!selectedTenantUserId) return;
-      setStep(1);
-      return;
-    }
     const fieldsPerStep: (keyof AddTenantFormData)[][] = [
-      ['full_name', 'email'],
+      ['full_name', 'email', 'password'],
       ['property_id', 'unit_id'],
       ['start_date', 'end_date', 'rent_amount'],
     ];
@@ -93,25 +63,25 @@ export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLo
   const handleBack = () => setStep(s => Math.max(s - 1, 0));
 
   const handleFormSubmit = (data: AddTenantFormData) => {
-    onSubmit({ ...data, tenant_user_id: selectedTenantUserId } as any);
+    onSubmit(data);
   };
 
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
       reset();
       setStep(0);
-      setSelectedTenantUserId('');
-      setSearchTenant('');
     }
     onOpenChange(isOpen);
   };
+
+  const inputCls = "rounded-xl bg-background/60 border-border/50";
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-lg w-[95vw] rounded-2xl">
         <DialogHeader>
-          <DialogTitle>Tambah Tenant</DialogTitle>
-          <DialogDescription>Pilih tenant dari daftar dan buat kontrak langsung</DialogDescription>
+          <DialogTitle>Tambah Tenant Baru</DialogTitle>
+          <DialogDescription>Buat akun tenant baru dan hubungkan ke unit properti</DialogDescription>
         </DialogHeader>
 
         {/* Connected Dots Stepper */}
@@ -137,62 +107,32 @@ export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLo
         </div>
 
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4 mt-2">
-          {/* Step 1: Pick Tenant */}
+          {/* Step 1: Create Account */}
           {step === 0 && (
-            <div className="space-y-3">
+            <div className="space-y-4">
+              <div className="p-3 rounded-xl bg-info/10 border border-info/20 text-sm text-info">
+                Buat akun login untuk tenant baru. Tenant bisa mengisi detail profil setelah login.
+              </div>
               <div>
-                <Label>Cari Tenant</Label>
-                <Input
-                  placeholder="Ketik nama, email, atau telepon..."
-                  value={searchTenant}
-                  onChange={(e) => setSearchTenant(e.target.value)}
-                  className="rounded-xl bg-background/60 border-border/50"
-                />
+                <Label htmlFor="full_name">Nama Lengkap *</Label>
+                <Input id="full_name" placeholder="Nama lengkap tenant" {...register('full_name')} className={cn(inputCls, errors.full_name && 'border-destructive')} />
+                {errors.full_name && <p className="text-sm text-destructive mt-1">{errors.full_name.message}</p>}
               </div>
-              <div className="max-h-60 overflow-y-auto rounded-xl border border-border/40 divide-y divide-border/30">
-                {tenantsLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                  </div>
-                ) : filteredTenants.length === 0 ? (
-                  <div className="text-sm text-muted-foreground text-center py-8">
-                    Tidak ada tenant ditemukan
-                  </div>
-                ) : (
-                  filteredTenants.map((tenant) => (
-                    <button
-                      type="button"
-                      key={tenant.user_id}
-                      onClick={() => handleSelectTenant(tenant.user_id)}
-                      className={cn(
-                        'w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-primary/5 transition-all duration-200',
-                        selectedTenantUserId === tenant.user_id && 'bg-primary/10 border-l-2 border-l-primary'
-                      )}
-                    >
-                      <div className={cn(
-                        'w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold transition-colors',
-                        selectedTenantUserId === tenant.user_id ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                      )}>
-                        {selectedTenantUserId === tenant.user_id ? (
-                          <Check className="h-4 w-4" />
-                        ) : (
-                          (tenant.full_name || '?')[0].toUpperCase()
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{tenant.full_name || 'Unnamed'}</p>
-                        <p className="text-xs text-muted-foreground truncate">{tenant.email}</p>
-                      </div>
-                      {tenant.phone && (
-                        <span className="text-xs text-muted-foreground">{tenant.phone}</span>
-                      )}
-                    </button>
-                  ))
-                )}
+              <div>
+                <Label htmlFor="email">Email *</Label>
+                <Input id="email" type="email" placeholder="tenant@example.com" {...register('email')} className={cn(inputCls, errors.email && 'border-destructive')} />
+                {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message}</p>}
               </div>
-              {!selectedTenantUserId && (
-                <p className="text-sm text-muted-foreground">Pilih salah satu tenant untuk melanjutkan</p>
-              )}
+              <div>
+                <Label htmlFor="password">Password *</Label>
+                <Input id="password" type="password" placeholder="Minimal 12 karakter" {...register('password')} className={cn(inputCls, errors.password && 'border-destructive')} />
+                {errors.password && <p className="text-sm text-destructive mt-1">{errors.password.message}</p>}
+                <p className="text-xs text-muted-foreground mt-1">Minimal 12 karakter</p>
+              </div>
+              <div>
+                <Label htmlFor="phone">Telepon (Opsional)</Label>
+                <Input id="phone" placeholder="08xxxxxxxxxx" {...register('phone')} className={inputCls} />
+              </div>
             </div>
           )}
 
@@ -211,7 +151,7 @@ export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLo
               <div>
                 <Label>Property *</Label>
                 <Select value={selectedPropertyId} onValueChange={(v) => { setValue('property_id', v, { shouldValidate: true }); setValue('unit_id', ''); }}>
-                  <SelectTrigger className="rounded-xl bg-background/60 border-border/50"><SelectValue placeholder="Pilih property" /></SelectTrigger>
+                  <SelectTrigger className={inputCls}><SelectValue placeholder="Pilih property" /></SelectTrigger>
                   <SelectContent>
                     {properties.map(p => (
                       <SelectItem key={p.id} value={p.id}>
@@ -236,7 +176,7 @@ export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLo
                     setValue('deposit_amount', unit.deposit_amount || 0);
                   }
                 }} disabled={!selectedPropertyId}>
-                  <SelectTrigger className="rounded-xl bg-background/60 border-border/50"><SelectValue placeholder={selectedPropertyId ? "Pilih unit" : "Pilih property dulu"} /></SelectTrigger>
+                  <SelectTrigger className={inputCls}><SelectValue placeholder={selectedPropertyId ? "Pilih unit" : "Pilih property dulu"} /></SelectTrigger>
                   <SelectContent>
                     {availableUnits.length === 0 ? (
                       <div className="px-3 py-2 text-sm text-muted-foreground">Tidak ada unit tersedia</div>
@@ -263,28 +203,28 @@ export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLo
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="start_date">Tanggal Mulai *</Label>
-                  <Input id="start_date" type="date" {...register('start_date')} className="rounded-xl bg-background/60 border-border/50" />
+                  <Input id="start_date" type="date" {...register('start_date')} className={inputCls} />
                   {errors.start_date && <p className="text-sm text-destructive mt-1">{errors.start_date.message}</p>}
                 </div>
                 <div>
                   <Label htmlFor="end_date">Tanggal Selesai *</Label>
-                  <Input id="end_date" type="date" {...register('end_date')} className="rounded-xl bg-background/60 border-border/50" />
+                  <Input id="end_date" type="date" {...register('end_date')} className={inputCls} />
                   {errors.end_date && <p className="text-sm text-destructive mt-1">{errors.end_date.message}</p>}
                 </div>
               </div>
               <div>
                 <Label htmlFor="rent_amount">Sewa Bulanan (Rp) *</Label>
-                <Input id="rent_amount" type="number" {...register('rent_amount', { valueAsNumber: true })} className="rounded-xl bg-background/60 border-border/50" />
+                <Input id="rent_amount" type="number" {...register('rent_amount', { valueAsNumber: true })} className={inputCls} />
                 {errors.rent_amount && <p className="text-sm text-destructive mt-1">{errors.rent_amount.message}</p>}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="deposit_amount">Deposit (Rp)</Label>
-                  <Input id="deposit_amount" type="number" {...register('deposit_amount', { valueAsNumber: true })} className="rounded-xl bg-background/60 border-border/50" />
+                  <Input id="deposit_amount" type="number" {...register('deposit_amount', { valueAsNumber: true })} className={inputCls} />
                 </div>
                 <div>
                   <Label htmlFor="billing_day">Hari Tagihan (1-28)</Label>
-                  <Input id="billing_day" type="number" min={1} max={28} {...register('billing_day', { valueAsNumber: true })} className="rounded-xl bg-background/60 border-border/50" />
+                  <Input id="billing_day" type="number" min={1} max={28} {...register('billing_day', { valueAsNumber: true })} className={inputCls} />
                 </div>
               </div>
             </div>
@@ -297,13 +237,13 @@ export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLo
               </Button>
             )}
             {step < 2 ? (
-              <Button type="button" onClick={handleNext} disabled={step === 0 && !selectedTenantUserId} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-md">
+              <Button type="button" onClick={handleNext} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-md">
                 Lanjut<ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             ) : (
               <Button type="submit" disabled={isLoading} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-md">
                 {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Tambah Tenant
+                Buat Akun & Tambah Tenant
               </Button>
             )}
           </DialogFooter>

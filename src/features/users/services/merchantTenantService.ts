@@ -264,6 +264,23 @@ export const merchantTenantService = {
     if (tenantUserId) {
       // Existing tenant selected - use their user_id directly
       userId = tenantUserId;
+    } else if ((data as any).password) {
+      // Create new tenant account via edge function
+      const { data: result, error } = await supabase.functions.invoke('create-tenant-account', {
+        body: {
+          email: data.email.toLowerCase().trim(),
+          password: (data as any).password,
+          full_name: data.full_name,
+          phone: data.phone || null,
+          merchant_id: merchantId,
+        },
+      });
+
+      if (error) throw new Error(error.message || 'Gagal membuat akun tenant');
+      if (result?.error) throw new Error(result.error);
+      if (!result?.user_id) throw new Error('Gagal mendapatkan ID tenant');
+
+      userId = result.user_id;
     } else {
       // Fallback: Check if user exists by email
       const { data: existingProfile } = await supabase
@@ -273,7 +290,6 @@ export const merchantTenantService = {
         .maybeSingle();
 
       if (!existingProfile) {
-        // User doesn't exist - create invitation instead
         const { error: invError } = await supabase
           .from('tenant_invitations')
           .insert({

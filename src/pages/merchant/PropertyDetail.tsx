@@ -31,7 +31,7 @@ import { useCreateMerchantMaintenanceRequest } from '@/features/maintenance/hook
 
 const LazyGuardians = lazy(() => import('@/pages/merchant/Guardians'));
 const LazyCompliance = lazy(() => import('@/pages/merchant/PropertyCompliance'));
-const LazyDataQuality = lazy(() => import('@/pages/merchant/DataQualityHistory'));
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/integrations/supabase/client';
 import { PropertyFinancialForm, FinancialFormData } from '@/features/properties/components/PropertyFinancialForm';
@@ -105,7 +105,7 @@ export default function PropertyDetail() {
   // Read URL hash for initial tab
   const getInitialTab = useCallback(() => {
     const hash = window.location.hash.replace('#', '');
-    const validTabs = ['overview', 'units', 'tenants', 'financial', 'maintenance', 'guardians', 'compliance', 'data-quality'];
+    const validTabs = ['overview', 'units', 'tenants', 'financial', 'maintenance', 'guardians', 'compliance'];
     return validTabs.includes(hash) ? hash : 'overview';
   }, []);
   const [activeTab, setActiveTab] = useState(getInitialTab);
@@ -373,7 +373,7 @@ export default function PropertyDetail() {
               <DropdownMenuTrigger asChild>
                 <button 
                   className={`pill-tab-trigger inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full transition-colors ${
-                    ['guardians', 'compliance', 'data-quality'].includes(activeTab)
+                    ['guardians', 'compliance'].includes(activeTab)
                       ? 'bg-primary/15 text-primary border border-primary/30'
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
                   }`}
@@ -381,7 +381,6 @@ export default function PropertyDetail() {
                 >
                   {activeTab === 'guardians' ? <><UserCheck className="h-3.5 w-3.5" aria-hidden="true" />Staf</> :
                    activeTab === 'compliance' ? <><Shield className="h-3.5 w-3.5" aria-hidden="true" />Kepatuhan</> :
-                   activeTab === 'data-quality' ? <><BarChart3 className="h-3.5 w-3.5" aria-hidden="true" />Kualitas Data</> :
                    <><MoreHorizontal className="h-3.5 w-3.5" aria-hidden="true" />Lainnya</>}
                 </button>
               </DropdownMenuTrigger>
@@ -391,9 +390,6 @@ export default function PropertyDetail() {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleTabChange('compliance')} className="gap-2">
                   <Shield className="h-4 w-4" aria-hidden="true" />Kepatuhan
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleTabChange('data-quality')} className="gap-2">
-                  <BarChart3 className="h-4 w-4" aria-hidden="true" />Kualitas Data
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -732,12 +728,6 @@ export default function PropertyDetail() {
             </Suspense>
           </TabsContent>
 
-          {/* Data Quality Tab (separated) */}
-          <TabsContent value="data-quality" className="space-y-4 mt-4 animate-fade-in">
-            <Suspense fallback={<ContentSkeleton />}>
-              <LazyDataQuality propertyId={id} />
-            </Suspense>
-          </TabsContent>
         </Tabs>
 
         {/* Sidebar */}
