@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      addresses: {
+        Row: {
+          city: string
+          created_at: string | null
+          id: string
+          latitude: number | null
+          longitude: number | null
+          postal_code: string | null
+          province: string
+          street_address: string | null
+        }
+        Insert: {
+          city: string
+          created_at?: string | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          postal_code?: string | null
+          province: string
+          street_address?: string | null
+        }
+        Update: {
+          city?: string
+          created_at?: string | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          postal_code?: string | null
+          province?: string
+          street_address?: string | null
+        }
+        Relationships: []
+      }
       analytics_events: {
         Row: {
           created_at: string
@@ -115,10 +148,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "assets_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "assets_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assets_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
             referencedColumns: ["id"]
           },
           {
@@ -214,6 +261,13 @@ export type Database = {
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "bank_accounts_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
         ]
       }
       cancellation_feedback: {
@@ -250,6 +304,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancellation_feedback_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
             referencedColumns: ["id"]
           },
           {
@@ -499,6 +560,13 @@ export type Database = {
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "collections_cases_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
         ]
       }
       compliance_documents: {
@@ -553,10 +621,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "compliance_documents_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "compliance_documents_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_documents_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
             referencedColumns: ["id"]
           },
         ]
@@ -567,6 +649,7 @@ export type Database = {
           billing_day: number | null
           churn_reason: string | null
           contract_document_url: string | null
+          contract_number: string | null
           created_at: string
           deposit_amount: number | null
           early_termination_penalty_rate: number | null
@@ -602,6 +685,7 @@ export type Database = {
           billing_day?: number | null
           churn_reason?: string | null
           contract_document_url?: string | null
+          contract_number?: string | null
           created_at?: string
           deposit_amount?: number | null
           early_termination_penalty_rate?: number | null
@@ -637,6 +721,7 @@ export type Database = {
           billing_day?: number | null
           churn_reason?: string | null
           contract_document_url?: string | null
+          contract_number?: string | null
           created_at?: string
           deposit_amount?: number | null
           early_termination_penalty_rate?: number | null
@@ -673,6 +758,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
             referencedColumns: ["id"]
           },
           {
@@ -730,6 +822,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_quality_checks_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
             referencedColumns: ["id"]
           },
         ]
@@ -932,10 +1031,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "disaster_risk_profiles_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "disaster_risk_profiles_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disaster_risk_profiles_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
             referencedColumns: ["id"]
           },
         ]
@@ -1150,6 +1263,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "dss_recommendations_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "dss_recommendations_ml_model_run_id_fkey"
             columns: ["ml_model_run_id"]
             isOneToOne: false
@@ -1289,6 +1409,13 @@ export type Database = {
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "escrow_accounts_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
         ]
       }
       escrow_transactions: {
@@ -1408,6 +1535,13 @@ export type Database = {
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "facilities_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
         ]
       }
       facility_assignments: {
@@ -1451,6 +1585,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "facility_assignments_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
             referencedColumns: ["id"]
           },
           {
@@ -1505,6 +1646,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "facility_types_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
             referencedColumns: ["id"]
           },
         ]
@@ -1659,6 +1807,13 @@ export type Database = {
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "forum_posts_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
+            referencedColumns: ["id"]
+          },
         ]
       }
       forum_reports: {
@@ -1758,6 +1913,13 @@ export type Database = {
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "guardian_property_assignments_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
+            referencedColumns: ["id"]
+          },
         ]
       }
       insurance_claims: {
@@ -1818,6 +1980,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_claims_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
             referencedColumns: ["id"]
           },
           {
@@ -1890,10 +2059,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "insurance_policies_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "insurance_policies_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_policies_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
             referencedColumns: ["id"]
           },
         ]
@@ -1917,10 +2100,14 @@ export type Database = {
           overdue_since: string | null
           paid_at: string | null
           payment_plan_id: string | null
+          property_id: string | null
           status: string
           tax_amount: number | null
+          tenant_name: string | null
           tenant_user_id: string
           total_amount: number
+          unit_id: string | null
+          unit_number: string | null
           updated_at: string
         }
         Insert: {
@@ -1941,10 +2128,14 @@ export type Database = {
           overdue_since?: string | null
           paid_at?: string | null
           payment_plan_id?: string | null
+          property_id?: string | null
           status?: string
           tax_amount?: number | null
+          tenant_name?: string | null
           tenant_user_id: string
           total_amount: number
+          unit_id?: string | null
+          unit_number?: string | null
           updated_at?: string
         }
         Update: {
@@ -1965,10 +2156,14 @@ export type Database = {
           overdue_since?: string | null
           paid_at?: string | null
           payment_plan_id?: string | null
+          property_id?: string | null
           status?: string
           tax_amount?: number | null
+          tenant_name?: string | null
           tenant_user_id?: string
           total_amount?: number
+          unit_id?: string | null
+          unit_number?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1984,6 +2179,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
             referencedColumns: ["id"]
           },
           {
@@ -2073,6 +2275,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_chat_conversations_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
             referencedColumns: ["id"]
           },
         ]
@@ -2180,6 +2389,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "maintenance_expenses_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "maintenance_expenses_ocr_result_id_fkey"
             columns: ["ocr_result_id"]
             isOneToOne: false
@@ -2274,6 +2490,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_requests_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
             referencedColumns: ["id"]
           },
           {
@@ -2463,6 +2686,13 @@ export type Database = {
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "merchant_feedback_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
         ]
       }
       merchant_subscriptions: {
@@ -2538,6 +2768,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "merchant_subscriptions_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: true
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "merchant_subscriptions_tier_id_fkey"
             columns: ["tier_id"]
             isOneToOne: false
@@ -2594,6 +2831,13 @@ export type Database = {
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "merchant_verification_history_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
         ]
       }
       merchant_verifications: {
@@ -2638,11 +2882,19 @@ export type Database = {
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "merchant_verifications_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
         ]
       }
       merchants: {
         Row: {
           address: string | null
+          address_id: string | null
           billing_day: number | null
           business_name: string
           business_type: string | null
@@ -2675,6 +2927,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          address_id?: string | null
           billing_day?: number | null
           business_name: string
           business_type?: string | null
@@ -2707,6 +2960,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          address_id?: string | null
           billing_day?: number | null
           business_name?: string
           business_type?: string | null
@@ -2737,7 +2991,15 @@ export type Database = {
           verified_at?: string | null
           verified_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "merchants_address_id_fkey"
+            columns: ["address_id"]
+            isOneToOne: false
+            referencedRelation: "addresses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ml_model_runs: {
         Row: {
@@ -2794,6 +3056,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ml_model_runs_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
             referencedColumns: ["id"]
           },
         ]
@@ -3089,10 +3358,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "occupancy_snapshots_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "occupancy_snapshots_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "occupancy_snapshots_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
             referencedColumns: ["id"]
           },
         ]
@@ -3161,6 +3444,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ocr_results_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
             referencedColumns: ["id"]
           },
           {
@@ -3453,6 +3743,13 @@ export type Database = {
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "payment_plans_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
         ]
       }
       payment_verifications: {
@@ -3538,6 +3835,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "payment_verifications_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "payment_verifications_ocr_result_id_fkey"
             columns: ["ocr_result_id"]
             isOneToOne: false
@@ -3610,6 +3914,13 @@ export type Database = {
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "payments_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
         ]
       }
       pending_subscription_changes: {
@@ -3671,6 +3982,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_subscription_changes_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
             referencedColumns: ["id"]
           },
           {
@@ -3832,6 +4150,7 @@ export type Database = {
       properties: {
         Row: {
           address: string
+          address_id: string | null
           amenities: string[] | null
           avg_annual_unexpected_cost: number | null
           building_condition: string | null
@@ -3858,6 +4177,7 @@ export type Database = {
           nearby_facilities: Json | null
           occupied_units: number | null
           postal_code: string | null
+          property_code: string | null
           property_type: string
           province: string
           renovation_cost: number | null
@@ -3868,6 +4188,7 @@ export type Database = {
         }
         Insert: {
           address: string
+          address_id?: string | null
           amenities?: string[] | null
           avg_annual_unexpected_cost?: number | null
           building_condition?: string | null
@@ -3894,6 +4215,7 @@ export type Database = {
           nearby_facilities?: Json | null
           occupied_units?: number | null
           postal_code?: string | null
+          property_code?: string | null
           property_type: string
           province: string
           renovation_cost?: number | null
@@ -3904,6 +4226,7 @@ export type Database = {
         }
         Update: {
           address?: string
+          address_id?: string | null
           amenities?: string[] | null
           avg_annual_unexpected_cost?: number | null
           building_condition?: string | null
@@ -3930,6 +4253,7 @@ export type Database = {
           nearby_facilities?: Json | null
           occupied_units?: number | null
           postal_code?: string | null
+          property_code?: string | null
           property_type?: string
           province?: string
           renovation_cost?: number | null
@@ -3940,10 +4264,24 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "properties_address_id_fkey"
+            columns: ["address_id"]
+            isOneToOne: false
+            referencedRelation: "addresses"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "properties_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "properties_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
             referencedColumns: ["id"]
           },
         ]
@@ -4030,6 +4368,13 @@ export type Database = {
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "property_facilities_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
+            referencedColumns: ["id"]
+          },
         ]
       }
       property_guardians: {
@@ -4096,10 +4441,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "property_guardians_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "property_guardians_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_guardians_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
             referencedColumns: ["id"]
           },
         ]
@@ -4141,6 +4500,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_nearby_facilities_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
             referencedColumns: ["id"]
           },
         ]
@@ -4188,10 +4554,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "property_renovations_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "property_renovations_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_renovations_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
             referencedColumns: ["id"]
           },
         ]
@@ -4242,10 +4622,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "property_vendor_services_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "property_vendor_services_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_vendor_services_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
             referencedColumns: ["id"]
           },
           {
@@ -4537,6 +4931,13 @@ export type Database = {
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "rls_alert_settings_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
         ]
       }
       rule_acknowledgements: {
@@ -4604,6 +5005,13 @@ export type Database = {
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "rule_types_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
         ]
       }
       rules: {
@@ -4661,10 +5069,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "rules_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "rules_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rules_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
             referencedColumns: ["id"]
           },
           {
@@ -4747,10 +5169,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "security_incidents_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "security_incidents_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "security_incidents_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
             referencedColumns: ["id"]
           },
         ]
@@ -4765,6 +5201,7 @@ export type Database = {
           due_date: string
           failure_reason: string | null
           id: string
+          invoice_number: string | null
           last_attempt_at: string | null
           merchant_id: string
           paid_at: string | null
@@ -4785,6 +5222,7 @@ export type Database = {
           due_date: string
           failure_reason?: string | null
           id?: string
+          invoice_number?: string | null
           last_attempt_at?: string | null
           merchant_id: string
           paid_at?: string | null
@@ -4805,6 +5243,7 @@ export type Database = {
           due_date?: string
           failure_reason?: string | null
           id?: string
+          invoice_number?: string | null
           last_attempt_at?: string | null
           merchant_id?: string
           paid_at?: string | null
@@ -4822,6 +5261,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_invoices_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
             referencedColumns: ["id"]
           },
           {
@@ -4946,10 +5392,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tenant_invitations_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tenant_invitations_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_invitations_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
             referencedColumns: ["id"]
           },
           {
@@ -5004,6 +5464,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_merchant_history_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
             referencedColumns: ["id"]
           },
         ]
@@ -5080,6 +5547,13 @@ export type Database = {
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tenant_payment_metrics_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
         ]
       }
       tenant_risk_scores: {
@@ -5140,6 +5614,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_risk_scores_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
             referencedColumns: ["id"]
           },
           {
@@ -5245,6 +5726,13 @@ export type Database = {
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tenants_linked_merchant_id_fkey"
+            columns: ["linked_merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
         ]
       }
       unit_assets: {
@@ -5302,6 +5790,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unit_assets_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
             referencedColumns: ["id"]
           },
           {
@@ -5416,6 +5911,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "unit_listings_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "unit_listings_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
@@ -5524,6 +6026,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "units_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
             referencedColumns: ["id"]
           },
         ]
@@ -5703,6 +6212,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_jobs_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
             referencedColumns: ["id"]
           },
           {
@@ -5975,7 +6491,123 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_merchants_with_addresses: {
+        Row: {
+          address: string | null
+          address_id: string | null
+          billing_day: number | null
+          business_name: string | null
+          business_type: string | null
+          city: string | null
+          created_at: string | null
+          disbursement_schedule: string | null
+          id: string | null
+          last_disbursement_date: string | null
+          merchant_code: string | null
+          min_disbursement_amount: number | null
+          penalty_rate: number | null
+          postal_code: string | null
+          province: string | null
+          referral_discount: number | null
+          referral_discount_months: number | null
+          referred_by: string | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_details: string | null
+          resolved_address: string | null
+          resolved_city: string | null
+          resolved_postal_code: string | null
+          resolved_province: string | null
+          resubmission_count: number | null
+          resubmission_instructions: string | null
+          subscription_tier: string | null
+          total_disbursed: number | null
+          updated_at: string | null
+          user_id: string | null
+          verification_status: string | null
+          verification_submitted_at: string | null
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "merchants_address_id_fkey"
+            columns: ["address_id"]
+            isOneToOne: false
+            referencedRelation: "addresses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_properties_with_addresses: {
+        Row: {
+          address: string | null
+          address_id: string | null
+          amenities: string[] | null
+          avg_annual_unexpected_cost: number | null
+          building_condition: string | null
+          city: string | null
+          construction_cost: number | null
+          construction_year: number | null
+          created_at: string | null
+          description: string | null
+          disaster_risk_level: string | null
+          floor_count: number | null
+          funding_source: string | null
+          guardian_name: string | null
+          guardian_phone: string | null
+          id: string | null
+          images: string[] | null
+          land_ownership: string | null
+          latitude: number | null
+          longitude: number | null
+          marketing_cost: number | null
+          merchant_id: string | null
+          monthly_amortization: number | null
+          monthly_maintenance_cost: number | null
+          name: string | null
+          nearby_facilities: Json | null
+          occupied_units: number | null
+          postal_code: string | null
+          property_code: string | null
+          property_type: string | null
+          province: string | null
+          renovation_cost: number | null
+          resolved_address: string | null
+          resolved_city: string | null
+          resolved_latitude: number | null
+          resolved_longitude: number | null
+          resolved_postal_code: string | null
+          resolved_province: string | null
+          security_score: number | null
+          status: string | null
+          total_units: number | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "properties_address_id_fkey"
+            columns: ["address_id"]
+            isOneToOne: false
+            referencedRelation: "addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "properties_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "properties_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       calculate_sla_deadline: { Args: { priority: string }; Returns: string }
@@ -5988,6 +6620,7 @@ export type Database = {
         Returns: boolean
       }
       generate_merchant_code: { Args: never; Returns: string }
+      generate_property_code: { Args: never; Returns: string }
       generate_voucher_code: { Args: never; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
