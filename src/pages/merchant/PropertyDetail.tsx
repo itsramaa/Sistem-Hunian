@@ -14,7 +14,7 @@ import { PhotoLightbox } from '@/shared/components/PhotoLightbox';
 import { 
   ArrowLeft, Building2, ChevronRight, DoorOpen, Edit, Image as ImageIcon, Camera, LayoutGrid, List, MapPin, 
   Sparkles, TrendingUp, Users, DollarSign, Calendar, Hash, Clock, Wrench, FileText, AlertTriangle,
-  Shield, UserCheck, MoreHorizontal, Plus, Home, BarChart3, Settings2
+  Shield, UserCheck, MoreHorizontal, Plus, Home, BarChart3, Settings2, ExternalLink
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -36,6 +36,8 @@ import { useUnits } from '@/features/properties/hooks/useUnits';
 import { AddTenantDialog } from '@/features/users/components/tenant/AddTenantDialog';
 import { FacilityTypePicker } from '@/features/inventory/components/FacilityTypePicker';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useFacilityTypeNames } from '@/features/inventory/hooks/useFacilityTypeNames';
+import { RulesSection } from '@/features/rules/components/RulesSection';
 
 const LazyGuardians = lazy(() => import('@/pages/merchant/Guardians'));
 const LazyCompliance = lazy(() => import('@/pages/merchant/PropertyCompliance'));
@@ -158,7 +160,7 @@ export default function PropertyDetail() {
   // Read URL hash for initial tab
   const getInitialTab = useCallback(() => {
     const hash = window.location.hash.replace('#', '');
-    const validTabs = ['overview', 'units', 'guardians', 'tenants', 'financial', 'maintenance'];
+    const validTabs = ['overview', 'units', 'guardians', 'tenants', 'financial', 'maintenance', 'risk'];
     return validTabs.includes(hash) ? hash : 'overview';
   }, []);
   const [activeTab, setActiveTab] = useState(getInitialTab);
@@ -295,6 +297,7 @@ export default function PropertyDetail() {
     );
   }
 
+  const { data: facilityNameMap = {} } = useFacilityTypeNames(property.amenities || []);
   const units = (property as any).units || [];
   const occupiedUnits = units.filter((u: any) => u.status === 'occupied').length;
   const totalUnits = units.length;
@@ -447,6 +450,9 @@ export default function PropertyDetail() {
               Pemeliharaan
               {pendingMaintenance.length > 0 && <Badge variant="secondary" className="ml-1.5 rounded-full text-xs">{pendingMaintenance.length}</Badge>}
             </TabsTrigger>
+            <TabsTrigger value="risk" className="pill-tab-trigger">
+              <Shield className="h-3.5 w-3.5 mr-1" aria-hidden="true" />Risiko
+            </TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -482,7 +488,15 @@ export default function PropertyDetail() {
                 {property.amenities && property.amenities.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {property.amenities.map((a: string) => (
-                      <Badge key={a} variant="secondary" className="rounded-full">{a.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}</Badge>
+                      <Badge
+                        key={a}
+                        variant="secondary"
+                        className="rounded-full cursor-pointer hover:bg-primary/10 transition-colors"
+                        onClick={() => navigate('/merchant/inventory')}
+                      >
+                        {facilityNameMap[a] || a.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                        <ExternalLink className="h-2.5 w-2.5 ml-1 opacity-50" />
+                      </Badge>
                     ))}
                   </div>
                 ) : (
@@ -491,10 +505,15 @@ export default function PropertyDetail() {
               </CardContent>
             </Card>
 
+            {/* Peraturan Section */}
+            {merchant?.id && <RulesSection propertyId={id!} merchantId={merchant.id} />}
+
             {/* DSS Readiness & Financial Metrics in Overview */}
             <OverviewDssMetrics property={property} revenuePotential={revenuePotential} occupancyRate={occupancyRate} />
+          </TabsContent>
 
-            {/* Compliance section in Overview */}
+          {/* Risk Tab */}
+          <TabsContent value="risk" className="space-y-4 mt-4 animate-fade-in">
             <Suspense fallback={<ContentSkeleton />}>
               <LazyCompliance propertyId={id} />
             </Suspense>
