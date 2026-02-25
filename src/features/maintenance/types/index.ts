@@ -76,6 +76,7 @@ export interface CreateMerchantMaintenancePayload {
   unit_id: string;
   merchant_id: string;
   images?: string[];
+  estimated_cost?: number;
 }
 
 export interface UpdateMaintenanceStatusPayload {

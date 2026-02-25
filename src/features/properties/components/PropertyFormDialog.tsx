@@ -248,9 +248,10 @@ export function PropertyFormDialog({ open, onOpenChange, property, onSubmit, isL
                     </Select>
                   </div>
                 </div>
-                <div>
-                  <Label htmlFor="marketing-cost">Biaya Marketing (Rp/bulan)</Label>
-                  <Input id="marketing-cost" type="number" min={0} placeholder="0" {...register('marketing_cost')} className={inputCls} />
+
+                {/* Fasilitas */}
+                <div className="border-t border-border/30 pt-4 mt-4">
+                  <CustomAmenities selectedAmenities={watch('amenities') || []} onAmenitiesChange={(a) => setValue('amenities', a)} type="property" />
                 </div>
 
                 <div className="border-t border-border/30 pt-4 mt-4">
@@ -295,16 +296,13 @@ export function PropertyFormDialog({ open, onOpenChange, property, onSubmit, isL
               </div>
             )}
 
-            {/* Step 3: Media & Fasilitas */}
+            {/* Step 3: Media */}
             {step === 3 && (
               <div className="space-y-4" role="group" aria-labelledby="step-media">
-                <h3 id="step-media" className="sr-only">Media dan Fasilitas</h3>
+                <h3 id="step-media" className="sr-only">Media</h3>
                 <div>
                   <Label>Foto Properti</Label>
                   <UnitPhotoUpload photos={watch('images') || []} onPhotosChange={(p) => setValue('images', p)} maxPhotos={10} />
-                </div>
-                <div>
-                  <CustomAmenities selectedAmenities={watch('amenities') || []} onAmenitiesChange={(a) => setValue('amenities', a)} type="property" />
                 </div>
               </div>
             )}
