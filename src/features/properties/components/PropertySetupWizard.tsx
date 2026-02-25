@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Progress } from '@/shared/components/ui/progress';
 import { cn } from '@/shared/utils/utils';
 import { UnitPhotoUpload } from '@/features/properties/components/UnitPhotoUpload';
-import { CustomAmenities } from '@/features/properties/components/CustomAmenities';
+import { FacilityTypePicker } from '@/features/inventory/components/FacilityTypePicker';
 import { ProvincesCitiesSelect } from '@/features/properties/components/ProvincesCitiesSelect';
 import { LocationPicker } from '@/features/properties/components/LocationPicker';
 
@@ -257,9 +257,10 @@ export function PropertySetupWizard({ onComplete, onCancel, initialData }: Prope
           )}
 
           {currentStep === 3 && (
-            <CustomAmenities
-              selectedAmenities={formData.amenities}
-              onAmenitiesChange={(amenities) => updateField('amenities', amenities)}
+            <FacilityTypePicker
+              selectedTypeIds={formData.amenities}
+              onSelectionChange={(amenities) => updateField('amenities', amenities)}
+              scope="property"
             />
           )}
         </CardContent>

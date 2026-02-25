@@ -44,6 +44,92 @@ export type Database = {
         }
         Relationships: []
       }
+      assets: {
+        Row: {
+          brand: string | null
+          condition: string
+          created_at: string
+          facility_type_id: string
+          id: string
+          merchant_id: string
+          notes: string | null
+          property_id: string | null
+          purchase_date: string | null
+          purchase_price: number
+          salvage_value: number
+          serial_number: string | null
+          status: string
+          unit_id: string | null
+          updated_at: string
+          useful_life_months: number
+        }
+        Insert: {
+          brand?: string | null
+          condition?: string
+          created_at?: string
+          facility_type_id: string
+          id?: string
+          merchant_id: string
+          notes?: string | null
+          property_id?: string | null
+          purchase_date?: string | null
+          purchase_price?: number
+          salvage_value?: number
+          serial_number?: string | null
+          status?: string
+          unit_id?: string | null
+          updated_at?: string
+          useful_life_months?: number
+        }
+        Update: {
+          brand?: string | null
+          condition?: string
+          created_at?: string
+          facility_type_id?: string
+          id?: string
+          merchant_id?: string
+          notes?: string | null
+          property_id?: string | null
+          purchase_date?: string | null
+          purchase_price?: number
+          salvage_value?: number
+          serial_number?: string | null
+          status?: string
+          unit_id?: string | null
+          updated_at?: string
+          useful_life_months?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assets_facility_type_id_fkey"
+            columns: ["facility_type_id"]
+            isOneToOne: false
+            referencedRelation: "facility_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assets_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assets_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assets_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -1317,6 +1403,105 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "facilities_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      facility_assignments: {
+        Row: {
+          capacity: number | null
+          created_at: string
+          facility_type_id: string
+          id: string
+          notes: string | null
+          property_id: string | null
+          unit_id: string | null
+        }
+        Insert: {
+          capacity?: number | null
+          created_at?: string
+          facility_type_id: string
+          id?: string
+          notes?: string | null
+          property_id?: string | null
+          unit_id?: string | null
+        }
+        Update: {
+          capacity?: number | null
+          created_at?: string
+          facility_type_id?: string
+          id?: string
+          notes?: string | null
+          property_id?: string | null
+          unit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facility_assignments_facility_type_id_fkey"
+            columns: ["facility_type_id"]
+            isOneToOne: false
+            referencedRelation: "facility_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "facility_assignments_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "facility_assignments_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      facility_types: {
+        Row: {
+          asset_type: string
+          created_at: string
+          default_useful_life_months: number | null
+          id: string
+          is_trackable: boolean
+          merchant_id: string
+          name: string
+          nature: string
+          scope: string
+          updated_at: string
+        }
+        Insert: {
+          asset_type?: string
+          created_at?: string
+          default_useful_life_months?: number | null
+          id?: string
+          is_trackable?: boolean
+          merchant_id: string
+          name: string
+          nature?: string
+          scope?: string
+          updated_at?: string
+        }
+        Update: {
+          asset_type?: string
+          created_at?: string
+          default_useful_life_months?: number | null
+          id?: string
+          is_trackable?: boolean
+          merchant_id?: string
+          name?: string
+          nature?: string
+          scope?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facility_types_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
