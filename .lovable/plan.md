@@ -1,130 +1,90 @@
-# Fix Foto Upload, Unit Detail Enhancements, Fasilitas Consolidation, dan Listrik Bayar Sendiri
 
-## 1. Fix Photo Upload di Dialog Kelola Foto Properti
+# Audit & Refactor Fasilitas/Inventori, Sidebar Updates, Guardian Assignment, Contract/Invoice Dialog di Unit Detail
 
-**Masalah:** `ImageGalleryUpload` menggunakan `supabase` dari `@/lib/integrations/supabase/client` sedangkan halaman compliance dan lainnya menggunakan `@/integrations/supabase/client`. Keduanya seharusnya identik tapi bisa jadi masalah konfigurasi. Masalah utama kemungkinan adalah `onImagesChange` memanggil `propertyService.updateProperty` secara langsung tanpa `await` yang benar, atau webcam capture gagal karena dialog context.
+## 1. Merge Fasilitas + Inventaris Menjadi Sistem "Inventori" Terpadu
 
-**Fix:**
+Saat ini fasilitas dan inventaris terpisah -- `CustomAmenities` untuk toggle badge, dan `FacilityManagementDialog` untuk CRUD master. Tab "Inventaris" di Unit Detail sudah menggunakan `CustomAmenities`, tapi belum ada halaman terpusat.
 
-- Di `PropertyDetail.tsx` (line 886-888): Wrap `onImagesChange` callback agar handle error dengan toast dan re-fetch properly
-- Di `ImageGalleryUpload` (`FileUpload.tsx` line 279-295): Pastikan `handleWebcamCapture` error handling benar dan webcam dialog tidak conflict dengan parent dialog
+### Perubahan:
+- **Buat halaman `src/pages/merchant/Inventory.tsx`**: Halaman inventori terpusat yang menampilkan semua fasilitas merchant (umum + unit) dengan filter kategori, tabel list, dan akses ke `FacilityManagementDialog`
+- **Tambah route** di `App.tsx`: `inventory` di bawah merchant routes
+- **Tambah menu sidebar** di `navigation-config.ts`: Tambah item "Inventori" dengan icon `Package` di grup "Operasional"
+- **Refactor `FacilityManagementDialog`**: Jadikan reusable -- bisa dipanggil dari halaman Inventori, form properti, dan unit detail
 
-**File:** `src/shared/components/FileUpload.tsx`
+### Nilai Sisa Otomatis:
+- Di `FacilityManagementDialog`, **hilangkan field input "Nilai Sisa"** dari user
+- **Hitung otomatis** berdasarkan kategori barang:
+  - Elektronik (AC, TV, Water Heater): 10% dari harga beli
+  - Furnitur (Lemari, Meja, Kursi): 5% dari harga beli  
+  - Infrastruktur (CCTV, Pompa Air): 15% dari harga beli
+  - Default: 10% dari harga beli
+- Tambah field **"Tipe Barang"** (dropdown: Elektronik, Furnitur, Infrastruktur, Lainnya) yang menentukan bobot nilai sisa
+- Nilai sisa dihitung saat save: `salvage_value = purchase_price * weight_factor`
 
-- Fix webcam capture di `ImageGalleryUpload`: pastikan blob upload path benar
-- Tambah error boundary dan logging
+## 2. Tambah "Referral" di Menu Sidebar Merchant
 
-**File:** `src/pages/merchant/PropertyDetail.tsx`
+Saat ini `merchant/referrals` sudah ada sebagai route tapi tidak ada di sidebar navigation.
 
-- Fix `onImagesChange` callback di photo dialog
+### Perubahan:
+- **`navigation-config.ts`**: Tambah `{ path: "/merchant/referrals", icon: Gift, label: "Referral" }` di grup "Operasional"
 
-## 2. Polis Asuransi -- Scan Dokumen Sudah Ada
+## 3. Fitur Assign Penjaga ke Multiple Properti
 
-Dari kode yang saya baca, `OcrCameraButton` sudah ada di `InsuranceTab` (line 267-274 di PropertyCompliance.tsx). Ini sudah diimplementasikan. Akan diperiksa apakah berfungsi.
+Saat ini `property_guardians` memiliki `property_id` sebagai required foreign key -- 1 penjaga = 1 properti. Untuk mendukung penjaga di banyak properti, perlu tabel relasi.
 
-## 3. Tambah Unit Button di Kanan (Bukan Kiri)
+### Database Migration:
+- Buat tabel **`guardian_property_assignments`**: `id`, `guardian_id` (FK ke `property_guardians`), `property_id` (FK ke `properties`), `role` (text: 'primary'|'backup'), `assigned_date`, `status`, `created_at`
+- Unique constraint: `(guardian_id, property_id)`
+- RLS policy: merchant manages own assignments
 
-**File:** `src/pages/merchant/PropertyDetail.tsx` (line 517-558)
+### UI Perubahan:
+- **Halaman Guardians (`src/pages/merchant/Guardians.tsx`)**: Tambah tombol "Assign" di setiap row penjaga yang membuka dialog untuk memilih properti tambahan
+- **`guardianService.ts`**: Tambah fungsi `assignToProperty`, `removeAssignment`, `fetchAssignments`
+- **Detail Properti tab Staf**: Tampilkan penjaga dari `guardian_property_assignments` selain dari `property_guardians` langsung
 
-- Saat ini layout: filter di kiri, lalu `Tambah Unit` + view toggle di kanan
-- Button "Tambah Unit" sudah di kanan (line 534-536). Akan diverifikasi dan perbaiki jika perlu.
+## 4. Dialog Kontrak di Unit Detail (Bukan Redirect)
 
-**Cek:** Button sudah di kanan dalam `div className="flex items-center gap-2"` (line 533). Ini sudah benar.
+Saat ini "Tambah Kontrak" di tab Kontrak melakukan `navigate()` ke halaman contracts. Ubah menjadi membuka `CreateContractDialog` langsung.
 
-## 4. Fasilitas Bug -- Belum Terkonsolidasi
+### Perubahan di `UnitDetail.tsx`:
+- Import `CreateContractDialog` dari `@/features/contracts/components/CreateContractDialog`
+- Tambah state: `showContractDialog`, fetch `merchantTenants` via query
+- Button "Tambah Kontrak" membuka dialog, bukan navigate
+- Pass `availableUnits` hanya berisi unit saat ini (pre-selected)
+- Pass `onSubmit` yang memanggil contract creation mutation dan refresh data
+- Import contract creation mutation dari hooks yang sudah ada
 
-**Masalah:** `CustomAmenities` menggunakan `(supabase.from as any)('facilities')` -- cast ke `any` karena tabel `facilities` mungkin belum ada di types.ts auto-generated. Jika query gagal, fallback ke hardcoded list. Tapi fallback menggunakan value `parking`, `ac` dll sedangkan DB facilities menggunakan UUID. Ini menyebabkan ketidakcocokan -- saat property punya amenities `['ac', 'parking']` (dari fallback), tapi DB sudah ada facilities, toggle tidak match.
+## 5. Dialog Invoice/Pembayaran di Unit Detail (Bukan Redirect)
 
-**Fix:**
+Saat ini "Tambah Pembayaran" melakukan `navigate()`. Ubah menjadi `CreateInvoiceDialog` langsung.
 
-- `CustomAmenities.tsx`: Gabungkan DB facilities + fallback. Jangan replace fallback sepenuhnya, tapi merge. Jika DB punya data, tampilkan DB items + existing selected amenities dari fallback
-- Saat menyimpan amenities, simpan `name` (bukan UUID) agar konsisten
-- Atau, ubah logic: selalu tampilkan semua (DB + fallback unique), dengan selected state dari property.amenities
-
-**File:** `src/features/properties/components/CustomAmenities.tsx`
-
-- Ubah logic merge: selalu tampilkan DB facilities + fallback yang belum ada di DB
-- Gunakan `name` sebagai value (bukan UUID) untuk konsistensi dengan data lama
-
-## 5. Listrik Ada Opsi "Bayar Sendiri"
-
-**Masalah:** Saat ini listrik hanya punya toggle "Termasuk Sewa?" (ya/tidak). Jika tidak termasuk, muncul biaya + tipe. Tapi tidak ada opsi "Bayar Sendiri" (tenant bayar langsung ke PLN).
-
-**Fix:**
-
-- `COST_TYPE_OPTIONS` di `constants/index.ts`: Tambah opsi `{ value: 'bayar_sendiri', label: 'Bayar Sendiri' }`
-- `UnitFormDialog.tsx`: Jika `electricity_cost_type` = `bayar_sendiri`, sembunyikan field biaya listrik (karena tenant bayar langsung)
-
-**File:** `src/features/properties/constants/index.ts`
-
-- Tambah `bayar_sendiri` ke `COST_TYPE_OPTIONS`
-
-**File:** `src/features/properties/components/UnitFormDialog.tsx`
-
-- Kondisikan field biaya listrik: hide jika tipe = `bayar_sendiri`
-
-## 6. Kelola Foto Unit di Detail Unit
-
-**File:** `src/pages/merchant/UnitDetail.tsx`
-
-- Di header (line 168), tambah button "Foto" di samping "Edit" dengan icon Camera
-- Tambah state `showPhotoDialog`
-- Tambah Dialog dengan `ImageGalleryUpload` untuk unit photos (bucket `property-images`, folder `units/{unitId}`)
-- `onImagesChange`: update unit photos via supabase update
-
-## 7. Ringkasan Unit Kosong -- Tambah Info
-
-**Masalah:** Tab Ringkasan di UnitDetail hanya menampilkan penghuni, deskripsi, dan fasilitas. Jika kosong, tampil "Unit kosong". Padahal ada data lain seperti occupancy_type (single/sharing), electricity, water, wifi info.
-
-**File:** `src/pages/merchant/UnitDetail.tsx`
-
-- Di `TabsContent value="overview"` (sebelum empty state check):
-  - Tambah card "Detail Unit" yang menampilkan: occupancy_type (Single/Sharing), electricity info (termasuk/bayar sendiri/flat), water info, wifi info (speed, sharing type)
-  - Perbaiki empty state check: jangan tampil "kosong" jika ada data utilitas
-
-## 8. Tab Kontrak & Pembayaran -- Tambah Button dan Fix Inventaris
-
-### Tab Kontrak di Unit Detail
-
-**File:** `src/pages/merchant/UnitDetail.tsx` (line 330)
-
-- Tambah header dengan button "Tambah Kontrak" yang membuka dialog kontrak (pre-selected unit)
-- Perlu import `ContractFormDialog` atau buat inline dialog sederhana
-
-### Tab Pembayaran di Unit Detail
-
-**File:** `src/pages/merchant/UnitDetail.tsx` (line 368)
-
-- Tambah button "Tambah Pembayaran" yang membuka dialog invoice/payment
-
-### Tab Inventaris = Fasilitas Unit
-
-**Masalah:** Tab Inventaris saat ini menggunakan `UnitAssetInventory` (scan barcode/label). Tapi seharusnya sama dengan fasilitas (menggunakan form yang sama dengan `CustomAmenities` + `FacilityManagementDialog`).
-
-**File:** `src/pages/merchant/UnitDetail.tsx`
-
-- Ganti `UnitAssetInventory` di tab Inventaris dengan `CustomAmenities` type="unit" + button "Kelola" yang membuka `FacilityManagementDialog`
-- Tambah save mutation untuk update unit amenities
+### Perubahan di `UnitDetail.tsx`:
+- Import `CreateInvoiceDialog` dari `@/features/payments/components/CreateInvoiceDialog`
+- Tambah state: `showInvoiceDialog`
+- Pass `contracts` dari unit data (hanya kontrak aktif unit ini)
+- Pass `merchantId` dari `unit.property.merchant_id`
+- Button "Tambah Pembayaran" membuka dialog inline
 
 ---
 
 ## Files Summary
 
-
-| File                                                     | Change                                                                          |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `src/shared/components/FileUpload.tsx`                   | Fix webcam capture di ImageGalleryUpload                                        |
-| `src/pages/merchant/PropertyDetail.tsx`                  | Fix photo dialog callback                                                       |
-| `src/features/properties/components/CustomAmenities.tsx` | Fix merge logic DB + fallback, gunakan name bukan UUID                          |
-| `src/features/properties/constants/index.ts`             | Tambah `bayar_sendiri` ke COST_TYPE_OPTIONS                                     |
-| `src/features/properties/components/UnitFormDialog.tsx`  | Hide biaya jika bayar_sendiri                                                   |
-| `src/pages/merchant/UnitDetail.tsx`                      | Kelola foto, ringkasan info, kontrak/pembayaran buttons, inventaris = fasilitas |
-
+| File | Perubahan |
+|------|-----------|
+| `src/pages/merchant/Inventory.tsx` | **Baru**: Halaman inventori terpusat |
+| `src/App.tsx` | Tambah route `/merchant/inventory` |
+| `src/shared/components/layouts/navigation-config.ts` | Tambah "Inventori" dan "Referral" di sidebar merchant |
+| `src/features/properties/components/FacilityManagementDialog.tsx` | Hilangkan input nilai sisa manual, tambah field "Tipe Barang", hitung otomatis |
+| `src/pages/merchant/UnitDetail.tsx` | Ganti navigate ke dialog untuk kontrak dan invoice, import dan render kedua dialog |
+| **Database migration** | Buat tabel `guardian_property_assignments` |
+| `src/features/properties/services/guardianService.ts` | Tambah fungsi assign/unassign properti |
+| `src/features/properties/hooks/useGuardians.ts` | Tambah hooks untuk assignments |
+| `src/pages/merchant/Guardians.tsx` | Tambah UI assign penjaga ke properti |
 
 ## Technical Notes
 
-- Fasilitas consolidation: value yang disimpan di `property.amenities` akan menggunakan facility `name` (lowercase, underscore) bukan UUID, untuk backward compat dengan data lama
-- "Bayar Sendiri" berarti tenant bayar langsung ke penyedia (PLN/PDAM), tidak ada biaya di sistem
-- Tab Inventaris di Unit Detail sekarang identik dengan fasilitas unit, menggunakan komponen yang sama
-- Foto unit di-manage via `ImageGalleryUpload` dengan bucket `property-images` (sudah public)  
-Tambahkan system inventory yang terintegrasi dengan fasilitas dan inventorinya itu ada di menu sidebar.
+- Nilai sisa otomatis dihitung client-side saat save: `purchase_price * factor` (Elektronik=0.10, Furnitur=0.05, Infrastruktur=0.15, Lainnya=0.10)
+- Field "Tipe Barang" (`asset_type`) disimpan di tabel `facilities` -- perlu ALTER TABLE menambah kolom `asset_type TEXT DEFAULT 'lainnya'`
+- `guardian_property_assignments` memungkinkan 1 penjaga assigned ke N properti tanpa mengubah struktur `property_guardians` yang sudah ada
+- Dialog kontrak dan invoice di Unit Detail menggunakan komponen yang sudah ada (`CreateContractDialog`, `CreateInvoiceDialog`) -- hanya perlu pass data yang sesuai
+- Halaman Inventori menampilkan semua fasilitas merchant dengan statistik: total item, total nilai aset, total depresiasi
