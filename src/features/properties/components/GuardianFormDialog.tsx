@@ -1,6 +1,6 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { z } from 'zod';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
@@ -8,10 +8,11 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Trash2, Upload, User } from 'lucide-react';
 import { PropertyGuardian } from '../types';
 import { SALARY_FREQUENCY_OPTIONS } from '../constants';
 import { cn } from '@/shared/utils/utils';
+import { UnitPhotoUpload } from './UnitPhotoUpload';
 
 const guardianSchema = z.object({
   property_id: z.string().min(1, 'Properti wajib dipilih'),
@@ -25,6 +26,7 @@ const guardianSchema = z.object({
   end_date: z.string().optional().nullable(),
   status: z.string().default('active'),
   notes: z.string().max(500).optional().nullable(),
+  photo_url: z.string().optional().nullable(),
 });
 
 export type GuardianFormData = z.infer<typeof guardianSchema>;
@@ -45,7 +47,7 @@ export function GuardianFormDialog({ open, onOpenChange, guardian, properties, o
     defaultValues: {
       property_id: defaultPropertyId || '', name: '', phone: '', address: '', id_number: '',
       salary: 0, salary_frequency: 'monthly', start_date: '', end_date: '',
-      status: 'active', notes: '',
+      status: 'active', notes: '', photo_url: '',
     },
   });
 
@@ -63,15 +65,19 @@ export function GuardianFormDialog({ open, onOpenChange, guardian, properties, o
         end_date: guardian.end_date || '',
         status: guardian.status,
         notes: guardian.notes || '',
+        photo_url: (guardian as any).photo_url || '',
       });
     } else {
       reset({
-        property_id: properties[0]?.id || '', name: '', phone: '', address: '', id_number: '',
+        property_id: defaultPropertyId || properties[0]?.id || '', name: '', phone: '', address: '', id_number: '',
         salary: 0, salary_frequency: 'monthly', start_date: '', end_date: '',
-        status: 'active', notes: '',
+        status: 'active', notes: '', photo_url: '',
       });
     }
-  }, [guardian, reset, open, properties]);
+  }, [guardian, reset, open, properties, defaultPropertyId]);
+
+  const photoUrl = watch('photo_url');
+  const photos = photoUrl ? [photoUrl] : [];
 
   const inputCls = 'rounded-xl bg-background/60 border-border/50';
 
@@ -84,6 +90,33 @@ export function GuardianFormDialog({ open, onOpenChange, guardian, properties, o
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+          {/* Photo Upload */}
+          <div>
+            <Label>Foto Penjaga</Label>
+            <div className="mt-1.5">
+              {photoUrl ? (
+                <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-border/40">
+                  <img src={photoUrl} alt="Foto penjaga" className="w-full h-full object-cover" />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-1 right-1 h-6 w-6 rounded-full"
+                    onClick={() => setValue('photo_url', '')}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : (
+                <UnitPhotoUpload
+                  photos={[]}
+                  onPhotosChange={(p) => { if (p.length > 0) setValue('photo_url', p[0]); }}
+                  maxPhotos={1}
+                />
+              )}
+            </div>
+          </div>
+
           <div>
             <Label htmlFor="property-id">Properti *</Label>
             <Select value={watch('property_id')} onValueChange={(v) => setValue('property_id', v, { shouldValidate: true })}>
