@@ -884,8 +884,14 @@ export default function PropertyDetail() {
               folder={property.id}
               images={property.images || []}
               onImagesChange={async (newImages) => {
-                await propertyService.updateProperty(property.id, { images: newImages } as any);
-                queryClient.invalidateQueries({ queryKey: ['property-detail', id] });
+                try {
+                  await propertyService.updateProperty(property.id, { images: newImages } as any);
+                  queryClient.invalidateQueries({ queryKey: ['property-detail', id] });
+                  toast.success('Foto berhasil diperbarui');
+                } catch (err) {
+                  console.error('Failed to update photos:', err);
+                  toast.error('Gagal memperbarui foto');
+                }
               }}
               maxImages={10}
             />

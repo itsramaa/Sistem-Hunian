@@ -231,11 +231,7 @@ export const UnitFormDialog = ({ open, onOpenChange, unit, properties, onSubmit,
                   <Switch checked={electricityIncluded} onCheckedChange={(v) => setValue("electricity_included", v)} />
                 </div>
                 {!electricityIncluded && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-xs">Biaya Listrik (Rp)</Label>
-                      <Input type="number" min="0" {...register("electricity_cost")} placeholder="0" className={inputCls} />
-                    </div>
+                  <div className="space-y-3">
                     <div>
                       <Label className="text-xs">Tipe Biaya</Label>
                       <Select value={watch("electricity_cost_type") || "flat"} onValueChange={(v) => setValue("electricity_cost_type", v)}>
@@ -243,6 +239,15 @@ export const UnitFormDialog = ({ open, onOpenChange, unit, properties, onSubmit,
                         <SelectContent>{COST_TYPE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
+                    {watch("electricity_cost_type") !== "bayar_sendiri" && (
+                      <div>
+                        <Label className="text-xs">Biaya Listrik (Rp)</Label>
+                        <Input type="number" min="0" {...register("electricity_cost")} placeholder="0" className={inputCls} />
+                      </div>
+                    )}
+                    {watch("electricity_cost_type") === "bayar_sendiri" && (
+                      <p className="text-xs text-muted-foreground">Penyewa membayar langsung ke PLN</p>
+                    )}
                   </div>
                 )}
               </div>

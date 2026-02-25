@@ -62,12 +62,22 @@ export function CustomAmenities({ selectedAmenities, onAmenitiesChange, type = '
     enabled: !!merchant?.id,
   });
 
-  // Merge DB facilities with fallback defaults
+  // Merge DB facilities with fallback defaults — always use name as value for consistency
   const FALLBACK = type === 'property' ? PROPERTY_AMENITIES_FALLBACK : UNIT_AMENITIES_FALLBACK;
   
-  const facilityItems = dbFacilities.length > 0
-    ? dbFacilities.map(f => ({ value: f.id, label: f.name, price: f.purchase_price }))
-    : FALLBACK.map(f => ({ ...f, price: 0 }));
+  const dbItems = dbFacilities.map((f: any) => ({
+    value: f.name.toLowerCase().replace(/\s+/g, '_'),
+    label: f.name,
+    price: f.purchase_price || 0,
+  }));
+  
+  // Merge: show DB items + any fallback items not already covered by DB
+  const dbValues = new Set(dbItems.map((d: any) => d.value));
+  const fallbackExtras = FALLBACK
+    .filter(f => !dbValues.has(f.value))
+    .map(f => ({ ...f, price: 0 }));
+  
+  const facilityItems = [...dbItems, ...fallbackExtras];
 
   const toggleAmenity = (value: string) => {
     onAmenitiesChange(

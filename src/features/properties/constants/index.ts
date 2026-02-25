@@ -23,6 +23,7 @@ export const OCCUPANCY_TYPE_OPTIONS = [
 export const COST_TYPE_OPTIONS = [
   { value: 'flat', label: 'Flat / Bulanan' },
   { value: 'per_usage', label: 'Per Pemakaian' },
+  { value: 'bayar_sendiri', label: 'Bayar Sendiri' },
 ] as const;
 
 export const WIFI_SHARING_OPTIONS = [
