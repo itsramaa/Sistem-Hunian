@@ -2277,13 +2277,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "maintenance_requests_tenant_user_id_fkey"
-            columns: ["tenant_user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
             foreignKeyName: "maintenance_requests_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
