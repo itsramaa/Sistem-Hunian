@@ -5,11 +5,13 @@ import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
 import { Separator } from '@/shared/components/ui/separator';
 import { Progress } from '@/shared/components/ui/progress';
+import { ImageGalleryUpload } from '@/shared/components/FileUpload';
 import { 
-  ArrowLeft, Building2, ChevronRight, DoorOpen, Edit, Image as ImageIcon, LayoutGrid, List, MapPin, 
+  ArrowLeft, Building2, ChevronRight, DoorOpen, Edit, Image as ImageIcon, Camera, LayoutGrid, List, MapPin, 
   Sparkles, TrendingUp, Users, DollarSign, Calendar, Hash, Clock, Wrench, FileText, AlertTriangle,
   Shield, UserCheck, MoreHorizontal, Plus, Home, BarChart3
 } from 'lucide-react';
@@ -101,6 +103,7 @@ export default function PropertyDetail() {
   // Maintenance dialog
   const [showCreateMaintenanceDialog, setShowCreateMaintenanceDialog] = useState(false);
   const createMaintenanceMutation = useCreateMerchantMaintenanceRequest();
+  const [showPhotoDialog, setShowPhotoDialog] = useState(false);
 
   // Read URL hash for initial tab
   const getInitialTab = useCallback(() => {
@@ -282,6 +285,9 @@ export default function PropertyDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" className="rounded-xl gap-2" onClick={() => setShowPhotoDialog(true)} aria-label="Kelola foto properti">
+            <Camera className="h-4 w-4" aria-hidden="true" /> Foto
+          </Button>
           <Button variant="outline" className="rounded-xl gap-2" onClick={() => setShowEditDialog(true)} aria-label="Edit informasi properti">
             <Edit className="h-4 w-4" aria-hidden="true" /> Edit Properti
           </Button>
@@ -426,11 +432,14 @@ export default function PropertyDetail() {
                 </CardContent>
               </Card>
             )}
+            {/* DSS Readiness & Financial Metrics in Overview */}
+            <OverviewDssMetrics property={property} revenuePotential={revenuePotential} occupancyRate={occupancyRate} />
           </TabsContent>
 
           {/* Financial Tab */}
           <TabsContent value="financial" className="space-y-4 mt-4 animate-fade-in">
-            <FinancialTabWithReadiness property={property} revenuePotential={revenuePotential} occupancyRate={occupancyRate} />
+            <FinancialTabContent property={property} revenuePotential={revenuePotential} occupancyRate={occupancyRate / 100} />
+            <RenovationHistoryCard propertyId={property.id} merchantId={property.merchant_id} />
           </TabsContent>
 
           {/* Units Tab */}
@@ -788,19 +797,42 @@ export default function PropertyDetail() {
         loading={createMaintenanceMutation.isPending}
         preselectedPropertyId={id}
       />
+
+      {/* Photo Management Dialog */}
+      <Dialog open={showPhotoDialog} onOpenChange={setShowPhotoDialog}>
+        <DialogContent className="max-w-lg w-[95vw] rounded-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Kelola Foto Properti</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <ImageGalleryUpload
+              bucket="property-images"
+              folder={property.id}
+              images={property.images || []}
+              onImagesChange={async (newImages) => {
+                await propertyService.updateProperty(property.id, { images: newImages } as any);
+                queryClient.invalidateQueries({ queryKey: ['property-detail', id] });
+              }}
+              maxImages={10}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function FinancialTabWithReadiness({ property, revenuePotential, occupancyRate }: { property: any; revenuePotential: number; occupancyRate: number }) {
+function OverviewDssMetrics({ property, revenuePotential, occupancyRate }: { property: any; revenuePotential: number; occupancyRate: number }) {
   const readiness = useDssReadiness(property.id, property.merchant_id);
-
   return (
-    <div className="space-y-4">
+    <>
       <DssReadinessCard readiness={readiness} />
-      <FinancialTabContent property={property} revenuePotential={revenuePotential} occupancyRate={occupancyRate / 100} />
-      <RenovationHistoryCard propertyId={property.id} merchantId={property.merchant_id} />
-    </div>
+      <PropertyFinancialMetrics
+        property={property}
+        monthlyRevenue={revenuePotential}
+        occupancyRate={occupancyRate / 100}
+      />
+    </>
   );
 }
 
@@ -816,24 +848,18 @@ function FinancialTabContent({ property, revenuePotential, occupancyRate }: { pr
   });
 
   return (
-    <div className="space-y-4">
-      <PropertyFinancialMetrics
-        property={property}
-        monthlyRevenue={revenuePotential}
-        occupancyRate={occupancyRate}
-      />
-      <PropertyFinancialForm
-        initialData={{
-          construction_cost: property.construction_cost || 0,
-          renovation_cost: property.renovation_cost || 0,
-          funding_source: property.funding_source || 'modal_sendiri',
-          monthly_amortization: property.monthly_amortization || 0,
-          monthly_maintenance_cost: property.monthly_maintenance_cost || 0,
-          avg_annual_unexpected_cost: property.avg_annual_unexpected_cost || 0,
-        }}
-        onSubmit={async (data) => { await updateMutation.mutateAsync(data); }}
-        isLoading={updateMutation.isPending}
-      />
-    </div>
+    <PropertyFinancialForm
+      initialData={{
+        construction_cost: property.construction_cost || 0,
+        renovation_cost: property.renovation_cost || 0,
+        funding_source: property.funding_source || 'modal_sendiri',
+        monthly_amortization: property.monthly_amortization || 0,
+        monthly_maintenance_cost: property.monthly_maintenance_cost || 0,
+        avg_annual_unexpected_cost: property.avg_annual_unexpected_cost || 0,
+        marketing_cost: property.marketing_cost || 0,
+      }}
+      onSubmit={async (data) => { await updateMutation.mutateAsync(data); }}
+      isLoading={updateMutation.isPending}
+    />
   );
 }

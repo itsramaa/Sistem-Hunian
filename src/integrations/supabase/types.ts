@@ -1268,6 +1268,59 @@ export type Database = {
           },
         ]
       }
+      facilities: {
+        Row: {
+          brand: string | null
+          category: string
+          created_at: string | null
+          id: string
+          merchant_id: string
+          name: string
+          notes: string | null
+          purchase_date: string | null
+          purchase_price: number | null
+          salvage_value: number | null
+          updated_at: string | null
+          useful_life_months: number | null
+        }
+        Insert: {
+          brand?: string | null
+          category?: string
+          created_at?: string | null
+          id?: string
+          merchant_id: string
+          name: string
+          notes?: string | null
+          purchase_date?: string | null
+          purchase_price?: number | null
+          salvage_value?: number | null
+          updated_at?: string | null
+          useful_life_months?: number | null
+        }
+        Update: {
+          brand?: string | null
+          category?: string
+          created_at?: string | null
+          id?: string
+          merchant_id?: string
+          name?: string
+          notes?: string | null
+          purchase_date?: string | null
+          purchase_price?: number | null
+          salvage_value?: number | null
+          updated_at?: string | null
+          useful_life_months?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facilities_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       forum_comments: {
         Row: {
           author_id: string
@@ -1912,6 +1965,7 @@ export type Database = {
           completion_photos: string[] | null
           created_at: string
           description: string | null
+          estimated_cost: number | null
           id: string
           images: string[] | null
           merchant_id: string
@@ -1935,6 +1989,7 @@ export type Database = {
           completion_photos?: string[] | null
           created_at?: string
           description?: string | null
+          estimated_cost?: number | null
           id?: string
           images?: string[] | null
           merchant_id: string
@@ -1958,6 +2013,7 @@ export type Database = {
           completion_photos?: string[] | null
           created_at?: string
           description?: string | null
+          estimated_cost?: number | null
           id?: string
           images?: string[] | null
           merchant_id?: string
@@ -3702,6 +3758,54 @@ export type Database = {
         }
         Relationships: []
       }
+      property_facilities: {
+        Row: {
+          condition: string | null
+          created_at: string | null
+          facility_id: string
+          id: string
+          installed_date: string | null
+          notes: string | null
+          property_id: string
+          quantity: number | null
+        }
+        Insert: {
+          condition?: string | null
+          created_at?: string | null
+          facility_id: string
+          id?: string
+          installed_date?: string | null
+          notes?: string | null
+          property_id: string
+          quantity?: number | null
+        }
+        Update: {
+          condition?: string | null
+          created_at?: string | null
+          facility_id?: string
+          id?: string
+          installed_date?: string | null
+          notes?: string | null
+          property_id?: string
+          quantity?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_facilities_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_facilities_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       property_guardians: {
         Row: {
           address: string | null
@@ -4832,6 +4936,54 @@ export type Database = {
           },
           {
             foreignKeyName: "unit_assets_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      unit_facilities: {
+        Row: {
+          condition: string | null
+          created_at: string | null
+          facility_id: string
+          id: string
+          installed_date: string | null
+          notes: string | null
+          quantity: number | null
+          unit_id: string
+        }
+        Insert: {
+          condition?: string | null
+          created_at?: string | null
+          facility_id: string
+          id?: string
+          installed_date?: string | null
+          notes?: string | null
+          quantity?: number | null
+          unit_id: string
+        }
+        Update: {
+          condition?: string | null
+          created_at?: string | null
+          facility_id?: string
+          id?: string
+          installed_date?: string | null
+          notes?: string | null
+          quantity?: number | null
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unit_facilities_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unit_facilities_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
             referencedRelation: "units"

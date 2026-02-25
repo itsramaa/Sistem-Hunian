@@ -16,6 +16,7 @@ const financialSchema = z.object({
   monthly_amortization: z.coerce.number().min(0).default(0),
   monthly_maintenance_cost: z.coerce.number().min(0).default(0),
   avg_annual_unexpected_cost: z.coerce.number().min(0).default(0),
+  marketing_cost: z.coerce.number().min(0).default(0),
 });
 
 export type FinancialFormData = z.infer<typeof financialSchema>;
@@ -38,6 +39,7 @@ export function PropertyFinancialForm({ initialData, onSubmit, isLoading }: Prop
     defaultValues: {
       construction_cost: 0, renovation_cost: 0, funding_source: 'modal_sendiri',
       monthly_amortization: 0, monthly_maintenance_cost: 0, avg_annual_unexpected_cost: 0,
+      marketing_cost: 0,
     },
   });
 
@@ -50,6 +52,7 @@ export function PropertyFinancialForm({ initialData, onSubmit, isLoading }: Prop
         monthly_amortization: initialData.monthly_amortization || 0,
         monthly_maintenance_cost: initialData.monthly_maintenance_cost || 0,
         avg_annual_unexpected_cost: initialData.avg_annual_unexpected_cost || 0,
+        marketing_cost: initialData.marketing_cost || 0,
       });
     }
   }, [initialData, reset]);
@@ -110,6 +113,13 @@ export function PropertyFinancialForm({ initialData, onSubmit, isLoading }: Prop
             <div>
               <Label>Biaya Tak Terduga Rata-rata/tahun (Rp)</Label>
               <Input type="number" min={0} {...register('avg_annual_unexpected_cost')} className={inputCls} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label>Biaya Marketing/bulan (Rp)</Label>
+              <Input type="number" min={0} {...register('marketing_cost')} className={inputCls} />
             </div>
           </div>
 

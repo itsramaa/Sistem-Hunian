@@ -48,6 +48,7 @@ export function CreateMaintenanceDialog({ open, onOpenChange, onSubmit, loading,
   const [category, setCategory] = useState('other');
   const [priority, setPriority] = useState('medium');
   const [photos, setPhotos] = useState<string[]>([]);
+  const [estimatedCost, setEstimatedCost] = useState(0);
 
   useEffect(() => {
     if (preselectedPropertyId) setPropertyId(preselectedPropertyId);
@@ -77,6 +78,7 @@ export function CreateMaintenanceDialog({ open, onOpenChange, onSubmit, loading,
       unit_id: unitId,
       merchant_id: merchant.id,
       images: photos.length > 0 ? photos : undefined,
+      estimated_cost: estimatedCost > 0 ? estimatedCost : undefined,
     });
   };
 
@@ -88,6 +90,7 @@ export function CreateMaintenanceDialog({ open, onOpenChange, onSubmit, loading,
     setCategory('other');
     setPriority('medium');
     setPhotos([]);
+    setEstimatedCost(0);
   };
 
   return (
@@ -150,6 +153,11 @@ export function CreateMaintenanceDialog({ open, onOpenChange, onSubmit, loading,
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-sm">Estimasi Biaya (Rp)</Label>
+            <Input type="number" min={0} value={estimatedCost} onChange={e => setEstimatedCost(Number(e.target.value))} placeholder="0" className="rounded-xl" />
           </div>
 
           <MaintenancePhotoUpload
