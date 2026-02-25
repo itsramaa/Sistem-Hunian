@@ -39,13 +39,13 @@ export function AppSidebar({ role, ...props }: AppSidebarProps) {
 
   const secondaryNavItems = [
     {
-      title: "Support",
+      title: "Bantuan",
       url: `/${role}/support`,
       icon: LifeBuoy,
     },
     {
       title: "Feedback",
-      url: `mailto:support@sihuni.com`,
+      url: `/${role}/feedback`,
       icon: Send,
     },
   ];

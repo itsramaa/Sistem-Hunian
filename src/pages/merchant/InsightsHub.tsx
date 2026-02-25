@@ -27,6 +27,13 @@ const performanceCards: InsightCard[] = [
     path: "/merchant/comparative-portfolio",
     accentClass: "from-accent/20 to-accent/5",
   },
+  {
+    title: "Pusat Dokumen",
+    description: "Kelola dan arsipkan dokumen properti Anda",
+    icon: FileSearch,
+    path: "/merchant/documents",
+    accentClass: "from-success/20 to-success/5",
+  },
 ];
 
 const intelligenceCards: InsightCard[] = [
