@@ -1,139 +1,130 @@
+# Fix Foto Upload, Unit Detail Enhancements, Fasilitas Consolidation, dan Listrik Bayar Sendiri
 
-# Photo Zoom, Fasilitas Edit di Overview, Unit/Tenant Quick-Add, Compliance ke Overview, OCR Improvements, Seed Data
+## 1. Fix Photo Upload di Dialog Kelola Foto Properti
 
-## 1. Photo Zoom/Lightbox Library
+**Masalah:** `ImageGalleryUpload` menggunakan `supabase` dari `@/lib/integrations/supabase/client` sedangkan halaman compliance dan lainnya menggunakan `@/integrations/supabase/client`. Keduanya seharusnya identik tapi bisa jadi masalah konfigurasi. Masalah utama kemungkinan adalah `onImagesChange` memanggil `propertyService.updateProperty` secara langsung tanpa `await` yang benar, atau webcam capture gagal karena dialog context.
 
-Tambahkan fitur zoom/pinch/swipe pada foto properti dan unit menggunakan library CSS-only atau lightweight lightbox.
+**Fix:**
 
-**Pendekatan:** Buat komponen `PhotoLightbox.tsx` menggunakan native HTML `<dialog>` + CSS transform untuk zoom. Klik foto di carousel/gallery membuka lightbox fullscreen dengan:
-- Pinch-to-zoom (touch) dan scroll-to-zoom (desktop)
-- Swipe/arrow navigation antar foto
-- Close button dan ESC key
+- Di `PropertyDetail.tsx` (line 886-888): Wrap `onImagesChange` callback agar handle error dengan toast dan re-fetch properly
+- Di `ImageGalleryUpload` (`FileUpload.tsx` line 279-295): Pastikan `handleWebcamCapture` error handling benar dan webcam dialog tidak conflict dengan parent dialog
 
-**File baru:**
-- `src/shared/components/PhotoLightbox.tsx`
+**File:** `src/shared/components/FileUpload.tsx`
 
-**File diubah:**
-- `src/pages/merchant/PropertyDetail.tsx` - Klik foto di carousel membuka lightbox
-- `src/pages/merchant/UnitDetail.tsx` - Klik foto unit membuka lightbox
+- Fix webcam capture di `ImageGalleryUpload`: pastikan blob upload path benar
+- Tambah error boundary dan logging
 
-## 2. Fasilitas Editable di Tab Ringkasan (Overview)
+**File:** `src/pages/merchant/PropertyDetail.tsx`
 
-Di tab Ringkasan `PropertyDetail.tsx`, card "Fasilitas" saat ini hanya menampilkan badge. Tambahkan tombol "Edit" dan "Tambah" yang membuka `FacilityManagementDialog` atau inline toggle fasilitas.
+- Fix `onImagesChange` callback di photo dialog
 
-**File diubah:**
-- `src/pages/merchant/PropertyDetail.tsx`:
-  - Di card Fasilitas (overview tab, line ~423-434), tambah button "Edit Fasilitas" di CardHeader
-  - Klik membuka dialog dengan `CustomAmenities` + save mutation ke property amenities
-  - Tambah button "Tambah" yang menuju `FacilityManagementDialog` untuk membuat fasilitas master baru
+## 2. Polis Asuransi -- Scan Dokumen Sudah Ada
 
-## 3. Tambah Unit di Tab Unit -- Dialog Langsung Fix ke Properti
+Dari kode yang saya baca, `OcrCameraButton` sudah ada di `InsuranceTab` (line 267-274 di PropertyCompliance.tsx). Ini sudah diimplementasikan. Akan diperiksa apakah berfungsi.
 
-Di tab Unit `PropertyDetail.tsx`, tambahkan button "Tambah Unit" yang membuka `UnitFormDialog` dengan `property_id` sudah di-preset (tidak perlu pilih properti lagi).
+## 3. Tambah Unit Button di Kanan (Bukan Kiri)
 
-**File diubah:**
-- `src/pages/merchant/PropertyDetail.tsx`:
-  - Import `UnitFormDialog` dan hooks unit
-  - Tambah state `showAddUnitDialog`
-  - Di tab Unit, tambah button "Tambah Unit" di header (sebelah filter/view toggle)
-  - Render `UnitFormDialog` dengan properti fix, property selector disabled/hidden
+**File:** `src/pages/merchant/PropertyDetail.tsx` (line 517-558)
 
-- `src/features/properties/components/UnitFormDialog.tsx`:
-  - Tambah prop opsional `preselectedPropertyId?: string` 
-  - Jika ada, auto-set `property_id` dan hide property selector
+- Saat ini layout: filter di kiri, lalu `Tambah Unit` + view toggle di kanan
+- Button "Tambah Unit" sudah di kanan (line 534-536). Akan diverifikasi dan perbaiki jika perlu.
 
-## 4. Tambah Penyewa di Tab Penyewa -- Dialog Fix ke Properti
+**Cek:** Button sudah di kanan dalam `div className="flex items-center gap-2"` (line 533). Ini sudah benar.
 
-Di tab Penyewa `PropertyDetail.tsx`, tambahkan button "Tambah Penyewa" yang membuka `AddTenantDialog` dengan properti sudah di-preset. Hanya perlu pilih unit dan isi detail.
+## 4. Fasilitas Bug -- Belum Terkonsolidasi
 
-**File diubah:**
-- `src/pages/merchant/PropertyDetail.tsx`:
-  - Import `AddTenantDialog` dan mutation
-  - Tambah state `showAddTenantDialog`
-  - Di tab Tenants header, tambah button "Tambah Penyewa"
-  - Render `AddTenantDialog` dengan `properties` berisi hanya properti saat ini (pre-filtered)
+**Masalah:** `CustomAmenities` menggunakan `(supabase.from as any)('facilities')` -- cast ke `any` karena tabel `facilities` mungkin belum ada di types.ts auto-generated. Jika query gagal, fallback ke hardcoded list. Tapi fallback menggunakan value `parking`, `ac` dll sedangkan DB facilities menggunakan UUID. Ini menyebabkan ketidakcocokan -- saat property punya amenities `['ac', 'parking']` (dari fallback), tapi DB sudah ada facilities, toggle tidak match.
 
-- `src/features/users/components/tenant/AddTenantDialog.tsx`:
-  - Tambah prop opsional `preselectedPropertyId?: string`
-  - Jika ada, auto-set property dan skip property selection (langsung ke unit selection)
+**Fix:**
 
-## 5. Hapus Tab Kepatuhan, Pindahkan ke Overview
+- `CustomAmenities.tsx`: Gabungkan DB facilities + fallback. Jangan replace fallback sepenuhnya, tapi merge. Jika DB punya data, tampilkan DB items + existing selected amenities dari fallback
+- Saat menyimpan amenities, simpan `name` (bukan UUID) agar konsisten
+- Atau, ubah logic: selalu tampilkan semua (DB + fallback unique), dengan selected state dari property.amenities
 
-Tab "Kepatuhan" di `PropertyDetail.tsx` dihapus. Konten compliance (KPI cards + tabs) dipindahkan ke tab Overview sebagai section baru di bawah DSS/Financial metrics.
+**File:** `src/features/properties/components/CustomAmenities.tsx`
 
-**File diubah:**
-- `src/pages/merchant/PropertyDetail.tsx`:
-  - Hapus `compliance` dari validTabs dan dari dropdown "Lainnya"
-  - Di Overview tab, render `LazyCompliance` dengan `propertyId` setelah `OverviewDssMetrics`
-  - Tab yang tersisa: Ringkasan, Unit, Staf, Penyewa, Keuangan, Pemeliharaan
-  - Pindahkan "Staf" (guardians) dari dropdown ke tab utama
+- Ubah logic merge: selalu tampilkan DB facilities + fallback yang belum ada di DB
+- Gunakan `name` sebagai value (bukan UUID) untuk konsistensi dengan data lama
 
-## 6. Polis Asuransi -- Scan Dokumen dengan Pilihan Kamera/Galeri/Webcam
+## 5. Listrik Ada Opsi "Bayar Sendiri"
 
-Form tambah polis asuransi di `PropertyCompliance.tsx` saat ini tidak punya fitur scan. Tambahkan `OcrCameraButton` di dialog "Tambah Polis" untuk scan dokumen polis.
+**Masalah:** Saat ini listrik hanya punya toggle "Termasuk Sewa?" (ya/tidak). Jika tidak termasuk, muncul biaya + tipe. Tapi tidak ada opsi "Bayar Sendiri" (tenant bayar langsung ke PLN).
 
-**File diubah:**
-- `src/pages/merchant/PropertyCompliance.tsx`:
-  - Di `InsuranceTab`, tambah `OcrCameraButton` di dalam dialog form
-  - Props: `edgeFunction="ocr-compliance-document"`, `bucket="verification-documents"`
-  - `onExtracted` mengisi form fields: policy_number, provider, coverage_amount, dll
+**Fix:**
 
-## 7. Security Incident "Dilaporkan Oleh" -- Dropdown Penjaga & Penyewa
+- `COST_TYPE_OPTIONS` di `constants/index.ts`: Tambah opsi `{ value: 'bayar_sendiri', label: 'Bayar Sendiri' }`
+- `UnitFormDialog.tsx`: Jika `electricity_cost_type` = `bayar_sendiri`, sembunyikan field biaya listrik (karena tenant bayar langsung)
 
-Field `reported_by` di form insiden keamanan saat ini adalah text input biasa. Ubah menjadi Select dropdown yang menampilkan semua penjaga dan penyewa properti tersebut.
+**File:** `src/features/properties/constants/index.ts`
 
-**File diubah:**
-- `src/pages/merchant/PropertyCompliance.tsx`:
-  - Di `SecurityTab`, fetch guardians via `property_guardians` table filtered by property_id
-  - Fetch tenants via contracts + profiles untuk properti tersebut
-  - Ganti `<Input>` reported_by menjadi `<Select>` dengan optgroup: Penjaga, Penyewa, dan opsi "Lainnya" (free text fallback)
+- Tambah `bayar_sendiri` ke `COST_TYPE_OPTIONS`
 
-## 8. Scan Dokumen di Tab Dokumen -- Pilihan Kamera/Galeri/Webcam
+**File:** `src/features/properties/components/UnitFormDialog.tsx`
 
-`OcrScanButton` di `ComplianceDocsTab` (line 358) menggunakan basic file input tanpa pilihan. Ganti dengan `OcrCameraButton` yang sudah ada (sudah punya dropdown Kamera/Galeri/Webcam).
+- Kondisikan field biaya listrik: hide jika tipe = `bayar_sendiri`
 
-**File diubah:**
-- `src/pages/merchant/PropertyCompliance.tsx`:
-  - Di `ComplianceDocsTab`, ganti `OcrScanButton` inline component dengan `OcrCameraButton`
-  - Props: `label="Scan Dokumen"`, `bucket="verification-documents"`, `edgeFunction="ocr-compliance-document"`
-  - `onExtracted` mengisi form fields dari hasil OCR
+## 6. Kelola Foto Unit di Detail Unit
 
-## 9. Comprehensive Seed Data dengan Dummy Photos
+**File:** `src/pages/merchant/UnitDetail.tsx`
 
-Buat migration seed data yang mengisi semua tabel dengan data dummy termasuk photo URLs menggunakan placeholder images (picsum.photos atau ui-avatars.com).
+- Di header (line 168), tambah button "Foto" di samping "Edit" dengan icon Camera
+- Tambah state `showPhotoDialog`
+- Tambah Dialog dengan `ImageGalleryUpload` untuk unit photos (bucket `property-images`, folder `units/{unitId}`)
+- `onImagesChange`: update unit photos via supabase update
 
-**Data yang di-seed:**
-- `facilities` - 10+ fasilitas master (AC, TV, lemari, dll) dengan harga dan umur pakai
-- `property_facilities` - Link fasilitas ke properti yang ada
-- `unit_facilities` - Link fasilitas ke unit yang ada
-- `insurance_policies` - 2-3 polis asuransi dummy
-- `compliance_documents` - 3-5 dokumen kepatuhan (IMB, PBB, dll)
-- `security_incidents` - 2-3 insiden keamanan
-- `disaster_risk_profiles` - Profil risiko untuk properti
-- Update `properties.images` dengan placeholder photos
-- Update `units.photos` dengan placeholder photos  
-- Update `property_guardians.photo_url` dengan placeholder avatars
-- `merchant_feedback` - 2-3 feedback dummy
-- Update `profiles.avatar_url` dengan placeholder avatars
+## 7. Ringkasan Unit Kosong -- Tambah Info
+
+**Masalah:** Tab Ringkasan di UnitDetail hanya menampilkan penghuni, deskripsi, dan fasilitas. Jika kosong, tampil "Unit kosong". Padahal ada data lain seperti occupancy_type (single/sharing), electricity, water, wifi info.
+
+**File:** `src/pages/merchant/UnitDetail.tsx`
+
+- Di `TabsContent value="overview"` (sebelum empty state check):
+  - Tambah card "Detail Unit" yang menampilkan: occupancy_type (Single/Sharing), electricity info (termasuk/bayar sendiri/flat), water info, wifi info (speed, sharing type)
+  - Perbaiki empty state check: jangan tampil "kosong" jika ada data utilitas
+
+## 8. Tab Kontrak & Pembayaran -- Tambah Button dan Fix Inventaris
+
+### Tab Kontrak di Unit Detail
+
+**File:** `src/pages/merchant/UnitDetail.tsx` (line 330)
+
+- Tambah header dengan button "Tambah Kontrak" yang membuka dialog kontrak (pre-selected unit)
+- Perlu import `ContractFormDialog` atau buat inline dialog sederhana
+
+### Tab Pembayaran di Unit Detail
+
+**File:** `src/pages/merchant/UnitDetail.tsx` (line 368)
+
+- Tambah button "Tambah Pembayaran" yang membuka dialog invoice/payment
+
+### Tab Inventaris = Fasilitas Unit
+
+**Masalah:** Tab Inventaris saat ini menggunakan `UnitAssetInventory` (scan barcode/label). Tapi seharusnya sama dengan fasilitas (menggunakan form yang sama dengan `CustomAmenities` + `FacilityManagementDialog`).
+
+**File:** `src/pages/merchant/UnitDetail.tsx`
+
+- Ganti `UnitAssetInventory` di tab Inventaris dengan `CustomAmenities` type="unit" + button "Kelola" yang membuka `FacilityManagementDialog`
+- Tambah save mutation untuk update unit amenities
 
 ---
 
 ## Files Summary
 
-| File | Change |
-|------|--------|
-| `src/shared/components/PhotoLightbox.tsx` | **Baru**: Lightbox component dengan zoom |
-| `src/pages/merchant/PropertyDetail.tsx` | Photo lightbox, fasilitas edit di overview, tambah unit button, tambah penyewa button, hapus tab compliance, pindahkan ke overview, pindahkan guardians ke tab utama |
-| `src/pages/merchant/UnitDetail.tsx` | Photo lightbox integration |
-| `src/features/properties/components/UnitFormDialog.tsx` | Tambah prop `preselectedPropertyId` |
-| `src/features/users/components/tenant/AddTenantDialog.tsx` | Tambah prop `preselectedPropertyId` |
-| `src/pages/merchant/PropertyCompliance.tsx` | OCR scan polis asuransi, reported_by dropdown, scan dokumen pakai OcrCameraButton |
-| **Database seed migration** | Seed data facilities, compliance, photos placeholder |
+
+| File                                                     | Change                                                                          |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `src/shared/components/FileUpload.tsx`                   | Fix webcam capture di ImageGalleryUpload                                        |
+| `src/pages/merchant/PropertyDetail.tsx`                  | Fix photo dialog callback                                                       |
+| `src/features/properties/components/CustomAmenities.tsx` | Fix merge logic DB + fallback, gunakan name bukan UUID                          |
+| `src/features/properties/constants/index.ts`             | Tambah `bayar_sendiri` ke COST_TYPE_OPTIONS                                     |
+| `src/features/properties/components/UnitFormDialog.tsx`  | Hide biaya jika bayar_sendiri                                                   |
+| `src/pages/merchant/UnitDetail.tsx`                      | Kelola foto, ringkasan info, kontrak/pembayaran buttons, inventaris = fasilitas |
+
 
 ## Technical Notes
 
-- PhotoLightbox menggunakan CSS `transform: scale()` dengan wheel/touch events, bukan library eksternal -- meminimalkan bundle size
-- Placeholder photos dari `https://picsum.photos/seed/{id}/800/600` untuk properti/unit, `https://ui-avatars.com/api/?name={name}` untuk avatar
-- Seed data menggunakan migration tool (INSERT statements) yang reference existing property/unit IDs dari database
-- `preselectedPropertyId` prop di UnitFormDialog dan AddTenantDialog bersifat optional -- backward compatible
-- Compliance di overview hanya render jika `propertyId` tersedia (sudah handled oleh existing LazyCompliance component)
+- Fasilitas consolidation: value yang disimpan di `property.amenities` akan menggunakan facility `name` (lowercase, underscore) bukan UUID, untuk backward compat dengan data lama
+- "Bayar Sendiri" berarti tenant bayar langsung ke penyedia (PLN/PDAM), tidak ada biaya di sistem
+- Tab Inventaris di Unit Detail sekarang identik dengan fasilitas unit, menggunakan komponen yang sama
+- Foto unit di-manage via `ImageGalleryUpload` dengan bucket `property-images` (sudah public)  
+Tambahkan system inventory yang terintegrasi dengan fasilitas dan inventorinya itu ada di menu sidebar.
