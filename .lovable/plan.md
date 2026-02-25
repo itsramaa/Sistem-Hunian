@@ -1,96 +1,177 @@
 
 
-# Sidebar Updates, Amenities Split, Webcam Fixes, Data Quality Relocation, and Maintenance Detail Bug Fix
+# Dokumen ke Alat, Support Revamp, Feedback Page, Signature Feature, dan Customer Service Floating Button
 
-## 1. Add Escrow, Referral, and Dokumen to Merchant Sidebar
+## 1. Pindahkan Dokumen ke Alat (InsightsHub) dan Hapus dari Sidebar
 
-Update `navigation-config.ts` to add three new sidebar items:
+**Saat ini:** "Dokumen" adalah item sidebar terpisah di grup Wawasan.
+**Perubahan:** Hapus dari sidebar, tambahkan sebagai card di InsightsHub (seperti Kualitas Data).
 
-- **Escrow** under Keuangan group, below Pembayaran: `{ path: "/merchant/escrow", icon: Wallet, label: "Escrow" }`
-- **Referral** in a new group or under Operasional: `{ path: "/merchant/referrals", icon: Gift, label: "Referral" }`
-- **Pusat Dokumen** under Utama or Wawasan: `{ path: "/merchant/documents", icon: FileText, label: "Dokumen" }`
+**File yang diubah:**
+- `navigation-config.ts`: Hapus `{ path: "/merchant/documents", ... }` dari mainNav, tambahkan `/merchant/documents` ke `activePatterns` item "Alat"
+- `InsightsHub.tsx`: Tambah card "Pusat Dokumen" di section Performa dengan icon FileSearch dan path `/merchant/documents`
 
-Pages already exist (`Escrow.tsx`, `Referrals.tsx`, `DocumentCenter.tsx`) and routes are already defined in `App.tsx`. Only the sidebar config needs updating.
+## 2. Revamp Support Page -- Hapus "Hubungi Kami", Fokus FAQ/Help
 
-## 2. Split Fasilitas Kamar vs Fasilitas Umum
+**Saat ini:** Support page punya form "Hubungi Kami", kontak langsung (email, WhatsApp, jam operasional)
+**Perubahan:**
+- Hapus seluruh "Contact Form" card dan "Kontak Langsung" card
+- Pertahankan FAQ section dan perluas dengan lebih banyak kategori
+- Tambah tombol "Tanya AI Assistant" yang membuka floating AI chatbot
+- Pertahankan "Link Berguna" dan "Status Sistem" cards
+- Sidebar secondary nav: ubah "Support" menjadi "Bantuan" yang tetap link ke `/merchant/support`
 
-Currently `CustomAmenities` has a single list of default amenities used for both property-level (Fasilitas Umum) and unit-level (Fasilitas Kamar).
+**File yang diubah:**
+- `Support.tsx`: Hapus contact form & kontak langsung, tambah AI assistant CTA button
 
-**Changes:**
+## 3. Buat Page Feedback untuk Merchant
 
-- **`CustomAmenities.tsx`**: Add a `type` prop (`"property" | "unit"`) to control which defaults show:
-  - **Property (Fasilitas Umum)**: Parkir, Keamanan 24 Jam, CCTV, Kolam Renang, Gym, Dapur Bersama, Laundry, Cleaning Service
-  - **Unit (Fasilitas Kamar)**: AC, Water Heater, Furnished, Lemari, Meja, Kamar Mandi Dalam, Balkon
-  - Exclude **WiFi, Air, Listrik** from both lists (they have their own dedicated fields already)
-  - Label changes: "Fasilitas Umum" for property, "Fasilitas Kamar" for unit
+**Baru:** Page `/merchant/feedback` untuk merchant memberikan masukan lengkap.
 
-- **`PropertyFormDialog.tsx`**: Pass `type="property"` to `CustomAmenities`
-- **`UnitFormDialog.tsx`**: Pass `type="unit"` to `CustomAmenities`
+Fitur:
+- Form dengan kategori (Fitur, Bug, UX, Lainnya)
+- Rating bintang (1-5) untuk kepuasan
+- Text area untuk deskripsi detail
+- Screenshot upload opsional (via FileUpload)
+- Riwayat feedback yang pernah dikirim
+- Data disimpan ke tabel `merchant_feedback` di database
 
-Data in DB stays as-is (all stored in `amenities` array). This is purely a UI filter for which defaults to show.
+**File baru:**
+- `src/pages/merchant/Feedback.tsx`
 
-## 3. Fix Webcam Not Appearing in All Photo Upload Points
+**File yang diubah:**
+- `App.tsx`: Tambah route `/merchant/feedback`
+- `app-sidebar.tsx`: Ubah secondary nav "Feedback" dari `mailto:` menjadi link ke `/merchant/feedback`
 
-The webcam button currently exists in `FileUpload` and `MaintenancePhotoUpload` but is missing from:
+**Database migration:** Buat tabel `merchant_feedback` dengan kolom: id, merchant_id, user_id, category, rating, message, screenshot_url, status (pending/reviewed/resolved), created_at
 
-- **`CompletionDialog.tsx`** (line 59): Uses `FileUpload` without compact/button mode, and the drop-zone webcam only shows when `accept.startsWith('image')` -- need to verify this works with `accept="image/*"`
-- **`MaintenanceReplyForm.tsx`** (line 84): Same issue -- uses `FileUpload` in drop-zone mode
-- **`EnhancedFileUpload.tsx`**: Has no webcam support at all -- add `WebcamCaptureDialog` integration
+## 4. Tambahkan Fitur Signature Dialog Standalone
 
-**Fix `EnhancedFileUpload.tsx`:**
-- Import `WebcamCaptureDialog` and `useIsMobile`
-- Add webcam button below drop zone (desktop only)
-- Add `onWebcamCapture` handler similar to `FileUpload`
+**Saat ini:** SignaturePad sudah ada di `src/features/signature/components/SignaturePad.tsx` dan dipakai di SignContractDialog dan MoveOutInspectionForm.
 
-**Fix `CompletionDialog.tsx`:**
-- Switch to using `MaintenancePhotoUpload` component instead of bare `FileUpload`, since it already has the full Kamera/Galeri/Webcam pattern
+**Perubahan:** Buat dialog reusable `SignatureDialog` yang bisa dipanggil dari mana saja untuk menandatangani dokumen, lalu menyimpan signature sebagai image.
 
-**Fix `MaintenanceReplyForm.tsx`:**
-- Add webcam option alongside the existing FileUpload
+**File baru:**
+- `src/features/signature/components/SignatureDialog.tsx`: Dialog wrapper yang berisi SignaturePad, preview hasil, dan tombol save. Menerima props `onSave(dataUrl: string)`, `title`, `description`.
 
-## 4. Move Data Quality History to "Alat" (InsightsHub)
+Komponen ini bisa diintegrasikan ke halaman mana pun yang membutuhkan tanda tangan digital.
 
-Currently Data Quality is a tab inside Property Detail and has a standalone page at `/merchant/data-quality` that redirects to properties.
+## 5. Upgrade Floating AI Button Menjadi Customer Service Hub
 
-**Changes:**
+**Saat ini:** Floating button hanya membuka AI chatbot (ChatbotDialog).
+**Perubahan:** Transformasi menjadi Customer Service Hub seperti e-commerce best practice:
 
-- **`navigation-config.ts`**: Add `/merchant/data-quality` to the `activePatterns` of the "Alat" sidebar item
-- **`App.tsx`**: Change the `/merchant/data-quality` route from `Navigate` redirect to render `MerchantDataQuality` as a standalone page
-- **`InsightsHub.tsx`**: Add a card for "Kualitas Data" linking to `/merchant/data-quality`
-- **`PropertyDetail.tsx`**: Keep the data-quality tab as-is (contextual access from property is still useful), but it now also has a standalone page via the Alat section
+### A. Multi-Tab Interface di ChatbotDialog
+Tambah tab navigation di header chatbot:
+- **AI Assistant** (tab default): Chatbot AI yang sudah ada, sesuai role
+- **FAQ** (tab kedua): Quick FAQ accordion inline tanpa navigate ke page lain
+- **Live Chat** (tab ketiga): Chat langsung ke admin (real-time via database)
 
-## 5. Fix Maintenance Detail Bugs
+### B. Live Chat Implementation
+- Buat tabel `live_chat_conversations` (id, user_id, merchant_id, role, status: open/closed, created_at, updated_at)
+- Buat tabel `live_chat_messages` (id, conversation_id, sender_id, sender_role, message, created_at)
+- Enable realtime pada `live_chat_messages`
+- Di sisi merchant: jika AI tidak bisa menjawab, tampilkan tombol "Hubungi Admin" yang switch ke tab Live Chat
+- Di sisi admin: tambah page `/admin/live-chat` untuk melihat dan membalas pesan live chat
 
-**Bug: `maintenance_expenses` table access using `(supabase as any)`**
-- This suggests the table may not exist in the schema. Wrap the query in try/catch so it fails gracefully instead of breaking the page.
+### C. AI Escalation Flow
+- Jika AI merespons dengan confidence rendah atau user mengetik "hubungi admin" / "bicara dengan manusia", tampilkan prompt: "Sepertinya pertanyaan ini perlu bantuan langsung. Ingin dihubungkan ke tim support?"
+- Jika user klik ya, auto-switch ke tab Live Chat dan buat conversation baru
 
-**Bug: Vendor phone display**
-- Current code accesses `request.assigned_vendor.phone_number` which should work if the service query includes it. Verify the `maintenanceService.getRequestById` select includes `phone_number` for vendors.
-
-**Fix: Add error boundary around expenses query**
-- Wrap the expenses `useQuery` with proper error handling so if the table doesn't exist, it returns an empty array instead of crashing.
+### D. Visual Updates
+- Floating button tetap sama (MessageCircle icon)
+- Dialog header: tambah 3 tab pills (AI / FAQ / Live Chat)
+- Badge notifikasi di tab Live Chat jika ada pesan baru dari admin
 
 ---
 
-## Files to Modify
+## Files Summary
 
 | File | Change |
 |------|--------|
-| `src/shared/components/layouts/navigation-config.ts` | Add Escrow, Referral, Dokumen to merchant sidebar; add data-quality to Alat activePatterns |
-| `src/App.tsx` | Change data-quality route from redirect to standalone page |
-| `src/features/properties/components/CustomAmenities.tsx` | Add `type` prop, split defaults into property vs unit lists, exclude wifi/air/listrik |
-| `src/features/properties/components/PropertyFormDialog.tsx` | Pass `type="property"` |
-| `src/features/properties/components/UnitFormDialog.tsx` | Pass `type="unit"` |
-| `src/shared/components/EnhancedFileUpload.tsx` | Add webcam support |
-| `src/features/maintenance/components/CompletionDialog.tsx` | Use MaintenancePhotoUpload or add webcam |
-| `src/features/maintenance/components/MaintenanceReplyForm.tsx` | Add webcam option |
-| `src/pages/merchant/MaintenanceDetail.tsx` | Wrap expenses query in try/catch |
-| `src/pages/merchant/InsightsHub.tsx` | Add Kualitas Data card |
+| `src/shared/components/layouts/navigation-config.ts` | Hapus Dokumen dari sidebar, tambah ke activePatterns Alat |
+| `src/pages/merchant/InsightsHub.tsx` | Tambah card Pusat Dokumen |
+| `src/pages/merchant/Support.tsx` | Hapus contact form & kontak langsung, tambah AI CTA |
+| `src/pages/merchant/Feedback.tsx` | **Baru**: Page feedback lengkap |
+| `src/App.tsx` | Tambah route feedback, lazy import |
+| `src/shared/components/layouts/sidebar/app-sidebar.tsx` | Ubah secondary nav: Support -> Bantuan, Feedback -> link ke /feedback page |
+| `src/features/signature/components/SignatureDialog.tsx` | **Baru**: Reusable signature dialog |
+| `src/features/chatbot/components/ChatbotDialog.tsx` | Refactor jadi multi-tab: AI / FAQ / Live Chat |
+| `src/features/chatbot/components/LiveChatTab.tsx` | **Baru**: Live chat tab component |
+| `src/features/chatbot/components/FaqTab.tsx` | **Baru**: Inline FAQ tab component |
+
+## Database Migrations
+
+```sql
+-- Tabel feedback merchant
+CREATE TABLE public.merchant_feedback (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  merchant_id UUID REFERENCES public.merchants(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL,
+  category TEXT NOT NULL CHECK (category IN ('feature', 'bug', 'ux', 'other')),
+  rating INTEGER CHECK (rating BETWEEN 1 AND 5),
+  message TEXT NOT NULL,
+  screenshot_url TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'resolved')),
+  admin_response TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Tabel live chat
+CREATE TABLE public.live_chat_conversations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  user_role TEXT NOT NULL,
+  merchant_id UUID REFERENCES public.merchants(id),
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed', 'waiting')),
+  subject TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.live_chat_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id UUID REFERENCES public.live_chat_conversations(id) ON DELETE CASCADE,
+  sender_id UUID NOT NULL,
+  sender_role TEXT NOT NULL,
+  message TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Enable realtime for live chat
+ALTER PUBLICATION supabase_realtime ADD TABLE public.live_chat_messages;
+
+-- RLS policies
+ALTER TABLE public.merchant_feedback ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.live_chat_conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.live_chat_messages ENABLE ROW LEVEL SECURITY;
+
+-- Feedback: merchant can insert/read own
+CREATE POLICY "Users can insert own feedback" ON public.merchant_feedback FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can read own feedback" ON public.merchant_feedback FOR SELECT USING (auth.uid() = user_id);
+-- Admin can read/update all feedback
+CREATE POLICY "Admin can manage feedback" ON public.merchant_feedback FOR ALL USING (public.has_role(auth.uid(), 'admin'));
+
+-- Live chat: users see own conversations
+CREATE POLICY "Users see own conversations" ON public.live_chat_conversations FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users create own conversations" ON public.live_chat_conversations FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Admin manage all conversations" ON public.live_chat_conversations FOR ALL USING (public.has_role(auth.uid(), 'admin'));
+
+-- Live chat messages: participants can see/send
+CREATE POLICY "Participants see messages" ON public.live_chat_messages FOR SELECT USING (
+  EXISTS (SELECT 1 FROM public.live_chat_conversations WHERE id = conversation_id AND (user_id = auth.uid() OR public.has_role(auth.uid(), 'admin')))
+);
+CREATE POLICY "Participants send messages" ON public.live_chat_messages FOR INSERT WITH CHECK (auth.uid() = sender_id);
+CREATE POLICY "Admin manage messages" ON public.live_chat_messages FOR ALL USING (public.has_role(auth.uid(), 'admin'));
+```
 
 ## Technical Notes
 
-- No database changes needed -- amenities stay stored the same way in DB
-- All pages referenced (Escrow, Referrals, DocumentCenter) already exist with routes in App.tsx
-- The webcam fix focuses on `EnhancedFileUpload` and `CompletionDialog` which are the two remaining upload components without webcam
-- Data Quality History page already has a property selector built-in, so it works perfectly as a standalone page
+- Live Chat menggunakan Supabase Realtime untuk pesan instan antara user dan admin
+- AI escalation: deteksi keyword "hubungi admin", "bicara manusia", "live chat" di pesan user atau setelah 2x AI gagal menjawab
+- SignatureDialog adalah wrapper tipis di atas SignaturePad yang sudah ada -- tidak duplikasi logic canvas
+- Feedback page menggunakan FileUpload yang sudah ada untuk screenshot upload ke bucket `verification-documents`
+- FAQ tab di chatbot menggunakan data yang sama dengan Support page (shared constant)
+- Referral sudah ada di sidebar dari perubahan sebelumnya, tidak perlu diubah lagi
 
