@@ -1,135 +1,120 @@
 
-# Fasilitas Tabel, Map Fullscreen, Form Restructure, DSS ke Overview, Maintenance Cost, dan Foto Button
+# Photo Zoom, Fasilitas Edit di Overview, Unit/Tenant Quick-Add, Compliance ke Overview, OCR Improvements, Seed Data
 
-## 1. Buat Tabel Fasilitas dengan Harga dan Depresiasi
+## 1. Photo Zoom/Lightbox Library
 
-Fasilitas akan memiliki tabel sendiri (`facilities`) dengan harga, tipe (umum/unit), dan data untuk kalkulasi depresiasi. Kemudian tabel relasi (`property_facilities` dan `unit_facilities`) menghubungkan fasilitas ke properti/unit.
+Tambahkan fitur zoom/pinch/swipe pada foto properti dan unit menggunakan library CSS-only atau lightweight lightbox.
 
-### Database Migration
+**Pendekatan:** Buat komponen `PhotoLightbox.tsx` menggunakan native HTML `<dialog>` + CSS transform untuk zoom. Klik foto di carousel/gallery membuka lightbox fullscreen dengan:
+- Pinch-to-zoom (touch) dan scroll-to-zoom (desktop)
+- Swipe/arrow navigation antar foto
+- Close button dan ESC key
 
-```sql
--- Master fasilitas
-CREATE TABLE public.facilities (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  merchant_id UUID NOT NULL REFERENCES public.merchants(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  category TEXT NOT NULL DEFAULT 'umum' CHECK (category IN ('umum', 'unit')),
-  purchase_price NUMERIC DEFAULT 0,
-  purchase_date DATE,
-  useful_life_months INTEGER DEFAULT 60,
-  salvage_value NUMERIC DEFAULT 0,
-  brand TEXT,
-  notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+**File baru:**
+- `src/shared/components/PhotoLightbox.tsx`
 
--- Fasilitas terpasang di properti
-CREATE TABLE public.property_facilities (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  property_id UUID NOT NULL REFERENCES public.properties(id) ON DELETE CASCADE,
-  facility_id UUID NOT NULL REFERENCES public.facilities(id) ON DELETE CASCADE,
-  quantity INTEGER DEFAULT 1,
-  installed_date DATE,
-  condition TEXT DEFAULT 'baik',
-  notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(property_id, facility_id)
-);
+**File diubah:**
+- `src/pages/merchant/PropertyDetail.tsx` - Klik foto di carousel membuka lightbox
+- `src/pages/merchant/UnitDetail.tsx` - Klik foto unit membuka lightbox
 
--- Fasilitas terpasang di unit
-CREATE TABLE public.unit_facilities (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  unit_id UUID NOT NULL REFERENCES public.units(id) ON DELETE CASCADE,
-  facility_id UUID NOT NULL REFERENCES public.facilities(id) ON DELETE CASCADE,
-  quantity INTEGER DEFAULT 1,
-  installed_date DATE,
-  condition TEXT DEFAULT 'baik',
-  notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(unit_id, facility_id)
-);
+## 2. Fasilitas Editable di Tab Ringkasan (Overview)
 
--- RLS
-ALTER TABLE public.facilities ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.property_facilities ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.unit_facilities ENABLE ROW LEVEL SECURITY;
+Di tab Ringkasan `PropertyDetail.tsx`, card "Fasilitas" saat ini hanya menampilkan badge. Tambahkan tombol "Edit" dan "Tambah" yang membuka `FacilityManagementDialog` atau inline toggle fasilitas.
 
-CREATE POLICY "Merchant manages own facilities" ON public.facilities
-  FOR ALL USING (merchant_id IN (SELECT id FROM merchants WHERE user_id = auth.uid()));
+**File diubah:**
+- `src/pages/merchant/PropertyDetail.tsx`:
+  - Di card Fasilitas (overview tab, line ~423-434), tambah button "Edit Fasilitas" di CardHeader
+  - Klik membuka dialog dengan `CustomAmenities` + save mutation ke property amenities
+  - Tambah button "Tambah" yang menuju `FacilityManagementDialog` untuk membuat fasilitas master baru
 
-CREATE POLICY "Merchant manages property facilities" ON public.property_facilities
-  FOR ALL USING (property_id IN (
-    SELECT id FROM properties WHERE merchant_id IN (SELECT id FROM merchants WHERE user_id = auth.uid())
-  ));
+## 3. Tambah Unit di Tab Unit -- Dialog Langsung Fix ke Properti
 
-CREATE POLICY "Merchant manages unit facilities" ON public.unit_facilities
-  FOR ALL USING (unit_id IN (
-    SELECT u.id FROM units u JOIN properties p ON u.property_id = p.id
-    WHERE p.merchant_id IN (SELECT id FROM merchants WHERE user_id = auth.uid())
-  ));
-```
+Di tab Unit `PropertyDetail.tsx`, tambahkan button "Tambah Unit" yang membuka `UnitFormDialog` dengan `property_id` sudah di-preset (tidak perlu pilih properti lagi).
 
-### UI Changes
-- **`CustomAmenities.tsx`**: Refactor to fetch from `facilities` table instead of hardcoded arrays. Show price, condition. Toggle badges still select/deselect facilities.
-- **New `FacilityManagementDialog.tsx`**: Dialog for CRUD fasilitas master (nama, harga, tipe, umur pakai, nilai sisa). Accessible from property form dan unit form.
-- **Property form step "Detail"**: Move amenities/fasilitas selection here (from step 3/Media to step 2/Detail). Add "Kelola Fasilitas" button.
-- **Depresiasi**: Computed on the fly: `(purchase_price - salvage_value) / useful_life_months * months_elapsed`. Shown in financial tab.
+**File diubah:**
+- `src/pages/merchant/PropertyDetail.tsx`:
+  - Import `UnitFormDialog` dan hooks unit
+  - Tambah state `showAddUnitDialog`
+  - Di tab Unit, tambah button "Tambah Unit" di header (sebelah filter/view toggle)
+  - Render `UnitFormDialog` dengan properti fix, property selector disabled/hidden
 
-## 2. Map Fullscreen Toggle dengan Search
+- `src/features/properties/components/UnitFormDialog.tsx`:
+  - Tambah prop opsional `preselectedPropertyId?: string` 
+  - Jika ada, auto-set `property_id` dan hide property selector
 
-Add fullscreen toggle button to `LocationPicker.tsx` map, and show search bar inside the fullscreen view.
+## 4. Tambah Penyewa di Tab Penyewa -- Dialog Fix ke Properti
 
-**File:** `src/features/properties/components/LocationPicker.tsx`
-- Add `Maximize2`/`Minimize2` icon button to toggle map container from `h-64` to fixed fullscreen overlay (`fixed inset-0 z-50`)
-- In fullscreen mode, show the search input overlaid on the map (top bar)
-- Add ESC key handler to exit fullscreen
-- Portal the fullscreen map to document.body to avoid parent overflow issues
+Di tab Penyewa `PropertyDetail.tsx`, tambahkan button "Tambah Penyewa" yang membuka `AddTenantDialog` dengan properti sudah di-preset. Hanya perlu pilih unit dan isi detail.
 
-## 3. Move Fasilitas to Step "Detail" in Property Form, Move Marketing Cost to Financial Tab
+**File diubah:**
+- `src/pages/merchant/PropertyDetail.tsx`:
+  - Import `AddTenantDialog` dan mutation
+  - Tambah state `showAddTenantDialog`
+  - Di tab Tenants header, tambah button "Tambah Penyewa"
+  - Render `AddTenantDialog` dengan `properties` berisi hanya properti saat ini (pre-filtered)
 
-**File:** `src/features/properties/components/PropertyFormDialog.tsx`
-- Move `CustomAmenities` from step 3 (Media) to step 2 (Detail)
-- Remove `marketing_cost` field from step 2 form
-- Step 3 (Media) now only has photo upload
-- `marketing_cost` stays in the schema for DB but is removed from the create/edit form
-- Marketing cost is edited via the Financial tab in PropertyDetail (already has `PropertyFinancialForm`)
+- `src/features/users/components/tenant/AddTenantDialog.tsx`:
+  - Tambah prop opsional `preselectedPropertyId?: string`
+  - Jika ada, auto-set property dan skip property selection (langsung ke unit selection)
 
-**File:** `src/features/properties/components/PropertyFinancialForm.tsx`
-- Add `marketing_cost` field if not already present
+## 5. Hapus Tab Kepatuhan, Pindahkan ke Overview
 
-## 4. Move DSS Readiness and Financial Metrics to Overview Tab
+Tab "Kepatuhan" di `PropertyDetail.tsx` dihapus. Konten compliance (KPI cards + tabs) dipindahkan ke tab Overview sebagai section baru di bawah DSS/Financial metrics.
 
-Currently `DssReadinessCard` and `PropertyFinancialMetrics` are in the Financial tab. Move them to the Overview tab for immediate visibility.
+**File diubah:**
+- `src/pages/merchant/PropertyDetail.tsx`:
+  - Hapus `compliance` dari validTabs dan dari dropdown "Lainnya"
+  - Di Overview tab, render `LazyCompliance` dengan `propertyId` setelah `OverviewDssMetrics`
+  - Tab yang tersisa: Ringkasan, Unit, Staf, Penyewa, Keuangan, Pemeliharaan
+  - Pindahkan "Staf" (guardians) dari dropdown ke tab utama
 
-**File:** `src/pages/merchant/PropertyDetail.tsx`
-- In Overview tab (`TabsContent value="overview"`): Add `DssReadinessCard` and `PropertyFinancialMetrics` cards after the existing address/description/amenities cards
-- In Financial tab: Remove `DssReadinessCard` and `PropertyFinancialMetrics` from `FinancialTabWithReadiness`. Keep only `PropertyFinancialForm` and `RenovationHistoryCard`
+## 6. Polis Asuransi -- Scan Dokumen dengan Pilihan Kamera/Galeri/Webcam
 
-## 5. Add Estimated Cost Field to Maintenance
+Form tambah polis asuransi di `PropertyCompliance.tsx` saat ini tidak punya fitur scan. Tambahkan `OcrCameraButton` di dialog "Tambah Polis" untuk scan dokumen polis.
 
-The `maintenance_requests` table currently has no cost field. Add `estimated_cost` column.
+**File diubah:**
+- `src/pages/merchant/PropertyCompliance.tsx`:
+  - Di `InsuranceTab`, tambah `OcrCameraButton` di dalam dialog form
+  - Props: `edgeFunction="ocr-compliance-document"`, `bucket="verification-documents"`
+  - `onExtracted` mengisi form fields: policy_number, provider, coverage_amount, dll
 
-### Database Migration
-```sql
-ALTER TABLE public.maintenance_requests ADD COLUMN estimated_cost NUMERIC DEFAULT 0;
-```
+## 7. Security Incident "Dilaporkan Oleh" -- Dropdown Penjaga & Penyewa
 
-### UI Changes
-**File:** `src/features/maintenance/components/CreateMaintenanceDialog.tsx`
-- Add `estimatedCost` state and input field (Rp) between priority and photos
-- Include in submit payload
+Field `reported_by` di form insiden keamanan saat ini adalah text input biasa. Ubah menjadi Select dropdown yang menampilkan semua penjaga dan penyewa properti tersebut.
 
-**File:** `src/features/maintenance/types/index.ts`
-- Add `estimated_cost` to `CreateMerchantMaintenancePayload`
+**File diubah:**
+- `src/pages/merchant/PropertyCompliance.tsx`:
+  - Di `SecurityTab`, fetch guardians via `property_guardians` table filtered by property_id
+  - Fetch tenants via contracts + profiles untuk properti tersebut
+  - Ganti `<Input>` reported_by menjadi `<Select>` dengan optgroup: Penjaga, Penyewa, dan opsi "Lainnya" (free text fallback)
 
-## 6. Add "Foto" Button Next to "Edit Properti" in Detail Header
+## 8. Scan Dokumen di Tab Dokumen -- Pilihan Kamera/Galeri/Webcam
 
-**File:** `src/pages/merchant/PropertyDetail.tsx`
-- Next to the "Edit Properti" button (line ~285), add a "Foto" button with `ImageIcon`
-- On click, open the same `ImageGalleryUpload` dialog that exists in `Properties.tsx`
-- Add state for `showPhotoDialog` and `propertyImages`
-- Reuse the `ImageGalleryUpload` component from `@/shared/components/FileUpload`
+`OcrScanButton` di `ComplianceDocsTab` (line 358) menggunakan basic file input tanpa pilihan. Ganti dengan `OcrCameraButton` yang sudah ada (sudah punya dropdown Kamera/Galeri/Webcam).
+
+**File diubah:**
+- `src/pages/merchant/PropertyCompliance.tsx`:
+  - Di `ComplianceDocsTab`, ganti `OcrScanButton` inline component dengan `OcrCameraButton`
+  - Props: `label="Scan Dokumen"`, `bucket="verification-documents"`, `edgeFunction="ocr-compliance-document"`
+  - `onExtracted` mengisi form fields dari hasil OCR
+
+## 9. Comprehensive Seed Data dengan Dummy Photos
+
+Buat migration seed data yang mengisi semua tabel dengan data dummy termasuk photo URLs menggunakan placeholder images (picsum.photos atau ui-avatars.com).
+
+**Data yang di-seed:**
+- `facilities` - 10+ fasilitas master (AC, TV, lemari, dll) dengan harga dan umur pakai
+- `property_facilities` - Link fasilitas ke properti yang ada
+- `unit_facilities` - Link fasilitas ke unit yang ada
+- `insurance_policies` - 2-3 polis asuransi dummy
+- `compliance_documents` - 3-5 dokumen kepatuhan (IMB, PBB, dll)
+- `security_incidents` - 2-3 insiden keamanan
+- `disaster_risk_profiles` - Profil risiko untuk properti
+- Update `properties.images` dengan placeholder photos
+- Update `units.photos` dengan placeholder photos  
+- Update `property_guardians.photo_url` dengan placeholder avatars
+- `merchant_feedback` - 2-3 feedback dummy
+- Update `profiles.avatar_url` dengan placeholder avatars
 
 ---
 
@@ -137,20 +122,18 @@ ALTER TABLE public.maintenance_requests ADD COLUMN estimated_cost NUMERIC DEFAUL
 
 | File | Change |
 |------|--------|
-| **Database migration** | Create `facilities`, `property_facilities`, `unit_facilities` tables; add `estimated_cost` to `maintenance_requests` |
-| `src/features/properties/components/CustomAmenities.tsx` | Refactor to use `facilities` table data |
-| `src/features/properties/components/FacilityManagementDialog.tsx` | **New**: CRUD dialog for master facilities |
-| `src/features/properties/components/LocationPicker.tsx` | Add fullscreen toggle with search overlay |
-| `src/features/properties/components/PropertyFormDialog.tsx` | Move fasilitas to step Detail, remove marketing_cost |
-| `src/features/properties/components/PropertyFinancialForm.tsx` | Add marketing_cost field |
-| `src/pages/merchant/PropertyDetail.tsx` | Move DSS+Metrics to overview, add Foto button with dialog |
-| `src/features/maintenance/components/CreateMaintenanceDialog.tsx` | Add estimated_cost field |
-| `src/features/maintenance/types/index.ts` | Add estimated_cost to payload type |
+| `src/shared/components/PhotoLightbox.tsx` | **Baru**: Lightbox component dengan zoom |
+| `src/pages/merchant/PropertyDetail.tsx` | Photo lightbox, fasilitas edit di overview, tambah unit button, tambah penyewa button, hapus tab compliance, pindahkan ke overview, pindahkan guardians ke tab utama |
+| `src/pages/merchant/UnitDetail.tsx` | Photo lightbox integration |
+| `src/features/properties/components/UnitFormDialog.tsx` | Tambah prop `preselectedPropertyId` |
+| `src/features/users/components/tenant/AddTenantDialog.tsx` | Tambah prop `preselectedPropertyId` |
+| `src/pages/merchant/PropertyCompliance.tsx` | OCR scan polis asuransi, reported_by dropdown, scan dokumen pakai OcrCameraButton |
+| **Database seed migration** | Seed data facilities, compliance, photos placeholder |
 
 ## Technical Notes
 
-- Depresiasi fasilitas dihitung client-side: `(purchase_price - salvage_value) / useful_life_months * elapsed_months`. Ditampilkan di financial tab.
-- `facilities` table adalah master data per-merchant. `property_facilities` dan `unit_facilities` adalah junction tables.
-- Map fullscreen menggunakan CSS `fixed inset-0 z-50` dengan portal ke body, bukan native Leaflet fullscreen plugin.
-- Marketing cost tetap di tabel `properties` untuk backward compat, hanya UI input-nya yang dipindah ke financial tab.
-- `estimated_cost` di maintenance default 0 agar tidak break data existing.
+- PhotoLightbox menggunakan CSS `transform: scale()` dengan wheel/touch events, bukan library eksternal -- meminimalkan bundle size
+- Placeholder photos dari `https://picsum.photos/seed/{id}/800/600` untuk properti/unit, `https://ui-avatars.com/api/?name={name}` untuk avatar
+- Seed data menggunakan migration tool (INSERT statements) yang reference existing property/unit IDs dari database
+- `preselectedPropertyId` prop di UnitFormDialog dan AddTenantDialog bersifat optional -- backward compatible
+- Compliance di overview hanya render jika `propertyId` tersedia (sudah handled oleh existing LazyCompliance component)
