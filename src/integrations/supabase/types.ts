@@ -4546,6 +4546,150 @@ export type Database = {
           },
         ]
       }
+      rule_acknowledgements: {
+        Row: {
+          acknowledged_at: string | null
+          id: string
+          rule_id: string
+          tenant_id: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          id?: string
+          rule_id: string
+          tenant_id: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          id?: string
+          rule_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rule_acknowledgements_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rule_types: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          default_scope: string | null
+          id: string
+          merchant_id: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          default_scope?: string | null
+          id?: string
+          merchant_id: string
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          default_scope?: string | null
+          id?: string
+          merchant_id?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rule_types_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rules: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          effective_from: string | null
+          effective_until: string | null
+          id: string
+          is_active: boolean | null
+          is_overridable: boolean | null
+          merchant_id: string
+          property_id: string
+          rule_type_id: string | null
+          title: string
+          unit_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          effective_from?: string | null
+          effective_until?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_overridable?: boolean | null
+          merchant_id: string
+          property_id: string
+          rule_type_id?: string | null
+          title: string
+          unit_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          effective_from?: string | null
+          effective_until?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_overridable?: boolean | null
+          merchant_id?: string
+          property_id?: string
+          rule_type_id?: string | null
+          title?: string
+          unit_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rules_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rules_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rules_rule_type_id_fkey"
+            columns: ["rule_type_id"]
+            isOneToOne: false
+            referencedRelation: "rule_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rules_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       security_incidents: {
         Row: {
           created_at: string

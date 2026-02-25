@@ -33,6 +33,7 @@ export function AddAssetForm({ merchantId }: AddAssetFormProps) {
   const [purchaseDate, setPurchaseDate] = useState('');
   const [usefulLifeMonths, setUsefulLifeMonths] = useState(60);
   const [notes, setNotes] = useState('');
+  const [quantity, setQuantity] = useState(1);
 
   const { data: facilityTypes = [] } = useQuery({
     queryKey: ['facility-types-tangible', merchantId],
@@ -75,7 +76,7 @@ export function AddAssetForm({ merchantId }: AddAssetFormProps) {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await (supabase.from as any)('assets').insert({
+      const rows = Array.from({ length: quantity }, () => ({
         facility_type_id: facilityTypeId,
         merchant_id: merchantId,
         property_id: propertyId || null,
@@ -88,12 +89,13 @@ export function AddAssetForm({ merchantId }: AddAssetFormProps) {
         salvage_value: salvageValue,
         status: propertyId || unitId ? 'in_use' : 'available',
         notes: notes || null,
-      });
+      }));
+      const { error } = await (supabase.from as any)('assets').insert(rows);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['assets'] });
-      toast.success('Aset berhasil ditambahkan');
+      toast.success(`${quantity > 1 ? quantity + ' aset' : 'Aset'} berhasil ditambahkan`);
       resetForm();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -103,7 +105,7 @@ export function AddAssetForm({ merchantId }: AddAssetFormProps) {
     setFacilityTypeId(''); setPropertyId(''); setUnitId('');
     setSerialNumber(''); setBrand(''); setPurchasePrice(0);
     setPurchaseDate(''); setUsefulLifeMonths(60); setNotes('');
-    setExpanded(false);
+    setQuantity(1); setExpanded(false);
   };
 
   const inputCls = "rounded-xl bg-background/60 border-border/50";
@@ -192,12 +194,18 @@ export function AddAssetForm({ merchantId }: AddAssetFormProps) {
             <Textarea value={notes} onChange={e => setNotes(e.target.value)} className={inputCls} rows={2} />
           </div>
 
+          <div>
+            <Label className="text-xs">Jumlah <span className="text-destructive">*</span></Label>
+            <Input type="number" min={1} value={quantity} onChange={e => setQuantity(Math.max(1, Number(e.target.value)))} className={inputCls} />
+            {quantity > 1 && <p className="text-[10px] text-muted-foreground mt-1">Akan membuat {quantity} aset identik</p>}
+          </div>
+
           <div className="flex gap-2">
             <Button type="button" variant="outline" onClick={resetForm} className="rounded-xl flex-1">Batal</Button>
             <Button
               type="button"
               onClick={() => saveMutation.mutate()}
-              disabled={!facilityTypeId || saveMutation.isPending}
+              disabled={!facilityTypeId || quantity < 1 || saveMutation.isPending}
               className="rounded-xl gradient-cta text-primary-foreground flex-1"
             >
               {saveMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}

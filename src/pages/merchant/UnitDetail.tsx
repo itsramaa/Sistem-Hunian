@@ -19,12 +19,14 @@ import { format, differenceInDays, isPast } from 'date-fns';
 import { 
   ArrowLeft, Building2, Calendar, Camera, ChevronRight, Clock, DoorOpen, Edit, 
   Hash, ImageIcon, MapPin, Plus, Ruler, Wallet, Wrench, Users, FileText, 
-  AlertTriangle, CheckCircle, XCircle, TrendingUp, Zap, Droplets, Wifi
+  AlertTriangle, CheckCircle, XCircle, TrendingUp, Zap, Droplets, Wifi, ExternalLink
 } from 'lucide-react';
 import { cn } from '@/shared/utils/utils';
 import { CreateMaintenanceDialog } from '@/features/maintenance/components/CreateMaintenanceDialog';
 import { FacilityTypePicker } from '@/features/inventory/components/FacilityTypePicker';
 import { CreateContractDialog } from '@/features/contracts/components/CreateContractDialog';
+import { useFacilityTypeNames } from '@/features/inventory/hooks/useFacilityTypeNames';
+import { RulesSection } from '@/features/rules/components/RulesSection';
 import { CreateInvoiceDialog } from '@/features/payments/components/CreateInvoiceDialog';
 import { useCreateMerchantMaintenanceRequest } from '@/features/maintenance/hooks/useMaintenance';
 import { useMerchantContracts } from '@/features/contracts/hooks/useMerchantContracts';
@@ -91,6 +93,7 @@ export default function UnitDetail() {
   const queryClient = useQueryClient();
   const { merchant } = useAuth();
   const { data: unit, isLoading, error } = useUnitDetail(id);
+  const { data: facilityNameMap = {} } = useFacilityTypeNames(unit?.amenities || []);
 
   // Maintenance dialog state
   const [showCreateMaintenanceDialog, setShowCreateMaintenanceDialog] = useState(false);
@@ -428,11 +431,24 @@ export default function UnitDetail() {
                 <CardContent>
                   <div className="flex flex-wrap gap-2">
                     {unit.amenities.map((a: string) => (
-                      <Badge key={a} variant="secondary" className="rounded-full">{a.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}</Badge>
+                      <Badge
+                        key={a}
+                        variant="secondary"
+                        className="rounded-full cursor-pointer hover:bg-primary/10 transition-colors"
+                        onClick={() => navigate('/merchant/inventory')}
+                      >
+                        {facilityNameMap[a] || a.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                        <ExternalLink className="h-2.5 w-2.5 ml-1 opacity-50" />
+                      </Badge>
                     ))}
                   </div>
                 </CardContent>
               </Card>
+            )}
+
+            {/* Peraturan Section */}
+            {merchantId && unit.property?.id && (
+              <RulesSection propertyId={unit.property.id} unitId={id} merchantId={merchantId} />
             )}
           </TabsContent>
 
