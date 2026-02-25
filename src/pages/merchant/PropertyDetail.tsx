@@ -10,10 +10,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Separator } from '@/shared/components/ui/separator';
 import { Progress } from '@/shared/components/ui/progress';
 import { ImageGalleryUpload } from '@/shared/components/FileUpload';
+import { PhotoLightbox } from '@/shared/components/PhotoLightbox';
 import { 
   ArrowLeft, Building2, ChevronRight, DoorOpen, Edit, Image as ImageIcon, Camera, LayoutGrid, List, MapPin, 
   Sparkles, TrendingUp, Users, DollarSign, Calendar, Hash, Clock, Wrench, FileText, AlertTriangle,
-  Shield, UserCheck, MoreHorizontal, Plus, Home, BarChart3
+  Shield, UserCheck, MoreHorizontal, Plus, Home, BarChart3, Settings2
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -30,6 +31,12 @@ import { TenantDetailsDialog } from '@/features/users/components/tenant/TenantDe
 import { ActiveTenant } from '@/features/users/types/tenant';
 import { CreateMaintenanceDialog } from '@/features/maintenance/components/CreateMaintenanceDialog';
 import { useCreateMerchantMaintenanceRequest } from '@/features/maintenance/hooks/useMaintenance';
+import { UnitFormDialog } from '@/features/properties/components/UnitFormDialog';
+import { useUnits } from '@/features/properties/hooks/useUnits';
+import { AddTenantDialog } from '@/features/users/components/tenant/AddTenantDialog';
+import { CustomAmenities } from '@/features/properties/components/CustomAmenities';
+import { FacilityManagementDialog } from '@/features/properties/components/FacilityManagementDialog';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 
 const LazyGuardians = lazy(() => import('@/pages/merchant/Guardians'));
 const LazyCompliance = lazy(() => import('@/pages/merchant/PropertyCompliance'));
@@ -77,6 +84,7 @@ export default function PropertyDetail() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: property, isLoading, error } = usePropertyDetail(id);
   const queryClient = useQueryClient();
+  const { merchant } = useAuth();
   const [unitFilter, setUnitFilter] = useState<string>('all');
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editInitialStep, setEditInitialStep] = useState(0);
@@ -105,10 +113,54 @@ export default function PropertyDetail() {
   const createMaintenanceMutation = useCreateMerchantMaintenanceRequest();
   const [showPhotoDialog, setShowPhotoDialog] = useState(false);
 
+  // Lightbox
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  // Add Unit dialog
+  const [showAddUnitDialog, setShowAddUnitDialog] = useState(false);
+  const { createUnit, isCreating: isCreatingUnit } = useUnits(id || '');
+
+  // Add Tenant dialog
+  const [showAddTenantDialog, setShowAddTenantDialog] = useState(false);
+
+  // Fasilitas edit dialog
+  const [showFacilitiesDialog, setShowFacilitiesDialog] = useState(false);
+  const [showFacilityManageDialog, setShowFacilityManageDialog] = useState(false);
+  const [editingAmenities, setEditingAmenities] = useState<string[]>([]);
+
+  // Tenant creation mutation
+  const addTenantMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const { data: result, error } = await supabase.functions.invoke('create-tenant', { body: data });
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['property-contracts', id] });
+      toast.success('Penyewa berhasil ditambahkan');
+      setShowAddTenantDialog(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Fetch properties for AddTenantDialog (just this property with units)
+  const { data: propertiesForTenant = [] } = useQuery({
+    queryKey: ['property-with-units', id],
+    queryFn: async () => {
+      if (!id) return [];
+      const { data: prop } = await supabase.from('properties').select('id, name, property_type, address, city, province, postal_code, description, images, amenities, total_units, occupied_units, status, created_at, updated_at, merchant_id').eq('id', id).single();
+      if (!prop) return [];
+      const { data: units } = await supabase.from('units').select('id, unit_number, status, rent_amount, deposit_amount').eq('property_id', id);
+      return [{ ...prop, units: units || [] }];
+    },
+    enabled: !!id,
+  });
+
   // Read URL hash for initial tab
   const getInitialTab = useCallback(() => {
     const hash = window.location.hash.replace('#', '');
-    const validTabs = ['overview', 'units', 'tenants', 'financial', 'maintenance', 'guardians', 'compliance'];
+    const validTabs = ['overview', 'units', 'guardians', 'tenants', 'financial', 'maintenance'];
     return validTabs.includes(hash) ? hash : 'overview';
   }, []);
   const [activeTab, setActiveTab] = useState(getInitialTab);
@@ -152,6 +204,17 @@ export default function PropertyDetail() {
       queryClient.invalidateQueries({ queryKey: ['property-detail', id] });
       toast.success('Properti berhasil diperbarui');
       setShowEditDialog(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Save amenities mutation
+  const saveAmenitiesMutation = useMutation({
+    mutationFn: (amenities: string[]) => propertyService.updateProperty(id!, { amenities } as any),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['property-detail', id] });
+      toast.success('Fasilitas berhasil diperbarui');
+      setShowFacilitiesDialog(false);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -301,8 +364,8 @@ export default function PropertyDetail() {
             <CarouselContent>
               {property.images.map((img: string, i: number) => (
                 <CarouselItem key={i} className="basis-full md:basis-1/2 lg:basis-1/3">
-                  <div className="h-64 rounded-2xl overflow-hidden">
-                    <img src={img} alt={`${property.name} - Foto ke-${i + 1}`} className="w-full h-full object-cover" loading="lazy" />
+                  <div className="h-64 rounded-2xl overflow-hidden cursor-pointer" onClick={() => { setLightboxIndex(i); setLightboxOpen(true); }}>
+                    <img src={img} alt={`${property.name} - Foto ke-${i + 1}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" loading="lazy" />
                   </div>
                 </CarouselItem>
               ))}
@@ -326,6 +389,15 @@ export default function PropertyDetail() {
           </div>
         </div>
       )}
+
+      {/* Photo Lightbox */}
+      <PhotoLightbox
+        images={property.images || []}
+        initialIndex={lightboxIndex}
+        open={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+        alt={property.name}
+      />
 
       {/* KPI Strip */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-5" role="region" aria-label="Statistik properti">
@@ -368,37 +440,15 @@ export default function PropertyDetail() {
           <TabsList className="pill-tab-list w-full sm:w-auto flex-wrap" aria-label="Navigasi detail properti">
             <TabsTrigger value="overview" className="pill-tab-trigger">Ringkasan</TabsTrigger>
             <TabsTrigger value="units" className="pill-tab-trigger">Unit ({totalUnits})</TabsTrigger>
+            <TabsTrigger value="guardians" className="pill-tab-trigger">
+              <UserCheck className="h-3.5 w-3.5 mr-1" aria-hidden="true" />Staf
+            </TabsTrigger>
             <TabsTrigger value="tenants" className="pill-tab-trigger">Penyewa ({activeContracts.length})</TabsTrigger>
             <TabsTrigger value="financial" className="pill-tab-trigger">Keuangan</TabsTrigger>
             <TabsTrigger value="maintenance" className="pill-tab-trigger">
               Pemeliharaan
               {pendingMaintenance.length > 0 && <Badge variant="secondary" className="ml-1.5 rounded-full text-xs">{pendingMaintenance.length}</Badge>}
             </TabsTrigger>
-            {/* Progressive Disclosure: low-frequency tabs in dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button 
-                  className={`pill-tab-trigger inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full transition-colors ${
-                    ['guardians', 'compliance'].includes(activeTab)
-                      ? 'bg-primary/15 text-primary border border-primary/30'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-                  }`}
-                  aria-label="Menu lainnya"
-                >
-                  {activeTab === 'guardians' ? <><UserCheck className="h-3.5 w-3.5" aria-hidden="true" />Staf</> :
-                   activeTab === 'compliance' ? <><Shield className="h-3.5 w-3.5" aria-hidden="true" />Kepatuhan</> :
-                   <><MoreHorizontal className="h-3.5 w-3.5" aria-hidden="true" />Lainnya</>}
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[160px]">
-                <DropdownMenuItem onClick={() => handleTabChange('guardians')} className="gap-2">
-                  <UserCheck className="h-4 w-4" aria-hidden="true" />Staf
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleTabChange('compliance')} className="gap-2">
-                  <Shield className="h-4 w-4" aria-hidden="true" />Kepatuhan
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </TabsList>
 
           {/* Overview Tab */}
@@ -420,20 +470,41 @@ export default function PropertyDetail() {
                 <CardContent><p className="text-sm text-muted-foreground">{property.description}</p></CardContent>
               </Card>
             )}
-            {property.amenities && property.amenities.length > 0 && (
-              <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
-                <CardHeader><CardTitle className="text-base">Fasilitas</CardTitle></CardHeader>
-                <CardContent>
+            {/* Fasilitas Card - Editable */}
+            <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-base">Fasilitas</CardTitle>
+                <div className="flex items-center gap-2">
+                  {merchant?.id && (
+                    <Button variant="ghost" size="sm" className="rounded-xl gap-1 text-xs h-7" onClick={() => setShowFacilityManageDialog(true)}>
+                      <Plus className="h-3.5 w-3.5" /> Tambah
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" className="rounded-xl gap-1 text-xs h-7" onClick={() => { setEditingAmenities(property.amenities || []); setShowFacilitiesDialog(true); }}>
+                    <Settings2 className="h-3.5 w-3.5" /> Edit
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {property.amenities && property.amenities.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {property.amenities.map((a: string) => (
                       <Badge key={a} variant="secondary" className="rounded-full">{a.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}</Badge>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                ) : (
+                  <p className="text-sm text-muted-foreground">Belum ada fasilitas ditambahkan.</p>
+                )}
+              </CardContent>
+            </Card>
+
             {/* DSS Readiness & Financial Metrics in Overview */}
             <OverviewDssMetrics property={property} revenuePotential={revenuePotential} occupancyRate={occupancyRate} />
+
+            {/* Compliance section in Overview */}
+            <Suspense fallback={<ContentSkeleton />}>
+              <LazyCompliance propertyId={id} />
+            </Suspense>
           </TabsContent>
 
           {/* Financial Tab */}
@@ -459,25 +530,30 @@ export default function PropertyDetail() {
                   </Button>
                 ))}
               </div>
-              <div className="flex items-center bg-muted/60 rounded-lg p-0.5" role="group" aria-label="Mode tampilan unit">
-                <Button 
-                  variant={unitViewMode === 'list' ? 'default' : 'ghost'} 
-                  size="icon" 
-                  className="h-7 w-7 rounded-md" 
-                  onClick={() => setUnitViewMode('list')}
-                  aria-label="Tampilan daftar"
-                >
-                  <List className="h-3.5 w-3.5" aria-hidden="true" />
+              <div className="flex items-center gap-2">
+                <Button size="sm" className="rounded-xl gradient-cta text-primary-foreground" onClick={() => setShowAddUnitDialog(true)}>
+                  <Plus className="h-4 w-4 mr-1" />Tambah Unit
                 </Button>
-                <Button 
-                  variant={unitViewMode === 'gallery' ? 'default' : 'ghost'} 
-                  size="icon" 
-                  className="h-7 w-7 rounded-md" 
-                  onClick={() => setUnitViewMode('gallery')}
-                  aria-label="Tampilan galeri"
-                >
-                  <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
-                </Button>
+                <div className="flex items-center bg-muted/60 rounded-lg p-0.5" role="group" aria-label="Mode tampilan unit">
+                  <Button 
+                    variant={unitViewMode === 'list' ? 'default' : 'ghost'} 
+                    size="icon" 
+                    className="h-7 w-7 rounded-md" 
+                    onClick={() => setUnitViewMode('list')}
+                    aria-label="Tampilan daftar"
+                  >
+                    <List className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Button>
+                  <Button 
+                    variant={unitViewMode === 'gallery' ? 'default' : 'ghost'} 
+                    size="icon" 
+                    className="h-7 w-7 rounded-md" 
+                    onClick={() => setUnitViewMode('gallery')}
+                    aria-label="Tampilan galeri"
+                  >
+                    <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -556,25 +632,30 @@ export default function PropertyDetail() {
           <TabsContent value="tenants" className="space-y-4 mt-4 animate-fade-in">
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">{activeContracts.length} penyewa aktif</p>
-              <div className="flex items-center bg-muted/60 rounded-lg p-0.5" role="group" aria-label="Mode tampilan penyewa">
-                <Button 
-                  variant={tenantViewMode === 'list' ? 'default' : 'ghost'} 
-                  size="icon" 
-                  className="h-7 w-7 rounded-md" 
-                  onClick={() => setTenantViewMode('list')}
-                  aria-label="Tampilan daftar"
-                >
-                  <List className="h-3.5 w-3.5" aria-hidden="true" />
+              <div className="flex items-center gap-2">
+                <Button size="sm" className="rounded-xl gradient-cta text-primary-foreground" onClick={() => setShowAddTenantDialog(true)}>
+                  <Plus className="h-4 w-4 mr-1" />Tambah Penyewa
                 </Button>
-                <Button 
-                  variant={tenantViewMode === 'gallery' ? 'default' : 'ghost'} 
-                  size="icon" 
-                  className="h-7 w-7 rounded-md" 
-                  onClick={() => setTenantViewMode('gallery')}
-                  aria-label="Tampilan galeri"
-                >
-                  <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
-                </Button>
+                <div className="flex items-center bg-muted/60 rounded-lg p-0.5" role="group" aria-label="Mode tampilan penyewa">
+                  <Button 
+                    variant={tenantViewMode === 'list' ? 'default' : 'ghost'} 
+                    size="icon" 
+                    className="h-7 w-7 rounded-md" 
+                    onClick={() => setTenantViewMode('list')}
+                    aria-label="Tampilan daftar"
+                  >
+                    <List className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Button>
+                  <Button 
+                    variant={tenantViewMode === 'gallery' ? 'default' : 'ghost'} 
+                    size="icon" 
+                    className="h-7 w-7 rounded-md" 
+                    onClick={() => setTenantViewMode('gallery')}
+                    aria-label="Tampilan galeri"
+                  >
+                    <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -730,13 +811,6 @@ export default function PropertyDetail() {
             </Suspense>
           </TabsContent>
 
-          {/* Compliance Tab */}
-          <TabsContent value="compliance" className="space-y-4 mt-4 animate-fade-in">
-            <Suspense fallback={<ContentSkeleton />}>
-              <LazyCompliance propertyId={id} />
-            </Suspense>
-          </TabsContent>
-
         </Tabs>
 
         {/* Sidebar */}
@@ -818,6 +892,66 @@ export default function PropertyDetail() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Add Unit Dialog */}
+      <UnitFormDialog
+        open={showAddUnitDialog}
+        onOpenChange={setShowAddUnitDialog}
+        properties={propertiesForTenant as any[]}
+        onSubmit={async (data) => {
+          await createUnit({ ...data, property_id: id! } as any);
+          queryClient.invalidateQueries({ queryKey: ['property-detail', id] });
+          setShowAddUnitDialog(false);
+        }}
+        isLoading={isCreatingUnit}
+        preselectedPropertyId={id}
+      />
+
+      {/* Add Tenant Dialog */}
+      <AddTenantDialog
+        open={showAddTenantDialog}
+        onOpenChange={setShowAddTenantDialog}
+        properties={propertiesForTenant as any[]}
+        onSubmit={(data) => addTenantMutation.mutate(data)}
+        isLoading={addTenantMutation.isPending}
+        preselectedPropertyId={id}
+      />
+
+      {/* Edit Facilities Dialog */}
+      <Dialog open={showFacilitiesDialog} onOpenChange={setShowFacilitiesDialog}>
+        <DialogContent className="max-w-lg w-[95vw] rounded-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Fasilitas Properti</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <CustomAmenities
+              selectedAmenities={editingAmenities}
+              onAmenitiesChange={setEditingAmenities}
+              type="property"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" className="rounded-xl" onClick={() => setShowFacilitiesDialog(false)}>Batal</Button>
+            <Button
+              className="rounded-xl gradient-cta text-primary-foreground"
+              disabled={saveAmenitiesMutation.isPending}
+              onClick={() => saveAmenitiesMutation.mutate(editingAmenities)}
+            >
+              {saveAmenitiesMutation.isPending ? 'Menyimpan...' : 'Simpan Fasilitas'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Facility Management Dialog */}
+      {merchant?.id && (
+        <FacilityManagementDialog
+          open={showFacilityManageDialog}
+          onOpenChange={setShowFacilityManageDialog}
+          merchantId={merchant.id}
+          categoryFilter="umum"
+        />
+      )}
     </div>
   );
 }
