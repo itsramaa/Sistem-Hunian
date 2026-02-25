@@ -1,69 +1,150 @@
 
-# Audit & Refactor Fasilitas/Inventori, Sidebar Updates, Guardian Assignment, Contract/Invoice Dialog di Unit Detail
+# Redesign Sistem Inventori: 3-Konsep Terpisah + Hapus Escrow Merchant + Hapus CustomAmenities
 
-## 1. Merge Fasilitas + Inventaris Menjadi Sistem "Inventori" Terpadu
+## Ringkasan
 
-Saat ini fasilitas dan inventaris terpisah -- `CustomAmenities` untuk toggle badge, dan `FacilityManagementDialog` untuk CRUD master. Tab "Inventaris" di Unit Detail sudah menggunakan `CustomAmenities`, tapi belum ada halaman terpusat.
+Refaktor total sistem fasilitas/inventori menjadi arsitektur 3-tabel yang bersih:
+1. **facility_types** (Master Data) - Definisi tipe fasilitas
+2. **assets** (Barang Fisik Trackable) - Instance nyata dari barang tangible
+3. **facility_assignments** (Relasi Intangible) - Untuk WiFi, Parkiran, dll
 
-### Perubahan:
-- **Buat halaman `src/pages/merchant/Inventory.tsx`**: Halaman inventori terpusat yang menampilkan semua fasilitas merchant (umum + unit) dengan filter kategori, tabel list, dan akses ke `FacilityManagementDialog`
-- **Tambah route** di `App.tsx`: `inventory` di bawah merchant routes
-- **Tambah menu sidebar** di `navigation-config.ts`: Tambah item "Inventori" dengan icon `Package` di grup "Operasional"
-- **Refactor `FacilityManagementDialog`**: Jadikan reusable -- bisa dipanggil dari halaman Inventori, form properti, dan unit detail
+Hapus semua fitur Escrow dari merchant, hapus `CustomAmenities` (fallback hardcoded AC, Water Heater, dll), dan konsolidasikan semuanya ke sistem inventori terpusat.
 
-### Nilai Sisa Otomatis:
-- Di `FacilityManagementDialog`, **hilangkan field input "Nilai Sisa"** dari user
-- **Hitung otomatis** berdasarkan kategori barang:
-  - Elektronik (AC, TV, Water Heater): 10% dari harga beli
-  - Furnitur (Lemari, Meja, Kursi): 5% dari harga beli  
-  - Infrastruktur (CCTV, Pompa Air): 15% dari harga beli
-  - Default: 10% dari harga beli
-- Tambah field **"Tipe Barang"** (dropdown: Elektronik, Furnitur, Infrastruktur, Lainnya) yang menentukan bobot nilai sisa
-- Nilai sisa dihitung saat save: `salvage_value = purchase_price * weight_factor`
+---
 
-## 2. Tambah "Referral" di Menu Sidebar Merchant
+## 1. Database Migration
 
-Saat ini `merchant/referrals` sudah ada sebagai route tapi tidak ada di sidebar navigation.
+### Tabel Baru
 
-### Perubahan:
-- **`navigation-config.ts`**: Tambah `{ path: "/merchant/referrals", icon: Gift, label: "Referral" }` di grup "Operasional"
+**`facility_types`** (Master Data):
+```text
+id              UUID PK
+merchant_id     UUID FK merchants
+name            TEXT NOT NULL
+scope           TEXT ('property' | 'unit')
+nature          TEXT ('tangible' | 'intangible')
+is_trackable    BOOLEAN DEFAULT false
+asset_type      TEXT ('elektronik' | 'furnitur' | 'infrastruktur' | 'lainnya')
+default_useful_life_months  INTEGER
+created_at      TIMESTAMPTZ
+updated_at      TIMESTAMPTZ
+UNIQUE(merchant_id, name)
+```
 
-## 3. Fitur Assign Penjaga ke Multiple Properti
+**`assets`** (Barang Fisik - tangible & trackable):
+```text
+id                UUID PK
+facility_type_id  UUID FK facility_types
+merchant_id       UUID FK merchants
+property_id       UUID FK properties (nullable)
+unit_id           UUID FK units (nullable)
+serial_number     TEXT (nullable)
+brand             TEXT (nullable)
+condition         TEXT ('good' | 'damaged' | 'lost') DEFAULT 'good'
+purchase_price    NUMERIC DEFAULT 0
+purchase_date     DATE (nullable)
+useful_life_months INTEGER DEFAULT 60
+salvage_value     NUMERIC DEFAULT 0
+status            TEXT ('available' | 'in_use' | 'maintenance') DEFAULT 'available'
+notes             TEXT (nullable)
+created_at        TIMESTAMPTZ
+updated_at        TIMESTAMPTZ
+```
 
-Saat ini `property_guardians` memiliki `property_id` sebagai required foreign key -- 1 penjaga = 1 properti. Untuk mendukung penjaga di banyak properti, perlu tabel relasi.
+**`facility_assignments`** (Intangible / non-asset):
+```text
+id                UUID PK
+facility_type_id  UUID FK facility_types
+property_id       UUID FK properties (nullable)
+unit_id           UUID FK units (nullable)
+capacity          INTEGER (nullable) -- e.g. parkiran = 5 motor
+notes             TEXT (nullable)
+created_at        TIMESTAMPTZ
+```
 
-### Database Migration:
-- Buat tabel **`guardian_property_assignments`**: `id`, `guardian_id` (FK ke `property_guardians`), `property_id` (FK ke `properties`), `role` (text: 'primary'|'backup'), `assigned_date`, `status`, `created_at`
-- Unique constraint: `(guardian_id, property_id)`
-- RLS policy: merchant manages own assignments
+### Migrasi Data
+- Migrate data dari `facilities` lama ke `facility_types` + `assets`
+- Drop tabel lama `facilities`, `property_facilities`, `unit_facilities` setelah migrasi
+- RLS policies untuk semua 3 tabel baru (merchant_id based)
 
-### UI Perubahan:
-- **Halaman Guardians (`src/pages/merchant/Guardians.tsx`)**: Tambah tombol "Assign" di setiap row penjaga yang membuka dialog untuk memilih properti tambahan
-- **`guardianService.ts`**: Tambah fungsi `assignToProperty`, `removeAssignment`, `fetchAssignments`
-- **Detail Properti tab Staf**: Tampilkan penjaga dari `guardian_property_assignments` selain dari `property_guardians` langsung
+---
 
-## 4. Dialog Kontrak di Unit Detail (Bukan Redirect)
+## 2. Hapus Escrow dari Merchant
 
-Saat ini "Tambah Kontrak" di tab Kontrak melakukan `navigate()` ke halaman contracts. Ubah menjadi membuka `CreateContractDialog` langsung.
+### File yang dihapus/diabaikan:
+- Hapus route `/merchant/escrow` dari `App.tsx`
+- Hapus menu "Escrow" dari sidebar `navigation-config.ts` (line 137)
+- Tidak perlu hapus file escrow karena admin masih pakai -- hanya hapus dari merchant routes & nav
 
-### Perubahan di `UnitDetail.tsx`:
-- Import `CreateContractDialog` dari `@/features/contracts/components/CreateContractDialog`
-- Tambah state: `showContractDialog`, fetch `merchantTenants` via query
-- Button "Tambah Kontrak" membuka dialog, bukan navigate
-- Pass `availableUnits` hanya berisi unit saat ini (pre-selected)
-- Pass `onSubmit` yang memanggil contract creation mutation dan refresh data
-- Import contract creation mutation dari hooks yang sudah ada
+### File yang diubah:
+- `src/App.tsx`: Hapus lazy import `MerchantEscrow` dan route
+- `src/shared/components/layouts/navigation-config.ts`: Hapus item escrow dari grup Keuangan merchant
+- `src/pages/merchant/Dashboard.tsx`: Hapus card "Saldo Escrow" (line 197-204)
 
-## 5. Dialog Invoice/Pembayaran di Unit Detail (Bukan Redirect)
+---
 
-Saat ini "Tambah Pembayaran" melakukan `navigate()`. Ubah menjadi `CreateInvoiceDialog` langsung.
+## 3. Hapus `CustomAmenities` -- Ganti dengan Facility Type Picker
 
-### Perubahan di `UnitDetail.tsx`:
-- Import `CreateInvoiceDialog` dari `@/features/payments/components/CreateInvoiceDialog`
-- Tambah state: `showInvoiceDialog`
-- Pass `contracts` dari unit data (hanya kontrak aktif unit ini)
-- Pass `merchantId` dari `unit.property.merchant_id`
-- Button "Tambah Pembayaran" membuka dialog inline
+### Hapus file:
+- `src/features/properties/components/CustomAmenities.tsx`
+
+### Buat pengganti:
+- **`src/features/inventory/components/FacilityTypePicker.tsx`**: Komponen picker yang menampilkan facility_types dari DB (tidak ada fallback hardcoded). Tampil sebagai badge toggle, diambil dari tabel `facility_types`. Ada tombol "Tambah Tipe Baru" yang langsung membuka inline form (bukan dialog kelola).
+
+### Update konsumen:
+- `PropertyFormDialog.tsx`: Ganti `CustomAmenities` dengan `FacilityTypePicker` -- saat user pilih facility type, otomatis buat `facility_assignment` atau `asset` tergantung nature
+- `UnitFormDialog.tsx`: Sama
+- `PropertySetupWizard.tsx`: Sama
+- `PropertyDetail.tsx`: Ganti referensi CustomAmenities dan FacilityManagementDialog
+- `UnitDetail.tsx`: Ganti tab inventaris
+
+---
+
+## 4. Redesign Form Tambah Fasilitas (Langsung, Bukan Dialog)
+
+### Hapus file:
+- `src/features/properties/components/FacilityManagementDialog.tsx`
+
+### Halaman Inventori yang diperbarui:
+- **`src/pages/merchant/Inventory.tsx`**: Redesign total:
+  - Tab: **Tipe Fasilitas** | **Aset** | **Assignment**
+  - Tab Tipe Fasilitas: List + inline form "Tambah Tipe" (langsung di halaman, bukan dialog)
+  - Tab Aset: List semua barang fisik dengan filter property/unit, condition, status. Klik row buka detail.
+  - Tab Assignment: List semua intangible assignments
+  - Tombol "Tambah Aset" membuka form inline/expandable di halaman
+  - Tombol "Tambah Assignment" untuk intangible
+
+### Detail Aset:
+- Klik item di tabel Aset membuka halaman/panel detail dengan info lengkap: tipe, serial, brand, kondisi, harga beli, depresiasi, nilai buku, lokasi (property/unit), history
+
+---
+
+## 5. Konsep Assign ke Property/Unit
+
+### Di halaman Inventory:
+- Form "Tambah Aset": pilih Tipe Fasilitas, lalu pilih Property dan/atau Unit tujuan
+- Form "Tambah Assignment": pilih Tipe Fasilitas intangible, pilih property/unit, isi capacity
+
+### Di PropertyDetail (Overview/Ringkasan):
+- Section "Fasilitas" menampilkan: assets yang di-assign ke property + facility_assignments property
+- Tombol "Assign Aset" membuka form picker (pilih dari assets yang available milik merchant)
+
+### Di UnitDetail (Inventaris tab):
+- Tampilkan assets di unit + facility_assignments unit
+- Tombol "Assign Aset" untuk assign existing asset ke unit
+- Tombol "Tambah Baru" untuk create + assign sekaligus
+
+---
+
+## 6. Nilai Sisa Otomatis
+
+Logic tetap sama dari sebelumnya:
+- Elektronik: 10% dari harga beli
+- Furnitur: 5%
+- Infrastruktur: 15%
+- Lainnya: 10%
+
+Dihitung otomatis saat save asset berdasarkan `facility_type.asset_type`.
 
 ---
 
@@ -71,20 +152,29 @@ Saat ini "Tambah Pembayaran" melakukan `navigate()`. Ubah menjadi `CreateInvoice
 
 | File | Perubahan |
 |------|-----------|
-| `src/pages/merchant/Inventory.tsx` | **Baru**: Halaman inventori terpusat |
-| `src/App.tsx` | Tambah route `/merchant/inventory` |
-| `src/shared/components/layouts/navigation-config.ts` | Tambah "Inventori" dan "Referral" di sidebar merchant |
-| `src/features/properties/components/FacilityManagementDialog.tsx` | Hilangkan input nilai sisa manual, tambah field "Tipe Barang", hitung otomatis |
-| `src/pages/merchant/UnitDetail.tsx` | Ganti navigate ke dialog untuk kontrak dan invoice, import dan render kedua dialog |
-| **Database migration** | Buat tabel `guardian_property_assignments` |
-| `src/features/properties/services/guardianService.ts` | Tambah fungsi assign/unassign properti |
-| `src/features/properties/hooks/useGuardians.ts` | Tambah hooks untuk assignments |
-| `src/pages/merchant/Guardians.tsx` | Tambah UI assign penjaga ke properti |
+| **Database migration** | Buat `facility_types`, `assets`, `facility_assignments`. Migrasi data dari `facilities` lama. RLS policies. |
+| `src/features/inventory/` | **Baru**: Folder fitur inventory |
+| `src/features/inventory/components/FacilityTypePicker.tsx` | **Baru**: Pengganti CustomAmenities |
+| `src/features/inventory/components/AddAssetForm.tsx` | **Baru**: Form inline tambah aset |
+| `src/features/inventory/components/AddAssignmentForm.tsx` | **Baru**: Form inline tambah assignment |
+| `src/features/inventory/components/AssetDetailPanel.tsx` | **Baru**: Detail view aset |
+| `src/pages/merchant/Inventory.tsx` | Redesign total dengan 3 tab |
+| `src/App.tsx` | Hapus MerchantEscrow route |
+| `src/shared/components/layouts/navigation-config.ts` | Hapus Escrow dari merchant nav |
+| `src/pages/merchant/Dashboard.tsx` | Hapus card Saldo Escrow |
+| `src/features/properties/components/CustomAmenities.tsx` | **Hapus** |
+| `src/features/properties/components/FacilityManagementDialog.tsx` | **Hapus** |
+| `src/features/properties/components/PropertyFormDialog.tsx` | Ganti CustomAmenities dengan FacilityTypePicker |
+| `src/features/properties/components/PropertySetupWizard.tsx` | Ganti CustomAmenities dengan FacilityTypePicker |
+| `src/features/properties/components/UnitFormDialog.tsx` | Ganti CustomAmenities dengan FacilityTypePicker |
+| `src/pages/merchant/PropertyDetail.tsx` | Ganti fasilitas section, hapus FacilityManagementDialog |
+| `src/pages/merchant/UnitDetail.tsx` | Ganti inventaris tab, hapus CustomAmenities |
 
 ## Technical Notes
 
-- Nilai sisa otomatis dihitung client-side saat save: `purchase_price * factor` (Elektronik=0.10, Furnitur=0.05, Infrastruktur=0.15, Lainnya=0.10)
-- Field "Tipe Barang" (`asset_type`) disimpan di tabel `facilities` -- perlu ALTER TABLE menambah kolom `asset_type TEXT DEFAULT 'lainnya'`
-- `guardian_property_assignments` memungkinkan 1 penjaga assigned ke N properti tanpa mengubah struktur `property_guardians` yang sudah ada
-- Dialog kontrak dan invoice di Unit Detail menggunakan komponen yang sudah ada (`CreateContractDialog`, `CreateInvoiceDialog`) -- hanya perlu pass data yang sesuai
-- Halaman Inventori menampilkan semua fasilitas merchant dengan statistik: total item, total nilai aset, total depresiasi
+- `facility_types` = **definisi**. Tidak punya harga, kondisi, serial. Hanya nama, scope, nature, trackable.
+- `assets` = **instance fisik**. Punya harga, kondisi, serial, lokasi. Hanya untuk tangible items.
+- `facility_assignments` = **relasi intangible**. Parkiran (capacity=5), WiFi, Keamanan 24 Jam. Tidak punya kondisi/harga.
+- Migrasi data: `facilities` lama yang punya `purchase_price > 0` jadi `assets`, sisanya jadi `facility_assignments`. Semua jadi `facility_types` master.
+- Fallback hardcoded (AC, Water Heater, Parkir, dll) dihapus total. Semua dari DB.
+- Escrow hanya dihapus dari merchant -- admin escrow tetap ada.
