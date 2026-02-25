@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { MobileHeader } from "@/shared/components/layouts/MobileHeader";
@@ -35,6 +35,16 @@ export function MobileLayout({
   const location = useLocation();
   const [isChatOpen, setIsChatOpen] = useState(false);
   const { trackChatbotOpened } = useChatbotTracking();
+
+  // Listen for open-chatbot event from Support page
+  useEffect(() => {
+    const handler = () => {
+      setIsChatOpen(true);
+      trackChatbotOpened();
+    };
+    window.addEventListener('open-chatbot', handler);
+    return () => window.removeEventListener('open-chatbot', handler);
+  }, [trackChatbotOpened]);
 
   const config = navigationConfig[role];
   const basePath = `/${role}`;

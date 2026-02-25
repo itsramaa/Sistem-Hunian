@@ -1750,6 +1750,82 @@ export type Database = {
           },
         ]
       }
+      live_chat_conversations: {
+        Row: {
+          created_at: string | null
+          id: string
+          merchant_id: string | null
+          status: string
+          subject: string | null
+          updated_at: string | null
+          user_id: string
+          user_role: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          merchant_id?: string | null
+          status?: string
+          subject?: string | null
+          updated_at?: string | null
+          user_id: string
+          user_role: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          merchant_id?: string | null
+          status?: string
+          subject?: string | null
+          updated_at?: string | null
+          user_id?: string
+          user_role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_chat_conversations_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      live_chat_messages: {
+        Row: {
+          conversation_id: string | null
+          created_at: string | null
+          id: string
+          message: string
+          sender_id: string
+          sender_role: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          message: string
+          sender_id: string
+          sender_role: string
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          message?: string
+          sender_id?: string
+          sender_role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_chat_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "live_chat_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       maintenance_expenses: {
         Row: {
           created_at: string
@@ -2053,6 +2129,56 @@ export type Database = {
             columns: ["maintenance_request_id"]
             isOneToOne: false
             referencedRelation: "maintenance_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      merchant_feedback: {
+        Row: {
+          admin_response: string | null
+          category: string
+          created_at: string | null
+          id: string
+          merchant_id: string | null
+          message: string
+          rating: number | null
+          screenshot_url: string | null
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          admin_response?: string | null
+          category: string
+          created_at?: string | null
+          id?: string
+          merchant_id?: string | null
+          message: string
+          rating?: number | null
+          screenshot_url?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          admin_response?: string | null
+          category?: string
+          created_at?: string | null
+          id?: string
+          merchant_id?: string | null
+          message?: string
+          rating?: number | null
+          screenshot_url?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "merchant_feedback_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
         ]

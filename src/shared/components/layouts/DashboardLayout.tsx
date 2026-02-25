@@ -1,4 +1,4 @@
-import { ReactNode, useState, Fragment } from "react";
+import { ReactNode, useState, Fragment, useEffect } from "react";
 import { useLocation, Link } from "react-router-dom";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/shared/components/ui/sidebar";
 import { Separator } from "@/shared/components/ui/separator";
@@ -53,6 +53,16 @@ export function DashboardLayout({
   // Floating AI state
   const [isChatOpen, setIsChatOpen] = useState(false);
   const { trackChatbotOpened } = useChatbotTracking();
+
+  // Listen for open-chatbot event from Support page
+  useEffect(() => {
+    const handler = () => {
+      setIsChatOpen(true);
+      trackChatbotOpened();
+    };
+    window.addEventListener('open-chatbot', handler);
+    return () => window.removeEventListener('open-chatbot', handler);
+  }, [trackChatbotOpened]);
   
   const config = navigationConfig[role];
   const showAIButton = config.hasFloatingAI && config.globalFloatingAI;

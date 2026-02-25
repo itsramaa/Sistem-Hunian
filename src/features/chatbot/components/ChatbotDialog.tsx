@@ -2,12 +2,14 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
-import { X, Send, Bot, Loader2, Home, CreditCard, Wrench, ShoppingBag, HelpCircle, RefreshCw, Trash2, WifiOff, Copy, Check } from "lucide-react";
+import { X, Send, Bot, Loader2, Home, CreditCard, Wrench, ShoppingBag, HelpCircle, RefreshCw, Trash2, WifiOff, Copy, Check, MessageCircle } from "lucide-react";
 import { cn } from "@/shared/utils/utils";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useChatbotTracking } from "@/features/analytics/hooks/useAnalytics";
 import { useChatbotConversation } from "@/features/chatbot/hooks/useChatbotConversation";
 import { ChatMessageRenderer } from "@/features/chatbot/components/ChatMessageRenderer";
+import { FaqTab } from "@/features/chatbot/components/FaqTab";
+import { LiveChatTab } from "@/features/chatbot/components/LiveChatTab";
 import { toast } from "sonner";
 
 const MAX_MESSAGE_LENGTH = 1000;
@@ -30,6 +32,9 @@ const sanitizeInput = (input: string): string => {
   
   return sanitized.trim().slice(0, MAX_MESSAGE_LENGTH);
 };
+
+// Escalation keywords
+const ESCALATION_KEYWORDS = ["hubungi admin", "bicara manusia", "live chat", "bicara dengan admin", "chat admin"];
 
 // Role-specific quick actions in Indonesian
 const ROLE_QUICK_ACTIONS = {
@@ -68,7 +73,6 @@ const ROLE_ASSISTANT_INFO: Record<string, { title: string; subtitle: string }> =
   default: { title: "Sihuni Assistant", subtitle: "Siap membantu Anda" },
 };
 
-// Get the correct edge function URL based on role
 function getChatUrl(role: string): string {
   const base = import.meta.env.VITE_SUPABASE_URL;
   switch (role) {
@@ -88,16 +92,20 @@ interface Message {
   failed?: boolean;
 }
 
+type TabType = "ai" | "faq" | "livechat";
+
 interface ChatbotDialogProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
 export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
+  const [activeTab, setActiveTab] = useState<TabType>("ai");
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
+  const [showEscalation, setShowEscalation] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const conversationLoadedRef = useRef(false);
@@ -120,17 +128,15 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
-    
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
-  // Load saved messages only once to prevent race condition
+  // Load saved messages only once
   useEffect(() => {
     if (savedMessages.length > 0 && !conversationLoadedRef.current) {
       setLocalMessages(savedMessages.map(m => ({ ...m, failed: false })));
@@ -144,6 +150,12 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
     }
   }, [localMessages]);
 
+  // Check for escalation keywords in user message
+  const checkEscalation = (message: string) => {
+    const lower = message.toLowerCase();
+    return ESCALATION_KEYWORDS.some(kw => lower.includes(kw));
+  };
+
   const streamChat = useCallback(async (userMessage: string, retryCount = 0) => {
     if (!isOnline) {
       toast.error("Tidak ada koneksi internet. Coba lagi nanti.");
@@ -153,7 +165,14 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
     const sanitizedMessage = sanitizeInput(userMessage);
     if (!sanitizedMessage) return;
 
+    // Check if user wants to escalate
+    if (checkEscalation(sanitizedMessage)) {
+      setShowEscalation(true);
+      return;
+    }
+
     setIsStreaming(true);
+    setShowEscalation(false);
     const startTime = Date.now();
     trackChatbotMessage('user');
     
@@ -162,28 +181,21 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
     setLocalMessages(newMessages);
     setInput("");
 
-    // Save user message
     saveMessage(userMsg);
-
     abortControllerRef.current = new AbortController();
 
-    // Build role-specific request body
     const chatUrl = getChatUrl(userRole);
     const bodyPayload: Record<string, unknown> = {
       messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
       userId: user?.id,
     };
 
-    // Add role-specific context
     if (userRole === 'merchant' && merchant) {
       bodyPayload.merchantId = merchant.id;
     } else if (userRole === 'vendor' && vendor) {
       bodyPayload.vendorId = vendor.id;
     } else {
-      bodyPayload.context = {
-        role: userRole,
-        userName,
-      };
+      bodyPayload.context = { role: userRole, userName };
     }
 
     try {
@@ -199,13 +211,8 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
 
       if (!resp.ok || !resp.body) {
         const errorData = await resp.json().catch(() => ({}));
-        
-        if (resp.status === 429) {
-          throw new Error("ERR_RATE_LIMIT");
-        }
-        if (resp.status === 402) {
-          throw new Error("ERR_PAYMENT_REQUIRED");
-        }
+        if (resp.status === 429) throw new Error("ERR_RATE_LIMIT");
+        if (resp.status === 402) throw new Error("ERR_PAYMENT_REQUIRED");
         throw new Error(errorData.error || "ERR_CONNECTION");
       }
 
@@ -215,7 +222,6 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
       let assistantContent = "";
       let streamDone = false;
 
-      // Add empty assistant message
       setLocalMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
       while (!streamDone) {
@@ -233,10 +239,7 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
           if (!line.startsWith("data: ")) continue;
 
           const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") {
-            streamDone = true;
-            break;
-          }
+          if (jsonStr === "[DONE]") { streamDone = true; break; }
 
           try {
             const parsed = JSON.parse(jsonStr);
@@ -256,24 +259,20 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
         }
       }
 
-      // Save assistant message
       if (assistantContent) {
         saveMessage({ role: "assistant", content: assistantContent });
+        // Check if AI response seems uncertain - show escalation option
+        const uncertainPatterns = ["tidak yakin", "tidak bisa membantu", "di luar kemampuan", "hubungi admin"];
+        if (uncertainPatterns.some(p => assistantContent.toLowerCase().includes(p))) {
+          setShowEscalation(true);
+        }
       }
 
-      // Track analytics
       const responseTime = Date.now() - startTime;
-      trackAnalytics({
-        queryType: detectQueryType(sanitizedMessage),
-        responseTimeMs: responseTime,
-      });
-
+      trackAnalytics({ queryType: detectQueryType(sanitizedMessage), responseTimeMs: responseTime });
       trackChatbotMessage('bot');
     } catch (error) {
-      if ((error as Error).name === 'AbortError') {
-        return;
-      }
-
+      if ((error as Error).name === 'AbortError') return;
       console.error("Chat error:", error);
       
       const errorMessage = (error as Error).message;
@@ -286,9 +285,7 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
       } else if (retryCount < MAX_RETRIES - 1) {
         const delay = Math.pow(2, retryCount) * 1000;
         toast.info(`Mencoba ulang dalam ${delay / 1000} detik...`);
-        setTimeout(() => {
-          streamChat(sanitizedMessage, retryCount + 1);
-        }, delay);
+        setTimeout(() => { streamChat(sanitizedMessage, retryCount + 1); }, delay);
         return;
       } else {
         userFriendlyMessage += "Silakan coba lagi.";
@@ -296,11 +293,7 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
       
       setLocalMessages((prev) => [
         ...prev.filter(m => m.role === 'user'),
-        {
-          role: "assistant",
-          content: userFriendlyMessage,
-          failed: true,
-        },
+        { role: "assistant", content: userFriendlyMessage, failed: true },
       ]);
     } finally {
       setIsStreaming(false);
@@ -310,18 +303,10 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
 
   const detectQueryType = (message: string): string => {
     const lowerMsg = message.toLowerCase();
-    if (lowerMsg.includes('bayar') || lowerMsg.includes('tagihan') || lowerMsg.includes('invoice')) {
-      return 'payment';
-    }
-    if (lowerMsg.includes('maintenance') || lowerMsg.includes('kerusakan') || lowerMsg.includes('perbaikan')) {
-      return 'maintenance';
-    }
-    if (lowerMsg.includes('vendor') || lowerMsg.includes('laundry') || lowerMsg.includes('service')) {
-      return 'vendor_search';
-    }
-    if (lowerMsg.includes('kontrak') || lowerMsg.includes('contract')) {
-      return 'contract';
-    }
+    if (lowerMsg.includes('bayar') || lowerMsg.includes('tagihan') || lowerMsg.includes('invoice')) return 'payment';
+    if (lowerMsg.includes('maintenance') || lowerMsg.includes('kerusakan') || lowerMsg.includes('perbaikan')) return 'maintenance';
+    if (lowerMsg.includes('vendor') || lowerMsg.includes('laundry') || lowerMsg.includes('service')) return 'vendor_search';
+    if (lowerMsg.includes('kontrak') || lowerMsg.includes('contract')) return 'contract';
     return 'general';
   };
 
@@ -348,6 +333,7 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
     await clearConversation();
     setLocalMessages([]);
     conversationLoadedRef.current = false;
+    setShowEscalation(false);
     toast.success("Percakapan baru dimulai");
   };
 
@@ -356,9 +342,20 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
     toast.success(satisfied ? "Terima kasih atas feedbacknya!" : "Kami akan berusaha lebih baik");
   };
 
+  const handleEscalateToLiveChat = () => {
+    setShowEscalation(false);
+    setActiveTab("livechat");
+  };
+
   const hasFailed = localMessages.some(m => m.failed);
 
   if (!isOpen) return null;
+
+  const tabs: { key: TabType; label: string }[] = [
+    { key: "ai", label: "AI" },
+    { key: "faq", label: "FAQ" },
+    { key: "livechat", label: "Live Chat" },
+  ];
 
   return (
     <div className={cn(
@@ -367,46 +364,66 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
       "md:bottom-24 md:right-6 md:w-[400px] md:h-[600px] md:max-w-[calc(100vw-3rem)] md:rounded-2xl md:border"
     )}>
       {/* Header */}
-      <div className="flex items-center gap-3 bg-primary p-3 text-primary-foreground shrink-0">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="md:hidden h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
-          onClick={onClose}
-          aria-label="Tutup"
-        >
-          <X className="h-4 w-4" />
-        </Button>
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-foreground/20">
-          <Bot className="h-4 w-4" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-sm">{assistantInfo.title}</h3>
-          <div className="flex items-center gap-1 text-xs opacity-80">
-            {!isOnline && <WifiOff className="h-3 w-3" />}
-            <span>{isOnline ? assistantInfo.subtitle : "Offline"}</span>
-          </div>
-        </div>
-        {localMessages.length > 0 && (
+      <div className="bg-primary text-primary-foreground shrink-0">
+        <div className="flex items-center gap-3 p-3">
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
-            onClick={handleNewChat}
-            aria-label="Percakapan baru"
+            className="md:hidden h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
+            onClick={onClose}
+            aria-label="Tutup"
           >
-            <Trash2 className="h-4 w-4" />
+            <X className="h-4 w-4" />
           </Button>
-        )}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="hidden md:flex h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
-          onClick={onClose}
-          aria-label="Tutup"
-        >
-          <X className="h-4 w-4" />
-        </Button>
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-foreground/20">
+            <Bot className="h-4 w-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-sm">Customer Service</h3>
+            <div className="flex items-center gap-1 text-xs opacity-80">
+              {!isOnline && <WifiOff className="h-3 w-3" />}
+              <span>{isOnline ? "Siap membantu Anda" : "Offline"}</span>
+            </div>
+          </div>
+          {activeTab === "ai" && localMessages.length > 0 && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
+              onClick={handleNewChat}
+              aria-label="Percakapan baru"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hidden md:flex h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
+            onClick={onClose}
+            aria-label="Tutup"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Tab Pills */}
+        <div className="flex gap-1 px-3 pb-2">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={cn(
+                "px-3 py-1 rounded-full text-xs font-medium transition-colors",
+                activeTab === tab.key
+                  ? "bg-primary-foreground text-primary"
+                  : "bg-primary-foreground/15 text-primary-foreground/80 hover:bg-primary-foreground/25"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Offline indicator */}
@@ -417,91 +434,112 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
         </div>
       )}
 
-      {/* Messages */}
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-        {localMessages.length === 0 ? (
-          <div className="flex flex-col gap-4">
-            <p className="text-sm text-muted-foreground">
-              Hai{userName ? ` ${userName}` : ''}! 👋 Saya {assistantInfo.title.toLowerCase()} Sihuni. Ada yang bisa saya bantu hari ini?
-            </p>
-            <div className="flex flex-col gap-2">
-              {quickActions.map((action) => (
-                <Button
-                  key={action.label}
-                  variant="outline"
-                  size="sm"
-                  className="justify-start text-xs h-auto py-2"
-                  onClick={() => handleQuickAction(action.query)}
-                  disabled={!isOnline}
-                >
-                  <action.icon className="h-4 w-4 mr-2 flex-shrink-0" />
-                  {action.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {localMessages.map((message, index) => (
-              <ChatMessageRenderer
-                key={index}
-                content={message.content}
-                role={message.role}
-                isLoading={isStreaming && index === localMessages.length - 1 && message.role === "assistant"}
-                showFeedback={
-                  message.role === "assistant" && 
-                  index === localMessages.length - 1 && 
-                  !isStreaming && 
-                  message.content.length > 0 &&
-                  !message.failed
-                }
-                onFeedback={handleFeedback}
-                failed={message.failed}
-              />
-            ))}
-            
-            {/* Retry button for failed messages */}
-            {hasFailed && !isStreaming && (
-              <div className="flex justify-center">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRetry}
-                  className="gap-2"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                  Coba Lagi
-                </Button>
+      {/* Tab Content */}
+      {activeTab === "ai" && (
+        <>
+          {/* Messages */}
+          <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+            {localMessages.length === 0 ? (
+              <div className="flex flex-col gap-4">
+                <p className="text-sm text-muted-foreground">
+                  Hai{userName ? ` ${userName}` : ''}! 👋 Saya {assistantInfo.title.toLowerCase()} Sihuni. Ada yang bisa saya bantu hari ini?
+                </p>
+                <div className="flex flex-col gap-2">
+                  {quickActions.map((action) => (
+                    <Button
+                      key={action.label}
+                      variant="outline"
+                      size="sm"
+                      className="justify-start text-xs h-auto py-2"
+                      onClick={() => handleQuickAction(action.query)}
+                      disabled={!isOnline}
+                    >
+                      <action.icon className="h-4 w-4 mr-2 flex-shrink-0" />
+                      {action.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {localMessages.map((message, index) => (
+                  <ChatMessageRenderer
+                    key={index}
+                    content={message.content}
+                    role={message.role}
+                    isLoading={isStreaming && index === localMessages.length - 1 && message.role === "assistant"}
+                    showFeedback={
+                      message.role === "assistant" && 
+                      index === localMessages.length - 1 && 
+                      !isStreaming && 
+                      message.content.length > 0 &&
+                      !message.failed
+                    }
+                    onFeedback={handleFeedback}
+                    failed={message.failed}
+                  />
+                ))}
+                
+                {/* Escalation prompt */}
+                {showEscalation && !isStreaming && (
+                  <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 space-y-2">
+                    <p className="text-sm">
+                      Sepertinya pertanyaan ini perlu bantuan langsung. Ingin dihubungkan ke tim support?
+                    </p>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="default" className="rounded-xl text-xs" onClick={handleEscalateToLiveChat}>
+                        <MessageCircle className="h-3 w-3 mr-1" />
+                        Ya, hubungkan
+                      </Button>
+                      <Button size="sm" variant="outline" className="rounded-xl text-xs" onClick={() => setShowEscalation(false)}>
+                        Tidak, terima kasih
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Retry button */}
+                {hasFailed && !isStreaming && (
+                  <div className="flex justify-center">
+                    <Button variant="outline" size="sm" onClick={handleRetry} className="gap-2">
+                      <RefreshCw className="h-4 w-4" />
+                      Coba Lagi
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
-      </ScrollArea>
+          </ScrollArea>
 
-      {/* Input */}
-      <form onSubmit={handleSubmit} className="flex gap-2 border-t p-3 bg-background shrink-0 safe-area-bottom">
-        <Input
-          value={input}
-          onChange={(e) => setInput(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
-          placeholder="Ketik pesan..."
-          disabled={isStreaming || !isOnline}
-          className="flex-1 rounded-full h-10"
-          maxLength={MAX_MESSAGE_LENGTH}
-        />
-        <Button 
-          type="submit" 
-          size="icon" 
-          disabled={isStreaming || !input.trim() || !isOnline} 
-          className="rounded-full h-10 w-10 shrink-0"
-          aria-label="Kirim"
-        >
-          {isStreaming ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="h-4 w-4" />
-          )}
-        </Button>
-      </form>
+          {/* Input */}
+          <form onSubmit={handleSubmit} className="flex gap-2 border-t p-3 bg-background shrink-0 safe-area-bottom">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
+              placeholder="Ketik pesan..."
+              disabled={isStreaming || !isOnline}
+              className="flex-1 rounded-full h-10"
+              maxLength={MAX_MESSAGE_LENGTH}
+            />
+            <Button 
+              type="submit" 
+              size="icon" 
+              disabled={isStreaming || !input.trim() || !isOnline} 
+              className="rounded-full h-10 w-10 shrink-0"
+              aria-label="Kirim"
+            >
+              {isStreaming ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </Button>
+          </form>
+        </>
+      )}
+
+      {activeTab === "faq" && <FaqTab />}
+      {activeTab === "livechat" && <LiveChatTab />}
     </div>
   );
 }
