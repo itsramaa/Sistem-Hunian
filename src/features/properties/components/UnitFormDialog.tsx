@@ -24,6 +24,7 @@ interface UnitFormDialogProps {
   properties: Property[];
   onSubmit: (data: UnitFormData) => Promise<void>;
   isLoading: boolean;
+  preselectedPropertyId?: string;
 }
 
 const STEPS = [
@@ -33,7 +34,7 @@ const STEPS = [
   { label: 'Media', icon: ImageIcon },
 ];
 
-export const UnitFormDialog = ({ open, onOpenChange, unit, properties, onSubmit, isLoading }: UnitFormDialogProps) => {
+export const UnitFormDialog = ({ open, onOpenChange, unit, properties, onSubmit, isLoading, preselectedPropertyId }: UnitFormDialogProps) => {
   const [step, setStep] = useState(0);
   const { register, handleSubmit, setValue, watch, reset, trigger, formState: { errors } } = useForm<UnitFormData>({
     resolver: zodResolver(unitSchema),
@@ -84,8 +85,9 @@ export const UnitFormDialog = ({ open, onOpenChange, unit, properties, onSubmit,
         additional_costs: unit.additional_costs || [],
       });
     } else {
+      const defaultPropertyId = preselectedPropertyId || (properties.length === 1 ? properties[0].id : "");
       reset({
-        property_id: properties.length === 1 ? properties[0].id : "",
+        property_id: defaultPropertyId,
         unit_number: "", unit_type: "", floor: null, size_sqm: null,
         rent_amount: 0, deposit_amount: null, status: "available", description: "", photos: [],
         occupancy_type: "single",
@@ -136,7 +138,7 @@ export const UnitFormDialog = ({ open, onOpenChange, unit, properties, onSubmit,
           {/* Step 0: Info Unit */}
           {step === 0 && (
             <div className="space-y-4">
-              {properties.length > 1 && (
+              {properties.length > 1 && !preselectedPropertyId && (
                 <div className="space-y-2">
                   <Label>Properti <span className="text-destructive">*</span></Label>
                   <Select value={watch("property_id")} onValueChange={(v) => setValue("property_id", v, { shouldValidate: true })}>

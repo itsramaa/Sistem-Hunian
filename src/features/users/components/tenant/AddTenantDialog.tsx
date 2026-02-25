@@ -18,6 +18,7 @@ interface AddTenantDialogProps {
   properties: Property[];
   onSubmit: (data: AddTenantFormData) => void;
   isLoading: boolean;
+  preselectedPropertyId?: string;
 }
 
 const STEPS = [
@@ -26,7 +27,7 @@ const STEPS = [
   { label: 'Kontrak', icon: Building2, description: 'Tanggal & harga' },
 ];
 
-export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLoading }: AddTenantDialogProps) {
+export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLoading, preselectedPropertyId }: AddTenantDialogProps) {
   const [step, setStep] = useState(0);
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors }, trigger } = useForm<AddTenantFormData>({
@@ -36,7 +37,7 @@ export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLo
       email: '',
       password: '',
       phone: '',
-      property_id: '',
+      property_id: preselectedPropertyId || '',
       unit_id: '',
       start_date: '',
       end_date: '',
@@ -148,24 +149,26 @@ export function AddTenantDialog({ open, onOpenChange, properties, onSubmit, isLo
                   <p className="text-xs text-muted-foreground">{watch('email')}</p>
                 </div>
               </div>
-              <div>
-                <Label>Property *</Label>
-                <Select value={selectedPropertyId} onValueChange={(v) => { setValue('property_id', v, { shouldValidate: true }); setValue('unit_id', ''); }}>
-                  <SelectTrigger className={inputCls}><SelectValue placeholder="Pilih property" /></SelectTrigger>
-                  <SelectContent>
-                    {properties.map(p => (
-                      <SelectItem key={p.id} value={p.id}>
-                        <div className="flex items-center gap-2">
-                          <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                          {p.name}
-                          <Badge variant="secondary" className="text-[10px] ml-1 rounded-full">{p.property_type}</Badge>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.property_id && <p className="text-sm text-destructive mt-1">{errors.property_id.message}</p>}
-              </div>
+              {!preselectedPropertyId && (
+                <div>
+                  <Label>Property *</Label>
+                  <Select value={selectedPropertyId} onValueChange={(v) => { setValue('property_id', v, { shouldValidate: true }); setValue('unit_id', ''); }}>
+                    <SelectTrigger className={inputCls}><SelectValue placeholder="Pilih property" /></SelectTrigger>
+                    <SelectContent>
+                      {properties.map(p => (
+                        <SelectItem key={p.id} value={p.id}>
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                            {p.name}
+                            <Badge variant="secondary" className="text-[10px] ml-1 rounded-full">{p.property_type}</Badge>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.property_id && <p className="text-sm text-destructive mt-1">{errors.property_id.message}</p>}
+                </div>
+              )}
               <div>
                 <Label>Unit Tersedia *</Label>
                 <Select value={watch('unit_id')} onValueChange={(v) => {

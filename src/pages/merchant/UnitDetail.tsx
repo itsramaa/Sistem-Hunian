@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PhotoLightbox } from '@/shared/components/PhotoLightbox';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/integrations/supabase/client';
@@ -90,6 +91,10 @@ export default function UnitDetail() {
   const propertyId = unit?.property?.id || '';
   const { updateUnit, isUpdating } = useUnits(propertyId);
 
+  // Lightbox
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
   if (isLoading) return <UnitDetailSkeleton />;
 
   if (error || !unit) {
@@ -172,8 +177,8 @@ export default function UnitDetail() {
             <CarouselContent>
               {unit.photos.map((img: string, i: number) => (
                 <CarouselItem key={i} className="basis-full md:basis-1/2 lg:basis-1/3">
-                  <div className="h-56 rounded-2xl overflow-hidden">
-                    <img src={img} alt={`Unit ${unit.unit_number} - Foto ke-${i + 1}`} className="w-full h-full object-cover" loading="lazy" />
+                  <div className="h-56 rounded-2xl overflow-hidden cursor-pointer" onClick={() => { setLightboxIndex(i); setLightboxOpen(true); }}>
+                    <img src={img} alt={`Unit ${unit.unit_number} - Foto ke-${i + 1}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" loading="lazy" />
                   </div>
                 </CarouselItem>
               ))}
@@ -197,6 +202,15 @@ export default function UnitDetail() {
           </div>
         </div>
       )}
+
+      {/* Photo Lightbox */}
+      <PhotoLightbox
+        images={unit.photos || []}
+        initialIndex={lightboxIndex}
+        open={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+        alt={`Unit ${unit.unit_number}`}
+      />
 
       {/* Stats Cards */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4" role="region" aria-label="Statistik unit">

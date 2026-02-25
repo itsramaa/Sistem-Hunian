@@ -6,6 +6,7 @@ import { DISASTER_TYPES, DOC_TYPE_LABELS, DOC_TYPES, INCIDENT_TYPES, POLICY_TYPE
 import type { ComplianceDocument, DisasterRiskProfile, InsurancePolicy, SecurityIncident } from '@/features/compliance/types';
 import { complianceService } from '@/features/compliance/services/complianceService';
 import { RiskScoreIndicator } from '@/shared/components/dss/RiskScoreIndicator';
+import { OcrCameraButton } from '@/shared/components/OcrCameraButton';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
@@ -15,10 +16,10 @@ import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { Textarea } from '@/shared/components/ui/textarea';
-import { AlertTriangle, FileText, Loader2, Plus, ScanText, Shield, ShieldAlert, Umbrella, Upload } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { AlertTriangle, FileText, Loader2, Plus, Shield, ShieldAlert, Umbrella } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 interface PropertyComplianceProps {
@@ -148,7 +149,6 @@ function DisasterRiskTab({ propertyId, merchantId, profile }: { propertyId: stri
     notes: profile?.notes || '',
   });
 
-  // Auto-calculate risk score when dropdowns change
   useEffect(() => {
     const score = calculateRiskScore(form);
     setForm(f => ({ ...f, overall_risk_score: score }));
@@ -165,11 +165,7 @@ function DisasterRiskTab({ propertyId, merchantId, profile }: { propertyId: stri
   };
 
   const riskFields: Record<string, string> = {
-    risk_zone: 'Zona Risiko',
-    flood_risk: 'Risiko Banjir',
-    earthquake_risk: 'Risiko Gempa',
-    landslide_risk: 'Risiko Tanah Longsor',
-    fire_risk: 'Risiko Kebakaran',
+    risk_zone: 'Zona Risiko', flood_risk: 'Risiko Banjir', earthquake_risk: 'Risiko Gempa', landslide_risk: 'Risiko Tanah Longsor', fire_risk: 'Risiko Kebakaran',
   };
 
   return (
@@ -186,9 +182,7 @@ function DisasterRiskTab({ propertyId, merchantId, profile }: { propertyId: stri
               <Label className="text-xs">{riskFields[field]}</Label>
               <Select value={form[field]} onValueChange={v => setForm(f => ({ ...f, [field]: v }))}>
                 <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {RISK_LEVELS.map(l => <SelectItem key={l} value={l}>{RISK_LABEL[l]}</SelectItem>)}
-                </SelectContent>
+                <SelectContent>{RISK_LEVELS.map(l => <SelectItem key={l} value={l}>{RISK_LABEL[l]}</SelectItem>)}</SelectContent>
               </Select>
             </div>
           ))}
@@ -208,7 +202,6 @@ function DisasterRiskTab({ propertyId, merchantId, profile }: { propertyId: stri
           {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}Simpan Profil Risiko
         </Button>
 
-        {/* Disaster History */}
         {profile?.disaster_history && profile.disaster_history.length > 0 && (
           <div className="mt-6 space-y-2">
             <h4 className="font-semibold text-sm">Riwayat Bencana</h4>
@@ -246,12 +239,17 @@ function InsuranceTab({ propertyId, merchantId, policies }: { propertyId: string
     setSaving(false);
   };
 
+  const handleOcrExtracted = (data: Record<string, any>) => {
+    if (data.policy_number) setForm(f => ({ ...f, policy_number: String(data.policy_number) }));
+    if (data.provider) setForm(f => ({ ...f, provider: String(data.provider) }));
+    if (data.coverage_amount) setForm(f => ({ ...f, coverage_amount: Number(data.coverage_amount) || 0 }));
+    if (data.premium_amount) setForm(f => ({ ...f, premium_amount: Number(data.premium_amount) || 0 }));
+    if (data.start_date) setForm(f => ({ ...f, start_date: String(data.start_date) }));
+    if (data.end_date) setForm(f => ({ ...f, end_date: String(data.end_date) }));
+  };
+
   const policyTypeLabels: Record<string, string> = {
-    comprehensive: 'Komprehensif',
-    fire: 'Kebakaran',
-    flood: 'Banjir',
-    earthquake: 'Gempa Bumi',
-    liability: 'Tanggung Jawab Hukum',
+    comprehensive: 'Komprehensif', fire: 'Kebakaran', flood: 'Banjir', earthquake: 'Gempa Bumi', liability: 'Tanggung Jawab Hukum',
   };
 
   return (
@@ -266,6 +264,14 @@ function InsuranceTab({ propertyId, merchantId, policies }: { propertyId: string
           <DialogContent className="rounded-2xl">
             <DialogHeader><DialogTitle>Tambah Polis Asuransi</DialogTitle></DialogHeader>
             <div className="grid gap-3">
+              <OcrCameraButton
+                label="Scan Dokumen Polis"
+                bucket="verification-documents"
+                edgeFunction="ocr-compliance-document"
+                extraPayload={{ property_id: propertyId, expected_type: 'insurance_policy' }}
+                onExtracted={handleOcrExtracted}
+                size="sm"
+              />
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1"><Label className="text-xs">No. Polis</Label><Input className="rounded-xl" value={form.policy_number} onChange={e => setForm(f => ({ ...f, policy_number: e.target.value }))} /></div>
                 <div className="space-y-1"><Label className="text-xs">Provider</Label><Input className="rounded-xl" value={form.provider} onChange={e => setForm(f => ({ ...f, provider: e.target.value }))} /></div>
@@ -345,6 +351,14 @@ function ComplianceDocsTab({ propertyId, merchantId, docs }: { propertyId: strin
     setSaving(false);
   };
 
+  const handleOcrExtracted = (data: Record<string, any>) => {
+    if (data.document_name) setForm(f => ({ ...f, document_name: String(data.document_name) }));
+    if (data.document_type) setForm(f => ({ ...f, document_type: String(data.document_type) }));
+    if (data.issue_date) setForm(f => ({ ...f, issue_date: String(data.issue_date) }));
+    if (data.expiry_date) setForm(f => ({ ...f, expiry_date: String(data.expiry_date) }));
+    if (data.notes) setForm(f => ({ ...f, notes: String(data.notes) }));
+  };
+
   const isExpired = (d: ComplianceDocument) => d.expiry_date && new Date(d.expiry_date) < new Date();
 
   return (
@@ -355,7 +369,14 @@ function ComplianceDocsTab({ propertyId, merchantId, docs }: { propertyId: strin
           <CardDescription>IMB, PBB, sertifikat, polis</CardDescription>
         </div>
         <div className="flex gap-2">
-          <OcrScanButton propertyId={propertyId} />
+          <OcrCameraButton
+            label="Scan Dokumen"
+            bucket="verification-documents"
+            edgeFunction="ocr-compliance-document"
+            extraPayload={{ property_id: propertyId, expected_type: 'compliance_document' }}
+            onExtracted={handleOcrExtracted}
+            size="sm"
+          />
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild><Button size="sm" className="rounded-xl"><Plus className="h-4 w-4 mr-1" />Tambah</Button></DialogTrigger>
           <DialogContent className="rounded-2xl">
@@ -415,6 +436,32 @@ function SecurityTab({ propertyId, merchantId, incidents }: { propertyId: string
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ incident_date: '', incident_type: 'theft', severity: 'low', description: '', location_detail: '', reported_by: '', damage_cost: 0 });
+  const [reportedByMode, setReportedByMode] = useState<'select' | 'custom'>('select');
+
+  // Fetch guardians and tenants for reported_by dropdown
+  const { data: guardians = [] } = useQuery({
+    queryKey: ['property-guardians-list', propertyId],
+    queryFn: async () => {
+      const { data } = await (supabase.from as any)('property_guardians').select('id, name').eq('property_id', propertyId).eq('status', 'active');
+      return data || [];
+    },
+    enabled: !!propertyId,
+  });
+
+  const { data: tenants = [] } = useQuery({
+    queryKey: ['property-tenants-list', propertyId],
+    queryFn: async () => {
+      const { data: units } = await supabase.from('units').select('id').eq('property_id', propertyId);
+      if (!units || units.length === 0) return [];
+      const unitIds = units.map(u => u.id);
+      const { data: contracts } = await supabase.from('contracts').select('tenant_user_id').in('unit_id', unitIds).eq('status', 'active');
+      if (!contracts || contracts.length === 0) return [];
+      const tenantIds = [...new Set(contracts.map(c => c.tenant_user_id))];
+      const { data: profiles } = await supabase.from('profiles').select('user_id, full_name').in('user_id', tenantIds);
+      return profiles || [];
+    },
+    enabled: !!propertyId,
+  });
 
   const handleCreate = async () => {
     setSaving(true);
@@ -433,20 +480,11 @@ function SecurityTab({ propertyId, merchantId, incidents }: { propertyId: string
   const severityColor: Record<string, string> = { low: 'text-muted-foreground', medium: 'text-warning', high: 'text-destructive', critical: 'text-destructive' };
 
   const incidentTypeLabels: Record<string, string> = {
-    theft: 'Pencurian',
-    vandalism: 'Vandalisme',
-    fire: 'Kebakaran',
-    flood: 'Banjir',
-    break_in: 'Pembobolan',
-    harassment: 'Pelecehan',
-    other: 'Lainnya',
+    theft: 'Pencurian', vandalism: 'Vandalisme', fire: 'Kebakaran', flood: 'Banjir', break_in: 'Pembobolan', harassment: 'Pelecehan', other: 'Lainnya',
   };
 
   const statusLabels: Record<string, string> = {
-    open: 'Terbuka',
-    investigating: 'Investigasi',
-    resolved: 'Selesai',
-    closed: 'Ditutup',
+    open: 'Terbuka', investigating: 'Investigasi', resolved: 'Selesai', closed: 'Ditutup',
   };
 
   return (
@@ -484,7 +522,38 @@ function SecurityTab({ propertyId, merchantId, incidents }: { propertyId: string
               <div className="space-y-1"><Label className="text-xs">Deskripsi</Label><Textarea className="rounded-xl" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1"><Label className="text-xs">Lokasi Detail</Label><Input className="rounded-xl" value={form.location_detail} onChange={e => setForm(f => ({ ...f, location_detail: e.target.value }))} /></div>
-                <div className="space-y-1"><Label className="text-xs">Dilaporkan Oleh</Label><Input className="rounded-xl" value={form.reported_by} onChange={e => setForm(f => ({ ...f, reported_by: e.target.value }))} /></div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Dilaporkan Oleh</Label>
+                  {reportedByMode === 'select' ? (
+                    <Select value={form.reported_by} onValueChange={v => {
+                      if (v === '__custom__') { setReportedByMode('custom'); setForm(f => ({ ...f, reported_by: '' })); }
+                      else setForm(f => ({ ...f, reported_by: v }));
+                    }}>
+                      <SelectTrigger className="rounded-xl"><SelectValue placeholder="Pilih pelapor" /></SelectTrigger>
+                      <SelectContent>
+                        {guardians.length > 0 && (
+                          <>
+                            <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase">Penjaga</div>
+                            {guardians.map((g: any) => <SelectItem key={`g-${g.id}`} value={g.name}>{g.name}</SelectItem>)}
+                          </>
+                        )}
+                        {tenants.length > 0 && (
+                          <>
+                            <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase">Penyewa</div>
+                            {tenants.map((t: any) => <SelectItem key={`t-${t.user_id}`} value={t.full_name || 'Penyewa'}>{t.full_name || 'Penyewa'}</SelectItem>)}
+                          </>
+                        )}
+                        <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase">Lainnya</div>
+                        <SelectItem value="__custom__">Ketik manual...</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="flex gap-1">
+                      <Input className="rounded-xl flex-1" placeholder="Nama pelapor" value={form.reported_by} onChange={e => setForm(f => ({ ...f, reported_by: e.target.value }))} />
+                      <Button type="button" variant="ghost" size="sm" className="rounded-xl text-xs" onClick={() => setReportedByMode('select')}>List</Button>
+                    </div>
+                  )}
+                </div>
               </div>
               <Button onClick={handleCreate} disabled={saving} className="rounded-xl gradient-cta">{saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}Simpan</Button>
             </div>
@@ -514,41 +583,5 @@ function SecurityTab({ propertyId, merchantId, incidents }: { propertyId: string
         )}
       </CardContent>
     </Card>
-  );
-}
-
-// ====== OCR Scan Button ======
-function OcrScanButton({ propertyId }: { propertyId: string }) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const ocrMutation = useOcrCompliance(propertyId);
-  const [uploading, setUploading] = useState(false);
-
-  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const path = `compliance/${propertyId}/${Date.now()}_${file.name}`;
-      const { error } = await supabase.storage.from('verification-documents').upload(path, file);
-      if (error) throw error;
-      await ocrMutation.mutateAsync({ document_path: path, property_id: propertyId });
-    } catch (err: any) {
-      toast.error(`Upload gagal: ${err.message}`);
-    } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = '';
-    }
-  };
-
-  const busy = uploading || ocrMutation.isPending;
-
-  return (
-    <>
-      <input ref={fileRef} type="file" accept="image/*,.pdf" className="hidden" onChange={handleFile} />
-      <Button size="sm" variant="outline" className="rounded-xl gap-1.5" disabled={busy} onClick={() => fileRef.current?.click()}>
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanText className="h-4 w-4" />}
-        Scan Dokumen
-      </Button>
-    </>
   );
 }
