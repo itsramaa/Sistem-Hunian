@@ -1,177 +1,126 @@
 
+# UI/UX Improvements: Data Quality, Guardian Select, Scrollbar, Tenant Creation, Settings Cleanup, and Mobile Sidebar
 
-# Dokumen ke Alat, Support Revamp, Feedback Page, Signature Feature, dan Customer Service Floating Button
+## 1. Remove Data Quality Tab from Property Detail
 
-## 1. Pindahkan Dokumen ke Alat (InsightsHub) dan Hapus dari Sidebar
+Remove the "Kualitas Data" tab from `PropertyDetail.tsx`. It already exists as a standalone page at `/merchant/data-quality` accessible via the Alat/InsightsHub card.
 
-**Saat ini:** "Dokumen" adalah item sidebar terpisah di grup Wawasan.
-**Perubahan:** Hapus dari sidebar, tambahkan sebagai card di InsightsHub (seperti Kualitas Data).
+**File:** `src/pages/merchant/PropertyDetail.tsx`
+- Remove `data-quality` from `validTabs` array
+- Remove the `data-quality` option from the "Lainnya" dropdown menu
+- Remove the `TabsContent value="data-quality"` section
+- Remove the `LazyDataQuality` import if no longer needed
 
-**File yang diubah:**
-- `navigation-config.ts`: Hapus `{ path: "/merchant/documents", ... }` dari mainNav, tambahkan `/merchant/documents` ke `activePatterns` item "Alat"
-- `InsightsHub.tsx`: Tambah card "Pusat Dokumen" di section Performa dengan icon FileSearch dan path `/merchant/documents`
+## 2. Guardian Select in Property Form (Instead of Manual Input)
 
-## 2. Revamp Support Page -- Hapus "Hubungi Kami", Fokus FAQ/Help
+Replace the manual "Info Penjaga" input fields in `PropertyFormDialog.tsx` (Step 2) with a Select dropdown that lists existing guardians. Add a "Tambah Penjaga Baru" button that opens the `GuardianFormDialog`.
 
-**Saat ini:** Support page punya form "Hubungi Kami", kontak langsung (email, WhatsApp, jam operasional)
-**Perubahan:**
-- Hapus seluruh "Contact Form" card dan "Kontak Langsung" card
-- Pertahankan FAQ section dan perluas dengan lebih banyak kategori
-- Tambah tombol "Tanya AI Assistant" yang membuka floating AI chatbot
-- Pertahankan "Link Berguna" dan "Status Sistem" cards
-- Sidebar secondary nav: ubah "Support" menjadi "Bantuan" yang tetap link ke `/merchant/support`
+**File:** `src/features/properties/components/PropertyFormDialog.tsx`
+- Remove `guardian_name` and `guardian_phone` from schema (they stay in DB but populated via guardian assignment)
+- Replace manual inputs with a `Select` dropdown fetching guardians from `property_guardians` table
+- Add a `useState` for opening `GuardianFormDialog` inline
+- Store selected `guardian_id` instead of name/phone (or keep name/phone populated from selected guardian)
+- Add "Tambah Baru" button next to the Select
 
-**File yang diubah:**
-- `Support.tsx`: Hapus contact form & kontak langsung, tambah AI assistant CTA button
+**File:** `src/features/properties/components/GuardianFormDialog.tsx`
+- Add `photo_url` field to the schema
+- Add `FileUpload` component for photo upload (using `property-images` bucket)
+- Display photo preview when editing existing guardian
 
-## 3. Buat Page Feedback untuk Merchant
+## 3. Guardian Form Photo Upload
 
-**Baru:** Page `/merchant/feedback` untuk merchant memberikan masukan lengkap.
+**File:** `src/features/properties/components/GuardianFormDialog.tsx`
+- Add `photo_url` to the zod schema (optional string)
+- Add `FileUpload` or `UnitPhotoUpload` component for photo upload
+- Show existing photo when editing a guardian
+- Save `photo_url` to the `property_guardians` table (column already exists)
 
-Fitur:
-- Form dengan kategori (Fitur, Bug, UX, Lainnya)
-- Rating bintang (1-5) untuk kepuasan
-- Text area untuk deskripsi detail
-- Screenshot upload opsional (via FileUpload)
-- Riwayat feedback yang pernah dikirim
-- Data disimpan ke tabel `merchant_feedback` di database
+## 4. Global Scrollbar Styling
 
-**File baru:**
-- `src/pages/merchant/Feedback.tsx`
+Make all scrollbars match the sidebar's dark, eye-catching scrollbar style.
 
-**File yang diubah:**
-- `App.tsx`: Tambah route `/merchant/feedback`
-- `app-sidebar.tsx`: Ubah secondary nav "Feedback" dari `mailto:` menjadi link ke `/merchant/feedback`
+**File:** `src/index.css`
+- Update `.custom-scrollbar` to use a more visible, styled thumb (e.g., `hsl(var(--primary) / 0.3)` thumb with rounded corners)
+- Apply global scrollbar styles to `*` or `body` so all scrollable areas get the same look
+- Make the scrollbar thumb more visible with hover effect matching sidebar style
 
-**Database migration:** Buat tabel `merchant_feedback` dengan kolom: id, merchant_id, user_id, category, rating, message, screenshot_url, status (pending/reviewed/resolved), created_at
+## 5. Change "Tambah Tenant" to Create Account (Not Select)
 
-## 4. Tambahkan Fitur Signature Dialog Standalone
+Transform `AddTenantDialog` from "pick existing tenant" to "create new tenant account" flow.
 
-**Saat ini:** SignaturePad sudah ada di `src/features/signature/components/SignaturePad.tsx` dan dipakai di SignContractDialog dan MoveOutInspectionForm.
+**Step 1 changes:** Remove tenant picker. Replace with form fields: email, password, full name, phone (basic info only for login access).
 
-**Perubahan:** Buat dialog reusable `SignatureDialog` yang bisa dipanggil dari mana saja untuk menandatangani dokumen, lalu menyimpan signature sebagai image.
+**File:** `src/features/users/components/tenant/AddTenantDialog.tsx`
+- Step 1: Show email, password, full_name, phone fields (create account)
+- Step 2: Property & unit selection (keep as-is)
+- Step 3: Contract details (keep as-is)
+- On submit: call an edge function or Supabase admin API to create the user account, then create the contract
 
-**File baru:**
-- `src/features/signature/components/SignatureDialog.tsx`: Dialog wrapper yang berisi SignaturePad, preview hasil, dan tombol save. Menerima props `onSave(dataUrl: string)`, `title`, `description`.
+**File:** `src/features/users/types/addTenantSchema.ts`
+- Add `password` field with strong password validation (min 12 chars per security policy)
+- Keep existing fields
 
-Komponen ini bisa diintegrasikan ke halaman mana pun yang membutuhkan tanda tangan digital.
+**File:** `src/features/users/services/merchantTenantService.ts`
+- Update `addTenantDirectly` to call an edge function that creates the user via `supabase.auth.admin.createUser()` (since client can't create users for others)
+- The edge function creates user, profile, user_role, then returns user_id for contract creation
 
-## 5. Upgrade Floating AI Button Menjadi Customer Service Hub
+**New edge function:** `supabase/functions/create-tenant-account/index.ts`
+- Accepts: email, password, full_name, phone, merchant_id
+- Creates user via admin API with email confirmed
+- Creates profile, user_role (tenant), and links to merchant
+- Returns user_id
 
-**Saat ini:** Floating button hanya membuka AI chatbot (ChatbotDialog).
-**Perubahan:** Transformasi menjadi Customer Service Hub seperti e-commerce best practice:
+## 6. Settings: Remove Theme Tab, Remove "Perbankan" from Profile
 
-### A. Multi-Tab Interface di ChatbotDialog
-Tambah tab navigation di header chatbot:
-- **AI Assistant** (tab default): Chatbot AI yang sudah ada, sesuai role
-- **FAQ** (tab kedua): Quick FAQ accordion inline tanpa navigate ke page lain
-- **Live Chat** (tab ketiga): Chat langsung ke admin (real-time via database)
+**File:** `src/pages/merchant/Settings.tsx`
+- Remove the "Tema" tab and its `TabsContent`
+- Remove theme-related imports (`useTheme`, `RadioGroup`, `Palette`)
+- Move "Keamanan" (password change) content to Profile page
+- Default tab becomes "notifications"
 
-### B. Live Chat Implementation
-- Buat tabel `live_chat_conversations` (id, user_id, merchant_id, role, status: open/closed, created_at, updated_at)
-- Buat tabel `live_chat_messages` (id, conversation_id, sender_id, sender_role, message, created_at)
-- Enable realtime pada `live_chat_messages`
-- Di sisi merchant: jika AI tidak bisa menjawab, tampilkan tombol "Hubungi Admin" yang switch ke tab Live Chat
-- Di sisi admin: tambah page `/admin/live-chat` untuk melihat dan membalas pesan live chat
+**File:** `src/pages/merchant/Profile.tsx`
+- Remove "Perbankan" tab (it's already in Settings)
+- Add "Keamanan" tab with the password change form (moved from Settings)
+- Profile tabs: Bisnis, Verifikasi, Keamanan
 
-### C. AI Escalation Flow
-- Jika AI merespons dengan confidence rendah atau user mengetik "hubungi admin" / "bicara dengan manusia", tampilkan prompt: "Sepertinya pertanyaan ini perlu bantuan langsung. Ingin dihubungkan ke tim support?"
-- Jika user klik ya, auto-switch ke tab Live Chat dan buat conversation baru
+## 7. Mobile Sidebar Navigation for Merchant
 
-### D. Visual Updates
-- Floating button tetap sama (MessageCircle icon)
-- Dialog header: tambah 3 tab pills (AI / FAQ / Live Chat)
-- Badge notifikasi di tab Live Chat jika ada pesan baru dari admin
+Currently merchant on mobile only has `MobileHeader` with breadcrumbs but no way to navigate between sections (no sidebar, no bottom nav). Need to add a hamburger menu that opens a slide-out sidebar.
+
+**File:** `src/shared/components/layouts/MobileHeader.tsx`
+- Add a hamburger/menu button (visible when `!config.hasBottomNav`)
+- On click, open a Sheet/Drawer from the left showing the full navigation menu (same items as desktop sidebar)
+
+**New file:** `src/shared/components/layouts/MobileSidebarSheet.tsx`
+- Sheet component that slides from left
+- Renders the same navigation groups from `navigationConfig[role].mainNav`
+- Includes role brand header
+- Closes on nav item click
 
 ---
 
-## Files Summary
+## Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/shared/components/layouts/navigation-config.ts` | Hapus Dokumen dari sidebar, tambah ke activePatterns Alat |
-| `src/pages/merchant/InsightsHub.tsx` | Tambah card Pusat Dokumen |
-| `src/pages/merchant/Support.tsx` | Hapus contact form & kontak langsung, tambah AI CTA |
-| `src/pages/merchant/Feedback.tsx` | **Baru**: Page feedback lengkap |
-| `src/App.tsx` | Tambah route feedback, lazy import |
-| `src/shared/components/layouts/sidebar/app-sidebar.tsx` | Ubah secondary nav: Support -> Bantuan, Feedback -> link ke /feedback page |
-| `src/features/signature/components/SignatureDialog.tsx` | **Baru**: Reusable signature dialog |
-| `src/features/chatbot/components/ChatbotDialog.tsx` | Refactor jadi multi-tab: AI / FAQ / Live Chat |
-| `src/features/chatbot/components/LiveChatTab.tsx` | **Baru**: Live chat tab component |
-| `src/features/chatbot/components/FaqTab.tsx` | **Baru**: Inline FAQ tab component |
-
-## Database Migrations
-
-```sql
--- Tabel feedback merchant
-CREATE TABLE public.merchant_feedback (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  merchant_id UUID REFERENCES public.merchants(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL,
-  category TEXT NOT NULL CHECK (category IN ('feature', 'bug', 'ux', 'other')),
-  rating INTEGER CHECK (rating BETWEEN 1 AND 5),
-  message TEXT NOT NULL,
-  screenshot_url TEXT,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'resolved')),
-  admin_response TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Tabel live chat
-CREATE TABLE public.live_chat_conversations (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,
-  user_role TEXT NOT NULL,
-  merchant_id UUID REFERENCES public.merchants(id),
-  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed', 'waiting')),
-  subject TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE TABLE public.live_chat_messages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  conversation_id UUID REFERENCES public.live_chat_conversations(id) ON DELETE CASCADE,
-  sender_id UUID NOT NULL,
-  sender_role TEXT NOT NULL,
-  message TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Enable realtime for live chat
-ALTER PUBLICATION supabase_realtime ADD TABLE public.live_chat_messages;
-
--- RLS policies
-ALTER TABLE public.merchant_feedback ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.live_chat_conversations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.live_chat_messages ENABLE ROW LEVEL SECURITY;
-
--- Feedback: merchant can insert/read own
-CREATE POLICY "Users can insert own feedback" ON public.merchant_feedback FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can read own feedback" ON public.merchant_feedback FOR SELECT USING (auth.uid() = user_id);
--- Admin can read/update all feedback
-CREATE POLICY "Admin can manage feedback" ON public.merchant_feedback FOR ALL USING (public.has_role(auth.uid(), 'admin'));
-
--- Live chat: users see own conversations
-CREATE POLICY "Users see own conversations" ON public.live_chat_conversations FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users create own conversations" ON public.live_chat_conversations FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Admin manage all conversations" ON public.live_chat_conversations FOR ALL USING (public.has_role(auth.uid(), 'admin'));
-
--- Live chat messages: participants can see/send
-CREATE POLICY "Participants see messages" ON public.live_chat_messages FOR SELECT USING (
-  EXISTS (SELECT 1 FROM public.live_chat_conversations WHERE id = conversation_id AND (user_id = auth.uid() OR public.has_role(auth.uid(), 'admin')))
-);
-CREATE POLICY "Participants send messages" ON public.live_chat_messages FOR INSERT WITH CHECK (auth.uid() = sender_id);
-CREATE POLICY "Admin manage messages" ON public.live_chat_messages FOR ALL USING (public.has_role(auth.uid(), 'admin'));
-```
+| `src/pages/merchant/PropertyDetail.tsx` | Remove data-quality tab |
+| `src/features/properties/components/PropertyFormDialog.tsx` | Guardian select dropdown + add new button |
+| `src/features/properties/components/GuardianFormDialog.tsx` | Add photo upload field |
+| `src/index.css` | Global scrollbar styling |
+| `src/features/users/components/tenant/AddTenantDialog.tsx` | Create account flow instead of select |
+| `src/features/users/types/addTenantSchema.ts` | Add password field |
+| `src/features/users/services/merchantTenantService.ts` | Call edge function for user creation |
+| `supabase/functions/create-tenant-account/index.ts` | **New**: Edge function to create tenant user |
+| `src/pages/merchant/Settings.tsx` | Remove Theme tab, remove Security (moved to Profile) |
+| `src/pages/merchant/Profile.tsx` | Remove Perbankan tab, add Keamanan tab |
+| `src/shared/components/layouts/MobileHeader.tsx` | Add hamburger menu button |
+| `src/shared/components/layouts/MobileSidebarSheet.tsx` | **New**: Mobile navigation sheet |
 
 ## Technical Notes
 
-- Live Chat menggunakan Supabase Realtime untuk pesan instan antara user dan admin
-- AI escalation: deteksi keyword "hubungi admin", "bicara manusia", "live chat" di pesan user atau setelah 2x AI gagal menjawab
-- SignatureDialog adalah wrapper tipis di atas SignaturePad yang sudah ada -- tidak duplikasi logic canvas
-- Feedback page menggunakan FileUpload yang sudah ada untuk screenshot upload ke bucket `verification-documents`
-- FAQ tab di chatbot menggunakan data yang sama dengan Support page (shared constant)
-- Referral sudah ada di sidebar dari perubahan sebelumnya, tidak perlu diubah lagi
-
+- `property_guardians.photo_url` column already exists in the database -- no migration needed for photo upload
+- Edge function `create-tenant-account` uses `SUPABASE_SERVICE_ROLE_KEY` (already configured) for admin user creation
+- The tenant account is created with email auto-confirmed so they can login immediately
+- Guardian select in property form queries guardians filtered by merchant_id
+- Global scrollbar uses CSS custom properties matching the design system's primary color
+- Mobile sidebar sheet uses the same `navigationConfig` data as desktop sidebar for consistency
