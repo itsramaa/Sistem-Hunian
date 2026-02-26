@@ -1,83 +1,126 @@
 
 
-# Implementasi 1.1: Drop Data Duplikasi dari Merchants Table
+# Implementasi 1.2: Konsolidasi Referral Data dari Merchants Table
 
 ## Ringkasan
 
-Menghapus 3 kolom duplikat (`subscription_tier`, `disbursement_schedule`, `billing_day`) dari tabel `merchants` dan memigrasikan semua referensi ke `merchant_subscriptions`.
+Menghapus 3 kolom referral duplikat (`referred_by`, `referral_discount`, `referral_discount_months`) dari tabel `merchants` dan membuat view `merchant_referral_summary` sebagai pengganti.
 
 ## Status Audit
 
-| Kolom | Masih digunakan di | Rencana |
-|-------|-------------------|---------|
-| `subscription_tier` | **Tidak ada** - semua code sudah pakai `merchant_subscriptions.subscription_tiers.name` | Langsung drop |
-| `disbursement_schedule` | 2 file: `scheduled-disbursement` edge function + `DisbursementScheduleSettings.tsx` (fallback) | Migrate ke `merchant_subscriptions`, update code, drop |
-| `billing_day` | 2 file: `auto-generate-invoices` edge function + `DisbursementScheduleSettings.tsx` (fallback) | Migrate ke `merchant_subscriptions`, update code, drop |
+| Kolom | Digunakan di | Rencana |
+|-------|-------------|---------|
+| `referred_by` | `auth-webhook` (insert saat signup), `merchant.ts` type | Drop, simpan di `referrals` table |
+| `referral_discount` | `auth-webhook` (insert saat signup), `merchant.ts` type | Drop, data sudah di `referral_rewards` |
+| `referral_discount_months` | `auth-webhook` (insert saat signup), `merchant.ts` type | Drop, data sudah di `referral_commissions` |
 
-## Step-by-Step Implementation
+Tidak ada frontend code yang **membaca** kolom-kolom ini dari merchants. Hanya `auth-webhook` yang **menulis** saat signup.
+
+## Step-by-Step
 
 ### Step 1: Database Migration
 
-1. **Add columns** `disbursement_schedule` (text, default 'weekly') dan `billing_day` (integer, default 1) ke `merchant_subscriptions`
-2. **Migrate data** dari `merchants` ke `merchant_subscriptions` (untuk yang sudah punya subscription)
-3. **Drop 3 columns** dari `merchants`: `subscription_tier`, `disbursement_schedule`, `billing_day`
+1. Migrate existing `referred_by` data ke `referrals` table (untuk merchant yang punya referrer tapi belum ada record di referrals)
+2. Drop 3 kolom: `referred_by`, `referral_discount`, `referral_discount_months`
+3. Recreate `v_merchants_with_addresses` view tanpa kolom tersebut
+4. Create view `merchant_referral_summary` (regular view, bukan materialized -- karena data berubah dan tidak perlu manual refresh)
 
 ```sql
--- Add columns to merchant_subscriptions
-ALTER TABLE merchant_subscriptions 
-  ADD COLUMN IF NOT EXISTS disbursement_schedule text DEFAULT 'weekly',
-  ADD COLUMN IF NOT EXISTS billing_day integer DEFAULT 1;
-
--- Migrate existing data
-UPDATE merchant_subscriptions ms
-SET 
-  disbursement_schedule = COALESCE(m.disbursement_schedule, 'weekly'),
-  billing_day = COALESCE(m.billing_day, 1)
+-- Migrate referred_by data to referrals if not already tracked
+INSERT INTO referrals (referrer_user_id, referee_user_id, referrer_role, status, created_at)
+SELECT m.referred_by, m.user_id, 'merchant', 'completed', m.created_at
 FROM merchants m
-WHERE ms.merchant_id = m.id;
+WHERE m.referred_by IS NOT NULL
+AND NOT EXISTS (
+  SELECT 1 FROM referrals r WHERE r.referee_user_id = m.user_id
+);
 
--- Drop redundant columns
-ALTER TABLE merchants DROP COLUMN IF EXISTS subscription_tier;
-ALTER TABLE merchants DROP COLUMN IF EXISTS disbursement_schedule;
-ALTER TABLE merchants DROP COLUMN IF EXISTS billing_day;
+-- Drop and recreate view without referral columns
+DROP VIEW IF EXISTS v_merchants_with_addresses;
+
+ALTER TABLE merchants DROP COLUMN IF EXISTS referred_by;
+ALTER TABLE merchants DROP COLUMN IF EXISTS referral_discount;
+ALTER TABLE merchants DROP COLUMN IF EXISTS referral_discount_months;
+
+-- Recreate view (same as current minus 3 dropped columns)
+CREATE VIEW v_merchants_with_addresses AS
+SELECT m.id, m.user_id, m.business_name, m.business_type,
+  m.address, m.city, m.province, m.postal_code,
+  m.verification_status, m.created_at, m.updated_at,
+  m.merchant_code, m.penalty_rate, m.verified_at, m.verified_by,
+  m.rejected_at, m.rejected_by, m.rejection_details,
+  m.resubmission_instructions, m.resubmission_count,
+  m.verification_submitted_at, m.min_disbursement_amount,
+  m.last_disbursement_date, m.total_disbursed, m.address_id,
+  COALESCE(a.street_address, m.address) AS resolved_address,
+  COALESCE(a.city, m.city::varchar) AS resolved_city,
+  COALESCE(a.province, m.province::varchar) AS resolved_province,
+  COALESCE(a.postal_code, m.postal_code::varchar) AS resolved_postal_code
+FROM merchants m
+LEFT JOIN addresses a ON m.address_id = a.id;
+
+-- Create referral summary view
+CREATE VIEW merchant_referral_summary AS
+SELECT
+  m.id AS merchant_id,
+  r.referrer_user_id,
+  r.referral_code,
+  r.status AS referral_status,
+  r.reward_amount,
+  r.converted_at,
+  COALESCE(SUM(rc.commission_amount), 0) AS total_commissions
+FROM merchants m
+LEFT JOIN referrals r ON m.user_id = r.referee_user_id
+LEFT JOIN referral_commissions rc ON r.id = rc.referral_id
+GROUP BY m.id, r.referrer_user_id, r.referral_code, r.status, r.reward_amount, r.converted_at;
 ```
 
-### Step 2: Update Edge Function - `scheduled-disbursement`
+### Step 2: Update `auth-webhook` Edge Function
 
-**Perubahan**: Query `merchant_subscriptions` untuk `disbursement_schedule` instead of `merchants` directly.
+Remove `referral_discount`, `referral_discount_months`, and `referred_by` from the merchant insert. The referral linkage is already handled separately in the webhook (it updates the `referrals` table with `referee_user_id`).
 
-- Update SQL query untuk JOIN `merchant_subscriptions`
-- Update `MerchantWithEscrow` interface
-- Update references ke `merchant.disbursement_schedule` menjadi `merchant.merchant_subscriptions[0].disbursement_schedule`
+**Before:**
+```ts
+.insert({
+  user_id,
+  business_name: business_name || 'My Business',
+  referral_discount: referralDiscount,
+  referral_discount_months: referralDiscountMonths,
+  referred_by: referrerInfo?.userId || null,
+})
+```
 
-### Step 3: Update Edge Function - `auto-generate-invoices`
+**After:**
+```ts
+.insert({
+  user_id,
+  business_name: business_name || 'My Business',
+})
+```
 
-**Perubahan**: Query `merchant_subscriptions` untuk `billing_day` instead of `merchants.billing_day`.
+The `trialDays` and subscription logic (lines 173, 221-234) already correctly use `referrerInfo` to give extra trial days, so that's preserved.
 
-- Update SELECT query dari `merchant:merchants(billing_day)` menjadi `merchant:merchants(merchant_subscriptions(billing_day))`
-- Update data access path
+### Step 3: Update TypeScript Type
 
-### Step 4: Update Frontend - `DisbursementScheduleSettings.tsx`
+Remove `referred_by`, `referral_discount`, `referral_discount_months` from `src/features/users/types/merchant.ts`.
 
-**Perubahan**: Remove `(merchant as any).disbursement_schedule` dan `(merchant as any).billing_day` fallbacks karena data sekarang 100% di `merchant_subscriptions`.
+### Step 4: Update Documentation
 
-### Step 5: Update Checklist
-
-Update `old-docs/merchant_database_refactor.md` section 1.1 dari "SKIP" menjadi "DONE".
+Update `old-docs/merchant_database_refactor.md` section 1.2 from "SKIP" to "DONE".
 
 ## Files yang Diubah
 
 | File | Perubahan |
 |------|-----------|
-| Database migration | Add columns to `merchant_subscriptions`, migrate data, drop from `merchants` |
-| `supabase/functions/scheduled-disbursement/index.ts` | Query `merchant_subscriptions.disbursement_schedule` instead of `merchants.disbursement_schedule` |
-| `supabase/functions/auto-generate-invoices/index.ts` | Query `merchant_subscriptions.billing_day` instead of `merchants.billing_day` |
-| `src/features/payments/components/DisbursementScheduleSettings.tsx` | Remove `(merchant as any)` fallbacks |
-| `old-docs/merchant_database_refactor.md` | Mark 1.1 as DONE |
+| Database migration | Migrate data, drop 3 columns, recreate view, create summary view |
+| `supabase/functions/auth-webhook/index.ts` | Remove 3 fields from merchant insert |
+| `src/features/users/types/merchant.ts` | Remove 3 fields from interface |
+| `old-docs/merchant_database_refactor.md` | Mark 1.2 as DONE |
 
-## Risiko & Mitigasi
+## Catatan Penting
 
-- **Data loss**: Mitigasi dengan migrate data SEBELUM drop columns (dalam satu migration)
-- **Edge functions**: Deploy setelah migration berhasil - edge functions baru akan query kolom baru di `merchant_subscriptions`
-- **Backward compat**: `DisbursementScheduleSettings.tsx` sudah mengupdate `merchant_subscriptions` (bukan `merchants`) untuk schedule/billing_day, jadi mutation code sudah benar
+- `vendors.referred_by` TIDAK terpengaruh (itu kolom terpisah di tabel `vendors`)
+- `process-vendor-order-referral` edge function TIDAK terpengaruh
+- Referral discount logic tetap berfungsi via `referrerInfo` check di auth-webhook (extra trial days)
+- View menggunakan regular VIEW (bukan MATERIALIZED) agar selalu up-to-date tanpa manual refresh
 
