@@ -39,9 +39,10 @@ export const UNIT_STATUS_TRANSITIONS: Record<string, string[]> = {
 export const INVOICE_STATUS_TRANSITIONS: Record<string, string[]> = {
   draft: ['sent', 'cancelled'],
   sent: ['paid', 'overdue', 'cancelled', 'partially_paid'],
-  overdue: ['paid', 'cancelled'],
+  overdue: ['paid', 'cancelled', 'escalated'],
   partially_paid: ['paid', 'cancelled'],
   pending: ['paid', 'overdue', 'cancelled'],           // legacy compat
+  escalated: ['paid', 'cancelled'],  // collections-level overdue (15+ days)
   paid: [],       // terminal
   cancelled: [],  // terminal
 };
@@ -141,6 +142,13 @@ export const REFERRAL_STATUS_TRANSITIONS: Record<string, string[]> = {
   active: ['completed'],
   completed: [],   // terminal
   expired: [],     // terminal
+};
+
+// ─── Section 15.5: Verification Tier Upgrades ─────────────────────────────
+export const VERIFICATION_TIER_TRANSITIONS: Record<string, string[]> = {
+  quick: ['standard'],
+  standard: ['premium'],
+  premium: [],  // terminal — highest tier
 };
 
 // ─── Section 16: Verification Workflows ────────────────────────────────────

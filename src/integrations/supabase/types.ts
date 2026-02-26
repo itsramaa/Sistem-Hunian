@@ -3944,6 +3944,7 @@ export type Database = {
           updated_at: string
           user_id: string
           verification_status: string | null
+          verification_tier: string
         }
         Insert: {
           billing_address_id?: string | null
@@ -3961,6 +3962,7 @@ export type Database = {
           updated_at?: string
           user_id: string
           verification_status?: string | null
+          verification_tier?: string
         }
         Update: {
           billing_address_id?: string | null
@@ -3978,6 +3980,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           verification_status?: string | null
+          verification_tier?: string
         }
         Relationships: [
           {

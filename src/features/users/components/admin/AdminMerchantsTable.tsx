@@ -90,7 +90,7 @@ export function AdminMerchantsTable({
     <>
       <ScrollArea className="h-[600px] rounded-md border">
       <Table>
-        <TableHeader>
+        <TableHeader className="sticky top-0 bg-background z-10">
           <TableRow>
             <TableHead className="w-[50px]">
               <Checkbox
@@ -107,6 +107,7 @@ export function AdminMerchantsTable({
             <TableHead className="hidden lg:table-cell">Location</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="hidden xl:table-cell">Tier</TableHead>
+            <TableHead className="hidden xl:table-cell">V. Tier</TableHead>
             <TableHead className="hidden xl:table-cell">Joined</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -166,6 +167,11 @@ export function AdminMerchantsTable({
               <TableCell className="hidden xl:table-cell">
                 <Badge variant="secondary" className="capitalize">
                   {merchant.merchant_subscriptions?.[0]?.subscription_tiers?.name || "free"}
+                </Badge>
+              </TableCell>
+              <TableCell className="hidden xl:table-cell">
+                <Badge variant="outline" className="capitalize">
+                  {merchant.verification_tier || "quick"}
                 </Badge>
               </TableCell>
               <TableCell className="hidden xl:table-cell text-sm text-muted-foreground">
