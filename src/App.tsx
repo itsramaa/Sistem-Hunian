@@ -91,6 +91,7 @@ const MerchantReportTemplates = lazy(() => import("@/pages/merchant/ReportTempla
 const MerchantComparativePortfolio = lazy(() => import("@/pages/merchant/ComparativePortfolio"));
 const MerchantFeedback = lazy(() => import("@/pages/merchant/Feedback"));
 const MerchantInventory = lazy(() => import("@/pages/merchant/Inventory"));
+const MerchantCollections = lazy(() => import("@/pages/merchant/Collections"));
 // Hub Pages (only InsightsHub remains as a hub)
 const MerchantInsightsHub = lazy(() => import("@/pages/merchant/InsightsHub"));
 // Tenant Pages
@@ -220,6 +221,7 @@ const App = () => (
                     <Route path="support" element={<MerchantSupport />} />
                     <Route path="feedback" element={<MerchantFeedback />} />
                     <Route path="inventory" element={<MerchantInventory />} />
+                    <Route path="collections" element={<MerchantCollections />} />
                     <Route path="ocr-tutorial" element={<MerchantOcrTutorial />} />
                     <Route path="tenant-analytics" element={<MerchantTenantAnalytics />} />
                     <Route path="compliance" element={<Navigate to="/merchant/properties" replace />} />
