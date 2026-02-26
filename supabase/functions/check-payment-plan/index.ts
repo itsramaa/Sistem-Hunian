@@ -147,12 +147,11 @@ serve(async (req) => {
             })
             .eq('id', planData.id);
 
-          // Clear payment plan from invoice
+          // Revert invoice to pending for normal collection
           await supabase
             .from('invoices')
             .update({
-              payment_plan_id: null,
-              status: 'pending', // Revert to pending for normal collection
+              status: 'pending',
             })
             .eq('id', planData.invoice_id);
 

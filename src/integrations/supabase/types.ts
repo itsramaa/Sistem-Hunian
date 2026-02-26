@@ -2472,7 +2472,6 @@ export type Database = {
           original_amount: number | null
           overdue_since: string | null
           paid_at: string | null
-          payment_plan_id: string | null
           property_id: string | null
           status: string
           tax_amount: number | null
@@ -2500,7 +2499,6 @@ export type Database = {
           original_amount?: number | null
           overdue_since?: string | null
           paid_at?: string | null
-          payment_plan_id?: string | null
           property_id?: string | null
           status?: string
           tax_amount?: number | null
@@ -2528,7 +2526,6 @@ export type Database = {
           original_amount?: number | null
           overdue_since?: string | null
           paid_at?: string | null
-          payment_plan_id?: string | null
           property_id?: string | null
           status?: string
           tax_amount?: number | null
@@ -2580,13 +2577,6 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "v_merchants_with_addresses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoices_payment_plan_id_fkey"
-            columns: ["payment_plan_id"]
-            isOneToOne: false
-            referencedRelation: "payment_plans"
             referencedColumns: ["id"]
           },
         ]

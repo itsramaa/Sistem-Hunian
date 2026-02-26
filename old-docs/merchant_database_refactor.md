@@ -328,8 +328,8 @@ CREATE TABLE subscription_changes (
 
 ---
 
-### 1.6 ⏭️ SKIP: Invoice & Payment Relationship
-> **Alasan SKIP**: Restructuring join paths membutuhkan perubahan besar di query layer dan application code.
+### 1.6 ✅ DONE: Invoice & Payment Relationship
+> Kolom redundan `payment_plan_id` sudah di-drop dari `invoices`. Relasi sekarang 100% melalui `payment_plans.invoice_id`. Semua query yang membaca `.is('payment_plan_id', null)` diganti dengan two-step query (fetch overdue invoices + fetch active plan invoice_ids + filter client-side). Write operations ke `invoices.payment_plan_id` dihapus. Index performa ditambahkan pada `invoices(merchant_id, due_date)`, `invoices(status, due_date)`, dan `payment_plans(invoice_id)`.
 
 **Masalah**: Multiple join paths
 
