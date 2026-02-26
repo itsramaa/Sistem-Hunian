@@ -758,6 +758,94 @@ export type Database = {
           },
         ]
       }
+      contract_amendments: {
+        Row: {
+          amendment_type: string
+          contract_id: string
+          created_at: string
+          effective_date: string | null
+          id: string
+          merchant_id: string
+          new_values: Json | null
+          notes: string | null
+          old_values: Json | null
+          signed_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amendment_type?: string
+          contract_id: string
+          created_at?: string
+          effective_date?: string | null
+          id?: string
+          merchant_id: string
+          new_values?: Json | null
+          notes?: string | null
+          old_values?: Json | null
+          signed_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amendment_type?: string
+          contract_id?: string
+          created_at?: string
+          effective_date?: string | null
+          id?: string
+          merchant_id?: string
+          new_values?: Json | null
+          notes?: string | null
+          old_values?: Json | null
+          signed_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_amendments_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_amendments_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_occupancy_analysis"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "contract_amendments_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "contract_amendments_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "contract_amendments_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_amendments_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contracts: {
         Row: {
           actual_end_date: string | null
