@@ -140,29 +140,8 @@ export const merchantService = {
     const { data: { user } } = await supabase.auth.getUser();
     const adminId = user?.id;
 
-    const updateData: Record<string, unknown> = {
-      verification_status: status,
-    };
-
-    if (status === 'verified') {
-      updateData.verified_at = new Date().toISOString();
-      updateData.verified_by = adminId;
-    } else if (status === 'rejected' && rejectionData) {
-      updateData.rejected_at = new Date().toISOString();
-      updateData.rejected_by = adminId;
-      updateData.rejection_details = rejectionData.details;
-      updateData.resubmission_instructions = rejectionData.resubmissionInstructions;
-    }
-
-    const { error } = await supabase
-      .from('merchants')
-      .update(updateData)
-      .eq('id', merchant.id);
-
-    if (error) throw error;
-
-    // Insert verification history
-    await supabase.from('merchant_verification_history').insert({
+    // Single write to history -- trigger auto-syncs merchants.verification_status
+    const { error } = await supabase.from('merchant_verification_history').insert({
       merchant_id: merchant.id,
       action: status === 'verified' ? 'approved' : 'rejected',
       performed_by: adminId,
@@ -173,6 +152,8 @@ export const merchantService = {
       old_status: currentStatus,
       new_status: status,
     });
+
+    if (error) throw error;
 
     // Audit log via centralized utility
     await logStatusChange('merchant', merchant.id, currentStatus, status, 
@@ -220,24 +201,19 @@ export const merchantService = {
       throw new Error(`Invalid verification transition: ${currentStatus} → ${newStatus}`);
     }
 
-    const { error } = await supabase
-      .from('merchants')
-      .update({ verification_status: newStatus })
-      .eq('id', merchant.id);
-
-    if (error) throw error;
-
     const { data: { user } } = await supabase.auth.getUser();
     const adminId = user?.id;
 
-    // Insert verification history
-    await supabase.from('merchant_verification_history').insert({
+    // Single write to history -- trigger auto-syncs merchants.verification_status
+    const { error } = await supabase.from('merchant_verification_history').insert({
       merchant_id: merchant.id,
       action: newStatus === 'suspended' ? 'suspended' : 'reactivated',
       performed_by: adminId,
       old_status: currentStatus,
       new_status: newStatus,
     });
+
+    if (error) throw error;
     
     // Audit log via centralized utility
     await logStatusChange('merchant', merchant.id, currentStatus, newStatus);
@@ -255,19 +231,7 @@ export const merchantService = {
     
     const targetMerchants = merchants.filter(m => merchantIds.includes(m.id));
     
-    // 1. Update merchants status
-    const { error } = await supabase
-      .from('merchants')
-      .update({ 
-        verification_status: 'verified',
-        verified_at: new Date().toISOString(),
-        verified_by: adminId
-      })
-      .in('id', merchantIds);
-      
-    if (error) throw error;
-    
-    // 2. Insert history entries
+    // Single write to history -- trigger auto-syncs merchants.verification_status per row
     const historyEntries = targetMerchants.map(m => ({
       merchant_id: m.id,
       action: 'approved',
@@ -277,7 +241,8 @@ export const merchantService = {
       new_status: 'verified'
     }));
     
-    await supabase.from('merchant_verification_history').insert(historyEntries);
+    const { error } = await supabase.from('merchant_verification_history').insert(historyEntries);
+    if (error) throw error;
     
     // 3. Audit logs via centralized utility
     for (const m of targetMerchants) {

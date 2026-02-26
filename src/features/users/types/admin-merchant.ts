@@ -24,9 +24,6 @@ export interface Merchant {
   address?: string | null;
   city?: string | null;
   province?: string | null;
-  verified_at: string | null;
-  verified_by: string | null;
-  rejected_at: string | null;
   profiles?: {
     email: string;
     full_name: string | null;

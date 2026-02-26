@@ -7,14 +7,6 @@ export interface Merchant {
   billing_address_id: string | null;
   merchant_code: string | null;
   verification_status: string | null;
-  verification_submitted_at: string | null;
-  verified_at: string | null;
-  verified_by: string | null;
-  rejected_at: string | null;
-  rejected_by: string | null;
-  rejection_details: string | null;
-  resubmission_count: number | null;
-  resubmission_instructions: string | null;
   penalty_rate: number | null;
   total_disbursed: number | null;
   last_disbursement_date: string | null;
