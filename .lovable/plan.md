@@ -1,34 +1,43 @@
 
-# Phase 1, Step 5: Collections Dashboard
+# Phase 1: Critical Adoption Fixes — Status Dashboard
 
-## Current Status
-- Phase 0: ✅ COMPLETE (DB tables, verification tiers, invoice state machine)
-- Phase 1 Step 5 (Collections Dashboard): ✅ COMPLETE
+## Overall Status: ✅ COMPLETE
+
+| Step | Feature | Status | Notes |
+|------|---------|--------|-------|
+| 1.1 | Collections Dashboard | ✅ COMPLETE | View, service, hook, UI, route, nav |
+| 1.2 | Automated Payment Reconciliation | ✅ COMPLETE | DB table, edge function, service, UI, route |
+| 1.3 | Payment Reminders & Escalation | ✅ COMPLETE | Edge function, cron job (daily 03:00 UTC), merchant config |
+| 1.4 | Expense Tracking | ✅ COMPLETE | Service, hook, full CRUD UI, category breakdown, route |
+| 1.5 | Tenant Profile Consolidation | ✅ COMPLETE | tenant_quality_scores table created, existing TenantDetail already comprehensive |
 
 ## What Was Built
 
-### 5a. Database ✅
-- Index `idx_invoices_merchant_status_due` on `invoices(merchant_id, status, due_date DESC)`
-- View `v_outstanding_summary` with aging bucket logic, outstanding amounts, last payment dates
-- Realtime enabled on `invoices` and `payments` tables
+### 1.1 Collections Dashboard
+- DB: `v_outstanding_summary` view + index
+- Files: `src/features/collections/` (service, hook, 3 components)
+- Route: `/merchant/collections` → "Penagihan" in sidebar
 
-### 5b. Collections Service ✅
-- `src/features/collections/services/collectionsService.ts`
-- `fetchSummary()`, `fetchOutstandingInvoices()`, `sendReminder()`
+### 1.2 Payment Reconciliation
+- DB: `payment_invoice_match` table + `reconciliation_status` on payments
+- Edge: `auto-match-payment` (Tier 1 exact, Tier 2 partial/over, Tier 3 manual)
+- Files: `src/features/reconciliation/` (service, hook, UI)
+- Route: `/merchant/reconciliation` → "Rekonsiliasi" in sidebar
 
-### 5c. Collections Hook ✅
-- `src/features/collections/hooks/useCollectionsDashboard.ts`
-- React Query + realtime subscriptions + bucket filter state
+### 1.3 Payment Reminders
+- DB: `collections_reminder_config` JSONB on merchants
+- Edge: `queue-payment-reminders` (T+2, T+5, T+10, T+15 escalation)
+- Cron: Daily at 03:00 UTC
+- Auto-creates collections cases at T+15
 
-### 5d. UI Components ✅
-- `CollectionsSummary.tsx` - 4 stat cards (Penagihan Hari Ini, Total Tunggakan, Jatuh Tempo Minggu Ini, Tingkat Penagihan)
-- `AgingBuckets.tsx` - 4 clickable color-coded aging cards with drill-down
-- `OutstandingTable.tsx` - Searchable table with reminder actions
+### 1.4 Expense Tracking
+- Files: `src/features/expenses/` (service, hook)
+- Page: Full CRUD with category breakdown, trend analysis
+- Route: `/merchant/expenses` → "Pengeluaran" in sidebar
 
-### 5e. Route & Navigation ✅
-- Route `/merchant/collections` added in `App.tsx`
-- "Penagihan" nav link added to merchant Keuangan section
-- Page at `src/pages/merchant/Collections.tsx`
+### 1.5 Tenant Profile Consolidation
+- DB: `tenant_quality_scores` table (payment/maintenance/compliance/communication scores)
+- Existing TenantDetail page already has: contracts, payments, maintenance, personal info
 
-## Next Step
-- Phase 1, Step 6: Auto Payment Reconciliation
+## Next Phase
+- Phase 2: Core Operations (Tenant Portal, Waiting List, Lease Renewal, Collections Cases)
