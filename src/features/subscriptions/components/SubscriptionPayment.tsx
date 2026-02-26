@@ -197,10 +197,7 @@ export function SubscriptionPayment() {
             current_period_end: periodEnd.toISOString(),
           }, { onConflict: "merchant_id" });
 
-        await supabase
-          .from("merchants")
-          .update({ subscription_tier: selectedTier.name })
-          .eq("id", merchant.id);
+        // subscription_tier is now managed via merchant_subscriptions table (normalized)
 
         queryClient.invalidateQueries({ queryKey: ["merchant-subscription"] });
         toast({ title: "Plan updated!", description: `You are now on the ${selectedTier.display_name} plan.` });

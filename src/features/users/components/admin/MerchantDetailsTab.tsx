@@ -55,7 +55,7 @@ export function MerchantDetailsTab({ merchant }: MerchantDetailsTabProps) {
         <Label className="text-muted-foreground">Subscription</Label>
         <div className="mt-1">
           <Badge variant="secondary" className="capitalize">
-            {merchant.subscription_tier}
+            {merchant.merchant_subscriptions?.[0]?.subscription_tiers?.name || 'free'}
           </Badge>
         </div>
       </div>
