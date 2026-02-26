@@ -4,6 +4,7 @@ import { useMerchantDashboardStats } from '@/features/dashboard/hooks/useMerchan
 import { InteractiveDashboardCharts } from '@/features/dashboard/components/InteractiveDashboardCharts';
 import { VacancyDashboard } from '@/features/dashboard/components/VacancyDashboard';
 import { SubscriptionWidget } from '@/features/subscriptions/components/SubscriptionWidget';
+import { MerchantQuickStartChecklist } from '@/features/launch/components/MerchantQuickStartChecklist';
 import { TrialCountdownWidget } from '@/features/subscriptions/components/TrialCountdownWidget';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 
@@ -90,6 +91,9 @@ export default function MerchantDashboard() {
 
       {/* Section 2: Alert Strip */}
       <TrialCountdownWidget />
+
+      {/* Section 2b: Quick Start Checklist */}
+      <MerchantQuickStartChecklist />
 
       {/* Section 3: KPI Strip */}
       <section className="space-y-4">

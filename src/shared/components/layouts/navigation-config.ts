@@ -209,6 +209,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/admin/forum-moderation", icon: MessageSquare, label: "Moderasi Forum" },
           { path: "/admin/2fa", icon: Shield, label: "Admin 2FA" },
           { path: "/admin/dss-health", icon: BarChart3, label: "Kesehatan DSS" },
+          { path: "/admin/launch-readiness", icon: Lightbulb, label: "Kesiapan Launch" },
           { path: "/admin/settings", icon: Settings, label: "Pengaturan" },
         ],
       },

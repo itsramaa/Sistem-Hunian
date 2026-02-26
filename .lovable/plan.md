@@ -30,19 +30,28 @@ All 7 DB tables, verification tiers, invoice state machine updates.
 | 3.4 | Financial Reports | ✅ | P&L service, hook, FinancialReports page with revenue/expense charts, route /merchant/financial-reports |
 | 3.5 | Multi-Property Consolidation | ⏭️ SKIP | Already exists: ComparativePortfolio page with cross-property analysis |
 
-### Phase 3 Details
+## Phase 4: Launch Preparation — ✅ COMPLETE
+| Step | Feature | Status | Notes |
+|------|---------|--------|-------|
+| 4.1a | Admin Launch Readiness Dashboard | ✅ | Service + hook + full page: readiness score, KPIs, checklist by category, success criteria. Route /admin/launch-readiness |
+| 4.1b | Merchant Quick-Start Guide | ✅ | Interactive checklist widget on merchant dashboard (profile → property → unit → tenant → invoice). Dismissible, persisted per merchant |
+| 4.1c | System Monitoring | ⏭️ SKIP | Already covered by DssHealth page (OCR, model runs, RLS monitor, validation audit) |
+| 4.2 | Success Criteria Tracking | ✅ | Integrated into Launch Readiness page: activation time, collections accuracy, payment match rate, data integrity |
 
-#### 3.2 Dynamic Pricing Rules
-- Service: `dynamicPricingService.ts` (CRUD + toggle)
-- Hook: `useDynamicPricing.ts` (queries + mutations)
-- UI: `PricingRulesTable`, `CreatePricingRuleDialog`
-- Nav: "Harga Dinamis" under Keuangan
+### Phase 4 Details
 
-#### 3.4 Financial Reports
-- Service: `financialReportService.ts` (aggregates invoices + expenses into monthly P&L)
-- Hook: `useFinancialReports.ts`
-- UI: Summary cards (Revenue, Expenses, Net Income, Margin) + 3 tabs (P&L trend, Revenue by Property pie, Expense by Category pie)
-- Nav: "Lap. Keuangan" under Keuangan
+#### 4.1a Admin Launch Readiness Dashboard
+- Service: `launchReadinessService.ts` (fetches counts from merchants, properties, units, contracts, invoices, payments, feature_flags)
+- Hook: `useLaunchReadiness.ts` (computed readiness score, checks by category)
+- UI: Readiness score gauge, 6 KPI cards, checklist grouped by category (Core/Operations/Finance/Intelligence/Infrastructure), Go/No-Go criteria cards
+- Nav: "Kesiapan Launch" under admin menu
 
-## Next Phase
-- Phase 4: Launch Preparation (Testing, QA, Status Updates)
+#### 4.1b Merchant Quick-Start Checklist
+- Component: `MerchantQuickStartChecklist.tsx`
+- 5 steps: profil bisnis → tambah properti → buat unit → tambah penyewa → buat tagihan
+- Auto-checks completion from dashboard stats
+- Dismissible with localStorage persistence per merchant
+- Shown on merchant dashboard between TrialCountdown and KPI strip
+
+## All Phases Complete ✅
+Platform is ready for launch preparation activities (marketing, support training, soft launch).
