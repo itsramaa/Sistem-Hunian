@@ -1,57 +1,94 @@
 
-# Implementation Plan — Status Dashboard
 
-## Phase 0: Foundation — ✅ COMPLETE
-All 7 DB tables, verification tiers, invoice state machine updates.
+# Update merchant_sequence_diagram.md with All New Systems
 
-## Phase 1: Critical Adoption Fixes — ✅ COMPLETE
-| Step | Feature | Status |
-|------|---------|--------|
-| 1.1 | Collections Dashboard | ✅ |
-| 1.2 | Payment Reconciliation | ✅ |
-| 1.3 | Payment Reminders & Escalation | ✅ |
-| 1.4 | Expense Tracking | ✅ |
-| 1.5 | Tenant Profile Consolidation | ✅ |
+## Overview
+The current document covers 16 sequence diagrams (Registration through Suspend/Reactivate) plus 3 appendices. Phases 1-4 added 9 new subsystems that need their own sequence diagrams, plus updates to the Table of Contents, Appendix A (Edge Function Map), Appendix B (Cross-Diagram References), and Appendix C (Interaction Summary).
 
-## Phase 2: Core Operations — ✅ COMPLETE
-| Step | Feature | Status | Notes |
-|------|---------|--------|-------|
-| 2.1 | Tenant Portal | ⏭️ SKIP | Already exists (18 pages) |
-| 2.2 | Waiting List & Applicant Mgmt | ✅ | State machine, service, hook, UI (table, add dialog, offer dialog), route /merchant/waiting-list |
-| 2.3 | Lease Renewal & Amendment | ✅ | contract_amendments table, send-renewal-alert edge fn, cron 04:00 UTC, service, hook, UI, route /merchant/lease-renewals |
-| 2.4 | Collections Case Management | ✅ | Service, hook, cases list, report widgets, Collections page extended with 3 tabs (Dashboard/Kasus/Laporan) |
+## New Sequence Diagrams to Add
 
-## Phase 3: Intelligence & Optimization — ✅ COMPLETE
-| Step | Feature | Status | Notes |
-|------|---------|--------|-------|
-| 3.1 | Feature Flags | ⏭️ SKIP | Already exists: DB table `feature_flags` + admin FeatureToggles UI in PlatformConfig |
-| 3.2 | Dynamic Pricing Rules | ✅ | Service, hook, CRUD UI (table + create dialog), route /merchant/dynamic-pricing |
-| 3.3 | Occupancy Forecasting | ⏭️ SKIP | Already exists: `occupancy_forecast` table, `ml-occupancy-forecast` edge fn, MarketIntelligence page Tab 4 |
-| 3.4 | Financial Reports | ✅ | P&L service, hook, FinancialReports page with revenue/expense charts, route /merchant/financial-reports |
-| 3.5 | Multi-Property Consolidation | ⏭️ SKIP | Already exists: ComparativePortfolio page with cross-property analysis |
+### 17. Payment Reconciliation (Auto-Match)
+- Actors: Merchant, reconciliationService, EF: auto-match-payment, Database
+- Flows: Fetch unmatched payments, trigger auto-match (Tier 1 exact / Tier 2 partial / Tier 3 manual review), manual match by merchant, match history
+- Source: `reconciliationService.ts`, `auto-match-payment/index.ts`
 
-## Phase 4: Launch Preparation — ✅ COMPLETE
-| Step | Feature | Status | Notes |
-|------|---------|--------|-------|
-| 4.1a | Admin Launch Readiness Dashboard | ✅ | Service + hook + full page: readiness score, KPIs, checklist by category, success criteria. Route /admin/launch-readiness |
-| 4.1b | Merchant Quick-Start Guide | ✅ | Interactive checklist widget on merchant dashboard (profile → property → unit → tenant → invoice). Dismissible, persisted per merchant |
-| 4.1c | System Monitoring | ⏭️ SKIP | Already covered by DssHealth page (OCR, model runs, RLS monitor, validation audit) |
-| 4.2 | Success Criteria Tracking | ✅ | Integrated into Launch Readiness page: activation time, collections accuracy, payment match rate, data integrity |
+### 18. Automated Payment Reminders & Escalation
+- Actors: Cron Scheduler, EF: queue-payment-reminders, Database, Merchant, Tenant
+- Flows: Daily cron finds overdue invoices, matches merchant reminder config schedule, checks for duplicate reminders, logs reminder, auto-creates collections case at T+15 days, escalates invoice to 'escalated' status
+- Source: `queue-payment-reminders/index.ts`
 
-### Phase 4 Details
+### 19. Expense Tracking
+- Actors: Merchant, expenseService, Database
+- Flows: Fetch summary (this month vs last month, by category), create expense, list expenses, delete expense
+- Source: `expenseService.ts`
 
-#### 4.1a Admin Launch Readiness Dashboard
-- Service: `launchReadinessService.ts` (fetches counts from merchants, properties, units, contracts, invoices, payments, feature_flags)
-- Hook: `useLaunchReadiness.ts` (computed readiness score, checks by category)
-- UI: Readiness score gauge, 6 KPI cards, checklist grouped by category (Core/Operations/Finance/Intelligence/Infrastructure), Go/No-Go criteria cards
-- Nav: "Kesiapan Launch" under admin menu
+### 20. Waiting List & Applicant Management
+- Actors: Merchant, waitingListService, Database
+- Flows: Add applicant (status='interested'), update status via state machine (WAITING_LIST_TRANSITIONS), send offer (sets unit_id, offer_expires_at, transitions to 'offered'), filter by status/property
+- Source: `waitingListService.ts`
 
-#### 4.1b Merchant Quick-Start Checklist
-- Component: `MerchantQuickStartChecklist.tsx`
-- 5 steps: profil bisnis → tambah properti → buat unit → tambah penyewa → buat tagihan
-- Auto-checks completion from dashboard stats
-- Dismissible with localStorage persistence per merchant
-- Shown on merchant dashboard between TrialCountdown and KPI strip
+### 21. Lease Renewal & Amendment
+- Actors: Cron Scheduler, EF: send-renewal-alert, renewalService, Database, Merchant
+- Flows: Daily cron checks contracts expiring in 60/30/7 days, creates alert records (deduplicated), merchant views alerts, creates amendment (draft), signs amendment, amendment history per contract
+- State machine: AMENDMENT_STATUS_TRANSITIONS (draft -> sent -> signed)
+- Source: `renewalService.ts`, `send-renewal-alert/index.ts`
 
-## All Phases Complete ✅
-Platform is ready for launch preparation activities (marketing, support training, soft launch).
+### 22. Collections Case Management (Extended)
+- Actors: Merchant, collectionsCaseService, Database
+- Flows: Fetch cases with invoice joins, update case status via COLLECTIONS_CASE_TRANSITIONS (initiated -> in_progress -> resolved), create payment plan (inserts into payment_plans table with installment calculation), set resolution type
+- Source: `collectionsCaseService.ts`
+
+### 23. Dynamic Pricing Rules
+- Actors: Merchant, dynamicPricingService, Database
+- Flows: CRUD for dynamic_pricing_rules (occupancy/seasonal/demand/duration/loyalty types), toggle active/inactive, priority ordering
+- Source: `dynamicPricingService.ts`
+
+### 24. Financial Reports (P&L)
+- Actors: Merchant, financialReportService, Database
+- Flows: Fetch paid invoices + expenses for N months, aggregate monthly P&L, group revenue by property, group expenses by category
+- Source: `financialReportService.ts`
+
+### 25. Admin Launch Readiness
+- Actors: Admin, launchReadinessService, Database
+- Flows: Fetch counts from merchants, properties, units, contracts, invoices, payments, feature_flags; compute readiness checks (18 items across 5 categories); calculate weighted readiness score; display go/no-go criteria
+- Source: `launchReadinessService.ts`
+
+## Updates to Existing Sections
+
+### Table of Contents
+Add entries 17-25 with anchor links.
+
+### Appendix A: Edge Function Invocation Map
+Add 3 new entries:
+| Edge Function | Sequence | Type |
+|---|---|---|
+| `auto-match-payment` | 17. Reconciliation | `supabase.functions.invoke()` |
+| `queue-payment-reminders` | 18. Payment Reminders | Cron (daily 03:00 UTC) |
+| `send-renewal-alert` | 21. Lease Renewal | Cron (daily 04:00 UTC) |
+
+### Appendix B: Cross-Diagram References
+Add connections:
+- S7 (Invoice) -> S17 (Reconciliation): Paid payment triggers auto-match
+- S17 -> S7: Auto-match updates invoice status
+- S18 -> S13 (Collections): Auto-creates collections case at T+15
+- S18 -> S7: Escalates invoice status
+- S21 -> S5 (Contract): Amendment modifies contract terms
+- S22 -> S7: Case resolution links to invoice payment
+- S23 -> S4 (Property): Pricing rules reference properties
+- S24 -> S7 + S19: Aggregates invoices + expenses
+
+### Appendix C: Interaction Summary Table
+Add 9 new rows with DB writes, notifications, edge functions, and external API counts.
+
+## Technical Details
+
+### File Modified
+- `old-docs/merchant_sequence_diagram.md` — full rewrite with all 25 sequences + updated appendices
+
+### Execution
+1. Update Table of Contents (lines 13-30) to add entries 17-25
+2. Append 9 new sequence diagram sections after section 16
+3. Rewrite Appendix A with 3 new edge function entries
+4. Rewrite Appendix B with new cross-references
+5. Rewrite Appendix C with 9 new summary rows
+
