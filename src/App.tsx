@@ -49,6 +49,7 @@ const AdminTenants = lazy(() => import("@/pages/admin/Tenants"));
 const AdminUsers = lazy(() => import("@/pages/admin/AdminUsers"));
 const AdminLogin = lazy(() => import("@/pages/admin/AdminLogin"));
 const AdminDssHealth = lazy(() => import("@/pages/admin/DssHealth"));
+const AdminLaunchReadiness = lazy(() => import("@/pages/admin/LaunchReadiness"));
 
 // Merchant Pages
 const MerchantBilling = lazy(() => import("@/pages/merchant/Billing"));
@@ -194,6 +195,7 @@ const App = () => (
                   <Route path="/admin/forum-moderation" element={<ProtectedRoute allowedRoles={['admin']}><AdminForumModeration /></ProtectedRoute>} />
                   <Route path="/admin/2fa" element={<ProtectedRoute allowedRoles={['admin']}><Admin2FA /></ProtectedRoute>} />
                   <Route path="/admin/dss-health" element={<ProtectedRoute allowedRoles={['admin']}><AdminDssHealth /></ProtectedRoute>} />
+                  <Route path="/admin/launch-readiness" element={<ProtectedRoute allowedRoles={['admin']}><AdminLaunchReadiness /></ProtectedRoute>} />
                   
                   {/* Merchant Routes - Nested with layout */}
                   <Route path="/merchant" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantLayoutRoute /></ProtectedRoute>}>
