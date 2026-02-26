@@ -45,8 +45,7 @@ serve(async (req) => {
           property:properties (
             id,
             name,
-            address,
-            city
+            address_id
           )
         )
       `)

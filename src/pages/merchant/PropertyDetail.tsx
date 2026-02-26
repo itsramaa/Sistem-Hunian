@@ -149,7 +149,7 @@ export default function PropertyDetail() {
     queryKey: ['property-with-units', id],
     queryFn: async () => {
       if (!id) return [];
-      const { data: prop } = await supabase.from('properties').select('id, name, property_type, address, city, province, postal_code, description, images, amenities, total_units, occupied_units, status, created_at, updated_at, merchant_id').eq('id', id).single();
+      const { data: prop } = await supabase.from('properties').select('id, name, property_type, description, images, amenities, total_units, occupied_units, status, created_at, updated_at, merchant_id, address_id').eq('id', id).single() as any;
       if (!prop) return [];
       const { data: units } = await supabase.from('units').select('id, unit_number, status, rent_amount, deposit_amount').eq('property_id', id);
       return [{ ...prop, units: units || [] }];

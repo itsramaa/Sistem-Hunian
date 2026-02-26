@@ -9,9 +9,8 @@ export interface Merchant {
   user_id: string;
   business_name: string;
   business_type: string;
-  address: string | null;
-  city: string | null;
-  province: string | null;
+  headquarters_address_id: string | null;
+  billing_address_id: string | null;
   verification_status: string;
   created_at: string;
   merchant_subscriptions?: {
@@ -21,7 +20,10 @@ export interface Merchant {
       name: string;
     };
   }[];
-
+  // Flattened from addresses JOIN
+  address?: string | null;
+  city?: string | null;
+  province?: string | null;
   verified_at: string | null;
   verified_by: string | null;
   rejected_at: string | null;

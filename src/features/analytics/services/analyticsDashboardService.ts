@@ -9,8 +9,8 @@ export interface DashboardFilters {
 
 export async function fetchProperties(merchantId: string, filters?: DashboardFilters) {
   let query = supabase
-    .from("properties")
-    .select("id, name, property_type, city, latitude, longitude, disaster_risk_level, construction_cost, renovation_cost, construction_year, total_units, occupied_units")
+    .from("v_properties_with_addresses" as any)
+    .select("id, name, property_type, resolved_city, resolved_latitude, resolved_longitude, disaster_risk_level, construction_cost, renovation_cost, construction_year, total_units, occupied_units")
     .eq("merchant_id", merchantId);
 
   if (filters?.yearMin) {
@@ -20,9 +20,15 @@ export async function fetchProperties(merchantId: string, filters?: DashboardFil
     query = query.lte("construction_year", filters.yearMax);
   }
 
-  const { data, error } = await query;
+  const { data, error } = await query as any;
   if (error) throw error;
-  return data || [];
+  // Map resolved fields to flat names for backward compat
+  return ((data || []) as any[]).map((p: any) => ({
+    ...p,
+    city: p.resolved_city,
+    latitude: p.resolved_latitude,
+    longitude: p.resolved_longitude,
+  }));
 }
 
 export async function fetchUnits(merchantId: string) {

@@ -3,10 +3,8 @@ export interface Merchant {
   user_id: string;
   business_name: string;
   business_type: string | null;
-  address: string | null;
-  city: string | null;
-  province: string | null;
-  postal_code: string | null;
+  headquarters_address_id: string | null;
+  billing_address_id: string | null;
   merchant_code: string | null;
   verification_status: string | null;
   verification_submitted_at: string | null;
@@ -23,6 +21,11 @@ export interface Merchant {
   min_disbursement_amount: number | null;
   created_at: string;
   updated_at: string;
+  // Flattened from addresses JOIN
+  address?: string | null;
+  city?: string | null;
+  province?: string | null;
+  postal_code?: string | null;
   profiles?: {
     email: string;
     full_name: string | null;

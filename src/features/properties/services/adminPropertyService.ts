@@ -5,14 +5,14 @@ import { AdminProperty } from '../types/admin';
 export const adminPropertyService = {
   async getAllProperties(): Promise<AdminProperty[]> {
     const { data, error } = await supabase
-      .from('properties')
+      .from('v_properties_with_addresses' as any)
       .select(`
         id,
         name,
         merchant_id,
         property_type,
-        address,
-        city,
+        resolved_address,
+        resolved_city,
         total_units,
         occupied_units,
         status,
@@ -21,7 +21,7 @@ export const adminPropertyService = {
           business_name
         )
       `)
-      .order('name');
+      .order('name') as any;
 
     if (error) throw error;
 
@@ -30,8 +30,8 @@ export const adminPropertyService = {
       name: property.name,
       merchantName: property.merchants?.business_name || 'Unknown',
       type: property.property_type as AdminProperty['type'],
-      address: property.address,
-      city: property.city,
+      address: property.resolved_address,
+      city: property.resolved_city,
       totalUnits: property.total_units || 0,
       occupiedUnits: property.occupied_units || 0,
       status: (property.status || 'active') as AdminProperty['status'],

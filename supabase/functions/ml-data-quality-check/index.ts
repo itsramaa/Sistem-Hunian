@@ -89,7 +89,7 @@ serve(async (req) => {
     // === DETERMINISTIC VALIDATIONS ===
 
     // 1. Property completeness
-    const requiredFields = ["address", "city", "province"];
+    const requiredFields = ["address_id"];
     for (const field of requiredFields) {
       if (!property[field] || String(property[field]).trim() === "") {
         validations.push({

@@ -66,7 +66,7 @@ export function useDssReadiness(propertyId: string | undefined, merchantId: stri
       const l1Items: ChecklistItem[] = [
         { key: "name", label: "Nama properti", level: 1, completed: !!property?.name, icon: "🏠", link: editLink },
         { key: "property_type", label: "Tipe properti", level: 1, completed: !!property?.property_type, icon: "🏗️", link: editLink },
-        { key: "address", label: "Alamat lengkap", level: 1, completed: !!(property?.address && property?.province && property?.city), icon: "📍", link: editLink },
+        { key: "address", label: "Alamat lengkap", level: 1, completed: !!(property as any)?.address_id, icon: "📍", link: editLink },
         { key: "units", label: "Minimal 1 unit", level: 1, completed: (units?.length || 0) > 0, icon: "🚪", link: unitsTab },
       ];
 
