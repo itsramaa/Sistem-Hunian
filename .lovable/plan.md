@@ -21,29 +21,28 @@ All 7 DB tables, verification tiers, invoice state machine updates.
 | 2.3 | Lease Renewal & Amendment | ✅ | contract_amendments table, send-renewal-alert edge fn, cron 04:00 UTC, service, hook, UI, route /merchant/lease-renewals |
 | 2.4 | Collections Case Management | ✅ | Service, hook, cases list, report widgets, Collections page extended with 3 tabs (Dashboard/Kasus/Laporan) |
 
-### Phase 2 Details
+## Phase 3: Intelligence & Optimization — ✅ COMPLETE
+| Step | Feature | Status | Notes |
+|------|---------|--------|-------|
+| 3.1 | Feature Flags | ⏭️ SKIP | Already exists: DB table `feature_flags` + admin FeatureToggles UI in PlatformConfig |
+| 3.2 | Dynamic Pricing Rules | ✅ | Service, hook, CRUD UI (table + create dialog), route /merchant/dynamic-pricing |
+| 3.3 | Occupancy Forecasting | ⏭️ SKIP | Already exists: `occupancy_forecast` table, `ml-occupancy-forecast` edge fn, MarketIntelligence page Tab 4 |
+| 3.4 | Financial Reports | ✅ | P&L service, hook, FinancialReports page with revenue/expense charts, route /merchant/financial-reports |
+| 3.5 | Multi-Property Consolidation | ⏭️ SKIP | Already exists: ComparativePortfolio page with cross-property analysis |
 
-#### 2.2 Waiting List
-- State machine: `WAITING_LIST_TRANSITIONS` (interested→applied→offered→accepted/rejected)
-- Service: `waitingListService.ts` (CRUD + sendOffer)
-- Hook: `useWaitingList.ts` (queries + mutations)
-- UI: `WaitingListTable`, `AddApplicantDialog`, `SendOfferDialog`
-- Nav: "Daftar Tunggu" under Operasional
+### Phase 3 Details
 
-#### 2.3 Lease Renewal
-- DB: `contract_amendments` table with RLS
-- Edge: `send-renewal-alert` (60/30/7 day alerts)
-- Cron: Daily 04:00 UTC
-- State machine: `AMENDMENT_STATUS_TRANSITIONS`
-- Service: `renewalService.ts` (alerts, amendments CRUD)
-- UI: `RenewalAlertsList`, `CreateAmendmentDialog`
-- Nav: linked via /merchant/lease-renewals
+#### 3.2 Dynamic Pricing Rules
+- Service: `dynamicPricingService.ts` (CRUD + toggle)
+- Hook: `useDynamicPricing.ts` (queries + mutations)
+- UI: `PricingRulesTable`, `CreatePricingRuleDialog`
+- Nav: "Harga Dinamis" under Keuangan
 
-#### 2.4 Collections Cases
-- Service: `collectionsCaseService.ts` (cases CRUD, payment plan creation)
-- Hook: `useCollectionsCases.ts`
-- UI: `CollectionsCasesList`, `CollectionsReportWidgets`
-- Collections page now has 3 tabs: Dashboard, Kasus, Laporan
+#### 3.4 Financial Reports
+- Service: `financialReportService.ts` (aggregates invoices + expenses into monthly P&L)
+- Hook: `useFinancialReports.ts`
+- UI: Summary cards (Revenue, Expenses, Net Income, Margin) + 3 tabs (P&L trend, Revenue by Property pie, Expense by Category pie)
+- Nav: "Lap. Keuangan" under Keuangan
 
 ## Next Phase
-- Phase 3: Intelligence & Optimization (Pricing, Forecasting, ROI, Financial Reports, Multi-Property)
+- Phase 4: Launch Preparation (Testing, QA, Status Updates)
