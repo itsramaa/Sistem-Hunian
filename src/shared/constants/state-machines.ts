@@ -211,6 +211,25 @@ export const COLLECTIONS_CASE_TRANSITIONS: Record<string, string[]> = {
   resolved: [],    // terminal — resolution_type: paid_in_full | payment_plan | write_off | eviction
 };
 
+// ─── Section 24: Waiting List Lifecycle ────────────────────────────────────
+export const WAITING_LIST_TRANSITIONS: Record<string, string[]> = {
+  interested: ['applied', 'rejected'],
+  applied: ['offered', 'rejected', 'waitlisted'],
+  offered: ['accepted', 'rejected'],
+  waitlisted: ['offered', 'rejected'],
+  accepted: [],    // terminal
+  rejected: [],    // terminal
+};
+
+// ─── Section 25: Contract Amendment Lifecycle ──────────────────────────────
+export const AMENDMENT_STATUS_TRANSITIONS: Record<string, string[]> = {
+  draft: ['sent', 'cancelled'],
+  sent: ['signed', 'rejected'],
+  signed: [],      // terminal
+  rejected: [],    // terminal
+  cancelled: [],   // terminal
+};
+
 // ─── Section 20: Forum Report Moderation ───────────────────────────────────
 export const FORUM_REPORT_TRANSITIONS: Record<string, string[]> = {
   pending: ['reviewed'],
