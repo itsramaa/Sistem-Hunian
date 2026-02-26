@@ -21,8 +21,8 @@ Database merchant Anda memiliki struktur yang komprehensif namun menghadapi **3 
 
 ## 1. DENORMALIZATION & NORMALIZATION AUDIT
 
-### 1.1 ⏭️ SKIP: Data Duplication dalam Merchants Table
-> **Alasan SKIP**: 26+ file TypeScript bergantung pada kolom `subscription_tier`, `billing_day`, `disbursement_schedule`. Dropping akan break seluruh app. Perlu refactor code terpisah.
+### 1.1 ✅ DONE: Data Duplication dalam Merchants Table
+> Kolom `subscription_tier`, `disbursement_schedule`, `billing_day` sudah di-drop dari `merchants`. Data dimigrasikan ke `merchant_subscriptions`. Views `v_merchants_with_addresses` dan `merchant_property_summary` di-recreate tanpa kolom tersebut. Edge functions dan frontend sudah di-update.
 
 **Masalah**: Table `merchants` berisi field-field yang seharusnya di `merchant_subscriptions`
 

@@ -3343,12 +3343,10 @@ export type Database = {
         Row: {
           address: string | null
           address_id: string | null
-          billing_day: number | null
           business_name: string
           business_type: string | null
           city: string | null
           created_at: string
-          disbursement_schedule: string | null
           id: string
           last_disbursement_date: string | null
           merchant_code: string | null
@@ -3365,7 +3363,6 @@ export type Database = {
           resubmission_count: number | null
           resubmission_instructions: string | null
           search_vector: unknown
-          subscription_tier: string | null
           total_disbursed: number | null
           updated_at: string
           user_id: string
@@ -3377,12 +3374,10 @@ export type Database = {
         Insert: {
           address?: string | null
           address_id?: string | null
-          billing_day?: number | null
           business_name: string
           business_type?: string | null
           city?: string | null
           created_at?: string
-          disbursement_schedule?: string | null
           id?: string
           last_disbursement_date?: string | null
           merchant_code?: string | null
@@ -3399,7 +3394,6 @@ export type Database = {
           resubmission_count?: number | null
           resubmission_instructions?: string | null
           search_vector?: unknown
-          subscription_tier?: string | null
           total_disbursed?: number | null
           updated_at?: string
           user_id: string
@@ -3411,12 +3405,10 @@ export type Database = {
         Update: {
           address?: string | null
           address_id?: string | null
-          billing_day?: number | null
           business_name?: string
           business_type?: string | null
           city?: string | null
           created_at?: string
-          disbursement_schedule?: string | null
           id?: string
           last_disbursement_date?: string | null
           merchant_code?: string | null
@@ -3433,7 +3425,6 @@ export type Database = {
           resubmission_count?: number | null
           resubmission_instructions?: string | null
           search_vector?: unknown
-          subscription_tier?: string | null
           total_disbursed?: number | null
           updated_at?: string
           user_id?: string
@@ -7405,12 +7396,10 @@ export type Database = {
         Row: {
           address: string | null
           address_id: string | null
-          billing_day: number | null
           business_name: string | null
           business_type: string | null
           city: string | null
           created_at: string | null
-          disbursement_schedule: string | null
           id: string | null
           last_disbursement_date: string | null
           merchant_code: string | null
@@ -7430,7 +7419,6 @@ export type Database = {
           resolved_province: string | null
           resubmission_count: number | null
           resubmission_instructions: string | null
-          subscription_tier: string | null
           total_disbursed: number | null
           updated_at: string | null
           user_id: string | null

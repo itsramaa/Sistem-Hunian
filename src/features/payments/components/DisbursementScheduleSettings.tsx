@@ -21,8 +21,8 @@ export function DisbursementScheduleSettings() {
   useEffect(() => {
     if (merchant) {
       const sub = merchant.merchant_subscriptions?.[0];
-      setSchedule(sub?.disbursement_schedule ?? (merchant as any).disbursement_schedule ?? PAYOUT_SCHEDULE);
-      setBillingDay(String(sub?.billing_day ?? (merchant as any).billing_day ?? 1));
+      setSchedule(sub?.disbursement_schedule ?? PAYOUT_SCHEDULE);
+      setBillingDay(String(sub?.billing_day ?? 1));
       setMinAmount(String((merchant as any).min_disbursement_amount ?? MINIMUM_PAYOUT_AMOUNT));
     }
   }, [merchant]);
