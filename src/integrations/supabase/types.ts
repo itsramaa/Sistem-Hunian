@@ -4627,111 +4627,6 @@ export type Database = {
           },
         ]
       }
-      pending_subscription_changes: {
-        Row: {
-          applied_at: string | null
-          cancelled_at: string | null
-          change_type: string
-          created_at: string
-          current_tier_id: string | null
-          effective_date: string
-          id: string
-          merchant_id: string
-          pending_tier_id: string
-          reason: string | null
-          status: string
-          subscription_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          applied_at?: string | null
-          cancelled_at?: string | null
-          change_type?: string
-          created_at?: string
-          current_tier_id?: string | null
-          effective_date: string
-          id?: string
-          merchant_id: string
-          pending_tier_id: string
-          reason?: string | null
-          status?: string
-          subscription_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          applied_at?: string | null
-          cancelled_at?: string | null
-          change_type?: string
-          created_at?: string
-          current_tier_id?: string | null
-          effective_date?: string
-          id?: string
-          merchant_id?: string
-          pending_tier_id?: string
-          reason?: string | null
-          status?: string
-          subscription_id?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pending_subscription_changes_current_tier_id_fkey"
-            columns: ["current_tier_id"]
-            isOneToOne: false
-            referencedRelation: "subscription_tiers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pending_subscription_changes_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_occupancy_analysis"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "pending_subscription_changes_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_property_summary"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "pending_subscription_changes_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_referral_summary"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "pending_subscription_changes_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pending_subscription_changes_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "v_merchants_with_addresses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pending_subscription_changes_pending_tier_id_fkey"
-            columns: ["pending_tier_id"]
-            isOneToOne: false
-            referencedRelation: "subscription_tiers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pending_subscription_changes_subscription_id_fkey"
-            columns: ["subscription_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_subscriptions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       platform_settings: {
         Row: {
           created_at: string
@@ -6062,6 +5957,107 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "v_properties_with_addresses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscription_changes: {
+        Row: {
+          applied_at: string | null
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          change_type: string
+          created_at: string
+          effective_date: string
+          from_tier_id: string | null
+          id: string
+          merchant_id: string
+          reason: string | null
+          requested_by: string | null
+          status: string
+          to_tier_id: string
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          change_type?: string
+          created_at?: string
+          effective_date: string
+          from_tier_id?: string | null
+          id?: string
+          merchant_id: string
+          reason?: string | null
+          requested_by?: string | null
+          status?: string
+          to_tier_id: string
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          change_type?: string
+          created_at?: string
+          effective_date?: string
+          from_tier_id?: string | null
+          id?: string
+          merchant_id?: string
+          reason?: string | null
+          requested_by?: string | null
+          status?: string
+          to_tier_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_changes_from_tier_id_fkey"
+            columns: ["from_tier_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_tiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_changes_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_occupancy_analysis"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "subscription_changes_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "subscription_changes_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "subscription_changes_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_changes_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_changes_to_tier_id_fkey"
+            columns: ["to_tier_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_tiers"
             referencedColumns: ["id"]
           },
         ]

@@ -141,18 +141,17 @@ export function SubscriptionPayment() {
     
     setIsProcessing(true);
     try {
-      const { error } = await supabase
-        .from("pending_subscription_changes")
+      const { error } = await (supabase
+        .from("subscription_changes" as any)
         .insert({
           merchant_id: merchant.id,
-          subscription_id: currentSubscription.id,
-          current_tier_id: currentSubscription.tier_id,
-          pending_tier_id: downgradeTarget.id,
+          from_tier_id: currentSubscription.tier_id,
+          to_tier_id: downgradeTarget.id,
           change_type: "downgrade",
           effective_date: currentSubscription.current_period_end,
           reason: "Usage exceeds target tier limits - scheduled for end of period",
           status: "pending",
-        });
+        } as any) as any);
 
       if (error) throw error;
 

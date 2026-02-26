@@ -48,14 +48,17 @@ export interface PendingSubscriptionChange {
   effective_date: string;
   change_type?: string;
   reason?: string;
+  cancelled_at?: string;
+  cancellation_reason?: string;
+  requested_by?: string;
   merchants?: {
     business_name: string;
   };
-  current_tier?: {
+  from_tier?: {
     name: string;
     display_name: string;
   };
-  pending_tier?: {
+  to_tier?: {
     name: string;
     display_name: string;
   };

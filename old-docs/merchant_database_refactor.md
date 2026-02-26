@@ -264,8 +264,8 @@ JOIN merchant_verifications mv ON m.latest_verification_id = mv.id;
 
 ---
 
-### 1.5 ⏭️ SKIP: Pending Subscription Changes
-> **Alasan SKIP**: Butuh code changes di subscription flow.
+### 1.5 ✅ DONE: Pending Subscription Changes
+> Tabel `pending_subscription_changes` di-rename ke `subscription_changes` dengan kolom `from_tier_id`/`to_tier_id` (menggantikan `current_tier_id`/`pending_tier_id`), ditambah audit trail (`requested_by`, `cancellation_reason`). Kolom `subscription_id` dihapus (redundant). Data dimigrasikan, RLS policies dibuat, dan semua code references (types, service, components, edge function) sudah di-update.
 
 **Masalah**: Change tracking design tidak ideal
 
