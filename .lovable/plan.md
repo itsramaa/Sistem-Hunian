@@ -1,85 +1,41 @@
 
 
-# Implementasi Sisa Item dari merchant_database_refactor.md
+# Implementasi NORMALIZATION_Merchant_Table.md
 
-## Hasil Audit: Item yang Belum Terimplementasi
+## Status Audit Per Section
 
-Setelah cross-check antara dokumen dan database aktual, ditemukan **4 CHECK constraint yang belum ada**:
+| Section | Status | Detail |
+|---------|--------|--------|
+| 1. Database Migration (SQL) | ✅ DONE | Kolom `subscription_tier`, `disbursement_schedule`, `billing_day` sudah tidak ada di tabel `merchants`. Data sudah dimigrasikan ke `merchant_subscriptions`. |
+| 2. TypeScript Types Refactor | ✅ DONE | `merchant.ts`, `merchant-profile.ts`, `auth.ts` sudah tidak mengandung field-field ini. `types.ts` auto-generated sudah benar. |
+| 3. Services & Hooks Refactor | ✅ DONE | `merchantService.ts` sudah JOIN ke `merchant_subscriptions(tier_id, status, subscription_tiers(name))`. `useMerchantEscrow.ts` sudah baca dari `merchant_subscriptions(disbursement_schedule)`. |
+| 4. UI Components Refactor | ⏳ PARTIAL | 2 file masih menggunakan kolom lama (menyebabkan build error) |
+| 5. Verification Plan | Belum diceklis |
 
-| Constraint | Table | Rule | Data Violations |
-|-----------|-------|------|-----------------|
-| `check_trial_days_nonneg` | `subscription_tiers` | `trial_days >= 0` | 0 (aman) |
-| `check_business_name_not_empty` | `merchants` | `LENGTH(TRIM(business_name)) > 0` | 0 (aman) |
-| `invoices_status_check` | `invoices` | `status IN ('draft','sent','issued','paid','overdue','cancelled','partial')` | 0 (aman) |
-| `check_due_date_after_created` | `invoices` | `due_date >= created_at::date` | **5 records** (perlu fix dulu) |
+## Yang Perlu Difix (2 File)
 
-**Catatan**: 5 invoice memiliki `due_date` sebelum `created_at` karena data seed/test. Data akan di-fix sebelum constraint diterapkan.
+### Fix 1: `MerchantDetailsTab.tsx` (line 54-60)
+- **Masalah**: `merchant.subscription_tier` tidak ada di type `Merchant`
+- **Solusi**: Ganti dengan `merchant.merchant_subscriptions?.[0]?.subscription_tiers?.name || "free"`
 
-## Rencana Implementasi
+### Fix 2: `SubscriptionPayment.tsx` (line 200-203)
+- **Masalah**: Masih mencoba update `subscription_tier` pada tabel `merchants` (kolom sudah tidak ada)
+- **Solusi**: Hapus baris tersebut. Data subscription sudah di-upsert ke `merchant_subscriptions` di baris sebelumnya (line 189-198).
 
-### Migration: Remaining CHECK Constraints
+## Step 3: Copy File + Update Checklist
 
-1. **Fix 5 invoice records** yang melanggar: set `created_at` ke timestamp sebelum `due_date`
-2. **Add 4 CHECK constraints** (idempotent DO blocks):
-   - `subscription_tiers.trial_days >= 0`
-   - `merchants.business_name` not empty
-   - `invoices.status` enum check
-   - `invoices.due_date >= created_at::date`
+Copy `NORMALIZATION_Merchant_Table.md` ke `old-docs/` dan update semua section dengan status:
+- Section 1: ✅ DONE
+- Section 2: ✅ DONE
+- Section 3: ✅ DONE
+- Section 4: ✅ DONE (setelah fix)
+- Section 5: ✅ DONE (no linter errors, UI uses join path)
 
-### Update Checklist di File
-
-Update `old-docs/merchant_database_refactor.md` dengan format emoji yang diminta:
-- Checkmark = sudah done
-- Clock emoji = partial + penjelasan
-- Skip marker = skip + alasan
-- Semua item yang sebelumnya "DONE" tetap, yang baru diimplementasikan ditambahkan
-
-**Setelah migration ini, Section 3.1 CHECK constraints menjadi FULLY DONE (bukan partial lagi).**
-
----
-
-## Detail Teknis
-
-### SQL Migration
-
-```sql
--- Fix 5 invoices where due_date < created_at
-UPDATE invoices SET created_at = (due_date - INTERVAL '7 days')::timestamptz
-WHERE due_date < created_at::date;
-
--- Add missing constraints (idempotent)
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_trial_days_nonneg') THEN
-    ALTER TABLE subscription_tiers ADD CONSTRAINT check_trial_days_nonneg CHECK (trial_days >= 0);
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_business_name_not_empty') THEN
-    ALTER TABLE merchants ADD CONSTRAINT check_business_name_not_empty 
-      CHECK (business_name IS NOT NULL AND LENGTH(TRIM(business_name)) > 0);
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'invoices_status_check') THEN
-    ALTER TABLE invoices ADD CONSTRAINT invoices_status_check 
-      CHECK (status IN ('draft','sent','issued','paid','overdue','cancelled','partial'));
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_due_date_after_created') THEN
-    ALTER TABLE invoices ADD CONSTRAINT check_due_date_after_created 
-      CHECK (due_date >= created_at::date);
-  END IF;
-END $$;
-```
-
-### File Changes
+## Files yang Diubah
 
 | File | Perubahan |
 |------|-----------|
-| Database migration | Fix 5 invoice records + 4 CHECK constraints |
-| `old-docs/merchant_database_refactor.md` | Update checklist format: checkmark/clock/skip emoji, mark 3.1 as fully DONE |
-
-## Status Setelah Implementasi
-
-| Section | Sebelum | Sesudah |
-|---------|---------|---------|
-| 3.1 CHECK Constraints | Partial (beberapa missing) | DONE (semua constraint ada) |
-| Overall Compliance | ~93% | ~95% |
-
-Semua item lainnya sudah benar statusnya (DONE atau SKIP dengan alasan valid).
+| `src/features/users/components/admin/MerchantDetailsTab.tsx` | Ganti `merchant.subscription_tier` dengan data dari `merchant_subscriptions` join |
+| `src/features/subscriptions/components/SubscriptionPayment.tsx` | Hapus update ke `merchants.subscription_tier` (redundant) |
+| `old-docs/NORMALIZATION_Merchant_Table.md` | Copy file + update checklist semua section |
 
