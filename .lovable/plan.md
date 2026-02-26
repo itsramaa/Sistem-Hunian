@@ -1,64 +1,62 @@
 
 
-# Perbaikan merchant_activity_diagram.md — Sinkronisasi dengan Sistem Aktual
+# Perbaikan merchant_sequence_diagram.md -- Sinkronisasi dengan Sistem Aktual
 
 ## Ringkasan
 
-Dokumen secara keseluruhan **sudah akurat** — semua 27 state machine transition tables dan 59 edge functions cocok dengan kode. Namun ada **6 perbaikan** yang perlu dilakukan agar 100% match.
+Dokumen secara keseluruhan **sudah akurat** -- 16 sequence diagrams, edge function invocation map, dan cross-diagram references semuanya konsisten dengan kode. Namun ada **4 perbaikan** yang perlu dilakukan.
 
-## Perbaikan yang Diperlukan
+## Masalah yang Ditemukan
 
-### 1. Diagram 1 (Onboarding) — Tambahkan trigger `handle_new_user()`
+### 1. Diagram 1 (Registration) -- `ensure-user-bootstrap` seharusnya `handle_new_user()` trigger
 
-Trigger `handle_new_user()` adalah trigger paling kritis pada onboarding: ia secara atomik membuat `profiles`, `user_roles`, `merchants`, `escrow_accounts`, dan `merchant_subscriptions` (free tier). Saat ini diagram hanya menunjukkan `ensure-user-bootstrap` edge function, tapi trigger database ini yang sebenarnya melakukan heavy lifting.
+Diagram menunjukkan `ensure-user-bootstrap` edge function sebagai mekanisme onboarding merchant. Kenyataannya:
+- Merchant registration menggunakan **`handle_new_user()` DB trigger** pada `auth.users` INSERT (bukan edge function)
+- `ensure-user-bootstrap` hanya digunakan di `TenantProfileForm.tsx` untuk tenant, bukan merchant
+- Trigger `handle_new_user()` secara atomik membuat: `profiles`, `user_roles`, `merchants`, `escrow_accounts`, `merchant_subscriptions`
 
-**Perubahan**: Tambahkan node `handle_new_user()` sebagai `<<trigger>>` setelah registrasi, sebelum profil merchant.
+**Perubahan**: Ganti participant `EF` (`ensure-user-bootstrap`) menjadi `TR` (`handle_new_user() DB Trigger`). Ubah arrow dari `Auth--)EF` menjadi `Auth--)TR` (trigger fires on INSERT to auth.users).
 
-### 2. Diagram 2 (Subscription) — Label trigger `set_cancellation_effective_date()`
+### 2. Diagram 2 (Verification) -- Menunjukkan 2 INSERT, seharusnya 1
 
-Alur cancellation sudah benar secara flow, tapi node "Set Effective Date" tidak ditandai sebagai database trigger. Trigger `set_cancellation_effective_date()` otomatis mengisi `cancellation_effective_date` berdasarkan `current_period_end`.
+Diagram menunjukkan dua INSERT ke `merchant_verification_history`:
+- Line 98: INSERT umum (merchant_id, action, performed_by, old_status, new_status)
+- Line 102-104: INSERT lagi di alt block (approved/rejected)
 
-**Perubahan**: Tambahkan label `<<trigger>>` pada node effective date.
+Kode aktual (`merchantService.verifyMerchant()` line 144-155) hanya melakukan **satu INSERT** dengan semua field (approval_notes, rejection_reason, rejection_details, resubmission_instructions) yang diisi secara kondisional.
 
-### 3. Diagram 3 (Property) — Tambahkan trigger `update_property_unit_counts()` dan `update_property_renovation_total()`
+**Perubahan**: Hapus INSERT pertama (line 98), pindahkan ke dalam alt block sebagai satu INSERT dengan semua field kondisional.
 
-Dua trigger yang secara otomatis menyinkronkan data properti tidak terdokumentasi:
-- `update_property_unit_counts()` — auto-update `total_units` dan `occupied_units` saat unit ditambah/diubah/dihapus
-- `update_property_renovation_total()` — auto-update `renovation_cost` saat renovation record berubah
+### 3. Diagram 4 (Property) -- Missing `dataQualityService.createVersion()` pada Update
 
-**Perubahan**: Tambahkan subgraph "Auto-Sync Triggers" di Diagram 3.
+`propertyService.updateProperty()` memanggil `dataQualityService.createVersion()` untuk auto-versioning sebelum melakukan update. Ini tidak terdokumentasi di sequence diagram.
 
-### 4. Diagram 6 (Invoice) — Tambahkan trigger `track_invoice_status_change()`
+**Perubahan**: Tambahkan participant `DQ as dataQualityService` dan langkah `PS->>DQ: createVersion('property', id, currentData, summary)` sebelum update, konsisten dengan bagaimana diagram sudah menunjukkan DQ pada flow lainnya.
 
-Trigger `track_invoice_status_change()` otomatis mencatat setiap perubahan status invoice ke `invoice_status_history`. Ini tidak ada di diagram saat ini.
+### 4. Appendix A & C -- Referensi `ensure-user-bootstrap` yang salah
 
-**Perubahan**: Tambahkan node trigger pada setiap transisi status invoice.
+- Appendix A baris pertama: `ensure-user-bootstrap | 1. Registration | Auth hook (automatic)` -- seharusnya `handle_new_user() | 1. Registration | DB Trigger (on auth.users INSERT)`
+- Appendix C baris Diagram 1: "1 (bootstrap)" di kolom Edge Functions -- seharusnya "0" karena ini trigger bukan edge function. Dan kolom "DB Writes" seharusnya mencerminkan trigger (5 INSERTs dari trigger + kemungkinan UPDATE dari frontend).
 
-### 5. Diagram 10 (Maintenance) — Tambahkan trigger `update_vendor_maintenance_rating()`
+## Yang Sudah Benar (Tidak Perlu Diubah)
 
-Setelah tenant memberikan review, trigger `update_vendor_maintenance_rating()` otomatis menghitung ulang rata-rata rating vendor. Ini belum terdokumentasi.
-
-**Perubahan**: Tambahkan node trigger setelah "maintenance_reviews" node.
-
-### 6. State Machines Summary (Appendix) — Perbaiki mapping yang salah
-
-| Masalah | Perbaikan |
-|---------|-----------|
-| `TENANT_INVITATION_TRANSITIONS` tidak ada | Tambahkan, map ke Diagram 5 |
-| `VENDOR_VERIFICATION_TRANSITIONS` mapped ke Diagram 10 | Ubah ke "Vendor Domain (non-merchant)" |
-| `VERIFICATION_STATUS_TRANSITIONS` mapped ke Diagram 1 | Ubah ke "Generic (used internally)" |
-| `order-auto-reject` mapped ke "11 (Order)" | Ubah ke "Marketplace (non-merchant)" |
+- Diagram 3 (Subscription) -- match dengan `subscriptionService.ts`
+- Diagram 5 (Contract) -- match dengan `contractService.ts` termasuk dual-signature flow
+- Diagram 6 (Tenant Invitation) -- match dengan edge functions
+- Diagram 7 (Invoice) -- match dengan `merchantInvoiceService.ts`
+- Diagram 8 (Payment/Xendit) -- match dengan `xenditService.ts`
+- Diagram 9 (OCR) -- match dengan flow
+- Diagram 10 (Escrow) -- match dengan `escrowService.ts` termasuk approve/reject
+- Diagram 11 (Maintenance) -- match dengan `maintenanceService.ts` termasuk vendor job + earnings
+- Diagram 12-15 -- match dengan edge functions dan flows
+- Diagram 16 (Suspend/Bulk) -- match dengan `merchantService.suspendMerchant()` dan `bulkApprove()`
+- Semua state machine references -- match dengan `state-machines.ts`
+- Cross-Diagram References (Appendix B) -- akurat
 
 ## Detail Teknis
 
 ### File yang Diubah
-| File | Perubahan |
-|------|-----------|
-| `old-docs/merchant_activity_diagram.md` | 6 perbaikan di diagram 1, 2, 3, 6, 10, dan appendix |
-
-### Tidak Perlu Diubah
-- Semua 27 state machine transition tables — sudah cocok 100%
-- Semua 59 edge function references — sudah lengkap
-- Semua flowchart logic dan branching — sudah akurat
-- Cross-Reference Matrix — sudah benar
+| File | Jumlah Perbaikan |
+|------|-----------------|
+| `old-docs/merchant_sequence_diagram.md` | 4 perbaikan (Diagram 1, 2, 4, Appendix A/C) |
 
