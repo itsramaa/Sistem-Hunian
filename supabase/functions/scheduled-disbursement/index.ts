@@ -8,10 +8,12 @@ const corsHeaders = {
 interface MerchantWithEscrow {
   id: string;
   business_name: string;
-  disbursement_schedule: string;
   user_id: string;
   min_disbursement_amount: number | null;
   total_disbursed: number | null;
+  merchant_subscriptions: {
+    disbursement_schedule: string;
+  }[];
   escrow_accounts: {
     id: string;
     balance: number;
@@ -73,10 +75,12 @@ Deno.serve(async (req) => {
       .select(`
         id,
         business_name,
-        disbursement_schedule,
         user_id,
         min_disbursement_amount,
         total_disbursed,
+        merchant_subscriptions!inner (
+          disbursement_schedule
+        ),
         escrow_accounts (
           id,
           balance
@@ -89,7 +93,7 @@ Deno.serve(async (req) => {
           is_primary
         )
       `)
-      .in('disbursement_schedule', schedulesToProcess)
+      .in('merchant_subscriptions.disbursement_schedule', schedulesToProcess)
       .eq('verification_status', 'verified');
 
     if (merchantError) {
@@ -129,7 +133,8 @@ Deno.serve(async (req) => {
         }
 
         const amount = escrowAccount.balance;
-        const feeRate = FEE_RATES[merchant.disbursement_schedule] || 0;
+        const disbursementSchedule = merchant.merchant_subscriptions?.[0]?.disbursement_schedule || 'weekly';
+        const feeRate = FEE_RATES[disbursementSchedule] || 0;
         const feeAmount = amount * feeRate;
         const netAmount = amount - feeAmount;
 
@@ -164,7 +169,7 @@ Deno.serve(async (req) => {
               bank_code: bankCode,
               account_holder_name: primaryBankAccount.account_name,
               account_number: primaryBankAccount.account_number,
-              description: `Scheduled ${merchant.disbursement_schedule} disbursement`,
+              description: `Scheduled ${disbursementSchedule} disbursement`,
             };
 
             const response = await fetch('https://api.xendit.co/disbursements', {
@@ -265,7 +270,7 @@ Deno.serve(async (req) => {
             amount: -amount,
             type: 'disbursement',
             status: disbursementStatus === 'completed' ? 'completed' : 'processing',
-            description: `Scheduled ${merchant.disbursement_schedule} disbursement${feeAmount > 0 ? ` (fee: Rp ${feeAmount.toLocaleString()})` : ''}`,
+            description: `Scheduled ${disbursementSchedule} disbursement${feeAmount > 0 ? ` (fee: Rp ${feeAmount.toLocaleString()})` : ''}`,
             reference: disbursement.id,
           });
 

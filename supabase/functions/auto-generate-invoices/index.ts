@@ -280,7 +280,9 @@ serve(async (req) => {
           )
         ),
         merchant:merchants (
-          billing_day
+          merchant_subscriptions (
+            billing_day
+          )
         )
       `)
       .eq('status', 'active')
@@ -298,9 +300,9 @@ serve(async (req) => {
 
     for (const contract of activeContracts || []) {
       try {
-        // Determine billing day: contract billing_day > merchant billing_day > default 1
-        const merchantData = contract.merchant as unknown as { billing_day: number | null } | null;
-        const billingDay = contract.billing_day || merchantData?.billing_day || 1;
+        // Determine billing day: contract billing_day > merchant_subscriptions billing_day > default 1
+        const merchantData = contract.merchant as unknown as { merchant_subscriptions: { billing_day: number | null }[] | null } | null;
+        const billingDay = contract.billing_day || merchantData?.merchant_subscriptions?.[0]?.billing_day || 1;
 
         // Only generate invoice if today matches the billing day
         if (currentDay !== billingDay) {
