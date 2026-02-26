@@ -79,8 +79,8 @@ ALTER TABLE merchants DROP COLUMN subscription_tier CASCADE;
 
 ---
 
-### 1.2 ⏭️ SKIP: Referral Data Duplication
-> **Alasan SKIP**: Field referral di `merchants` direferensikan di types. Perlu code refactor terpisah.
+### 1.2 ✅ DONE: Referral Data Duplication
+> Kolom `referred_by`, `referral_discount`, `referral_discount_months` sudah di-drop dari `merchants`. Data dimigrasikan ke `referrals` table. View `merchant_referral_summary` dibuat untuk akses cepat. Auth-webhook dan TypeScript type sudah di-update.
 
 **Masalah**: Referral information tersebar di 3 tempat
 
