@@ -1509,6 +1509,116 @@ export type Database = {
         }
         Relationships: []
       }
+      dynamic_pricing_rules: {
+        Row: {
+          adjustment_type: string
+          adjustment_value: number
+          conditions: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          max_price: number | null
+          merchant_id: string
+          min_price: number | null
+          notes: string | null
+          priority: number
+          property_id: string | null
+          rule_name: string
+          rule_type: string
+          updated_at: string
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          adjustment_type?: string
+          adjustment_value?: number
+          conditions?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          max_price?: number | null
+          merchant_id: string
+          min_price?: number | null
+          notes?: string | null
+          priority?: number
+          property_id?: string | null
+          rule_name: string
+          rule_type: string
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          adjustment_type?: string
+          adjustment_value?: number
+          conditions?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          max_price?: number | null
+          merchant_id?: string
+          min_price?: number | null
+          notes?: string | null
+          priority?: number
+          property_id?: string | null
+          rule_name?: string
+          rule_type?: string
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dynamic_pricing_rules_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_occupancy_analysis"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "dynamic_pricing_rules_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "dynamic_pricing_rules_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "dynamic_pricing_rules_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dynamic_pricing_rules_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dynamic_pricing_rules_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dynamic_pricing_rules_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       early_termination_requests: {
         Row: {
           approved_at: string | null
@@ -1690,6 +1800,148 @@ export type Database = {
             columns: ["escrow_account_id"]
             isOneToOne: false
             referencedRelation: "escrow_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expenses: {
+        Row: {
+          amount: number
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
+          category: string
+          created_at: string
+          currency: string
+          description: string | null
+          expense_date: string
+          id: string
+          is_recurring: boolean
+          merchant_id: string
+          notes: string | null
+          ocr_data: Json | null
+          payment_method: string | null
+          property_id: string | null
+          receipt_url: string | null
+          recurring_frequency: string | null
+          subcategory: string | null
+          tax_deductible: boolean
+          unit_id: string | null
+          updated_at: string
+          vendor_id: string | null
+        }
+        Insert: {
+          amount?: number
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          category?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          expense_date?: string
+          id?: string
+          is_recurring?: boolean
+          merchant_id: string
+          notes?: string | null
+          ocr_data?: Json | null
+          payment_method?: string | null
+          property_id?: string | null
+          receipt_url?: string | null
+          recurring_frequency?: string | null
+          subcategory?: string | null
+          tax_deductible?: boolean
+          unit_id?: string | null
+          updated_at?: string
+          vendor_id?: string | null
+        }
+        Update: {
+          amount?: number
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          category?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          expense_date?: string
+          id?: string
+          is_recurring?: boolean
+          merchant_id?: string
+          notes?: string | null
+          ocr_data?: Json | null
+          payment_method?: string | null
+          property_id?: string | null
+          receipt_url?: string | null
+          recurring_frequency?: string | null
+          subcategory?: string | null
+          tax_deductible?: boolean
+          unit_id?: string | null
+          updated_at?: string
+          vendor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_occupancy_analysis"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "expenses_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "expenses_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "expenses_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
             referencedColumns: ["id"]
           },
         ]
@@ -1905,6 +2157,84 @@ export type Database = {
           },
           {
             foreignKeyName: "facility_types_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feature_flags: {
+        Row: {
+          created_at: string
+          description: string | null
+          disabled_at: string | null
+          enabled_at: string | null
+          feature_key: string
+          id: string
+          is_enabled: boolean
+          merchant_id: string | null
+          metadata: Json | null
+          rollout_percentage: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          disabled_at?: string | null
+          enabled_at?: string | null
+          feature_key: string
+          id?: string
+          is_enabled?: boolean
+          merchant_id?: string | null
+          metadata?: Json | null
+          rollout_percentage?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          disabled_at?: string | null
+          enabled_at?: string | null
+          feature_key?: string
+          id?: string
+          is_enabled?: boolean
+          merchant_id?: string | null
+          metadata?: Json | null
+          rollout_percentage?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_flags_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_occupancy_analysis"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "feature_flags_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "feature_flags_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "feature_flags_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feature_flags_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "v_merchants_with_addresses"
@@ -2618,6 +2948,103 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lease_renewal_alerts: {
+        Row: {
+          alert_days_before: number
+          alert_type: string
+          channel: string
+          contract_id: string
+          created_at: string
+          id: string
+          merchant_id: string
+          notes: string | null
+          responded_at: string | null
+          response: string | null
+          scheduled_date: string
+          sent_at: string | null
+          status: string
+          tenant_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          alert_days_before: number
+          alert_type: string
+          channel?: string
+          contract_id: string
+          created_at?: string
+          id?: string
+          merchant_id: string
+          notes?: string | null
+          responded_at?: string | null
+          response?: string | null
+          scheduled_date: string
+          sent_at?: string | null
+          status?: string
+          tenant_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          alert_days_before?: number
+          alert_type?: string
+          channel?: string
+          contract_id?: string
+          created_at?: string
+          id?: string
+          merchant_id?: string
+          notes?: string | null
+          responded_at?: string | null
+          response?: string | null
+          scheduled_date?: string
+          sent_at?: string | null
+          status?: string
+          tenant_user_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lease_renewal_alerts_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lease_renewal_alerts_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_occupancy_analysis"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "lease_renewal_alerts_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "lease_renewal_alerts_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "lease_renewal_alerts_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lease_renewal_alerts_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
             referencedColumns: ["id"]
           },
         ]
@@ -3889,6 +4316,108 @@ export type Database = {
         }
         Relationships: []
       }
+      occupancy_forecast: {
+        Row: {
+          actual_occupancy_rate: number | null
+          confidence_score: number | null
+          created_at: string
+          forecast_month: string
+          id: string
+          input_features: Json | null
+          merchant_id: string
+          model_run_id: string | null
+          model_version: string | null
+          predicted_occupancy_rate: number
+          property_id: string
+          updated_at: string
+        }
+        Insert: {
+          actual_occupancy_rate?: number | null
+          confidence_score?: number | null
+          created_at?: string
+          forecast_month: string
+          id?: string
+          input_features?: Json | null
+          merchant_id: string
+          model_run_id?: string | null
+          model_version?: string | null
+          predicted_occupancy_rate: number
+          property_id: string
+          updated_at?: string
+        }
+        Update: {
+          actual_occupancy_rate?: number | null
+          confidence_score?: number | null
+          created_at?: string
+          forecast_month?: string
+          id?: string
+          input_features?: Json | null
+          merchant_id?: string
+          model_run_id?: string | null
+          model_version?: string | null
+          predicted_occupancy_rate?: number
+          property_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "occupancy_forecast_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_occupancy_analysis"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "occupancy_forecast_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "occupancy_forecast_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "occupancy_forecast_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "occupancy_forecast_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "occupancy_forecast_model_run_id_fkey"
+            columns: ["model_run_id"]
+            isOneToOne: false
+            referencedRelation: "ml_model_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "occupancy_forecast_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "occupancy_forecast_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       occupancy_snapshots: {
         Row: {
           available_units: number
@@ -4397,6 +4926,103 @@ export type Database = {
           },
           {
             foreignKeyName: "payment_plans_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_reminders_log: {
+        Row: {
+          channel: string
+          created_at: string
+          delivered_at: string | null
+          error_message: string | null
+          escalation_level: number
+          id: string
+          invoice_id: string
+          merchant_id: string
+          metadata: Json | null
+          read_at: string | null
+          reminder_type: string
+          response: string | null
+          sent_at: string
+          status: string
+          tenant_user_id: string
+        }
+        Insert: {
+          channel?: string
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          escalation_level?: number
+          id?: string
+          invoice_id: string
+          merchant_id: string
+          metadata?: Json | null
+          read_at?: string | null
+          reminder_type: string
+          response?: string | null
+          sent_at?: string
+          status?: string
+          tenant_user_id: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          escalation_level?: number
+          id?: string
+          invoice_id?: string
+          merchant_id?: string
+          metadata?: Json | null
+          read_at?: string | null
+          reminder_type?: string
+          response?: string | null
+          sent_at?: string
+          status?: string
+          tenant_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_reminders_log_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_reminders_log_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_occupancy_analysis"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "payment_reminders_log_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "payment_reminders_log_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "payment_reminders_log_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_reminders_log_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "v_merchants_with_addresses"
@@ -7454,6 +8080,138 @@ export type Database = {
             columns: ["referral_id"]
             isOneToOne: false
             referencedRelation: "referrals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      waiting_list: {
+        Row: {
+          accepted_at: string | null
+          applicant_email: string | null
+          applicant_name: string
+          applicant_phone: string | null
+          budget_max: number | null
+          budget_min: number | null
+          created_at: string
+          id: string
+          merchant_id: string
+          notes: string | null
+          offer_expires_at: string | null
+          offered_at: string | null
+          preferred_move_in: string | null
+          priority_rank: number | null
+          property_id: string | null
+          quality_score: number | null
+          rejected_at: string | null
+          rejection_reason: string | null
+          special_needs: string | null
+          status: string
+          unit_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          applicant_email?: string | null
+          applicant_name: string
+          applicant_phone?: string | null
+          budget_max?: number | null
+          budget_min?: number | null
+          created_at?: string
+          id?: string
+          merchant_id: string
+          notes?: string | null
+          offer_expires_at?: string | null
+          offered_at?: string | null
+          preferred_move_in?: string | null
+          priority_rank?: number | null
+          property_id?: string | null
+          quality_score?: number | null
+          rejected_at?: string | null
+          rejection_reason?: string | null
+          special_needs?: string | null
+          status?: string
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          applicant_email?: string | null
+          applicant_name?: string
+          applicant_phone?: string | null
+          budget_max?: number | null
+          budget_min?: number | null
+          created_at?: string
+          id?: string
+          merchant_id?: string
+          notes?: string | null
+          offer_expires_at?: string | null
+          offered_at?: string | null
+          preferred_move_in?: string | null
+          priority_rank?: number | null
+          property_id?: string | null
+          quality_score?: number | null
+          rejected_at?: string | null
+          rejection_reason?: string | null
+          special_needs?: string | null
+          status?: string
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "waiting_list_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_occupancy_analysis"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "waiting_list_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "waiting_list_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "waiting_list_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "waiting_list_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "waiting_list_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "waiting_list_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "waiting_list_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
             referencedColumns: ["id"]
           },
         ]
