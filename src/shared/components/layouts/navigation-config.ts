@@ -138,6 +138,8 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/merchant/collections", icon: FileSearch, label: "Penagihan" },
           { path: "/merchant/reconciliation", icon: Calculator, label: "Rekonsiliasi" },
           { path: "/merchant/expenses", icon: CreditCard, label: "Pengeluaran" },
+          { path: "/merchant/dynamic-pricing", icon: TrendingUp, label: "Harga Dinamis" },
+          { path: "/merchant/financial-reports", icon: BarChart3, label: "Lap. Keuangan" },
         ],
       },
       {
