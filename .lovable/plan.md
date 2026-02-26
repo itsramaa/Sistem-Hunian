@@ -1,111 +1,65 @@
 
-# Merchant Activity Diagram (merchant_activity_diagram.md)
+
+# Membuat merchant_state_machine_diagram.md
 
 ## Ringkasan
 
-Membuat file `old-docs/merchant_activity_diagram.md` yang berisi Mermaid activity/flowchart diagrams yang mendokumentasikan **semua alur aktivitas merchant** secara lengkap. Dokumen ini akan mencakup setiap domain operasional merchant berdasarkan state machines, edge functions, dan page flows yang sudah ada di codebase.
+Membuat file `old-docs/merchant_state_machine_diagram.md` yang berisi **semua 22 state machine** dari `src/shared/constants/state-machines.ts` dalam bentuk Mermaid `stateDiagram-v2` diagrams. Berbeda dengan `merchant_activity_diagram.md` yang fokus pada **alur aktivitas/proses**, dokumen ini fokus pada **transisi status** murni -- setiap state, transisi, dan terminal state terdokumentasi.
 
 ## Struktur Dokumen
 
-Dokumen akan berisi **14 diagram Mermaid** yang dikelompokkan per domain:
+22 diagram `stateDiagram-v2` Mermaid, masing-masing merepresentasikan satu state machine constant:
 
-### 1. Merchant Onboarding & Verification Flow
-- Registrasi user -> profil merchant -> upload dokumen verifikasi -> admin review -> approved/rejected -> resubmission loop
-- State machine: `pending -> verified/rejected`, `rejected -> pending` (resubmit), `verified -> suspended -> verified`
+| No | State Machine | Constant Name |
+|----|--------------|---------------|
+| 1 | Merchant Verification | `MERCHANT_VERIFICATION_TRANSITIONS` |
+| 2 | Subscription Status | `SUBSCRIPTION_STATUS_TRANSITIONS` |
+| 3 | Contract Status | `CONTRACT_STATUS_TRANSITIONS` |
+| 4 | Contract Signature | `CONTRACT_SIGNATURE_TRANSITIONS` |
+| 5 | Unit Status | `UNIT_STATUS_TRANSITIONS` |
+| 6 | Invoice Status | `INVOICE_STATUS_TRANSITIONS` |
+| 7 | Payment Status | `PAYMENT_STATUS_TRANSITIONS` |
+| 8 | Payment Plan | `PAYMENT_PLAN_STATUS_TRANSITIONS` |
+| 9 | Payment Verification | `PAYMENT_VERIFICATION_TRANSITIONS` |
+| 10 | Maintenance Request | `MAINTENANCE_STATUS_TRANSITIONS` |
+| 11 | Move-Out Notice | `MOVE_OUT_NOTICE_TRANSITIONS` |
+| 12 | Move-Out Inspection | `MOVE_OUT_INSPECTION_TRANSITIONS` |
+| 13 | Early Termination | `EARLY_TERMINATION_TRANSITIONS` |
+| 14 | Deposit Refund | `DEPOSIT_REFUND_TRANSITIONS` |
+| 15 | Escrow Transaction | `ESCROW_TRANSACTION_TRANSITIONS` |
+| 16 | Disbursement | `DISBURSEMENT_STATUS_TRANSITIONS` |
+| 17 | Collections Case | `COLLECTIONS_CASE_TRANSITIONS` |
+| 18 | Tenant Invitation | `TENANT_INVITATION_TRANSITIONS` |
+| 19 | Referral | `REFERRAL_STATUS_TRANSITIONS` |
+| 20 | Document Verification | `VERIFICATION_STATUS_TRANSITIONS` |
+| 21 | Vendor Job | `VENDOR_JOB_STATUS_TRANSITIONS` |
+| 22 | Vendor Verification | `VENDOR_VERIFICATION_TRANSITIONS` |
+| 23 | Order (Marketplace) | `ORDER_STATUS_TRANSITIONS` |
+| 24 | Forum Report | `FORUM_REPORT_TRANSITIONS` |
+| 25 | OCR Result | `OCR_RESULT_TRANSITIONS` |
+| 26 | DSS Recommendation | `DSS_RECOMMENDATION_TRANSITIONS` |
+| 27 | Dispute | `DISPUTE_STATUS_TRANSITIONS` |
 
-### 2. Subscription Lifecycle
-- Pilih tier -> trialing -> active -> past_due -> suspended -> cancelled
-- Upgrade/downgrade via `subscription_changes`
-- Billing cycle: `subscription-billing` -> `subscription-payment` -> `subscription-renewal` -> `subscription-grace-check`
-- Cancellation: feedback -> effective date -> cancelled
+## Konten per Diagram
 
-### 3. Property & Unit Management
-- Tambah properti -> set alamat (addresses) -> tambah unit -> kelola guardian -> fasilitas -> compliance docs
-- Unit status: `available <-> occupied <-> maintenance`
-- Property lifecycle: setup -> listing -> occupancy tracking -> renovations -> insurance
+Setiap section akan berisi:
+1. Judul dan deskripsi singkat (1-2 baris)
+2. Tabel transisi `From -> To` (disalin persis dari constant)
+3. Mermaid `stateDiagram-v2` diagram dengan:
+   - `[*]` sebagai initial state
+   - Terminal states ditandai dengan transisi ke `[*]`
+   - State names sesuai constant values (e.g., `pending`, `verified`)
+   - Catatan pada state yang punya side-effect (e.g., `fully_signed` triggers unit occupied)
 
-### 4. Contract Lifecycle (Full)
-- Draft -> tanda tangan (merchant_signed / tenant_signed -> fully_signed) -> active -> notice -> completed
-- Branch: active -> terminated (early termination request flow)
-- Branch: active -> expired (auto)
-- Trigger: fully_signed -> unit status = occupied
+## Appendix
 
-### 5. Tenant Management Flow
-- Invite tenant (`tenant_invitations`: pending -> accepted/expired) -> create contract -> link to unit
-- Tenant history tracking (`tenant_merchant_history`)
-- Unlink tenant -> unit available
+- **Tabel ringkasan**: Semua state machines dalam 1 tabel (nama, jumlah states, jumlah terminal states)
+- **Cross-domain dependencies**: Diagram yang menunjukkan bagaimana state machine saling terkait (e.g., contract `fully_signed` -> unit `occupied`)
+- **Helper functions**: Dokumentasi `isValidTransition`, `getAllowedTransitions`, `isTerminalState`
 
-### 6. Invoice Lifecycle
-- Auto-generate (`auto-generate-invoices`) -> draft -> sent -> paid/overdue
-- Overdue branch: late fee records -> payment reminder -> collections case
-- Payment plan branch: negotiation -> installments -> completed/defaulted
-- Denormalisasi: auto-populate property_id, unit_id, tenant_name, unit_number via trigger
+## File yang Dibuat
 
-### 7. Payment & Payment Verification Flow
-- Invoice sent -> tenant pays -> payment recorded -> escrow
-- OCR payment proof: upload -> `ocr-payment-proof` -> `payment_verifications` (pending -> auto_matched/confirmed/rejected)
-- Xendit integration: `xendit-create-invoice` -> payment URL -> `xendit-webhook` callback
-
-### 8. Escrow & Disbursement Flow
-- Payment masuk -> escrow_transactions (pending -> completed)
-- Disbursement: pending -> approved -> processing -> completed/failed
-- Scheduled disbursement via edge function
-- Bank account management
-
-### 9. Move-Out & Deposit Refund Flow
-- Notice: submitted -> acknowledged -> approved -> completed
-- Inspection: scheduled -> in_progress -> completed
-- Tasks & timeline tracking
-- Early termination: pending_approval -> approved/denied/counter_offered
-- Deposit refund: pending_processing -> approved -> processing -> completed
-- Deposit dispute: open -> resolved
-
-### 10. Maintenance Request Lifecycle
-- Tenant submit -> pending -> in_progress -> completed
-- SLA deadline (auto via trigger)
-- Vendor assignment -> vendor job (pending -> accepted -> in_progress -> completed)
-- Expense tracking (OCR receipt)
-- Review & rating
-- Timeline & updates
-
-### 11. Billing Analytics & Collections
-- Overdue escalation (`check-overdue-escalation`): initiated -> in_progress -> resolved
-- Collection strategies via DSS
-- Tenant payment metrics computation
-- Tenant risk scoring
-
-### 12. AI/ML & DSS Advisory Flow
-- DSS: pricing advisor, maintenance priority, collection strategy, investment insight
-- ML: churn prediction, occupancy forecast, revenue forecast, risk assessment, tenant quality scoring, optimal pricing, price intelligence
-- OCR: KTP, payment proof, maintenance receipt, compliance doc, contract doc, business doc, asset label
-- Recommendation lifecycle: generated -> viewed -> accepted/rejected -> measured
-
-### 13. Referral System
-- Generate referral code -> share -> referee signs up -> pending -> active -> completed
-- Commission processing: `process-referral-commissions`, `process-referral-reward`
-- Vendor order referral: `process-vendor-order-referral`
-
-### 14. Support, Feedback & Compliance
-- Live chat: conversations -> messages
-- Merchant feedback: submit -> admin response
-- Compliance documents: upload -> tracking expiry
-- Insurance: policies -> claims
-- Security incidents & disaster risk profiles
-- Data quality checks
-- Audit logs
-
-## Detail Teknis
-
-### File yang Dibuat
 | File | Deskripsi |
 |------|-----------|
-| `old-docs/merchant_activity_diagram.md` | Dokumen lengkap berisi 14 Mermaid flowchart diagrams |
+| `old-docs/merchant_state_machine_diagram.md` | Dokumen lengkap berisi 27 Mermaid stateDiagram-v2 |
 
-### Konvensi Diagram
-- Menggunakan `flowchart TD` (top-down) untuk clarity
-- Warna node: hijau untuk start/success, merah untuk terminal/error, biru untuk proses, kuning untuk decision
-- Setiap diagram memiliki penjelasan teks singkat
-- Cross-reference antar diagram ditandai dengan label `[See Diagram X]`
-- Semua state dari `state-machines.ts` tercakup
-- Semua edge functions yang relevan ditandai dengan label `<<edge function>>`
-- Semua triggers yang relevan ditandai dengan label `<<trigger>>`
