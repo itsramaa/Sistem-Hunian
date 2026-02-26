@@ -3953,6 +3953,7 @@ export type Database = {
           billing_address_id: string | null
           business_name: string
           business_type: string | null
+          collections_reminder_config: Json
           created_at: string
           headquarters_address_id: string | null
           id: string
@@ -3971,6 +3972,7 @@ export type Database = {
           billing_address_id?: string | null
           business_name: string
           business_type?: string | null
+          collections_reminder_config?: Json
           created_at?: string
           headquarters_address_id?: string | null
           id?: string
@@ -3989,6 +3991,7 @@ export type Database = {
           billing_address_id?: string | null
           business_name?: string
           business_type?: string | null
+          collections_reminder_config?: Json
           created_at?: string
           headquarters_address_id?: string | null
           id?: string
@@ -4797,6 +4800,105 @@ export type Database = {
           },
         ]
       }
+      payment_invoice_match: {
+        Row: {
+          created_at: string
+          id: string
+          invoice_id: string
+          match_confidence: number | null
+          match_reason: string | null
+          match_type: string
+          matched_amount: number
+          matched_by: string | null
+          merchant_id: string
+          payment_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invoice_id: string
+          match_confidence?: number | null
+          match_reason?: string | null
+          match_type?: string
+          matched_amount?: number
+          matched_by?: string | null
+          merchant_id: string
+          payment_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invoice_id?: string
+          match_confidence?: number | null
+          match_reason?: string | null
+          match_type?: string
+          matched_amount?: number
+          matched_by?: string | null
+          merchant_id?: string
+          payment_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_invoice_match_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_invoice_match_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_outstanding_summary"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "payment_invoice_match_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_occupancy_analysis"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "payment_invoice_match_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "payment_invoice_match_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "payment_invoice_match_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_invoice_match_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_invoice_match_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_plan_installments: {
         Row: {
           amount: number
@@ -5213,6 +5315,7 @@ export type Database = {
           payment_method: string | null
           payment_type: string
           proof_photo_url: string | null
+          reconciliation_status: string
           reference: string | null
           status: string
           tenant_user_id: string
@@ -5229,6 +5332,7 @@ export type Database = {
           payment_method?: string | null
           payment_type?: string
           proof_photo_url?: string | null
+          reconciliation_status?: string
           reference?: string | null
           status?: string
           tenant_user_id: string
@@ -5245,6 +5349,7 @@ export type Database = {
           payment_method?: string | null
           payment_type?: string
           proof_photo_url?: string | null
+          reconciliation_status?: string
           reference?: string | null
           status?: string
           tenant_user_id?: string
@@ -7172,6 +7277,100 @@ export type Database = {
           },
           {
             foreignKeyName: "tenant_payment_metrics_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_quality_scores: {
+        Row: {
+          communication_score: number
+          compliance_score: number
+          contract_id: string | null
+          created_at: string
+          id: string
+          last_calculated_at: string | null
+          maintenance_score: number
+          merchant_id: string
+          overall_quality_score: number
+          payment_score: number
+          recommendation: string
+          risk_level: string
+          tenant_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          communication_score?: number
+          compliance_score?: number
+          contract_id?: string | null
+          created_at?: string
+          id?: string
+          last_calculated_at?: string | null
+          maintenance_score?: number
+          merchant_id: string
+          overall_quality_score?: number
+          payment_score?: number
+          recommendation?: string
+          risk_level?: string
+          tenant_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          communication_score?: number
+          compliance_score?: number
+          contract_id?: string | null
+          created_at?: string
+          id?: string
+          last_calculated_at?: string | null
+          maintenance_score?: number
+          merchant_id?: string
+          overall_quality_score?: number
+          payment_score?: number
+          recommendation?: string
+          risk_level?: string
+          tenant_user_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_quality_scores_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_quality_scores_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_occupancy_analysis"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "tenant_quality_scores_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "tenant_quality_scores_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "tenant_quality_scores_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_quality_scores_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "v_merchants_with_addresses"
