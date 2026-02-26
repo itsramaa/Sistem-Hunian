@@ -620,6 +620,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "collections_cases_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_outstanding_summary"
+            referencedColumns: ["invoice_id"]
+          },
+          {
             foreignKeyName: "collections_cases_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
@@ -2748,6 +2755,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "invoice_status_history_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_outstanding_summary"
+            referencedColumns: ["invoice_id"]
+          },
+          {
             foreignKeyName: "invoice_status_history_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
@@ -2949,6 +2963,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "late_fee_records_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_outstanding_summary"
+            referencedColumns: ["invoice_id"]
           },
         ]
       }
@@ -4819,6 +4840,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "payment_plan_installments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_outstanding_summary"
+            referencedColumns: ["invoice_id"]
+          },
+          {
             foreignKeyName: "payment_plan_installments_payment_plan_id_fkey"
             columns: ["payment_plan_id"]
             isOneToOne: false
@@ -4898,6 +4926,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_plans_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_outstanding_summary"
+            referencedColumns: ["invoice_id"]
           },
           {
             foreignKeyName: "payment_plans_merchant_id_fkey"
@@ -4995,6 +5030,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_reminders_log_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_outstanding_summary"
+            referencedColumns: ["invoice_id"]
           },
           {
             foreignKeyName: "payment_reminders_log_merchant_id_fkey"
@@ -5107,6 +5149,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_verifications_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_outstanding_summary"
+            referencedColumns: ["invoice_id"]
           },
           {
             foreignKeyName: "payment_verifications_merchant_id_fkey"
@@ -8292,6 +8341,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "xendit_transactions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_outstanding_summary"
+            referencedColumns: ["invoice_id"]
+          },
+          {
             foreignKeyName: "xendit_transactions_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
@@ -8486,6 +8542,72 @@ export type Database = {
             columns: ["billing_address_id"]
             isOneToOne: false
             referencedRelation: "addresses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_outstanding_summary: {
+        Row: {
+          aging_bucket: string | null
+          bucket_order: number | null
+          contract_id: string | null
+          created_at: string | null
+          days_overdue: number | null
+          due_date: string | null
+          invoice_id: string | null
+          invoice_number: string | null
+          last_payment_date: string | null
+          merchant_id: string | null
+          outstanding_amount: number | null
+          paid_amount: number | null
+          status: string | null
+          tenant_name: string | null
+          tenant_user_id: string | null
+          total_amount: number | null
+          unit_id: string | null
+          unit_number: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_occupancy_analysis"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "invoices_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "invoices_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "invoices_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
             referencedColumns: ["id"]
           },
         ]
