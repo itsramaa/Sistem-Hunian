@@ -1,10 +1,26 @@
-# Merchant Database - Class Diagram
+# Merchant Database - Class Diagram & Schema Reference
 
 Diagram lengkap semua tabel dan relasi FK yang terintegrasi dengan merchant, dikelompokkan per domain.
+**Last updated**: 2026-02-26 (post-refactoring 1.1–1.7)
 
 ```mermaid
 classDiagram
     direction TB
+
+    %% ============================================
+    %% SHARED / LOOKUP
+    %% ============================================
+    class addresses {
+        UUID id PK
+        TEXT street_address
+        TEXT city
+        TEXT province
+        TEXT postal_code
+        FLOAT latitude
+        FLOAT longitude
+        TEXT address_type
+        TIMESTAMPTZ created_at
+    }
 
     %% ============================================
     %% CORE MERCHANT
@@ -14,27 +30,12 @@ classDiagram
         UUID user_id FK
         TEXT business_name
         TEXT business_type
-        TEXT address
-        TEXT city
-        TEXT province
-        TEXT postal_code
         TEXT merchant_code
         TEXT verification_status
-        TIMESTAMPTZ verification_submitted_at
-        TIMESTAMPTZ verified_at
-        UUID verified_by
-        TIMESTAMPTZ rejected_at
-        UUID rejected_by
-        TEXT rejection_details
-        INT resubmission_count
-        TEXT resubmission_instructions
-        TEXT subscription_tier
-        TEXT disbursement_schedule
-        INT billing_day
+        UUID headquarters_address_id FK
+        UUID billing_address_id FK
+        TSVECTOR search_vector
         NUMERIC penalty_rate
-        UUID referred_by
-        NUMERIC referral_discount
-        INT referral_discount_months
         NUMERIC total_disbursed
         DATE last_disbursement_date
         NUMERIC min_disbursement_amount
@@ -130,15 +131,21 @@ classDiagram
         TIMESTAMPTZ created_at
     }
 
-    class pending_subscription_changes {
+    class subscription_changes {
         UUID id PK
         UUID merchant_id FK
-        UUID current_tier_id FK
-        UUID new_tier_id FK
+        UUID from_tier_id FK
+        UUID to_tier_id FK
         TEXT change_type
-        TIMESTAMPTZ effective_date
         TEXT status
+        TIMESTAMPTZ effective_date
+        TIMESTAMPTZ applied_at
+        TIMESTAMPTZ cancelled_at
+        TEXT cancellation_reason
+        TEXT reason
+        UUID requested_by FK
         TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
     }
 
     class merchant_feedback {
@@ -161,12 +168,9 @@ classDiagram
     class properties {
         UUID id PK
         UUID merchant_id FK
+        UUID address_id FK
         TEXT name
         TEXT property_type
-        TEXT address
-        TEXT city
-        TEXT province
-        TEXT postal_code
         TEXT description
         TEXT[] images
         TEXT[] amenities
@@ -180,14 +184,16 @@ classDiagram
         INT floor_count
         TEXT building_condition
         TEXT land_ownership
-        FLOAT latitude
-        FLOAT longitude
+        JSONB nearby_facilities
         NUMERIC construction_cost
         NUMERIC renovation_cost
         TEXT funding_source
         NUMERIC monthly_amortization
         NUMERIC monthly_maintenance_cost
         NUMERIC avg_annual_unexpected_cost
+        NUMERIC security_score
+        TEXT disaster_risk_level
+        TEXT property_code
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
     }
@@ -500,6 +506,7 @@ classDiagram
         UUID merchant_id FK
         UUID unit_id FK
         UUID tenant_user_id FK
+        TEXT contract_number
         NUMERIC rent_amount
         NUMERIC deposit_amount
         DATE start_date
@@ -682,7 +689,8 @@ classDiagram
         UUID contract_id FK
         UUID merchant_id FK
         UUID tenant_user_id FK
-        UUID payment_plan_id FK
+        UUID property_id FK
+        UUID unit_id FK
         TEXT invoice_number
         NUMERIC amount
         NUMERIC original_amount
@@ -693,6 +701,8 @@ classDiagram
         TEXT description
         TEXT status
         DATE due_date
+        TEXT tenant_name
+        TEXT unit_number
         BOOL grace_period_active
         TIMESTAMPTZ overdue_since
         TIMESTAMPTZ late_fee_applied_at
@@ -700,6 +710,15 @@ classDiagram
         TIMESTAMPTZ paid_at
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
+    }
+
+    class invoice_status_history {
+        UUID id PK
+        UUID invoice_id FK
+        TEXT old_status
+        TEXT new_status
+        TEXT changed_by
+        TIMESTAMPTZ created_at
     }
 
     class payments {
@@ -1173,20 +1192,27 @@ classDiagram
     }
 
     %% ============================================
+    %% RELASI - Shared
+    %% ============================================
+    merchants --> addresses : "headquarters_address_id"
+    merchants --> addresses : "billing_address_id"
+    properties --> addresses : "address_id"
+
+    %% ============================================
     %% RELASI - Core Merchant
     %% ============================================
     merchants --> merchant_verifications : "1..*"
     merchants --> merchant_verification_history : "1..*"
     merchants --> merchant_subscriptions : "1..1"
     merchants --> cancellation_feedback : "1..*"
-    merchants --> pending_subscription_changes : "1..*"
+    merchants --> subscription_changes : "1..*"
     merchants --> merchant_feedback : "1..*"
 
     merchant_subscriptions --> subscription_tiers : "tier_id"
     subscription_invoices --> merchant_subscriptions : "subscription_id"
     cancellation_feedback --> merchant_subscriptions : "subscription_id"
-    pending_subscription_changes --> subscription_tiers : "current_tier_id"
-    pending_subscription_changes --> subscription_tiers : "new_tier_id"
+    subscription_changes --> subscription_tiers : "from_tier_id"
+    subscription_changes --> subscription_tiers : "to_tier_id"
 
     %% ============================================
     %% RELASI - Properti & Unit
@@ -1263,13 +1289,15 @@ classDiagram
     %% ============================================
     contracts --> invoices : "1..*"
     merchants --> invoices : "1..*"
+    properties --> invoices : "property_id"
+    units --> invoices : "unit_id"
+    invoices --> invoice_status_history : "1..*"
     invoices --> payments : "1..*"
     invoices --> late_fee_records : "1..*"
     invoices --> payment_plans : "0..*"
     merchants --> payment_plans : "1..*"
     payment_plans --> payment_plan_installments : "1..*"
     payment_plan_installments --> invoices : "invoice_id"
-    invoices --> payment_plans : "payment_plan_id"
     merchants --> collections_cases : "1..*"
     invoices --> collections_cases : "1..*"
     merchants --> payment_verifications : "1..*"
@@ -1327,15 +1355,242 @@ classDiagram
 
 | Domain | Tabel | Jumlah |
 |--------|-------|--------|
+| Shared/Lookup | `addresses` | 1 |
 | Core Merchant | `merchants` | 1 |
-| Verifikasi & Subscription | `merchant_verifications`, `merchant_verification_history`, `subscription_tiers`, `merchant_subscriptions`, `subscription_invoices`, `cancellation_feedback`, `pending_subscription_changes`, `merchant_feedback` | 8 |
+| Verifikasi & Subscription | `merchant_verifications`, `merchant_verification_history`, `subscription_tiers`, `merchant_subscriptions`, `subscription_invoices`, `cancellation_feedback`, `subscription_changes`, `merchant_feedback` | 8 |
 | Properti & Unit | `properties`, `units`, `property_guardians`, `guardian_property_assignments`, `property_nearby_facilities`, `property_renovations`, `property_vendor_services`, `property_data_versions`, `property_facilities`, `compliance_documents`, `disaster_risk_profiles`, `security_incidents`, `insurance_policies`, `insurance_claims` | 14 |
 | Inventori (3-Tier) | `facility_types`, `assets`, `facility_assignments`, `facilities` | 4 |
 | Peraturan | `rule_types`, `rules`, `rule_acknowledgements` | 3 |
 | Kontrak & Tenant | `contracts`, `tenant_invitations`, `tenant_merchant_history`, `move_out_notices`, `move_out_inspections`, `move_out_tasks`, `move_out_timeline`, `deposit_refunds`, `deposit_disputes`, `early_termination_requests`, `disputes` | 11 |
-| Billing & Keuangan | `invoices`, `payments`, `payment_plans`, `payment_plan_installments`, `late_fee_records`, `collections_cases`, `payment_verifications`, `bank_accounts`, `escrow_accounts`, `escrow_transactions`, `disbursements`, `xendit_transactions` | 12 |
+| Billing & Keuangan | `invoices`, `invoice_status_history`, `payments`, `payment_plans`, `payment_plan_installments`, `late_fee_records`, `collections_cases`, `payment_verifications`, `bank_accounts`, `escrow_accounts`, `escrow_transactions`, `disbursements`, `xendit_transactions` | 13 |
 | Maintenance | `maintenance_requests`, `maintenance_updates`, `maintenance_timeline`, `maintenance_reviews`, `maintenance_expenses` | 5 |
 | Analytics & Metrics | `occupancy_snapshots`, `tenant_payment_metrics`, `tenant_risk_scores`, `data_quality_checks`, `dss_recommendations`, `ml_model_runs`, `ocr_results` | 7 |
 | Vendor Integration | `vendor_jobs` | 1 |
 | Lainnya | `live_chat_conversations`, `live_chat_messages`, `referrals`, `referral_commissions`, `rls_alert_settings` | 5 |
-| **Total** | | **71** |
+| **Total** | | **73** |
+
+> **Catatan**: Tabel-tabel non-merchant (e.g. `profiles`, `user_roles`, `tenants`, `vendors`, `products`, `orders`, `forum_*`, `chat_*`, `notifications`, `provinces`, `cities`, `vouchers`, dll.) tidak ditampilkan dalam diagram ini karena fokus dokumen adalah ekosistem data merchant.
+
+---
+
+## Views & Materialized Views
+
+### Views (5)
+
+| View | Deskripsi |
+|------|-----------|
+| `v_merchants_with_addresses` | JOIN `merchants` + `addresses` (via `headquarters_address_id`) — meng-resolve alamat merchant ke kolom flat (`resolved_address`, `resolved_city`, `resolved_province`, `resolved_postal_code`) |
+| `v_properties_with_addresses` | JOIN `properties` + `addresses` (via `address_id`) — meng-resolve alamat properti + koordinat GPS |
+| `v_maintenance_expenses_with_merchant` | JOIN `maintenance_expenses` + `maintenance_requests` — menambahkan `derived_merchant_id`, `request_title`, `request_status` |
+| `merchant_property_summary` | Agregasi per merchant: jumlah properti, unit, unit occupied, kontrak aktif, total revenue |
+| `merchant_referral_summary` | Agregasi referral per merchant: kode, status, reward, total commissions |
+
+### Materialized Views (1)
+
+| Materialized View | Deskripsi | Refresh |
+|-------------------|-----------|---------|
+| `merchant_occupancy_analysis` | Analisis okupansi: total properties, units, occupied_units, occupancy_rate, monthly_revenue, total_revenue, active_contracts. Digunakan untuk dashboard analytics. | Via `refresh_merchant_analytics()` function |
+
+---
+
+## Database Functions (30)
+
+| Function | Deskripsi |
+|----------|-----------|
+| `calculate_sla_deadline` | Hitung deadline SLA untuk maintenance request |
+| `check_phone_unique_per_role` | Validasi keunikan nomor telepon per role |
+| `create_merchant_escrow` | Auto-create escrow account saat merchant baru dibuat |
+| `generate_contract_number` | Auto-generate nomor kontrak |
+| `generate_invoice_number` | Auto-generate nomor invoice |
+| `generate_merchant_code` | Auto-generate kode merchant |
+| `generate_order_number` | Auto-generate nomor order |
+| `generate_property_code` | Auto-generate kode properti |
+| `generate_referral_code` | Auto-generate kode referral |
+| `generate_subscription_invoice_number` | Auto-generate nomor invoice subscription |
+| `generate_voucher_code` | Auto-generate kode voucher |
+| `get_user_role` | Ambil role user (single) |
+| `get_user_roles` | Ambil semua role user |
+| `handle_new_user` | Handler untuk user baru dari auth |
+| `has_role` | Cek apakah user memiliki role tertentu |
+| `merchants_search_update` | Update search_vector pada merchants (FTS) |
+| `populate_invoice_denorm` | Auto-populate `property_id`, `unit_id`, `tenant_name`, `unit_number` pada invoice baru |
+| `refresh_merchant_analytics` | Refresh materialized view `merchant_occupancy_analysis` |
+| `set_cancellation_effective_date` | Set tanggal efektif pembatalan subscription |
+| `set_maintenance_sla_deadline` | Set SLA deadline pada maintenance request |
+| `set_merchant_code` | Trigger function untuk set merchant code |
+| `set_property_code` | Trigger function untuk set property code |
+| `sync_merchant_verification_status` | Sinkronisasi status verifikasi merchant dari history |
+| `track_invoice_status_change` | Catat perubahan status invoice ke `invoice_status_history` |
+| `update_property_renovation_total` | Update total biaya renovasi properti |
+| `update_property_unit_counts` | Update jumlah unit pada properti |
+| `update_unit_status_on_contract_sign` | Update status unit saat kontrak ditandatangani |
+| `update_updated_at_column` | Generic trigger function untuk auto-update kolom `updated_at` |
+| `update_vendor_maintenance_rating` | Update rating vendor dari maintenance review |
+| `validate_facility_category` | Validasi kategori fasilitas |
+
+---
+
+## Triggers
+
+### Business Logic Triggers
+
+| Trigger | Table | Function | Deskripsi |
+|---------|-------|----------|-----------|
+| `on_merchant_created_create_escrow` | `merchants` | `create_merchant_escrow` | Auto-create escrow account |
+| `trg_merchants_search_update` | `merchants` | `merchants_search_update` | Update FTS search_vector |
+| `trigger_set_merchant_code` | `merchants` | `set_merchant_code` | Auto-generate merchant code |
+| `trg_sync_merchant_verification_status` | `merchant_verification_history` | `sync_merchant_verification_status` | Sync status verifikasi |
+| `trigger_set_cancellation_effective_date` | `merchant_subscriptions` | `set_cancellation_effective_date` | Set tanggal efektif cancel |
+| `tr_set_contract_number` | `contracts` | `generate_contract_number` | Auto-generate nomor kontrak |
+| `trigger_update_unit_on_contract_sign` | `contracts` | `update_unit_status_on_contract_sign` | Update status unit |
+| `generate_invoice_number_trigger` | `invoices` | `generate_invoice_number` | Auto-generate nomor invoice |
+| `tr_populate_invoice_denorm` | `invoices` | `populate_invoice_denorm` | Auto-populate denormalisasi |
+| `trg_track_invoice_status` | `invoices` | `track_invoice_status_change` | Catat history status |
+| `trigger_set_sla_deadline` | `maintenance_requests` | `set_maintenance_sla_deadline` | Set SLA deadline |
+| `trigger_update_vendor_maintenance_rating` | `maintenance_reviews` | `update_vendor_maintenance_rating` | Update rating vendor |
+| `trg_validate_facility_category` | `facilities` | `validate_facility_category` | Validasi kategori |
+| `generate_order_number_trigger` | `orders` | `generate_order_number` | Auto-generate nomor order |
+| `trigger_set_property_code` | `properties` | `set_property_code` | Auto-generate property code |
+| `trigger_update_property_unit_counts` | `units` | `update_property_unit_counts` | Update jumlah unit |
+| `trigger_update_renovation_total` | `property_renovations` | `update_property_renovation_total` | Update total renovasi |
+
+### Auto-Updated Timestamps (update_updated_at_column)
+
+Tabel-tabel berikut memiliki trigger `update_*_updated_at` yang otomatis meng-update kolom `updated_at`:
+
+`assets`, `bank_accounts`, `chat_conversations`, `chatbot_knowledge`, `collections_cases`, `compliance_documents`, `contracts`, `disaster_risk_profiles`, `disbursements`, `disputes`, `dss_recommendations`, `escrow_accounts`, `facilities`, `facility_types`, `forum_comments`, `forum_posts`, `insurance_claims`, `insurance_policies`, `invoices`, `live_chat_conversations`, `maintenance_expenses`, `maintenance_requests`, `merchant_feedback`, `merchant_subscriptions`, `merchants`, `ocr_results`, `order_reviews`, `orders`, `payment_verifications`, `products`, `properties`, `property_guardians`, `property_renovations`, `property_vendor_services`, `referral_commissions`, `referrals`, `rls_alert_settings`, `rules`, `rule_types`, `security_incidents`, `subscription_changes`, `tenant_payment_metrics`, `units`, `vendor_jobs`, `vendors`, `vouchers`, `xendit_transactions`
+
+---
+
+## Index Strategy
+
+### Shared / Lookup
+| Index | Table | Columns | Type |
+|-------|-------|---------|------|
+| `idx_addresses_city_province` | `addresses` | `(city, province)` | B-tree |
+| `idx_addresses_coordinates` | `addresses` | `(latitude, longitude)` | B-tree partial (`WHERE latitude IS NOT NULL`) |
+
+### Core Merchant
+| Index | Table | Columns | Type |
+|-------|-------|---------|------|
+| `idx_merchants_search_vector` | `merchants` | `search_vector` | GIN |
+| `idx_merchants_verification_status` | `merchants` | `verification_status` | B-tree |
+| `idx_merchants_user_id` | `merchants` | `user_id` | B-tree |
+| `idx_merchants_hq_address` | `merchants` | `headquarters_address_id` | B-tree |
+| `idx_merchants_billing_address` | `merchants` | `billing_address_id` | B-tree |
+
+### Verifikasi & Subscription
+| Index | Table | Columns | Type |
+|-------|-------|---------|------|
+| `idx_merchant_verifications_merchant_id` | `merchant_verifications` | `merchant_id` | B-tree |
+| `idx_merchant_verifications_status` | `merchant_verifications` | `status` | B-tree |
+| `idx_merchant_verification_history_merchant_id` | `merchant_verification_history` | `merchant_id` | B-tree |
+| `idx_merchant_subscriptions_merchant_id` | `merchant_subscriptions` | `merchant_id` | B-tree |
+| `idx_merchant_subscriptions_tier_id` | `merchant_subscriptions` | `tier_id` | B-tree |
+| `idx_merchant_subscriptions_status` | `merchant_subscriptions` | `status` | B-tree |
+| `idx_subscription_invoices_subscription_id` | `subscription_invoices` | `subscription_id` | B-tree |
+| `idx_cancellation_feedback_merchant_id` | `cancellation_feedback` | `merchant_id` | B-tree |
+| `idx_subscription_changes_merchant` | `subscription_changes` | `merchant_id` | B-tree |
+| `idx_subscription_changes_status` | `subscription_changes` | `status` | B-tree |
+
+### Properti & Unit
+| Index | Table | Columns | Type |
+|-------|-------|---------|------|
+| `idx_properties_merchant_id` | `properties` | `merchant_id` | B-tree |
+| `idx_properties_status` | `properties` | `status` | B-tree |
+| `idx_properties_address` | `properties` | `address_id` | B-tree |
+| `idx_properties_amenities` | `properties` | `amenities` | GIN |
+| `idx_properties_images` | `properties` | `images` | GIN |
+| `idx_properties_nearby_facilities` | `properties` | `nearby_facilities` | GIN |
+| `idx_units_property_id` | `units` | `property_id` | B-tree |
+| `idx_units_status` | `units` | `status` | B-tree |
+| `idx_units_amenities` | `units` | `amenities` | GIN |
+| `idx_units_additional_costs` | `units` | `additional_costs` | GIN |
+| `idx_property_guardians_merchant` | `property_guardians` | `merchant_id` | B-tree |
+| `idx_property_guardians_property` | `property_guardians` | `property_id` | B-tree |
+
+### Kontrak & Tenant
+| Index | Table | Columns | Type |
+|-------|-------|---------|------|
+| `idx_contracts_merchant_id` | `contracts` | `merchant_id` | B-tree |
+| `idx_contracts_tenant_user_id` | `contracts` | `tenant_user_id` | B-tree |
+| `idx_contracts_unit_id` | `contracts` | `unit_id` | B-tree |
+| `idx_contracts_status` | `contracts` | `status` | B-tree |
+| `idx_contracts_dates` | `contracts` | `start_date, end_date` | B-tree |
+| `idx_tenant_invitations_merchant` | `tenant_invitations` | `merchant_id` | B-tree |
+| `idx_tenant_invitations_unit` | `tenant_invitations` | `unit_id` | B-tree |
+| `idx_move_out_notices_contract` | `move_out_notices` | `contract_id` | B-tree |
+
+### Billing & Keuangan
+| Index | Table | Columns | Type |
+|-------|-------|---------|------|
+| `idx_invoices_contract_id` | `invoices` | `contract_id` | B-tree |
+| `idx_invoices_merchant_id` | `invoices` | `merchant_id` | B-tree |
+| `idx_invoices_tenant_user_id` | `invoices` | `tenant_user_id` | B-tree |
+| `idx_invoices_status` | `invoices` | `status` | B-tree |
+| `idx_invoices_due_date` | `invoices` | `due_date` | B-tree |
+| `idx_invoices_merchant_due` | `invoices` | `(merchant_id, due_date)` | B-tree |
+| `idx_invoices_status_due` | `invoices` | `(status, due_date)` | B-tree |
+| `idx_invoices_property` | `invoices` | `property_id` | B-tree |
+| `idx_invoices_unit` | `invoices` | `unit_id` | B-tree |
+| `idx_invoice_status_history_invoice` | `invoice_status_history` | `invoice_id` | B-tree |
+| `idx_payments_invoice_id` | `payments` | `invoice_id` | B-tree |
+| `idx_payments_tenant_user_id` | `payments` | `tenant_user_id` | B-tree |
+| `idx_payment_plans_invoice` | `payment_plans` | `invoice_id` | B-tree |
+| `idx_payment_plans_merchant` | `payment_plans` | `merchant_id` | B-tree |
+| `idx_collections_cases_merchant_id` | `collections_cases` | `merchant_id` | B-tree |
+| `idx_collections_cases_status` | `collections_cases` | `status` | B-tree |
+| `idx_escrow_transactions_account` | `escrow_transactions` | `escrow_account_id` | B-tree |
+| `idx_disbursements_escrow` | `disbursements` | `escrow_account_id` | B-tree |
+| `idx_disbursements_status` | `disbursements` | `status` | B-tree |
+| `idx_xendit_transactions_invoice` | `xendit_transactions` | `invoice_id` | B-tree |
+| `idx_xendit_transactions_status` | `xendit_transactions` | `status` | B-tree |
+
+### Maintenance
+| Index | Table | Columns | Type |
+|-------|-------|---------|------|
+| `idx_maintenance_requests_merchant` | `maintenance_requests` | `merchant_id` | B-tree |
+| `idx_maintenance_requests_unit` | `maintenance_requests` | `unit_id` | B-tree |
+| `idx_maintenance_requests_status` | `maintenance_requests` | `status` | B-tree |
+| `idx_maintenance_requests_priority` | `maintenance_requests` | `priority` | B-tree |
+| `idx_maintenance_updates_request` | `maintenance_updates` | `maintenance_request_id` | B-tree |
+| `idx_maintenance_expenses_request` | `maintenance_expenses` | `maintenance_request_id` | B-tree |
+| `idx_maintenance_expenses_merchant` | `maintenance_expenses` | `merchant_id` | B-tree |
+
+### Analytics & System
+| Index | Table | Columns | Type |
+|-------|-------|---------|------|
+| `idx_audit_logs_user_id` | `audit_logs` | `user_id` | B-tree |
+| `idx_audit_logs_entity_type` | `audit_logs` | `entity_type` | B-tree |
+| `idx_audit_logs_action` | `audit_logs` | `action` | B-tree |
+| `idx_audit_logs_created_at` | `audit_logs` | `created_at DESC` | B-tree |
+| `idx_chatbot_analytics_user_id` | `chatbot_analytics` | `user_id` | B-tree |
+| `idx_chatbot_analytics_created_at` | `chatbot_analytics` | `created_at DESC` | B-tree |
+| `idx_occupancy_snapshots_merchant` | `occupancy_snapshots` | `merchant_id` | B-tree |
+| `idx_occupancy_snapshots_property` | `occupancy_snapshots` | `property_id` | B-tree |
+| `idx_tenant_payment_metrics_merchant` | `tenant_payment_metrics` | `merchant_id` | B-tree |
+
+### Inventori
+| Index | Table | Columns | Type |
+|-------|-------|---------|------|
+| `idx_assets_facility_type` | `assets` | `facility_type_id` | B-tree |
+| `idx_assets_merchant` | `assets` | `merchant_id` | B-tree |
+| `idx_assets_property` | `assets` | `property_id` | B-tree |
+| `idx_assets_unit` | `assets` | `unit_id` | B-tree |
+| `idx_facility_types_merchant` | `facility_types` | `merchant_id` | B-tree |
+
+> **Catatan**: Tabel di atas hanya menampilkan **custom indexes** (non-PK). Setiap tabel juga memiliki PK index `*_pkey` dan beberapa memiliki unique constraint indexes.
+
+---
+
+## Refactoring History
+
+| Section | Deskripsi | Status |
+|---------|-----------|--------|
+| 1.1 | Normalisasi alamat merchant → `addresses` + FK `headquarters_address_id`, `billing_address_id` | ✅ DONE |
+| 1.2 | Normalisasi alamat properti → `addresses` + FK `address_id`, `nearby_facilities` JSONB | ✅ DONE |
+| 1.3 | Normalisasi subscription merchant → drop `subscription_tier`, `disbursement_schedule`, `billing_day` → baca dari `merchant_subscriptions` | ✅ DONE |
+| 1.4 | Normalisasi referral merchant → drop `referred_by`, `referral_discount`, `referral_discount_months` → baca dari `referrals` + `referral_commissions` | ✅ DONE |
+| 1.5 | Normalisasi verifikasi merchant → drop `verification_submitted_at`, `verified_at`, `verified_by`, `rejected_at`, `rejected_by`, `rejection_details`, `resubmission_count`, `resubmission_instructions` → baca dari `merchant_verification_history` | ✅ DONE |
+| 1.6 | Cleanup invoices → drop `payment_plan_id` → relasi via `payment_plans.invoice_id`. Denormalisasi `property_id`, `unit_id`, `tenant_name`, `unit_number`. | ✅ DONE |
+| 1.7 | Rename `pending_subscription_changes` → `subscription_changes` + kolom baru | ✅ DONE |
