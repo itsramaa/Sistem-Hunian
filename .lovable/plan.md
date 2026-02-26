@@ -1,49 +1,111 @@
 
-
-# Update merchant_database.md dengan Schema Terkini
+# Merchant Activity Diagram (merchant_activity_diagram.md)
 
 ## Ringkasan
 
-File `old-docs/merchant_database.md` masih menampilkan schema lama (sebelum refactoring Section 1.1-1.7). Perlu di-update agar mencerminkan state database yang sebenarnya sekarang, termasuk:
+Membuat file `old-docs/merchant_activity_diagram.md` yang berisi Mermaid activity/flowchart diagrams yang mendokumentasikan **semua alur aktivitas merchant** secara lengkap. Dokumen ini akan mencakup setiap domain operasional merchant berdasarkan state machines, edge functions, dan page flows yang sudah ada di codebase.
 
-1. **merchants** -- kolom `address`, `city`, `province`, `postal_code`, `subscription_tier`, `disbursement_schedule`, `billing_day`, `referred_by`, `referral_discount`, `referral_discount_months`, `verification_submitted_at`, `verified_at`, `verified_by`, `rejected_at`, `rejected_by`, `rejection_details`, `resubmission_count`, `resubmission_instructions` sudah di-drop. Kolom baru: `headquarters_address_id`, `billing_address_id`, `search_vector`.
+## Struktur Dokumen
 
-2. **properties** -- kolom `address`, `city`, `province`, `postal_code`, `latitude`, `longitude` sudah di-drop. Kolom baru: `address_id`, `nearby_facilities` (JSONB).
+Dokumen akan berisi **14 diagram Mermaid** yang dikelompokkan per domain:
 
-3. **Tabel baru**: `addresses`, `subscription_changes` (menggantikan `pending_subscription_changes`), plus views dan materialized views.
+### 1. Merchant Onboarding & Verification Flow
+- Registrasi user -> profil merchant -> upload dokumen verifikasi -> admin review -> approved/rejected -> resubmission loop
+- State machine: `pending -> verified/rejected`, `rejected -> pending` (resubmit), `verified -> suspended -> verified`
 
-4. **invoices** -- kolom `payment_plan_id` sudah di-drop. Kolom baru: `property_id`, `unit_id`, `tenant_name`, `unit_number` (denormalisasi).
+### 2. Subscription Lifecycle
+- Pilih tier -> trialing -> active -> past_due -> suspended -> cancelled
+- Upgrade/downgrade via `subscription_changes`
+- Billing cycle: `subscription-billing` -> `subscription-payment` -> `subscription-renewal` -> `subscription-grace-check`
+- Cancellation: feedback -> effective date -> cancelled
 
-5. **Relasi** -- Update semua relationship arrows untuk mencerminkan perubahan di atas.
+### 3. Property & Unit Management
+- Tambah properti -> set alamat (addresses) -> tambah unit -> kelola guardian -> fasilitas -> compliance docs
+- Unit status: `available <-> occupied <-> maintenance`
+- Property lifecycle: setup -> listing -> occupancy tracking -> renovations -> insurance
 
-6. **Ringkasan Tabel** -- Update jumlah dan daftar tabel per domain.
+### 4. Contract Lifecycle (Full)
+- Draft -> tanda tangan (merchant_signed / tenant_signed -> fully_signed) -> active -> notice -> completed
+- Branch: active -> terminated (early termination request flow)
+- Branch: active -> expired (auto)
+- Trigger: fully_signed -> unit status = occupied
 
-7. **Index Section** -- Tambah section baru yang mendokumentasikan semua custom indexes yang ada di database (273+ indexes).
+### 5. Tenant Management Flow
+- Invite tenant (`tenant_invitations`: pending -> accepted/expired) -> create contract -> link to unit
+- Tenant history tracking (`tenant_merchant_history`)
+- Unlink tenant -> unit available
 
-8. **Views & Materialized Views** -- Tambah section yang mendokumentasikan 5 views dan 1 materialized view.
+### 6. Invoice Lifecycle
+- Auto-generate (`auto-generate-invoices`) -> draft -> sent -> paid/overdue
+- Overdue branch: late fee records -> payment reminder -> collections case
+- Payment plan branch: negotiation -> installments -> completed/defaulted
+- Denormalisasi: auto-populate property_id, unit_id, tenant_name, unit_number via trigger
 
-9. **Triggers** -- Tambah section yang mendokumentasikan semua triggers.
+### 7. Payment & Payment Verification Flow
+- Invoice sent -> tenant pays -> payment recorded -> escrow
+- OCR payment proof: upload -> `ocr-payment-proof` -> `payment_verifications` (pending -> auto_matched/confirmed/rejected)
+- Xendit integration: `xendit-create-invoice` -> payment URL -> `xendit-webhook` callback
 
-## Detail Perubahan
+### 8. Escrow & Disbursement Flow
+- Payment masuk -> escrow_transactions (pending -> completed)
+- Disbursement: pending -> approved -> processing -> completed/failed
+- Scheduled disbursement via edge function
+- Bank account management
 
-### Mermaid Class Diagram Updates
+### 9. Move-Out & Deposit Refund Flow
+- Notice: submitted -> acknowledged -> approved -> completed
+- Inspection: scheduled -> in_progress -> completed
+- Tasks & timeline tracking
+- Early termination: pending_approval -> approved/denied/counter_offered
+- Deposit refund: pending_processing -> approved -> processing -> completed
+- Deposit dispute: open -> resolved
 
-- **merchants class**: Hapus 14 kolom lama, tambah `headquarters_address_id`, `billing_address_id`, `search_vector`
-- **properties class**: Hapus 6 kolom lama, tambah `address_id`, `nearby_facilities`
-- **Rename** `pending_subscription_changes` -> `subscription_changes` dengan kolom baru (`from_tier_id`, `to_tier_id`, `cancelled_at`, `cancellation_reason`, `requested_by`, `reason`)
-- **invoices class**: Hapus `payment_plan_id`, tambah `property_id`, `unit_id`, `tenant_name`, `unit_number`
-- **Tambah** `addresses` class
-- **Update relasi**: `merchants --> subscription_changes`, bukan `pending_subscription_changes`; hapus `invoices --> payment_plans : "payment_plan_id"`
+### 10. Maintenance Request Lifecycle
+- Tenant submit -> pending -> in_progress -> completed
+- SLA deadline (auto via trigger)
+- Vendor assignment -> vendor job (pending -> accepted -> in_progress -> completed)
+- Expense tracking (OCR receipt)
+- Review & rating
+- Timeline & updates
 
-### Section Baru
+### 11. Billing Analytics & Collections
+- Overdue escalation (`check-overdue-escalation`): initiated -> in_progress -> resolved
+- Collection strategies via DSS
+- Tenant payment metrics computation
+- Tenant risk scoring
 
-1. **Database Objects**: Views, Materialized Views, Triggers
-2. **Index Strategy**: Daftar semua custom indexes per domain
-3. **Refactoring History**: Ringkasan refactoring yang sudah dilakukan (1.1-1.7)
+### 12. AI/ML & DSS Advisory Flow
+- DSS: pricing advisor, maintenance priority, collection strategy, investment insight
+- ML: churn prediction, occupancy forecast, revenue forecast, risk assessment, tenant quality scoring, optimal pricing, price intelligence
+- OCR: KTP, payment proof, maintenance receipt, compliance doc, contract doc, business doc, asset label
+- Recommendation lifecycle: generated -> viewed -> accepted/rejected -> measured
 
-## File yang Diubah
+### 13. Referral System
+- Generate referral code -> share -> referee signs up -> pending -> active -> completed
+- Commission processing: `process-referral-commissions`, `process-referral-reward`
+- Vendor order referral: `process-vendor-order-referral`
 
-| File | Perubahan |
+### 14. Support, Feedback & Compliance
+- Live chat: conversations -> messages
+- Merchant feedback: submit -> admin response
+- Compliance documents: upload -> tracking expiry
+- Insurance: policies -> claims
+- Security incidents & disaster risk profiles
+- Data quality checks
+- Audit logs
+
+## Detail Teknis
+
+### File yang Dibuat
+| File | Deskripsi |
 |------|-----------|
-| `old-docs/merchant_database.md` | Full rewrite untuk mencerminkan schema terkini |
+| `old-docs/merchant_activity_diagram.md` | Dokumen lengkap berisi 14 Mermaid flowchart diagrams |
 
+### Konvensi Diagram
+- Menggunakan `flowchart TD` (top-down) untuk clarity
+- Warna node: hijau untuk start/success, merah untuk terminal/error, biru untuk proses, kuning untuk decision
+- Setiap diagram memiliki penjelasan teks singkat
+- Cross-reference antar diagram ditandai dengan label `[See Diagram X]`
+- Semua state dari `state-machines.ts` tercakup
+- Semua edge functions yang relevan ditandai dengan label `<<edge function>>`
+- Semua triggers yang relevan ditandai dengan label `<<trigger>>`
