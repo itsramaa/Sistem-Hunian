@@ -3522,19 +3522,11 @@ export type Database = {
           merchant_code: string | null
           min_disbursement_amount: number | null
           penalty_rate: number | null
-          rejected_at: string | null
-          rejected_by: string | null
-          rejection_details: string | null
-          resubmission_count: number | null
-          resubmission_instructions: string | null
           search_vector: unknown
           total_disbursed: number | null
           updated_at: string
           user_id: string
           verification_status: string | null
-          verification_submitted_at: string | null
-          verified_at: string | null
-          verified_by: string | null
         }
         Insert: {
           billing_address_id?: string | null
@@ -3547,19 +3539,11 @@ export type Database = {
           merchant_code?: string | null
           min_disbursement_amount?: number | null
           penalty_rate?: number | null
-          rejected_at?: string | null
-          rejected_by?: string | null
-          rejection_details?: string | null
-          resubmission_count?: number | null
-          resubmission_instructions?: string | null
           search_vector?: unknown
           total_disbursed?: number | null
           updated_at?: string
           user_id: string
           verification_status?: string | null
-          verification_submitted_at?: string | null
-          verified_at?: string | null
-          verified_by?: string | null
         }
         Update: {
           billing_address_id?: string | null
@@ -3572,19 +3556,11 @@ export type Database = {
           merchant_code?: string | null
           min_disbursement_amount?: number | null
           penalty_rate?: number | null
-          rejected_at?: string | null
-          rejected_by?: string | null
-          rejection_details?: string | null
-          resubmission_count?: number | null
-          resubmission_instructions?: string | null
           search_vector?: unknown
           total_disbursed?: number | null
           updated_at?: string
           user_id?: string
           verification_status?: string | null
-          verification_submitted_at?: string | null
-          verified_at?: string | null
-          verified_by?: string | null
         }
         Relationships: [
           {
@@ -7740,23 +7716,15 @@ export type Database = {
           merchant_code: string | null
           min_disbursement_amount: number | null
           penalty_rate: number | null
-          rejected_at: string | null
-          rejected_by: string | null
-          rejection_details: string | null
           resolved_address: string | null
           resolved_city: string | null
           resolved_postal_code: string | null
           resolved_province: string | null
-          resubmission_count: number | null
-          resubmission_instructions: string | null
           search_vector: unknown
           total_disbursed: number | null
           updated_at: string | null
           user_id: string | null
           verification_status: string | null
-          verification_submitted_at: string | null
-          verified_at: string | null
-          verified_by: string | null
         }
         Relationships: [
           {

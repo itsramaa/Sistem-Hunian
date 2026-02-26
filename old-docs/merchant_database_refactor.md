@@ -195,8 +195,8 @@ ALTER TABLE properties
 
 ---
 
-### 1.4 ⏭️ SKIP: Verification Status Duplication
-> **Alasan SKIP**: Mengubah arsitektur verifikasi membutuhkan perubahan code besar di banyak file.
+### 1.4 ✅ DONE: Verification Status Duplication
+> 8 kolom snapshot verifikasi (verified_at, verified_by, rejected_at, rejected_by, rejection_details, resubmission_count, resubmission_instructions, verification_submitted_at) sudah di-drop dari `merchants`. `merchant_verification_history` menjadi single source of truth. Trigger `trg_sync_merchant_verification_status` auto-sync `verification_status` ke merchants. `merchantService.ts` hanya menulis ke history table.
 
 **Masalah**: Verification status ada di 2 tempat
 
