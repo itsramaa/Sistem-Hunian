@@ -1,113 +1,94 @@
 
-# Implementasi 1.5: Refactor Pending Subscription Changes
+
+# Implementasi 1.6: Invoice & Payment Relationship Cleanup
 
 ## Ringkasan
 
-Rename tabel `pending_subscription_changes` menjadi `subscription_changes` dengan kolom yang lebih bersih, menambah audit trail (`requested_by`, `cancellation_reason`), dan menghapus redundansi (`current_tier_id` diambil dari `merchant_subscriptions`). Existing data dimigrasikan ke tabel baru.
+Menghapus kolom redundan `payment_plan_id` dari tabel `invoices`, karena relasi sudah tersedia dari arah sebaliknya (`payment_plans.invoice_id`). Semua query yang sebelumnya membaca/menulis `invoices.payment_plan_id` akan diubah untuk menggunakan `payment_plans.invoice_id` sebagai sumber kebenaran.
 
-## Perubahan Database
+Menambahkan index performa untuk clear hierarchy: `contracts -> invoices -> payments/payment_plans/collections_cases`.
 
-### Migration SQL
+## Apa yang Berubah di Database
 
-```sql
--- 1. Create new table
-CREATE TABLE subscription_changes (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    merchant_id UUID NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
-    change_type TEXT NOT NULL DEFAULT 'downgrade',
-    from_tier_id UUID REFERENCES subscription_tiers(id) ON DELETE CASCADE,
-    to_tier_id UUID NOT NULL REFERENCES subscription_tiers(id) ON DELETE CASCADE,
-    status TEXT NOT NULL DEFAULT 'pending',
-    effective_date DATE NOT NULL,
-    applied_at TIMESTAMPTZ,
-    cancelled_at TIMESTAMPTZ,
-    cancellation_reason TEXT,
-    reason TEXT,
-    requested_by UUID,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+- **Drop** kolom `payment_plan_id` dari tabel `invoices` (beserta FK constraint `invoices_payment_plan_id_fkey`)
+- **Tambah** index pada `invoices(merchant_id, due_date)` dan `invoices(status, due_date)` untuk query pattern yang sering dipakai
+- **Tambah** index pada `payment_plans(invoice_id)` untuk reverse lookup yang menggantikan `invoices.payment_plan_id`
 
--- 2. Migrate existing data
-INSERT INTO subscription_changes (id, merchant_id, change_type, from_tier_id, to_tier_id, status, effective_date, applied_at, cancelled_at, reason, created_at, updated_at)
-SELECT id, merchant_id, change_type, current_tier_id, pending_tier_id, status, effective_date, applied_at, cancelled_at, reason, created_at, updated_at
-FROM pending_subscription_changes;
+## Dampak pada Code
 
--- 3. Indexes
-CREATE INDEX idx_subscription_changes_merchant_status ON subscription_changes (merchant_id, status);
-CREATE INDEX idx_subscription_changes_effective_date ON subscription_changes (effective_date);
+### Masalah Utama
 
--- 4. Updated_at trigger
-CREATE TRIGGER update_subscription_changes_updated_at
-BEFORE UPDATE ON subscription_changes
-FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+3 tempat menulis `invoices.payment_plan_id`:
+1. `paymentPlanService.ts` -- `.update({ payment_plan_id: plan.id })` saat buat plan
+2. `check-payment-plan/index.ts` -- `.update({ payment_plan_id: null })` saat plan defaulted
 
--- 5. RLS
-ALTER TABLE subscription_changes ENABLE ROW LEVEL SECURITY;
+3 tempat membaca `invoices.payment_plan_id` (filter `.is('payment_plan_id', null)`):
+1. `useMerchantPayments.ts` -- overdue invoices tanpa payment plan
+2. `check-overdue-escalation/index.ts` -- same filter
+3. `auto-generate-invoices/index.ts` -- same filter
 
-CREATE POLICY "Admins can manage all subscription changes" ON subscription_changes
-USING (has_role(auth.uid(), 'admin'));
+### Solusi
 
-CREATE POLICY "Merchants can view their subscription changes" ON subscription_changes
-FOR SELECT USING (EXISTS (
-  SELECT 1 FROM merchants m WHERE m.id = subscription_changes.merchant_id AND m.user_id = auth.uid()
-));
+**Untuk WRITE**: Hapus update ke `invoices.payment_plan_id` -- tidak perlu lagi karena `payment_plans.invoice_id` sudah menyimpan relasi ini.
 
-CREATE POLICY "Merchants can insert their subscription changes" ON subscription_changes
-FOR INSERT WITH CHECK (EXISTS (
-  SELECT 1 FROM merchants m WHERE m.id = subscription_changes.merchant_id AND m.user_id = auth.uid()
-));
+**Untuk READ (`.is('payment_plan_id', null)`)**: Ganti dengan LEFT JOIN + filter. Query overdue invoices yang **tidak punya** active payment plan:
+- Fetch semua invoice overdue, lalu filter client-side dengan subquery ke `payment_plans`
+- Atau: buat database function `get_overdue_invoices_without_plan(merchant_id)` untuk performa
 
-CREATE POLICY "Merchants can cancel their subscription changes" ON subscription_changes
-FOR UPDATE USING (EXISTS (
-  SELECT 1 FROM merchants m WHERE m.id = subscription_changes.merchant_id AND m.user_id = auth.uid()
-));
+Pendekatan yang dipilih: **two-step query** -- fetch overdue invoices, lalu fetch active payment plan invoice_ids, lalu filter client-side. Ini paling sederhana dan tidak butuh RPC baru.
 
--- 6. Drop old table
-DROP TABLE pending_subscription_changes;
-```
-
-## Perubahan Code
-
-### Files yang Diubah
+## Files yang Diubah
 
 | File | Perubahan |
 |------|-----------|
-| **Database** | Migration: create `subscription_changes`, migrate data, drop `pending_subscription_changes` |
-| `src/features/subscriptions/types/subscriptions.ts` | Rename `PendingSubscriptionChange` fields: `current_tier` -> `from_tier`, `pending_tier` -> `to_tier`. Add `cancelled_at`, `cancellation_reason`, `requested_by` |
-| `src/features/subscriptions/services/subscriptionService.ts` | `fetchPendingChanges`: query `subscription_changes` instead, update FK hint names to new table |
-| `src/features/subscriptions/components/PendingSubscriptionChanges.tsx` | Query `subscription_changes`, update FK hints, cancel mutation sets `cancellation_reason` |
-| `src/features/subscriptions/components/SubscriptionPayment.tsx` | Insert to `subscription_changes` with `from_tier_id`/`to_tier_id` instead of `current_tier_id`/`pending_tier_id` |
-| `src/features/subscriptions/components/admin/AdminSubscriptionPendingChangesTable.tsx` | Read `from_tier`/`to_tier` instead of `current_tier`/`pending_tier` |
-| `supabase/functions/subscription-renewal/index.ts` | Query `subscription_changes`, update column names |
-| `old-docs/merchant_database_refactor.md` | Mark 1.5 as DONE |
+| **Database migration** | Drop `payment_plan_id` dari invoices, add indexes |
+| `src/features/payments/services/paymentPlanService.ts` | Remove `.update({ payment_plan_id: plan.id })` di `createPaymentPlan` |
+| `src/features/payments/hooks/useMerchantPayments.ts` | Replace `.is('payment_plan_id', null)` dengan two-step query |
+| `src/features/payments/types/index.ts` | Remove `payment_plan_id` dari Invoice interface |
+| `supabase/functions/check-payment-plan/index.ts` | Remove `.update({ payment_plan_id: null })` saat plan defaulted |
+| `supabase/functions/check-overdue-escalation/index.ts` | Replace `.is('payment_plan_id', null)` dengan subquery |
+| `supabase/functions/auto-generate-invoices/index.ts` | Replace `.is('payment_plan_id', null)` dengan subquery |
+| `old-docs/merchant_database_refactor.md` | Mark 1.6 as DONE |
 
-### Detail Perubahan per File
+## Detail Perubahan per File
 
-**`subscriptions.ts` (types)**:
-- `current_tier` -> `from_tier`
-- `pending_tier` -> `to_tier`
-- Add optional: `cancelled_at`, `cancellation_reason`, `requested_by`
+### Database Migration
+```sql
+-- Drop redundant FK
+ALTER TABLE invoices DROP COLUMN IF EXISTS payment_plan_id;
 
-**`subscriptionService.ts`**:
-- `fetchPendingChanges`: `.from('subscription_changes')` with new FK hint names `subscription_changes_from_tier_id_fkey` and `subscription_changes_to_tier_id_fkey`
+-- Performance indexes for clear hierarchy
+CREATE INDEX IF NOT EXISTS idx_invoices_merchant_due ON invoices (merchant_id, due_date);
+CREATE INDEX IF NOT EXISTS idx_invoices_status_due ON invoices (status, due_date);
+CREATE INDEX IF NOT EXISTS idx_payment_plans_invoice ON payment_plans (invoice_id);
+```
 
-**`PendingSubscriptionChanges.tsx`**:
-- Query from `subscription_changes`
-- FK hints: `subscription_tiers!subscription_changes_from_tier_id_fkey` and `subscription_tiers!subscription_changes_to_tier_id_fkey`
-- Cancel mutation: update `cancellation_reason` field
+### `paymentPlanService.ts`
+Remove lines 55-59 (the `invoices.update({ payment_plan_id })` call). The relationship is already stored in `payment_plans.invoice_id`.
 
-**`SubscriptionPayment.tsx`**:
-- Insert to `subscription_changes` with fields: `from_tier_id` (was `current_tier_id`), `to_tier_id` (was `pending_tier_id`), remove `subscription_id`
+### `useMerchantPayments.ts`
+Replace single query with two-step:
+1. Fetch overdue invoices (without `payment_plan_id` filter)
+2. Fetch active payment plan `invoice_id`s for this merchant
+3. Filter out invoices that have active plans client-side
 
-**`AdminSubscriptionPendingChangesTable.tsx`**:
-- `change.current_tier` -> `change.from_tier`
-- `change.pending_tier` -> `change.to_tier`
+### `check-payment-plan/index.ts` (Edge Function)
+Remove lines 150-157 where it sets `payment_plan_id: null` on the invoice when plan defaults. Keep the `status: 'pending'` update.
 
-**`subscription-renewal/index.ts`**:
-- Query `subscription_changes` instead of `pending_subscription_changes`
-- Update FK hint and column names (`pending_tier_id` -> `to_tier_id`)
+### `check-overdue-escalation/index.ts` (Edge Function)
+Replace `.is('payment_plan_id', null)` with a two-step approach:
+1. Fetch overdue invoices
+2. Fetch active payment plan invoice_ids
+3. Filter in code
 
-## Strategy
+### `auto-generate-invoices/index.ts` (Edge Function)
+Same pattern as above -- replace `.is('payment_plan_id', null)` with subquery filter.
 
-Approach yang sama seperti section sebelumnya -- rename table + columns, update semua references. Karena `subscription_id` juga redundant (bisa di-derive dari merchant_id), kolom tersebut tidak dimigrasikan ke tabel baru.
+### `src/features/payments/types/index.ts`
+Remove `payment_plan_id?: string | null` from Invoice interface.
+
+## Files yang TIDAK perlu diubah
+- `paymentPlanService.ts` query (`getTenantPaymentPlans`) -- already queries `payment_plans` table with `invoice:invoices(invoice_number)`, no change needed
+- `PaymentPlanDialog.tsx` -- uses `payment_plan_id` only for `Omit<PaymentPlanInstallment, 'id' | 'payment_plan_id'>` which is the installments table, not invoices
+- All other invoice queries that don't reference `payment_plan_id`
+
