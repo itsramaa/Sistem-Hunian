@@ -36,6 +36,8 @@ Anda telah menerima **3 dokumen komprehensif** untuk implementasi fixes PMS:
   - Task 3.3: Maintenance ROI analytics & asset lifecycle
   - Task 3.4: Financial reporting (P&L, tax compliance, unit economics)
   - Task 3.5: Multi-property consolidation
+  - Task 3.0: AI/ML — Build all 6 models (parallel, gated deploy; pricing advisor live at launch 10%)
+  - Task 3.0B: Referral MVP (2 weeks, feature-flag OFF at launch, enable Week 20+ if demand >30%)
   
 - **Phase 4 (Weeks 17-18)**: Launch & iteration
 
@@ -360,7 +362,7 @@ A: Recommendation: 3 full-stack devs (backend, frontend, DevOps). For Phase 0-1 
 A: Yes, within same phase. But Phase 0 must complete before ANY Phase 1 work. Phase 1 must complete before Phase 2.
 
 **Q: What about escrow/deposit system?**
-A: **Excluded per requirement** ("tanpa ada sistem escrow"). If needed post-launch, can build separately.
+A: **Merchant deposit escrow removed** (direct refund instead). **Vendor escrow KEPT** for maintenance vendor payment safety (48h auto-release, dispute handling). This is a best-practices approach: escrow where it protects parties (vendor payments), direct flow where it adds unnecessary complexity (merchant deposits).
 
 **Q: How do we know when task is "done"?**
 A: Use exit criteria in ROADMAP (each phase has exit criteria). Use CHECKLIST to validate completion.

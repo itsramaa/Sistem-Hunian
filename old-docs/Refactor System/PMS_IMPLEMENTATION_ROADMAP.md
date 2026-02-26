@@ -1906,6 +1906,51 @@ Impact: Monthly revenue +Rp 9M
 
 ---
 
+## 4.3 Post-Launch Deployment Pipeline (Weeks 19-26)
+
+### AI/ML Staggered Deployment
+```
+Week 19: ml-occupancy-forecast
+  ├─ Gate: Confidence >75% on test data
+  ├─ Deploy: 10% merchants → 50% → 100%
+  └─ Fallback: Keep disabled if threshold not met
+
+Week 21: dss-collection-strategy
+  ├─ Gate: Data quality >80%, >100 collections cases
+  ├─ Deploy: Merchants with >10 active tenants
+  └─ Fallback: Heuristic-based recommendations
+
+Week 23: dss-maintenance-priority
+  ├─ Gate: >50 maintenance records per merchant
+  ├─ Deploy: Merchants with active maintenance history
+  └─ Fallback: Manual priority assignment
+
+Week 25: ml-churn-prediction
+  ├─ Gate: >1000 active merchants, >6 months data
+  ├─ Deploy: Enterprise merchants first
+  └─ Fallback: Simple rule-based alerts
+
+Week 26: dss-investment-insight
+  ├─ Gate: >500 properties, financial data complete
+  ├─ Deploy: Multi-property merchants
+  └─ Fallback: Basic ROI calculation
+```
+
+### Referral Decision Gate (Week 20)
+```
+IF organic demand signal >30% (merchants asking for referral):
+  ├─ Enable feature flag → Referral visible to all merchants
+  ├─ Monitor: Referral conversion rate, payout accuracy
+  └─ Target: 5% of new merchants via referral within 30 days
+
+IF demand <30%:
+  ├─ Keep hidden (feature-flag OFF)
+  ├─ Reassess at Week 26
+  └─ No engineering cost (already built)
+```
+
+---
+
 # SUMMARY TABLE: GAP-TO-FIX MAPPING
 
 | Gap from Audit | Phase | Week | Primary Owner | Status |
@@ -1923,10 +1968,14 @@ Impact: Monthly revenue +Rp 9M
 | Maintenance ROI analytics | 3 | 14-15 | Analytics | MAJOR |
 | Financial reporting weak | 3 | 15-16 | Analytics | MEDIUM |
 | Multi-property consolidation | 3 | 16 | Frontend | MEDIUM |
+| **AI/ML (6 functions)** | **3** | **13-16** | **Backend** | **IMPLEMENT (gated)** |
+| **Referral MVP** | **3** | **13-14** | **Backend** | **IMPLEMENT (flag OFF)** |
+| **AI/ML post-launch deploy** | **Post** | **19-26** | **Backend** | **GATED** |
+| **Referral decision gate** | **Post** | **20** | **Product** | **GATED** |
 
 ---
 
-**Document Version**: 1.0  
+**Document Version**: 2.0 (Revised — AI/ML + Referral best practices)  
 **Last Updated**: 2026-02-26  
 **Prepared for**: PMS Development Team  
 **Next Review**: Weekly sprint planning

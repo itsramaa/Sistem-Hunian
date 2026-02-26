@@ -320,9 +320,44 @@
 ---
 
 ## PHASE 3: INTELLIGENCE & OPTIMIZATION (Weeks 13-16)
-**Focus**: Pricing, forecasting, ROI, financial intelligence
+**Focus**: Pricing, forecasting, ROI, financial intelligence, AI/ML gated deployment, Referral MVP
 
-### 3.1 Dynamic Pricing Strategy (2 weeks)
+### 3.0 AI/ML Infrastructure & Models (Parallel, Weeks 13-16)
+- [ ] 3.0.1 Build A/B testing framework
+  - [ ] Feature-flag system (per-merchant, per-feature granularity)
+  - [ ] A/B test configuration (control vs treatment groups)
+  - [ ] Monitoring dashboard (model performance, confidence scores)
+- [ ] 3.0.2 Implement all 6 AI/ML models
+  - [ ] dss-pricing-advisor (deploy at launch, 10% merchants)
+  - [ ] ml-occupancy-forecast (gate: confidence >75%)
+  - [ ] dss-collection-strategy (gate: data quality >80%)
+  - [ ] dss-maintenance-priority (gate: >50 maintenance records)
+  - [ ] ml-churn-prediction (gate: >1000 active merchants)
+  - [ ] dss-investment-insight (gate: >500 properties)
+- [ ] 3.0.3 Validation pipeline
+  - [ ] Confidence threshold checks per model
+  - [ ] Fallback logic (disable if below threshold)
+  - [ ] Model versioning & rollback capability
+- [ ] 3.0.4 Pricing advisor soft deploy (Week 16)
+  - [ ] Enable for 10% of merchants (feature flag)
+  - [ ] Monitor adoption rate & recommendation accuracy
+  - [ ] Collect merchant feedback
+
+### 3.0B Referral MVP (Weeks 13-14)
+- [ ] 3.0B.1 Referral link generation
+  - [ ] Unique referral code per merchant
+  - [ ] Shareable link (copy to clipboard, email)
+- [ ] 3.0B.2 Referral tracking
+  - [ ] Track: referrer → referee signup → first payment
+  - [ ] Dashboard: Show referral count, status, rewards
+- [ ] 3.0B.3 Reward system (simple)
+  - [ ] Reward: Rp 100K bonus (one-time, on referee first payment)
+  - [ ] Manual payout (admin transfers)
+  - [ ] No tiering, no complex commission logic
+- [ ] 3.0B.4 Feature flag configuration
+  - [ ] Feature flag = OFF at launch (not visible to merchants)
+  - [ ] Admin toggle to enable/disable
+  - [ ] Decision gate: Enable at Week 20 if demand >30%
 - [ ] 3.1.1 Market rate tracking
   - [ ] Data: Aggregate comparable properties (location, category, occupancy >80%)
   - [ ] Dashboard: Show market rate, your rate, position, recommendation
@@ -431,6 +466,8 @@
 ### 4.1 Beta Launch
 - [ ] Week 16: Final QA
   - [ ] All critical features tested end-to-end
+  - [ ] AI/ML pricing advisor validated (10% merchants)
+  - [ ] Referral MVP tested (flag OFF, ready to enable)
   - [ ] Performance tested (10k invoices, 1k payments/day)
   - [ ] Data integrity validated (no loss, correct calculations)
   - [ ] Create quick-start guides
@@ -441,6 +478,8 @@
   - [ ] Daily monitoring: System stability, data integrity, engagement
   - [ ] Feedback collection: Onboarding, confusion areas, feature requests
   - [ ] Focus: Critical path only (login → property → tenant → payment)
+  - [ ] AI: Pricing advisor live for 10% merchants
+  - [ ] Referral: Hidden (feature-flag OFF)
   
 - [ ] Week 18: Full public launch
   - [ ] Open to all
@@ -456,6 +495,35 @@
 - [ ] User NPS >50
 
 **If miss any**: Delay launch, fix in Phase 2
+
+---
+
+## POST-LAUNCH: DEPLOYMENT GATES (Weeks 19-26)
+
+### AI/ML Staggered Deployment
+- [ ] Week 19: Deploy ml-occupancy-forecast
+  - [ ] Verify confidence >75% on real data
+  - [ ] Gradual rollout: 10% → 50% → 100%
+  - [ ] Monitor: Forecast accuracy vs actual
+- [ ] Week 21: Deploy dss-collection-strategy
+  - [ ] Verify data quality >80%
+  - [ ] Verify >100 collections cases exist
+- [ ] Week 23: Deploy dss-maintenance-priority
+  - [ ] Verify >50 maintenance records per merchant
+- [ ] Week 25: Deploy ml-churn-prediction
+  - [ ] Verify >1000 active merchants
+  - [ ] Verify >6 months historical data
+- [ ] Week 26: Deploy dss-investment-insight
+  - [ ] Verify >500 properties with financial data
+
+### Referral Decision Gate (Week 20)
+- [ ] Measure organic demand signal
+  - [ ] If >30% merchants asking for referral → Enable feature flag
+  - [ ] If <30% → Keep hidden, reassess Week 26
+- [ ] Monitor post-enable (if enabled):
+  - [ ] Referral conversion rate
+  - [ ] Payout accuracy
+  - [ ] Target: 5% new merchants via referral within 30 days
 
 ---
 
@@ -479,11 +547,17 @@ Within Phase 2 (sequence):
 - 2.4 Collections cases (depends on 1.3 from Phase 1)
 
 Within Phase 3 (all parallel):
+- 3.0 AI/ML infrastructure + 6 models (parallel build, gated deploy)
+- 3.0B Referral MVP (2 weeks, feature-flag OFF)
 - 3.1 Pricing (independent)
 - 3.2 Forecasting (depends on occupancy history)
 - 3.3 Maintenance analytics (independent)
 - 3.4 Financial reporting (depends on 1.4 expenses + invoices/payments)
 - 3.5 Multi-property (depends on all above features working)
+
+Post-Launch (Weeks 19-26):
+- AI/ML staggered deployment (confidence-gated)
+- Referral decision gate (Week 20, demand >30%)
 ```
 
 ---
@@ -495,9 +569,10 @@ Within Phase 3 (all parallel):
 | 0 | DB audit, verification redesign, state machines | 2 weeks | Low |
 | 1 | Dashboard, payments, reminders, expenses, profiles | 5 weeks | Medium (volume of features) |
 | 2 | Portal, waiting list, renewals, cases | 5 weeks | Medium (automation complexity) |
-| 3 | Pricing, forecast, ROI, reports, consolidation | 4 weeks | Medium (analytics complexity) |
+| 3 | Pricing, forecast, ROI, reports, consolidation, **AI/ML (6 models), Referral MVP** | 4 weeks | Medium (analytics + parallel AI/ML) |
 | 4 | QA, launch, iteration | 2 weeks | Low |
-| **Total** | | **18 weeks** | |
+| **Post** | **AI/ML deploy gates, Referral decision** | **8 weeks** | **Low (gated)** |
+| **Total** | | **18 weeks to launch + 8 weeks post-launch pipeline** | |
 
 ---
 

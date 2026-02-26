@@ -193,13 +193,13 @@
    
 10. AI/DSS Over-Engineering (Finding #18)
     Problem: 6 AI functions, <1% adoption, 12 weeks effort
-    Solution: Keep 1 function, defer ML to Phase 3
-    Impact: +10 weeks freed, focus on core features
+    Solution: Implement all 6 with best practices, deploy 1 at launch (pricing advisor, 10%), gate 5 for post-launch (confidence thresholds)
+    Impact: ZERO timeline delay, all features ready for activation
     
 11. Referral System Too Complex (Finding #19)
     Problem: 4 weeks engineering, <0.5% ROI
-    Solution: Remove from MVP, build post-launch
-    Impact: +4 weeks freed for core features
+    Solution: Implement MVP (2 weeks), feature-flag OFF at launch, enable Week 20+ if demand >30%
+    Impact: ZERO timeline delay, ready to enable instantly
 ```
 
 ---
@@ -267,16 +267,21 @@ Phase 3 (Weeks 13-16): Intelligence optimization
 Phase 4 (Weeks 17-18): Launch
 ```
 
-### Engineering Effort Freed by Audit Changes
+### Engineering Effort — Revised Approach
 ```
-Remove: Escrow system         → -4 weeks saved
-Remove: 5 AI/ML functions    → -10 weeks saved
-Remove: Referral system      → -4 weeks saved
-Simplify: Over-orchestrated  → -3 weeks saved
+Removed (simplification):
+├─ Merchant deposit escrow:   -4 weeks (vendor escrow KEPT)
+├─ Over-orchestrated flows:   -3 weeks (simplified)
+├─ Subscription cron:         -2 weeks (consolidated)
+└─ Total freed:               9 weeks
 
-Total freed: 21 weeks
-Use for: Quality + buffer (+3 weeks used)
-Net result: Same 18 weeks with better quality
+Implemented Smart (ZERO additional timeline):
+├─ AI/ML (6 functions):       Parallel in Phase 3 (gated deploy)
+├─ Referral MVP:              2 weeks in Phase 3 (flag OFF)
+└─ Timeline impact:           ZERO weeks added
+
+Use freed weeks for: Quality + buffer (+3 weeks)
+Net result: Same 18 weeks with better quality + more features
 ```
 
 ### Quality Improvements
@@ -468,7 +473,7 @@ Priority 1 (Week 1):
   
 Priority 2 (Week 2):
   ☐ Consolidated subscription job
-  ☐ Remove escrow references
+  ☐ Remove merchant deposit escrow references (keep vendor escrow)
   ☐ API updates for state machines
 ```
 
@@ -478,7 +483,7 @@ Week 2 exit:
 ✅ Tier 1 auto-verification working (<2 min)
 ✅ Database ready for Phase 1
 ✅ Subscription lifecycle job tested (no race conditions)
-✅ All escrow removed
+✅ Merchant deposit escrow removed, vendor escrow retained
 ✅ Codebase compiles & deploys
 ```
 
@@ -509,6 +514,9 @@ Week 2 exit:
 ✅ User NPS >50
 ✅ Zero critical bugs in production
 ✅ Support tickets <50/day
+✅ 1 AI live (pricing advisor, 10% merchants)
+✅ Referral built but hidden (feature-flag OFF)
+✅ Vendor escrow operational (maintenance vendor payments)
 ```
 
 ### 3-Month Post-Launch
@@ -518,6 +526,8 @@ Week 2 exit:
 ✅ 90% collection rate (up from 70%)
 ✅ 100% lease renewals tracked
 ✅ Reputation: 4.5+ stars (from 3.5)
+✅ AI/ML: 3+ models deployed (confidence-gated)
+✅ Referral: Enabled if demand >30% (Week 20 decision)
 ```
 
 ---
