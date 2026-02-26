@@ -52,12 +52,6 @@ export const paymentPlanService = {
       throw installmentsError;
     }
 
-    // Update invoice with payment plan reference
-    await supabase
-      .from('invoices')
-      .update({ payment_plan_id: plan.id })
-      .eq('id', payload.invoice_id);
-
     // Create notification for merchant
     await supabase.from('notifications').insert({
       user_id: payload.merchant_id,

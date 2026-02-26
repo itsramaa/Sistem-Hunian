@@ -61,7 +61,6 @@ export interface Invoice {
   tenant_user_id: string;
   merchant_id: string;
   contract_id: string;
-  payment_plan_id?: string | null;
   created_at?: string;
   description?: string | null;
   issued_at?: string | null;

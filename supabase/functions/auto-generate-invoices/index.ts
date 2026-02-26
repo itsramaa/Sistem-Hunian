@@ -58,8 +58,8 @@ serve(async (req) => {
     // ===== PART 2: PROCESS OVERDUE INVOICES WITH GRACE PERIOD =====
     console.log('Checking for overdue invoices...');
 
-    // Get overdue invoices
-    const { data: overdueInvoices, error: overdueError } = await supabase
+    // Step 1: Get overdue invoices
+    const { data: allOverdueInvoices, error: overdueError } = await supabase
       .from('invoices')
       .select(`
         id,
@@ -84,8 +84,16 @@ serve(async (req) => {
         )
       `)
       .eq('status', 'pending')
-      .lt('due_date', todayDateStr)
-      .is('payment_plan_id', null);
+      .lt('due_date', todayDateStr);
+
+    // Step 2: Filter out invoices with active payment plans
+    const { data: activePlans } = await supabase
+      .from('payment_plans')
+      .select('invoice_id')
+      .in('status', ['pending_acceptance', 'active', 'accepted']);
+
+    const planInvoiceIds = new Set((activePlans || []).map(p => p.invoice_id));
+    const overdueInvoices = (allOverdueInvoices || []).filter(inv => !planInvoiceIds.has(inv.id));
 
     if (overdueError) {
       console.error('Error fetching overdue invoices:', overdueError);

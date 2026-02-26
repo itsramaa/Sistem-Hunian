@@ -27,8 +27,8 @@ serve(async (req) => {
     const today = new Date();
     const todayDateStr = today.toISOString().split('T')[0];
 
-    // Get all overdue invoices with their escalation status
-    const { data: overdueInvoices, error: overdueError } = await supabase
+    // Step 1: Get all overdue invoices
+    const { data: allOverdueInvoices, error: overdueError } = await supabase
       .from('invoices')
       .select(`
         id,
@@ -53,13 +53,23 @@ serve(async (req) => {
         )
       `)
       .eq('status', 'pending')
-      .lt('due_date', todayDateStr)
-      .is('payment_plan_id', null);
+      .lt('due_date', todayDateStr);
 
     if (overdueError) {
       console.error('Error fetching overdue invoices:', overdueError);
       throw overdueError;
     }
+
+    // Step 2: Fetch invoice_ids with active payment plans
+    const { data: activePlans } = await supabase
+      .from('payment_plans')
+      .select('invoice_id')
+      .in('status', ['pending_acceptance', 'active', 'accepted']);
+
+    const planInvoiceIds = new Set((activePlans || []).map(p => p.invoice_id));
+
+    // Step 3: Filter out invoices with active plans
+    const overdueInvoices = (allOverdueInvoices || []).filter(inv => !planInvoiceIds.has(inv.id));
 
     console.log(`Found ${overdueInvoices?.length || 0} overdue invoices for escalation`);
 

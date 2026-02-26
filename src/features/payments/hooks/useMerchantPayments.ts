@@ -25,23 +25,37 @@ export function useMerchantPayments(merchantId: string | undefined) {
     enabled: !!merchantId,
   });
 
-  // Fetch overdue invoices
+  // Fetch overdue invoices (without active payment plans)
   const { data: overdueInvoices = [], isLoading: overdueLoading } = useQuery({
     queryKey: ['overdue-invoices', merchantId],
     queryFn: async () => {
       if (!merchantId) return [];
       const today = new Date().toISOString().split('T')[0];
-      const { data, error } = await supabase
+      
+      // Step 1: Fetch overdue invoices
+      const { data: invoices, error: invoicesError } = await supabase
         .from('invoices')
         .select('id, invoice_number, amount, total_amount, late_fee, due_date, tenant_user_id, overdue_since, grace_period_active')
         .eq('merchant_id', merchantId)
         .eq('status', 'pending')
         .lt('due_date', today)
-        .is('payment_plan_id', null)
         .order('due_date', { ascending: true });
       
-      if (error) throw error;
-      return data as Invoice[];
+      if (invoicesError) throw invoicesError;
+      if (!invoices?.length) return [];
+
+      // Step 2: Fetch invoice_ids that have active payment plans
+      const { data: activePlans, error: plansError } = await supabase
+        .from('payment_plans')
+        .select('invoice_id')
+        .eq('merchant_id', merchantId)
+        .in('status', ['pending_acceptance', 'active', 'accepted']);
+      
+      if (plansError) throw plansError;
+
+      // Step 3: Filter out invoices with active plans
+      const planInvoiceIds = new Set((activePlans || []).map(p => p.invoice_id));
+      return invoices.filter(inv => !planInvoiceIds.has(inv.id)) as Invoice[];
     },
     enabled: !!merchantId,
   });
