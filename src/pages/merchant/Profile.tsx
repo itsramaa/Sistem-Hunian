@@ -300,6 +300,35 @@ const MerchantProfile = () => {
         </TabsContent>
 
         <TabsContent value="verification" className="space-y-6">
+          {/* Verification Tier Card */}
+          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
+            <CardHeader>
+              <CardTitle>Tingkat Verifikasi</CardTitle>
+              <CardDescription>Tingkatkan tier verifikasi Anda untuk membangun kepercayaan lebih</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4">
+                {[
+                  { tier: 'quick', label: 'Quick', desc: 'Email & Telepon', icon: CheckCircle },
+                  { tier: 'standard', label: 'Standard', desc: '+ KTP & SIUP', icon: Shield },
+                  { tier: 'premium', label: 'Premium', desc: '+ Kunjungan Lokasi', icon: Building2 },
+                ].map(({ tier, label, desc, icon: TierIcon }) => {
+                  const currentTier = merchant?.verification_tier || 'quick';
+                  const tierOrder = ['quick', 'standard', 'premium'];
+                  const isActive = tierOrder.indexOf(currentTier) >= tierOrder.indexOf(tier);
+                  return (
+                    <div key={tier} className={`p-4 rounded-xl border text-center space-y-2 ${isActive ? 'border-primary bg-primary/5' : 'border-border/40 opacity-60'}`}>
+                      <TierIcon className={`h-6 w-6 mx-auto ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <p className="font-medium">{label}</p>
+                      <p className="text-xs text-muted-foreground">{desc}</p>
+                      {currentTier === tier && <Badge className="rounded-full bg-primary text-primary-foreground">Aktif</Badge>}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
             <CardHeader>
               <div className="flex items-center justify-between">

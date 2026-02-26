@@ -1,5 +1,6 @@
 
 import { MerchantAnalyticsTab } from '@/features/analytics/components/MerchantAnalyticsTab';
+import { Badge } from '@/shared/components/ui/badge';
 import { MerchantActivityTab } from '@/features/audit-logs/components/MerchantActivityTab';
 import { MerchantPropertiesTab } from '@/features/properties/components/MerchantPropertiesTab';
 import { MerchantDetailsTab } from '@/features/users/components/admin/MerchantDetailsTab';
@@ -50,13 +51,16 @@ export function MerchantDetailDialog({
             <Building2 className="h-5 w-5" />
             {merchant.business_name}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="flex items-center gap-2">
             Merchant details and verification status
+            <Badge variant="outline" className="capitalize ml-2">
+              Tier: {merchant.verification_tier || 'quick'}
+            </Badge>
           </DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="details" className="mt-4">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="documents" className="flex items-center gap-1">
               <Image className="h-3 w-3" />

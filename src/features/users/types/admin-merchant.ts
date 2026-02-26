@@ -12,6 +12,7 @@ export interface Merchant {
   headquarters_address_id: string | null;
   billing_address_id: string | null;
   verification_status: string;
+  verification_tier: string;
   created_at: string;
   merchant_subscriptions?: {
     tier_id: string;

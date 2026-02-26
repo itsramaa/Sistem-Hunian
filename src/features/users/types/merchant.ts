@@ -7,6 +7,7 @@ export interface Merchant {
   billing_address_id: string | null;
   merchant_code: string | null;
   verification_status: string | null;
+  verification_tier: string;
   penalty_rate: number | null;
   total_disbursed: number | null;
   last_disbursement_date: string | null;
