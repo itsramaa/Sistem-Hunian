@@ -315,31 +315,40 @@ SUCCESS METRIC:
 **Audit Reference**: Finding #18  
 
 **Problem**: 6 AI functions implemented, <1% merchant adoption early stage  
-**Business Impact**: Wasted 12 weeks engineering on feature no one uses  
-**Timeline Impact**: Critical (launch delay)
+**Business Impact**: Wasted engineering on feature no one uses  
+**Timeline Impact**: ZERO (revised approach)
 
-**Implementation Fix**:
+**Implementation Fix** (REVISED — Best Practices):
 ```
-ROADMAP REVISION: Remove from MVP, keep only 1
-├─ Remove: churn prediction, occupancy forecast, investment insight
-├─ Keep: dss-pricing-advisor (high ROI, used by 20%+ merchants)
-├─ Defer to Phase 3: All ML models (need 6+ months data first)
-└─ Impact: 10 weeks engineering time freed
+IMPLEMENT ALL 6 WITH GATED DEPLOYMENT:
+├─ Phase 3 (Weeks 13-16): Build all 6 models in parallel
+│  ├─ Infrastructure: A/B testing, feature-flags, monitoring
+│  ├─ All 6 models implemented with best practices
+│  └─ Timeline impact: ZERO additional weeks
+├─ Launch (Week 18): Deploy pricing advisor only (10% merchants)
+├─ Post-Launch (Weeks 19-26): Staggered deployment
+│  ├─ Week 19: ml-occupancy-forecast (if confidence >75%)
+│  ├─ Week 21: dss-collection-strategy (if data quality >80%)
+│  ├─ Week 23: dss-maintenance-priority (if >50 records)
+│  ├─ Week 25: ml-churn-prediction (if >1000 merchants)
+│  └─ Week 26: dss-investment-insight (if >500 properties)
+└─ Fallback: Keep built but disabled if thresholds not met
 
-CHECKLIST REVISION: Phase 3
-  ├─ Keep Task 3.1: Dynamic Pricing (simplified version)
-  ├─ Remove: All other AI/ML until Phase 3
-  ├─ After launch: Collect 6 months data
-  ├─ Decide which ML models to build based on real usage
-  └─ Exit criteria: Pricing advisor working, high adoption
+CHECKLIST: Phase 3 → Task 3.0 (AI/ML Infrastructure + Models)
+  ├─ Build A/B testing framework
+  ├─ Implement all 6 models
+  ├─ Validation pipeline (confidence thresholds)
+  ├─ Pricing advisor soft deploy (Week 16, 10%)
+  └─ Post-launch deployment gates (Weeks 19-26)
 
 TIMELINE CHANGE:
-- Before: 18 weeks (includes all 6 AI)
-- After: 18 weeks BUT with better quality & fewer issues
+- Before: "Remove 6 AI to save 10 weeks"
+- After: "Implement all 6 in parallel, ZERO additional timeline"
 
 SUCCESS METRIC:
-- Before: 6 features, <1% adoption
-- After: 1 core feature, 20% adoption, room for more
+- Launch: 1 AI live (pricing advisor, 10% merchants)
+- Post-launch: All 6 deployed by Week 26 (confidence-gated)
+- Adoption: 20%+ merchants using pricing advisor by Month 3
 ```
 
 ---
@@ -348,27 +357,39 @@ SUCCESS METRIC:
 **Audit Reference**: Finding #19  
 
 **Problem**: 4 weeks engineering, <1% merchants acquire via referral  
-**Business Impact**: Negative ROI, complexity without value  
-**Timeline Impact**: Critical
+**Business Impact**: Complexity without value if not managed  
+**Timeline Impact**: ZERO (revised approach)
 
-**Implementation Fix**:
+**Implementation Fix** (REVISED — MVP + Feature Flag):
 ```
-ROADMAP REVISION: Remove entirely for MVP
-├─ Remove: Referral system (all 4 weeks)
-├─ Focus on: Product-led growth (organic + sales)
-├─ Defer to Phase 3: If needed based on metrics
-└─ Impact: 4 weeks engineering time freed
+IMPLEMENT MVP WITH FEATURE FLAG:
+├─ Phase 3 (Weeks 13-14): Build referral MVP (2 weeks, not 4)
+│  ├─ Simple referral link generation
+│  ├─ Email-based sharing
+│  ├─ Tracking: referrer → referee signup → first payment
+│  ├─ Reward: Rp 100K bonus (one-time, manual payout)
+│  └─ No tiering, no complex commission logic
+├─ Launch (Week 18): Feature flag = OFF (not visible)
+├─ Post-Launch (Week 20): Decision gate
+│  ├─ IF demand >30% → Enable feature flag
+│  └─ IF demand <30% → Keep hidden, reassess Week 26
+└─ Risk: ZERO (hidden at launch, no user impact)
 
-CHECKLIST REVISION:
-  ├─ Remove: Phase 3 Task 15 (Referral system)
-  ├─ No referral table, commission processing, batch jobs
-  ├─ Post-launch: Measure organic growth first
-  ├─ If <5% gap: Don't build referral
-  └─ If >20% demand: Build in Phase 3
+CHECKLIST: Phase 3 → Task 3.0B (Referral MVP)
+  ├─ Referral link generation
+  ├─ Referral tracking
+  ├─ Simple reward system (Rp 100K)
+  ├─ Feature flag configuration (OFF at launch)
+  └─ Decision gate (Week 20)
 
 TIMELINE CHANGE:
-- Before: 18 weeks (includes referral)
-- After: 18 weeks with higher quality features
+- Before: "Remove entirely to save 4 weeks"
+- After: "Build MVP in 2 weeks, feature-flag OFF, ZERO delay"
+
+SUCCESS METRIC:
+- Launch: Referral built but hidden (flag OFF)
+- Week 20: Decision gate (>30% demand = enable)
+- If enabled: 5% new merchants via referral within 30 days
 ```
 
 ---
@@ -386,8 +407,8 @@ TIMELINE CHANGE:
 | Tenant invitation complexity | 🟠 Major | 2.2.1 | Phase 2 | Wk 9 | 2-3d |
 | Invoice generation delay | 🟠 Major | 1.1/2 | Phase 1-2 | Wk 3-4 | 2-3d |
 | Maintenance 5+ touches | 🟠 Major | 2.1 | Phase 2 | Wk 11 | 5-7d |
-| AI/DSS over-engineering | 🟠 Major | 3.1 (only) | Phase 3 | Deferred | Saved 10w |
-| Referral system | 🟠 Major | Remove | None | N/A | Saved 4w |
+| AI/DSS (6 functions) | 🟠 Major | 3.0 | Phase 3 | Wk 13-16 | Parallel (ZERO extra) |
+| Referral system | 🟠 Major | 3.0B | Phase 3 | Wk 13-14 | 2 weeks (flag OFF) |
 | Payment timing ambiguity | 🟡 Medium | 1.2 | Phase 1 | Wk 4 | 2-3d |
 | Verification email failure | 🟡 Medium | 0.1.2 | Phase 0 | Wk 2 | 1-2d |
 
@@ -406,24 +427,30 @@ Phase 4 (Weeks 17-18): Launch
 Total: 18 weeks
 ```
 
-### REVISED PLAN (Incorporating Audit Findings)
+### REVISED PLAN (Incorporating Audit Findings + Best Practices)
 
 **Changes**:
 ```
-Remove:
-├─ Escrow system (-4 weeks) → DONE
-├─ 5 AI/ML functions (-10 weeks) → Keep 1 only
-├─ Referral system (-4 weeks) → Post-MVP
-└─ Over-orchestrated flows (-3 weeks) → Simplify
+Revised Approach (NOT removal):
+├─ Merchant deposit escrow: REMOVED (-4 weeks)
+│  └─ Vendor escrow KEPT (payment safety)
+├─ AI/ML (6 functions): IMPLEMENT ALL, gated deploy
+│  └─ Timeline impact: ZERO (parallel in Phase 3)
+├─ Referral system: IMPLEMENT MVP + feature-flag OFF
+│  └─ Timeline impact: ZERO (2 weeks in Phase 3)
+├─ Over-orchestrated flows: SIMPLIFIED (-3 weeks)
+└─ Subscription crons: CONSOLIDATED (-2 weeks)
 
-Impact: Freed 21 weeks
+Impact: Freed 9 weeks from simplification
 Use for: Quality, testing, stability (+3 weeks)
-Result: Same 18 weeks with BETTER quality
+Bonus: AI/ML + Referral READY at launch (gated/hidden)
+Result: Same 18 weeks with BETTER quality + more features
 
 Phase 0 (Weeks 1-2):  Foundation + critical fixes
 ├─ Add: Verification tier auto-approval
 ├─ Add: Consolidated subscription cron
 ├─ Add: Idempotency constraints
+├─ Remove: Merchant deposit escrow (keep vendor escrow)
 └─ Quality: High
 
 Phase 1 (Weeks 3-7):  Critical adoption (IMPROVED)
@@ -435,19 +462,25 @@ Phase 1 (Weeks 3-7):  Critical adoption (IMPROVED)
 Phase 2 (Weeks 8-12): Operations (SIMPLIFIED)
 ├─ Focus: Portal, waiting list, renewals
 ├─ Remove: Over-orchestration
-├─ Quality: Stable, maintainable
-└─ Remove: Unused AI/referral
+└─ Quality: Stable, maintainable
 
-Phase 3 (Weeks 13-16): Intelligence (MVP only)
-├─ Focus: Dynamic pricing only
-├─ Defer: ML models, referral
-├─ Data first: Collect 6mo before ML
-└─ Quality: Intentional
+Phase 3 (Weeks 13-16): Intelligence + AI/ML + Referral
+├─ Focus: Dynamic pricing, forecasting, reporting
+├─ Build: All 6 AI/ML models (parallel, gated deploy)
+├─ Build: Referral MVP (2 weeks, feature-flag OFF)
+├─ Deploy: Pricing advisor to 10% merchants
+└─ Quality: Intentional, data-driven
 
 Phase 4 (Weeks 17-18): Launch
 ├─ Soft launch: 500 early adopters
 ├─ Full launch: Public release
+├─ Features: 1 AI live (pricing advisor), referral hidden
 └─ Quality: Proven stable
+
+Post-Launch (Weeks 19-26): Deployment Pipeline
+├─ Staggered AI deployment (confidence-gated)
+├─ Referral decision gate (Week 20)
+└─ Quality: Data-driven activation
 ```
 
 ---
@@ -483,12 +516,13 @@ TASK 2.3: Lease renewal ← Retention (depends on 1.5)
 TASK 2.4: Collections cases ← Advanced collections (depends on 1.3)
 ```
 
-### WEEK 13-16: INTELLIGENCE (MVP)
+### WEEK 13-16: INTELLIGENCE + AI/ML + REFERRAL (Parallel)
 ```
-TASK 3.1: Dynamic pricing ONLY ← Keep, high ROI
-REMOVE: All ML (churn, occupancy, revenue forecast)
-REMOVE: Referral system
-REASON: Data-first approach, build after launch
+TASK 3.1: Dynamic pricing ← Keep, high ROI
+TASK 3.0: AI/ML - Build all 6 models (parallel, gated deploy)
+TASK 3.0B: Referral MVP (2 weeks, feature-flag OFF)
+APPROACH: Data-driven deployment, build first, enable later
+TIMELINE: ZERO additional weeks (parallel in Phase 3)
 ```
 
 ---
@@ -499,7 +533,8 @@ REASON: Data-first approach, build after launch
 - ✅ Verification tier system working (70% instant, 30% 24h)
 - ✅ Consolidated subscription job tested (no race conditions)
 - ✅ Database all 7 tables created + indexed
-- ✅ No escrow references remaining
+- ✅ No merchant deposit escrow references remaining
+- ✅ Vendor escrow retained for payment safety
 
 ### Week 7 Gate (Phase 1 completion) - **GO/NO-GO DECISION POINT**
 - ✅ Admin verification bottleneck eliminated (activation <2 min for Tier 1)
@@ -519,7 +554,14 @@ REASON: Data-first approach, build after launch
 ### Week 16 Gate (Phase 3 completion)
 - ✅ Pricing advisor recommendations adopted by 20%+ merchants
 - ✅ Financial reporting complete (P&L, unit economics)
+- ✅ All 6 AI/ML models built and validated
+- ✅ Referral MVP built and tested (flag OFF)
 - ✅ No critical bugs in 2-week regression testing
+
+### Post-Launch Gates (Weeks 19-26)
+- ✅ Week 19: ml-occupancy-forecast deployed if confidence >75%
+- ✅ Week 20: Referral decision gate (>30% demand = enable)
+- ✅ Weeks 21-26: Remaining AI models deployed (staggered, confidence-gated)
 
 ---
 
@@ -576,7 +618,7 @@ USAGE PATTERN:
 | Subscription bugs remain | -10% churn | Fix cron consolidation (Week 2) |
 | Collections delay | -Rp 125M per month | Real-time escalation (Week 5) |
 | Deposit refund delay | -reputation damage | Same-day refund (Week 7) |
-| AI/referral built | +3 week delay | Remove from MVP (save 21 weeks) |
+| AI/referral gated | ZERO delay | Post-launch rollout (Weeks 19-26) |
 | Over-orchestration | +support cost | Simplify flows (throughout) |
 
 ---
@@ -595,6 +637,9 @@ USAGE PATTERN:
 ✅ Support tickets <50/day for operations
 ✅ Zero critical bugs in production
 ✅ Average activation time <5 minutes (Tier 1)
+✅ 1 AI live (pricing advisor, 10% merchants)
+✅ Referral built but hidden (feature-flag OFF)
+✅ Vendor escrow operational (maintenance payments)
 ```
 
 ### Post-Launch Success Metrics (3 months)
@@ -607,6 +652,8 @@ USAGE PATTERN:
 ✅ Unit economics: Rp 50K-100K ARPU (target)
 ✅ Support queries: 80%+ resolved without escalation
 ✅ Feature adoption: Portal 50%, waiting list 30%, pricing 15%
+✅ AI/ML: 3+ models deployed post-launch (confidence-gated)
+✅ Referral: Enabled if demand >30% (Week 20 decision)
 ```
 
 ---
@@ -638,11 +685,11 @@ Finding #17 (Collections escalation)
 Finding #16 (Deposit refund)
   → CHECKLIST Phase 1-2, Task 1.5 / 2.4
 
-Finding #18 (AI/DSS over-engineering)
-  → CHECKLIST Phase 3, REMOVE Task 14
+Finding #18 (AI/DSS)
+  → CHECKLIST Phase 3, Task 3.0 (Build all 6, gated deploy)
 
 Finding #19 (Referral system)
-  → CHECKLIST Phase 3, REMOVE Task 15
+  → CHECKLIST Phase 3, Task 3.0B (MVP, feature-flag OFF)
 
 For all others: See integration table (above)
 ```
