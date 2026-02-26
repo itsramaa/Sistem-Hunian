@@ -42,7 +42,8 @@ Alur registrasi merchant baru hingga verifikasi oleh admin. State machine: `MERC
 ```mermaid
 flowchart TD
     START([User Sign Up]) --> REG[Registrasi Akun<br/>email + password]
-    REG --> PROFILE[Lengkapi Profil Merchant<br/>business_name, business_type]
+    REG --> TRIGGER_NEW["handle_new_user()<br/><<trigger>><br/>Creates: profiles, user_roles,<br/>merchants, escrow_accounts,<br/>merchant_subscriptions (free)"]
+    TRIGGER_NEW --> PROFILE[Lengkapi Profil Merchant<br/>business_name, business_type]
     PROFILE --> ADDR[Set Alamat<br/>headquarters_address_id<br/>billing_address_id]
     ADDR --> UPLOAD[Upload Dokumen Verifikasi<br/>KTP, SIUP, NPWP]
     UPLOAD --> OCR_KTP["OCR KTP Extract<br/><<edge function>><br/>ocr-ktp-extract"]
@@ -126,7 +127,7 @@ flowchart TD
 
     ACTIVE --> CANCEL_REQ{Cancel Request?}
     CANCEL_REQ -->|Yes| FEEDBACK[cancellation_feedback<br/>reason, feedback]
-    FEEDBACK --> EFFECTIVE[Set Effective Date<br/>current_period_end]
+    FEEDBACK --> EFFECTIVE["set_cancellation_effective_date()<br/><<trigger>><br/>cancellation_effective_date =<br/>current_period_end"]
     EFFECTIVE --> CANCELLED
 
     style START fill:#2ecc71,color:#fff
@@ -216,6 +217,11 @@ flowchart TD
     subgraph ASSET_MGMT [Asset Management]
         ASSET_ADD[Tambah Asset<br/>assets table] --> ASSET_LABEL["ocr-asset-label<br/><<edge function>>"]
         ASSET_LABEL --> ASSET_TRACK[Track Depreciation<br/>useful_life_months<br/>salvage_value]
+    end
+
+    subgraph AUTO_SYNC [Auto-Sync Triggers]
+        UNIT_COUNT_TRIGGER["update_property_unit_counts()<br/><<trigger>><br/>Auto-update total_units,<br/>occupied_units on unit INSERT/UPDATE/DELETE"]
+        RENO_TRIGGER["update_property_renovation_total()<br/><<trigger>><br/>Auto-update renovation_cost<br/>on renovation record change"]
     end
 
     subgraph VACANCY [Vacancy Tracking]
@@ -412,6 +418,7 @@ flowchart TD
     VALIDATE --> DRAFT
 
     DRAFT --> DENORM["<<trigger>><br/>Auto-populate:<br/>property_id, unit_id,<br/>tenant_name, unit_number"]
+    DRAFT --> TRACK_STATUS["track_invoice_status_change()<br/><<trigger>><br/>Log every status change<br/>to invoice_status_history"]
 
     DRAFT --> SEND{Kirim Invoice?}
     SEND -->|Yes| SEND_PROC[Update status + issued_at<br/>Send email notification<br/><<send-notification>>]
@@ -811,7 +818,8 @@ flowchart TD
     COMPLETED --> REVIEW{Tenant Review?}
     REVIEW -->|Yes| RATING[maintenance_reviews<br/>rating, comment]
     REVIEW -->|No| DONE([Request Closed])
-    RATING --> DONE
+    RATING --> VENDOR_RATING["update_vendor_maintenance_rating()<br/><<trigger>><br/>Recalculate vendor avg rating"]
+    VENDOR_RATING --> DONE
 
     COMPLETED --> DSS_MAINT["dss-maintenance-priority<br/><<edge function>><br/>See Diagram 12"]
 
@@ -1250,15 +1258,16 @@ flowchart TD
 | `validate-admin-secret` | Auth | Internal |
 | `auth-webhook` | Auth | Internal |
 | `log-rls-access` | Security | Internal |
-| `order-auto-reject` | Marketplace | 11 (Order) |
+| `order-auto-reject` | Marketplace | Marketplace (non-merchant) |
 
 ## Lampiran: State Machines Summary
 
 | State Machine | Constant Name | Diagram |
 |---------------|---------------|---------|
 | Merchant Verification | `MERCHANT_VERIFICATION_TRANSITIONS` | 1 |
-| Verification (generic) | `VERIFICATION_STATUS_TRANSITIONS` | 1 |
-| Vendor Verification | `VENDOR_VERIFICATION_TRANSITIONS` | 10 |
+| Verification (generic) | `VERIFICATION_STATUS_TRANSITIONS` | Generic (used internally) |
+| Vendor Verification | `VENDOR_VERIFICATION_TRANSITIONS` | Vendor Domain (non-merchant) |
+| Tenant Invitation | `TENANT_INVITATION_TRANSITIONS` | 5 |
 | Subscription | `SUBSCRIPTION_STATUS_TRANSITIONS` | 2 |
 | Unit Status | `UNIT_STATUS_TRANSITIONS` | 3 |
 | Contract Status | `CONTRACT_STATUS_TRANSITIONS` | 4 |
