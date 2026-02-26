@@ -35,14 +35,14 @@
 
 Alur pendaftaran user baru sebagai merchant, mulai dari signup hingga profil bisnis lengkap.
 
-**Aktor**: User, Frontend, Auth (Supabase Auth), Database, Trigger (ensure-user-bootstrap)
+**Aktor**: User, Frontend, Auth (Supabase Auth), Database, DB Trigger (handle_new_user)
 
 ```mermaid
 sequenceDiagram
     participant U as User
     participant FE as Frontend
     participant Auth as Supabase Auth
-    participant EF as Edge Function<br/>(ensure-user-bootstrap)
+    participant TR as DB Trigger<br/>(handle_new_user)
     participant DB as Database
 
     U->>FE: Fill registration form (email, password, full_name)
@@ -50,12 +50,13 @@ sequenceDiagram
     Auth-->>FE: { user, session } or error
 
     alt Signup Success
-        Auth--)EF: Auth hook trigger (on user.created)
-        EF->>DB: INSERT profiles (user_id, email, full_name, phone)
-        EF->>DB: INSERT user_roles (user_id, role='merchant')
-        EF->>DB: INSERT merchants (user_id, business_name)
-        EF->>DB: INSERT merchant_subscriptions (merchant_id, tier='free', status='trialing')
-        EF-->>Auth: Bootstrap complete
+        Auth--)TR: Trigger fires on INSERT to auth.users
+        TR->>DB: INSERT profiles (user_id, email, full_name, phone)
+        TR->>DB: INSERT user_roles (user_id, role='merchant')
+        TR->>DB: INSERT merchants (user_id, business_name)
+        TR->>DB: INSERT escrow_accounts (merchant_id)
+        TR->>DB: INSERT merchant_subscriptions (merchant_id, tier='free', status='trialing')
+        Note right of TR: 5 atomic INSERTs in single transaction
 
         FE-->>U: Redirect to /merchant/onboarding
         U->>FE: Fill business details (business_name, NIB, address)
@@ -95,14 +96,12 @@ sequenceDiagram
 
     MS->>DB: supabase.auth.getUser() → adminId
 
-    MS->>DB: INSERT merchant_verification_history<br/>(merchant_id, action, performed_by, old_status, new_status, ...)
-    Note right of DB: DB Trigger auto-syncs<br/>merchants.verification_status
-
     alt Approved (status = 'verified')
-        MS->>DB: INSERT merchant_verification_history<br/>(action='approved', approval_notes)
+        MS->>DB: INSERT merchant_verification_history<br/>(merchant_id, action='approved', performed_by=adminId,<br/>old_status, new_status='verified', approval_notes)
     else Rejected (status = 'rejected')
-        MS->>DB: INSERT merchant_verification_history<br/>(action='rejected', rejection_reason, rejection_details, resubmission_instructions)
+        MS->>DB: INSERT merchant_verification_history<br/>(merchant_id, action='rejected', performed_by=adminId,<br/>old_status, new_status='rejected',<br/>rejection_reason, rejection_details, resubmission_instructions)
     end
+    Note right of DB: Single INSERT with conditional fields<br/>DB Trigger auto-syncs merchants.verification_status
 
     DB-->>MS: Insert success
 
@@ -219,8 +218,9 @@ sequenceDiagram
 
     M->>PS: updateProperty(id, payload)
     PS->>DB: SELECT * FROM properties WHERE id (snapshot current)
-    PS->>DQ: createVersion('property', id, currentData, summary)
-    DQ->>DB: INSERT entity_versions (auto-versioning)
+    PS->>DQ: createVersion('property', id, currentData, changeSummary)
+    DQ->>DB: INSERT data_versions<br/>(entity_type='property', entity_id, data=snapshot, change_summary)
+    Note right of DQ: Auto-versioning before mutation
 
     alt Address fields changed
         PS->>DB: SELECT address_id FROM properties WHERE id
@@ -1204,7 +1204,7 @@ Tabel yang menunjukkan sequence diagram mana memanggil edge function mana.
 
 | Edge Function | Dipanggil dari Sequence | Tipe Invocation |
 |--------------|------------------------|-----------------|
-| `ensure-user-bootstrap` | 1. Registration | Auth hook (automatic) |
+| `handle_new_user()` | 1. Registration | DB Trigger (on auth.users INSERT) |
 | `send-notification` | 2. Verification, 7. Invoice | `supabase.functions.invoke()` |
 | `create-tenant-account` | 6. Tenant Invitation | `supabase.functions.invoke()` |
 | `get-tenant-invitation` | 6. Tenant Invitation | HTTP GET |
@@ -1279,7 +1279,7 @@ sequenceDiagram
 
 | Sequence | DB Writes | Notifications | Edge Functions | External API |
 |----------|-----------|---------------|----------------|--------------|
-| 1. Registration | 4 INSERTs | 0 | 1 (bootstrap) | 0 |
+| 1. Registration | 5 INSERTs (trigger) + UPDATEs (frontend) | 0 | 0 | 0 |
 | 2. Verification | 3 INSERTs | 1 in-app + 1 email | 1 (send-notification) | 0 |
 | 3. Subscription | 2-3 INSERTs/UPDATEs | 1-2 | 4 (billing, payment, renewal, grace) | 0 |
 | 4. Property | 2-3 INSERTs/UPDATEs | 0 | 0 | 0 |
