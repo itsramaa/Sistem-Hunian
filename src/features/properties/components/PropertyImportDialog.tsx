@@ -124,14 +124,28 @@ export function PropertyImportDialog({ open, onOpenChange, onSuccess }: Property
       const row = validRows[i];
       try {
         const parsed = propertySchema.parse(row.data);
-        const { error } = await supabase.from("properties").insert({
+
+        // Step 1: Insert address
+        const { data: addr, error: addrErr } = await (supabase
+          .from('addresses' as any)
+          .insert({
+            street_address: parsed.address,
+            city: parsed.city,
+            province: parsed.province,
+            postal_code: parsed.postal_code || '',
+            address_type: 'property',
+          } as any)
+          .select('id')
+          .single() as any);
+
+        if (addrErr) { failed++; errors.push(`Baris ${row.index + 2}: ${addrErr.message}`); continue; }
+
+        // Step 2: Insert property with address_id
+        const { error } = await (supabase.from("properties") as any).insert({
           merchant_id: merchant.id,
           name: parsed.name,
           property_type: parsed.property_type,
-          address: parsed.address,
-          city: parsed.city,
-          province: parsed.province,
-          postal_code: parsed.postal_code || null,
+          address_id: (addr as any).id,
           description: parsed.description || null,
         });
         if (error) { failed++; errors.push(`Baris ${row.index + 2}: ${error.message}`); }

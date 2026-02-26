@@ -136,7 +136,7 @@ CREATE INDEX idx_merchant_referral_summary ON merchant_referral_summary(merchant
 ---
 
 ### 1.3 ✅ DONE: Address Normalization
-> Tabel `addresses` sudah dibuat pada upgrade sebelumnya. Views `v_merchants_with_addresses` dan `v_properties_with_addresses` sudah ada.
+> Kolom address/city/province/postal_code dan latitude/longitude sudah di-drop dari merchants dan properties. Data dipusatkan ke tabel addresses dengan FK headquarters_address_id, billing_address_id (merchants) dan address_id (properties). Views v_merchants_with_addresses dan v_properties_with_addresses di-recreate dengan JOIN ke addresses. PropertyImportDialog, propertyService, merchantService, dan 5 edge functions sudah di-update.
 
 **Masalah**: Address field ada di `merchants` dan `properties`
 
