@@ -16,10 +16,10 @@ interface PendingChange {
   effective_date: string;
   status: string;
   reason: string | null;
-  current_tier: {
+  from_tier: {
     display_name: string;
   } | null;
-  pending_tier: {
+  to_tier: {
     display_name: string;
   } | null;
 }
@@ -32,13 +32,13 @@ export function PendingSubscriptionChanges() {
   const { data: pendingChanges = [], isLoading } = useQuery({
     queryKey: ["pending-subscription-changes", merchant?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("pending_subscription_changes")
+      const { data, error } = await (supabase
+        .from("subscription_changes" as any)
         .select(`
           *,
-          current_tier:subscription_tiers!pending_subscription_changes_current_tier_id_fkey(display_name),
-          pending_tier:subscription_tiers!pending_subscription_changes_pending_tier_id_fkey(display_name)
-        `)
+          from_tier:subscription_tiers!subscription_changes_from_tier_id_fkey(display_name),
+          to_tier:subscription_tiers!subscription_changes_to_tier_id_fkey(display_name)
+        `) as any)
         .eq("merchant_id", merchant?.id)
         .eq("status", "pending")
         .order("created_at", { ascending: false });
@@ -51,13 +51,14 @@ export function PendingSubscriptionChanges() {
 
   const cancelMutation = useMutation({
     mutationFn: async (changeId: string) => {
-      const { error } = await supabase
-        .from("pending_subscription_changes")
+      const { error } = await (supabase
+        .from("subscription_changes" as any)
         .update({ 
           status: "cancelled",
-          cancelled_at: new Date().toISOString()
-        })
-        .eq("id", changeId);
+          cancelled_at: new Date().toISOString(),
+          cancellation_reason: "Cancelled by merchant"
+        } as any)
+        .eq("id", changeId) as any);
       
       if (error) throw error;
     },
@@ -111,11 +112,11 @@ export function PendingSubscriptionChanges() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     {getChangeTypeBadge(change.change_type)}
-                    {change.current_tier && change.pending_tier && (
+                    {change.from_tier && change.to_tier && (
                       <span className="flex items-center gap-1 text-sm">
-                        <span className="font-medium">{change.current_tier.display_name}</span>
+                        <span className="font-medium">{change.from_tier.display_name}</span>
                         <ArrowRight className="h-3 w-3" />
-                        <span className="font-medium">{change.pending_tier.display_name}</span>
+                        <span className="font-medium">{change.to_tier.display_name}</span>
                       </span>
                     )}
                   </div>

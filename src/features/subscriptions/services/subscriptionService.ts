@@ -77,16 +77,16 @@ export const subscriptionService = {
   },
 
   fetchPendingChanges: async (): Promise<PendingSubscriptionChange[]> => {
-    const { data, error } = await supabase
-      .from('pending_subscription_changes')
+    const { data, error } = await (supabase
+      .from('subscription_changes' as any)
       .select(`
         *,
         merchants (business_name),
-        current_tier:subscription_tiers!pending_subscription_changes_current_tier_id_fkey (name, display_name),
-        pending_tier:subscription_tiers!pending_subscription_changes_pending_tier_id_fkey (name, display_name)
+        from_tier:subscription_tiers!subscription_changes_from_tier_id_fkey (name, display_name),
+        to_tier:subscription_tiers!subscription_changes_to_tier_id_fkey (name, display_name)
       `)
       .eq('status', 'pending')
-      .order('effective_date', { ascending: true });
+      .order('effective_date', { ascending: true }) as any);
 
     if (error) throw new Error(`Failed to load pending changes: ${error.message}`);
     return data as any as PendingSubscriptionChange[];

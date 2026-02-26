@@ -92,11 +92,11 @@ serve(async (req) => {
     console.log('Checking for pending subscription changes...');
 
     const { data: pendingChanges, error: pendingError } = await supabase
-      .from('pending_subscription_changes')
+      .from('subscription_changes')
       .select(`
         *,
         merchants!inner(id, user_id, business_name),
-        pending_tier:subscription_tiers!pending_subscription_changes_pending_tier_id_fkey(id, name, display_name)
+        to_tier:subscription_tiers!subscription_changes_to_tier_id_fkey(id, name, display_name)
       `)
       .eq('status', 'pending')
       .lte('effective_date', now.toISOString());
@@ -113,7 +113,7 @@ serve(async (req) => {
         const { error: updateError } = await supabase
           .from('merchant_subscriptions')
           .update({
-            tier_id: change.pending_tier_id,
+            tier_id: change.to_tier_id,
             current_period_start: now.toISOString(),
             current_period_end: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
           })
@@ -122,7 +122,7 @@ serve(async (req) => {
         if (!updateError) {
           // Mark pending change as applied
           await supabase
-            .from('pending_subscription_changes')
+            .from('subscription_changes')
             .update({
               status: 'applied',
               applied_at: now.toISOString(),
@@ -133,7 +133,7 @@ serve(async (req) => {
           await supabase.from('notifications').insert({
             user_id: change.merchants.user_id,
             title: 'Subscription Plan Changed',
-            message: `Your subscription has been changed to ${change.pending_tier?.display_name || 'new plan'} as scheduled.`,
+            message: `Your subscription has been changed to ${change.to_tier?.display_name || 'new plan'} as scheduled.`,
             type: 'subscription',
             link: '/merchant/settings',
           });

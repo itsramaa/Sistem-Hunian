@@ -53,10 +53,10 @@ export function AdminSubscriptionPendingChangesTable({ pendingChanges, isLoading
                 </Badge>
               </TableCell>
               <TableCell className="hidden lg:table-cell">
-                <TierBadge tierName={change.current_tier?.name} />
+                <TierBadge tierName={change.from_tier?.name} />
               </TableCell>
               <TableCell className="hidden lg:table-cell">
-                <TierBadge tierName={change.pending_tier?.name} />
+                <TierBadge tierName={change.to_tier?.name} />
               </TableCell>
               <TableCell>{format(new Date(change.effective_date), 'MMM dd, yyyy')}</TableCell>
               <TableCell className="text-muted-foreground hidden md:table-cell">{change.reason || '-'}</TableCell>
