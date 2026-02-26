@@ -28,6 +28,15 @@
 14. [AI/DSS Advisory](#14-aidss-advisory)
 15. [Referral System](#15-referral-system)
 16. [Merchant Suspend/Reactivate (Admin)](#16-merchant-suspendreactivate-admin)
+17. [Payment Reconciliation (Auto-Match)](#17-payment-reconciliation-auto-match)
+18. [Automated Payment Reminders & Escalation](#18-automated-payment-reminders--escalation)
+19. [Expense Tracking](#19-expense-tracking)
+20. [Waiting List & Applicant Management](#20-waiting-list--applicant-management)
+21. [Lease Renewal & Amendment](#21-lease-renewal--amendment)
+22. [Collections Case Management (Extended)](#22-collections-case-management-extended)
+23. [Dynamic Pricing Rules](#23-dynamic-pricing-rules)
+24. [Financial Reports (P&L)](#24-financial-reports-pl)
+25. [Admin Launch Readiness](#25-admin-launch-readiness)
 
 ---
 
@@ -1198,6 +1207,524 @@ sequenceDiagram
 
 ---
 
+## 17. Payment Reconciliation (Auto-Match)
+
+Pencocokan pembayaran ke invoice secara otomatis dengan 3 tingkat kepercayaan. Sumber: `reconciliationService.ts`, `auto-match-payment/index.ts`.
+
+**Aktor**: Merchant, reconciliationService, EF: auto-match-payment, Database
+
+```mermaid
+sequenceDiagram
+    participant M as Merchant
+    participant RS as reconciliationService
+    participant EF as EF: auto-match-payment
+    participant DB as Database
+
+    Note over M,DB: === Fetch Unmatched Payments ===
+
+    M->>RS: fetchUnmatchedPayments(merchantId)
+    RS->>DB: SELECT payments WHERE merchant_id<br/>AND reconciliation_status IN ('unmatched','pending_review')<br/>AND status='paid'
+    loop Each unmatched payment
+        RS->>DB: SELECT profiles WHERE user_id=tenant_user_id → full_name
+        RS->>DB: SELECT invoices WHERE merchant_id AND contract_id<br/>AND tenant_user_id AND status IN ('sent','overdue','escalated','partially_paid')<br/>LIMIT 3
+    end
+    RS-->>M: UnmatchedPayment[] with suggestedInvoices
+
+    Note over M,DB: === Trigger Auto-Match ===
+
+    M->>RS: triggerAutoMatch(paymentId, merchantId)
+    RS->>EF: supabase.functions.invoke('auto-match-payment',<br/>{ paymentId, merchantId })
+
+    EF->>DB: SELECT payments WHERE id=paymentId
+    alt Payment not found
+        EF-->>RS: 404 Payment not found
+    end
+
+    EF->>DB: SELECT invoices WHERE merchant_id<br/>AND contract_id AND tenant_user_id<br/>AND status IN ('sent','overdue','escalated','partially_paid')<br/>ORDER BY due_date ASC
+
+    alt No candidate invoices
+        EF->>DB: UPDATE payments SET reconciliation_status='pending_review'
+        EF-->>RS: { matched: false, tier: 3, reason: 'No outstanding invoices' }
+    end
+
+    Note right of EF: === Tier 1: Exact Match ===
+    EF->>EF: Loop invoices: amount === payment.amount?
+    alt Exact match found
+        EF->>DB: INSERT payment_invoice_match<br/>(payment_id, invoice_id, match_type='auto_exact',<br/>match_confidence=1.0, match_reason)
+        EF->>DB: UPDATE payments SET reconciliation_status='auto_matched'
+        EF->>DB: UPDATE invoices SET status='paid', paid_at
+        EF-->>RS: { matched: true, tier: 1 }
+    end
+
+    Note right of EF: === Tier 2: Partial/Overpayment ===
+    alt No exact match — partial or overpayment
+        EF->>EF: Match to oldest overdue invoice
+        EF->>DB: INSERT payment_invoice_match<br/>(match_type='auto_partial', match_confidence=0.7)
+        EF->>DB: UPDATE payments SET reconciliation_status='pending_review'
+        alt Underpayment
+            EF->>DB: UPDATE invoices SET status='partially_paid'
+        end
+        EF-->>RS: { matched: true, tier: 2 }
+    end
+
+    Note right of EF: === Tier 3: Manual Review ===
+    alt No match possible
+        EF->>DB: UPDATE payments SET reconciliation_status='pending_review'
+        EF-->>RS: { matched: false, tier: 3 }
+    end
+
+    RS-->>M: Match result
+
+    Note over M,DB: === Manual Match by Merchant ===
+
+    M->>RS: manualMatch(paymentId, invoiceId, merchantId, amount)
+    RS->>DB: INSERT payment_invoice_match<br/>(match_type='manual', match_confidence=1.0)
+    RS->>DB: UPDATE payments SET reconciliation_status='manually_matched'
+    RS->>DB: SELECT invoices WHERE id=invoiceId → total_amount
+    alt amount >= total_amount
+        RS->>DB: UPDATE invoices SET status='paid', paid_at
+    else Partial
+        RS->>DB: UPDATE invoices SET status='partially_paid'
+    end
+    RS-->>M: Match complete
+
+    Note over M,DB: === Match History ===
+
+    M->>RS: fetchMatchHistory(merchantId)
+    RS->>DB: SELECT payment_invoice_match WHERE merchant_id<br/>ORDER BY created_at DESC LIMIT 50
+    RS-->>M: PaymentMatch[]
+```
+
+---
+
+## 18. Automated Payment Reminders & Escalation
+
+Cron harian mendeteksi invoice overdue, mengirim reminder bertingkat, dan otomatis membuat kasus penagihan. Sumber: `queue-payment-reminders/index.ts`.
+
+**Aktor**: Cron Scheduler, EF: queue-payment-reminders, Database, Merchant, Tenant
+
+```mermaid
+sequenceDiagram
+    participant CR as Cron Scheduler
+    participant EF as EF: queue-payment-reminders
+    participant DB as Database
+    participant M as Merchant
+    participant T as Tenant
+
+    Note over CR,DB: === Daily Cron (03:00 UTC) ===
+
+    CR->>EF: Trigger queue-payment-reminders
+
+    EF->>DB: SELECT invoices WHERE status IN ('sent','overdue','escalated','partially_paid')<br/>AND due_date < today
+
+    alt No overdue invoices
+        EF-->>CR: { processed: 0 }
+    end
+
+    EF->>EF: Group invoices by merchant_id
+
+    loop Each merchant
+        EF->>DB: SELECT merchants WHERE id → collections_reminder_config
+        alt Config not enabled
+            Note right of EF: Skip merchant
+        end
+
+        loop Each overdue invoice
+            EF->>EF: Calculate days_overdue = today - due_date
+            EF->>EF: Find matching schedule step<br/>(highest days_overdue <= actual days)
+
+            EF->>DB: SELECT payment_reminders_log<br/>WHERE invoice_id AND escalation_level=step.days_overdue
+            alt Already sent this level
+                Note right of EF: Skip (deduplication)
+            end
+
+            EF->>DB: INSERT payment_reminders_log<br/>(merchant_id, invoice_id, tenant_user_id,<br/>reminder_type=step.tone, channel=step.channel,<br/>escalation_level, status='sent', metadata)
+
+            alt days_overdue >= 15
+                EF->>DB: SELECT collections_cases WHERE invoice_id
+                alt No existing case
+                    EF->>DB: INSERT collections_cases<br/>(invoice_id, merchant_id, tenant_user_id,<br/>status='initiated', days_overdue, total_due, escalation_level=1)
+                    Note right of EF: Auto-creates collections case at T+15
+
+                    alt invoice.status = 'overdue'
+                        EF->>DB: UPDATE invoices SET status='escalated'
+                    end
+                end
+            end
+        end
+    end
+
+    EF-->>CR: { processed: totalProcessed }
+```
+
+---
+
+## 19. Expense Tracking
+
+Merchant mengelola pengeluaran operasional dengan ringkasan bulanan dan kategori. Sumber: `expenseService.ts`.
+
+**Aktor**: Merchant, expenseService, Database
+
+```mermaid
+sequenceDiagram
+    participant M as Merchant
+    participant ES as expenseService
+    participant DB as Database
+
+    Note over M,DB: === Fetch Summary ===
+
+    M->>ES: fetchSummary(merchantId)
+    ES->>DB: SELECT expenses WHERE merchant_id<br/>AND expense_date >= monthStart<br/>AND approval_status IN ('approved','verified','submitted')
+    ES->>DB: SELECT expenses WHERE merchant_id<br/>AND expense_date BETWEEN lastMonthStart AND lastMonthEnd<br/>AND approval_status IN ('approved','verified','submitted')
+
+    ES->>ES: Calculate totalThisMonth, lastMonthTotal
+    ES->>ES: Group by category → { category, total, count }
+    ES->>ES: trend = ((thisMonth - lastMonth) / lastMonth) * 100
+
+    ES-->>M: ExpenseSummary { totalThisMonth, countThisMonth,<br/>byCategory[], lastMonthTotal, trend% }
+
+    Note over M,DB: === Create Expense ===
+
+    M->>ES: createExpense({ merchantId, category, amount, expenseDate, ... })
+    ES->>DB: INSERT expenses<br/>(merchant_id, property_id, unit_id, category, subcategory,<br/>description, amount, expense_date, payment_method,<br/>notes, is_recurring, tax_deductible, approval_status='submitted')
+    DB-->>ES: Success
+    ES-->>M: Expense created
+
+    Note over M,DB: === List Expenses ===
+
+    M->>ES: fetchExpenses(merchantId, limit=50)
+    ES->>DB: SELECT expenses WHERE merchant_id<br/>ORDER BY expense_date DESC LIMIT 50
+    ES-->>M: Expense[]
+
+    Note over M,DB: === Delete Expense ===
+
+    M->>ES: deleteExpense(id)
+    ES->>DB: DELETE FROM expenses WHERE id
+    ES-->>M: Deleted
+```
+
+---
+
+## 20. Waiting List & Applicant Management
+
+Merchant mengelola calon penyewa melalui state machine dengan alur penawaran unit. Sumber: `waitingListService.ts`.
+
+**Aktor**: Merchant, waitingListService, Database
+
+```mermaid
+sequenceDiagram
+    participant M as Merchant
+    participant WS as waitingListService
+    participant DB as Database
+
+    Note over M,DB: === Add Applicant ===
+
+    M->>WS: addApplicant({ merchantId, propertyId, applicantName, phone, email,<br/>budgetMin, budgetMax, preferredMoveIn, specialNeeds })
+    WS->>DB: INSERT waiting_list<br/>(merchant_id, property_id, applicant_name, applicant_phone,<br/>applicant_email, budget_min, budget_max, preferred_move_in,<br/>special_needs, status='interested')
+    DB-->>WS: { applicant }
+    WS-->>M: WaitingListApplicant created
+
+    Note over M,DB: === Update Status (State Machine) ===
+
+    M->>WS: updateStatus(id, currentStatus, newStatus, extra?)
+    WS->>WS: isValidTransition(WAITING_LIST_TRANSITIONS, current, new)
+    Note right of WS: Transitions:<br/>interested → contacted → qualified → offered<br/>offered → accepted | rejected<br/>qualified → waitlisted<br/>waitlisted → offered
+
+    alt Invalid transition
+        WS-->>M: throw Error("Transisi tidak valid: X → Y")
+    end
+
+    WS->>WS: Set timestamps based on newStatus
+    Note right of WS: offered → offered_at<br/>accepted → accepted_at<br/>rejected → rejected_at
+
+    WS->>DB: UPDATE waiting_list SET status, timestamps, ...extra
+    WS-->>M: Status updated
+
+    Note over M,DB: === Send Offer ===
+
+    M->>WS: sendOffer(applicantId, unitId)
+    WS->>DB: SELECT waiting_list WHERE id=applicantId → { status }
+    alt Not found
+        WS-->>M: throw Error("Applicant not found")
+    end
+
+    WS->>WS: Calculate offer_expires_at = now + 7 days
+    WS->>WS: updateStatus(id, current, 'offered',<br/>{ unit_id, offer_expires_at })
+
+    WS->>DB: UPDATE waiting_list SET<br/>status='offered', unit_id, offered_at, offer_expires_at
+    WS-->>M: Offer sent
+
+    Note over M,DB: === Filter Applicants ===
+
+    M->>WS: fetchApplicants(merchantId, { status?, propertyId? })
+    WS->>DB: SELECT waiting_list WHERE merchant_id<br/>AND status=filter AND property_id=filter<br/>ORDER BY created_at DESC
+    WS-->>M: WaitingListApplicant[]
+```
+
+---
+
+## 21. Lease Renewal & Amendment
+
+Cron harian mengirim alert kontrak yang akan berakhir, merchant membuat dan menandatangani amendment. Sumber: `renewalService.ts`, `send-renewal-alert/index.ts`.
+
+**Aktor**: Cron Scheduler, EF: send-renewal-alert, renewalService, Database, Merchant
+
+```mermaid
+sequenceDiagram
+    participant CR as Cron Scheduler
+    participant EF as EF: send-renewal-alert
+    participant RS as renewalService
+    participant DB as Database
+    participant M as Merchant
+
+    Note over CR,DB: === Daily Alert Cron (04:00 UTC) ===
+
+    CR->>EF: Trigger send-renewal-alert
+
+    loop For each threshold [60, 30, 7] days
+        EF->>EF: Calculate targetDate = today + N days
+        EF->>DB: SELECT contracts WHERE status='active'<br/>AND end_date = targetDate<br/>→ { id, merchant_id, tenant_user_id, rent_amount }
+
+        loop Each expiring contract
+            EF->>DB: SELECT lease_renewal_alerts<br/>WHERE contract_id AND alert_type='{N}_day_warning' LIMIT 1
+            alt Already sent
+                Note right of EF: Skip (deduplicated)
+            else Not sent
+                EF->>DB: INSERT lease_renewal_alerts<br/>(contract_id, merchant_id, alert_type='{N}_day_warning',<br/>alert_date=now, status='sent')
+            end
+        end
+    end
+
+    EF-->>CR: { alertsCreated: totalCreated }
+
+    Note over M,DB: === Merchant Views Alerts ===
+
+    M->>RS: fetchAlerts(merchantId)
+    RS->>DB: SELECT lease_renewal_alerts<br/>JOIN contracts(end_date, rent_amount, tenant, unit)<br/>WHERE merchant_id ORDER BY alert_date DESC
+    alt Query fails (table not ready)
+        RS->>DB: SELECT contracts WHERE status='active'<br/>AND end_date BETWEEN now AND now+90 days
+        RS-->>M: Fallback: expiring contracts as alerts
+    end
+    RS-->>M: RenewalAlert[]
+
+    Note over M,DB: === Create Amendment (Draft) ===
+
+    M->>RS: createAmendment({ contractId, merchantId,<br/>amendmentType, oldValues, newValues, effectiveDate, notes })
+    RS->>DB: INSERT contract_amendments<br/>(contract_id, merchant_id, amendment_type,<br/>old_values, new_values, effective_date, notes, status='draft')
+    Note right of DB: AMENDMENT_STATUS_TRANSITIONS:<br/>draft → sent → signed
+    RS-->>M: Amendment created
+
+    Note over M,DB: === Sign Amendment ===
+
+    M->>RS: signAmendment(amendmentId)
+    RS->>DB: UPDATE contract_amendments SET<br/>status='signed', signed_at=now()
+    RS-->>M: Amendment signed
+
+    Note over M,DB: === Amendment History ===
+
+    M->>RS: fetchAmendments(contractId)
+    RS->>DB: SELECT contract_amendments WHERE contract_id<br/>ORDER BY created_at DESC
+    RS-->>M: ContractAmendment[]
+```
+
+---
+
+## 22. Collections Case Management (Extended)
+
+Merchant mengelola kasus penagihan dengan state machine dan payment plan. Sumber: `collectionsCaseService.ts`.
+
+**Aktor**: Merchant, collectionsCaseService, Database
+
+```mermaid
+sequenceDiagram
+    participant M as Merchant
+    participant CS as collectionsCaseService
+    participant DB as Database
+
+    Note over M,DB: === Fetch Cases ===
+
+    M->>CS: fetchCases(merchantId, status?)
+    CS->>DB: SELECT collections_cases<br/>JOIN invoices(invoice_number, unit_number, tenant_name)<br/>WHERE merchant_id AND status=filter<br/>ORDER BY created_at DESC
+    CS-->>M: CollectionsCase[] with joined invoice data
+
+    Note over M,DB: === Update Case Status (State Machine) ===
+
+    M->>CS: updateCaseStatus(caseId, currentStatus, newStatus, resolution?)
+    CS->>CS: isValidTransition(COLLECTIONS_CASE_TRANSITIONS, current, new)
+    Note right of CS: Transitions:<br/>initiated → in_progress → resolved
+
+    alt Invalid transition
+        CS-->>M: throw Error("Transisi tidak valid: X → Y")
+    end
+
+    CS->>CS: Build updates = { status: newStatus }
+    alt newStatus = 'resolved'
+        Note right of CS: Set resolved_at = now()<br/>Set resolution_type = resolution || 'paid_in_full'
+    end
+
+    CS->>DB: UPDATE collections_cases SET status, resolved_at?, resolution_type?
+    CS-->>M: Status updated
+
+    Note over M,DB: === Create Payment Plan ===
+
+    M->>CS: createPaymentPlan({ invoiceId, tenantUserId, merchantId,<br/>totalAmount, installmentCount, frequency, startDate })
+    CS->>CS: installmentAmount = ceil(totalAmount / installmentCount)
+    CS->>DB: INSERT payment_plans<br/>(invoice_id, tenant_user_id, merchant_id,<br/>original_amount, installment_amount, installment_count,<br/>frequency, start_date, status='pending_acceptance')
+    CS-->>M: Payment plan created
+```
+
+---
+
+## 23. Dynamic Pricing Rules
+
+CRUD untuk aturan harga dinamis dengan berbagai tipe dan prioritas. Sumber: `dynamicPricingService.ts`.
+
+**Aktor**: Merchant, dynamicPricingService, Database
+
+```mermaid
+sequenceDiagram
+    participant M as Merchant
+    participant DP as dynamicPricingService
+    participant DB as Database
+
+    Note over M,DB: === Fetch Rules ===
+
+    M->>DP: fetchRules(merchantId)
+    DP->>DB: SELECT dynamic_pricing_rules<br/>WHERE merchant_id ORDER BY priority ASC
+    DP-->>M: DynamicPricingRule[]
+
+    Note over M,DB: === Create Rule ===
+
+    M->>DP: createRule({ merchant_id, property_id?, rule_name,<br/>rule_type, adjustment_type, adjustment_value,<br/>conditions, min_price, max_price, priority,<br/>valid_from, valid_until, notes })
+    Note right of DP: rule_type: occupancy | seasonal | demand | duration | loyalty<br/>adjustment_type: percentage | fixed
+    DP->>DB: INSERT dynamic_pricing_rules (all fields, conditions={})
+    DB-->>DP: { rule }
+    DP-->>M: DynamicPricingRule created
+
+    Note over M,DB: === Update Rule ===
+
+    M->>DP: updateRule(id, updates)
+    DP->>DB: UPDATE dynamic_pricing_rules SET ...updates WHERE id
+    DP-->>M: Rule updated
+
+    Note over M,DB: === Toggle Active/Inactive ===
+
+    M->>DP: toggleRule(id, is_active)
+    DP->>DB: UPDATE dynamic_pricing_rules SET is_active WHERE id
+    DP-->>M: Rule toggled
+
+    Note over M,DB: === Delete Rule ===
+
+    M->>DP: deleteRule(id)
+    DP->>DB: DELETE FROM dynamic_pricing_rules WHERE id
+    DP-->>M: Rule deleted
+```
+
+---
+
+## 24. Financial Reports (P&L)
+
+Laporan profit & loss bulanan dengan pengelompokan revenue per properti dan expense per kategori. Sumber: `financialReportService.ts`.
+
+**Aktor**: Merchant, financialReportService, Database
+
+```mermaid
+sequenceDiagram
+    participant M as Merchant
+    participant FR as financialReportService
+    participant DB as Database
+
+    Note over M,DB: === Fetch Financial Summary ===
+
+    M->>FR: fetchFinancialSummary(merchantId, months=6)
+    FR->>FR: Calculate startDate = startOfMonth(now - (months-1))
+
+    par Parallel queries
+        FR->>DB: SELECT invoices(amount, paid_at, property_id)<br/>WHERE merchant_id AND status='paid'<br/>AND paid_at >= startDate
+    and
+        FR->>DB: SELECT expenses(amount, category, expense_date)<br/>WHERE merchant_id AND expense_date >= startDate
+    and
+        FR->>DB: SELECT properties(id, name)<br/>WHERE merchant_id
+    end
+
+    FR->>FR: Build property name map: Map<property_id, name>
+    FR->>FR: Initialize monthly buckets for N months
+
+    loop Each paid invoice
+        FR->>FR: Aggregate to monthly revenue bucket
+        FR->>FR: Aggregate to revenueByProperty map
+    end
+
+    loop Each expense
+        FR->>FR: Aggregate to monthly expense bucket
+        FR->>FR: Aggregate to expenseByCategory map
+    end
+
+    FR->>FR: Calculate per-month netIncome = revenue - expenses
+    FR->>FR: Calculate totals: totalRevenue, totalExpenses, netIncome
+
+    FR-->>M: FinancialSummary {<br/>  totalRevenue, totalExpenses, netIncome,<br/>  monthlyData[],<br/>  revenueByProperty[],<br/>  expenseByCategory[]<br/>}
+```
+
+---
+
+## 25. Admin Launch Readiness
+
+Dashboard kesiapan peluncuran platform dengan metrik agregat dan skor readiness terbobot. Sumber: `launchReadinessService.ts`.
+
+**Aktor**: Admin, launchReadinessService, Database
+
+```mermaid
+sequenceDiagram
+    participant A as Admin
+    participant LR as launchReadinessService
+    participant DB as Database
+
+    Note over A,DB: === Fetch Launch Metrics ===
+
+    A->>LR: fetchMetrics()
+
+    par 12 parallel count queries
+        LR->>DB: SELECT count(*) FROM merchants
+        LR->>DB: SELECT count(*) FROM merchants WHERE verification_status='verified'
+        LR->>DB: SELECT count(*) FROM properties
+        LR->>DB: SELECT count(*) FROM units
+        LR->>DB: SELECT count(*) FROM contracts WHERE status='active' (tenants)
+        LR->>DB: SELECT count(*) FROM contracts
+        LR->>DB: SELECT count(*) FROM contracts WHERE status='active'
+        LR->>DB: SELECT count(*) FROM invoices
+        LR->>DB: SELECT count(*) FROM invoices WHERE status='paid'
+        LR->>DB: SELECT count(*) FROM invoices WHERE status='overdue'
+        LR->>DB: SELECT count(*) FROM payments
+        LR->>DB: SELECT count(*) FROM payments WHERE invoice_id IS NOT NULL
+    end
+
+    LR->>DB: SELECT feature_flags(flag_key, is_enabled)
+    LR->>LR: paymentMatchRate = (matched / total) * 100
+
+    LR-->>A: LaunchMetrics { totalMerchants, activeMerchants,<br/>totalProperties, totalUnits, totalContracts,<br/>activeContracts, totalInvoices, paidInvoices,<br/>overdueInvoices, paymentMatchRate, featureFlags[] }
+
+    Note over A,DB: === Compute Readiness Checks ===
+
+    A->>LR: getReadinessChecks(metrics)
+    LR->>LR: Evaluate 18 checks across 5 categories:
+
+    Note right of LR: Core (3 checks):<br/>- Auth system (always pass)<br/>- Merchants (pass if count > 0)<br/>- Properties & Units (pass if count > 0)
+
+    Note right of LR: Operations (4 checks):<br/>- Contracts (pass if count > 0)<br/>- Waiting List (always pass)<br/>- Lease Renewal (always pass)<br/>- Maintenance (always pass)
+
+    Note right of LR: Finance (5 checks):<br/>- Invoices (pass if count > 0)<br/>- Payments & Xendit (always pass)<br/>- Auto-Match Rate (pass if ≥80%, warn if ≥50%, fail if <50%)<br/>- Collections (always pass)<br/>- Expenses (always pass)
+
+    Note right of LR: Intelligence (3 checks):<br/>- Dynamic Pricing (always pass)<br/>- Financial Reports (always pass)<br/>- DSS & AI Advisor (always pass)
+
+    Note right of LR: Infrastructure (3 checks):<br/>- RLS (always pass)<br/>- Edge Functions (always pass)<br/>- Feature Flags (pass if count > 0)
+
+    LR-->>A: ReadinessCheck[] with status per item
+    A->>A: Calculate weighted readiness score<br/>Display Go/No-Go dashboard
+```
+
+---
+
 ## Appendix A: Edge Function Invocation Map
 
 Tabel yang menunjukkan sequence diagram mana memanggil edge function mana.
@@ -1233,6 +1760,9 @@ Tabel yang menunjukkan sequence diagram mana memanggil edge function mana.
 | `auto-generate-invoices` | 7. Invoice | Cron |
 | `process-referral-commissions` | 15. Referral | Cron/Trigger |
 | `process-referral-reward` | 15. Referral | Cron/Trigger |
+| `auto-match-payment` | 17. Reconciliation | `supabase.functions.invoke()` |
+| `queue-payment-reminders` | 18. Payment Reminders | Cron (daily 03:00 UTC) |
+| `send-renewal-alert` | 21. Lease Renewal | Cron (daily 04:00 UTC) |
 
 ---
 
@@ -1253,6 +1783,13 @@ sequenceDiagram
     participant S12 as 12. Move-Out
     participant S13 as 13. Collections
     participant S15 as 15. Referral
+    participant S17 as 17. Reconciliation
+    participant S18 as 18. Reminders
+    participant S19 as 19. Expenses
+    participant S21 as 21. Renewal
+    participant S22 as 22. Collections Ext
+    participant S23 as 23. Pricing Rules
+    participant S24 as 24. Financial Reports
 
     S1->>S3: Registration creates free subscription (trialing)
     S1->>S2: Merchant submits verification documents
@@ -1271,6 +1808,19 @@ sequenceDiagram
 
     S15->>S3: Referral bonus applies to subscription
     S15->>S5: Referral bonus applies to contract rent
+
+    S7->>S17: Paid payment triggers auto-match
+    S17->>S7: Auto-match updates invoice status (paid/partially_paid)
+
+    S18->>S13: Auto-creates collections case at T+15 days
+    S18->>S7: Escalates invoice status (overdue to escalated)
+
+    S21->>S5: Amendment modifies contract terms
+    S22->>S7: Case resolution links to invoice payment
+
+    S23->>S5: Pricing rules reference properties/units
+    S24->>S7: Aggregates paid invoices for revenue
+    S24->>S19: Aggregates expenses for cost reporting
 ```
 
 ---
@@ -1295,3 +1845,12 @@ sequenceDiagram
 | 14. AI/DSS | 1-2 INSERTs | 0 | 6 (pricing, investment, churn, occupancy, revenue, optimal) | 0 (AI built-in) |
 | 15. Referral | 3-5 INSERTs/UPDATEs | 1-2 | 2 (commissions, reward) | 0 |
 | 16. Suspend/Reactivate | 2-3 INSERTs | 1 (batch for bulk) | 0 | 0 |
+| 17. Reconciliation | 3-4 INSERTs/UPDATEs | 0 | 1 (auto-match-payment) | 0 |
+| 18. Payment Reminders | 2-3 INSERTs/UPDATEs | 0 (log only) | 1 (queue-payment-reminders) | 0 |
+| 19. Expense Tracking | 1-2 INSERTs/DELETEs | 0 | 0 | 0 |
+| 20. Waiting List | 1-2 INSERTs/UPDATEs | 0 | 0 | 0 |
+| 21. Lease Renewal | 1-2 INSERTs/UPDATEs | 0 | 1 (send-renewal-alert) | 0 |
+| 22. Collections Case Ext | 1-2 INSERTs/UPDATEs | 0 | 0 | 0 |
+| 23. Dynamic Pricing | 1-2 INSERTs/UPDATEs/DELETEs | 0 | 0 | 0 |
+| 24. Financial Reports | 0 (read-only) | 0 | 0 | 0 |
+| 25. Launch Readiness | 0 (read-only) | 0 | 0 | 0 |
