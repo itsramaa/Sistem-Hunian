@@ -13,8 +13,15 @@ export interface Merchant {
   city: string | null;
   province: string | null;
   verification_status: string;
-  subscription_tier: string;
   created_at: string;
+  merchant_subscriptions?: {
+    tier_id: string;
+    status: string;
+    subscription_tiers?: {
+      name: string;
+    };
+  }[];
+
   verified_at: string | null;
   verified_by: string | null;
   rejected_at: string | null;

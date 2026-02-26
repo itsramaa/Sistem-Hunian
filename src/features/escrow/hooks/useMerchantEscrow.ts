@@ -65,11 +65,21 @@ export function useMerchantEscrow() {
       if (!merchant?.id) return null;
       const { data, error } = await supabase
         .from('merchants')
-        .select('disbursement_schedule, verification_status, total_disbursed, last_disbursement_date, min_disbursement_amount')
+        .select(`
+          verification_status, 
+          total_disbursed, 
+          last_disbursement_date, 
+          min_disbursement_amount,
+          merchant_subscriptions(disbursement_schedule)
+        `)
         .eq('id', merchant.id)
-        .single();
+        .maybeSingle();
       if (error) throw error;
-      return data;
+      
+      return {
+        ...data,
+        disbursement_schedule: (data?.merchant_subscriptions?.[0] as any)?.disbursement_schedule || null
+      };
     },
     enabled: !!merchant?.id,
   });
@@ -123,9 +133,9 @@ export function useMerchantEscrow() {
   const updateSchedule = useMutation({
     mutationFn: async (schedule: string) => {
       const { error } = await supabase
-        .from('merchants')
-        .update({ disbursement_schedule: schedule })
-        .eq('id', merchant?.id);
+        .from('merchant_subscriptions')
+        .update({ disbursement_schedule: schedule } as any)
+        .eq('merchant_id', merchant?.id);
       if (error) throw error;
     },
     onSuccess: () => {

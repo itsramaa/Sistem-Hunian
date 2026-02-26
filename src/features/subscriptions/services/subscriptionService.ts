@@ -169,12 +169,6 @@ export const subscriptionService = {
       if (error) throw error;
     }
 
-    // Also update the legacy field for compatibility
-    await supabase
-      .from('merchants')
-      .update({ subscription_tier: tierName })
-      .eq('id', merchantId);
-
     await createAuditLog({
       action: 'update',
       entityType: 'merchant_subscription',

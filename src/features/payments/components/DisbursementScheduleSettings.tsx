@@ -20,8 +20,9 @@ export function DisbursementScheduleSettings() {
 
   useEffect(() => {
     if (merchant) {
-      setSchedule(merchant.disbursement_schedule ?? PAYOUT_SCHEDULE);
-      setBillingDay(String(merchant.billing_day ?? 1));
+      const sub = merchant.merchant_subscriptions?.[0];
+      setSchedule(sub?.disbursement_schedule ?? (merchant as any).disbursement_schedule ?? PAYOUT_SCHEDULE);
+      setBillingDay(String(sub?.billing_day ?? (merchant as any).billing_day ?? 1));
       setMinAmount(String((merchant as any).min_disbursement_amount ?? MINIMUM_PAYOUT_AMOUNT));
     }
   }, [merchant]);
@@ -38,15 +39,26 @@ export function DisbursementScheduleSettings() {
 
   const updateSchedule = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
-        .from('merchants')
+      // 1. Update subscription settings
+      const { error: subError } = await supabase
+        .from('merchant_subscriptions')
         .update({ 
           disbursement_schedule: schedule,
-          billing_day: parseInt(billingDay),
+          billing_day: parseInt(billingDay) 
+        } as any)
+        .eq('merchant_id', merchant?.id);
+      
+      if (subError) throw subError;
+
+      // 2. Update merchant aggregate settings
+      const { error: merchantError } = await supabase
+        .from('merchants')
+        .update({ 
           min_disbursement_amount: parseInt(minAmount) || MINIMUM_PAYOUT_AMOUNT,
         })
-        .eq('user_id', user?.id);
-      if (error) throw error;
+        .eq('id', merchant?.id);
+        
+      if (merchantError) throw merchantError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['merchant-settings'] });

@@ -165,7 +165,7 @@ export function AdminMerchantsTable({
               </TableCell>
               <TableCell className="hidden xl:table-cell">
                 <Badge variant="secondary" className="capitalize">
-                  {merchant.subscription_tier}
+                  {merchant.merchant_subscriptions?.[0]?.subscription_tiers?.name || "free"}
                 </Badge>
               </TableCell>
               <TableCell className="hidden xl:table-cell text-sm text-muted-foreground">

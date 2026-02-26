@@ -35,7 +35,7 @@ export function AppSidebar({ role, ...props }: AppSidebarProps) {
   const entityInfo = role === "merchant" ? merchant : role === "vendor" ? vendor : null;
   const entityName = entityInfo?.business_name;
   const verificationStatus = entityInfo?.verification_status;
-  const subscriptionTier = role === "merchant" ? merchant?.subscription_tier : null;
+  const subscriptionTier = role === "merchant" ? merchant?.merchant_subscriptions?.[0]?.subscription_tiers?.name || "free" : null;
 
   const secondaryNavItems = [
     {

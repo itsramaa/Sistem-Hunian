@@ -1542,6 +1542,7 @@ export type Database = {
       }
       merchant_subscriptions: {
         Row: {
+          billing_day: number | null
           canceled_at: string | null
           cancellation_effective_date: string | null
           cancellation_reason: string | null
@@ -1549,6 +1550,7 @@ export type Database = {
           created_at: string
           current_period_end: string
           current_period_start: string
+          disbursement_schedule: string | null
           failed_attempts: number | null
           grace_period_end: string | null
           id: string
@@ -1563,6 +1565,7 @@ export type Database = {
           xendit_recurring_id: string | null
         }
         Insert: {
+          billing_day?: number | null
           canceled_at?: string | null
           cancellation_effective_date?: string | null
           cancellation_reason?: string | null
@@ -1570,6 +1573,7 @@ export type Database = {
           created_at?: string
           current_period_end: string
           current_period_start?: string
+          disbursement_schedule?: string | null
           failed_attempts?: number | null
           grace_period_end?: string | null
           id?: string
@@ -1584,6 +1588,7 @@ export type Database = {
           xendit_recurring_id?: string | null
         }
         Update: {
+          billing_day?: number | null
           canceled_at?: string | null
           cancellation_effective_date?: string | null
           cancellation_reason?: string | null
@@ -1591,6 +1596,7 @@ export type Database = {
           created_at?: string
           current_period_end?: string
           current_period_start?: string
+          disbursement_schedule?: string | null
           failed_attempts?: number | null
           grace_period_end?: string | null
           id?: string
@@ -1718,12 +1724,10 @@ export type Database = {
       merchants: {
         Row: {
           address: string | null
-          billing_day: number | null
           business_name: string
           business_type: string | null
           city: string | null
           created_at: string
-          disbursement_schedule: string | null
           id: string
           last_disbursement_date: string | null
           merchant_code: string | null
@@ -1739,7 +1743,6 @@ export type Database = {
           rejection_details: string | null
           resubmission_count: number | null
           resubmission_instructions: string | null
-          subscription_tier: string | null
           total_disbursed: number | null
           updated_at: string
           user_id: string
@@ -1750,12 +1753,10 @@ export type Database = {
         }
         Insert: {
           address?: string | null
-          billing_day?: number | null
           business_name: string
           business_type?: string | null
           city?: string | null
           created_at?: string
-          disbursement_schedule?: string | null
           id?: string
           last_disbursement_date?: string | null
           merchant_code?: string | null
@@ -1771,7 +1772,6 @@ export type Database = {
           rejection_details?: string | null
           resubmission_count?: number | null
           resubmission_instructions?: string | null
-          subscription_tier?: string | null
           total_disbursed?: number | null
           updated_at?: string
           user_id: string
@@ -1782,12 +1782,10 @@ export type Database = {
         }
         Update: {
           address?: string | null
-          billing_day?: number | null
           business_name?: string
           business_type?: string | null
           city?: string | null
           created_at?: string
-          disbursement_schedule?: string | null
           id?: string
           last_disbursement_date?: string | null
           merchant_code?: string | null
@@ -1803,7 +1801,6 @@ export type Database = {
           rejection_details?: string | null
           resubmission_count?: number | null
           resubmission_instructions?: string | null
-          subscription_tier?: string | null
           total_disbursed?: number | null
           updated_at?: string
           user_id?: string

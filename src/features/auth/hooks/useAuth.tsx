@@ -65,10 +65,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (userRoles.includes('merchant')) {
           const { data: merchantData } = await supabase
             .from('merchants')
-            .select('*')
+            .select(`
+              *,
+              merchant_subscriptions(
+                tier_id,
+                status,
+                subscription_tiers(name)
+              )
+            `)
             .eq('user_id', userId)
             .maybeSingle();
-          if (merchantData) setMerchant(merchantData as MerchantProfile);
+          if (merchantData) setMerchant(merchantData as unknown as MerchantProfile);
         }
         
         // Fetch vendor data if user has vendor role

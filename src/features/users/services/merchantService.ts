@@ -17,6 +17,11 @@ export const merchantService = {
           email,
           full_name,
           phone
+        ),
+        merchant_subscriptions(
+          tier_id,
+          status,
+          subscription_tiers(name)
         )
       `)
       .order('created_at', { ascending: false });
@@ -25,7 +30,7 @@ export const merchantService = {
       query = query.eq('verification_status', filters.status);
     }
     if (filters?.tier && filters.tier !== 'all') {
-      query = query.eq('subscription_tier', filters.tier);
+      query = query.eq('merchant_subscriptions.tier_id', filters.tier);
     }
     if (filters?.dateRange?.from) {
       query = query.gte('created_at', filters.dateRange.from.toISOString());

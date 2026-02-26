@@ -3,7 +3,6 @@ export interface SubscriptionMerchant {
   business_name: string;
   business_type?: string;
   created_at: string;
-  subscription_tier?: string; // Legacy field
   merchant_subscriptions?: {
     id: string;
     status: string;

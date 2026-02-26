@@ -17,9 +17,6 @@ export interface Merchant {
   rejection_details: string | null;
   resubmission_count: number | null;
   resubmission_instructions: string | null;
-  subscription_tier: string | null;
-  disbursement_schedule: string | null;
-  billing_day: number | null;
   penalty_rate: number | null;
   referred_by: string | null;
   referral_discount: number | null;

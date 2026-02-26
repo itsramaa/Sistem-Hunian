@@ -13,11 +13,8 @@ export interface MerchantProfile {
   postal_code: string | null;
   merchant_code: string | null;
   verification_status: string | null;
-  subscription_tier: string | null;
-  disbursement_schedule: string | null;
   min_disbursement_amount: number | null;
   penalty_rate: number | null;
-  billing_day: number | null;
   created_at: string;
   updated_at: string;
 }

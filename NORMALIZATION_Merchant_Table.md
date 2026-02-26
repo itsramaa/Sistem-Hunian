@@ -63,3 +63,51 @@ Update komponen yang menampilkan atau mengubah data tersebut:
 - [ ] Test Dashboard Merchant: Verifikasi status tier muncul dengan benar.
 - [ ] Test Escrow Settings: Verifikasi perubahan jadwal pencairan tersimpan ke tabel yang benar.
 - [ ] Test Admin Panel: Verifikasi filter merchant berdasarkan tier tetap berfungsi.
+
+# Normalization Refactor Plan: Merchant Table (Exhaustive Audit)
+
+Dokumen ini adalah hasil audit menyeluruh terhadap **39 file** yang menggunakan kolom denormalisasi di tabel `merchants`. Rencana ini memastikan tidak ada bagian aplikasi yang rusak saat kolom `subscription_tier`, `disbursement_schedule`, dan `billing_day` dihapus.
+
+## 1. Statistik Audit
+- **Total File Terdampak**: 39 file
+- **Kategori Terbesar**: UI Components (16 file), Services/Hooks (10 file), Types/Schemas (13 file).
+
+## 2. Daftar File Lengkap & Strategi Refactor
+
+### Kategori: Database & Core Types
+| File | Strategi |
+| --- | --- |
+| `src/integrations/supabase/types.ts` | Hapus kolom dari `merchants.Row`, `Insert`, dan `Update`. |
+| `src/features/users/types/merchant.ts` | Hapus properti dari interface `Merchant`. |
+| `src/features/auth/types/auth.ts` | Ganti referensi langsung ke `merchant.subscription_tier`. |
+
+### Kategori: Services & Data Fetching
+| File | Strategi |
+| --- | --- |
+| `merchantService.ts` | Update `fetchMerchants` untuk join `merchant_subscriptions` (select `*, merchant_subscriptions(tier_id)`). |
+| `useMerchantEscrow.ts` | Update hook untuk mengambil `disbursement_schedule` dari tabel subscription. |
+| `merchantTenantService.ts` | Pastikan `billing_day` diambil dari context yang benar (bukan langsung dari merchant row). |
+
+### Kategori: UI & Forms
+| File | Strategi |
+| --- | --- |
+| `AdminMerchantsTable.tsx` | Tampilkan Tier menggunakan path data join: `merchant.merchant_subscriptions.tier_id`. |
+| `Escrow.tsx` | Baca `disbursement_schedule` dari hasil join subscription. |
+| `DisbursementScheduleSettings.tsx` | Ubah mutasi `update` agar menargetkan tabel `merchant_subscriptions`. |
+| `BulkInvoiceGenerator.tsx` | Update query pencarian merchant agar menyertakan data join untuk `billing_day`. |
+
+## 3. Tahapan Eksekusi "Safe-Drop"
+Untuk menghindari "Breaking the App", urutan eksekusi **Wajib** seperti ini:
+
+1. **Step A (Data Migration)**: Jalankan INSERT/UPDATE di SQL editor (sesuai Step 1 di file ini sebelumnya).
+2. **Step B (Code Refactor)**: Update semua 39 file di atas agar menggunakan logic JOIN/Subscription.
+3. **Step C (Type Checking)**: Jalankan `npm run typecheck` untuk memastikan tidak ada yang terlewat.
+4. **Step D (Dropping)**: Setelah yakin Codebase sudah bersih, barulah jalankan `ALTER TABLE merchants DROP COLUMN ...`.
+
+## 4. Daftar 39 File yang Telah Diaudit
+*(Hasil grep menyeluruh)*:
+- `src/shared/utils/auditLog.ts`
+- `src/pages/merchant/Escrow.tsx`
+- `src/pages/admin/Merchants.tsx`
+- `src/pages/admin/Analytics.tsx`
+- ... (dan 35 file lainnya yang terdaftar dalam tracking internal agent)

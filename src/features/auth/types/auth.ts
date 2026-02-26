@@ -29,11 +29,17 @@ export interface MerchantProfile {
   postal_code: string | null;
   merchant_code: string | null;
   verification_status: 'pending' | 'verified' | 'rejected' | 'suspended';
-  subscription_tier: 'free' | 'basic' | 'pro' | 'enterprise';
-  disbursement_schedule: 'daily' | 'weekly' | 'biweekly' | 'monthly' | null;
-  billing_day: number | null;
   created_at: string;
   updated_at: string;
+  merchant_subscriptions?: {
+    tier_id: string;
+    status: string;
+    disbursement_schedule: string | null;
+    billing_day: number | null;
+    subscription_tiers?: {
+      name: string;
+    };
+  }[];
 }
 
 export interface VendorProfile {

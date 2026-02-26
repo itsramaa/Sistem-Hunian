@@ -31,10 +31,7 @@ export function AdminSubscriptionMerchantsTable({ merchants, isLoading, onUpdate
   }
 
   const getMerchantTierName = (merchant: SubscriptionMerchant) => {
-    if (merchant.merchant_subscriptions?.[0]?.subscription_tiers?.name) {
-      return merchant.merchant_subscriptions[0].subscription_tiers.name;
-    }
-    return merchant.subscription_tier || 'free';
+    return merchant.merchant_subscriptions?.[0]?.subscription_tiers?.name || 'free';
   };
 
   return (

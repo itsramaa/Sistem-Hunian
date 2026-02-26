@@ -3103,6 +3103,7 @@ export type Database = {
       }
       merchant_subscriptions: {
         Row: {
+          billing_day: number | null
           canceled_at: string | null
           cancellation_effective_date: string | null
           cancellation_reason: string | null
@@ -3124,6 +3125,7 @@ export type Database = {
           xendit_recurring_id: string | null
         }
         Insert: {
+          billing_day?: number | null
           canceled_at?: string | null
           cancellation_effective_date?: string | null
           cancellation_reason?: string | null
@@ -3145,6 +3147,7 @@ export type Database = {
           xendit_recurring_id?: string | null
         }
         Update: {
+          billing_day?: number | null
           canceled_at?: string | null
           cancellation_effective_date?: string | null
           cancellation_reason?: string | null
@@ -3343,12 +3346,10 @@ export type Database = {
         Row: {
           address: string | null
           address_id: string | null
-          billing_day: number | null
           business_name: string
           business_type: string | null
           city: string | null
           created_at: string
-          disbursement_schedule: string | null
           id: string
           last_disbursement_date: string | null
           merchant_code: string | null
@@ -3365,7 +3366,6 @@ export type Database = {
           resubmission_count: number | null
           resubmission_instructions: string | null
           search_vector: unknown
-          subscription_tier: string | null
           total_disbursed: number | null
           updated_at: string
           user_id: string
@@ -3377,12 +3377,10 @@ export type Database = {
         Insert: {
           address?: string | null
           address_id?: string | null
-          billing_day?: number | null
           business_name: string
           business_type?: string | null
           city?: string | null
           created_at?: string
-          disbursement_schedule?: string | null
           id?: string
           last_disbursement_date?: string | null
           merchant_code?: string | null
@@ -3399,7 +3397,6 @@ export type Database = {
           resubmission_count?: number | null
           resubmission_instructions?: string | null
           search_vector?: unknown
-          subscription_tier?: string | null
           total_disbursed?: number | null
           updated_at?: string
           user_id: string
@@ -3411,12 +3408,10 @@ export type Database = {
         Update: {
           address?: string | null
           address_id?: string | null
-          billing_day?: number | null
           business_name?: string
           business_type?: string | null
           city?: string | null
           created_at?: string
-          disbursement_schedule?: string | null
           id?: string
           last_disbursement_date?: string | null
           merchant_code?: string | null
@@ -3433,7 +3428,6 @@ export type Database = {
           resubmission_count?: number | null
           resubmission_instructions?: string | null
           search_vector?: unknown
-          subscription_tier?: string | null
           total_disbursed?: number | null
           updated_at?: string
           user_id?: string
@@ -5965,6 +5959,7 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          disbursement_schedule: string | null
           display_name: string
           features: Json | null
           id: string
@@ -5982,6 +5977,7 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string | null
+          disbursement_schedule?: string | null
           display_name: string
           features?: Json | null
           id?: string
@@ -5999,6 +5995,7 @@ export type Database = {
         Update: {
           created_at?: string
           description?: string | null
+          disbursement_schedule?: string | null
           display_name?: string
           features?: Json | null
           id?: string

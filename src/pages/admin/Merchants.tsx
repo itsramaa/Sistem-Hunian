@@ -118,7 +118,7 @@ export default function AdminMerchants() {
       'City': m.city || '',
       'Province': m.province || '',
       'Status': m.verification_status,
-      'Tier': m.subscription_tier,
+      'Tier': m.merchant_subscriptions?.[0]?.subscription_tiers?.name || 'free',
       'Joined': new Date(m.created_at).toLocaleDateString(),
     }));
     exportToCSV(data, 'merchants-export');
@@ -130,7 +130,7 @@ export default function AdminMerchants() {
       'Email': m.profiles?.email || '',
       'City': m.city || '',
       'Status': m.verification_status,
-      'Tier': m.subscription_tier,
+      'Tier': m.merchant_subscriptions?.[0]?.subscription_tiers?.name || 'free',
     }));
     exportToPDF(data, 'Merchants Report', 'merchants-report');
   };
