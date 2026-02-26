@@ -59,9 +59,10 @@
   - Calculation: SUM(invoices due next 7 days)
   - **Result**: Know exact cash to expect this week
 
-**D. Escrow & Deposit Tracking** (removed per requirement):
-- ❌ NOT IMPLEMENTED (user requirement: no escrow system)
-- ⚠️ If needed in future: Use expenses table + separate deposit tracking
+**D. Escrow & Deposit Tracking** (partially revised):
+- ❌ Merchant deposit escrow: REMOVED (replaced with direct refund flow, no holding period)
+- ✅ Vendor escrow: KEPT for maintenance vendor payment safety (48h auto-release, dispute handling)
+- ⚠️ Deposit tracking: Use expenses table + direct bank transfer for tenant deposit refunds
 
 **Business Outcome**: Pemilik with 30 units + Rp 300M/month revenue now knows:
 - ✅ Total outstanding hari ini
@@ -510,6 +511,10 @@
 │ 12. Phase 3.3 - Maintenance ROI analytics                    │
 │ 13. Phase 3.4 - Financial reporting                          │
 │ 14. Phase 3.5 - Multi-property consolidation                 │
+│ 15. Phase 3.6 - AI/ML: Build all 6 models (gated deploy)    │
+│     → Pricing advisor live at launch (10%), 5 post-launch    │
+│ 16. Phase 3.7 - Referral MVP (feature-flag OFF at launch)    │
+│     → Enable week 20+ if demand >30%                         │
 │     → These unlock revenue optimization & advanced insights  │
 │                                                               │
 └─────────────────────────────────────────────────────────────┘
@@ -557,7 +562,7 @@ Phase 2: OPERATIONS UNLOCK (sequence)
 │  ├─ depends: 1.3 (auto-cases)
 │  ├─ required by: 3.4 (reporting)
 
-Phase 3: INTELLIGENCE (all parallel)
+Phase 3: INTELLIGENCE + AI/ML + REFERRAL (all parallel)
 ├─ 3.1 Dynamic pricing (independent)
 ├─ 3.2 Occupancy forecasting
 │  ├─ depends: occupancy history (2-3 months data)
@@ -567,11 +572,27 @@ Phase 3: INTELLIGENCE (all parallel)
 │  ├─ depends: 1.4 (expenses), invoices, payments, 2.4 (cases)
 ├─ 3.5 Multi-property consolidation
 │  ├─ depends: all above features working
+├─ 3.6 AI/ML: Build all 6 models (parallel)
+│  ├─ Infrastructure: A/B testing, feature-flags, monitoring
+│  ├─ Deploy: pricing advisor to 10% at launch
+│  └─ Gate: remaining 5 for post-launch (confidence thresholds)
+├─ 3.7 Referral MVP (2 weeks)
+│  ├─ Simple link + email + tracking + Rp 100K bonus
+│  ├─ Feature-flag OFF at launch
+│  └─ Enable week 20+ if demand >30%
 
 Phase 4: LAUNCH
 ├─ Week 16: Final QA
 ├─ Week 17: Soft launch (500 early adopters)
 └─ Week 18: Full launch (public)
+    ├─ 1 AI live (pricing advisor, 10% merchants)
+    └─ Referral hidden (feature-flag OFF)
+
+Phase 5: POST-LAUNCH (Weeks 19-26)
+├─ Week 19: Deploy occupancy forecast if >75% confidence
+├─ Week 20: Referral decision gate (>30% demand = enable)
+├─ Weeks 21-26: Staggered AI deployment (confidence-gated)
+└─ Fallback: Keep built but disabled if thresholds not met
 ```
 
 ---
