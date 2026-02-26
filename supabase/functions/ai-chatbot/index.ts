@@ -152,7 +152,7 @@ serve(async (req) => {
         .from("contracts")
         .select(`
           id, rent_amount, start_date, end_date, status,
-          unit:units(unit_number, property:properties(name, address))
+          unit:units(unit_number, property:properties(name))
         `)
         .eq("tenant_user_id", userId)
         .eq("status", "active")
@@ -185,7 +185,7 @@ serve(async (req) => {
         .limit(3);
 
       // Phase 6: Get property security & compliance info
-      const contractUnit = activeContract?.unit as { unit_number: string; property: { name: string; address: string } } | null;
+      const contractUnit = activeContract?.unit as { unit_number: string; property: { name: string } } | null;
       let securityContext = "";
       let insuranceContext = "";
 
@@ -223,7 +223,6 @@ DATA TENANT SAAT INI:
 - Nama: ${profile?.full_name || userName || "Tidak diketahui"}
 - Properti: ${unit?.property?.name || "Tidak ada kontrak aktif"}
 - Unit: ${unit?.unit_number || "-"}
-- Alamat: ${unit?.property?.address || "-"}
 - Sewa bulanan: Rp${activeContract?.rent_amount?.toLocaleString("id-ID") || 0}
 - Kontrak berakhir: ${activeContract?.end_date || "-"}
 

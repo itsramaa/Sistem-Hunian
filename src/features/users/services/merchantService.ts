@@ -10,7 +10,7 @@ export const merchantService = {
     dateRange?: { from?: Date; to?: Date };
   }): Promise<Merchant[]> {
     let query = supabase
-      .from('merchants')
+      .from('v_merchants_with_addresses' as any)
       .select(`
         *,
         profiles:user_id (
@@ -24,7 +24,7 @@ export const merchantService = {
           subscription_tiers(name)
         )
       `)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false }) as any;
 
     if (filters?.status && filters.status !== 'all') {
       query = query.eq('verification_status', filters.status);
@@ -42,7 +42,13 @@ export const merchantService = {
     const { data, error } = await query;
 
     if (error) throw error;
-    return (data as unknown as Merchant[]) || [];
+    // Map resolved address fields to flat fields for backward compat
+    return ((data || []) as any[]).map((m: any) => ({
+      ...m,
+      address: m.resolved_address,
+      city: m.resolved_city,
+      province: m.resolved_province,
+    })) as unknown as Merchant[];
   },
 
   async fetchMerchantHistory(merchantId: string): Promise<HistoryEntry[]> {

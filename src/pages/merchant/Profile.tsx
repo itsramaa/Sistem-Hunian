@@ -40,9 +40,9 @@ const MerchantProfile = () => {
   const { data: merchant, isLoading } = useQuery({
     queryKey: ['merchant-profile', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('merchants').select('*').eq('user_id', user?.id).single();
+      const { data, error } = await supabase.from('v_merchants_with_addresses' as any).select('*').eq('user_id', user?.id).single() as any;
       if (error) throw error;
-      return data;
+      return { ...data, address: data.resolved_address, city: data.resolved_city, province: data.resolved_province, postal_code: data.resolved_postal_code };
     },
     enabled: !!user?.id,
   });
@@ -85,7 +85,18 @@ const MerchantProfile = () => {
 
   const updateMerchant = useMutation({
     mutationFn: async (data: typeof businessForm) => {
-      const { error } = await supabase.from('merchants').update(data).eq('user_id', user?.id);
+      // Upsert address first
+      const { address, city, province, postal_code, ...rest } = data;
+      const merchantData = merchant as any;
+      if (merchantData?.headquarters_address_id) {
+        await (supabase.from('addresses' as any).update({ street_address: address, city, province, postal_code } as any) as any).eq('id', merchantData.headquarters_address_id);
+      } else {
+        const { data: addr } = await (supabase.from('addresses' as any).insert({ street_address: address, city, province, postal_code: postal_code || '', address_type: 'headquarters' } as any).select('id').single() as any);
+        if (addr) {
+          await supabase.from('merchants').update({ headquarters_address_id: addr.id } as any).eq('user_id', user?.id);
+        }
+      }
+      const { error } = await supabase.from('merchants').update(rest as any).eq('user_id', user?.id);
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['merchant-profile'] }); toast.success('Profil bisnis diperbarui'); },

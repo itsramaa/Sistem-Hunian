@@ -51,7 +51,6 @@ serve(async (req) => {
           property:properties(
             id,
             name,
-            address,
             merchant_id
           )
         )

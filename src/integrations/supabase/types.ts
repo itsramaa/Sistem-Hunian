@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       addresses: {
         Row: {
+          address_type: string | null
           city: string
           created_at: string | null
           id: string
@@ -26,6 +27,7 @@ export type Database = {
           street_address: string | null
         }
         Insert: {
+          address_type?: string | null
           city: string
           created_at?: string | null
           id?: string
@@ -36,6 +38,7 @@ export type Database = {
           street_address?: string | null
         }
         Update: {
+          address_type?: string | null
           city?: string
           created_at?: string | null
           id?: string
@@ -3509,19 +3512,16 @@ export type Database = {
       }
       merchants: {
         Row: {
-          address: string | null
-          address_id: string | null
+          billing_address_id: string | null
           business_name: string
           business_type: string | null
-          city: string | null
           created_at: string
+          headquarters_address_id: string | null
           id: string
           last_disbursement_date: string | null
           merchant_code: string | null
           min_disbursement_amount: number | null
           penalty_rate: number | null
-          postal_code: string | null
-          province: string | null
           rejected_at: string | null
           rejected_by: string | null
           rejection_details: string | null
@@ -3537,19 +3537,16 @@ export type Database = {
           verified_by: string | null
         }
         Insert: {
-          address?: string | null
-          address_id?: string | null
+          billing_address_id?: string | null
           business_name: string
           business_type?: string | null
-          city?: string | null
           created_at?: string
+          headquarters_address_id?: string | null
           id?: string
           last_disbursement_date?: string | null
           merchant_code?: string | null
           min_disbursement_amount?: number | null
           penalty_rate?: number | null
-          postal_code?: string | null
-          province?: string | null
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_details?: string | null
@@ -3565,19 +3562,16 @@ export type Database = {
           verified_by?: string | null
         }
         Update: {
-          address?: string | null
-          address_id?: string | null
+          billing_address_id?: string | null
           business_name?: string
           business_type?: string | null
-          city?: string | null
           created_at?: string
+          headquarters_address_id?: string | null
           id?: string
           last_disbursement_date?: string | null
           merchant_code?: string | null
           min_disbursement_amount?: number | null
           penalty_rate?: number | null
-          postal_code?: string | null
-          province?: string | null
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_details?: string | null
@@ -3595,7 +3589,14 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "merchants_address_id_fkey"
-            columns: ["address_id"]
+            columns: ["headquarters_address_id"]
+            isOneToOne: false
+            referencedRelation: "addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merchants_billing_address_id_fkey"
+            columns: ["billing_address_id"]
             isOneToOne: false
             referencedRelation: "addresses"
             referencedColumns: ["id"]
@@ -4897,12 +4898,10 @@ export type Database = {
       }
       properties: {
         Row: {
-          address: string
           address_id: string | null
           amenities: string[] | null
           avg_annual_unexpected_cost: number | null
           building_condition: string | null
-          city: string
           construction_cost: number | null
           construction_year: number | null
           created_at: string
@@ -4915,8 +4914,6 @@ export type Database = {
           id: string
           images: string[] | null
           land_ownership: string | null
-          latitude: number | null
-          longitude: number | null
           marketing_cost: number | null
           merchant_id: string
           monthly_amortization: number | null
@@ -4924,10 +4921,8 @@ export type Database = {
           name: string
           nearby_facilities: Json | null
           occupied_units: number | null
-          postal_code: string | null
           property_code: string | null
           property_type: string
-          province: string
           renovation_cost: number | null
           security_score: number | null
           status: string | null
@@ -4935,12 +4930,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          address: string
           address_id?: string | null
           amenities?: string[] | null
           avg_annual_unexpected_cost?: number | null
           building_condition?: string | null
-          city: string
           construction_cost?: number | null
           construction_year?: number | null
           created_at?: string
@@ -4953,8 +4946,6 @@ export type Database = {
           id?: string
           images?: string[] | null
           land_ownership?: string | null
-          latitude?: number | null
-          longitude?: number | null
           marketing_cost?: number | null
           merchant_id: string
           monthly_amortization?: number | null
@@ -4962,10 +4953,8 @@ export type Database = {
           name: string
           nearby_facilities?: Json | null
           occupied_units?: number | null
-          postal_code?: string | null
           property_code?: string | null
           property_type: string
-          province: string
           renovation_cost?: number | null
           security_score?: number | null
           status?: string | null
@@ -4973,12 +4962,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          address?: string
           address_id?: string | null
           amenities?: string[] | null
           avg_annual_unexpected_cost?: number | null
           building_condition?: string | null
-          city?: string
           construction_cost?: number | null
           construction_year?: number | null
           created_at?: string
@@ -4991,8 +4978,6 @@ export type Database = {
           id?: string
           images?: string[] | null
           land_ownership?: string | null
-          latitude?: number | null
-          longitude?: number | null
           marketing_cost?: number | null
           merchant_id?: string
           monthly_amortization?: number | null
@@ -5000,10 +4985,8 @@ export type Database = {
           name?: string
           nearby_facilities?: Json | null
           occupied_units?: number | null
-          postal_code?: string | null
           property_code?: string | null
           property_type?: string
-          province?: string
           renovation_cost?: number | null
           security_score?: number | null
           status?: string | null
@@ -7747,19 +7730,16 @@ export type Database = {
       }
       v_merchants_with_addresses: {
         Row: {
-          address: string | null
-          address_id: string | null
+          billing_address_id: string | null
           business_name: string | null
           business_type: string | null
-          city: string | null
           created_at: string | null
+          headquarters_address_id: string | null
           id: string | null
           last_disbursement_date: string | null
           merchant_code: string | null
           min_disbursement_amount: number | null
           penalty_rate: number | null
-          postal_code: string | null
-          province: string | null
           rejected_at: string | null
           rejected_by: string | null
           rejection_details: string | null
@@ -7769,6 +7749,7 @@ export type Database = {
           resolved_province: string | null
           resubmission_count: number | null
           resubmission_instructions: string | null
+          search_vector: unknown
           total_disbursed: number | null
           updated_at: string | null
           user_id: string | null
@@ -7780,7 +7761,14 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "merchants_address_id_fkey"
-            columns: ["address_id"]
+            columns: ["headquarters_address_id"]
+            isOneToOne: false
+            referencedRelation: "addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merchants_billing_address_id_fkey"
+            columns: ["billing_address_id"]
             isOneToOne: false
             referencedRelation: "addresses"
             referencedColumns: ["id"]
@@ -7789,12 +7777,10 @@ export type Database = {
       }
       v_properties_with_addresses: {
         Row: {
-          address: string | null
           address_id: string | null
           amenities: string[] | null
           avg_annual_unexpected_cost: number | null
           building_condition: string | null
-          city: string | null
           construction_cost: number | null
           construction_year: number | null
           created_at: string | null
@@ -7807,8 +7793,6 @@ export type Database = {
           id: string | null
           images: string[] | null
           land_ownership: string | null
-          latitude: number | null
-          longitude: number | null
           marketing_cost: number | null
           merchant_id: string | null
           monthly_amortization: number | null
@@ -7816,10 +7800,8 @@ export type Database = {
           name: string | null
           nearby_facilities: Json | null
           occupied_units: number | null
-          postal_code: string | null
           property_code: string | null
           property_type: string | null
-          province: string | null
           renovation_cost: number | null
           resolved_address: string | null
           resolved_city: string | null
