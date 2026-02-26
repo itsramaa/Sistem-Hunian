@@ -18,9 +18,6 @@ export interface Merchant {
   resubmission_count: number | null;
   resubmission_instructions: string | null;
   penalty_rate: number | null;
-  referred_by: string | null;
-  referral_discount: number | null;
-  referral_discount_months: number | null;
   total_disbursed: number | null;
   last_disbursement_date: string | null;
   min_disbursement_amount: number | null;

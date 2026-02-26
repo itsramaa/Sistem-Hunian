@@ -10,7 +10,8 @@ Program referral untuk merchant.
 ## Database Tables
 - `referral_codes` - Kode referral
 - `referral_rewards` - Reward
-- `merchants` - referred_by
+- `referrals` - Relasi referrer-referee
+- `merchant_referral_summary` - View ringkasan referral per merchant
 
 ## Features
 - ✅ View referral code

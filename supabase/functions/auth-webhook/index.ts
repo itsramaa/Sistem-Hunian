@@ -171,8 +171,6 @@ serve(async (req) => {
     if (userRole === 'merchant') {
       // Calculate referral bonus if applicable
       const trialDays = referrerInfo ? 21 : 14; // Extra 7 days for referral
-      const referralDiscount = referrerInfo ? 10 : 0; // 10% off first month
-      const referralDiscountMonths = referrerInfo ? 1 : 0;
 
       // Create merchant record
       const { data: newMerchant, error: merchantError } = await supabase
@@ -180,9 +178,6 @@ serve(async (req) => {
         .insert({
           user_id,
           business_name: business_name || 'My Business',
-          referral_discount: referralDiscount,
-          referral_discount_months: referralDiscountMonths,
-          referred_by: referrerInfo?.userId || null,
         })
         .select('id')
         .single();
