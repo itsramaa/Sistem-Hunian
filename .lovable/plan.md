@@ -1,94 +1,132 @@
 
 
-# Revise UX Assessment: Remove Merchant Escrow & Update to Actual System
+# Complete Rewrite: UX Assessment & User Journey (Current System Only)
 
-## Problem Statement
+## Problem
 
-The current `UX_ASSESSMENT_AND_USER_JOURNEY.md` contains **outdated escrow references for merchants** that no longer reflect the actual system. A migration (`20260227084712`) explicitly removed merchant escrow, adding the comment: "Escrow account creation removed -- using direct payment model." The `merchant_activity_diagram.md` is also outdated (Diagram 8 still shows full merchant escrow flow).
+The current `UX_ASSESSMENT_AND_USER_JOURNEY.md` has **174 references** to `merchant_activity_diagram.md`, which is outdated and no longer aligned with the actual system. The PRD (`sihuni_prd.md`) also references escrow for merchants, contradicting the production codebase. A full rewrite is required using only current code-level evidence.
 
-## Evidence of Change
+## Authoritative Sources (Code-Level Only)
 
-| Evidence | Source | Detail |
-|----------|--------|--------|
-| Migration removes escrow | `20260227084712_.sql` line 44 | "NOTE: Escrow account creation removed -- using direct payment model" |
-| `create_merchant_escrow` trigger dropped | Same migration, line 86 | `DROP TRIGGER IF EXISTS create_merchant_escrow` |
-| Dashboard uses `payment_transfers` | `merchantDashboardService.ts` line 78 | Queries `payment_transfers` table, NOT `escrow_accounts` |
-| Dashboard comment confirms | `merchantDashboardService.ts` line 159 | "Process Financials (direct payment model -- no escrow)" |
-| Dashboard balance hardcoded 0 | `merchantDashboardService.ts` line 207 | `balance: 0` -- no escrow balance |
-| State machine label | `state-machines.ts` line 129 | "Section 13: Payment Transfer Lifecycle (Direct Payment Model)" |
-| No `ESCROW_TRANSACTION_TRANSITIONS` | `state-machines.ts` | Does not exist -- removed |
-| No merchant escrow nav item | `navigation-config.ts` | No `/merchant/escrow` in sidebar |
-| No merchant escrow page | `src/pages/merchant/` | No `Escrow.tsx` file |
-| Vendor earnings use `vendor_earnings` | `Earnings.tsx` line 62 | Vendor has own earning system, not escrow |
-| Disbursement is vendor-only | `state-machines.ts` line 137 | "Section 13b: Vendor Disbursement Lifecycle" |
-| Admin has `payment-transfers` page | `navigation-config.ts` line 218 | Label: "Transfer Dana" |
+These are the ONLY sources used for the rewrite:
 
-## Changes Required
+| Source | Path | What It Provides |
+|--------|------|------------------|
+| Navigation Config | `src/shared/components/layouts/navigation-config.ts` | 24 merchant sidebar items, 4 groups |
+| State Machines | `src/shared/constants/state-machines.ts` | 31 state machines (all transitions) |
+| Merchant Pages | `src/pages/merchant/*.tsx` (57 files) | Actual merchant UI pages |
+| Dashboard Service | `src/features/dashboard/services/merchantDashboardService.ts` | Dashboard queries, direct payment model |
+| Financial Control | `src/features/finance/services/financialControlService.ts` | Approval workflows |
+| Staff Permissions | `src/features/staff/constants/permissions.ts` | 16 permissions, 3 roles, 4 groups |
+| Edge Functions | `supabase/functions/` (65 functions) | Backend automation |
+| Database Functions | Supabase config | Triggers, generators, validation |
+| Database Schema | `handle_new_user()` trigger | Bootstrap logic (no escrow) |
 
-### 1. Update Source Traceability Matrix (Row 8)
+**Excluded**: `merchant_activity_diagram.md`, `sihuni_prd.md` escrow sections, any outdated diagram.
 
-**Before**: Feature 8 = "Direct Payment (Escrow & Disbursement)" referencing `merchant_activity_diagram.md` Diagram 8
+## Document Structure
 
-**After**: Feature 8 = "Direct Payment (Payment Transfers)" referencing `PAYMENT_TRANSFER_TRANSITIONS` in `state-machines.ts` lines 129-135 and `merchantDashboardService.ts` lines 76-81. Note that `merchant_activity_diagram.md` Diagram 8 is **outdated** and should be flagged.
+### Section 0: Merchant System Scope (Current Version)
 
-### 2. Rewrite Feature 8 Section
+Define clearly:
+- **CAN DO**: 32 features across 57 pages (property, unit, contract, invoice, payment, maintenance, expense, reports, AI/ML, staff, inventory, etc.)
+- **CANNOT DO**: Escrow management, direct bank disbursement scheduling, vendor product management, tenant registration (merchant can only invite)
+- **Vendor-Only**: Escrow (`DISBURSEMENT_STATUS_TRANSITIONS`), Product/order management, Job acceptance
+- **Admin-Only**: Merchant verification approval, payment transfer monitoring, dispute mediation, subscription tier management, platform config, forum moderation
+- **Escrow Confirmation**: "Escrow is NOT part of the merchant system. Migration `20260227084712` removed `create_merchant_escrow` trigger. `merchantDashboardService.ts` hardcodes `balance: 0`. Disbursement is vendor-only."
 
-Replace entire Feature 8 with corrected flow:
+### Section 1: Merchant Feature Ground Truth (32 Features)
 
-- **Documentation Source**: `state-machines.ts` Section 13 (Payment Transfer Lifecycle), `merchantDashboardService.ts`
-- **Flow**: Payment confirmed -> `payment_transfers` table -> status: pending -> processing -> completed/failed
-- Remove all references to: `escrow_accounts`, `escrow_transactions`, escrow balance, escrow page, scheduled-disbursement, xendit-disbursement, admin manual review for large disbursements
-- Keep bank account management reference
-- **State Machine**: `PAYMENT_TRANSFER_TRANSITIONS` (pending -> processing -> completed/failed, failed -> pending retry)
-- Update UX Friction: Remove "escrow is invisible" friction; add "payment_transfers pending status unclear to merchant" friction
-- Update Simplification: Remove "rename Escrow to Saldo Tertunda"
+Re-extracted from `navigation-config.ts` + `state-machines.ts` + page files. NO diagram references. Each feature maps to:
+- Navigation path (from `navigation-config.ts`)
+- Page file (from `src/pages/merchant/`)
+- State machine (from `state-machines.ts`, or "None")
+- Edge functions (from `supabase/functions/`)
 
-### 3. Fix Feature 1 (Onboarding) Reference
+### Section 2: Full UX Assessment (32 Features)
 
-Line 156 says `ensure-user-bootstrap` "creates profiles, user_roles, merchants, escrow_accounts, merchant_subscriptions (free)". Remove `escrow_accounts` -- confirmed not created anymore per migration.
+Each feature follows this format:
+```
+### Feature N: {Name}
 
-### 4. Fix Feature 7 (Payment & Verification) Reference
+#### Documentation Source
+- Navigation: navigation-config.ts line X
+- Page: src/pages/merchant/{Page}.tsx
+- State Machine: {name} in state-machines.ts lines X-Y (or "None")
+- Edge Functions: {list} (or "None")
 
-Line 649 in the activity diagram says "Masuk Escrow See Diagram 8". The UX doc itself doesn't directly reference this but the payment flow should reference `payment_transfers` instead. Check and update if needed.
+#### Actual Flow (Current Only)
+| Role | Action | Page / Endpoint |
 
-### 5. Update Over-Complexity Detection (Section 5)
+#### State Machine (if defined)
+{transition diagram from code}
 
-Remove or update any escrow-related complexity entries.
+#### UX Friction (Evidence-Based)
+#### Business Impact
+#### Simplification Opportunities
+```
 
-### 6. Update Appendix
+Key changes from previous version:
+- **Feature 8**: "Direct Payment (Payment Transfers)" — NO escrow references. Sources: `PAYMENT_TRANSFER_TRANSITIONS`, `merchantDashboardService.ts` (balance: 0, queries `payment_transfers`)
+- **Feature 1**: Bootstrap creates profiles, user_roles, merchants, merchant_subscriptions. NO `escrow_accounts`
+- **All 32 features**: Source references point to code files only, never to `merchant_activity_diagram.md`
 
-- Remove `ESCROW_TRANSACTION_TRANSITIONS` from any count references
-- Add `PAYMENT_TRANSFER_TRANSITIONS` to state machine count
-- Total state machine count may change (verify: was 31, escrow removed but payment_transfer added -- net same or different)
+### Section 3: End-to-End Merchant Journeys
 
-### 7. Update Hallucination Self-Check (Section 8)
+#### A. Onboarding Journey
+- Register -> Profile -> Verification -> Subscription -> Property -> Unit -> Invite Tenant -> Contract -> Invoice -> Payment
+- 4 blocking steps (admin verification, tenant acceptance, signature, tenant payment)
+- No escrow account creation step
 
-Add new discrepancy:
-- `merchant_activity_diagram.md` Diagram 8 shows merchant escrow flow but system has migrated to direct payment model (`payment_transfers`)
-- `merchant_activity_diagram.md` Diagram 1 references `escrow_accounts` creation in `handle_new_user()` trigger but this was removed
-- `merchant_activity_diagram.md` Diagram 7 references "Masuk Escrow See Diagram 8" but escrow no longer applies to merchants
+#### B. Daily Operations
+- Dashboard KPIs -> Invoice management -> Payment tracking -> Maintenance -> Expenses
+- All sourced from actual page implementations
 
-### 8. Update Onboarding Journey (Section 3A)
+#### C. Critical Scenarios
+- Late payment -> Collections (7-state machine)
+- Move-out -> 4 sub-machines (notice, inspection, early termination, deposit refund)
+- Vacancy -> Waiting list (6-state machine)
 
-The merchant onboarding step note should reflect that no escrow account is created.
+### Section 4: UX Risk Map
+Severity matrix for all 32 features based on complexity vs. target user sophistication.
 
-## State Machine Count Recount
+### Section 5: Scalability UX Check
+24 sidebar items analysis, collapsible "Lainnya" group (12 items), mobile bottom nav (5 items).
 
-Need to verify whether removing `ESCROW_TRANSACTION_TRANSITIONS` and keeping `PAYMENT_TRANSFER_TRANSITIONS` changes the total from 31. The state-machines.ts search showed `PAYMENT_TRANSFER_TRANSITIONS` exists at line 130 and `DISBURSEMENT_STATUS_TRANSITIONS` at line 138, but no `ESCROW_TRANSACTION_TRANSITIONS`. So the count of 31 may already be correct (escrow was already gone when we counted). No change needed if already accurate.
+### Section 6: System Alignment Verification
 
-## Files Modified
+```
+- Escrow references found: 0
+- merchant_activity_diagram.md references found: 0
+- Outdated diagram references found: 0
+- Total merchant features analyzed: 32
+- All features verified against: navigation-config.ts, state-machines.ts, page files
+- PRD conflicts noted: PRD Section 2.2/5.2 still references escrow for merchant (outdated)
+- API Contract conflicts noted: API Section 6 references escrow_balance (outdated)
+```
+
+### Section 7: Final UX Verdict
+
+Same analytical framework but all evidence from current code only.
+
+## Key Differences From Previous Version
+
+| Aspect | Previous | New |
+|--------|----------|-----|
+| Primary source | `merchant_activity_diagram.md` (174 refs) | Code files only (0 diagram refs) |
+| Escrow references | 30 occurrences | 0 (explicitly excluded) |
+| Feature 8 name | "Direct Payment (Escrow & Disbursement)" then patched | "Direct Payment (Payment Transfers)" from scratch |
+| Feature 1 bootstrap | Mentioned escrow_accounts creation | No escrow_accounts |
+| Outdated PRD claims | Treated as authoritative | Flagged as "PRD Section X is outdated vs production code" |
+| API Contract claims | Treated as authoritative | Flagged where conflicts exist (e.g., escrow_balance in API 2.1) |
+
+## File Modified
 
 | Action | File |
 |--------|------|
-| EDIT | `old-docs/UX_ASSESSMENT_AND_USER_JOURNEY.md` |
+| FULL REWRITE | `old-docs/UX_ASSESSMENT_AND_USER_JOURNEY.md` |
 
-## Summary of All Edits
+## Estimated Size
 
-1. Traceability Matrix row 8: rename + update source references
-2. Feature 1 flow table: remove `escrow_accounts` from bootstrap step
-3. Feature 8: full rewrite to Direct Payment (Payment Transfers) model
-4. Section 5 (Over-Complexity): remove escrow references if present
-5. Section 8 (Hallucination Check): add 3 new diagram discrepancies about outdated escrow references in `merchant_activity_diagram.md`
-6. Appendix: verify state machine counts still accurate
-7. Any stray "escrow" references throughout the document -> update to `payment_transfers` or remove
+~2000 lines (similar to current), but entirely code-sourced. No incremental patches. No legacy remnants.
 
