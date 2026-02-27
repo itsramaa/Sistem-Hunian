@@ -1,43 +1,31 @@
-# Merchant Escrow
+# Merchant Escrow — DEPRECATED
 
-## Overview
-Escrow account merchant untuk menyimpan dana dari pembayaran tenant.
+## ⚠️ Status: REMOVED
 
-## File Location
-- `src/pages/merchant/Escrow.tsx` - Halaman escrow
+Merchant escrow telah dihapus dari sistem. Diganti dengan **Direct Payment Model** (payment transfers).
 
-## Database Tables
-- `escrow_accounts` - Akun escrow
-- `escrow_transactions` - Transaksi escrow
-- `disbursements` - Pencairan
+Per migration `20260227084712`:
+- `create_merchant_escrow` trigger di-drop
+- Comment: "Escrow account creation removed -- using direct payment model"
+- Tabel `escrow_accounts` dan `escrow_transactions` masih ada di database tapi tidak digunakan untuk merchant
 
-## API/Edge Functions
-- `supabase/functions/xendit-disbursement/index.ts`
-- `supabase/functions/scheduled-disbursement/index.ts`
+## Replacement
 
-## Features
-- ✅ View balance
-- ✅ View pending balance
-- ✅ Transaction history
-- ✅ Request disbursement
-- ✅ Disbursement schedule settings
-- ✅ Bank account management
+- **Merchant**: Menggunakan `payment_transfers` table. Dana langsung ditransfer ke rekening bank merchant via Xendit settlement.
+- **Vendor**: Escrow masih dipertahankan untuk transaksi vendor maintenance (auto-release 48 jam) via `vendor_earnings` table.
 
-## Implementation Status
-| Feature | Status |
-|---------|--------|
-| Balance | ✅ Complete |
-| History | ✅ Complete |
-| Disbursement | ✅ Complete |
-| Schedule | ✅ Complete |
-| Bank Accounts | ✅ Complete |
+## Current References
 
-## Escrow Flow
-1. Tenant bayar invoice
-2. Dana masuk ke pending balance
-3. Setelah settlement, pindah ke available balance
-4. Merchant request disbursement atau auto-disburse
+- `merchantDashboardService.ts` → queries `payment_transfers`, NOT `escrow_accounts`
+- `state-machines.ts` Section 13 → `PAYMENT_TRANSFER_TRANSITIONS` (Direct Payment Model)
+- `state-machines.ts` Section 13b → `DISBURSEMENT_STATUS_TRANSITIONS` (Vendor Disbursement only)
+- Admin page: `/admin/payment-transfers` (label: "Transfer Dana")
 
-## Related Components
-- `BankAccountManager`
-- `DisbursementScheduleSettings`
+## Old Features (No Longer Active for Merchant)
+
+- ~~View balance~~
+- ~~View pending balance~~
+- ~~Transaction history~~
+- ~~Request disbursement~~
+- ~~Disbursement schedule settings~~
+- ✅ Bank account management (still active, moved to direct payment flow)

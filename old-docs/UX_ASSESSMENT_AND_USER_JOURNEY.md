@@ -21,7 +21,7 @@ Every feature analyzed in this document is mapped to its source documentation. F
 | 5 | Tenant Management | `merchant_activity_diagram.md` Diagram 5; `state-machines.ts` lines 189-193 | `TENANT_INVITATION_TRANSITIONS`: pending → accepted / expired | §2 Feature 5 |
 | 6 | Invoice Management | `merchant_activity_diagram.md` Diagram 6, 6B; `state-machines.ts` lines 39-67 | `INVOICE_STATUS_TRANSITIONS` + `PAYMENT_PLAN_STATUS_TRANSITIONS` | §2 Feature 6 |
 | 7 | Payment & Verification | `merchant_activity_diagram.md` Diagram 7; `state-machines.ts` lines 51-57, 247-252 | `PAYMENT_STATUS_TRANSITIONS` + `PAYMENT_VERIFICATION_TRANSITIONS` | §2 Feature 7 |
-| 8 | Direct Payment (Escrow & Disbursement) | `merchant_activity_diagram.md` Diagram 8; `state-machines.ts` lines 138-143 | `DISBURSEMENT_STATUS_TRANSITIONS`: pending → processing → completed / failed | §2 Feature 8 |
+| 8 | Direct Payment (Payment Transfers) | `state-machines.ts` lines 129-135 (`PAYMENT_TRANSFER_TRANSITIONS`); `merchantDashboardService.ts` lines 76-81 | `PAYMENT_TRANSFER_TRANSITIONS`: pending → processing → completed / failed. ⚠️ `merchant_activity_diagram.md` Diagram 8 is **outdated** — still shows escrow flow | §2 Feature 8 |
 | 9 | Move-Out & Deposit Refund | `merchant_activity_diagram.md` Diagram 9; `state-machines.ts` lines 87-108, 181-187 | 4 machines: MOVE_OUT_NOTICE, INSPECTION, EARLY_TERMINATION, DEPOSIT_REFUND | §2 Feature 9 |
 | 10 | Maintenance Requests | `merchant_activity_diagram.md` Diagram 10; `state-machines.ts` lines 70-127 | `MAINTENANCE_STATUS_TRANSITIONS` + `VENDOR_JOB_STATUS_TRANSITIONS` | §2 Feature 10 |
 | 11 | Collections & Billing Analytics | `merchant_activity_diagram.md` Diagrams 11, 20; `state-machines.ts` lines 196-204 | `COLLECTIONS_CASE_TRANSITIONS`: 7 states (initiated → resolved) | §2 Feature 11 |
@@ -112,7 +112,7 @@ Every feature analyzed in this document is mapped to its source documentation. F
 | Admin-Dependent Action | Impact | Source |
 |----------------------|--------|--------|
 | Merchant verification (approve/reject) | **Blocks all operations** | Diagram 1, `MERCHANT_VERIFICATION_TRANSITIONS` |
-| Large disbursement approval | Delays cash receipt | Diagram 8, `requires_manual_review` flag |
+| Payment transfer monitoring | Admin monitors transfer status | `payment_transfers` table, admin `/payment-transfers` page |
 | Deposit dispute mediation | Blocks refund resolution | Diagram 9, `DEPOSIT_REFUND_TRANSITIONS` |
 | Dispute resolution | Blocks conflict resolution | `DISPUTE_STATUS_TRANSITIONS` |
 
@@ -153,7 +153,7 @@ Non-admin-dependent (positive):
 | 🏠 Merchant | Set addresses (HQ + billing) | `/merchant/profile` |
 | 🏠 Merchant | Upload KTP, SIUP, NPWP | `/merchant/profile` |
 | System | OCR extraction via `ocr-ktp-extract`, `ocr-business-document` | Edge functions |
-| System | `ensure-user-bootstrap` creates profiles, user_roles, merchants, escrow_accounts, merchant_subscriptions (free) | Edge function |
+| System | `ensure-user-bootstrap` creates profiles, user_roles, merchants, merchant_subscriptions (free) | Edge function |
 | 🛡️ Admin | Review documents, approve/reject | `/admin/merchants/:id` |
 | 🏠 Merchant | View verification status | `/merchant/profile` |
 
@@ -508,54 +508,56 @@ Source: `PAYMENT_VERIFICATION_TRANSITIONS` lines 247-252, `PAYMENT_STATUS_TRANSI
 
 ---
 
-### 🔹 Feature 8: Direct Payment (Escrow & Disbursement)
+### 🔹 Feature 8: Direct Payment (Payment Transfers)
 
 #### Documentation Source
-- **Document**: `merchant_activity_diagram.md` Diagram 8
-- **Section**: Escrow & Disbursement
-- **Reference**: `DISBURSEMENT_STATUS_TRANSITIONS` in `state-machines.ts` lines 138-143
+- **Document**: `state-machines.ts` Section 13 (Payment Transfer Lifecycle — Direct Payment Model)
+- **Section**: Payment Transfer processing after payment confirmation
+- **Reference**: `PAYMENT_TRANSFER_TRANSITIONS` in `state-machines.ts` lines 129-135; `merchantDashboardService.ts` lines 76-81 (queries `payment_transfers` table)
+- **⚠️ Outdated Diagram**: `merchant_activity_diagram.md` Diagram 8 still shows the old escrow flow. The system has migrated to a direct payment model per migration `20260227084712` which dropped `create_merchant_escrow` trigger and added comment: "Escrow account creation removed — using direct payment model."
 
 #### Current Flow (Actual)
 
 | Role | Action | Page / Endpoint |
 |------|--------|-----------------|
-| System | Create escrow transaction on payment confirmation | `escrow_transactions` table |
-| System | Calculate fees (platform_fee, gateway_fee) | Escrow logic |
-| System | Schedule disbursement | `scheduled-disbursement` edge function |
-| 🛡️ Admin | Review large disbursements | `requires_manual_review` flag |
-| System | Process via Xendit | `xendit-disbursement` edge function |
-| System | Webhook callback | `xendit-disbursement-webhook` edge function |
+| System | On payment confirmation, create `payment_transfers` record (amount, fee, net_amount) | `payment_transfers` table |
+| System | Transfer status: pending → processing → completed/failed | `PAYMENT_TRANSFER_TRANSITIONS` |
+| System | Settlement via Xendit direct to merchant bank account | Xendit settlement |
 | 🏠 Merchant | Manage bank accounts | `/merchant/bank-accounts` |
-| 🏠 Merchant | View escrow balance, request payout | `/merchant/escrow` |
+| 🏠 Merchant | View transfer history on dashboard (financials section) | `/merchant/dashboard` via `merchantDashboardService.ts` |
+| 🛡️ Admin | Monitor all payment transfers | `/admin/payment-transfers` (label: "Transfer Dana") |
+
+> **Note**: There is NO merchant escrow page (`/merchant/escrow` does not exist). Merchant dashboard shows `balance: 0` (hardcoded — `merchantDashboardService.ts` line 207) because escrow balance no longer applies. Disbursement is vendor-only (`DISBURSEMENT_STATUS_TRANSITIONS` in Section 13b: Vendor Disbursement Lifecycle).
 
 #### State Machine
 
 ```
-Disbursement: pending → processing
-             processing → completed | failed
-             failed → pending (retry)
+Payment Transfer: pending → processing
+                 processing → completed | failed
+                 failed → pending (retry)
 ```
 
-Source: `DISBURSEMENT_STATUS_TRANSITIONS` in `state-machines.ts` lines 138-143
+Source: `PAYMENT_TRANSFER_TRANSITIONS` in `state-machines.ts` lines 129-135
 
 #### UX Friction Analysis
 
-- **Escrow is invisible to most kos owners** — they think "tenant pays me directly"
-- **Bank account management** is an extra setup step
-- **Manual review for large disbursements** creates delay for legitimate payouts
-- **Fee deductions** (platform_fee, gateway_fee) may surprise merchants who expected full amount
+- **Transfer status unclear to merchant** — merchant sees payment confirmed but `payment_transfers` pending status may cause confusion about when funds arrive
+- **Bank account management** is an extra setup step but necessary for receiving funds
+- **No dedicated transfer tracking page for merchants** — transfer data is embedded in dashboard financials, not a standalone view
+- **Fee deductions** (platform_fee, gateway_fee) may surprise merchants who expected full amount — net_amount should be prominently displayed
 
 #### Business Impact
 
-- Escrow model enables platform monetization — business-critical for SiHuni
-- But may confuse merchants used to direct bank transfers
-- Retry mechanism for failed disbursements — good resilience
+- Direct payment model gives merchants faster access to funds — better UX than escrow holding
+- Platform monetization via fee deduction on transfers — business-critical
+- Retry mechanism for failed transfers — good resilience
+- Simplified mental model: "tenant pays → money goes to my bank" (no escrow intermediary)
 
 #### Simplification Opportunities
 
-1. **Rename "Escrow" to "Saldo Tertunda"** — simpler Indonesian term
-2. **Auto-disbursement by default** — only hold for flagged transactions
-3. **Show net amount prominently** — "Anda akan menerima Rp X (setelah biaya platform Rp Y)"
+1. **Show transfer timeline** — "Dana akan masuk ke rekening Anda dalam 1-2 hari kerja" with status indicator
+2. **Show net amount prominently** — "Anda akan menerima Rp X (setelah biaya platform Rp Y)"
+3. **Push notification on transfer completion** — merchant gets notified when funds land
 
 ---
 
@@ -2038,6 +2040,9 @@ A typical merchant's daily routine requires touching these pages:
 | 1 | Lease Amendment states: Diagram vs Code | `merchant_activity_diagram.md` Diagram 19 vs `state-machines.ts` `AMENDMENT_STATUS_TRANSITIONS` | Diagram shows 5 simplified states; code implements 9 states including tenant_reviewing, negotiating, agreed, signing |
 | 2 | Collections Case: Diagram 11 reference vs Code | `merchant_activity_diagram.md` Diagram 11 reference table vs `state-machines.ts` `COLLECTIONS_CASE_TRANSITIONS` | Some diagram references show simplified 3-state; code has 7 states (initiated, reminder_sent, follow_up, in_progress, escalated, legal, resolved) |
 | 3 | Staff invite uses placeholder user_id | `StaffManagement.tsx` line 58 | `crypto.randomUUID()` used as placeholder. Comment states "should lookup by email". Production invite flow is incomplete |
+| 4 | `merchant_activity_diagram.md` Diagram 8 shows merchant escrow flow | Diagram 8 vs `state-machines.ts` Section 13, migration `20260227084712` | System has migrated to direct payment model (`payment_transfers`). Escrow removed for merchants. Diagram 8 is entirely outdated |
+| 5 | `merchant_activity_diagram.md` Diagram 1 references `escrow_accounts` creation | Diagram 1 line 64 vs `ensure-user-bootstrap` edge function | `handle_new_user()` trigger no longer creates `escrow_accounts`. Migration `20260227084712` dropped `create_merchant_escrow` trigger |
+| 6 | `merchant_activity_diagram.md` Diagram 7 references "Masuk Escrow See Diagram 8" | Diagram 7 line 649 vs actual payment flow | Payment goes to `payment_transfers` table, not escrow. Reference to Diagram 8 is invalid |
 
 ### Coverage Note
 
