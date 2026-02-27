@@ -1025,7 +1025,7 @@ flowchart TD
 
 ### Perjalanan Pengguna
 
-Sistem secara otomatis memindai invoice overdue dan membuat kasus penagihan (collections case). Pemilik menerima notifikasi dan mulai menghubungi tenant. Sistem DSS merekomendasikan strategi penagihan (reminder, WhatsApp, payment plan, eskalasi). Jika berhasil, kasus di-resolve. Admin dapat melihat analitik penagihan secara agregat di seluruh platform.
+Sistem secara otomatis memindai invoice overdue melalui edge function `check-overdue-escalation` dan membuat kasus penagihan (collections case) di tabel `collections_cases`. Pemilik membuka halaman `/merchant/collections` dan melihat dua tampilan utama: (1) **Dashboard Aging Analytics** yang mengambil data dari view `v_outstanding_summary` via `collectionsService.fetchSummary()` — menampilkan aging bucket (Current, 1-30 hari, 31-60 hari, 61-90 hari, 90+ hari), total outstanding, jumlah collections hari ini (dari `payments` yang `paid` hari ini), expected collections minggu depan (dari `invoices` yang due dalam 7 hari), dan collection rate % bulan ini (rasio invoice `paid` vs total due bulan ini); (2) **Outstanding Invoice Drill-down** via `collectionsService.fetchOutstandingInvoices()` yang bisa difilter per aging bucket, menampilkan detail per invoice (tenant, unit, jumlah, days overdue, last payment). Pemilik mulai menghubungi tenant dan memilih strategi. Sistem DSS merekomendasikan strategi penagihan (reminder, WhatsApp, payment plan, eskalasi). Admin dapat melihat analitik penagihan secara agregat di seluruh platform.
 
 ```mermaid
 flowchart TD
@@ -1049,6 +1049,23 @@ flowchart TD
     PLAN --> RESULT
     RESULT -->|Yes| RESOLVED([Case: RESOLVED<br/>resolution_type])
     RESULT -->|No| IN_PROGRESS
+
+    subgraph AGING_DASHBOARD [Collections Analytics Dashboard - collectionsService.ts]
+        FETCH_SUMMARY[fetchSummary merchantId] --> AGING_VIEW[v_outstanding_summary view]
+        AGING_VIEW --> BUCKETS[Aging Buckets:<br/>Current, 1-30, 31-60, 61-90, 90+<br/>count + totalAmount per bucket]
+        AGING_VIEW --> TOTAL_OUT[Total Outstanding<br/>sum outstanding_amount]
+        
+        TODAY_PAY[payments table<br/>status=paid, paid_at=today] --> COLL_TODAY[Collections Today<br/>sum + count]
+        
+        WEEK_INV[invoices table<br/>status in sent/overdue/partially_paid<br/>due_date within 7 days] --> EXPECTED[Expected This Week<br/>sum total_amount]
+        
+        MONTH_RATE[invoices due this month<br/>paid vs total] --> RATE[Collection Rate %]
+    end
+
+    subgraph DRILL_DOWN [Outstanding Drill-Down - fetchOutstandingInvoices]
+        DD_FETCH[Filter by aging_bucket optional] --> DD_LIST[Per Invoice Detail:<br/>tenant_name, unit_number<br/>total_amount, paid_amount<br/>outstanding_amount, days_overdue<br/>last_payment_date]
+        DD_LIST --> DD_REMIND[sendReminder<br/>invoke send-payment-reminder EF]
+    end
 
     subgraph ANALYTICS [Payment Analytics]
         METRICS["compute-tenant-payment-metrics<br/><<edge function>>"]
@@ -1075,7 +1092,7 @@ flowchart TD
 
 | Peran | Aksi | Halaman / Endpoint |
 |-------|------|--------------------|
-| 🏠 Pemilik | Melihat kasus collections, menghubungi tenant, memilih strategi (plan/escalate/write-off) | `/merchant/collections` |
+| 🏠 Pemilik | Melihat aging dashboard, drill-down outstanding invoices per bucket, menghubungi tenant, memilih strategi (plan/escalate/write-off), kirim reminder | `/merchant/collections` |
 | 🛡️ Admin | Melihat analitik penagihan agregat, monitoring escalation rates di seluruh platform | `/admin/collections` |
 
 > **Cross-Reference**: Lihat juga [Diagram 16 (Automated Reminders)](#16-automated-payment-reminders--escalation) untuk auto-create case di T+15, dan [Diagram 20 (Collections Extended)](#20-collections-case-management-extended) untuk payment plan & resolution strategy.
@@ -1089,6 +1106,8 @@ flowchart TD
 | `initiated` | `in_progress` |
 | `in_progress` | `resolved` |
 | `resolved` | _(terminal — resolution_type: paid_in_full, payment_plan, write_off, eviction)_ |
+
+**Data Views**: `v_outstanding_summary` — menyediakan `invoice_id`, `merchant_id`, `tenant_user_id`, `contract_id`, `unit_id`, `unit_number`, `tenant_name`, `invoice_number`, `total_amount`, `paid_amount`, `outstanding_amount`, `days_overdue`, `aging_bucket`, `bucket_order`, `due_date`, `last_payment_date`, `status`.
 
 </details>
 
@@ -1406,13 +1425,13 @@ flowchart TD
 
 ### Perjalanan Pengguna
 
-Setelah pembayaran dicatat, sistem otomatis mencoba mencocokkan dengan invoice yang ada. Tier 1 mencari exact match (jumlah + tenant + tanggal sama). Jika tidak ditemukan, Tier 2 mencoba partial match. Jika tetap tidak cocok, pembayaran masuk ke antrian manual review. Pemilik properti dapat mereview dan manual-match pembayaran yang pending.
+Setelah pembayaran dicatat (`status: paid`), sistem otomatis mencoba mencocokkan dengan invoice melalui edge function `auto-match-payment` (dipanggil via `reconciliationService.triggerAutoMatch()`). Tier 1 mencari exact match (jumlah = total_amount, tenant + contract sama). Jika tidak ditemukan, Tier 2 mencoba partial/overpayment match. Jika tetap tidak cocok, pembayaran masuk ke antrian manual review (`reconciliation_status = pending_review`). Pemilik membuka `/merchant/reconciliation` dan melihat 3 stat card: Belum Dicocokkan, Perlu Review, dan Total Belum Cocok (dalam Rupiah). Daftar pembayaran ditampilkan oleh `UnmatchedPaymentsTable` — untuk setiap pembayaran, `reconciliationService.fetchUnmatchedPayments()` secara otomatis mengambil **hingga 3 suggested invoices** yang cocok (filter: `same tenant_user_id + contract_id`, status `sent/overdue/escalated/partially_paid`, sort by `due_date ASC`, `limit 3`). Merchant dapat memilih salah satu suggested invoice untuk di-match secara manual via `reconciliationService.manualMatch()`, yang: (1) membuat record `payment_invoice_match` dengan `match_type: manual`, (2) update `reconciliation_status = manually_matched`, (3) jika amount >= total_amount maka invoice → `paid`, jika kurang → `partially_paid`. Riwayat match tersimpan di `payment_invoice_match` dan bisa dilihat via `fetchMatchHistory()`.
 
 ```mermaid
 flowchart TD
     START([Payment Recorded<br/>status: paid]) --> CHECK_RECON{reconciliation_status?}
 
-    CHECK_RECON -->|unmatched| TRIGGER_AUTO[Trigger Auto-Match<br/>supabase.functions.invoke<br/>auto-match-payment]
+    CHECK_RECON -->|unmatched| TRIGGER_AUTO[reconciliationService.triggerAutoMatch<br/>invoke auto-match-payment EF]
     CHECK_RECON -->|pending_review| MANUAL_QUEUE([Manual Review Queue])
     CHECK_RECON -->|auto_matched| DONE_AUTO([Already Matched])
     CHECK_RECON -->|manually_matched| DONE_MANUAL([Already Matched])
@@ -1438,16 +1457,18 @@ flowchart TD
 
     UPDATE_INV_2 --> MERCHANT_REVIEW([Merchant Review Queue])
 
-    MERCHANT_REVIEW --> MANUAL_ACT{Merchant Action?}
-    MANUAL_ACT -->|Confirm| MANUAL_CONFIRM[Manual Match<br/>reconciliation_status = manually_matched]
+    MERCHANT_REVIEW --> SUGGESTED[fetchUnmatchedPayments enriches<br/>each payment with suggestedInvoices<br/>up to 3 matches by tenant + contract<br/>status: sent/overdue/escalated/partially_paid<br/>sorted by due_date ASC]
+
+    SUGGESTED --> MANUAL_ACT{Merchant Action?}
+    MANUAL_ACT -->|Select Suggested Invoice| MANUAL_CONFIRM[reconciliationService.manualMatch<br/>1. Insert payment_invoice_match<br/>   match_type: manual, confidence: 1.0<br/>2. Update reconciliation_status = manually_matched]
     MANUAL_ACT -->|Reject| MANUAL_REJECT[Keep pending_review]
 
     MANUAL_CONFIRM --> INV_UPDATE_FINAL{amount >= total_amount?}
-    INV_UPDATE_FINAL -->|Yes| INV_PAID([Invoice: PAID])
+    INV_UPDATE_FINAL -->|Yes| INV_PAID([Invoice: PAID<br/>paid_at = timestamp])
     INV_UPDATE_FINAL -->|No| INV_PARTIAL([Invoice: PARTIALLY_PAID])
 
     subgraph HISTORY [Match History]
-        HIST_VIEW[Fetch payment_invoice_match<br/>order by created_at DESC<br/>limit 50]
+        HIST_VIEW[reconciliationService.fetchMatchHistory<br/>payment_invoice_match table<br/>order by created_at DESC, limit 50]
     end
 
     style START fill:#2ecc71,color:#fff
@@ -1459,6 +1480,7 @@ flowchart TD
     style MANUAL_REJECT fill:#e74c3c,color:#fff
     style MERCHANT_REVIEW fill:#3498db,color:#fff
     style MANUAL_QUEUE fill:#3498db,color:#fff
+    style SUGGESTED fill:#3498db,color:#fff
     style INV_PARTIAL fill:#e67e22,color:#fff
     style CHECK_RECON fill:#f1c40f,color:#333
     style HAS_INV fill:#f1c40f,color:#333
@@ -1472,10 +1494,10 @@ flowchart TD
 
 | Peran | Aksi | Halaman / Endpoint |
 |-------|------|--------------------|
-| 🏠 Pemilik | Mereview pembayaran yang pending, manual-match, konfirmasi/reject partial match | `/merchant/reconciliation` |
+| 🏠 Pemilik | Mereview pembayaran pending, melihat suggested invoices (hingga 3), manual-match, konfirmasi/reject | `/merchant/reconciliation` |
 | 🛡️ Admin | Monitoring auto-match rate, melihat unmatched payments via escrow overview | `/admin/escrow` |
 
-> **Catatan**: Sistem auto-match berjalan otomatis. Pemilik hanya perlu intervensi untuk Tier 2 (partial) dan Tier 3 (unmatched).
+> **Catatan**: Sistem auto-match berjalan otomatis via EF. Pemilik hanya perlu intervensi untuk Tier 2 (partial) dan Tier 3 (unmatched). Setiap pembayaran yang pending menampilkan hingga 3 suggested invoices berdasarkan kecocokan tenant + contract.
 
 <details>
 <summary>Referensi State Machine</summary>
@@ -1484,9 +1506,9 @@ flowchart TD
 | Status | Deskripsi |
 |--------|-----------|
 | `unmatched` | Pembayaran baru, belum dicocokkan |
-| `pending_review` | Tier 2/3 — perlu review merchant |
+| `pending_review` | Tier 2/3 — perlu review merchant, dilengkapi suggested invoices |
 | `auto_matched` | Tier 1 — otomatis cocok (exact) |
-| `manually_matched` | Dicocokkan manual oleh merchant |
+| `manually_matched` | Dicocokkan manual oleh merchant dari suggested invoices |
 
 </details>
 
@@ -1496,7 +1518,7 @@ flowchart TD
 
 ### Perjalanan Pengguna
 
-Sistem secara otomatis menjalankan cron harian untuk memindai semua invoice overdue. Untuk setiap merchant yang mengaktifkan reminder, sistem mencocokkan jadwal pengingat (misal: hari ke-1 friendly, hari ke-7 firm, hari ke-15 urgent via WhatsApp). Pengingat dikirim ke penyewa melalui channel yang dikonfigurasi. Jika overdue mencapai 15 hari, sistem otomatis membuat kasus collections dan meng-escalate status invoice.
+Sistem secara otomatis menjalankan cron harian via edge function `queue-payment-reminders` untuk memindai semua invoice overdue (`status IN sent, overdue, escalated, partially_paid` dengan `due_date < today`). Untuk setiap merchant yang mengaktifkan reminder (via `merchants.collections_reminder_config` JSONB dengan `enabled: true`), sistem mencocokkan jadwal pengingat berdasarkan `days_overdue` — misal: hari ke-1 friendly email, hari ke-7 firm SMS, hari ke-15 urgent WhatsApp. Duplikasi dicegah: jika reminder sudah pernah dikirim untuk level tersebut, dilewati. Setiap pengiriman dicatat di tabel `payment_reminders_log` (reminder_type, channel, escalation_level, status: sent). Jika overdue mencapai 15 hari dan belum ada collections case, sistem otomatis membuat `collections_cases` (status: initiated, escalation_level: 1) dan meng-escalate status invoice dari `overdue` ke `escalated` (lihat `INVOICE_STATUS_TRANSITIONS`).
 
 ```mermaid
 flowchart TD
@@ -1579,7 +1601,7 @@ flowchart TD
 
 ### Perjalanan Pengguna
 
-Pemilik properti mencatat semua pengeluaran operasional (utilities, maintenance, asuransi, pajak, dll). Dashboard menampilkan ringkasan: total bulan ini vs bulan lalu, trend perubahan, dan breakdown per kategori. Pemilik dapat menambah, melihat daftar, dan menghapus pengeluaran. Data ini digunakan oleh Financial Reports (Diagram 22) untuk laporan P&L.
+Pemilik properti mencatat semua pengeluaran operasional melalui halaman `/merchant/expenses`. `expenseService.fetchSummary()` mengambil data bulan ini vs bulan lalu dengan filter `approval_status IN (approved, verified, submitted)`: total amount, jumlah transaksi, trend perubahan %, dan breakdown per kategori (utilities, maintenance, insurance, tax, marketing, admin, payroll, other — didefinisikan di `EXPENSE_CATEGORIES`). Pemilik bisa menambah expense baru via `expenseService.createExpense()` (dengan `approval_status: submitted` otomatis), melihat daftar via `fetchExpenses()` (order by `expense_date DESC`, limit 50), dan menghapus via `deleteExpense()`. Data expenses ini diagregasi oleh Financial Reports (Diagram 22) melalui `financialReportService.ts` untuk laporan P&L.
 
 ```mermaid
 flowchart TD
@@ -1633,57 +1655,80 @@ flowchart TD
 
 ### Perjalanan Pengguna
 
-Pemilik properti mengelola daftar tunggu calon penyewa. Calon penyewa yang berminat dicatat dengan informasi kontak, budget, dan preferensi. Status applicant berubah dari interested -> applied -> offered (dengan unit dan batas waktu) -> accepted/rejected. Jika accepted, pemilik melanjutkan ke pembuatan kontrak.
+Pemilik properti mengelola daftar tunggu calon penyewa melalui halaman `/merchant/waiting-list` (`useWaitingList` hook → `waitingListService`). Calon penyewa yang berminat dicatat dengan informasi kontak, budget, dan preferensi. Status applicant berubah dari `interested` → `applied` → `waitlisted` (menunggu ketersediaan unit) atau langsung `offered` (dengan unit dan batas waktu via `SendOfferDialog`). Dari `waitlisted`, applicant bisa di-offer atau di-reject. Jika `offered`, applicant menerima atau menolak. Jika `accepted`, pemilik melanjutkan ke pembuatan kontrak. Setiap transisi status divalidasi oleh `isValidTransition(WAITING_LIST_TRANSITIONS, ...)` di `waitingListService.updateStatus()` — transisi tidak valid akan menghasilkan error. Halaman UI (`WaitingListTable`) menampilkan daftar applicant dengan tombol aksi per status.
 
 ```mermaid
 flowchart TD
-    START([Merchant Buka Waiting List]) --> FETCH[Fetch Applicants<br/>filter: status, property_id]
-    FETCH --> LIST_VIEW[Tampilkan Daftar Applicant]
+    START([Merchant Buka Waiting List]) --> FETCH[Fetch Applicants<br/>waitingListService.fetchList<br/>filter: status, property_id]
+    FETCH --> LIST_VIEW[Tampilkan Daftar Applicant<br/>WaitingListTable component]
 
     LIST_VIEW --> ACTION{Aksi Merchant?}
-    ACTION -->|Tambah| ADD[Input Applicant:<br/>name, phone, email<br/>budget_min/max<br/>preferred_move_in<br/>special_needs, property_id]
-    ADD --> SAVE_ADD[Insert waiting_list<br/>status: interested]
+    ACTION -->|Tambah| ADD[Input Applicant via<br/>AddApplicantDialog:<br/>name, phone, email<br/>budget_min/max<br/>preferred_move_in<br/>special_needs, property_id]
+    ADD --> SAVE_ADD[waitingListService.addApplicant<br/>Insert waiting_list<br/>status: interested]
     SAVE_ADD --> INTERESTED([Status: INTERESTED])
 
     INTERESTED --> TRANSITION1{Update Status?}
     TRANSITION1 -->|Apply| APPLIED([Status: APPLIED])
+    TRANSITION1 -->|Reject| REJECTED_I([Status: REJECTED])
 
     APPLIED --> TRANSITION2{Next Action?}
-    TRANSITION2 -->|Send Offer| OFFER_FLOW[Send Offer Sub-Flow]
+    TRANSITION2 -->|Waitlist| WAITLISTED([Status: WAITLISTED<br/>menunggu unit tersedia])
+    TRANSITION2 -->|Send Offer| OFFER_FLOW[Send Offer via<br/>SendOfferDialog]
+    TRANSITION2 -->|Reject| REJECTED_A([Status: REJECTED])
 
-    OFFER_FLOW --> SET_UNIT[Set unit_id]
+    WAITLISTED --> TRANSITION3{Unit Tersedia?}
+    TRANSITION3 -->|Send Offer| OFFER_FLOW
+    TRANSITION3 -->|Reject| REJECTED_W([Status: REJECTED])
+
+    OFFER_FLOW --> SET_UNIT[waitingListService.sendOffer<br/>Set unit_id]
     SET_UNIT --> SET_EXPIRY[Set offer_expires_at<br/>+7 hari]
     SET_EXPIRY --> OFFERED([Status: OFFERED<br/>offered_at = timestamp])
 
     OFFERED --> RESPONSE{Applicant Response?}
     RESPONSE -->|Accept| ACCEPTED([Status: ACCEPTED<br/>accepted_at = timestamp])
-    RESPONSE -->|Reject| REJECTED([Status: REJECTED<br/>rejected_at = timestamp<br/>rejection_reason])
+    RESPONSE -->|Reject| REJECTED_O([Status: REJECTED<br/>rejected_at = timestamp<br/>rejection_reason])
 
     ACCEPTED --> CREATE_CONTRACT([Buat Kontrak<br/>See Diagram 4])
 
     ACTION -->|Filter| FILTER[Filter by:<br/>- Status<br/>- Property]
     FILTER --> FETCH
 
-    subgraph STATE_MACHINE [WAITING_LIST_TRANSITIONS]
+    subgraph VALIDATION [State Machine Validation]
+        VAL[isValidTransition<br/>WAITING_LIST_TRANSITIONS<br/>currentStatus, newStatus]
+        VAL -->|Valid| PROCEED([Proceed with update])
+        VAL -->|Invalid| ERROR([Throw Error:<br/>Transisi tidak valid])
+    end
+
+    subgraph STATE_MACHINE [WAITING_LIST_TRANSITIONS - Actual Code]
         SM_INT([interested]) -->|apply| SM_APP([applied])
+        SM_INT -->|reject| SM_REJ([rejected])
         SM_APP -->|offer| SM_OFF([offered])
-        SM_OFF -->|accept| SM_ACC([accepted])
-        SM_OFF -->|reject| SM_REJ([rejected])
-        SM_INT -->|reject| SM_REJ
+        SM_APP -->|waitlist| SM_WAIT([waitlisted])
         SM_APP -->|reject| SM_REJ
+        SM_WAIT -->|offer| SM_OFF
+        SM_WAIT -->|reject| SM_REJ
+        SM_OFF -->|accept| SM_ACC([accepted])
+        SM_OFF -->|reject| SM_REJ
     end
 
     style START fill:#2ecc71,color:#fff
     style INTERESTED fill:#3498db,color:#fff
     style APPLIED fill:#3498db,color:#fff
+    style WAITLISTED fill:#e67e22,color:#fff
     style OFFERED fill:#e67e22,color:#fff
     style ACCEPTED fill:#2ecc71,color:#fff
-    style REJECTED fill:#e74c3c,color:#fff
+    style REJECTED_I fill:#e74c3c,color:#fff
+    style REJECTED_A fill:#e74c3c,color:#fff
+    style REJECTED_W fill:#e74c3c,color:#fff
+    style REJECTED_O fill:#e74c3c,color:#fff
     style CREATE_CONTRACT fill:#2ecc71,color:#fff
     style SM_ACC fill:#2ecc71,color:#fff
     style SM_REJ fill:#e74c3c,color:#fff
+    style SM_WAIT fill:#e67e22,color:#fff
+    style ERROR fill:#e74c3c,color:#fff
     style TRANSITION1 fill:#f1c40f,color:#333
     style TRANSITION2 fill:#f1c40f,color:#333
+    style TRANSITION3 fill:#f1c40f,color:#333
     style RESPONSE fill:#f1c40f,color:#333
     style ACTION fill:#f1c40f,color:#333
 ```
@@ -1692,18 +1737,19 @@ flowchart TD
 
 | Peran | Aksi | Halaman / Endpoint |
 |-------|------|--------------------|
-| 🏠 Pemilik | Mengelola daftar tunggu, tambah applicant, send offer, track response | `/merchant/waiting-list` |
+| 🏠 Pemilik | Mengelola daftar tunggu, tambah applicant, waitlist, send offer, track response | `/merchant/waiting-list` |
 
-> **Catatan**: Fitur ini khusus untuk pemilik properti. Applicant yang di-accept dilanjutkan ke pembuatan kontrak (Diagram 4).
+> **Catatan**: Fitur ini khusus untuk pemilik properti. Applicant yang di-accept dilanjutkan ke pembuatan kontrak (Diagram 4). Status `waitlisted` digunakan ketika belum ada unit tersedia — applicant tetap dalam antrian hingga unit kosong.
 
 <details>
 <summary>Referensi State Machine</summary>
 
-**State Machine** (`WAITING_LIST_TRANSITIONS`):
+**State Machine** (`WAITING_LIST_TRANSITIONS`) — dari `state-machines.ts`:
 | From | To |
 |------|-----|
 | `interested` | `applied`, `rejected` |
-| `applied` | `offered`, `rejected` |
+| `applied` | `offered`, `rejected`, `waitlisted` |
+| `waitlisted` | `offered`, `rejected` |
 | `offered` | `accepted`, `rejected` |
 | `accepted` | _(terminal)_ |
 | `rejected` | _(terminal)_ |
@@ -1716,7 +1762,7 @@ flowchart TD
 
 ### Perjalanan Pengguna
 
-Sistem secara otomatis memindai kontrak yang akan berakhir dalam 60, 30, dan 7 hari, lalu mengirim alert ke pemilik. Pemilik melihat daftar alert dan memutuskan: membuat amandemen (perubahan terms, perpanjangan) atau proses renewal manual. Amandemen dibuat sebagai draft, dikirim ke penyewa, lalu ditandatangani. Setelah signed, kontrak diperbarui dengan terms baru.
+Sistem secara otomatis memindai kontrak yang akan berakhir dalam 60, 30, dan 7 hari via edge function `send-renewal-alert`, lalu membuat alert di tabel `lease_renewal_alerts`. Pemilik melihat daftar alert melalui `renewalService.fetchAlerts()` — jika tabel `lease_renewal_alerts` gagal diakses, service secara otomatis fallback ke query langsung pada tabel `contracts` yang berakhir dalam 90 hari ke depan (filter `status = active`, `end_date` antara hari ini dan +90 hari). Alert menampilkan nama tenant, nomor unit, tanggal berakhir, dan jumlah sewa. Pemilik memutuskan: membuat amandemen via `renewalService.createAmendment()` (menyimpan `old_values` dan `new_values` sebagai JSON) atau proses renewal manual. Amandemen dimulai sebagai `draft`, bisa dikirim (`sent`) atau dibatalkan (`cancelled`). Setelah dikirim, penyewa bisa menandatangani (`signed`) atau menolak (`rejected`). Amandemen yang ditandatangani meng-update `signed_at` via `renewalService.signAmendment()`. Riwayat amandemen per kontrak diambil via `renewalService.fetchAmendments(contractId)`.
 
 ```mermaid
 flowchart TD
@@ -1732,23 +1778,29 @@ flowchart TD
     CREATE_ALERT --> ALERT_CREATED([Alert Created])
 
     ALERT_CREATED --> MERCHANT_VIEW[Merchant Views Alerts<br/>renewalService.fetchAlerts]
-    MERCHANT_VIEW --> ALERT_LIST[Tampilkan Alert List<br/>tenant, unit, end_date, rent_amount]
+    MERCHANT_VIEW --> FALLBACK_CHECK{lease_renewal_alerts<br/>accessible?}
+    FALLBACK_CHECK -->|Yes| ALERT_LIST[Tampilkan Alert List<br/>tenant, unit, end_date, rent_amount]
+    FALLBACK_CHECK -->|No - Fallback| FALLBACK_QUERY[Fallback: Query contracts<br/>status=active, end_date within 90 days<br/>alertType = expiring_soon]
+    FALLBACK_QUERY --> ALERT_LIST
 
     ALERT_LIST --> AMEND_ACTION{Create Amendment?}
-    AMEND_ACTION -->|Yes| CREATE_AMEND[Create Amendment<br/>contract_amendments table]
+    AMEND_ACTION -->|Yes| CREATE_AMEND[renewalService.createAmendment<br/>contract_amendments table<br/>old_values + new_values JSON]
     CREATE_AMEND --> DRAFT([Amendment: DRAFT<br/>amendment_type, old_values, new_values])
 
-    DRAFT --> SEND_AMEND{Send to Tenant?}
-    SEND_AMEND -->|Yes| SENT_AMEND([Amendment: SENT])
+    DRAFT --> DRAFT_ACTION{Draft Action?}
+    DRAFT_ACTION -->|Send to Tenant| SENT_AMEND([Amendment: SENT])
+    DRAFT_ACTION -->|Cancel| CANCELLED_AMEND([Amendment: CANCELLED])
 
-    SENT_AMEND --> SIGN{Tenant Sign?}
-    SIGN -->|Yes| SIGNED([Amendment: SIGNED<br/>signed_at = timestamp])
+    SENT_AMEND --> TENANT_RESP{Tenant Response?}
+    TENANT_RESP -->|Sign| SIGNED([Amendment: SIGNED<br/>renewalService.signAmendment<br/>signed_at = timestamp])
+    TENANT_RESP -->|Reject| REJECTED_AMEND([Amendment: REJECTED])
+
     SIGNED --> UPDATE_CONTRACT[Update Contract Terms<br/>See Diagram 4]
 
     AMEND_ACTION -->|No| MANUAL_RENEW[Manual Renewal Process]
 
     subgraph AMENDMENT_HISTORY [Amendment History per Contract]
-        AH_FETCH[Fetch Amendments by contract_id<br/>order by created_at DESC]
+        AH_FETCH[renewalService.fetchAmendments<br/>by contract_id<br/>order by created_at DESC]
     end
 
     style START fill:#2ecc71,color:#fff
@@ -1758,28 +1810,33 @@ flowchart TD
     style SIGNED fill:#2ecc71,color:#fff
     style UPDATE_CONTRACT fill:#2ecc71,color:#fff
     style SKIP fill:#e74c3c,color:#fff
+    style CANCELLED_AMEND fill:#e74c3c,color:#fff
+    style REJECTED_AMEND fill:#e74c3c,color:#fff
     style DEDUP fill:#f1c40f,color:#333
     style AMEND_ACTION fill:#f1c40f,color:#333
-    style SEND_AMEND fill:#f1c40f,color:#333
-    style SIGN fill:#f1c40f,color:#333
+    style DRAFT_ACTION fill:#f1c40f,color:#333
+    style TENANT_RESP fill:#f1c40f,color:#333
+    style FALLBACK_CHECK fill:#f1c40f,color:#333
 ```
 
 ### Perspektif Peran
 
 | Peran | Aksi | Halaman / Endpoint |
 |-------|------|--------------------|
-| 🏠 Pemilik | Menerima alert renewal, membuat amandemen, mengirim ke tenant | `/merchant/renewals`, `/merchant/contracts/:id/amend` |
-| 🧑‍💼 Penyewa | Menerima notifikasi amandemen, melihat perubahan terms, menandatangani | `/tenant/contracts/:id`, `/tenant/amendments/:id` |
+| 🏠 Pemilik | Menerima alert renewal, membuat amandemen, mengirim atau membatalkan, melihat riwayat | `/merchant/renewals`, `/merchant/contracts/:id/amend` |
+| 🧑‍💼 Penyewa | Menerima notifikasi amandemen, melihat perubahan terms (old vs new values), menandatangani atau menolak | `/tenant/contracts/:id`, `/tenant/amendments/:id` |
 
 <details>
 <summary>Referensi State Machine</summary>
 
-**State Machine** (`AMENDMENT_STATUS_TRANSITIONS`):
+**State Machine** (`AMENDMENT_STATUS_TRANSITIONS`) — dari `state-machines.ts`:
 | From | To |
 |------|-----|
-| `draft` | `sent` |
-| `sent` | `signed` |
+| `draft` | `sent`, `cancelled` |
+| `sent` | `signed`, `rejected` |
 | `signed` | _(terminal — contract updated)_ |
+| `rejected` | _(terminal)_ |
+| `cancelled` | _(terminal)_ |
 
 </details>
 
@@ -1789,7 +1846,7 @@ flowchart TD
 
 ### Perjalanan Pengguna
 
-Kasus penagihan bisa dibuat otomatis oleh reminder system (Diagram 16) atau manual oleh pemilik. Pemilik melihat daftar kasus, menghubungi tenant, dan memilih strategi resolusi: buat payment plan, eskalasi, write-off, atau eviction. Untuk payment plan, sistem menghitung cicilan otomatis. Setelah kasus terselesaikan, status di-update dan dicatat.
+Kasus penagihan bisa dibuat otomatis oleh reminder system (Diagram 16, saat `days_overdue >= 15`) atau manual oleh pemilik. Pemilik membuka `/merchant/collections` dan melihat daftar kasus dengan join ke invoice data (invoice_number, tenant_name, unit_number). Status kasus mengikuti `COLLECTIONS_CASE_TRANSITIONS`: `initiated` → `in_progress` → `resolved`. Pemilik menghubungi tenant (update `last_contact_at`), lalu memilih strategi resolusi: buat payment plan (menghitung `installment_amount = ceil(total / count)`, insert ke `payment_plans` dengan status `pending_acceptance` — lihat Diagram 6B), eskalasi (increase `escalation_level`, set `next_action_date`), write-off, atau eviction. Resolusi dicatat dengan `resolution_type` (paid_in_full, payment_plan, write_off, eviction) dan `resolved_at` timestamp.
 
 ```mermaid
 flowchart TD
@@ -1860,7 +1917,7 @@ flowchart TD
 
 ### Perjalanan Pengguna
 
-Pemilik properti membuat aturan harga dinamis untuk mengoptimalkan pendapatan. Ia memilih tipe aturan (okupansi, musiman, permintaan, durasi sewa, loyalitas), mengatur adjustment (persentase atau fixed), dan menetapkan prioritas. Aturan dapat diaktifkan/nonaktifkan kapan saja. Sistem menerapkan aturan berdasarkan prioritas tertinggi yang cocok.
+Pemilik properti membuat aturan harga dinamis melalui halaman `/merchant/pricing` (`useDynamicPricingRules` hook → `dynamicPricingService`). `fetchRules()` mengambil semua rules dari tabel `dynamic_pricing_rules` diurutkan by `priority ASC`. Pemilik bisa `createRule()` (pilih `rule_type`: occupancy, seasonal, demand, duration, loyalty; set `adjustment_type`: percentage atau fixed; atur `adjustment_value`, `min_price`, `max_price`, `valid_from`, `valid_until`, dan `conditions` JSON), `updateRule()`, `deleteRule()`, atau `toggleRule()` (toggle `is_active` true/false). Sistem menerapkan aturan berdasarkan prioritas tertinggi (angka terkecil) yang cocok dengan kondisi saat ini.
 
 ```mermaid
 flowchart TD
@@ -1934,23 +1991,29 @@ flowchart TD
 
 ### Perjalanan Pengguna
 
-Pemilik properti membuka dashboard laporan keuangan dan memilih periode (default 6 bulan). Sistem mengambil data invoice terbayar dan pengeluaran, lalu mengagregasi per bulan. Hasilnya ditampilkan dalam chart: P&L bulanan (bar chart), pendapatan per properti (pie chart), dan pengeluaran per kategori (pie chart). Pemilik bisa melihat tren pendapatan bersih dari waktu ke waktu.
+Pemilik properti membuka dashboard laporan keuangan (`/merchant/reports`) dan memilih periode (default 6 bulan, konfigurasi via `useFinancialSummary(merchantId, months)`). `financialReportService.fetchFinancialSummary()` melakukan 3 query paralel ke database: (1) Invoice terbayar — field yang diambil: `amount`, `paid_at`, `property_id` (bukan `total_amount`) dengan filter `status = paid` dan `paid_at >= startDate`; (2) Expenses — field: `amount`, `category`, `expense_date` dengan filter `expense_date >= startDate`; (3) Properties — field: `id`, `name` untuk mapping `property_id` ke nama properti. Revenue diagregasi per bulan berdasarkan `paid_at`, dikelompokkan per properti menggunakan `propMap` (Map dari `property_id` → `name`, default "Lainnya"). Expenses diagregasi per bulan berdasarkan `expense_date` dan dikelompokkan per `category`. Hasilnya: `monthlyData[]` (revenue, expenses, netIncome per bulan), `revenueByProperty[]`, `expenseByCategory[]`, dan summary totals. UI menampilkan bar chart P&L bulanan, pie chart pendapatan per properti, dan pie chart pengeluaran per kategori menggunakan Recharts.
 
 ```mermaid
 flowchart TD
-    START([Merchant Buka Financial Report]) --> SELECT_PERIOD[Select Period<br/>N bulan, default: 6]
+    START([Merchant Buka Financial Report]) --> SELECT_PERIOD[Select Period<br/>N bulan, default: 6<br/>useFinancialSummary hook]
 
-    SELECT_PERIOD --> FETCH_DATA[Parallel Fetch:<br/>1. Paid Invoices >= startDate<br/>2. Expenses >= startDate<br/>3. Properties for name mapping]
+    SELECT_PERIOD --> FETCH_DATA[financialReportService.fetchFinancialSummary<br/>3 Parallel Queries:]
 
-    FETCH_DATA --> AGG_MONTHLY[Aggregate Monthly P&L<br/>For each month:<br/>revenue = sum paid invoices<br/>expenses = sum expenses<br/>netIncome = revenue - expenses]
+    FETCH_DATA --> Q1[Query 1: Paid Invoices<br/>SELECT amount, paid_at, property_id<br/>FROM invoices<br/>WHERE status = paid<br/>AND paid_at >= startDate]
+    FETCH_DATA --> Q2[Query 2: Expenses<br/>SELECT amount, category, expense_date<br/>FROM expenses<br/>WHERE expense_date >= startDate]
+    FETCH_DATA --> Q3[Query 3: Properties<br/>SELECT id, name<br/>FROM properties<br/>Build propMap: id to name]
 
-    AGG_MONTHLY --> GROUP_REV[Group Revenue by Property<br/>Map property_id to property name<br/>Sum amounts per property]
+    Q1 --> AGG_MONTHLY[Aggregate Monthly P&L<br/>Group by month from paid_at<br/>revenue = sum invoice.amount<br/>expenses = sum expense.amount<br/>netIncome = revenue - expenses]
+    Q2 --> AGG_MONTHLY
+    Q3 --> GROUP_REV
 
-    GROUP_REV --> GROUP_EXP[Group Expenses by Category<br/>Sum amounts per category<br/>Sort descending]
+    AGG_MONTHLY --> GROUP_REV[Group Revenue by Property<br/>Map property_id via propMap<br/>Default: Lainnya if not found<br/>Sum amounts per property name]
 
-    GROUP_EXP --> SUMMARY[Build Financial Summary:<br/>totalRevenue, totalExpenses<br/>netIncome, monthlyData[]<br/>revenueByProperty[]<br/>expenseByCategory[]]
+    GROUP_REV --> GROUP_EXP[Group Expenses by Category<br/>Sum amounts per expense.category]
 
-    SUMMARY --> DISPLAY[Display Charts:<br/>- Monthly P&L bar chart<br/>- Revenue by property pie<br/>- Expense by category pie<br/>- Trend line]
+    GROUP_EXP --> SUMMARY[Build FinancialSummary:<br/>totalRevenue, totalExpenses<br/>netIncome, monthlyData[]<br/>revenueByProperty[]<br/>expenseByCategory[]]
+
+    SUMMARY --> DISPLAY[Display Recharts:<br/>- Monthly P&L bar chart<br/>- Revenue by property pie<br/>- Expense by category pie<br/>- Net income trend line]
 
     style START fill:#2ecc71,color:#fff
     style DISPLAY fill:#3498db,color:#fff
@@ -1963,17 +2026,22 @@ flowchart TD
 |-------|------|--------------------|
 | 🏠 Pemilik | Melihat laporan P&L, chart pendapatan vs pengeluaran, analisis per properti | `/merchant/reports` |
 
-> **Catatan**: Fitur ini khusus untuk pemilik properti. Mengagregasi data dari Invoice (Diagram 6) dan Expenses (Diagram 17).
+> **Catatan**: Fitur ini khusus untuk pemilik properti. Mengagregasi data dari Invoice (Diagram 6) dan Expenses (Diagram 17). Revenue menggunakan field `invoices.amount` (bukan `total_amount`), di-group per properti via `properties.name`.
 
 <details>
 <summary>Referensi Teknis</summary>
 
-**Data Sources**:
-| Source | Filter | Diagram |
-|--------|--------|---------|
-| `invoices` | `status = paid`, `paid_at >= startDate` | Diagram 6 |
-| `expenses` | `expense_date >= startDate` | Diagram 17 |
-| `properties` | `merchant_id` match | Diagram 3 |
+**Data Sources** — dari `financialReportService.ts`:
+| Source | Fields Selected | Filter | Diagram |
+|--------|----------------|--------|---------|
+| `invoices` | `amount`, `paid_at`, `property_id` | `status = paid`, `paid_at >= startDate` | Diagram 6 |
+| `expenses` | `amount`, `category`, `expense_date` | `expense_date >= startDate` | Diagram 17 |
+| `properties` | `id`, `name` | `merchant_id` match | Diagram 3 |
+
+**Aggregation Logic**:
+- Monthly buckets generated via `date-fns`: `subMonths(now, i)` for i in `[months-1..0]`
+- Revenue grouped by `propMap.get(property_id) || "Lainnya"`
+- Expenses grouped by `category` field directly
 
 </details>
 
