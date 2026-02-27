@@ -104,6 +104,7 @@ const MerchantAlerts = lazy(() => import("@/pages/merchant/Alerts"));
 const MerchantPreventiveMaintenance = lazy(() => import("@/pages/merchant/PreventiveMaintenance"));
 const MerchantUtilityBilling = lazy(() => import("@/pages/merchant/UtilityBilling"));
 const MerchantDocumentTemplates = lazy(() => import("@/pages/merchant/DocumentTemplates"));
+const MerchantApiIntegration = lazy(() => import("@/pages/merchant/ApiIntegration"));
 // Hub Pages (only InsightsHub remains as a hub)
 const MerchantInsightsHub = lazy(() => import("@/pages/merchant/InsightsHub"));
 // Tenant Pages
@@ -245,6 +246,7 @@ const App = () => (
                     <Route path="preventive-maintenance" element={<MerchantPreventiveMaintenance />} />
                     <Route path="utility-billing" element={<MerchantUtilityBilling />} />
                     <Route path="document-templates" element={<MerchantDocumentTemplates />} />
+                    <Route path="api-integration" element={<MerchantApiIntegration />} />
                     <Route path="ocr-tutorial" element={<MerchantOcrTutorial />} />
                     <Route path="tenant-analytics" element={<MerchantTenantAnalytics />} />
                     <Route path="compliance" element={<Navigate to="/merchant/properties" replace />} />

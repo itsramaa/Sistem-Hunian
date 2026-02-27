@@ -553,45 +553,51 @@ Pemilik sering butuh generate dokumen:
 
 ---
 
-### 🟢 3. Dashboard Customization
+### ✅ 3. Dashboard Customization
 
-**Status:** LOW (personalization)
+**Status:** ✅ COMPLETE — Diimplementasi 27 Feb 2026
+
+> **Ringkasan Implementasi:**
+> - Tabel `dashboard_preferences` dibuat dengan RLS (merchant-scoped, UNIQUE per merchant)
+> - Widget registry: `kpi_strip`, `quick_actions`, `charts`, `property_overview`, `vacancy`
+> - `DashboardCustomizeDialog` dengan toggle show/hide + reorder (up/down arrows)
+> - Preferences disimpan ke database, optimistic update via TanStack Query
+> - Dashboard.tsx direfactor: widget rendering dinamis berdasarkan preferensi
+> - Tombol "Kustomisasi" di header dashboard + Reset to Default
 
 Pemilik dengan 20+ unit mau customize dashboard widget:
-- Remove widget tidak penting
-- Re-order widget
-- Set favorite property/view
+- ✅ Remove widget tidak penting — toggle switch per widget
+- ✅ Re-order widget — up/down arrow buttons
+- ✅ Set favorite property/view — property switcher sudah ada (Priority 9)
+- ✅ Save user preference — database-backed via `dashboard_preferences`
+- ✅ Default for new user: Show top 5 KPI + alerts
+- ✅ Advanced user: Can customize to see any metric
 
-**Current System:** Assumed fixed layout.
-
-**Recommendation:** Allow widget drag-drop customization:
-- Save user preference
-- Default for new user: Show top 5 KPI + alerts
-- Advanced user: Can customize to see any metric
-
-**Implementation:** Phase 3 (1 week)
+**Implementation:** ✅ COMPLETE
 
 ---
 
-### 🟢 4. API & Integration Framework
+### ✅ 4. API & Integration Framework
 
-**Status:** LOW (for developers/integrators)
+**Status:** ✅ COMPLETE — Diimplementasi 27 Feb 2026
+
+> **Ringkasan Implementasi:**
+> - Tabel `api_keys`, `webhook_endpoints`, `webhook_logs` dibuat dengan RLS
+> - Edge function `merchant-api`: REST API gateway dengan autentikasi via `X-API-Key` header, SHA-256 hash validation
+> - 8 endpoint: properties, units, tenants, invoices, payments, maintenance, contracts + pagination
+> - Edge function `webhook-dispatcher`: HMAC-SHA256 signed payload, auto-disable setelah 10 failures
+> - 10 event types didukung: payment.received, invoice.created, maintenance.completed, dll
+> - Halaman `/merchant/api-integration` dengan 3 tab: API Keys, Webhooks, Dokumentasi
+> - API key creation: plaintext shown once, hash stored
+> - Webhook log viewer dengan status delivery
 
 For advanced users (companies managing 100+ units), may want integrate with:
-- Accounting software (QuickBooks, SAP)
-- CRM system (Zoho, Salesforce)
-- Email/SMS gateway (for custom messaging)
-- Property marketplace (Airbnb, booking.com)
+- ✅ Expose key entities: Property, Unit, Tenant, Invoice, Payment, Maintenance — REST API via edge function
+- ✅ Webhook for events: Payment received, maintenance completed, tenant moved — 10 event types
+- ✅ Documentation: Clear API docs — inline documentation tab
+- ✅ Rate limit: Fair usage policy (e.g., 1000 req/hour) — configurable per API key
 
-**Current System:** Not visible in diagrams.
-
-**Recommendation:** Provide REST API + webhook:
-- Expose key entities: Property, Unit, Tenant, Invoice, Payment, Maintenance
-- Webhook for events: Payment received, maintenance completed, tenant moved
-- Documentation: Clear API docs, SDK if needed
-- Rate limit: Fair usage policy (e.g., 1000 req/hour)
-
-**Implementation:** Phase 3+ (4-6 weeks)
+**Implementation:** ✅ COMPLETE
 
 ---
 

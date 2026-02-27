@@ -157,6 +157,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/merchant/reports", icon: FileText, label: "Laporan", activePatterns: ["/merchant/report-templates"] },
           { path: "/merchant/document-templates", icon: FileStack, label: "Template Dokumen" },
           { path: "/merchant/insights", icon: BarChart3, label: "Alat", activePatterns: ["/merchant/analytics", "/merchant/ai-insights", "/merchant/analytics-dashboard", "/merchant/comparative-portfolio", "/merchant/ml-analytics", "/merchant/dss-advisor", "/merchant/market-intelligence", "/merchant/financial-risk", "/merchant/tenant-quality", "/merchant/data-quality", "/merchant/documents"] },
+          { path: "/merchant/api-integration", icon: ScanText, label: "API & Integrasi" },
         ],
       },
     ],
