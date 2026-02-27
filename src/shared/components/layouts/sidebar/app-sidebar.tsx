@@ -7,6 +7,8 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
+  SidebarMenu,
+  SidebarMenuItem,
   SidebarRail,
 } from "@/shared/components/ui/sidebar";
 import { useAuth } from "@/features/auth/hooks/useAuth";
@@ -15,6 +17,7 @@ import { NavMain } from "@/shared/components/layouts/sidebar/nav-main";
 import { NavSecondary } from "@/shared/components/layouts/sidebar/nav-secondary";
 import { NavUser } from "@/shared/components/layouts/sidebar/nav-user";
 import { TeamSwitcher } from "@/shared/components/layouts/sidebar/team-switcher";
+import { PropertySwitcher } from "@/shared/components/layouts/sidebar/PropertySwitcher";
 import { Separator } from "@/shared/components/ui/separator";
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
@@ -54,6 +57,13 @@ export function AppSidebar({ role, ...props }: AppSidebarProps) {
     <Sidebar variant="inset" collapsible="icon" {...props}>
       <SidebarHeader>
         <TeamSwitcher team={config.brand} basePath={basePath} />
+        {role === 'merchant' && merchant?.id && (
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <PropertySwitcher merchantId={merchant.id} />
+            </SidebarMenuItem>
+          </SidebarMenu>
+        )}
       </SidebarHeader>
       <SidebarContent>
         <NavMain groups={config.mainNav} basePath={basePath} />

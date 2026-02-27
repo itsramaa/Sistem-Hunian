@@ -94,7 +94,7 @@ const MerchantComparativePortfolio = lazy(() => import("@/pages/merchant/Compara
 const MerchantFeedback = lazy(() => import("@/pages/merchant/Feedback"));
 const MerchantInventory = lazy(() => import("@/pages/merchant/Inventory"));
 const MerchantCollections = lazy(() => import("@/pages/merchant/Collections"));
-const MerchantReconciliation = lazy(() => import("@/pages/merchant/Reconciliation"));
+const MerchantDisputeResolution = lazy(() => import("@/pages/merchant/DisputeResolution"));
 const MerchantExpenses = lazy(() => import("@/pages/merchant/Expenses"));
 const MerchantWaitingList = lazy(() => import("@/pages/merchant/WaitingList"));
 const MerchantLeaseRenewals = lazy(() => import("@/pages/merchant/LeaseRenewals"));
@@ -233,7 +233,7 @@ const App = () => (
                     <Route path="feedback" element={<MerchantFeedback />} />
                     <Route path="inventory" element={<MerchantInventory />} />
                     <Route path="collections" element={<MerchantCollections />} />
-                    <Route path="reconciliation" element={<MerchantReconciliation />} />
+                    <Route path="reconciliation" element={<MerchantDisputeResolution />} />
                     <Route path="expenses" element={<MerchantExpenses />} />
                     <Route path="waiting-list" element={<MerchantWaitingList />} />
                     <Route path="lease-renewals" element={<MerchantLeaseRenewals />} />

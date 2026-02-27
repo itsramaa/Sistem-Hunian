@@ -1,3 +1,4 @@
+import React from "react";
 import { Briefcase, Building2, TrendingUp, TrendingDown, Minus, Download, Lightbulb, Trophy, AlertTriangle, Loader2 } from "lucide-react";
 import { PageHeader } from "@/shared/components/ui/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
@@ -352,6 +353,75 @@ function PortfolioTab({
 // Need the full type for the portfolio tab
 type ComparativePortfolioData = import("@/features/analytics/services/comparativePortfolioService").ComparativePortfolioData;
 
+function ComparisonTab({ benchmarks }: { benchmarks: PropertyBenchmark[] }) {
+  const [propA, setPropA] = React.useState(benchmarks[0]?.id || '');
+  const [propB, setPropB] = React.useState(benchmarks[1]?.id || '');
+
+  const a = benchmarks.find(b => b.id === propA);
+  const b = benchmarks.find(b => b.id === propB);
+
+  const kpis = a && b ? [
+    { label: 'Okupansi', valueA: `${a.occupancyRate.toFixed(1)}%`, valueB: `${b.occupancyRate.toFixed(1)}%`, winA: a.occupancyRate > b.occupancyRate },
+    { label: 'Sewa Rata-rata', valueA: formatRupiah(a.avgRent), valueB: formatRupiah(b.avgRent), winA: a.avgRent > b.avgRent },
+    { label: 'Total Unit', valueA: String(a.totalUnits), valueB: String(b.totalUnits), winA: a.totalUnits > b.totalUnits },
+    { label: 'Pendapatan', valueA: formatRupiah(a.totalRevenue), valueB: formatRupiah(b.totalRevenue), winA: a.totalRevenue > b.totalRevenue },
+    { label: 'Pengeluaran', valueA: formatRupiah(a.totalExpenses), valueB: formatRupiah(b.totalExpenses), winA: a.totalExpenses < b.totalExpenses },
+    { label: 'Rating', valueA: a.overallRating, valueB: b.overallRating, winA: false },
+  ] : [];
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-4">
+        <Card className="bg-card/90 backdrop-blur-sm border-border/40">
+          <CardContent className="pt-6">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Properti A</label>
+            <select className="w-full mt-2 rounded-lg border border-border bg-background px-3 py-2 text-sm" value={propA} onChange={e => setPropA(e.target.value)}>
+              {benchmarks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/90 backdrop-blur-sm border-border/40">
+          <CardContent className="pt-6">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Properti B</label>
+            <select className="w-full mt-2 rounded-lg border border-border bg-background px-3 py-2 text-sm" value={propB} onChange={e => setPropB(e.target.value)}>
+              {benchmarks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </CardContent>
+        </Card>
+      </div>
+
+      {a && b && (
+        <Card className="bg-card/90 backdrop-blur-sm border-border/40 overflow-hidden">
+          <CardHeader className="bg-muted/20 border-b border-border/40">
+            <CardTitle className="text-lg">Perbandingan KPI</CardTitle>
+            <CardDescription>{a.name} vs {b.name}</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/30">
+                  <th className="text-left py-3 px-4 font-semibold uppercase tracking-wider text-[10px]">KPI</th>
+                  <th className="text-right py-3 px-4 font-semibold uppercase tracking-wider text-[10px]">{a.name}</th>
+                  <th className="text-right py-3 px-4 font-semibold uppercase tracking-wider text-[10px]">{b.name}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {kpis.map(kpi => (
+                  <tr key={kpi.label} className="border-b border-border/40 last:border-0">
+                    <td className="py-3 px-4 font-medium">{kpi.label}</td>
+                    <td className={`text-right py-3 px-4 ${kpi.winA ? 'text-emerald-600 font-semibold' : ''}`}>{kpi.valueA}</td>
+                    <td className={`text-right py-3 px-4 ${!kpi.winA ? 'text-emerald-600 font-semibold' : ''}`}>{kpi.valueB}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 export default function ComparativePortfolio() {
   const { data: merchantId } = useMerchantId();
   const { data, isLoading } = useComparativePortfolio(merchantId || "");
@@ -375,6 +445,7 @@ export default function ComparativePortfolio() {
         <TabsList className="inline-flex rounded-full bg-card/80 backdrop-blur-sm border border-border/40 p-1">
           <TabsTrigger value="benchmarking" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Benchmarking & Posisi</TabsTrigger>
           <TabsTrigger value="portfolio" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Analisis Portfolio</TabsTrigger>
+          <TabsTrigger value="comparison" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Perbandingan</TabsTrigger>
         </TabsList>
 
         <TabsContent value="benchmarking">
@@ -390,6 +461,14 @@ export default function ComparativePortfolio() {
             <PortfolioTab portfolio={data.portfolio} benchmarks={data.benchmarks} rankings={data.rankings} recommendations={data.recommendations} />
           ) : (
             <Card className="bg-card/90 backdrop-blur-sm border-border/40"><CardContent className="py-12 text-center text-muted-foreground">Tidak ada data properti</CardContent></Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="comparison">
+          {data && data.benchmarks.length >= 2 ? (
+            <ComparisonTab benchmarks={data.benchmarks} />
+          ) : (
+            <Card className="bg-card/90 backdrop-blur-sm border-border/40"><CardContent className="py-12 text-center text-muted-foreground">Minimal 2 properti diperlukan untuk perbandingan</CardContent></Card>
           )}
         </TabsContent>
       </Tabs>
