@@ -3,7 +3,7 @@ import { supabase } from "@/lib/integrations/supabase/client";
 export interface DashboardStats {
   totalMerchants: number;
   totalGMV: number;
-  totalEscrow: number;
+  totalTransferred: number;
   pendingVerifications: number;
 }
 
@@ -35,7 +35,7 @@ export const dashboardService = {
     return {
       totalMerchants: merchantsRes.count || 0,
       totalGMV: totalRevenue,
-      totalEscrow: totalTransferred,
+      totalTransferred: totalTransferred,
       pendingVerifications: verificationsRes.count || 0
     };
   },

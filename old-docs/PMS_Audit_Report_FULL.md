@@ -37,9 +37,21 @@ Sistem memiliki fondasi teknis yang kuat, tetapi **user experience dan business 
 
 ## CRITICAL FINDINGS (HIGH RISK)
 
-### 🔴 1. ESCROW SYSTEM HARUS DIHAPUS DARI MERCHANT — Direct Payment Model Lebih Baik
+### ✅ 1. ESCROW SYSTEM DIHAPUS DARI MERCHANT — Direct Payment Model Diimplementasi
 
-**Status:** CRITICAL ARCHITECTURE CHANGE
+**Status:** ✅ COMPLETE — Diimplementasi 27 Feb 2026
+
+> **Ringkasan Implementasi:**
+> - Tabel `payment_transfers` dibuat untuk tracking transfer langsung ke rekening merchant
+> - Edge function `xendit-webhook` di-refactor: pembayaran sewa otomatis trigger transfer ke bank merchant
+> - Edge function `xendit-disbursement` & webhook diupdate untuk mendukung `payment_transfer_id`
+> - `scheduled-disbursement` EF dihapus (tidak dibutuhkan lagi)
+> - Seluruh UI escrow merchant dihapus (pages, components, hooks, services, types)
+> - Admin Escrow page diganti dengan `AdminPaymentTransfers` dashboard
+> - State machine `ESCROW_TRANSACTION_TRANSITIONS` dihapus, diganti `PAYMENT_TRANSFER_TRANSITIONS`
+> - `VendorEscrowWidget` di-rename jadi `VendorEarningsWidget` dan dipindah ke `src/features/vendor/`
+> - FAQ, JSON-LD, FeesConfig, dan navigation diupdate
+> - Vendor escrow DIPERTAHANKAN (scope berbeda)
 
 #### Problem Identifikasi:
 - **Diagram 8 (Escrow & Disbursement)** menunjukkan complex system:

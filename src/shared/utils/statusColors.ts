@@ -169,8 +169,8 @@ export const getMaintenanceStatusColor = (status: string): BadgeVariant => {
   }
 };
 
-// Escrow/Transaction status colors
-export const getEscrowStatusColors = (status: string): string => {
+// Payment transfer status colors
+export const getTransferStatusColors = (status: string): string => {
   switch (status) {
     case 'completed':
       return 'bg-success/10 text-success border-success/20';

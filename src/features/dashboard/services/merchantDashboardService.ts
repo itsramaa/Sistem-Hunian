@@ -131,8 +131,8 @@ export const merchantDashboardService = {
         list: properties
       },
       financials: {
-        balance: Number(escrow.balance) || 0,
-        pendingBalance: Number(escrow.pending_balance) || 0,
+        balance: 0, // Direct payment model — no escrow balance
+        pendingBalance,
         monthlyRevenue,
         lastMonthRevenue,
         revenueGrowth
