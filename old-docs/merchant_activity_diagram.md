@@ -32,6 +32,15 @@
 12. [AI/ML & DSS Advisory](#12-aiml--dss-advisory-flow)
 13. [Referral System](#13-referral-system)
 14. [Support, Feedback & Compliance](#14-support-feedback--compliance)
+15. [Payment Reconciliation (Auto-Match)](#15-payment-reconciliation-auto-match)
+16. [Automated Payment Reminders & Escalation](#16-automated-payment-reminders--escalation)
+17. [Expense Tracking](#17-expense-tracking)
+18. [Waiting List & Applicant Management](#18-waiting-list--applicant-management)
+19. [Lease Renewal & Amendment](#19-lease-renewal--amendment)
+20. [Collections Case Management (Extended)](#20-collections-case-management-extended)
+21. [Dynamic Pricing Rules](#21-dynamic-pricing-rules)
+22. [Financial Reports (P&L)](#22-financial-reports-pl)
+23. [Admin Launch Readiness](#23-admin-launch-readiness)
 
 ---
 
@@ -502,7 +511,8 @@ flowchart TD
 |------|-----|
 | `draft` | `sent`, `cancelled` |
 | `sent` | `paid`, `overdue`, `cancelled`, `partially_paid` |
-| `overdue` | `paid`, `cancelled` |
+| `overdue` | `paid`, `cancelled`, `escalated` |
+| `escalated` | `paid`, `cancelled` |
 | `partially_paid` | `paid`, `cancelled` |
 | `pending` | `paid`, `overdue`, `cancelled` _(legacy)_ |
 | `paid` | _(terminal)_ |
@@ -913,6 +923,8 @@ flowchart TD
 | `in_progress` | `resolved` |
 | `resolved` | _(terminal — resolution_type: paid_in_full, payment_plan, write_off, eviction)_ |
 
+> **Cross-Reference**: Lihat juga [Diagram 16 (Automated Reminders)](#16-automated-payment-reminders--escalation) untuk auto-create case di T+15, dan [Diagram 20 (Collections Extended)](#20-collections-case-management-extended) untuk payment plan & resolution strategy.
+
 ---
 
 ## 12. AI/ML & DSS Advisory Flow
@@ -1177,6 +1189,526 @@ flowchart TD
 
 ---
 
+## 15. Payment Reconciliation (Auto-Match)
+
+Alur rekonsiliasi pembayaran otomatis. Sistem 3-tier matching: exact, partial, dan manual review. Sumber: `reconciliationService.ts`, edge function `auto-match-payment`.
+
+```mermaid
+flowchart TD
+    START([Payment Recorded<br/>status: paid]) --> CHECK_RECON{reconciliation_status?}
+
+    CHECK_RECON -->|unmatched| TRIGGER_AUTO[Trigger Auto-Match<br/>supabase.functions.invoke<br/>auto-match-payment]
+    CHECK_RECON -->|pending_review| MANUAL_QUEUE([Manual Review Queue])
+    CHECK_RECON -->|auto_matched| DONE_AUTO([Already Matched])
+    CHECK_RECON -->|manually_matched| DONE_MANUAL([Already Matched])
+
+    TRIGGER_AUTO --> FETCH_INV[Fetch Candidate Invoices<br/>same tenant + contract<br/>status: sent/overdue/escalated/partially_paid]
+
+    FETCH_INV --> HAS_INV{Invoices Found?}
+    HAS_INV -->|No| TIER3_NO([Tier 3: Manual Review<br/>reconciliation_status = pending_review])
+
+    HAS_INV -->|Yes| TIER1{Tier 1: Exact Match?<br/>amount = total_amount}
+    TIER1 -->|Yes| EXACT_MATCH[Create payment_invoice_match<br/>match_type: auto_exact<br/>confidence: 1.0]
+    EXACT_MATCH --> UPDATE_PAY_1[reconciliation_status = auto_matched]
+    UPDATE_PAY_1 --> UPDATE_INV_1[Invoice status = paid<br/>paid_at = timestamp]
+    UPDATE_INV_1 --> MATCHED_DONE([Auto-Match Complete])
+
+    TIER1 -->|No| TIER2{Tier 2: Partial/Over?}
+    TIER2 -->|Partial| PARTIAL_MATCH[Create match<br/>match_type: auto_partial<br/>confidence: 0.7]
+    PARTIAL_MATCH --> UPDATE_PAY_2[reconciliation_status = pending_review]
+    UPDATE_PAY_2 --> UPDATE_INV_2[Invoice status = partially_paid]
+
+    TIER2 -->|Overpayment| OVER_MATCH[Create match<br/>match_type: auto_partial<br/>note surplus amount]
+    OVER_MATCH --> UPDATE_PAY_2
+
+    UPDATE_INV_2 --> MERCHANT_REVIEW([Merchant Review Queue])
+
+    MERCHANT_REVIEW --> MANUAL_ACT{Merchant Action?}
+    MANUAL_ACT -->|Confirm| MANUAL_CONFIRM[Manual Match<br/>reconciliation_status = manually_matched]
+    MANUAL_ACT -->|Reject| MANUAL_REJECT[Keep pending_review]
+
+    MANUAL_CONFIRM --> INV_UPDATE_FINAL{amount >= total_amount?}
+    INV_UPDATE_FINAL -->|Yes| INV_PAID([Invoice: PAID])
+    INV_UPDATE_FINAL -->|No| INV_PARTIAL([Invoice: PARTIALLY_PAID])
+
+    subgraph HISTORY [Match History]
+        HIST_VIEW[Fetch payment_invoice_match<br/>order by created_at DESC<br/>limit 50]
+    end
+
+    style START fill:#2ecc71,color:#fff
+    style MATCHED_DONE fill:#2ecc71,color:#fff
+    style INV_PAID fill:#2ecc71,color:#fff
+    style DONE_AUTO fill:#2ecc71,color:#fff
+    style DONE_MANUAL fill:#2ecc71,color:#fff
+    style TIER3_NO fill:#e74c3c,color:#fff
+    style MANUAL_REJECT fill:#e74c3c,color:#fff
+    style MERCHANT_REVIEW fill:#3498db,color:#fff
+    style MANUAL_QUEUE fill:#3498db,color:#fff
+    style INV_PARTIAL fill:#e67e22,color:#fff
+    style CHECK_RECON fill:#f1c40f,color:#333
+    style HAS_INV fill:#f1c40f,color:#333
+    style TIER1 fill:#f1c40f,color:#333
+    style TIER2 fill:#f1c40f,color:#333
+    style MANUAL_ACT fill:#f1c40f,color:#333
+    style INV_UPDATE_FINAL fill:#f1c40f,color:#333
+```
+
+**Reconciliation Status Values**:
+| Status | Deskripsi |
+|--------|-----------|
+| `unmatched` | Pembayaran baru, belum dicocokkan |
+| `pending_review` | Tier 2/3 — perlu review merchant |
+| `auto_matched` | Tier 1 — otomatis cocok (exact) |
+| `manually_matched` | Dicocokkan manual oleh merchant |
+
+---
+
+## 16. Automated Payment Reminders & Escalation
+
+Alur pengingat pembayaran otomatis dan eskalasi ke collections. Dijalankan oleh cron daily via edge function `queue-payment-reminders`.
+
+```mermaid
+flowchart TD
+    START(["Cron Daily<br/>queue-payment-reminders<br/><<edge function>>"]) --> SCAN[Scan Overdue Invoices<br/>status: sent/overdue/escalated/partially_paid<br/>due_date < today]
+
+    SCAN --> HAS_OVERDUE{Ada Invoice Overdue?}
+    HAS_OVERDUE -->|No| DONE_EMPTY([No Processing Needed])
+    HAS_OVERDUE -->|Yes| GROUP[Group by Merchant]
+
+    GROUP --> LOOP_MERCHANT[For Each Merchant]
+    LOOP_MERCHANT --> CHECK_CONFIG{Reminder Config Enabled?}
+    CHECK_CONFIG -->|No| SKIP_MERCHANT([Skip Merchant])
+    CHECK_CONFIG -->|Yes| LOOP_INV[For Each Invoice]
+
+    LOOP_INV --> CALC_DAYS[Calculate days_overdue<br/>today - due_date]
+    CALC_DAYS --> MATCH_SCHED[Match Schedule Entry<br/>filter: days_overdue <= actual<br/>sort: largest first]
+
+    MATCH_SCHED --> HAS_MATCH{Schedule Match?}
+    HAS_MATCH -->|No| SKIP_INV([Skip Invoice])
+    HAS_MATCH -->|Yes| DEDUP_CHECK{Already Sent<br/>This Level?}
+
+    DEDUP_CHECK -->|Yes| SKIP_INV
+    DEDUP_CHECK -->|No| LOG_REMINDER[Insert payment_reminders_log<br/>reminder_type: tone<br/>channel: email/sms/whatsapp<br/>escalation_level: days_overdue<br/>status: sent]
+
+    LOG_REMINDER --> CHECK_T15{days_overdue >= 15?}
+    CHECK_T15 -->|No| NEXT_INV([Next Invoice])
+    CHECK_T15 -->|Yes| CHECK_CASE{Collections Case Exists?}
+
+    CHECK_CASE -->|Yes| NEXT_INV
+    CHECK_CASE -->|No| CREATE_CASE[Auto-Create collections_cases<br/>status: initiated<br/>escalation_level: 1<br/>See Diagram 11, 20]
+
+    CREATE_CASE --> CHECK_ESCALATE{Invoice status = overdue?}
+    CHECK_ESCALATE -->|Yes| ESCALATE_INV[Invoice status = escalated<br/>See Diagram 6]
+    CHECK_ESCALATE -->|No| NEXT_INV
+    ESCALATE_INV --> NEXT_INV
+
+    style START fill:#2ecc71,color:#fff
+    style DONE_EMPTY fill:#2ecc71,color:#fff
+    style LOG_REMINDER fill:#3498db,color:#fff
+    style CREATE_CASE fill:#e74c3c,color:#fff
+    style ESCALATE_INV fill:#e74c3c,color:#fff
+    style SKIP_MERCHANT fill:#e74c3c,color:#fff
+    style HAS_OVERDUE fill:#f1c40f,color:#333
+    style CHECK_CONFIG fill:#f1c40f,color:#333
+    style HAS_MATCH fill:#f1c40f,color:#333
+    style DEDUP_CHECK fill:#f1c40f,color:#333
+    style CHECK_T15 fill:#f1c40f,color:#333
+    style CHECK_CASE fill:#f1c40f,color:#333
+    style CHECK_ESCALATE fill:#f1c40f,color:#333
+```
+
+**Reminder Config** (`merchants.collections_reminder_config` JSONB):
+```json
+{
+  "enabled": true,
+  "schedule": [
+    { "days_overdue": 1, "channel": "email", "tone": "friendly" },
+    { "days_overdue": 7, "channel": "sms", "tone": "firm" },
+    { "days_overdue": 15, "channel": "whatsapp", "tone": "urgent" }
+  ]
+}
+```
+
+---
+
+## 17. Expense Tracking
+
+Alur pengelolaan pengeluaran operasional merchant. Sumber: `expenseService.ts`.
+
+```mermaid
+flowchart TD
+    START([Merchant Buka Expense]) --> FETCH_SUMMARY[Fetch Summary<br/>expenseService.fetchSummary]
+
+    FETCH_SUMMARY --> SUMMARY_VIEW[Tampilkan Summary:<br/>- Total bulan ini vs bulan lalu<br/>- Jumlah transaksi<br/>- Trend % perubahan<br/>- Breakdown per kategori]
+
+    SUMMARY_VIEW --> ACTION{Aksi Merchant?}
+    ACTION -->|Tambah| ADD_EXPENSE[Input Expense:<br/>category, amount, expense_date<br/>payment_method, notes<br/>is_recurring, tax_deductible]
+    ACTION -->|Lihat Daftar| LIST_EXPENSES[Fetch Expenses<br/>order by expense_date DESC<br/>limit 50]
+    ACTION -->|Hapus| DELETE_EXPENSE[Delete Expense<br/>expenseService.deleteExpense]
+
+    ADD_EXPENSE --> SAVE[Insert expenses table<br/>approval_status: submitted]
+    SAVE --> REFRESH([Refresh Summary])
+    REFRESH --> SUMMARY_VIEW
+
+    LIST_EXPENSES --> DETAIL_VIEW[Tampilkan List:<br/>category, amount, date<br/>payment_method, status]
+    DETAIL_VIEW --> ACTION
+
+    DELETE_EXPENSE --> REFRESH
+
+    subgraph CATEGORIES [Kategori Pengeluaran]
+        C1[utilities]
+        C2[maintenance]
+        C3[insurance]
+        C4[tax]
+        C5[marketing]
+        C6[admin]
+        C7[payroll]
+        C8[other]
+    end
+
+    style START fill:#2ecc71,color:#fff
+    style SUMMARY_VIEW fill:#3498db,color:#fff
+    style DETAIL_VIEW fill:#3498db,color:#fff
+    style REFRESH fill:#2ecc71,color:#fff
+    style ACTION fill:#f1c40f,color:#333
+```
+
+---
+
+## 18. Waiting List & Applicant Management
+
+Alur manajemen daftar tunggu dan applicant. State machine: `WAITING_LIST_TRANSITIONS`. Sumber: `waitingListService.ts`.
+
+```mermaid
+flowchart TD
+    START([Merchant Buka Waiting List]) --> FETCH[Fetch Applicants<br/>filter: status, property_id]
+    FETCH --> LIST_VIEW[Tampilkan Daftar Applicant]
+
+    LIST_VIEW --> ACTION{Aksi Merchant?}
+    ACTION -->|Tambah| ADD[Input Applicant:<br/>name, phone, email<br/>budget_min/max<br/>preferred_move_in<br/>special_needs, property_id]
+    ADD --> SAVE_ADD[Insert waiting_list<br/>status: interested]
+    SAVE_ADD --> INTERESTED([Status: INTERESTED])
+
+    INTERESTED --> TRANSITION1{Update Status?}
+    TRANSITION1 -->|Apply| APPLIED([Status: APPLIED])
+
+    APPLIED --> TRANSITION2{Next Action?}
+    TRANSITION2 -->|Send Offer| OFFER_FLOW[Send Offer Sub-Flow]
+
+    OFFER_FLOW --> SET_UNIT[Set unit_id]
+    SET_UNIT --> SET_EXPIRY[Set offer_expires_at<br/>+7 hari]
+    SET_EXPIRY --> OFFERED([Status: OFFERED<br/>offered_at = timestamp])
+
+    OFFERED --> RESPONSE{Applicant Response?}
+    RESPONSE -->|Accept| ACCEPTED([Status: ACCEPTED<br/>accepted_at = timestamp])
+    RESPONSE -->|Reject| REJECTED([Status: REJECTED<br/>rejected_at = timestamp<br/>rejection_reason])
+
+    ACCEPTED --> CREATE_CONTRACT([Buat Kontrak<br/>See Diagram 4])
+
+    ACTION -->|Filter| FILTER[Filter by:<br/>- Status<br/>- Property]
+    FILTER --> FETCH
+
+    subgraph STATE_MACHINE [WAITING_LIST_TRANSITIONS]
+        SM_INT([interested]) -->|apply| SM_APP([applied])
+        SM_APP -->|offer| SM_OFF([offered])
+        SM_OFF -->|accept| SM_ACC([accepted])
+        SM_OFF -->|reject| SM_REJ([rejected])
+        SM_INT -->|reject| SM_REJ
+        SM_APP -->|reject| SM_REJ
+    end
+
+    style START fill:#2ecc71,color:#fff
+    style INTERESTED fill:#3498db,color:#fff
+    style APPLIED fill:#3498db,color:#fff
+    style OFFERED fill:#e67e22,color:#fff
+    style ACCEPTED fill:#2ecc71,color:#fff
+    style REJECTED fill:#e74c3c,color:#fff
+    style CREATE_CONTRACT fill:#2ecc71,color:#fff
+    style SM_ACC fill:#2ecc71,color:#fff
+    style SM_REJ fill:#e74c3c,color:#fff
+    style TRANSITION1 fill:#f1c40f,color:#333
+    style TRANSITION2 fill:#f1c40f,color:#333
+    style RESPONSE fill:#f1c40f,color:#333
+    style ACTION fill:#f1c40f,color:#333
+```
+
+**State Machine** (`WAITING_LIST_TRANSITIONS`):
+| From | To |
+|------|-----|
+| `interested` | `applied`, `rejected` |
+| `applied` | `offered`, `rejected` |
+| `offered` | `accepted`, `rejected` |
+| `accepted` | _(terminal)_ |
+| `rejected` | _(terminal)_ |
+
+---
+
+## 19. Lease Renewal & Amendment
+
+Alur perpanjangan sewa dan amandemen kontrak. Cron daily via edge function `send-renewal-alert`. State machine: `AMENDMENT_STATUS_TRANSITIONS`. Sumber: `renewalService.ts`.
+
+```mermaid
+flowchart TD
+    START(["Cron Daily<br/>send-renewal-alert<br/><<edge function>>"]) --> CHECK_60[Check Contracts<br/>expiring in 60 days]
+    CHECK_60 --> CHECK_30[Check Contracts<br/>expiring in 30 days]
+    CHECK_30 --> CHECK_7[Check Contracts<br/>expiring in 7 days]
+
+    CHECK_7 --> LOOP_CONTRACT[For Each Matching Contract]
+    LOOP_CONTRACT --> DEDUP{Alert Already Sent<br/>for this type?}
+    DEDUP -->|Yes| SKIP([Skip])
+    DEDUP -->|No| CREATE_ALERT[Insert lease_renewal_alerts<br/>alert_type: 60/30/7_day_warning<br/>status: sent]
+
+    CREATE_ALERT --> ALERT_CREATED([Alert Created])
+
+    ALERT_CREATED --> MERCHANT_VIEW[Merchant Views Alerts<br/>renewalService.fetchAlerts]
+    MERCHANT_VIEW --> ALERT_LIST[Tampilkan Alert List<br/>tenant, unit, end_date, rent_amount]
+
+    ALERT_LIST --> AMEND_ACTION{Create Amendment?}
+    AMEND_ACTION -->|Yes| CREATE_AMEND[Create Amendment<br/>contract_amendments table]
+    CREATE_AMEND --> DRAFT([Amendment: DRAFT<br/>amendment_type, old_values, new_values])
+
+    DRAFT --> SEND_AMEND{Send to Tenant?}
+    SEND_AMEND -->|Yes| SENT_AMEND([Amendment: SENT])
+
+    SENT_AMEND --> SIGN{Tenant Sign?}
+    SIGN -->|Yes| SIGNED([Amendment: SIGNED<br/>signed_at = timestamp])
+    SIGNED --> UPDATE_CONTRACT[Update Contract Terms<br/>See Diagram 4]
+
+    AMEND_ACTION -->|No| MANUAL_RENEW[Manual Renewal Process]
+
+    subgraph AMENDMENT_HISTORY [Amendment History per Contract]
+        AH_FETCH[Fetch Amendments by contract_id<br/>order by created_at DESC]
+    end
+
+    style START fill:#2ecc71,color:#fff
+    style ALERT_CREATED fill:#3498db,color:#fff
+    style DRAFT fill:#3498db,color:#fff
+    style SENT_AMEND fill:#e67e22,color:#fff
+    style SIGNED fill:#2ecc71,color:#fff
+    style UPDATE_CONTRACT fill:#2ecc71,color:#fff
+    style SKIP fill:#e74c3c,color:#fff
+    style DEDUP fill:#f1c40f,color:#333
+    style AMEND_ACTION fill:#f1c40f,color:#333
+    style SEND_AMEND fill:#f1c40f,color:#333
+    style SIGN fill:#f1c40f,color:#333
+```
+
+**State Machine** (`AMENDMENT_STATUS_TRANSITIONS`):
+| From | To |
+|------|-----|
+| `draft` | `sent` |
+| `sent` | `signed` |
+| `signed` | _(terminal — contract updated)_ |
+
+---
+
+## 20. Collections Case Management (Extended)
+
+Alur manajemen kasus penagihan diperluas dengan payment plan dan strategy resolution. Sumber: `collectionsCaseService.ts`.
+
+```mermaid
+flowchart TD
+    START([Overdue Invoice<br/>or Auto-Created by Reminders<br/>See Diagram 16]) --> FETCH_CASES[Fetch Cases<br/>with invoice joins<br/>invoice_number, tenant_name, unit_number]
+
+    FETCH_CASES --> CASE_LIST[Tampilkan Case List<br/>filter by status]
+
+    CASE_LIST --> CASE_ACTION{Case Action?}
+    CASE_ACTION -->|Contact Tenant| CONTACT[Update last_contact_at<br/>Status: IN_PROGRESS]
+    CONTACT --> IN_PROGRESS([Case: IN_PROGRESS])
+
+    IN_PROGRESS --> STRATEGY{Resolution Strategy?}
+    STRATEGY -->|Payment Plan| PLAN_FLOW[Create Payment Plan Sub-Flow]
+    STRATEGY -->|Escalate| ESCALATE[Increase escalation_level<br/>Set next_action_date]
+    STRATEGY -->|Write-off| RESOLVE_WO[Resolve: write_off]
+    STRATEGY -->|Eviction| RESOLVE_EV[Resolve: eviction]
+    STRATEGY -->|Paid in Full| RESOLVE_PF[Resolve: paid_in_full]
+
+    ESCALATE --> IN_PROGRESS
+
+    PLAN_FLOW --> PLAN_INPUT[Input Payment Plan:<br/>total_amount, installment_count<br/>frequency, start_date]
+    PLAN_INPUT --> CALC_INSTALL[Calculate Installment<br/>installment_amount = ceil<br/>total / count]
+    CALC_INSTALL --> SAVE_PLAN[Insert payment_plans<br/>status: pending_acceptance<br/>See Diagram 6B]
+    SAVE_PLAN --> RESOLVE_PP[Resolve Case: payment_plan]
+
+    RESOLVE_WO --> RESOLVED([Case: RESOLVED<br/>resolved_at = timestamp<br/>resolution_type set])
+    RESOLVE_EV --> RESOLVED
+    RESOLVE_PF --> RESOLVED
+    RESOLVE_PP --> RESOLVED
+
+    subgraph CASE_TRANSITIONS [COLLECTIONS_CASE_TRANSITIONS]
+        CT_INIT([initiated]) --> CT_PROG([in_progress])
+        CT_PROG --> CT_RES([resolved])
+    end
+
+    style START fill:#e74c3c,color:#fff
+    style IN_PROGRESS fill:#3498db,color:#fff
+    style RESOLVED fill:#2ecc71,color:#fff
+    style CT_RES fill:#2ecc71,color:#fff
+    style CASE_ACTION fill:#f1c40f,color:#333
+    style STRATEGY fill:#f1c40f,color:#333
+```
+
+**Resolution Types**:
+| Type | Deskripsi |
+|------|-----------|
+| `paid_in_full` | Tenant melunasi seluruh tagihan |
+| `payment_plan` | Dibuat rencana cicilan (See Diagram 6B) |
+| `write_off` | Tagihan dihapus sebagai kerugian |
+| `eviction` | Proses pengusiran tenant |
+
+---
+
+## 21. Dynamic Pricing Rules
+
+Alur CRUD aturan harga dinamis. Sumber: `dynamicPricingService.ts`.
+
+```mermaid
+flowchart TD
+    START([Merchant Buka Pricing Rules]) --> FETCH[Fetch Rules<br/>dynamic_pricing_rules table<br/>order by priority ASC]
+    FETCH --> RULE_LIST[Tampilkan Rule List]
+
+    RULE_LIST --> ACTION{Aksi Merchant?}
+    ACTION -->|Tambah| CREATE[Input Rule:<br/>rule_name, rule_type<br/>adjustment_type, adjustment_value<br/>conditions, priority<br/>min_price, max_price<br/>valid_from, valid_until]
+    ACTION -->|Edit| EDIT[Update Rule Fields]
+    ACTION -->|Hapus| DELETE[Delete Rule]
+    ACTION -->|Toggle| TOGGLE[Toggle is_active<br/>true/false]
+
+    CREATE --> SELECT_TYPE{Rule Type?}
+    SELECT_TYPE -->|Occupancy| TYPE_OCC[Okupansi-based<br/>Adjust berdasarkan tingkat hunian]
+    SELECT_TYPE -->|Seasonal| TYPE_SEA[Musiman<br/>Adjust berdasarkan waktu/musim]
+    SELECT_TYPE -->|Demand| TYPE_DEM[Permintaan<br/>Adjust berdasarkan demand]
+    SELECT_TYPE -->|Duration| TYPE_DUR[Durasi Sewa<br/>Diskon sewa jangka panjang]
+    SELECT_TYPE -->|Loyalty| TYPE_LOY[Loyalitas<br/>Diskon tenant setia]
+
+    TYPE_OCC --> ADJ_TYPE{Adjustment Type?}
+    TYPE_SEA --> ADJ_TYPE
+    TYPE_DEM --> ADJ_TYPE
+    TYPE_DUR --> ADJ_TYPE
+    TYPE_LOY --> ADJ_TYPE
+
+    ADJ_TYPE -->|Percentage| ADJ_PCT[Set % adjustment]
+    ADJ_TYPE -->|Fixed| ADJ_FIX[Set IDR adjustment]
+
+    ADJ_PCT --> SAVE[Insert/Update<br/>dynamic_pricing_rules]
+    ADJ_FIX --> SAVE
+    SAVE --> REFRESH([Refresh List])
+    REFRESH --> RULE_LIST
+
+    EDIT --> SAVE
+    DELETE --> REFRESH
+    TOGGLE --> REFRESH
+
+    style START fill:#2ecc71,color:#fff
+    style RULE_LIST fill:#3498db,color:#fff
+    style REFRESH fill:#2ecc71,color:#fff
+    style ACTION fill:#f1c40f,color:#333
+    style SELECT_TYPE fill:#f1c40f,color:#333
+    style ADJ_TYPE fill:#f1c40f,color:#333
+```
+
+**Rule Types**:
+| Type | Label | Deskripsi |
+|------|-------|-----------|
+| `occupancy` | Okupansi | Penyesuaian berdasarkan tingkat hunian properti |
+| `seasonal` | Musiman | Harga berbeda berdasarkan musim/waktu |
+| `demand` | Permintaan | Harga berdasarkan tingkat permintaan |
+| `duration` | Durasi Sewa | Diskon untuk kontrak jangka panjang |
+| `loyalty` | Loyalitas | Diskon untuk tenant yang sudah lama |
+
+---
+
+## 22. Financial Reports (P&L)
+
+Alur laporan keuangan Profit & Loss. Sumber: `financialReportService.ts`.
+
+```mermaid
+flowchart TD
+    START([Merchant Buka Financial Report]) --> SELECT_PERIOD[Select Period<br/>N bulan, default: 6]
+
+    SELECT_PERIOD --> FETCH_DATA[Parallel Fetch:<br/>1. Paid Invoices >= startDate<br/>2. Expenses >= startDate<br/>3. Properties for name mapping]
+
+    FETCH_DATA --> AGG_MONTHLY[Aggregate Monthly P&L<br/>For each month:<br/>revenue = sum paid invoices<br/>expenses = sum expenses<br/>netIncome = revenue - expenses]
+
+    AGG_MONTHLY --> GROUP_REV[Group Revenue by Property<br/>Map property_id to property name<br/>Sum amounts per property]
+
+    GROUP_REV --> GROUP_EXP[Group Expenses by Category<br/>Sum amounts per category<br/>Sort descending]
+
+    GROUP_EXP --> SUMMARY[Build Financial Summary:<br/>totalRevenue, totalExpenses<br/>netIncome, monthlyData[]<br/>revenueByProperty[]<br/>expenseByCategory[]]
+
+    SUMMARY --> DISPLAY[Display Charts:<br/>- Monthly P&L bar chart<br/>- Revenue by property pie<br/>- Expense by category pie<br/>- Trend line]
+
+    style START fill:#2ecc71,color:#fff
+    style DISPLAY fill:#3498db,color:#fff
+    style SUMMARY fill:#2ecc71,color:#fff
+```
+
+**Data Sources**:
+| Source | Filter | Diagram |
+|--------|--------|---------|
+| `invoices` | `status = paid`, `paid_at >= startDate` | Diagram 6 |
+| `expenses` | `expense_date >= startDate` | Diagram 17 |
+| `properties` | `merchant_id` match | Diagram 3 |
+
+---
+
+## 23. Admin Launch Readiness
+
+Alur dashboard kesiapan peluncuran platform. Sumber: `launchReadinessService.ts`.
+
+```mermaid
+flowchart TD
+    START([Admin Buka Launch Dashboard]) --> FETCH_METRICS[Parallel Fetch Counts:<br/>merchants, properties, units<br/>contracts, invoices, payments<br/>feature_flags]
+
+    FETCH_METRICS --> COMPUTE_CHECKS[Compute 18 Readiness Checks<br/>across 5 Categories]
+
+    COMPUTE_CHECKS --> CAT_CORE[Core (3 checks):<br/>- Auth system<br/>- Merchant management<br/>- Properties & Units]
+
+    COMPUTE_CHECKS --> CAT_OPS[Operations (4 checks):<br/>- Contracts & Sewa<br/>- Daftar Tunggu<br/>- Perpanjangan Sewa<br/>- Maintenance]
+
+    COMPUTE_CHECKS --> CAT_FIN[Finance (5 checks):<br/>- Tagihan<br/>- Pembayaran & Xendit<br/>- Auto-Match Rate<br/>- Penagihan & Kasus<br/>- Pengeluaran]
+
+    COMPUTE_CHECKS --> CAT_INTEL[Intelligence (3 checks):<br/>- Harga Dinamis<br/>- Laporan Keuangan<br/>- DSS & AI Advisor]
+
+    COMPUTE_CHECKS --> CAT_INFRA[Infrastructure (3 checks):<br/>- Row Level Security<br/>- Edge Functions<br/>- Feature Flags]
+
+    CAT_CORE --> SCORE[Calculate Weighted Score<br/>pass/warning/fail per check]
+    CAT_OPS --> SCORE
+    CAT_FIN --> SCORE
+    CAT_INTEL --> SCORE
+    CAT_INFRA --> SCORE
+
+    SCORE --> DISPLAY{Go / No-Go?}
+    DISPLAY -->|All Pass| GO([GO - Ready to Launch])
+    DISPLAY -->|Warnings| CAUTION([CAUTION - Review Items])
+    DISPLAY -->|Failures| NO_GO([NO-GO - Fix Required])
+
+    subgraph KEY_METRICS [Key Performance Indicators]
+        KPI_MATCH[Payment Auto-Match Rate<br/>target >= 80%]
+        KPI_ACTIVE[Active Merchants Count]
+        KPI_OVERDUE[Overdue Invoice Count]
+        KPI_EF[Edge Functions Deployed]
+        KPI_FF[Feature Flags Configured]
+    end
+
+    style START fill:#2ecc71,color:#fff
+    style GO fill:#2ecc71,color:#fff
+    style CAUTION fill:#e67e22,color:#fff
+    style NO_GO fill:#e74c3c,color:#fff
+    style SCORE fill:#3498db,color:#fff
+    style DISPLAY fill:#f1c40f,color:#333
+```
+
+**Readiness Categories & Weight**:
+| Category | Checks | Key Criteria |
+|----------|--------|-------------|
+| Core | 3 | Auth aktif, merchants > 0, properties > 0 |
+| Operations | 4 | Contracts > 0, waiting list, renewal alerts, maintenance |
+| Finance | 5 | Invoices > 0, payment gateway, match rate >= 80%, collections, expenses |
+| Intelligence | 3 | Dynamic pricing, financial reports, DSS advisor |
+| Infrastructure | 3 | RLS aktif, edge functions deployed, feature flags > 0 |
+
+---
+
 ## Lampiran: Cross-Reference Matrix
 
 | Diagram | Referensi ke Diagram Lain |
@@ -1184,17 +1716,26 @@ flowchart TD
 | 1. Onboarding | -> 2 (Subscription) |
 | 2. Subscription | -> 1 (Verified merchant) |
 | 3. Property & Unit | -> 4 (Contract), 5 (Tenant) |
-| 4. Contract | -> 3 (Unit status), 5 (Tenant), 9 (Move-out) |
+| 4. Contract | -> 3 (Unit status), 5 (Tenant), 9 (Move-out), 19 (Amendment) |
 | 5. Tenant | -> 4 (Contract), 3 (Unit) |
-| 6. Invoice | -> 7 (Payment), 11 (Collections), 6B (Payment Plan) |
-| 7. Payment | -> 6 (Invoice), 8 (Escrow) |
+| 6. Invoice | -> 7 (Payment), 11 (Collections), 6B (Payment Plan), 15 (Reconciliation), 16 (Escalation) |
+| 7. Payment | -> 6 (Invoice), 8 (Escrow), 15 (Reconciliation) |
 | 8. Escrow | -> 7 (Payment) |
 | 9. Move-Out | -> 3 (Unit), 4 (Contract) |
 | 10. Maintenance | -> 12 (DSS) |
-| 11. Collections | -> 6 (Invoice), 6B (Payment Plan), 12 (DSS) |
+| 11. Collections | -> 6 (Invoice), 6B (Payment Plan), 12 (DSS), 16 (Auto-Reminders), 20 (Extended) |
 | 12. AI/ML & DSS | -> 10 (Maintenance), 11 (Collections) |
 | 13. Referral | Standalone |
 | 14. Support | -> 12 (Data Quality) |
+| 15. Reconciliation | -> 7 (Payment triggers auto-match), 6 (Match updates invoice status) |
+| 16. Reminders | -> 6 (Escalates invoice), 11/20 (Auto-creates collections case at T+15) |
+| 17. Expense | -> 22 (Financial Reports aggregates expenses) |
+| 18. Waiting List | -> 4 (Accepted applicant creates contract) |
+| 19. Renewal | -> 4 (Amendment modifies contract terms) |
+| 20. Collections Extended | -> 6B (Creates payment plans), 6 (Resolves invoice) |
+| 21. Pricing | -> 3 (Rules reference properties) |
+| 22. Financial Reports | -> 6 (Aggregates paid invoices), 17 (Aggregates expenses) |
+| 23. Launch Readiness | -> All (Reads all system tables for readiness scoring) |
 
 ## Lampiran: Edge Functions Summary
 
@@ -1230,6 +1771,9 @@ flowchart TD
 | `ocr-maintenance-receipt` | Maintenance | 10, 12 |
 | `check-overdue-escalation` | Collections | 11 |
 | `compute-tenant-payment-metrics` | Collections | 11 |
+| `auto-match-payment` | Reconciliation | 15 |
+| `queue-payment-reminders` | Reminders | 16 |
+| `send-renewal-alert` | Lease Renewal | 19 |
 | `dss-pricing-advisor` | DSS | 12 |
 | `dss-maintenance-priority` | DSS | 10, 12 |
 | `dss-collection-strategy` | DSS | 11, 12 |
@@ -1284,10 +1828,12 @@ flowchart TD
 | Deposit Refund | `DEPOSIT_REFUND_TRANSITIONS` | 9 |
 | Maintenance | `MAINTENANCE_STATUS_TRANSITIONS` | 10 |
 | Vendor Job | `VENDOR_JOB_STATUS_TRANSITIONS` | 10 |
-| Collections Case | `COLLECTIONS_CASE_TRANSITIONS` | 11 |
+| Collections Case | `COLLECTIONS_CASE_TRANSITIONS` | 11, 20 |
 | DSS Recommendation | `DSS_RECOMMENDATION_TRANSITIONS` | 12 |
 | OCR Result | `OCR_RESULT_TRANSITIONS` | 12 |
 | Referral | `REFERRAL_STATUS_TRANSITIONS` | 13 |
 | Dispute | `DISPUTE_STATUS_TRANSITIONS` | 14 |
+| Waiting List | `WAITING_LIST_TRANSITIONS` | 18 |
+| Contract Amendment | `AMENDMENT_STATUS_TRANSITIONS` | 19 |
 | Order (Marketplace) | `ORDER_STATUS_TRANSITIONS` | Marketplace |
 | Forum Report | `FORUM_REPORT_TRANSITIONS` | Forum |
