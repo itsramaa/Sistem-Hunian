@@ -19,7 +19,7 @@
 > |------|-------|-----------|
 > | 🏠 | **Pemilik (Merchant)** | Pemilik properti yang mengelola unit, tenant, dan keuangan |
 > | 🧑‍💼 | **Penyewa (Tenant)** | Penghuni yang menyewa unit dan berinteraksi dengan sistem pembayaran |
-> | 🛡️ | **Admin** | Administrator platform yang mengawasi verifikasi, escrow, dan dispute |
+> | 🛡️ | **Admin** | Administrator platform yang mengawasi verifikasi, transfer dana, dan dispute |
 > | 🔧 | **Vendor** | Penyedia jasa maintenance yang menerima dan menyelesaikan pekerjaan |
 
 ---
@@ -33,7 +33,7 @@
 5. [Tenant Management](#5-tenant-management-flow)
 6. [Invoice Lifecycle](#6-invoice-lifecycle)
 7. [Payment & Payment Verification](#7-payment--payment-verification-flow)
-8. [Escrow & Disbursement](#8-escrow--disbursement-flow)
+8. [Payment Transfer (Direct Payment)](#8-payment-transfer-direct-payment-flow)
 9. [Move-Out & Deposit Refund](#9-move-out--deposit-refund-flow)
 10. [Maintenance Request Lifecycle](#10-maintenance-request-lifecycle)
 11. [Billing Analytics & Collections](#11-billing-analytics--collections)
@@ -61,7 +61,7 @@ Seorang calon pemilik properti mendaftar ke SiHuni dengan membuat akun email. Se
 ```mermaid
 flowchart TD
     START([User Sign Up]) --> REG[Registrasi Akun<br/>email + password]
-    REG --> TRIGGER_NEW["handle_new_user()<br/><<trigger>><br/>Creates: profiles, user_roles,<br/>merchants, escrow_accounts,<br/>merchant_subscriptions (free)"]
+    REG --> TRIGGER_NEW["handle_new_user()<br/><<trigger>><br/>Creates: profiles, user_roles,<br/>merchants, merchant_subscriptions (free)"]
     TRIGGER_NEW --> PROFILE[Lengkapi Profil Merchant<br/>business_name, business_type]
     PROFILE --> ADDR[Set Alamat<br/>headquarters_address_id<br/>billing_address_id]
     ADDR --> UPLOAD[Upload Dokumen Verifikasi<br/>KTP, SIUP, NPWP]
@@ -626,7 +626,7 @@ flowchart TD
 
 ### Perjalanan Pengguna
 
-Penyewa memilih metode pembayaran: transfer manual (upload bukti), payment gateway Xendit, atau auto-pay. Untuk transfer manual, penyewa mengunggah bukti transfer yang diproses OCR otomatis. Sistem mencoba auto-match, dan jika berhasil, pemilik properti tinggal konfirmasi. Untuk pembayaran via Xendit, penyewa diarahkan ke halaman pembayaran dan hasilnya masuk via webhook. Setelah dikonfirmasi, dana masuk ke escrow.
+Penyewa memilih metode pembayaran: transfer manual (upload bukti), payment gateway Xendit, atau auto-pay. Untuk transfer manual, penyewa mengunggah bukti transfer yang diproses OCR otomatis. Sistem mencoba auto-match, dan jika berhasil, pemilik properti tinggal konfirmasi. Untuk pembayaran via Xendit, penyewa diarahkan ke halaman pembayaran dan hasilnya masuk via webhook. Setelah dikonfirmasi, dana ditransfer langsung ke rekening merchant via payment transfer.
 
 ```mermaid
 flowchart TD
@@ -646,7 +646,7 @@ flowchart TD
     MANUAL_REVIEW --> MERCHANT_CONFIRM
 
     CONFIRMED --> RECORD_PAY[Record Payment<br/>payments table]
-    RECORD_PAY --> ESCROW["Masuk Escrow<br/>See Diagram 8"]
+    RECORD_PAY --> TRANSFER["Payment Transfer<br/>See Diagram 8"]
     RECORD_PAY --> INV_PAID["Invoice -> PAID<br/>See Diagram 6"]
 
     PAY_METHOD -->|Xendit Gateway| XENDIT_CREATE["xendit-create-invoice<br/><<edge function>>"]
@@ -704,65 +704,45 @@ flowchart TD
 
 ---
 
-## 8. Escrow & Disbursement Flow
+## 8. Payment Transfer (Direct Payment) Flow
 
 ### Perjalanan Pengguna
 
-Setelah pembayaran dikonfirmasi, dana masuk ke akun escrow platform. Sistem menghitung fee platform dan gateway, lalu menyimpan saldo bersih. Ketika jadwal pencairan tiba (atau pemilik merequest), disbursement dibuat. Jika nilai besar, admin mereview sebelum disetujui. Pencairan diproses via Xendit ke rekening bank pemilik. Pemilik perlu mengelola rekening banknya terlebih dahulu.
+Setelah pembayaran dikonfirmasi, sistem membuat record `payment_transfers` yang menghitung fee platform dan gateway, lalu mencatat jumlah bersih (net_amount) yang akan diterima merchant. Transfer diproses langsung ke rekening bank merchant via settlement Xendit. Merchant perlu mengelola rekening banknya terlebih dahulu. Tidak ada escrow — dana langsung ditransfer ke merchant.
+
+> **⚠️ Perubahan Arsitektur**: Sistem sebelumnya menggunakan escrow (`escrow_accounts`, `escrow_transactions`) untuk merchant. Per migration `20260227084712`, escrow account creation dihapus dan diganti dengan direct payment model. Escrow hanya dipertahankan untuk transaksi vendor maintenance (auto-release 48 jam). Disbursement (`DISBURSEMENT_STATUS_TRANSITIONS`) sekarang hanya berlaku untuk vendor (Section 13b: Vendor Disbursement Lifecycle).
 
 ```mermaid
 flowchart TD
-    START([Payment Confirmed]) --> ESC_TX[Create escrow_transaction<br/>type: deposit<br/>gross_amount, platform_fee, gateway_fee]
-    ESC_TX --> ESC_PENDING([Escrow TX: PENDING])
+    START([Payment Confirmed]) --> CREATE_TX[Create payment_transfers<br/>amount, platform_fee,<br/>gateway_fee, net_amount]
+    CREATE_TX --> TX_PENDING([Transfer: PENDING])
 
-    ESC_PENDING --> PROCESS{Processing?}
-    PROCESS -->|Success| ESC_COMPLETED([Escrow TX: COMPLETED<br/>Update escrow_accounts.balance])
-    PROCESS -->|Fail| ESC_FAILED([Escrow TX: FAILED])
-
-    ESC_COMPLETED --> DISB_CHECK{Disbursement Eligible?}
-    DISB_CHECK -->|Yes| DISB_CREATE[Create Disbursement<br/>disbursements table]
-    DISB_CHECK -->|Scheduled| SCHEDULED["scheduled-disbursement<br/><<edge function>>"]
-    SCHEDULED --> DISB_CREATE
-
-    DISB_CREATE --> DISB_PENDING([Disbursement: PENDING])
-    DISB_PENDING --> APPROVAL{Approval Required?}
-    APPROVAL -->|Manual Review| REVIEW[Admin/Auto Review<br/>requires_manual_review flag]
-    REVIEW --> REVIEW_OK{Approved?}
-    REVIEW_OK -->|Yes| DISB_APPROVED([Status: APPROVED])
-    REVIEW_OK -->|No| DISB_REJECTED([Status: REJECTED])
-    APPROVAL -->|Auto| DISB_APPROVED
-
-    DISB_APPROVED --> XENDIT_DISB["xendit-disbursement<br/><<edge function>>"]
-    XENDIT_DISB --> DISB_PROCESSING([Status: PROCESSING])
-    DISB_PROCESSING --> XENDIT_WH["xendit-disbursement-webhook<br/><<edge function>>"]
-    XENDIT_WH --> DISB_RESULT{Result?}
-    DISB_RESULT -->|Success| DISB_COMPLETED([Status: COMPLETED<br/>Merchant receives funds])
-    DISB_RESULT -->|Fail| DISB_FAILED([Status: FAILED])
-    DISB_FAILED --> RETRY{Retry?}
-    RETRY -->|Yes| DISB_PENDING
-    RETRY -->|No| DISB_FAILED_FINAL([Failed - Final])
+    TX_PENDING --> PROCESS{Processing?}
+    PROCESS -->|Yes| TX_PROCESSING([Transfer: PROCESSING])
+    TX_PROCESSING --> RESULT{Settlement Result?}
+    RESULT -->|Success| TX_COMPLETED([Transfer: COMPLETED<br/>Merchant receives funds<br/>directly to bank account])
+    RESULT -->|Fail| TX_FAILED([Transfer: FAILED])
+    TX_FAILED --> RETRY{Retry?}
+    RETRY -->|Yes| TX_PENDING
+    RETRY -->|No| TX_FAILED_FINAL([Failed - Final])
 
     subgraph BANK_MGMT [Bank Account Management]
         BANK_ADD[Tambah Bank Account<br/>bank_accounts table]
         BANK_PRIMARY[Set Primary Account<br/>is_primary flag]
     end
 
+    subgraph ADMIN_VIEW [Admin Monitoring]
+        ADMIN_LIST["/admin/payment-transfers<br/>Label: Transfer Dana<br/>View all transfer history"]
+    end
+
     style START fill:#2ecc71,color:#fff
-    style ESC_COMPLETED fill:#2ecc71,color:#fff
-    style DISB_COMPLETED fill:#2ecc71,color:#fff
-    style ESC_PENDING fill:#3498db,color:#fff
-    style DISB_PENDING fill:#3498db,color:#fff
-    style DISB_APPROVED fill:#3498db,color:#fff
-    style DISB_PROCESSING fill:#3498db,color:#fff
-    style ESC_FAILED fill:#e74c3c,color:#fff
-    style DISB_REJECTED fill:#e74c3c,color:#fff
-    style DISB_FAILED fill:#e74c3c,color:#fff
-    style DISB_FAILED_FINAL fill:#e74c3c,color:#fff
+    style TX_COMPLETED fill:#2ecc71,color:#fff
+    style TX_PENDING fill:#3498db,color:#fff
+    style TX_PROCESSING fill:#3498db,color:#fff
+    style TX_FAILED fill:#e74c3c,color:#fff
+    style TX_FAILED_FINAL fill:#e74c3c,color:#fff
     style PROCESS fill:#f1c40f,color:#333
-    style DISB_CHECK fill:#f1c40f,color:#333
-    style APPROVAL fill:#f1c40f,color:#333
-    style REVIEW_OK fill:#f1c40f,color:#333
-    style DISB_RESULT fill:#f1c40f,color:#333
+    style RESULT fill:#f1c40f,color:#333
     style RETRY fill:#f1c40f,color:#333
 ```
 
@@ -770,26 +750,21 @@ flowchart TD
 
 | Peran | Aksi | Halaman / Endpoint |
 |-------|------|--------------------|
-| 🏠 Pemilik | Mengelola rekening bank, melihat saldo escrow, request pencairan | `/merchant/escrow`, `/merchant/bank-accounts` |
-| 🛡️ Admin | Mereview disbursement yang perlu manual approval, melihat seluruh aliran escrow | `/admin/escrow`, `/admin/disbursements` |
+| 🏠 Pemilik | Mengelola rekening bank, melihat riwayat transfer di dashboard | `/merchant/bank-accounts`, `/merchant/dashboard` (financials section) |
+| 🛡️ Admin | Monitoring semua transfer pembayaran, melihat status dan riwayat | `/admin/payment-transfers` (label: "Transfer Dana") |
 
 <details>
 <summary>Referensi State Machine</summary>
 
-**State Machine** (`ESCROW_TRANSACTION_TRANSITIONS`):
+**State Machine** (`PAYMENT_TRANSFER_TRANSITIONS`):
 | From | To |
 |------|-----|
-| `pending` | `completed`, `failed` |
-
-**Disbursement** (`DISBURSEMENT_STATUS_TRANSITIONS`):
-| From | To |
-|------|-----|
-| `pending` | `approved`, `rejected` |
-| `approved` | `processing` |
+| `pending` | `processing` |
 | `processing` | `completed`, `failed` |
 | `failed` | `pending` _(retry)_ |
 | `completed` | _(terminal)_ |
-| `rejected` | _(terminal)_ |
+
+> **Note**: `ESCROW_TRANSACTION_TRANSITIONS` dan `DISBURSEMENT_STATUS_TRANSITIONS` untuk merchant sudah dihapus. `DISBURSEMENT_STATUS_TRANSITIONS` hanya berlaku untuk vendor (Section 13b).
 
 </details>
 
@@ -1495,7 +1470,7 @@ flowchart TD
 | Peran | Aksi | Halaman / Endpoint |
 |-------|------|--------------------|
 | 🏠 Pemilik | Mereview pembayaran pending, melihat suggested invoices (hingga 3), manual-match, konfirmasi/reject | `/merchant/reconciliation` |
-| 🛡️ Admin | Monitoring auto-match rate, melihat unmatched payments via escrow overview | `/admin/escrow` |
+| 🛡️ Admin | Monitoring auto-match rate, melihat unmatched payments via payment transfers overview | `/admin/payment-transfers` |
 
 > **Catatan**: Sistem auto-match berjalan otomatis via EF. Pemilik hanya perlu intervensi untuk Tier 2 (partial) dan Tier 3 (unmatched). Setiap pembayaran yang pending menampilkan hingga 3 suggested invoices berdasarkan kecocokan tenant + contract.
 
@@ -2131,7 +2106,7 @@ flowchart TD
 5. **Buat Kontrak** → Draft kontrak, tanda tangan digital, aktivasi _(Diagram 4)_
 6. **Kelola Tagihan** → Auto-generate/manual invoice, kirim ke tenant _(Diagram 6)_
 7. **Verifikasi Pembayaran** → Review bukti transfer, konfirmasi auto-match _(Diagram 7, 15)_
-8. **Kelola Escrow** → Pantau saldo, request pencairan ke bank _(Diagram 8)_
+8. **Pantau Transfer Dana** → Lihat riwayat transfer pembayaran di dashboard _(Diagram 8)_
 9. **Atur Reminder** → Konfigurasi jadwal pengingat otomatis _(Diagram 16)_
 10. **Tangani Penagihan** → Kelola kasus collections, pilih strategi _(Diagram 11, 20)_
 11. **Proses Move-Out** → Acknowledge notice, inspeksi, hitung deposit refund _(Diagram 9)_
@@ -2176,7 +2151,7 @@ flowchart TD
 3. **Monitor Properti** → Lihat semua properti di platform _(Diagram 3)_
 4. **Monitor Kontrak** → Lihat semua kontrak _(Diagram 4)_
 5. **Monitor Tenant** → Lihat semua tenant _(Diagram 5)_
-6. **Kelola Escrow** → Review disbursement yang perlu manual approval _(Diagram 8)_
+6. **Monitor Transfer Dana** → Pantau semua payment transfers di platform _(Diagram 8)_
 7. **Mediasi Dispute** → Resolusi sengketa deposit, mediasi pemilik & penyewa _(Diagram 9, 14)_
 8. **Monitor Collections** → Lihat analitik penagihan agregat _(Diagram 11)_
 9. **Monitor DSS Health** → Cek performa model, kualitas data _(Diagram 12)_
@@ -2196,8 +2171,8 @@ flowchart TD
 | 4. Contract | -> 3 (Unit status), 5 (Tenant), 9 (Move-out), 19 (Amendment) |
 | 5. Tenant | -> 4 (Contract), 3 (Unit) |
 | 6. Invoice | -> 7 (Payment), 11 (Collections), 6B (Payment Plan), 15 (Reconciliation), 16 (Escalation) |
-| 7. Payment | -> 6 (Invoice), 8 (Escrow), 15 (Reconciliation) |
-| 8. Escrow | -> 7 (Payment) |
+| 7. Payment | -> 6 (Invoice), 8 (Payment Transfer), 15 (Reconciliation) |
+| 8. Payment Transfer | -> 7 (Payment) |
 | 9. Move-Out | -> 3 (Unit), 4 (Contract) |
 | 10. Maintenance | -> 12 (DSS) |
 | 11. Collections | -> 6 (Invoice), 6B (Payment Plan), 12 (DSS), 16 (Auto-Reminders), 20 (Extended) |
@@ -2241,9 +2216,9 @@ flowchart TD
 | `xendit-create-invoice` | Payment | 7 |
 | `xendit-webhook` | Payment | 7 |
 | `auto-pay-execute` | Payment | 7 |
-| `scheduled-disbursement` | Escrow | 8 |
-| `xendit-disbursement` | Escrow | 8 |
-| `xendit-disbursement-webhook` | Escrow | 8 |
+| `scheduled-disbursement` | Vendor Disbursement | 13b (vendor-only) |
+| `xendit-disbursement` | Vendor Disbursement | 13b (vendor-only) |
+| `xendit-disbursement-webhook` | Vendor Disbursement | 13b (vendor-only) |
 | `process-deposit-refund` | Move-Out | 9 |
 | `ocr-maintenance-receipt` | Maintenance | 10, 12 |
 | `check-overdue-escalation` | Collections | 11 |
@@ -2297,8 +2272,8 @@ flowchart TD
 | Payment Plan | `PAYMENT_PLAN_STATUS_TRANSITIONS` | 6B |
 | Payment Status | `PAYMENT_STATUS_TRANSITIONS` | 7 |
 | Payment Verification | `PAYMENT_VERIFICATION_TRANSITIONS` | 7 |
-| Escrow Transaction | `ESCROW_TRANSACTION_TRANSITIONS` | 8 |
-| Disbursement | `DISBURSEMENT_STATUS_TRANSITIONS` | 8 |
+| Payment Transfer | `PAYMENT_TRANSFER_TRANSITIONS` | 8 |
+| Disbursement (vendor-only) | `DISBURSEMENT_STATUS_TRANSITIONS` | 13b (vendor) |
 | Move-Out Notice | `MOVE_OUT_NOTICE_TRANSITIONS` | 9 |
 | Move-Out Inspection | `MOVE_OUT_INSPECTION_TRANSITIONS` | 9 |
 | Early Termination | `EARLY_TERMINATION_TRANSITIONS` | 9 |

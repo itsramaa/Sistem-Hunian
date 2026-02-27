@@ -1,45 +1,26 @@
-# Escrow Management
+# Escrow Management — DEPRECATED (Merchant)
 
-## Overview
-Manajemen escrow platform untuk semua merchant.
+## ⚠️ Status: Merchant escrow REMOVED, Vendor escrow RETAINED
 
-## File Location
-- `src/pages/admin/Escrow.tsx` - Halaman manajemen escrow
+Per migration `20260227084712`, merchant escrow dihapus. Diganti dengan Direct Payment Model.
 
-## Database Tables
-- `escrow_accounts` - Akun escrow per merchant
-- `escrow_transactions` - Transaksi escrow
-- `disbursements` - Pencairan dana
+## Current System
 
-## Features
-- ✅ View semua escrow accounts
-- ✅ Total escrow balance
-- ✅ Pending disbursements
-- ✅ Transaction history
-- ✅ Manual disbursement approval
-- ✅ Disbursement review
+### Merchant (Direct Payment)
+- **Page**: `/admin/payment-transfers` (label: "Transfer Dana")
+- **File**: `src/pages/admin/PaymentTransfers.tsx`
+- **Table**: `payment_transfers`
+- **Flow**: Payment confirmed → `payment_transfers` record → pending → processing → completed/failed
+- Admin monitors transfer status, no manual approval needed
 
-## Implementation Status
-| Feature | Status |
-|---------|--------|
-| List Accounts | ✅ Complete |
-| Balance View | ✅ Complete |
-| Transaction History | ✅ Complete |
-| Disbursement Approval | ✅ Complete |
+### Vendor (Escrow Retained)
+- Escrow masih digunakan untuk vendor maintenance transactions
+- Auto-release 48 jam setelah job completed
+- `vendor_earnings` table untuk tracking
 
-## Escrow Flow
-1. Tenant bayar invoice
-2. Dana masuk ke escrow merchant
-3. Platform fee dipotong otomatis
-4. Dana available untuk disbursement
-5. Disbursement ke bank account merchant
-
-## Transaction Types
-- `deposit` - Dana masuk dari payment
-- `withdrawal` - Pencairan ke merchant
-- `fee` - Platform fee
-- `refund` - Refund ke tenant
-
-## Related Components
-- `Disbursements` management
-- Xendit integration
+## Old Features (No Longer Active for Merchant)
+- ~~`src/pages/admin/Escrow.tsx`~~ — No longer exists
+- ~~`escrow_accounts` per merchant~~ — Not created on registration
+- ~~Manual disbursement approval~~ — Removed
+- ~~`scheduled-disbursement` for merchants~~ — Vendor-only now
+- ~~`xendit-disbursement` for merchants~~ — Vendor-only now
