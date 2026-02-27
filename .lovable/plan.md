@@ -1,124 +1,221 @@
 
-# Priority 5: Expense Approval Workflow + Priority 6: Mobile App (Core Features)
+
+# Priority 7: Lease Renewal Automation + Priority 8: Preventive Maintenance Scheduler
 
 ## Overview
 
-Two enhancements:
-1. **Expense Approval Workflow** -- Receipt upload with OCR auto-fill, approval gate (>Rp 500K requires manual approval), auto-categorization, and audit-ready attachment storage
-2. **Mobile App Core** -- Responsive mobile-optimized merchant experience with bottom nav, compact dashboard, one-click reminder, quick expense logging, alerts view, and tenant search
+1. **Lease Renewal Automation** -- Enhance the existing `/merchant/lease-renewals` page with price recommendations, auto-generated amendment drafts, tenant negotiation (offer/counter-offer), and e-signature integration
+2. **Preventive Maintenance Scheduler** -- New calendar-based scheduler for recurring tasks (AC service, water tank, etc.) with auto-creation of maintenance requests and cost tracking
 
 ---
 
-## Priority 5: Expense Approval Workflow
+## Priority 7: Lease Renewal Automation
 
-### 5A: OCR Edge Function for Expense Receipts
+### Existing Foundation
+- `lease_renewal_alerts` table + `RenewalAlertsList` component already shows expiring contracts
+- `contract_amendments` table with `draft -> sent -> signed` state machine exists
+- `renewalService.ts` has `createAmendment`, `signAmendment` methods
+- `SignaturePad` component exists in `src/features/signature/`
+- `ml-price-intelligence` edge function returns per-unit price recommendations
 
-Create `supabase/functions/ocr-expense-receipt/index.ts`:
-- Modeled after existing `ocr-maintenance-receipt` pattern
-- Extract: vendor_name, receipt_date, total_amount, line_items, payment_method, suggested_category
-- Auto-categorize based on vendor/description keywords (utilities, maintenance, etc.)
-- Store results in `ocr_results` table, link back via `ocr_data` on `expenses`
-- Uploads go to existing `verification-documents` bucket
+### 7A: Database -- Add Negotiation Fields to `contract_amendments`
 
-### 5B: Enhanced Expense Creation Form
+Add columns to `contract_amendments` to support offer/counter-offer:
 
-Refactor the expense dialog in `src/pages/merchant/Expenses.tsx` into a dedicated component `src/features/expenses/components/ExpenseCreateDialog.tsx`:
-- **Step 1: Receipt Upload** -- Photo capture (camera/gallery) or PDF upload to `verification-documents` bucket. Optional -- user can skip for manual entry
-- **Step 2: OCR Processing** -- If receipt uploaded, call `ocr-expense-receipt` edge function. Auto-fill amount, vendor, date, suggested category. Show confidence indicator
-- **Step 3: Review & Edit** -- Pre-filled form with all fields editable. Category selector with auto-suggestion highlighted
-- **Approval logic**: If amount >= 500,000, set `approval_status = 'pending_approval'`. If amount < 500,000, set `approval_status = 'approved'` and auto-set `approved_at = now()`
-- Store `receipt_url` (file path) and `ocr_data` (JSON from OCR) on the expense record
-
-### 5C: Approval Management UI
-
-Create `src/features/expenses/components/ExpenseApprovalList.tsx`:
-- Filter expenses by `approval_status = 'pending_approval'`
-- Each item shows: receipt thumbnail, amount, category, date, OCR confidence
-- Approve / Reject buttons that update `approval_status`, `approved_by`, `approved_at`
-- Add an "Approval" tab or section to the Expenses page
-
-### 5D: Expense Service Enhancement
-
-Update `expenseService.ts`:
-- `createExpense` now accepts `receiptUrl` and `ocrData` fields
-- Add `approveExpense(id, userId)` method -- updates `approval_status = 'approved'`, sets `approved_by` and `approved_at`
-- Add `rejectExpense(id, userId)` method -- sets `approval_status = 'rejected'`
-- Add `fetchPendingApprovals(merchantId)` -- query expenses with `pending_approval` status
-
-### 5E: State Machine
-
-Add to `state-machines.ts`:
-```typescript
-export const EXPENSE_APPROVAL_TRANSITIONS: Record<string, string[]> = {
-  submitted: ['pending_approval', 'approved'],  // auto-approve if < 500K
-  pending_approval: ['approved', 'rejected'],
-  approved: ['verified'],
-  rejected: ['submitted'],  // allow re-submission
-  verified: [],  // terminal
-};
+```text
+ALTER TABLE contract_amendments ADD COLUMN
+  tenant_user_id       uuid,           -- tenant involved
+  merchant_offer       jsonb,          -- merchant's proposed terms
+  tenant_counter_offer jsonb,          -- tenant's counter
+  negotiation_status   text DEFAULT 'pending',  -- pending, merchant_proposed, tenant_countered, agreed, rejected
+  merchant_signature   text,           -- base64 signature data
+  tenant_signature     text,           -- base64 signature data
+  tenant_signed_at     timestamptz
 ```
 
-### 5F: Receipt Viewer
+Update `AMENDMENT_STATUS_TRANSITIONS` to include negotiation states:
+```typescript
+draft -> sent -> tenant_reviewing -> negotiating -> agreed -> signing -> signed
+```
 
-Create `src/features/expenses/components/ReceiptViewer.tsx`:
-- Modal that displays receipt image/PDF from `receipt_url`
-- Shows OCR extracted data alongside for comparison
-- Clickable from expense table rows that have attachments
+### 7B: Enhanced Renewal Page
+
+Refactor `src/pages/merchant/LeaseRenewals.tsx` into a full-featured page:
+- **Stats strip**: Total expiring (30d, 60d, 90d), renewal rate, avg rent increase
+- **Renewal list with actions**: Each row gets "Buat Penawaran" button
+- **Price recommendation column**: Fetch from `ml-price-intelligence` and show suggested price + % increase per unit
+- **Amendment status column**: Show current negotiation state per contract
+
+### 7C: Renewal Offer Dialog
+
+Create `src/features/contracts/components/renewal/RenewalOfferDialog.tsx`:
+- Pre-filled with current contract terms
+- AI-suggested price shown as recommendation badge
+- Merchant can set: new rent, new duration, effective date, terms
+- On submit: creates amendment with `status = 'sent'` and `negotiation_status = 'merchant_proposed'`
+- Sends notification to tenant
+
+### 7D: Tenant Renewal Response (Tenant Side)
+
+Create `src/features/contracts/components/renewal/TenantRenewalResponse.tsx`:
+- Tenant sees merchant's offer with current vs proposed terms
+- Three actions: **Accept**, **Counter-Offer**, **Decline**
+- Counter-offer allows tenant to propose different rent/terms
+- Updates `tenant_counter_offer` and `negotiation_status = 'tenant_countered'`
+
+Create tenant-facing page or section in existing tenant contracts page to show pending renewal offers.
+
+### 7E: Negotiation Timeline
+
+Create `src/features/contracts/components/renewal/NegotiationTimeline.tsx`:
+- Shows back-and-forth history: merchant offer -> tenant counter -> merchant revised -> agreed
+- Each entry shows proposed terms and timestamp
+- Stored in `new_values`/`old_values` JSON fields as history array
+
+### 7F: Amendment E-Signature Flow
+
+Create `src/features/contracts/components/renewal/AmendmentSignatureDialog.tsx`:
+- When both parties agree (`negotiation_status = 'agreed'`), enable signing
+- Merchant signs first -> `merchant_signature` saved, status -> `signing`
+- Tenant signs -> `tenant_signature` saved, `signed_at` set, status -> `signed`
+- On `signed`: auto-update contract's `rent_amount`, `end_date` based on amendment `new_values`
+- Reuses existing `SignaturePad` component
+
+### 7G: Service Layer Enhancement
+
+Extend `renewalService.ts`:
+- `sendOffer(contractId, offer)` -- create amendment with merchant terms
+- `submitCounterOffer(amendmentId, counterOffer)` -- tenant counter
+- `acceptOffer(amendmentId)` -- set `negotiation_status = 'agreed'`
+- `signAsMerchant(amendmentId, signatureData)` -- save merchant signature
+- `signAsTenant(amendmentId, signatureData)` -- save tenant signature + apply to contract
+- `fetchPriceRecommendation(contractId)` -- get AI suggestion for renewal price
+
+Add hooks in `useLeaseRenewal.ts` for all new mutations.
 
 ---
 
-## Priority 6: Mobile App (Core Features)
+## Priority 8: Preventive Maintenance Scheduler
 
-Since the system already has `DashboardLayout` auto-switching to `MobileLayout` on mobile, and the merchant role already works on mobile (just without bottom nav), the approach is to **enable and optimize the mobile experience** rather than build a native app.
+### 8A: Database -- `preventive_maintenance_schedules` table
 
-### 6A: Enable Merchant Bottom Nav
+```text
+preventive_maintenance_schedules
+  id                  uuid PK
+  merchant_id         uuid FK merchants NOT NULL
+  property_id         uuid FK properties
+  unit_id             uuid FK units (nullable -- property-wide vs unit-specific)
+  title               text NOT NULL
+  description         text
+  category            text (electrical, plumbing, hvac, cleaning, general)
+  frequency           text NOT NULL (weekly, monthly, quarterly, biannual, annual, custom)
+  custom_interval_days integer (for custom frequency)
+  preferred_vendor_id uuid FK vendors (nullable)
+  estimated_cost      numeric
+  priority            text DEFAULT 'medium'
+  next_scheduled_date date NOT NULL
+  last_executed_date  date
+  is_active           boolean DEFAULT true
+  created_at          timestamptz DEFAULT now()
+  updated_at          timestamptz DEFAULT now()
+```
 
-Update `navigation-config.ts` for merchant role:
-- Set `hasBottomNav: true`
-- Add `bottomNav` array with 5 items: Dashboard, Properti, Tagihan, Notifikasi, Profil
-- This immediately gives merchants a mobile-native navigation experience
+RLS: merchant owns their schedules.
 
-### 6B: Mobile Merchant Dashboard
+### 8B: Scheduler Calendar Page
 
-Create `src/features/dashboard/components/MobileMerchantDashboard.tsx`:
-- Compact KPI strip: Occupancy %, Monthly Revenue, Overdue count, Pending approvals
-- Latest 5 transactions section (from invoices/payments)
-- Critical alerts section: overdue invoices, pending expense approvals, maintenance urgent
-- Quick action cards: Send Reminder, Log Expense, View Tenants
-- Conditionally rendered in `MerchantDashboard` when `useIsMobile()` is true
+Create `src/pages/merchant/PreventiveMaintenance.tsx`:
+- **Calendar view**: Monthly calendar showing scheduled maintenance events as colored dots/badges
+- **List view toggle**: Table of all schedules with next date, frequency, vendor, estimated cost
+- **Stats**: Total scheduled, overdue, completed this month, estimated monthly cost
+- Add to merchant nav under "Operasional" group with CalendarClock icon
 
-### 6C: Quick Expense Logger (Mobile)
+### 8C: Schedule Management Components
 
-Create `src/features/expenses/components/QuickExpenseSheet.tsx`:
-- Bottom sheet (using vaul `Drawer`) optimized for mobile
-- Camera button for instant receipt photo
-- Amount input (large, easy to tap)
-- Category quick-select (icon grid)
-- One-tap submit
-- Accessible from mobile dashboard quick actions and bottom nav FAB
+Create `src/features/maintenance/components/preventive/`:
 
-### 6D: Mobile Alerts Page
+- **`PreventiveScheduleForm.tsx`** -- Create/edit form:
+  - Title, category, description
+  - Property + Unit selector (optional unit for property-wide tasks)
+  - Frequency picker (weekly/monthly/quarterly/biannual/annual/custom)
+  - Preferred vendor dropdown (from verified vendors)
+  - Estimated cost
+  - Start date
+  - Priority
 
-Create `src/pages/merchant/Alerts.tsx`:
-- Aggregated view of: overdue invoices, pending expense approvals, maintenance requests (urgent/high), expiring contracts (30 days)
-- Each alert card is actionable (tap to navigate to relevant page)
-- Badge count on bottom nav "Notifikasi" icon
-- Route: `/merchant/alerts`
+- **`PreventiveCalendar.tsx`** -- Monthly calendar grid:
+  - Days with scheduled tasks show colored dots by category
+  - Click day to see/add tasks
+  - Navigate months
+  - Color legend by category
 
-### 6E: One-Click Reminder
+- **`PreventiveScheduleList.tsx`** -- Table view:
+  - Columns: Task, Property/Unit, Frequency, Next Date, Vendor, Est. Cost, Status
+  - Overdue items highlighted in red
+  - Toggle active/inactive
 
-Create `src/features/payments/components/QuickReminderButton.tsx`:
-- Button that calls existing `send-payment-reminder` edge function
-- Shows in overdue invoice cards on mobile dashboard
-- Confirmation toast after send
-- Reuse in Alerts page for overdue items
+- **`CostComparisonCard.tsx`** -- Compare preventive vs emergency costs:
+  - Preventive: sum of estimated_cost for all active schedules (annualized)
+  - Emergency: sum of completed maintenance_requests costs (from vendor_jobs.agreed_price)
+  - Show savings estimate
 
-### 6F: Mobile Tenant Search
+### 8D: Auto-Create Maintenance Request
 
-The existing `/merchant/tenants` page already works on mobile via `MobileLayout`. Enhance with:
-- Sticky search bar at top
-- Compact card layout instead of table on mobile
-- Quick-tap to see payment history inline
+Create `src/features/maintenance/services/preventiveMaintenanceService.ts`:
+- `fetchSchedules(merchantId)` -- all schedules with property/unit/vendor info
+- `createSchedule(data)` -- insert new schedule
+- `updateSchedule(id, data)` -- edit
+- `deleteSchedule(id)` -- soft delete (is_active = false)
+- `executeSchedule(scheduleId)` -- creates a `maintenance_request` from the schedule:
+  - Copies title, description, category, priority
+  - Sets unit_id, merchant_id
+  - If preferred_vendor_id set, auto-assigns vendor and sets status to `in_progress`
+  - Updates `last_executed_date` to today
+  - Calculates and sets `next_scheduled_date` based on frequency
+- `getOverdueSchedules(merchantId)` -- schedules where `next_scheduled_date < today` and `is_active = true`
+- `getCostComparison(merchantId)` -- aggregate preventive vs emergency costs
+
+### 8E: Hooks
+
+Create `src/features/maintenance/hooks/usePreventiveMaintenance.ts`:
+- `usePreventiveSchedules(merchantId)` -- fetch all
+- `useCreateSchedule()` -- mutation
+- `useUpdateSchedule()` -- mutation
+- `useExecuteSchedule()` -- mutation that creates maintenance request
+- `useOverdueSchedules(merchantId)` -- query overdue items
+- `useCostComparison(merchantId)` -- query cost data
+
+### 8F: Overdue Alert Integration
+
+Add overdue preventive maintenance to the existing `/merchant/alerts` page:
+- Query `preventive_maintenance_schedules` where `next_scheduled_date < today`
+- Show as alert cards with "Execute Now" button
+
+---
+
+## Navigation & Routes
+
+| Route | Page | Nav Group |
+|-------|------|-----------|
+| `/merchant/lease-renewals` | Enhanced (existing) | Kontrak (existing) |
+| `/merchant/preventive-maintenance` | New | Operasional |
+
+### State Machine Updates
+
+Update `AMENDMENT_STATUS_TRANSITIONS` in `state-machines.ts`:
+```typescript
+export const AMENDMENT_STATUS_TRANSITIONS: Record<string, string[]> = {
+  draft: ['sent', 'cancelled'],
+  sent: ['tenant_reviewing', 'rejected', 'cancelled'],
+  tenant_reviewing: ['negotiating', 'agreed', 'rejected'],
+  negotiating: ['agreed', 'rejected', 'cancelled'],
+  agreed: ['signing'],
+  signing: ['signed'],
+  signed: [],      // terminal
+  rejected: [],    // terminal
+  cancelled: [],   // terminal
+};
+```
 
 ---
 
@@ -126,31 +223,37 @@ The existing `/merchant/tenants` page already works on mobile via `MobileLayout`
 
 | Action | File | Description |
 |--------|------|-------------|
-| CREATE | `supabase/functions/ocr-expense-receipt/index.ts` | OCR edge function for receipts |
-| CREATE | `src/features/expenses/components/ExpenseCreateDialog.tsx` | Enhanced create form with receipt upload + OCR |
-| CREATE | `src/features/expenses/components/ExpenseApprovalList.tsx` | Pending approval management |
-| CREATE | `src/features/expenses/components/ReceiptViewer.tsx` | Receipt image/PDF viewer modal |
-| CREATE | `src/features/expenses/components/QuickExpenseSheet.tsx` | Mobile-optimized quick expense entry |
-| CREATE | `src/features/dashboard/components/MobileMerchantDashboard.tsx` | Mobile-first compact dashboard |
-| CREATE | `src/pages/merchant/Alerts.tsx` | Aggregated alerts page |
-| CREATE | `src/features/payments/components/QuickReminderButton.tsx` | One-click payment reminder |
-| MODIFY | `src/features/expenses/services/expenseService.ts` | Add approve/reject/OCR methods |
-| MODIFY | `src/features/expenses/hooks/useExpenses.ts` | Add approval mutations |
-| MODIFY | `src/pages/merchant/Expenses.tsx` | Integrate new dialog + approval tab |
-| MODIFY | `src/shared/constants/state-machines.ts` | Add EXPENSE_APPROVAL_TRANSITIONS |
-| MODIFY | `src/shared/components/layouts/navigation-config.ts` | Enable merchant bottomNav + alerts route |
-| MODIFY | `src/pages/merchant/Dashboard.tsx` | Conditional mobile dashboard rendering |
-| MODIFY | `src/App.tsx` | Add /merchant/alerts route |
-| MODIFY | `old-docs/PMS_Audit_Report_FULL.md` | Mark Priority 5 & 6 status |
+| CREATE | DB migration | `preventive_maintenance_schedules` table + amendment columns |
+| CREATE | `src/features/contracts/components/renewal/RenewalOfferDialog.tsx` | Merchant offer form with AI price suggestion |
+| CREATE | `src/features/contracts/components/renewal/TenantRenewalResponse.tsx` | Tenant accept/counter/decline |
+| CREATE | `src/features/contracts/components/renewal/NegotiationTimeline.tsx` | Offer history display |
+| CREATE | `src/features/contracts/components/renewal/AmendmentSignatureDialog.tsx` | Dual e-signature flow |
+| MODIFY | `src/features/contracts/services/renewalService.ts` | Add negotiation + signature methods |
+| MODIFY | `src/features/contracts/hooks/useLeaseRenewal.ts` | Add new mutations |
+| MODIFY | `src/pages/merchant/LeaseRenewals.tsx` | Full page with stats, recommendations, actions |
+| MODIFY | `src/features/contracts/components/renewal/RenewalAlertsList.tsx` | Add action buttons + price column |
+| CREATE | `src/features/maintenance/services/preventiveMaintenanceService.ts` | Schedule CRUD + auto-create |
+| CREATE | `src/features/maintenance/hooks/usePreventiveMaintenance.ts` | TanStack Query hooks |
+| CREATE | `src/features/maintenance/components/preventive/PreventiveScheduleForm.tsx` | Create/edit schedule |
+| CREATE | `src/features/maintenance/components/preventive/PreventiveCalendar.tsx` | Calendar view |
+| CREATE | `src/features/maintenance/components/preventive/PreventiveScheduleList.tsx` | Table view |
+| CREATE | `src/features/maintenance/components/preventive/CostComparisonCard.tsx` | Preventive vs emergency |
+| CREATE | `src/pages/merchant/PreventiveMaintenance.tsx` | Scheduler page |
+| MODIFY | `src/shared/constants/state-machines.ts` | Expand AMENDMENT_STATUS_TRANSITIONS |
+| MODIFY | `src/shared/components/layouts/navigation-config.ts` | Add preventive maintenance nav |
+| MODIFY | `src/App.tsx` | Add route |
+| MODIFY | `src/pages/merchant/Alerts.tsx` | Add overdue schedule alerts |
+| MODIFY | `old-docs/PMS_Audit_Report_FULL.md` | Mark Priority 7 & 8 status |
 
 ---
 
 ## Technical Notes
 
-- The `expenses` table already has `receipt_url`, `ocr_data`, `approved_by`, `approved_at` columns -- no DB migration needed
-- OCR edge function reuses `_shared/dss-utils.ts` helpers (callLovableAI, logModelRun, createOcrResult, etc.)
-- Receipt uploads go to existing `verification-documents` bucket (private, RLS-protected)
-- The 500K approval threshold is a client-side constant, easily configurable
-- Mobile bottom nav uses the existing `MobileBottomNav` component -- just needs config entries
-- No native app build needed -- the responsive web app with bottom nav provides a native-like experience
-- `vaul` (already installed) provides the bottom sheet drawer for QuickExpenseSheet
+- No new npm packages -- calendar built with CSS grid + date-fns
+- Negotiation uses existing `contract_amendments` table with new JSON columns for offer/counter-offer
+- Price recommendations reuse existing `ml-price-intelligence` edge function
+- E-signature reuses existing `SignaturePad` component
+- Auto-create from schedule reuses `maintenanceService.createMerchantRequest`
+- Frequency calculation: weekly (+7d), monthly (+1mo), quarterly (+3mo), biannual (+6mo), annual (+1yr)
+- Cost comparison queries `vendor_jobs.agreed_price` for emergency costs vs `estimated_cost` for preventive
+
