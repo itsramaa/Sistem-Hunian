@@ -6,7 +6,7 @@ import { Activity, DollarSign, Users, Wallet } from 'lucide-react';
 interface StatsData {
   totalGMV: number;
   totalMerchants: number;
-  totalEscrow: number;
+  totalTransferred: number;
   pendingVerifications: number;
 }
 
@@ -41,12 +41,12 @@ export function AdminStatsCards({ statsData, isLoading, className }: AdminStatsC
       description: 'active on platform',
     },
     {
-      title: 'Escrow Balance',
-      value: isLoading ? '...' : formatCurrency(statsData?.totalEscrow || 0),
-      change: '-2.1%',
-      changeType: 'negative' as const,
+      title: 'Total Transferred',
+      value: isLoading ? '...' : formatCurrency(statsData?.totalTransferred || 0),
+      change: '+8.5%',
+      changeType: 'positive' as const,
       icon: Wallet,
-      description: 'held in escrow',
+      description: 'transferred to merchants',
     },
     {
       title: 'Pending Verifications',
@@ -71,7 +71,7 @@ export function AdminStatsCards({ statsData, isLoading, className }: AdminStatsC
           <CardContent>
             <div className="text-2xl font-bold">{stat.value}</div>
             <p className="text-xs text-muted-foreground">
-              <span className={stat.changeType === 'positive' ? 'text-green-500' : stat.changeType === 'negative' ? 'text-red-500' : 'text-yellow-500'}>
+              <span className={stat.changeType === 'positive' ? 'text-green-500' : stat.changeType === 'neutral' ? 'text-yellow-500' : 'text-red-500'}>
                 {stat.change}
               </span>
               {' '}{stat.description}
