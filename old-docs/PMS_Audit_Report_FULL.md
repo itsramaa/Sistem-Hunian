@@ -805,10 +805,18 @@ Rather than missing features, focus should be on **execution quality & user expe
 
 ## SIMPLIFICATION OPPORTUNITIES
 
-### Priority 1: Reduce Core Workflows
+### ✅ Priority 1: Reduce Core Workflows
+
+**Status:** ✅ COMPLETE — Diimplementasi 27 Feb 2026
 
 **Current:** 23 diagrams with heavy inter-dependency
 **Target:** 7-8 core workflows yang pemilik butuh sehari-hari
+
+**Implementasi:**
+- ✅ Navigasi merchant direstrukturisasi dari 4 grup / 28 item menjadi 3 grup utama (Utama, Operasional, Keuangan) + 1 grup "Lainnya" collapsible
+- ✅ 13 item navigasi primer, fitur sekunder tersembunyi di "Lainnya" (collapsible)
+- ✅ Semua route tetap berfungsi — hanya hierarki sidebar yang diorganisasi ulang
+- ✅ Sidebar desktop dan mobile sheet keduanya mendukung collapsible "Lainnya"
 
 **Propose Simplification:**
 
@@ -839,14 +847,20 @@ Rather than missing features, focus should be on **execution quality & user expe
 
 **Proposed Core Workflows Count: 10-11** (vs current 23)
 
-### Priority 2: Simplify Financial Control
+### ✅ Priority 2: Simplify Financial Control
+
+**Status:** ✅ COMPLETE — Diimplementasi 27 Feb 2026
 
 **Current pain:** Too many transaction types, approval flow not clear
 
-**Simplification:**
-- **Mandatory owner approval** untuk: Disbursement, Deposit Refund, Damage Claim, Expense >threshold
-- **Auto-approve untuk:** Payment from verified payment gateway, scheduled recurring invoice
-- **Dashboard showing:** Cash balance, Receivables, Payables, Latest 10 transactions with approval status
+**Implementasi:**
+- ✅ **Mandatory owner approval**: Expenses ≥ Rp 500.000 (sudah ada), deposit refund (sudah ada), move-out notices (sudah ada)
+- ✅ **Auto-approve**: Pembayaran via Xendit gateway (sudah ada), pengeluaran < Rp 500.000 (sudah ada), invoice recurring terjadwal (sudah ada)
+- ✅ **Financial Control Dashboard** (`/merchant/financial-control`): Menampilkan saldo kas, piutang, hutang, pending approvals, 10 transaksi terakhir
+- ✅ **Inline approve/reject** langsung dari dashboard untuk expenses, deposit refunds, move-out notices
+- ✅ **Aturan persetujuan** ditampilkan sebagai collapsible info section
+- ✅ Service layer: `financialControlService.ts` mengagregasi data dari invoices, expenses, deposit_refunds, move_out_notices
+- ✅ Hook: `useFinancialControl.ts` dengan TanStack Query + mutation hooks
 
 ### Priority 3: Reduce Permission Complexity
 
