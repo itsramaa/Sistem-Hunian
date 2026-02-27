@@ -6,6 +6,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { Label } from '@/shared/components/ui/label';
+import { Input } from '@/shared/components/ui/input';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,6 +17,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/shared/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/shared/components/ui/dialog';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/integrations/supabase/client';
@@ -30,7 +37,10 @@ import {
   AlertCircle,
   Play,
   Check,
-  ImageIcon
+  ImageIcon,
+  MessageSquarePlus,
+  Loader2,
+  Upload
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -67,6 +77,12 @@ export default function VendorJobs() {
   const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
   const [declineReason, setDeclineReason] = useState('');
   const [declineError, setDeclineError] = useState('');
+
+  // Progress update dialog state
+  const [progressDialogOpen, setProgressDialogOpen] = useState(false);
+  const [progressNote, setProgressNote] = useState('');
+  const [progressPhoto, setProgressPhoto] = useState<File | null>(null);
+  const [progressUploading, setProgressUploading] = useState(false);
 
   // Fetch vendor jobs from vendor_jobs table
   const { data: jobs = [], isLoading } = useQuery({
@@ -285,6 +301,47 @@ export default function VendorJobs() {
     },
   });
 
+  // Progress update mutation
+  const submitProgressUpdate = async () => {
+    if (!selectedJob?.maintenance_request_id || !user || !progressNote.trim()) return;
+    setProgressUploading(true);
+
+    try {
+      let photoUrl: string | undefined;
+
+      // Upload photo if provided
+      if (progressPhoto) {
+        const filePath = `${user.id}/progress-${Date.now()}-${progressPhoto.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from('maintenance-photos')
+          .upload(filePath, progressPhoto);
+        if (uploadError) throw uploadError;
+        const { data: urlData } = supabase.storage.from('maintenance-photos').getPublicUrl(filePath);
+        photoUrl = urlData.publicUrl;
+      }
+
+      // Insert timeline entry
+      await supabase.from('maintenance_timeline').insert({
+        maintenance_request_id: selectedJob.maintenance_request_id,
+        status: 'update',
+        message: progressNote,
+        actor_id: user.id,
+        actor_role: 'vendor',
+        metadata: photoUrl ? { photo_url: photoUrl } : {},
+      });
+
+      toast.success('Progress update submitted');
+      setProgressDialogOpen(false);
+      setProgressNote('');
+      setProgressPhoto(null);
+      setSelectedJob(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to submit update');
+    } finally {
+      setProgressUploading(false);
+    }
+  };
+
   const activeJobs = jobs.filter(j => ['pending', 'accepted', 'in_progress'].includes(j.status));
   const completedJobs = jobs.filter(j => j.status === 'completed');
 
@@ -303,6 +360,13 @@ export default function VendorJobs() {
     setDeclineReason('');
     setDeclineError('');
     setDeclineDialogOpen(true);
+  };
+
+  const handleProgressClick = (job: VendorJob) => {
+    setSelectedJob(job);
+    setProgressNote('');
+    setProgressPhoto(null);
+    setProgressDialogOpen(true);
   };
 
   const handleAcceptConfirm = () => {
@@ -458,15 +522,26 @@ export default function VendorJobs() {
               </Button>
             )}
             {job.status === 'in_progress' && (
-              <Button 
-                size="sm" 
-                className="flex-1"
-                onClick={() => handleOpenCompletionDialog(job)}
-                disabled={updateJobMutation.isPending}
-              >
-                <CheckCircle2 className="h-4 w-4 mr-1" />
-                Mark Complete
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => handleProgressClick(job)}
+                >
+                  <MessageSquarePlus className="h-4 w-4 mr-1" />
+                  Tambah Update
+                </Button>
+                <Button 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => handleOpenCompletionDialog(job)}
+                  disabled={updateJobMutation.isPending}
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-1" />
+                  Mark Complete
+                </Button>
+              </>
             )}
           </div>
         )}
@@ -636,6 +711,48 @@ export default function VendorJobs() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Progress Update Dialog */}
+      <Dialog open={progressDialogOpen} onOpenChange={setProgressDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Tambah Progress Update</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Catatan Progress *</Label>
+              <Textarea
+                value={progressNote}
+                onChange={e => setProgressNote(e.target.value)}
+                placeholder="Jelaskan progress pekerjaan saat ini..."
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Foto (opsional)</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={e => setProgressPhoto(e.target.files?.[0] || null)}
+                  className="flex-1"
+                />
+                {progressPhoto && (
+                  <Badge variant="secondary" className="text-xs">{progressPhoto.name}</Badge>
+                )}
+              </div>
+            </div>
+            <Button
+              onClick={submitProgressUpdate}
+              disabled={progressUploading || !progressNote.trim()}
+              className="w-full"
+            >
+              {progressUploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
+              Kirim Update
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Completion Dialog */}
       {selectedJob && (

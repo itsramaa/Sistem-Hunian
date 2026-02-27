@@ -659,36 +659,41 @@ Pemilik 20+ unit sering punya caretaker or property manager:
 > - Preferred vendor: toggle ⭐ di tabel + muncul pertama di dropdown maintenance assignment
 > - Kolom `is_preferred` ditambahkan ke `property_vendor_services`
 > - `UpdateMaintenanceDialog` diupdate: preferred vendor di-sort ke atas dengan ⭐
+> - ✅ Vendor Portal: Progress update form untuk in-progress jobs (text note + foto) → insert ke `maintenance_timeline`
+> - ✅ Vendor Profile: Performance stats (total jobs, completion rate, avg response time, avg job price) + service area display
 
 Pemilik butuh track vendor reliability:
 - ✅ Average response time — calculated from vendor_jobs (started_at - created_at)
 - ✅ Quality rating — aggregated from maintenance_reviews
 - ✅ Cost comparison — side-by-side bar chart
 - ✅ Preferred vendor — toggle per vendor, muncul pertama di assignment dropdown
+- ✅ Vendor portal: Vendor can view assignment, submit progress update — "Tambah Update" button di in-progress jobs
+- ✅ Vendor profile: Contact, specialization, service area, rate — performance stats + service area card
 
 **Implementation:** ✅ COMPLETE
 
 ---
 
-### 🟢 8. Property Insurance Integration
+### ✅ 8. Property Insurance Integration
 
-**Status:** LOW (risk management)
+**Status:** ✅ COMPLETE — Diimplementasi 27 Feb 2026
+
+> **Ringkasan Implementasi:**
+> - Tabel `insurance_policies` dan `insurance_claims` sudah ada sebelumnya
+> - InsuranceTab diperkaya: renewal alerts (30/60 hari), claims management UI, document upload, analytics card
+> - `InsuranceAnalyticsCard`: total cakupan, premi, rasio klaim, coverage gap warnings, bar chart premi vs klaim per tahun (recharts)
+> - `insuranceRenewalService.ts`: client-side renewal check + coverage gap analysis
+> - Klaim: form ajukan klaim per polis aktif, daftar klaim dengan status badge (submitted/reviewing/approved/rejected/paid)
+> - Dokumen polis: upload PDF/image ke bucket `verification-documents`, simpan URL di `coverage_details.document_url`
+> - Hooks: `useInsuranceClaims`, `useCreateInsuranceClaim` ditambahkan
 
 Some owner want track property insurance:
-- Insurance policy document (store contract)
-- Renewal reminder (auto-notify before expiry)
-- Claim tracking (if damage happen, help with documentation)
-- Cost vs. risk analysis (is insurance worth the premium)
+- ✅ Insurance policy document (store contract) — upload dokumen polis ke storage bucket, link di policy card
+- ✅ Renewal reminder (auto-notify before expiry) — client-side 30/60 hari alert dengan urgency badges
+- ✅ Claim tracking (if damage happen, help with documentation) — claims management UI dengan form + status tracking
+- ✅ Cost vs. risk analysis (is insurance worth the premium) — InsuranceAnalyticsCard dengan rasio klaim, coverage gaps, chart
 
-**Current System:** Not in diagrams.
-
-**Recommendation:** Add insurance management:
-- Store policy document & renewal date
-- Auto-reminder 30 days before expiry
-- Claim submission: Help prepare claim document (evidence, cost estimate)
-- Analytics: Track cost vs. claims ratio
-
-**Implementation:** Phase 3 (2 weeks)
+**Implementation:** ✅ COMPLETE
 
 ---
 
