@@ -1,158 +1,94 @@
 
-# Coverage Validation Review: UX Assessment & User Journey
 
-## Merchant Feature Ground Truth List
+# Revise UX Assessment: Remove Merchant Escrow & Update to Actual System
 
-Extracted from navigation config, activity diagrams, and page files:
+## Problem Statement
 
-| # | Feature Name | Source Document | Section |
-|---|---|---|---|
-| 1 | Onboarding & Verification | `merchant_activity_diagram.md` Diagram 1 | Merchant Registration |
-| 2 | Subscription Management | `merchant_activity_diagram.md` Diagram 2 | Subscription Lifecycle |
-| 3 | Property & Unit Management | `merchant_activity_diagram.md` Diagram 3 | Property Setup |
-| 4 | Contract Lifecycle | `merchant_activity_diagram.md` Diagram 4 | Contract Creation |
-| 5 | Tenant Management | `merchant_activity_diagram.md` Diagram 5 | Tenant Flow |
-| 6 | Invoice Management | `merchant_activity_diagram.md` Diagrams 6, 6B | Invoice Lifecycle |
-| 7 | Payment & Verification | `merchant_activity_diagram.md` Diagram 7 | Payment Flow |
-| 8 | Escrow & Disbursement | `merchant_activity_diagram.md` Diagram 8 | Escrow Flow |
-| 9 | Move-Out & Deposit Refund | `merchant_activity_diagram.md` Diagram 9 | Move-Out Process |
-| 10 | Maintenance Requests | `merchant_activity_diagram.md` Diagram 10 | Maintenance Lifecycle |
-| 11 | Collections & Billing Analytics | `merchant_activity_diagram.md` Diagrams 11, 20 | Collections Case |
-| 12 | AI/ML & DSS Advisory | `merchant_activity_diagram.md` Diagram 12 | AI/DSS Flow |
-| 13 | Referral System | `merchant_activity_diagram.md` Diagram 13 | Referral Flow |
-| 14 | Support, Feedback & Compliance | `merchant_activity_diagram.md` Diagram 14 | Support Flow |
-| 15 | Payment Reconciliation | `merchant_activity_diagram.md` Diagram 15 | Auto-Match |
-| 16 | Automated Payment Reminders | `merchant_activity_diagram.md` Diagram 16 | Reminder System |
-| 17 | Expense Tracking | `merchant_activity_diagram.md` Diagram 17 | Expense Management |
-| 18 | Waiting List | `merchant_activity_diagram.md` Diagram 18 | Applicant Management |
-| 19 | Lease Renewal & Amendment | `merchant_activity_diagram.md` Diagram 19 | Amendment Lifecycle |
-| 20 | Dynamic Pricing | `merchant_activity_diagram.md` Diagram 21 | Pricing Rules |
-| 21 | Financial Reports (P&L) | `merchant_activity_diagram.md` Diagram 22 | Financial Reporting |
-| 22 | Financial Control Center | `role-actions.ts` line 23 | Approval Workflow |
-| 23 | Occupancy Board | `navigation-config.ts` line 124; `OccupancyBoard.tsx` | Sidebar item "Papan Okupansi" |
-| 24 | Inventory / Asset Management | `navigation-config.ts` line 149; Diagram 3 subgraph | Sidebar item "Inventori" |
-| 25 | Guardian Management | `navigation-config.ts` line 150; `Guardians.tsx` | Sidebar item "Penjaga" |
-| 26 | Vendor Performance | `navigation-config.ts` line 151; `VendorPerformance.tsx` | Sidebar item "Performa Vendor" |
-| 27 | Utility Billing | `navigation-config.ts` line 152; page exists | Sidebar item "Utilitas" |
-| 28 | Document Templates | `navigation-config.ts` line 157; `DocumentTemplates.tsx` | Sidebar item "Template Dokumen" |
-| 29 | API & Integration | `navigation-config.ts` line 159; page exists | Sidebar item "API & Integrasi" |
-| 30 | Staff Management | `navigation-config.ts` line 160; `StaffManagement.tsx` with RBAC | Sidebar item "Manajemen Staff" |
-| 31 | InsightsHub (Analytics Landing) | `navigation-config.ts` line 158; `InsightsHub.tsx` | Sidebar item "Alat" |
-| 32 | Tenant Screening | `App.tsx` line 87; `TenantScreening.tsx`; activePattern in nav | Dedicated page linked from Tenants |
+The current `UX_ASSESSMENT_AND_USER_JOURNEY.md` contains **outdated escrow references for merchants** that no longer reflect the actual system. A migration (`20260227084712`) explicitly removed merchant escrow, adding the comment: "Escrow account creation removed -- using direct payment model." The `merchant_activity_diagram.md` is also outdated (Diagram 8 still shows full merchant escrow flow).
 
----
+## Evidence of Change
 
-## Coverage Cross-Validation Table
+| Evidence | Source | Detail |
+|----------|--------|--------|
+| Migration removes escrow | `20260227084712_.sql` line 44 | "NOTE: Escrow account creation removed -- using direct payment model" |
+| `create_merchant_escrow` trigger dropped | Same migration, line 86 | `DROP TRIGGER IF EXISTS create_merchant_escrow` |
+| Dashboard uses `payment_transfers` | `merchantDashboardService.ts` line 78 | Queries `payment_transfers` table, NOT `escrow_accounts` |
+| Dashboard comment confirms | `merchantDashboardService.ts` line 159 | "Process Financials (direct payment model -- no escrow)" |
+| Dashboard balance hardcoded 0 | `merchantDashboardService.ts` line 207 | `balance: 0` -- no escrow balance |
+| State machine label | `state-machines.ts` line 129 | "Section 13: Payment Transfer Lifecycle (Direct Payment Model)" |
+| No `ESCROW_TRANSACTION_TRANSITIONS` | `state-machines.ts` | Does not exist -- removed |
+| No merchant escrow nav item | `navigation-config.ts` | No `/merchant/escrow` in sidebar |
+| No merchant escrow page | `src/pages/merchant/` | No `Escrow.tsx` file |
+| Vendor earnings use `vendor_earnings` | `Earnings.tsx` line 62 | Vendor has own earning system, not escrow |
+| Disbursement is vendor-only | `state-machines.ts` line 137 | "Section 13b: Vendor Disbursement Lifecycle" |
+| Admin has `payment-transfers` page | `navigation-config.ts` line 218 | Label: "Transfer Dana" |
 
-| # | Feature Name | Present in UX Doc? | Section Reference | Complete? |
-|---|---|---|---|---|
-| 1 | Onboarding & Verification | Yes | Section 2, Feature 1 | Yes |
-| 2 | Subscription Management | Yes | Section 2, Feature 2 | Yes |
-| 3 | Property & Unit Management | Yes | Section 2, Feature 3 | Yes |
-| 4 | Contract Lifecycle | Yes | Section 2, Feature 4 | Yes |
-| 5 | Tenant Management | Yes | Section 2, Feature 5 | Yes |
-| 6 | Invoice Management | Yes | Section 2, Feature 6 | Yes |
-| 7 | Payment & Verification | Yes | Section 2, Feature 7 | Yes |
-| 8 | Escrow & Disbursement | Yes | Section 2, Feature 8 | Yes |
-| 9 | Move-Out & Deposit Refund | Yes | Section 2, Feature 9 | Yes |
-| 10 | Maintenance Requests | Yes | Section 2, Feature 10 | Yes |
-| 11 | Collections & Billing Analytics | Yes | Section 2, Feature 11 | Yes |
-| 12 | AI/ML & DSS Advisory | Yes | Section 2, Feature 12 | Yes |
-| 13 | Referral System | Yes | Section 2, Feature 13 | Yes |
-| 14 | Support, Feedback & Compliance | Yes | Section 2, Feature 14 | Yes |
-| 15 | Payment Reconciliation | Yes | Section 2, Feature 15 | Yes |
-| 16 | Automated Payment Reminders | Yes | Section 2, Feature 16 | Yes |
-| 17 | Expense Tracking | Yes | Section 2, Feature 17 | Yes |
-| 18 | Waiting List | Yes | Section 2, Feature 18 | Yes |
-| 19 | Lease Renewal & Amendment | Yes | Section 2, Feature 19 | Yes |
-| 20 | Dynamic Pricing | Yes | Section 2, Feature 20 | Yes |
-| 21 | Financial Reports (P&L) | Yes | Section 2, Feature 21 | Yes |
-| 22 | Financial Control Center | Yes | Section 2, Feature 22 | Yes |
-| 23 | Occupancy Board | **Missing** | -- | -- |
-| 24 | Inventory / Asset Management | **Partial** | Mentioned in Feature 3 subgraph only | No standalone assessment |
-| 25 | Guardian Management | **Partial** | Mentioned in Feature 3 as optional step | No standalone assessment |
-| 26 | Vendor Performance | **Partial** | Mentioned in Feature 10 (vendor rating) | No standalone assessment |
-| 27 | Utility Billing | **Missing** | -- | -- |
-| 28 | Document Templates | **Partial** | Mentioned in Section 5 "over-complexity" | No UX friction/business analysis |
-| 29 | API & Integration | **Partial** | Mentioned in Section 5 "over-complexity" | No UX friction/business analysis |
-| 30 | Staff Management | **Missing** | -- | -- |
-| 31 | InsightsHub (Analytics Landing) | **Partial** | Mentioned in Feature 12 context | No standalone assessment of hub UX |
-| 32 | Tenant Screening | **Partial** | Mentioned briefly in Feature 5 | No standalone assessment |
+## Changes Required
 
----
+### 1. Update Source Traceability Matrix (Row 8)
 
-## Coverage Status
+**Before**: Feature 8 = "Direct Payment (Escrow & Disbursement)" referencing `merchant_activity_diagram.md` Diagram 8
 
-| Metric | Value |
-|--------|-------|
-| Total Features Identified | **32** |
-| Fully Covered | **22** |
-| Partially Covered | **7** |
-| Missing | **3** |
-| **Coverage Status** | **Incomplete** |
+**After**: Feature 8 = "Direct Payment (Payment Transfers)" referencing `PAYMENT_TRANSFER_TRANSITIONS` in `state-machines.ts` lines 129-135 and `merchantDashboardService.ts` lines 76-81. Note that `merchant_activity_diagram.md` Diagram 8 is **outdated** and should be flagged.
 
-### Verdict: Coverage = Not Fully Complete
+### 2. Rewrite Feature 8 Section
 
-The document covers 22/32 merchant features fully. 7 features are partially mentioned but lack the required format (Documentation Source, Current Flow table, State Machine, UX Friction, Business Impact, Simplification Opportunities). 3 features are entirely absent.
+Replace entire Feature 8 with corrected flow:
 
----
+- **Documentation Source**: `state-machines.ts` Section 13 (Payment Transfer Lifecycle), `merchantDashboardService.ts`
+- **Flow**: Payment confirmed -> `payment_transfers` table -> status: pending -> processing -> completed/failed
+- Remove all references to: `escrow_accounts`, `escrow_transactions`, escrow balance, escrow page, scheduled-disbursement, xendit-disbursement, admin manual review for large disbursements
+- Keep bank account management reference
+- **State Machine**: `PAYMENT_TRANSFER_TRANSITIONS` (pending -> processing -> completed/failed, failed -> pending retry)
+- Update UX Friction: Remove "escrow is invisible" friction; add "payment_transfers pending status unclear to merchant" friction
+- Update Simplification: Remove "rename Escrow to Saldo Tertunda"
 
-## Missing and Partial Features
+### 3. Fix Feature 1 (Onboarding) Reference
 
-### Entirely Missing (3)
+Line 156 says `ensure-user-bootstrap` "creates profiles, user_roles, merchants, escrow_accounts, merchant_subscriptions (free)". Remove `escrow_accounts` -- confirmed not created anymore per migration.
 
-| Feature | Why Skipped | Source |
-|---------|-------------|--------|
-| Occupancy Board | No activity diagram exists for this feature. It has its own sidebar item, dedicated page with drag-and-drop unit status management, and `useOccupancyBoard` hook | `navigation-config.ts` line 124, `OccupancyBoard.tsx` |
-| Utility Billing | No activity diagram exists. Has sidebar item and dedicated page for tracking utility costs per property/unit | `navigation-config.ts` line 152 |
-| Staff Management | No activity diagram exists. Has full RBAC system with 3 roles (caretaker, property_manager, accountant), permission groups, invite/remove flow | `navigation-config.ts` line 160, `StaffManagement.tsx` |
+### 4. Fix Feature 7 (Payment & Verification) Reference
 
-### Partially Covered (7)
+Line 649 in the activity diagram says "Masuk Escrow See Diagram 8". The UX doc itself doesn't directly reference this but the payment flow should reference `payment_transfers` instead. Check and update if needed.
 
-| Feature | Current Coverage | Missing |
-|---------|-----------------|---------|
-| Inventory/Asset Management | Mentioned as Diagram 3 subgraph (asset tracking, OCR label, depreciation) | No standalone UX friction analysis, flow table, business impact |
-| Guardian Management | Mentioned as optional step in Feature 3 | No standalone assessment of guardian assignment UX |
-| Vendor Performance | Referenced in Feature 10 (vendor rating trigger) | No assessment of the standalone analytics dashboard |
-| Document Templates | Listed in Section 5 "over-complexity" | No flow table, friction analysis, or business impact |
-| API & Integration | Listed in Section 5 "over-complexity" | No flow table, friction analysis, or business impact |
-| InsightsHub | Referenced in Feature 12 | No assessment of the card-based landing UX pattern |
-| Tenant Screening | Briefly mentioned in Feature 5 as "AI scoring features" | No assessment of the dedicated screening page and its Green/Yellow/Red grading UX |
+### 5. Update Over-Complexity Detection (Section 5)
 
----
+Remove or update any escrow-related complexity entries.
 
-## Revision Plan
+### 6. Update Appendix
 
-### What to Add
+- Remove `ESCROW_TRANSACTION_TRANSITIONS` from any count references
+- Add `PAYMENT_TRANSFER_TRANSITIONS` to state machine count
+- Total state machine count may change (verify: was 31, escrow removed but payment_transfer added -- net same or different)
 
-Add 10 new feature sections (Features 23-32) to the UX document, following the exact format:
+### 7. Update Hallucination Self-Check (Section 8)
 
-- Documentation Source block
-- Current Flow table (from actual page code since no activity diagrams exist for these)
-- State Machine (or "No Explicit State Machine Defined" marker)
-- UX Friction Analysis
-- Business Impact
-- Simplification Opportunities
+Add new discrepancy:
+- `merchant_activity_diagram.md` Diagram 8 shows merchant escrow flow but system has migrated to direct payment model (`payment_transfers`)
+- `merchant_activity_diagram.md` Diagram 1 references `escrow_accounts` creation in `handle_new_user()` trigger but this was removed
+- `merchant_activity_diagram.md` Diagram 7 references "Masuk Escrow See Diagram 8" but escrow no longer applies to merchants
 
-### What to Update
+### 8. Update Onboarding Journey (Section 3A)
 
-1. **Traceability Matrix** (Section Step 1): Add rows 23-32
-2. **Hallucination Self-Check** (Section 8): Update totals from 22 to 32
-3. **Executive Summary**: Update "24 sidebar items" context to note that 10 features were previously unassessed
-4. **Over-Complexity Section**: Move API & Integration and Document Templates from mere mentions to proper cross-references
+The merchant onboarding step note should reflect that no escrow account is created.
 
-### Technical Notes
+## State Machine Count Recount
 
-- Features 23-32 do NOT have activity diagrams in `merchant_activity_diagram.md` (which only covers Diagrams 1-23, where Diagram 23 is admin-only). Their source evidence comes from `navigation-config.ts` sidebar items + actual page implementations.
-- For features without activity diagrams, the Documentation Source will reference the page file and navigation config.
-- All new sections will follow the Non-Hallucination Protocol with appropriate markers.
+Need to verify whether removing `ESCROW_TRANSACTION_TRANSITIONS` and keeping `PAYMENT_TRANSFER_TRANSITIONS` changes the total from 31. The state-machines.ts search showed `PAYMENT_TRANSFER_TRANSITIONS` exists at line 130 and `DISBURSEMENT_STATUS_TRANSITIONS` at line 138, but no `ESCROW_TRANSACTION_TRANSITIONS`. So the count of 31 may already be correct (escrow was already gone when we counted). No change needed if already accurate.
 
-### Final Coverage After Revision
+## Files Modified
 
-| Metric | Before | After |
-|--------|--------|-------|
-| Total Features | 32 | 32 |
-| Fully Covered | 22 | 32 |
-| Partial | 7 | 0 |
-| Missing | 3 | 0 |
-| Coverage | Incomplete | Complete |
+| Action | File |
+|--------|------|
+| EDIT | `old-docs/UX_ASSESSMENT_AND_USER_JOURNEY.md` |
+
+## Summary of All Edits
+
+1. Traceability Matrix row 8: rename + update source references
+2. Feature 1 flow table: remove `escrow_accounts` from bootstrap step
+3. Feature 8: full rewrite to Direct Payment (Payment Transfers) model
+4. Section 5 (Over-Complexity): remove escrow references if present
+5. Section 8 (Hallucination Check): add 3 new diagram discrepancies about outdated escrow references in `merchant_activity_diagram.md`
+6. Appendix: verify state machine counts still accurate
+7. Any stray "escrow" references throughout the document -> update to `payment_transfers` or remove
+
