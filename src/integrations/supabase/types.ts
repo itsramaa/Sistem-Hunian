@@ -7014,6 +7014,122 @@ export type Database = {
           },
         ]
       }
+      tenant_screenings: {
+        Row: {
+          ai_assessment: Json | null
+          candidate_email: string | null
+          candidate_name: string
+          candidate_phone: string | null
+          created_at: string
+          employer_name: string | null
+          guarantor_id_url: string | null
+          guarantor_name: string | null
+          guarantor_phone: string | null
+          guarantor_relation: string | null
+          id: string
+          income_proof_url: string | null
+          merchant_id: string
+          monthly_income: number | null
+          notes: string | null
+          occupation: string | null
+          previous_landlord_name: string | null
+          previous_landlord_phone: string | null
+          previous_rental_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          screening_grade: string | null
+          screening_score: number | null
+          status: string
+          tenant_user_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          ai_assessment?: Json | null
+          candidate_email?: string | null
+          candidate_name: string
+          candidate_phone?: string | null
+          created_at?: string
+          employer_name?: string | null
+          guarantor_id_url?: string | null
+          guarantor_name?: string | null
+          guarantor_phone?: string | null
+          guarantor_relation?: string | null
+          id?: string
+          income_proof_url?: string | null
+          merchant_id: string
+          monthly_income?: number | null
+          notes?: string | null
+          occupation?: string | null
+          previous_landlord_name?: string | null
+          previous_landlord_phone?: string | null
+          previous_rental_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          screening_grade?: string | null
+          screening_score?: number | null
+          status?: string
+          tenant_user_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ai_assessment?: Json | null
+          candidate_email?: string | null
+          candidate_name?: string
+          candidate_phone?: string | null
+          created_at?: string
+          employer_name?: string | null
+          guarantor_id_url?: string | null
+          guarantor_name?: string | null
+          guarantor_phone?: string | null
+          guarantor_relation?: string | null
+          id?: string
+          income_proof_url?: string | null
+          merchant_id?: string
+          monthly_income?: number | null
+          notes?: string | null
+          occupation?: string | null
+          previous_landlord_name?: string | null
+          previous_landlord_phone?: string | null
+          previous_rental_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          screening_grade?: string | null
+          screening_score?: number | null
+          status?: string
+          tenant_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_screenings_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_occupancy_analysis"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "tenant_screenings_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "tenant_screenings_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_screenings_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenants: {
         Row: {
           age_group: string | null

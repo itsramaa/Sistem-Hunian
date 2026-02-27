@@ -13,6 +13,7 @@ import {
     
     Home,
     LayoutDashboard,
+    LayoutGrid,
     Lightbulb,
     LogOut,
     LucideIcon,
@@ -22,6 +23,7 @@ import {
     ScanText,
     Settings,
     Shield,
+    ShieldCheck,
     ShoppingBag,
     ShoppingCart,
     Store,
@@ -116,6 +118,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
         items: [
           { path: "/merchant", icon: LayoutDashboard, label: "Dashboard" },
           { path: "/merchant/properties", icon: Building2, label: "Properti", activePatterns: ["/merchant/units"] },
+          { path: "/merchant/occupancy-board", icon: LayoutGrid, label: "Papan Okupansi" },
         ],
       },
       {
@@ -126,6 +129,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/merchant/tenants", icon: Users, label: "Penyewa", activePatterns: ["/merchant/move-outs", "/merchant/tenant-analytics"] },
           { path: "/merchant/contracts", icon: ClipboardList, label: "Kontrak", activePatterns: ["/merchant/lease-renewals"] },
           { path: "/merchant/waiting-list", icon: UserCheck, label: "Daftar Tunggu" },
+          { path: "/merchant/tenant-screening", icon: ShieldCheck, label: "Screening Penyewa" },
           { path: "/merchant/maintenance", icon: Wrench, label: "Maintenance" },
           
         ],

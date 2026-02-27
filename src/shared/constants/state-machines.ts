@@ -244,6 +244,14 @@ export const PAYMENT_VERIFICATION_TRANSITIONS: Record<string, string[]> = {
 };
 
 // ─── Section 23: DSS Recommendation Lifecycle ─────────────────────────────
+// ─── Section 26: Tenant Screening Lifecycle ───────────────────────────────
+export const SCREENING_STATUS_TRANSITIONS: Record<string, string[]> = {
+  pending: ['scored'],
+  scored: ['approved', 'rejected'],
+  approved: [],   // terminal
+  rejected: ['pending'],  // allow re-screening
+};
+
 export const DSS_RECOMMENDATION_TRANSITIONS: Record<string, string[]> = {
   generated: ['viewed', 'accepted', 'rejected'],
   viewed: ['accepted', 'rejected'],
