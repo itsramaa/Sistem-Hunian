@@ -1,220 +1,192 @@
 
-
-# Utilities & Shared Expense Billing + Document Template Library
+# Dashboard Customization + API & Integration Framework
 
 ## Overview
 
-Two features to enhance operational efficiency:
-1. **Utilities & Shared Expense Billing** -- Meter reading input, usage calculation, cost allocation (fixed/metered), auto-generation of utility invoices separate from rent, and tenant-facing breakdown
-2. **Document Template Library** -- Database-backed template storage (replacing localStorage), pre-drafted Indonesian kos templates, variable auto-fill with tenant/property data, PDF export, and version history
+Two features:
+1. **Dashboard Customization** -- Drag-drop widget reordering, show/hide widgets, saved preferences per merchant
+2. **API & Integration Framework** -- REST API via edge function for external integrations + webhook system for event notifications
 
 ---
 
-## Feature 1: Utilities & Shared Expense Billing
+## Feature 3: Dashboard Customization
 
-### 1A: Database -- New Tables
+### 3A: Database -- `dashboard_preferences` Table
 
-**`utility_meter_readings`** -- Monthly meter readings per unit:
+Create table to store per-merchant widget layout:
+
 ```
-id                uuid PK
-merchant_id       uuid FK merchants
-property_id       uuid FK properties
-unit_id           uuid FK units
-utility_type      text NOT NULL (water, electricity)
-reading_date      date NOT NULL
-previous_reading  numeric NOT NULL
-current_reading   numeric NOT NULL
-usage             numeric GENERATED (current_reading - previous_reading)
-rate_per_unit     numeric NOT NULL
-photo_url         text (optional meter photo)
-notes             text
-created_at        timestamptz DEFAULT now()
+dashboard_preferences
+  id              uuid PK
+  merchant_id     uuid FK merchants UNIQUE
+  widget_order    jsonb NOT NULL DEFAULT '[]'   -- ordered list of widget IDs
+  hidden_widgets  jsonb NOT NULL DEFAULT '[]'   -- list of hidden widget IDs
+  created_at      timestamptz DEFAULT now()
+  updated_at      timestamptz DEFAULT now()
 ```
 
-**`utility_charges`** -- Computed charges per tenant per period:
-```
-id                uuid PK
-merchant_id       uuid FK merchants
-property_id       uuid FK properties
-unit_id           uuid FK units
-contract_id       uuid FK contracts
-tenant_user_id    uuid
-billing_period    text NOT NULL (e.g. '2026-02')
-utility_type      text NOT NULL (water, electricity, internet, cleaning, other)
-allocation_method text NOT NULL (metered, equal_split, weighted_split, fixed)
-total_cost        numeric NOT NULL
-unit_share        numeric NOT NULL (tenant's portion)
-quantity          numeric (usage units for metered)
-rate              numeric
-invoice_id        uuid FK invoices (linked when invoiced)
-status            text DEFAULT 'pending' (pending, invoiced, paid)
-created_at        timestamptz DEFAULT now()
-```
+RLS: merchant can read/write their own preferences only.
 
-**`utility_settings`** -- Per-property utility configuration:
-```
-id                uuid PK
-merchant_id       uuid FK merchants
-property_id       uuid FK properties
-utility_type      text NOT NULL
-allocation_method text NOT NULL DEFAULT 'equal_split'
-rate_per_unit     numeric (for metered types)
-fixed_monthly     numeric (for fixed allocation)
-weight_config     jsonb (unit_type -> weight mapping for weighted split)
-is_active         boolean DEFAULT true
-created_at        timestamptz DEFAULT now()
-updated_at        timestamptz DEFAULT now()
-```
+Widget IDs will be predefined constants like: `'kpi_strip'`, `'quick_actions'`, `'subscription'`, `'charts'`, `'property_overview'`, `'financial_summary'`, `'vacancy'`.
 
-RLS: All tables scoped to merchant via `merchant_id = auth.uid()` through merchants lookup. Tenant read access for their own charges.
+### 3B: Dashboard Preferences Service
 
-### 1B: Utility Billing Service
+Create `src/features/dashboard/services/dashboardPreferencesService.ts`:
+- `fetchPreferences(merchantId)` -- get saved preferences or return defaults
+- `savePreferences(merchantId, data)` -- upsert widget order + hidden widgets
+- Default widget order: `['kpi_strip', 'quick_actions', 'charts', 'property_overview', 'vacancy']`
 
-Create `src/features/utilities/services/utilityBillingService.ts`:
-- `fetchSettings(propertyId)` -- get utility config for a property
-- `saveSettings(propertyId, settings[])` -- upsert utility settings
-- `submitMeterReading(data)` -- insert reading, auto-calculate usage
-- `fetchReadings(propertyId, period)` -- readings for a billing period
-- `generateCharges(propertyId, period)` -- compute charges per unit per utility type:
-  - **Metered** (water/electricity): usage x rate_per_unit
-  - **Equal split** (internet): total_cost / occupied_units_count
-  - **Weighted split** (cleaning): total_cost x (unit_weight / sum_weights)
-  - **Fixed** (flat monthly): fixed_monthly amount per unit
-- `fetchCharges(propertyId, period)` -- list charges for a period
-- `createUtilityInvoices(propertyId, period)` -- generate one invoice per tenant with line_items for each utility type, link via `invoice_id` on charges
+### 3C: Hooks
 
-### 1C: Utility Management Page
+Create `src/features/dashboard/hooks/useDashboardPreferences.ts`:
+- `useDashboardPreferences(merchantId)` -- query
+- `useSaveDashboardPreferences()` -- mutation with optimistic update
 
-Create `src/pages/merchant/UtilityBilling.tsx`:
-- **Tab 1: Pengaturan** -- Per-property utility settings (which utilities are active, rates, allocation method)
-- **Tab 2: Input Meter** -- Monthly meter reading form. Select property, month. Grid of units with previous/current reading input. Optional photo upload for meter
-- **Tab 3: Tagihan Utilitas** -- Generated charges view per period. Status badges (pending/invoiced/paid). "Generate Invoice" button to create invoices for all pending charges
-- **Stats strip**: Total charges this month, pending amount, billed amount
+### 3D: Customize Dashboard Dialog
 
-### 1D: Meter Reading Form
+Create `src/features/dashboard/components/DashboardCustomizeDialog.tsx`:
+- Modal triggered by a "Kustomisasi" button in the dashboard header
+- List of all available widgets with:
+  - Toggle switch to show/hide each widget
+  - Drag handle to reorder (using simple up/down arrow buttons -- no drag-drop library needed)
+  - Widget name + description
+- Preview of layout order
+- Save button persists to database
+- Reset to Default button
 
-Create `src/features/utilities/components/MeterReadingForm.tsx`:
-- Property + period selector at top
-- Grid/table of occupied units (fetched from contracts)
-- Each row: unit number, previous reading (auto-filled from last period), current reading input, calculated usage
-- Batch submit all readings at once
-- Validation: current >= previous
+### 3E: Modify Dashboard Page
 
-### 1E: Utility Charge Generator
+Update `src/pages/merchant/Dashboard.tsx`:
+- Import preferences hook
+- Add "Kustomisasi" button next to "Segarkan" in PageHeader
+- Wrap each dashboard section in a widget container identified by widget ID
+- Render widgets in order from preferences, skip hidden ones
+- Each section becomes a `DashboardWidget` wrapper that maps ID to component
 
-Create `src/features/utilities/components/UtilityChargeGenerator.tsx`:
-- Select property + period
-- Shows breakdown: each utility type, total cost, per-unit allocation
-- Preview mode before confirming generation
-- "Generate & Invoice" button creates charges + invoices in one action
+### 3F: Widget Registry
 
-### 1F: Tenant Utility View
-
-Enhance tenant invoice detail or create section in tenant dashboard:
-- When invoice has utility line_items, show breakdown:
-  - "Air: {usage} m3 x Rp {rate} = Rp {total}"
-  - "Internet: Rp {total} / {unit_count} unit = Rp {share}"
-  - "Kebersihan: Rp {total} x {weight}% = Rp {share}"
-
-### 1G: Hooks
-
-Create `src/features/utilities/hooks/useUtilityBilling.ts`:
-- `useUtilitySettings(propertyId)` -- query settings
-- `useSaveSettings()` -- mutation
-- `useMeterReadings(propertyId, period)` -- query readings
-- `useSubmitReadings()` -- mutation
-- `useUtilityCharges(propertyId, period)` -- query charges
-- `useGenerateCharges()` -- mutation
-- `useGenerateUtilityInvoices()` -- mutation
+Create `src/features/dashboard/constants/widgetRegistry.ts`:
+- Map of widget ID to: label, description, component reference, default visibility
+- Used by both the customize dialog and the dashboard renderer
 
 ---
 
-## Feature 2: Document Template Library
+## Feature 4: API & Integration Framework
 
-### 2A: Database -- `document_templates` Table
+### 4A: Database -- `api_keys` and `webhook_endpoints` Tables
 
+**`api_keys`**:
 ```
-id                uuid PK
-merchant_id       uuid FK merchants
-name              text NOT NULL
-description       text
-category          text NOT NULL (lease_contract, house_rules, move_in_checklist, inspection_report, eviction_notice, payment_reminder, other)
-content           text NOT NULL (template body with {{variable}} placeholders)
-variables         jsonb (list of available variables with descriptions)
-is_default        boolean DEFAULT false
-is_system         boolean DEFAULT false (pre-drafted system templates)
-version           integer DEFAULT 1
-created_at        timestamptz DEFAULT now()
-updated_at        timestamptz DEFAULT now()
+id              uuid PK
+merchant_id     uuid FK merchants
+key_hash        text NOT NULL        -- SHA-256 hash of the API key
+key_prefix      text NOT NULL        -- first 8 chars for display (e.g. "pk_live_a1b2...")
+name            text NOT NULL        -- friendly name
+scopes          jsonb DEFAULT '["read"]'  -- read, write, webhook
+rate_limit      integer DEFAULT 1000  -- requests per hour
+last_used_at    timestamptz
+is_active       boolean DEFAULT true
+created_at      timestamptz DEFAULT now()
+expires_at      timestamptz
 ```
 
-RLS: merchant CRUD on own templates. System templates (is_system=true) readable by all merchants.
+**`webhook_endpoints`**:
+```
+id              uuid PK
+merchant_id     uuid FK merchants
+url             text NOT NULL
+events          jsonb NOT NULL       -- list of event types to subscribe to
+secret          text NOT NULL        -- webhook signing secret
+is_active       boolean DEFAULT true
+last_triggered_at timestamptz
+failure_count   integer DEFAULT 0
+created_at      timestamptz DEFAULT now()
+updated_at      timestamptz DEFAULT now()
+```
 
-Seed system templates via migration with standard Indonesian kos contract, house rules, move-in checklist, inspection report, eviction notice, payment reminder.
+**`webhook_logs`**:
+```
+id              uuid PK
+webhook_id      uuid FK webhook_endpoints
+event_type      text NOT NULL
+payload         jsonb NOT NULL
+response_status integer
+response_body   text
+delivered_at    timestamptz DEFAULT now()
+```
 
-### 2B: Template Service
+RLS: merchant CRUD on own keys and endpoints.
 
-Create `src/features/documents/services/documentTemplateService.ts`:
-- `fetchTemplates(merchantId, category?)` -- list templates (own + system)
-- `createTemplate(data)` -- insert new template, increment version on update
-- `updateTemplate(id, data)` -- update content, bump version, keep old version as snapshot in `document_template_versions` (optional -- can store version history in same table with parent_id)
-- `deleteTemplate(id)` -- delete (only non-system)
-- `duplicateTemplate(id)` -- copy system template to merchant's own for customization
-- `fillTemplate(templateId, variables)` -- replace `{{variable}}` placeholders with actual data
-- `getAvailableVariables(category)` -- return variable list per category (tenant_name, unit_number, rent_amount, property_name, start_date, end_date, etc.)
+### 4B: API Gateway Edge Function
 
-### 2C: Template Library Page
+Create `supabase/functions/merchant-api/index.ts`:
+- Authentication via `X-API-Key` header
+- Validates key hash against `api_keys` table
+- Rate limiting check (count requests in last hour)
+- Routes:
+  - `GET /properties` -- list merchant's properties
+  - `GET /properties/:id` -- single property with units
+  - `GET /units` -- list units (filterable by property_id, status)
+  - `GET /tenants` -- list active tenants
+  - `GET /invoices` -- list invoices (filterable by status, date range)
+  - `GET /payments` -- list payments
+  - `GET /maintenance` -- list maintenance requests
+  - `GET /contracts` -- list contracts
+- All responses follow consistent JSON format with pagination:
+  ```json
+  { "data": [...], "meta": { "page": 1, "per_page": 20, "total": 150 } }
+  ```
+- Update `supabase/config.toml` with `verify_jwt = false` for this function (uses API key auth instead)
 
-Create `src/pages/merchant/DocumentTemplates.tsx`:
-- Grid/list of templates grouped by category
-- System templates marked with badge "Template Standar"
-- Each card shows: name, category, last updated, version number
-- Actions: Edit, Duplicate, Delete, Preview, Use/Fill
+### 4C: Webhook Dispatcher Edge Function
 
-### 2D: Template Editor Component
+Create `supabase/functions/webhook-dispatcher/index.ts`:
+- Called internally (by triggers or other edge functions) when events occur
+- Looks up all active webhook endpoints for the merchant that subscribe to the event type
+- Signs payload with HMAC-SHA256 using the endpoint's secret
+- Sends POST to each endpoint URL with:
+  - `X-Webhook-Signature` header
+  - Event payload as JSON body
+- Logs delivery result to `webhook_logs`
+- Supported events: `payment.received`, `payment.verified`, `invoice.created`, `invoice.overdue`, `maintenance.created`, `maintenance.completed`, `tenant.moved_in`, `tenant.moved_out`, `contract.signed`, `contract.expired`
+- Set `verify_jwt = false` in config.toml (called internally)
 
-Create `src/features/documents/components/DocumentTemplateEditor.tsx`:
-- Rich text area with variable insertion toolbar
-- Variable picker sidebar: click to insert `{{variable_name}}` at cursor
-- Preview mode: show template with sample data filled in
-- Category selector
-- Save / Save as New Version
+### 4D: API Management Page
 
-### 2E: Template Fill & Export
+Create `src/pages/merchant/ApiIntegration.tsx`:
+- **Tab 1: API Keys** -- Create, view (masked), revoke API keys. Show scopes and rate limits. Copy key on creation (shown once)
+- **Tab 2: Webhooks** -- Add/edit/delete webhook endpoints. Select events to subscribe. Test endpoint button (sends test payload). View delivery logs with status
+- **Tab 3: Dokumentasi** -- Inline API documentation showing available endpoints, request/response examples, authentication guide, webhook event list with payload schemas
 
-Create `src/features/documents/components/DocumentFillDialog.tsx`:
-- Select a template
-- Auto-fill variables from selected contract/tenant/property data
-- Manual override for any variable
-- Preview filled document
-- Export options: Copy text, Download as PDF (via existing generate-invoice-pdf pattern or simple HTML-to-PDF)
+### 4E: API Management Service
 
-### 2F: Migrate Existing ContractTemplateManager
+Create `src/features/integrations/services/apiIntegrationService.ts`:
+- `createApiKey(merchantId, name, scopes)` -- generate random key, store hash, return plaintext once
+- `listApiKeys(merchantId)` -- list keys (prefix only, no full key)
+- `revokeApiKey(id)` -- set is_active = false
+- `createWebhook(merchantId, url, events)` -- create endpoint with generated secret
+- `updateWebhook(id, data)` -- edit URL/events
+- `deleteWebhook(id)` -- delete endpoint
+- `testWebhook(id)` -- send test event payload
+- `fetchWebhookLogs(webhookId)` -- delivery history
 
-The existing `ContractTemplateManager.tsx` uses localStorage. Migrate to use the new database-backed service:
-- Update `useContractTemplates` hook to use `documentTemplateService` filtered by `category = 'lease_contract'`
-- Keep backward compatibility by importing any localStorage templates on first load
+### 4F: Hooks
 
-### 2G: Hooks
+Create `src/features/integrations/hooks/useApiIntegration.ts`:
+- `useApiKeys(merchantId)` -- query
+- `useCreateApiKey()` -- mutation
+- `useRevokeApiKey()` -- mutation
+- `useWebhooks(merchantId)` -- query
+- `useCreateWebhook()` / `useUpdateWebhook()` / `useDeleteWebhook()` -- mutations
+- `useTestWebhook()` -- mutation
+- `useWebhookLogs(webhookId)` -- query
 
-Create `src/features/documents/hooks/useDocumentTemplates.ts`:
-- `useDocumentTemplates(merchantId, category?)` -- query
-- `useCreateTemplate()` -- mutation
-- `useUpdateTemplate()` -- mutation
-- `useDeleteTemplate()` -- mutation
-- `useDuplicateTemplate()` -- mutation
-- `useFillTemplate()` -- fill variables and return rendered content
+### 4G: Navigation & Routes
 
----
+Add to `navigation-config.ts` under a new "Pengaturan" group or existing "Wawasan":
+- `/merchant/api-integration` with `ScanText` icon, label "API & Integrasi"
 
-## Navigation & Routes
-
-| Route | Page | Nav Group |
-|-------|------|-----------|
-| `/merchant/utility-billing` | New | Keuangan |
-| `/merchant/document-templates` | New | Wawasan (near existing documents) |
-
-Add to `navigation-config.ts` under appropriate groups with icons: `Gauge` for utilities, `FileStack` for document templates.
+Add route to `App.tsx`.
 
 ---
 
@@ -222,33 +194,30 @@ Add to `navigation-config.ts` under appropriate groups with icons: `Gauge` for u
 
 | Action | File | Description |
 |--------|------|-------------|
-| CREATE | DB migration | 3 utility tables + document_templates table + seed system templates |
-| CREATE | `src/features/utilities/services/utilityBillingService.ts` | Meter reading, charge calculation, invoice generation |
-| CREATE | `src/features/utilities/hooks/useUtilityBilling.ts` | TanStack Query hooks |
-| CREATE | `src/features/utilities/components/MeterReadingForm.tsx` | Batch meter reading input |
-| CREATE | `src/features/utilities/components/UtilityChargeGenerator.tsx` | Charge preview + generation |
-| CREATE | `src/features/utilities/components/UtilitySettingsForm.tsx` | Per-property utility config |
-| CREATE | `src/pages/merchant/UtilityBilling.tsx` | Main page with tabs |
-| CREATE | `src/features/documents/services/documentTemplateService.ts` | Template CRUD + fill |
-| CREATE | `src/features/documents/hooks/useDocumentTemplates.ts` | TanStack Query hooks |
-| CREATE | `src/features/documents/components/DocumentTemplateEditor.tsx` | Editor with variable insertion |
-| CREATE | `src/features/documents/components/DocumentFillDialog.tsx` | Fill + preview + export |
-| CREATE | `src/pages/merchant/DocumentTemplates.tsx` | Template library page |
-| MODIFY | `src/features/contracts/components/ContractTemplateManager.tsx` | Migrate from localStorage to DB |
-| MODIFY | `src/shared/components/layouts/navigation-config.ts` | Add 2 new nav items |
-| MODIFY | `src/App.tsx` | Add 2 new routes |
-| MODIFY | `old-docs/PMS_Audit_Report_FULL.md` | Mark utility billing + document template status |
+| CREATE | DB migration | `dashboard_preferences`, `api_keys`, `webhook_endpoints`, `webhook_logs` tables |
+| CREATE | `src/features/dashboard/services/dashboardPreferencesService.ts` | Preferences CRUD |
+| CREATE | `src/features/dashboard/hooks/useDashboardPreferences.ts` | TanStack Query hooks |
+| CREATE | `src/features/dashboard/constants/widgetRegistry.ts` | Widget ID to component mapping |
+| CREATE | `src/features/dashboard/components/DashboardCustomizeDialog.tsx` | Customize modal with reorder + toggle |
+| MODIFY | `src/pages/merchant/Dashboard.tsx` | Dynamic widget rendering from preferences |
+| CREATE | `supabase/functions/merchant-api/index.ts` | REST API gateway edge function |
+| CREATE | `supabase/functions/webhook-dispatcher/index.ts` | Webhook delivery edge function |
+| CREATE | `src/features/integrations/services/apiIntegrationService.ts` | API key + webhook CRUD |
+| CREATE | `src/features/integrations/hooks/useApiIntegration.ts` | TanStack Query hooks |
+| CREATE | `src/pages/merchant/ApiIntegration.tsx` | API management page with docs |
+| MODIFY | `src/shared/components/layouts/navigation-config.ts` | Add API Integration nav item |
+| MODIFY | `src/App.tsx` | Add route |
+| MODIFY | `supabase/config.toml` | Add merchant-api + webhook-dispatcher JWT config |
+| MODIFY | `old-docs/PMS_Audit_Report_FULL.md` | Mark Dashboard Customization + API Framework status |
 
 ---
 
 ## Technical Notes
 
-- Meter readings use `numeric` for precision (water m3, electricity kWh)
-- Utility invoices reuse existing `invoices` table with `line_items` JSONB for breakdown
-- Charge generation is idempotent -- won't duplicate if charges already exist for a period
-- System templates are seeded via migration and marked `is_system = true` (non-deletable by merchants)
-- Template variables use `{{double_brace}}` syntax for simple string replacement
-- PDF export can reuse the existing `generate-invoice-pdf` edge function pattern or use client-side HTML rendering
-- The `units` table already has `electricity_included`, `water_included`, `wifi_included` fields -- utility settings complement these by defining billing rules when NOT included in rent
-- No new npm packages needed
-
+- Dashboard customization uses simple up/down arrow buttons for reordering instead of a drag-drop library -- keeps it lightweight with no new dependencies
+- API keys are generated client-side using `crypto.randomUUID()` + `crypto.getRandomValues()`, hashed with SHA-256 before storage. Plaintext shown once on creation
+- Webhook signatures use HMAC-SHA256 with the endpoint's secret for verification by receivers
+- The `merchant-api` edge function uses `verify_jwt = false` because it authenticates via API key header instead of JWT
+- Rate limiting is implemented by counting rows in a simple request log or by checking `last_used_at` + counter field
+- All API responses follow REST best practices: consistent error format, pagination metadata, proper HTTP status codes
+- Webhook dispatcher handles retries by incrementing `failure_count`; endpoints with 10+ consecutive failures are auto-deactivated
