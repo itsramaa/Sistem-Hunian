@@ -1,6 +1,7 @@
 import { useAnalytics } from '@/features/analytics/hooks/useAnalytics';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useMerchantDashboardStats } from '@/features/dashboard/hooks/useMerchantDashboardStats';
+import { usePropertyContext } from '@/shared/stores/propertyContext';
 import { InteractiveDashboardCharts } from '@/features/dashboard/components/InteractiveDashboardCharts';
 import { VacancyDashboard } from '@/features/dashboard/components/VacancyDashboard';
 import { SubscriptionWidget } from '@/features/subscriptions/components/SubscriptionWidget';
@@ -43,6 +44,7 @@ export default function MerchantDashboard() {
   useAnalytics();
   const isMobile = useIsMobile();
   const [vacancyOpen, setVacancyOpen] = useState(true);
+  const selectedPropertyId = usePropertyContext((s) => s.selectedPropertyId);
 
   const { data: stats, isLoading, error, refetch, isRefetching } = useMerchantDashboardStats();
 
@@ -277,55 +279,57 @@ export default function MerchantDashboard() {
         <InteractiveDashboardCharts />
       </section>
 
-      {/* Section 6: Property Overview + Financial Summary */}
+      {/* Section 6: Property Overview (hidden when single property selected) + Financial Summary */}
       <section className="space-y-4">
         <h2 className="text-lg font-semibold tracking-tight">Rincian Detail</h2>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-          <Card className="col-span-4 bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                  <Building2 className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <CardTitle>Ringkasan Properti</CardTitle>
-                  <CardDescription>Rincian hunian per properti</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {stats?.properties.list.map((property) => {
-                  const occupancy = property.total_units > 0
-                    ? (property.occupied_units / property.total_units) * 100
-                    : 0;
-
-                  return (
-                    <div key={property.id} className="space-y-2 cursor-pointer hover:bg-primary/5 rounded-xl p-3 -mx-2 transition-colors" onClick={() => navigate(`/merchant/properties/${property.id}`)}>
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="font-medium">{property.name}</div>
-                        <div className="text-muted-foreground">
-                          {property.occupied_units}/{property.total_units} Unit ({Math.round(occupancy)}%)
-                        </div>
-                      </div>
-                      <Progress value={occupancy} className="h-2 rounded-full" />
-                    </div>
-                  );
-                })}
-
-                {(!stats?.properties.list || stats.properties.list.length === 0) && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Tidak ada properti ditemukan.
-                    <Button variant="link" onClick={() => navigate('/merchant/properties')} className="px-1">
-                      Tambahkan properti pertama Anda
-                    </Button>
+        <div className={`grid gap-4 md:grid-cols-2 ${!selectedPropertyId ? 'lg:grid-cols-7' : ''}`}>
+          {!selectedPropertyId && (
+            <Card className="col-span-4 bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                    <Building2 className="h-4 w-4 text-primary" />
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  <div>
+                    <CardTitle>Ringkasan Properti</CardTitle>
+                    <CardDescription>Rincian hunian per properti</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {stats?.properties.list.map((property) => {
+                    const occupancy = property.total_units > 0
+                      ? (property.occupied_units / property.total_units) * 100
+                      : 0;
 
-          <Card className="col-span-3 bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
+                    return (
+                      <div key={property.id} className="space-y-2 cursor-pointer hover:bg-primary/5 rounded-xl p-3 -mx-2 transition-colors" onClick={() => navigate(`/merchant/properties/${property.id}`)}>
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="font-medium">{property.name}</div>
+                          <div className="text-muted-foreground">
+                            {property.occupied_units}/{property.total_units} Unit ({Math.round(occupancy)}%)
+                          </div>
+                        </div>
+                        <Progress value={occupancy} className="h-2 rounded-full" />
+                      </div>
+                    );
+                  })}
+
+                  {(!stats?.properties.list || stats.properties.list.length === 0) && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      Tidak ada properti ditemukan.
+                      <Button variant="link" onClick={() => navigate('/merchant/properties')} className="px-1">
+                        Tambahkan properti pertama Anda
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card className={`${!selectedPropertyId ? 'col-span-3' : 'col-span-full'} bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40`}>
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-success/20 to-success/5 flex items-center justify-center">

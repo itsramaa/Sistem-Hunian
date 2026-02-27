@@ -29,7 +29,7 @@ export interface MerchantDashboardStats {
 }
 
 export const merchantDashboardService = {
-  async fetchStats(merchantId: string): Promise<MerchantDashboardStats> {
+  async fetchStats(merchantId: string, propertyId?: string | null): Promise<MerchantDashboardStats> {
     const currentMonth = getCurrentMonthDateRange();
     const lastMonth = getPreviousMonthDateRange();
 
@@ -43,10 +43,11 @@ export const merchantDashboardService = {
       lastMonthTenantsRes
     ] = await Promise.all([
       // 1. Fetch properties
-      supabase
-        .from('properties')
-        .select('id, name, total_units, occupied_units')
-        .eq('merchant_id', merchantId),
+      (() => {
+        let q = supabase.from('properties').select('id, name, total_units, occupied_units').eq('merchant_id', merchantId);
+        if (propertyId) q = q.eq('id', propertyId);
+        return q;
+      })(),
 
       // 2. Fetch payment transfers balance (direct payment model)
       (supabase as any)
@@ -63,7 +64,7 @@ export const merchantDashboardService = {
         .eq('status', 'active'),
 
       // 4. Fetch this month's payments
-      supabase
+      (supabase as any)
         .from('payments')
         .select('amount')
         .eq('merchant_id', merchantId)
@@ -71,7 +72,7 @@ export const merchantDashboardService = {
         .gte('created_at', currentMonth.start.toISOString()),
 
       // 5. Fetch last month's payments
-      supabase
+      (supabase as any)
         .from('payments')
         .select('amount')
         .eq('merchant_id', merchantId)
@@ -80,12 +81,10 @@ export const merchantDashboardService = {
         .lte('created_at', lastMonth.end.toISOString()),
 
       // 6. Fetch last month's active tenants
-      supabase
-        .from('contracts')
-        .select('id', { count: 'exact', head: true })
-        .eq('merchant_id', merchantId)
-        .eq('status', 'active')
-        .lte('created_at', lastMonth.end.toISOString())
+      (() => {
+        let q = supabase.from('contracts').select('id', { count: 'exact', head: true }).eq('merchant_id', merchantId).eq('status', 'active').lte('created_at', lastMonth.end.toISOString());
+        return q;
+      })()
     ]);
 
     // Error handling could be more robust, but we'll throw for now to let React Query handle it

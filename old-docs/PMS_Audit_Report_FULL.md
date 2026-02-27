@@ -351,18 +351,18 @@ Berdasarkan comprehensive diagram analysis dan removal of escrow+referral, berik
 
 ---
 
-### 🟡 Priority 9: Multi-Property Support — Readiness untuk Scale
+### ✅ Priority 9: Multi-Property Support — Readiness untuk Scale
 
 **Why:** Pemilik planning scale from 1 → 5 properties perlu consolidated view.
 
 **Requirement:**
-- Property switcher: Top navbar, quick property switch
-- Per-property dashboard: Own occupancy, revenue, metrics
-- Consolidated dashboard: All properties at a glance
-- Comparison: Side-by-side property performance
-- Rules per property: Different pricing, different terms
+- ✅ Property switcher: Sidebar dropdown, quick property switch — PropertySwitcher component with Zustand store
+- ✅ Per-property dashboard: Own occupancy, revenue, metrics — merchantDashboardService filters by propertyId
+- ✅ Consolidated dashboard: All properties at a glance — "Semua Properti" option (selectedPropertyId = null)
+- ✅ Comparison: Side-by-side property performance — ComparisonTab in ComparativePortfolio with KPI table
+- ✅ Rules per property: Different pricing, different terms — existing dynamic_pricing_rules.property_id, scoped by property context
 
-**Implementation:** 2 weeks
+**Implementation:** ✅ COMPLETE
 
 ---
 
@@ -429,19 +429,24 @@ Berdasarkan comprehensive diagram analysis dan removal of escrow+referral, berik
 
 ## SIMPLIFICATION & CONSOLIDATION
 
-### Merge Diagrams 11, 20, 6B: Collections Management
+### ✅ Merge Diagrams 11, 20, 6B: Collections Management
+- **Status:** ✅ COMPLETE — Diimplementasi 27 Feb 2026
 - **Current:** Separate diagrams untuk Billing Analytics, Collections Extended, Payment Plan
-- **Redesign:** Consolidate into single "Collections Management" system:
-  - Invoice tracking → Overdue detection → Collections case → Payment plan OR legal escalation
-  - Single action tracker, single interaction log
-  - Simplified workflow, fewer confusing status
+- **Redesign:** Consolidated into single "Collections Management" system:
+  - ✅ Invoice tracking → Overdue detection → Collections case → Payment plan OR legal escalation
+  - ✅ Single action tracker, single interaction log
+  - ✅ Simplified workflow, fewer confusing status
+  - ✅ Payment plan section added to CollectionsCaseDetail (split overdue into N installments, stored as JSON)
 
-### Merge Diagrams 14 & 15: Support & Payment Reconciliation
+### ✅ Merge Diagrams 14 & 15: Support & Payment Reconciliation
+- **Status:** ✅ COMPLETE — Diimplementasi 27 Feb 2026
 - **Current:** Separate diagrams
-- **Redesign:** Combine into "Dispute Resolution & Reconciliation":
-  - Payment dispute resolution (is this payment for which invoice?)
-  - Tenant complaint handling (chatbot → escalation → admin mediation)
-  - Single dashboard untuk all pending resolution
+- **Redesign:** Combined into "Resolusi & Rekonsiliasi" (DisputeResolution.tsx):
+  - ✅ Tab 1: Rekonsiliasi Pembayaran (existing reconciliation components)
+  - ✅ Tab 2: Keluhan Penyewa (support_tickets filtered by merchant)
+  - ✅ Tab 3: Sengketa (disputes table)
+  - ✅ Unified pending resolution counter
+  - ✅ Navigation consolidated: "Rekonsiliasi" renamed to "Resolusi & Rekonsiliasi"
 
 ---
 
