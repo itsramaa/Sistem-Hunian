@@ -1,221 +1,111 @@
 
-
-# Priority 7: Lease Renewal Automation + Priority 8: Preventive Maintenance Scheduler
+# Priority 9: Multi-Property Support + Simplification & Consolidation
 
 ## Overview
 
-1. **Lease Renewal Automation** -- Enhance the existing `/merchant/lease-renewals` page with price recommendations, auto-generated amendment drafts, tenant negotiation (offer/counter-offer), and e-signature integration
-2. **Preventive Maintenance Scheduler** -- New calendar-based scheduler for recurring tasks (AC service, water tank, etc.) with auto-creation of maintenance requests and cost tracking
+Two tracks of work:
+1. **Multi-Property Support** -- Property switcher in sidebar, per-property dashboard filtering, consolidated view, side-by-side comparison, and per-property rules
+2. **Simplification & Consolidation** -- Merge collections diagrams (11, 20, 6B) into unified collections flow, and merge support + reconciliation (14, 15) into unified dispute resolution dashboard
 
 ---
 
-## Priority 7: Lease Renewal Automation
+## Priority 9: Multi-Property Support
 
-### Existing Foundation
-- `lease_renewal_alerts` table + `RenewalAlertsList` component already shows expiring contracts
-- `contract_amendments` table with `draft -> sent -> signed` state machine exists
-- `renewalService.ts` has `createAmendment`, `signAmendment` methods
-- `SignaturePad` component exists in `src/features/signature/`
-- `ml-price-intelligence` edge function returns per-unit price recommendations
+### 9A: Property Context Store (Zustand)
 
-### 7A: Database -- Add Negotiation Fields to `contract_amendments`
+Create `src/shared/stores/propertyContext.ts`:
+- Zustand store holding `selectedPropertyId: string | null` (null = "All Properties" consolidated view)
+- `setSelectedProperty(id | null)` action
+- Persisted to `localStorage` so selection survives page refresh
+- All merchant service queries can optionally filter by this property ID
 
-Add columns to `contract_amendments` to support offer/counter-offer:
+### 9B: Property Switcher Component
 
-```text
-ALTER TABLE contract_amendments ADD COLUMN
-  tenant_user_id       uuid,           -- tenant involved
-  merchant_offer       jsonb,          -- merchant's proposed terms
-  tenant_counter_offer jsonb,          -- tenant's counter
-  negotiation_status   text DEFAULT 'pending',  -- pending, merchant_proposed, tenant_countered, agreed, rejected
-  merchant_signature   text,           -- base64 signature data
-  tenant_signature     text,           -- base64 signature data
-  tenant_signed_at     timestamptz
-```
+Create `src/shared/components/layouts/sidebar/PropertySwitcher.tsx`:
+- Dropdown placed in sidebar header, below TeamSwitcher
+- Shows list of merchant's properties fetched from Supabase
+- First option: "Semua Properti" (consolidated view, selectedPropertyId = null)
+- Each property shows name + occupancy badge
+- On select: updates Zustand store, all dashboard queries re-fetch with new filter
+- Only renders for merchant role
 
-Update `AMENDMENT_STATUS_TRANSITIONS` to include negotiation states:
-```typescript
-draft -> sent -> tenant_reviewing -> negotiating -> agreed -> signing -> signed
-```
+### 9C: Per-Property Dashboard Filtering
 
-### 7B: Enhanced Renewal Page
+Modify `merchantDashboardService.ts`:
+- `fetchStats(merchantId, propertyId?)` -- optional propertyId parameter
+- When propertyId is set: filter properties, payments, contracts, tenants by that property
+- When null: current behavior (all properties)
 
-Refactor `src/pages/merchant/LeaseRenewals.tsx` into a full-featured page:
-- **Stats strip**: Total expiring (30d, 60d, 90d), renewal rate, avg rent increase
-- **Renewal list with actions**: Each row gets "Buat Penawaran" button
-- **Price recommendation column**: Fetch from `ml-price-intelligence` and show suggested price + % increase per unit
-- **Amendment status column**: Show current negotiation state per contract
+Modify `useMerchantDashboardStats.ts`:
+- Read `selectedPropertyId` from Zustand store
+- Include it in query key and pass to service
 
-### 7C: Renewal Offer Dialog
+### 9D: Consolidated vs Per-Property View
 
-Create `src/features/contracts/components/renewal/RenewalOfferDialog.tsx`:
-- Pre-filled with current contract terms
-- AI-suggested price shown as recommendation badge
-- Merchant can set: new rent, new duration, effective date, terms
-- On submit: creates amendment with `status = 'sent'` and `negotiation_status = 'merchant_proposed'`
-- Sends notification to tenant
+Modify `Dashboard.tsx`:
+- When "Semua Properti" selected: show current consolidated dashboard (no changes)
+- When specific property selected: same layout but filtered data, hide "Ringkasan Properti" section (since it's a single property), show property-specific quick actions
 
-### 7D: Tenant Renewal Response (Tenant Side)
+### 9E: Side-by-Side Comparison
 
-Create `src/features/contracts/components/renewal/TenantRenewalResponse.tsx`:
-- Tenant sees merchant's offer with current vs proposed terms
-- Three actions: **Accept**, **Counter-Offer**, **Decline**
-- Counter-offer allows tenant to propose different rent/terms
-- Updates `tenant_counter_offer` and `negotiation_status = 'tenant_countered'`
+Enhance existing `ComparativePortfolio.tsx` page:
+- Already has benchmarks, rankings, and radar chart comparing properties
+- Add a new "Perbandingan" tab with two property selectors for direct side-by-side
+- Show KPIs in two columns: Property A vs Property B (occupancy, revenue, tenant count, maintenance cost)
+- Reuse existing `comparativePortfolioService` data
 
-Create tenant-facing page or section in existing tenant contracts page to show pending renewal offers.
+### 9F: Per-Property Rules
 
-### 7E: Negotiation Timeline
+The system already supports per-property configuration:
+- `dynamic_pricing_rules` has `property_id` column
+- `contracts` are per-property via `unit_id`
+- Invoice terms come from contract
+- No new database changes needed -- the property switcher context will naturally scope the merchant's view to see only that property's rules
 
-Create `src/features/contracts/components/renewal/NegotiationTimeline.tsx`:
-- Shows back-and-forth history: merchant offer -> tenant counter -> merchant revised -> agreed
-- Each entry shows proposed terms and timestamp
-- Stored in `new_values`/`old_values` JSON fields as history array
+### 9G: Sidebar Integration
 
-### 7F: Amendment E-Signature Flow
-
-Create `src/features/contracts/components/renewal/AmendmentSignatureDialog.tsx`:
-- When both parties agree (`negotiation_status = 'agreed'`), enable signing
-- Merchant signs first -> `merchant_signature` saved, status -> `signing`
-- Tenant signs -> `tenant_signature` saved, `signed_at` set, status -> `signed`
-- On `signed`: auto-update contract's `rent_amount`, `end_date` based on amendment `new_values`
-- Reuses existing `SignaturePad` component
-
-### 7G: Service Layer Enhancement
-
-Extend `renewalService.ts`:
-- `sendOffer(contractId, offer)` -- create amendment with merchant terms
-- `submitCounterOffer(amendmentId, counterOffer)` -- tenant counter
-- `acceptOffer(amendmentId)` -- set `negotiation_status = 'agreed'`
-- `signAsMerchant(amendmentId, signatureData)` -- save merchant signature
-- `signAsTenant(amendmentId, signatureData)` -- save tenant signature + apply to contract
-- `fetchPriceRecommendation(contractId)` -- get AI suggestion for renewal price
-
-Add hooks in `useLeaseRenewal.ts` for all new mutations.
+Modify `app-sidebar.tsx`:
+- Import and render `PropertySwitcher` between `SidebarHeader` (TeamSwitcher) and `SidebarContent` (NavMain)
+- Only shown for merchant role
+- Pass merchant's properties list
 
 ---
 
-## Priority 8: Preventive Maintenance Scheduler
+## Simplification & Consolidation
 
-### 8A: Database -- `preventive_maintenance_schedules` table
+### S1: Merge Collections Diagrams (11, 20, 6B)
 
-```text
-preventive_maintenance_schedules
-  id                  uuid PK
-  merchant_id         uuid FK merchants NOT NULL
-  property_id         uuid FK properties
-  unit_id             uuid FK units (nullable -- property-wide vs unit-specific)
-  title               text NOT NULL
-  description         text
-  category            text (electrical, plumbing, hvac, cleaning, general)
-  frequency           text NOT NULL (weekly, monthly, quarterly, biannual, annual, custom)
-  custom_interval_days integer (for custom frequency)
-  preferred_vendor_id uuid FK vendors (nullable)
-  estimated_cost      numeric
-  priority            text DEFAULT 'medium'
-  next_scheduled_date date NOT NULL
-  last_executed_date  date
-  is_active           boolean DEFAULT true
-  created_at          timestamptz DEFAULT now()
-  updated_at          timestamptz DEFAULT now()
-```
+The collections system is already consolidated from previous Priority 3 work:
+- `collectionsService.ts` handles aging buckets + case management
+- `CollectionsCaseDetail.tsx` has interaction timeline + escalation path
+- Payment plans are tracked via `negotiation_status` on amendments
 
-RLS: merchant owns their schedules.
+**Remaining consolidation work:**
+- Add a "Rencana Pembayaran" (Payment Plan) tab/section to `CollectionsCaseDetail.tsx`
+- Allow creating a simple payment plan directly from a collections case: split overdue amount into N installments with dates
+- Store as JSON in `collections_cases.resolution_notes` (no new table needed)
+- This unifies the workflow: Invoice overdue -> Collections case -> Resolution (full pay / payment plan / legal / write-off)
 
-### 8B: Scheduler Calendar Page
+### S2: Merge Support & Reconciliation (Diagrams 14, 15)
 
-Create `src/pages/merchant/PreventiveMaintenance.tsx`:
-- **Calendar view**: Monthly calendar showing scheduled maintenance events as colored dots/badges
-- **List view toggle**: Table of all schedules with next date, frequency, vendor, estimated cost
-- **Stats**: Total scheduled, overdue, completed this month, estimated monthly cost
-- Add to merchant nav under "Operasional" group with CalendarClock icon
+Create a unified "Dispute Resolution & Reconciliation" view:
 
-### 8C: Schedule Management Components
+Create `src/pages/merchant/DisputeResolution.tsx`:
+- Tabbed layout with 3 tabs:
+  - **Rekonsiliasi Pembayaran** -- Embed existing reconciliation components (UnmatchedPaymentsTable, MatchHistoryTable)
+  - **Keluhan Penyewa** -- List of tenant complaints/support tickets from `support_tickets` table (filtered by merchant)
+  - **Sengketa** -- Disputes from `disputes` table (deposit disputes, payment disputes)
+- Each tab shows count badge
+- Unified "Pending Resolution" counter in merchant alerts
 
-Create `src/features/maintenance/components/preventive/`:
+Update navigation: Keep `/merchant/reconciliation` route pointing to this new unified page. The old reconciliation content becomes Tab 1.
 
-- **`PreventiveScheduleForm.tsx`** -- Create/edit form:
-  - Title, category, description
-  - Property + Unit selector (optional unit for property-wide tasks)
-  - Frequency picker (weekly/monthly/quarterly/biannual/annual/custom)
-  - Preferred vendor dropdown (from verified vendors)
-  - Estimated cost
-  - Start date
-  - Priority
+### S3: Navigation Cleanup
 
-- **`PreventiveCalendar.tsx`** -- Monthly calendar grid:
-  - Days with scheduled tasks show colored dots by category
-  - Click day to see/add tasks
-  - Navigate months
-  - Color legend by category
-
-- **`PreventiveScheduleList.tsx`** -- Table view:
-  - Columns: Task, Property/Unit, Frequency, Next Date, Vendor, Est. Cost, Status
-  - Overdue items highlighted in red
-  - Toggle active/inactive
-
-- **`CostComparisonCard.tsx`** -- Compare preventive vs emergency costs:
-  - Preventive: sum of estimated_cost for all active schedules (annualized)
-  - Emergency: sum of completed maintenance_requests costs (from vendor_jobs.agreed_price)
-  - Show savings estimate
-
-### 8D: Auto-Create Maintenance Request
-
-Create `src/features/maintenance/services/preventiveMaintenanceService.ts`:
-- `fetchSchedules(merchantId)` -- all schedules with property/unit/vendor info
-- `createSchedule(data)` -- insert new schedule
-- `updateSchedule(id, data)` -- edit
-- `deleteSchedule(id)` -- soft delete (is_active = false)
-- `executeSchedule(scheduleId)` -- creates a `maintenance_request` from the schedule:
-  - Copies title, description, category, priority
-  - Sets unit_id, merchant_id
-  - If preferred_vendor_id set, auto-assigns vendor and sets status to `in_progress`
-  - Updates `last_executed_date` to today
-  - Calculates and sets `next_scheduled_date` based on frequency
-- `getOverdueSchedules(merchantId)` -- schedules where `next_scheduled_date < today` and `is_active = true`
-- `getCostComparison(merchantId)` -- aggregate preventive vs emergency costs
-
-### 8E: Hooks
-
-Create `src/features/maintenance/hooks/usePreventiveMaintenance.ts`:
-- `usePreventiveSchedules(merchantId)` -- fetch all
-- `useCreateSchedule()` -- mutation
-- `useUpdateSchedule()` -- mutation
-- `useExecuteSchedule()` -- mutation that creates maintenance request
-- `useOverdueSchedules(merchantId)` -- query overdue items
-- `useCostComparison(merchantId)` -- query cost data
-
-### 8F: Overdue Alert Integration
-
-Add overdue preventive maintenance to the existing `/merchant/alerts` page:
-- Query `preventive_maintenance_schedules` where `next_scheduled_date < today`
-- Show as alert cards with "Execute Now" button
-
----
-
-## Navigation & Routes
-
-| Route | Page | Nav Group |
-|-------|------|-----------|
-| `/merchant/lease-renewals` | Enhanced (existing) | Kontrak (existing) |
-| `/merchant/preventive-maintenance` | New | Operasional |
-
-### State Machine Updates
-
-Update `AMENDMENT_STATUS_TRANSITIONS` in `state-machines.ts`:
-```typescript
-export const AMENDMENT_STATUS_TRANSITIONS: Record<string, string[]> = {
-  draft: ['sent', 'cancelled'],
-  sent: ['tenant_reviewing', 'rejected', 'cancelled'],
-  tenant_reviewing: ['negotiating', 'agreed', 'rejected'],
-  negotiating: ['agreed', 'rejected', 'cancelled'],
-  agreed: ['signing'],
-  signing: ['signed'],
-  signed: [],      // terminal
-  rejected: [],    // terminal
-  cancelled: [],   // terminal
-};
-```
+Update `navigation-config.ts`:
+- Remove separate "Rekonsiliasi" nav item
+- Rename or repurpose to "Resolusi & Rekonsiliasi" under Keuangan group
+- No new routes needed -- just redirect/rename
 
 ---
 
@@ -223,37 +113,26 @@ export const AMENDMENT_STATUS_TRANSITIONS: Record<string, string[]> = {
 
 | Action | File | Description |
 |--------|------|-------------|
-| CREATE | DB migration | `preventive_maintenance_schedules` table + amendment columns |
-| CREATE | `src/features/contracts/components/renewal/RenewalOfferDialog.tsx` | Merchant offer form with AI price suggestion |
-| CREATE | `src/features/contracts/components/renewal/TenantRenewalResponse.tsx` | Tenant accept/counter/decline |
-| CREATE | `src/features/contracts/components/renewal/NegotiationTimeline.tsx` | Offer history display |
-| CREATE | `src/features/contracts/components/renewal/AmendmentSignatureDialog.tsx` | Dual e-signature flow |
-| MODIFY | `src/features/contracts/services/renewalService.ts` | Add negotiation + signature methods |
-| MODIFY | `src/features/contracts/hooks/useLeaseRenewal.ts` | Add new mutations |
-| MODIFY | `src/pages/merchant/LeaseRenewals.tsx` | Full page with stats, recommendations, actions |
-| MODIFY | `src/features/contracts/components/renewal/RenewalAlertsList.tsx` | Add action buttons + price column |
-| CREATE | `src/features/maintenance/services/preventiveMaintenanceService.ts` | Schedule CRUD + auto-create |
-| CREATE | `src/features/maintenance/hooks/usePreventiveMaintenance.ts` | TanStack Query hooks |
-| CREATE | `src/features/maintenance/components/preventive/PreventiveScheduleForm.tsx` | Create/edit schedule |
-| CREATE | `src/features/maintenance/components/preventive/PreventiveCalendar.tsx` | Calendar view |
-| CREATE | `src/features/maintenance/components/preventive/PreventiveScheduleList.tsx` | Table view |
-| CREATE | `src/features/maintenance/components/preventive/CostComparisonCard.tsx` | Preventive vs emergency |
-| CREATE | `src/pages/merchant/PreventiveMaintenance.tsx` | Scheduler page |
-| MODIFY | `src/shared/constants/state-machines.ts` | Expand AMENDMENT_STATUS_TRANSITIONS |
-| MODIFY | `src/shared/components/layouts/navigation-config.ts` | Add preventive maintenance nav |
-| MODIFY | `src/App.tsx` | Add route |
-| MODIFY | `src/pages/merchant/Alerts.tsx` | Add overdue schedule alerts |
-| MODIFY | `old-docs/PMS_Audit_Report_FULL.md` | Mark Priority 7 & 8 status |
+| CREATE | `src/shared/stores/propertyContext.ts` | Zustand store for selected property |
+| CREATE | `src/shared/components/layouts/sidebar/PropertySwitcher.tsx` | Dropdown property selector |
+| CREATE | `src/pages/merchant/DisputeResolution.tsx` | Unified dispute + reconciliation page |
+| MODIFY | `src/shared/components/layouts/sidebar/app-sidebar.tsx` | Add PropertySwitcher |
+| MODIFY | `src/features/dashboard/services/merchantDashboardService.ts` | Add optional propertyId filter |
+| MODIFY | `src/features/dashboard/hooks/useMerchantDashboardStats.ts` | Read from Zustand store |
+| MODIFY | `src/pages/merchant/Dashboard.tsx` | Conditional rendering based on property selection |
+| MODIFY | `src/pages/merchant/ComparativePortfolio.tsx` | Add side-by-side comparison tab |
+| MODIFY | `src/features/collections/components/cases/CollectionsCaseDetail.tsx` | Add payment plan section |
+| MODIFY | `src/shared/components/layouts/navigation-config.ts` | Update nav labels, consolidate entries |
+| MODIFY | `src/App.tsx` | Update reconciliation route to DisputeResolution |
+| MODIFY | `old-docs/PMS_Audit_Report_FULL.md` | Mark Priority 9 + consolidation status |
 
 ---
 
 ## Technical Notes
 
-- No new npm packages -- calendar built with CSS grid + date-fns
-- Negotiation uses existing `contract_amendments` table with new JSON columns for offer/counter-offer
-- Price recommendations reuse existing `ml-price-intelligence` edge function
-- E-signature reuses existing `SignaturePad` component
-- Auto-create from schedule reuses `maintenanceService.createMerchantRequest`
-- Frequency calculation: weekly (+7d), monthly (+1mo), quarterly (+3mo), biannual (+6mo), annual (+1yr)
-- Cost comparison queries `vendor_jobs.agreed_price` for emergency costs vs `estimated_cost` for preventive
-
+- No new database tables needed -- property filtering uses existing `property_id` foreign keys on all relevant tables
+- Zustand store with `localStorage` persistence ensures property selection survives navigation
+- The property switcher queries the existing `properties` table (already fetched in dashboard stats)
+- Side-by-side comparison reuses existing `comparativePortfolioService` which already computes per-property benchmarks
+- Collections consolidation stores payment plans as JSON in existing `resolution_notes` field
+- Dispute resolution page composes existing components into a unified tabbed view
