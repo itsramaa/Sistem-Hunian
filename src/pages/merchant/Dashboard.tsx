@@ -4,6 +4,7 @@ import { useMerchantDashboardStats } from '@/features/dashboard/hooks/useMerchan
 import { usePropertyContext } from '@/shared/stores/propertyContext';
 import { InteractiveDashboardCharts } from '@/features/dashboard/components/InteractiveDashboardCharts';
 import { VacancyDashboard } from '@/features/dashboard/components/VacancyDashboard';
+import { OccupancyForecastWidget } from '@/features/dashboard/components/OccupancyForecastWidget';
 import { SubscriptionWidget } from '@/features/subscriptions/components/SubscriptionWidget';
 import { MerchantQuickStartChecklist } from '@/features/launch/components/MerchantQuickStartChecklist';
 import { TrialCountdownWidget } from '@/features/subscriptions/components/TrialCountdownWidget';
@@ -275,6 +276,12 @@ export default function MerchantDashboard() {
             </CollapsibleContent>
           </Card>
         </Collapsible>
+      </section>
+    ),
+
+    occupancy_forecast: () => (
+      <section className="space-y-4">
+        <OccupancyForecastWidget />
       </section>
     ),
   };
