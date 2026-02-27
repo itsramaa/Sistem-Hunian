@@ -862,46 +862,37 @@ Rather than missing features, focus should be on **execution quality & user expe
 - ✅ Service layer: `financialControlService.ts` mengagregasi data dari invoices, expenses, deposit_refunds, move_out_notices
 - ✅ Hook: `useFinancialControl.ts` dengan TanStack Query + mutation hooks
 
-### Priority 3: Reduce Permission Complexity
+### ✅ Priority 3: Reduce Permission Complexity
+
+**Status:** ✅ COMPLETE — Diimplementasi 27 Feb 2026
 
 **Current:** State machines dengan 20+ transitions buat bingung
 
-**Simplification:**
-- Limit setiap role ke **3-5 main actions**
-- Status hanya transisi dalam role permission, tidak cek semua kombinasi possible
-- Clear flow: User role → What they can do → Where they click
+**Implementasi:**
+- ✅ Role Action Map (`role-actions.ts`): Setiap role dipetakan ke 3-5 aksi utama dengan label, deskripsi, ikon, dan path
+- ✅ Merchant: 5 aksi (Kelola Properti, Buat Tagihan, Approve Pengeluaran, Kirim Reminder, Lihat Laporan)
+- ✅ Tenant: 4 aksi (Bayar Tagihan, Ajukan Maintenance, Lihat Kontrak, Update Profil)
+- ✅ Vendor: 3 aksi (Terima Pekerjaan, Update Progress, Lihat Pendapatan)
+- ✅ RoleActionGuide component: Collapsible card "Apa yang bisa Anda lakukan" dengan deep links
+- ✅ State machines TIDAK diubah — tetap sebagai backend validation, bukan user-facing complexity
+- ✅ Clear flow: User role → What they can do → Where they click
 
-### Priority 4: UX Debt Cleanup
+### ✅ Priority 4: UX Debt Cleanup
+
+**Status:** ✅ COMPLETE — Diimplementasi 27 Feb 2026
 
 **Redesign dashboard untuk pemilik yang gaptek:**
 
-```
-┌─────────────────────────────────────────┐
-│     SiHuni Dashboard (Property: Bogor)   │
-├─────────────────────────────────────────┤
-│                                         │
-│  📊 Key Metrics (Green = Good)           │
-│  ┌──────────┬──────────┬──────────┐     │
-│  │ Occupancy│ Revenue  │ Receivable│     │
-│  │   88%    │ 2.5M    │  150K    │     │
-│  │  ✅ GOOD │ ✅ +12% │ ⚠️ WATCH │     │
-│  └──────────┴──────────┴──────────┘     │
-│                                         │
-│  🚨 Alerts (If any)                     │
-│  - 2 late payments (>15 days)           │
-│  - 1 maintenance pending 5 days         │
-│  - Water tank cleaning overdue          │
-│                                         │
-│  📋 Quick Actions                       │
-│  [Add New Tenant] [Log Expense]         │
-│  [Send Payment Reminder] [View All]     │
-│                                         │
-│  📅 Upcoming Events                     │
-│  - Unit B3: Lease ends in 20 days      │
-│  - Scheduled: AC service on Mar 15     │
-│                                         │
-└─────────────────────────────────────────┘
-```
+**Implementasi:**
+- ✅ Health indicators pada KPI cards: Green (BAIK ≥80%), Yellow (PERHATIAN 50-79%), Red (KRITIS <50%) untuk okupansi
+- ✅ Revenue health badge: +X% hijau, STABIL abu, -X% merah
+- ✅ Alerts & Events widget (`AlertsEventsWidget.tsx`): Tagihan overdue (>15 hari), maintenance tertunda (>5 hari), kontrak segera berakhir (<30 hari)
+- ✅ Upcoming Events: Kontrak berakhir dalam 30-60 hari, maintenance terjadwal
+- ✅ Dashboard stats service diperkaya: query overdue invoices, stale maintenance, expiring contracts secara paralel
+- ✅ Widget terdaftar di `widgetRegistry.ts` sebagai `alerts_events`
+- ✅ Mobile dashboard: Hardcoded `overdueCount = 0` diganti data real dari stats
+- ✅ Mobile dashboard: Health badges pada KPI, alerts section kompak, upcoming events section
+- ✅ Color-coded urgency: merah = kritis, kuning = perhatian
 
 ---
 
@@ -978,10 +969,12 @@ Rather than missing features, focus should be on **execution quality & user expe
 
 ## UX ASSESSMENT (Non-Teknis)
 
-### Dashboard Clarity: 3/10 🔴
-- Assumed: Complex dashboard with many metrics
-- Ideal for pemilik gaptek: 3-5 metrics max, color-coded (green/yellow/red)
-- **Gap:** Not proven simple enough
+### Dashboard Clarity: 7/10 ✅
+- ✅ Health indicators (Green/Yellow/Red) pada KPI cards
+- ✅ Alerts widget untuk tagihan overdue, maintenance tertunda, kontrak berakhir
+- ✅ Upcoming events untuk kontrak dan maintenance terjadwal
+- ✅ Mobile dashboard dengan data real (bukan hardcoded)
+- **Gap:** Bisa ditingkatkan dengan wizard onboarding
 
 ### Onboarding Flow: 5/10 🟡
 - Merchant onboarding (Diagram 1) has too many steps (OCR, document upload, etc)
