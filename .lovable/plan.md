@@ -1,74 +1,60 @@
 
 
-# Update merchant_activity_diagram.md: User Journeys + Role Perspectives
+# Maximize User Journeys in merchant_activity_diagram.md
 
 ## Overview
-Edit the existing 23-section document to shift focus from **state machine documentation** to **user journey flows**, and add **role-based perspective sections** for shared features. No sections will be deleted -- only enhanced.
+After cross-referencing all 23 sections against actual source code (`services/*.ts`, `state-machines.ts`, edge functions), I found several discrepancies where the documentation doesn't match the real system. This update will fix inaccuracies and enrich user journey narratives with actual code behavior.
 
-## Changes Per Section
+## Discrepancies Found & Fixes
 
-### Global Changes
-- Rename document title from "Merchant Activity Diagrams" to "SiHuni User Journey & Activity Diagrams"
-- Update subtitle to mention multi-role perspective (Pemilik, Tenant, Admin, Vendor)
-- Add a "Konvensi Peran" legend at top explaining role icons/labels used throughout
+### Section 18: Waiting List -- Missing `waitlisted` State
+**Problem**: The current diagram and state machine table show only `interested -> applied -> offered -> accepted/rejected`. But `WAITING_LIST_TRANSITIONS` in code also has a `waitlisted` state: `applied -> waitlisted`, `waitlisted -> offered/rejected`.
+**Fix**: Add `waitlisted` node in the flowchart between `applied` and `offered`, update the state machine table, and update the user journey narrative to describe the waitlisting scenario.
 
-### Per-Diagram Edits (Keep diagrams, add journey narrative)
+### Section 19: Amendment -- Missing `cancelled` and `rejected` States
+**Problem**: The diagram shows only `draft -> sent -> signed`. But `AMENDMENT_STATUS_TRANSITIONS` in code has: `draft -> sent/cancelled`, `sent -> signed/rejected`, plus `rejected` and `cancelled` as terminal states.
+**Fix**: Add `cancelled` and `rejected` branches in the flowchart, update the state machine reference table, and update user journey to describe rejection and cancellation scenarios.
 
-For each of the 23 sections, add a **"Perspektif Peran"** subsection after the diagram. This table clarifies who does what. Sections that are single-role only get a brief note; shared features get a full 4-role breakdown.
+### Section 11: Collections -- Missing Aging Analytics
+**Problem**: The diagram references `check-overdue-escalation` EF and DSS strategy but doesn't mention `collectionsService.ts` which provides aging bucket summaries via `v_outstanding_summary` view, collection rate calculations, and outstanding invoice drill-down.
+**Fix**: Add a sub-flow or subgraph for "Collections Analytics Dashboard" showing aging buckets (Current, 1-30, 31-60, 61-90, 90+), collection rate %, and outstanding drill-down. Update user journey to describe the merchant's analytics experience.
 
-| Section | Shared? | Roles Involved | Key Addition |
-|---------|---------|----------------|--------------|
-| 1. Onboarding | Yes | Merchant (register), Admin (review/approve) | Admin sees verification queue; Merchant sees status tracker |
-| 2. Subscription | Merchant-only | Merchant | Brief note: Admin manages tiers via `/admin/subscription-tiers` |
-| 3. Property & Unit | Merchant-only | Merchant | Admin can view all properties at `/admin/properties` |
-| 4. Contract | **Shared** | Merchant (create, sign), Tenant (sign, view), Admin (view all) | Full role table |
-| 5. Tenant Mgmt | **Shared** | Merchant (invite), Tenant (accept/view), Admin (view all) | Full role table |
-| 6. Invoice | **Shared** | Merchant (create/send), Tenant (view/pay), Admin (view aggregate) | Full role table |
-| 7. Payment | **Shared** | Tenant (pay/upload proof), Merchant (verify), Admin (escrow oversight) | Full role table |
-| 8. Escrow | **Shared** | Merchant (request disbursement), Admin (review/approve) | Full role table |
-| 9. Move-Out | **Shared** | Tenant (submit notice), Merchant (inspect/process), Admin (dispute resolution) | Full role table |
-| 10. Maintenance | **Shared** | Tenant (submit request), Merchant (assign), Vendor (accept/work), Admin (oversight) | Full 4-role table |
-| 11. Collections | Merchant-focused | Merchant, Admin (view cases) | Admin sees aggregate analytics |
-| 12. AI/DSS | Merchant-focused | Merchant | Note: Admin monitors DSS health at `/admin/dss-health` |
-| 13. Referral | **Shared** | Merchant/Tenant/Vendor (generate/use codes), Admin (manage payouts) | Full role table |
-| 14. Support | **Shared** | All 4 roles use AI chatbot; Admin manages KB | Full role table |
-| 15. Reconciliation | Merchant-focused | Merchant (manual match), System (auto-match) | Admin sees via escrow |
-| 16. Reminders | System/Merchant | System (cron), Merchant (config), Tenant (receives) | Role table |
-| 17. Expenses | Merchant-only | Merchant | Brief note |
-| 18. Waiting List | Merchant-only | Merchant | Brief note |
-| 19. Lease Renewal | Merchant-focused | Merchant (create amendment), Tenant (view contract changes) | Role table |
-| 20. Collections Extended | Merchant-focused | Merchant | Brief note |
-| 21. Dynamic Pricing | Merchant-only | Merchant | Brief note |
-| 22. Financial Reports | Merchant-only | Merchant | Brief note |
-| 23. Launch Readiness | Admin-only | Admin | Brief note |
+### Section 15: Reconciliation -- Missing Suggested Invoices Detail
+**Problem**: The diagram shows auto-match tiers but doesn't detail that `reconciliationService.fetchUnmatchedPayments` enriches each payment with `suggestedInvoices` (up to 3 matching invoices by tenant + contract).
+**Fix**: Add suggested invoices detail in the manual review flow and update user journey to mention the merchant sees suggested matches.
 
-### Narrative Additions Per Section
-For each section, add a brief **"Perjalanan Pengguna"** (User Journey) paragraph before the Mermaid diagram, written in plain language describing the end-to-end story from the user's perspective. Example for Section 4 (Contract):
+### Section 22: Financial Reports -- Verify Data Source Fields  
+**Problem**: The diagram says it fetches `paid invoices` but `financialReportService.ts` specifically selects `amount, paid_at, property_id` from invoices (uses `amount` not `total_amount`). Also groups revenue by property using `properties` name mapping.
+**Fix**: Update the technical reference to accurately reflect the fields used.
 
-> "Pemilik properti membuat kontrak untuk unit yang tersedia, lalu menandatangani secara digital. Penyewa menerima undangan untuk menandatangani kontrak. Setelah kedua pihak menandatangani, kontrak otomatis aktif dan unit berubah status menjadi terisi. Admin dapat melihat semua kontrak di seluruh platform."
+### Lampiran: State Machines Summary
+**Problem**: Missing `waitlisted` in waiting list states, missing `cancelled`/`rejected` in amendment states.
+**Fix**: Update both entries to reflect actual code.
 
-### State Machine Tables
-Keep all existing state machine tables but move them into collapsible `<details>` blocks with summary "Referensi State Machine" so they don't dominate the narrative flow.
+## Enhanced User Journey Narratives
 
-### New Section: Role Journey Summary (before Lampiran)
-Add a new summary section "Ringkasan Journey per Peran" with 4 subsections:
+For each section, I will review and strengthen the "Perjalanan Pengguna" paragraph to:
+- Describe the **complete** end-to-end flow the user actually experiences
+- Reference actual service method names and UI actions
+- Mention error/fallback paths that exist in code (e.g., `renewalService.fetchAlerts` has a fallback query when `lease_renewal_alerts` table fails)
 
-**Pemilik (Merchant):** Full lifecycle from onboarding -> property setup -> tenant management -> billing -> financial reports
-**Penyewa (Tenant):** Accept invitation -> sign contract -> pay invoices -> request maintenance -> marketplace -> move-out
-**Vendor:** Register -> get verified -> receive jobs -> complete work -> earn
-**Admin:** Verify merchants/vendors -> manage escrow -> resolve disputes -> monitor launch readiness
+## Specific Edits
 
-Each with a simple numbered step list referencing the relevant diagram numbers.
-
-## Technical Details
-
-### File Modified
+### Files Modified
 - `old-docs/merchant_activity_diagram.md`
 
 ### Execution Order
-1. Update document title, subtitle, and add role legend
-2. For each of 23 sections: add "Perjalanan Pengguna" narrative + "Perspektif Peran" role table
-3. Wrap existing state machine tables in `<details>` blocks
-4. Add new "Ringkasan Journey per Peran" section before Lampiran
-5. Keep all Lampiran (Cross-Reference, Edge Functions, State Machines) unchanged
+1. Fix Section 18 Waiting List: add `waitlisted` state to diagram, state machine table, and narrative
+2. Fix Section 19 Amendment: add `cancelled`/`rejected` states to diagram, state machine table, and narrative
+3. Fix Section 11 Collections: add aging analytics subgraph and updated narrative referencing `collectionsService.ts` and `v_outstanding_summary`
+4. Fix Section 15 Reconciliation: add suggested invoices detail in manual review flow
+5. Fix Section 22 Financial Reports: correct field references in technical details
+6. Update Lampiran State Machines Summary with correct transitions
+7. Review and strengthen all 23 "Perjalanan Pengguna" narratives for accuracy against actual code
 
+### What Will NOT Change
+- No sections deleted
+- No diagrams removed
+- All existing role perspective tables preserved
+- All appendices (Cross-Reference, Edge Functions) remain intact
+- Collapsible `<details>` structure stays as-is
