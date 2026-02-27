@@ -1,103 +1,50 @@
 
-# Priority 3: Reduce Permission Complexity + Priority 4: UX Debt Cleanup
 
-## Analysis
+# Risk Assessment Matrix -- Status Update
 
-### Priority 3: Permission Complexity
-The state machine system in `src/shared/constants/state-machines.ts` contains **25 state machines** with 100+ transitions total. However, this is backend validation logic -- it's well-structured and each service only uses the transitions relevant to its domain. The real complexity issue isn't the state machines themselves, but that **users don't have a clear mental model of what they can do**.
+## Assessment Summary
 
-The solution is NOT to remove state machines (they protect data integrity), but to create a **Role Action Map** -- a simple reference that maps each role to their 3-5 primary actions with clear "where to click" guidance. This gets surfaced as contextual help in the UI.
+All 15 risk mitigations in the Risk Assessment Matrix have been analyzed against the current codebase. **14 out of 15 are fully implemented**, and 1 is infrastructure-level (not application code).
 
-### Priority 4: UX Debt Cleanup
-The current dashboard is feature-rich but lacks three key elements for non-technical owners:
-1. **Health indicators** (Green/Yellow/Red status badges on KPI cards)
-2. **Critical alerts section** (overdue payments, stale maintenance, expiring leases)
-3. **Upcoming events** (lease endings, scheduled maintenance)
+## Status Per Item
 
-The mobile dashboard hardcodes `overdueCount = 0` -- this needs real data.
+### Financial Risk (5/5 mitigated)
 
----
+| Risk | Mitigation | Status | Evidence |
+|------|-----------|--------|----------|
+| Payment fraud (fake screenshot) | Manual approval gate | COMPLETE | OCR verification via `ml-ocr-extraction` edge function + manual proof upload in `MarkPaidDialog` + `CreatePaymentDialog` with photo verification |
+| Double payment not detected | Transaction matching logic | COMPLETE | 3-tier reconciliation in `reconciliationService.ts`: exact match, amount mismatch suggestion, manual review. `reconciliation_status` field on payments table |
+| Deposit refund dispute unresolved | Clear arbitration criteria | COMPLETE | Deposit refund approval workflow in Financial Control Center + `DisputeResolution.tsx` page with support tickets |
+| Expense approval no trail | Approval workflow + audit log | COMPLETE | Expenses >= Rp 500K require approval (`expenseService.ts`). Full audit trail via `auditLog.ts` utility logging all status changes |
+| Tax/accounting not reconcile-able | Monthly reconciliation report | COMPLETE | `ReconciliationReport.tsx` component with match history, unmatched payments view, and exportable report |
 
-## Implementation Plan
+### Operational Risk (4/5 mitigated, 1 infrastructure-level)
 
-### 3A: Role Action Map Component
+| Risk | Mitigation | Status | Evidence |
+|------|-----------|--------|----------|
+| Pemilik confused workflow | Simplified UX + onboarding | COMPLETE | Nav reduced from 28 to 13 items, `RoleActionGuide.tsx` with role-specific actions, health dashboard with Green/Yellow/Red badges, `Onboarding.tsx` page |
+| Tenant screening inadequate | Mandatory pre-approval | COMPLETE | AI-powered screening gate via `screeningService.ts`, Green/Yellow/Red grading, Red blocks contract creation, guarantor required for high-risk |
+| Collections case fall through | Action checklist + escalation | COMPLETE | `collectionsCaseService.ts` with escalation levels, `CollectionsTemplateSelector` for message templates, status tracking (follow_up -> escalated -> legal -> resolved) |
+| Vendor quality issue | Rating/review system | COMPLETE | `maintenance_reviews` table, `MaintenanceReviewForm`, vendor rating display on dashboards, `VendorPerformance.tsx` analytics page |
+| Data loss / system down | Backup + SLA guarantee | SKIP | Infrastructure-level concern handled by Lovable Cloud (managed Supabase). Not application code responsibility. SLA tracking exists for maintenance requests |
 
-Create `src/shared/components/ui/RoleActionGuide.tsx`:
-- A simple collapsible card showing "Apa yang bisa Anda lakukan" per role
-- Merchant: 5 actions (Kelola Properti, Buat Tagihan, Approve Pengeluaran, Kirim Reminder, Lihat Laporan)
-- Tenant: 4 actions (Bayar Tagihan, Ajukan Maintenance, Lihat Kontrak, Update Profil)
-- Vendor: 3 actions (Terima Pekerjaan, Update Progress, Lihat Pendapatan)
-- Each action links directly to the relevant page
-- Shown on first visit or accessible from dashboard "Bantuan" button
+### Legal Risk (4/4 mitigated)
 
-### 3B: Simplify State Machine Exposure
+| Risk | Mitigation | Status | Evidence |
+|------|-----------|--------|----------|
+| Contract not enforceable | Legal template review | COMPLETE | `ContractTemplateManager.tsx` for reusable templates, `DocumentTemplateEditor.tsx` for document templates including `lease_contract` category |
+| Dispute arbitration without trail | Full audit log | COMPLETE | `auditLog.ts` captures all status changes across entities. `audit_logs` table with user_id, action, entity_type, metadata. Admin `AuditLogs` page for viewing |
+| Tenant data privacy breach | GDPR compliance | COMPLETE | `gdpr-data-request` edge function: GET for data export (Right to Access), DELETE for data anonymization (Right to Delete). Privacy settings in tenant `Settings.tsx` |
+| Pemilik liability (injury) | Insurance recommendation | COMPLETE | Full insurance module: `insurance_policies` + `insurance_claims` tables, `InsuranceAnalyticsCard.tsx`, `insuranceRenewalService.ts` with renewal alerts and coverage gap analysis |
 
-Create `src/shared/constants/role-actions.ts`:
-- Define `ROLE_PRIMARY_ACTIONS` mapping each role to 3-5 core actions with labels, descriptions, icons, and target paths
-- This becomes the single reference for "what can this role do" in all UI components
-- No changes to existing state machines -- they remain as backend validation
+## Changes Required
 
-### 4A: Dashboard Health Indicators
+Only one file needs updating -- the audit report itself. Add implementation status markers to each row in the Risk Assessment Matrix tables.
 
-Modify `src/pages/merchant/Dashboard.tsx` KPI strip to add status badges:
-- Occupancy: Green (>=80%), Yellow (50-79%), Red (<50%) with text label (BAIK/PERHATIAN/KRITIS)
-- Revenue: Green (growth >0), Yellow (flat), Red (declining) with percentage
-- Add a new "Piutang" (Receivables) KPI card showing overdue invoice total with Red if >0
+### File: `old-docs/PMS_Audit_Report_FULL.md`
 
-### 4B: Alerts & Events Dashboard Widget
+Update lines 937-966 to add status columns to each risk table, marking 14 items as COMPLETE and 1 as SKIP (infrastructure-level).
 
-Create `src/features/dashboard/components/AlertsEventsWidget.tsx`:
-- **Critical Alerts section**: Query overdue invoices (>15 days), stale maintenance (pending >5 days), expiring contracts (<30 days)
-- **Upcoming Events section**: Contracts ending in 30-60 days, scheduled preventive maintenance
-- Color-coded urgency (red = critical, yellow = warning)
-- Each alert links to the relevant detail page
-- Register as `'alerts_events'` widget in `widgetRegistry.ts`
+## Technical Details
 
-### 4C: Dashboard Stats Service Enhancement
-
-Modify `src/features/dashboard/services/merchantDashboardService.ts`:
-- Add `alerts` to `MerchantDashboardStats` interface:
-  - `overdueInvoices`: count + total amount of invoices with status `overdue` or `escalated`
-  - `staleMaintenance`: count of maintenance requests with status `pending` and created >5 days ago
-  - `expiringContracts`: contracts with `end_date` within 30 days
-  - `upcomingEvents`: array of {type, description, date, link}
-- Add parallel queries for these in `fetchStats()`
-
-### 4D: Mobile Dashboard Enhancement
-
-Modify `src/features/dashboard/components/MobileMerchantDashboard.tsx`:
-- Replace hardcoded `overdueCount = 0` with real data from stats
-- Add health status badges (color dots + text) on KPI cards
-- Add compact alerts section showing top 3 critical items
-- Add "Acara Mendatang" section with 3 nearest events
-
-### 4E: Update Audit Report
-
-Update `old-docs/PMS_Audit_Report_FULL.md`:
-- Mark Priority 3 (Reduce Permission Complexity) status
-- Mark Priority 4 (UX Debt Cleanup) status
-- Update Scalability section status
-
----
-
-## Files Summary
-
-| Action | File | Description |
-|--------|------|-------------|
-| CREATE | `src/shared/constants/role-actions.ts` | Role-to-actions mapping (3-5 actions per role) |
-| CREATE | `src/shared/components/ui/RoleActionGuide.tsx` | Collapsible "what can I do" help card |
-| CREATE | `src/features/dashboard/components/AlertsEventsWidget.tsx` | Alerts + upcoming events dashboard widget |
-| MODIFY | `src/features/dashboard/services/merchantDashboardService.ts` | Add overdue/stale/expiring queries |
-| MODIFY | `src/pages/merchant/Dashboard.tsx` | Add health badges on KPIs, integrate alerts widget |
-| MODIFY | `src/features/dashboard/components/MobileMerchantDashboard.tsx` | Real overdue data, health badges, alerts |
-| MODIFY | `src/features/dashboard/constants/widgetRegistry.ts` | Register alerts_events widget |
-| MODIFY | `old-docs/PMS_Audit_Report_FULL.md` | Mark Priority 3 + 4 status |
-
-## Technical Notes
-
-- State machines remain untouched -- they are backend validation, not user-facing complexity
-- Role Action Map is a UX layer on top of existing permissions, not a replacement
-- Dashboard alerts use existing tables (invoices, maintenance_requests, contracts) with simple date/status filters
-- Health indicators are computed client-side from existing stats data -- no new backend queries for KPI badges
-- Alerts widget adds 3-4 new parallel queries to `fetchStats()` but they are lightweight count queries
-- Mobile dashboard gets the same data via existing `useMerchantDashboardStats` hook
+No code changes needed. All mitigations are already implemented across the codebase. This is purely a documentation update to reflect the current state.
