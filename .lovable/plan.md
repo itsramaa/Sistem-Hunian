@@ -1,95 +1,74 @@
 
 
-# Update merchant_activity_diagram.md with All New Systems
+# Update merchant_activity_diagram.md: User Journeys + Role Perspectives
 
 ## Overview
-The current document has 14 activity diagrams (Onboarding through Support/Compliance) plus 3 appendices. Phases 1-4 added 9 new subsystems that need their own activity diagrams. The document will be updated from 14 to 23 diagrams, plus updated appendices.
+Edit the existing 23-section document to shift focus from **state machine documentation** to **user journey flows**, and add **role-based perspective sections** for shared features. No sections will be deleted -- only enhanced.
 
-## New Activity Diagrams to Add
+## Changes Per Section
 
-### 15. Payment Reconciliation (Auto-Match)
-- Flowchart: Payment recorded -> check reconciliation_status -> Tier 1 (exact match: amount + tenant + date) -> Tier 2 (partial match: amount only) -> Tier 3 (manual review) -> merchant manual match -> update invoice status
-- State references: reconciliation_status values (unmatched, pending_review, auto_matched, manually_matched)
-- Source: `reconciliationService.ts`, `auto-match-payment` EF
+### Global Changes
+- Rename document title from "Merchant Activity Diagrams" to "SiHuni User Journey & Activity Diagrams"
+- Update subtitle to mention multi-role perspective (Pemilik, Tenant, Admin, Vendor)
+- Add a "Konvensi Peran" legend at top explaining role icons/labels used throughout
 
-### 16. Automated Payment Reminders & Escalation
-- Flowchart: Cron daily -> scan overdue invoices -> group by merchant -> check reminder config -> match schedule by days_overdue -> deduplicate -> log reminder -> auto-create collections case at T+15 -> escalate invoice status
-- Source: `queue-payment-reminders/index.ts`
+### Per-Diagram Edits (Keep diagrams, add journey narrative)
 
-### 17. Expense Tracking
-- Flowchart: Merchant add expense -> set category/amount/date -> save -> summary view (this month vs last, by category, trend %) -> delete expense
-- Source: `expenseService.ts`
+For each of the 23 sections, add a **"Perspektif Peran"** subsection after the diagram. This table clarifies who does what. Sections that are single-role only get a brief note; shared features get a full 4-role breakdown.
 
-### 18. Waiting List & Applicant Management
-- Flowchart covering WAITING_LIST_TRANSITIONS state machine: interested -> applied -> offered -> accepted/rejected, with sendOffer sub-flow (set unit_id, offer_expires_at), filter by status/property
-- Source: `waitingListService.ts`
+| Section | Shared? | Roles Involved | Key Addition |
+|---------|---------|----------------|--------------|
+| 1. Onboarding | Yes | Merchant (register), Admin (review/approve) | Admin sees verification queue; Merchant sees status tracker |
+| 2. Subscription | Merchant-only | Merchant | Brief note: Admin manages tiers via `/admin/subscription-tiers` |
+| 3. Property & Unit | Merchant-only | Merchant | Admin can view all properties at `/admin/properties` |
+| 4. Contract | **Shared** | Merchant (create, sign), Tenant (sign, view), Admin (view all) | Full role table |
+| 5. Tenant Mgmt | **Shared** | Merchant (invite), Tenant (accept/view), Admin (view all) | Full role table |
+| 6. Invoice | **Shared** | Merchant (create/send), Tenant (view/pay), Admin (view aggregate) | Full role table |
+| 7. Payment | **Shared** | Tenant (pay/upload proof), Merchant (verify), Admin (escrow oversight) | Full role table |
+| 8. Escrow | **Shared** | Merchant (request disbursement), Admin (review/approve) | Full role table |
+| 9. Move-Out | **Shared** | Tenant (submit notice), Merchant (inspect/process), Admin (dispute resolution) | Full role table |
+| 10. Maintenance | **Shared** | Tenant (submit request), Merchant (assign), Vendor (accept/work), Admin (oversight) | Full 4-role table |
+| 11. Collections | Merchant-focused | Merchant, Admin (view cases) | Admin sees aggregate analytics |
+| 12. AI/DSS | Merchant-focused | Merchant | Note: Admin monitors DSS health at `/admin/dss-health` |
+| 13. Referral | **Shared** | Merchant/Tenant/Vendor (generate/use codes), Admin (manage payouts) | Full role table |
+| 14. Support | **Shared** | All 4 roles use AI chatbot; Admin manages KB | Full role table |
+| 15. Reconciliation | Merchant-focused | Merchant (manual match), System (auto-match) | Admin sees via escrow |
+| 16. Reminders | System/Merchant | System (cron), Merchant (config), Tenant (receives) | Role table |
+| 17. Expenses | Merchant-only | Merchant | Brief note |
+| 18. Waiting List | Merchant-only | Merchant | Brief note |
+| 19. Lease Renewal | Merchant-focused | Merchant (create amendment), Tenant (view contract changes) | Role table |
+| 20. Collections Extended | Merchant-focused | Merchant | Brief note |
+| 21. Dynamic Pricing | Merchant-only | Merchant | Brief note |
+| 22. Financial Reports | Merchant-only | Merchant | Brief note |
+| 23. Launch Readiness | Admin-only | Admin | Brief note |
 
-### 19. Lease Renewal & Amendment
-- Flowchart: Cron daily -> check contracts expiring in 60/30/7 days -> create deduplicated alerts -> merchant views alerts -> create amendment (draft) -> send -> sign -> update contract
-- State machine: AMENDMENT_STATUS_TRANSITIONS (draft -> sent -> signed)
-- Source: `renewalService.ts`, `send-renewal-alert/index.ts`
+### Narrative Additions Per Section
+For each section, add a brief **"Perjalanan Pengguna"** (User Journey) paragraph before the Mermaid diagram, written in plain language describing the end-to-end story from the user's perspective. Example for Section 4 (Contract):
 
-### 20. Collections Case Management (Extended)
-- Flowchart: Overdue invoice -> create case (initiated) -> contact tenant (in_progress) -> strategy (payment plan / escalate / write-off / eviction) -> resolved
-- Sub-flow: Create payment plan with installment calculation
-- Source: `collectionsCaseService.ts`
+> "Pemilik properti membuat kontrak untuk unit yang tersedia, lalu menandatangani secara digital. Penyewa menerima undangan untuk menandatangani kontrak. Setelah kedua pihak menandatangani, kontrak otomatis aktif dan unit berubah status menjadi terisi. Admin dapat melihat semua kontrak di seluruh platform."
 
-### 21. Dynamic Pricing Rules
-- Flowchart: Merchant CRUD pricing rules -> select type (occupancy/seasonal/demand/duration/loyalty) -> set adjustment (% or fixed) -> set conditions/priority -> toggle active/inactive
-- Source: `dynamicPricingService.ts`
+### State Machine Tables
+Keep all existing state machine tables but move them into collapsible `<details>` blocks with summary "Referensi State Machine" so they don't dominate the narrative flow.
 
-### 22. Financial Reports (P&L)
-- Flowchart: Select period (N months) -> fetch paid invoices + expenses -> aggregate monthly P&L -> group revenue by property -> group expenses by category -> display charts
-- Source: `financialReportService.ts`
+### New Section: Role Journey Summary (before Lampiran)
+Add a new summary section "Ringkasan Journey per Peran" with 4 subsections:
 
-### 23. Admin Launch Readiness
-- Flowchart: Admin opens dashboard -> fetch all system counts -> compute 18 readiness checks across 5 categories -> calculate weighted score -> display go/no-go criteria
-- Source: `launchReadinessService.ts`
+**Pemilik (Merchant):** Full lifecycle from onboarding -> property setup -> tenant management -> billing -> financial reports
+**Penyewa (Tenant):** Accept invitation -> sign contract -> pay invoices -> request maintenance -> marketplace -> move-out
+**Vendor:** Register -> get verified -> receive jobs -> complete work -> earn
+**Admin:** Verify merchants/vendors -> manage escrow -> resolve disputes -> monitor launch readiness
 
-## Updates to Existing Sections
-
-### Table of Contents
-Add entries 15-23 with anchor links.
-
-### Existing Diagram 6 (Invoice)
-Add `escalated` status to the Invoice state machine table (already in code: `overdue -> escalated`).
-
-### Existing Diagram 11 (Collections)
-Add cross-reference to new Diagram 20 (extended case management) and Diagram 16 (auto-reminders).
-
-### Lampiran: Cross-Reference Matrix
-Add connections:
-- D7 (Payment) -> D15 (Reconciliation): Payment triggers auto-match
-- D15 -> D6 (Invoice): Match updates invoice status
-- D16 (Reminders) -> D11/D20 (Collections): Auto-creates case at T+15
-- D16 -> D6: Escalates invoice status
-- D19 (Renewal) -> D4 (Contract): Amendment modifies contract
-- D20 (Collections Extended) -> D6B (Payment Plan): Creates plans
-- D21 (Pricing) -> D3 (Property): Rules reference properties
-- D22 (Financial) -> D6 + D17: Aggregates invoices + expenses
-- D23 (Launch) -> All: Reads all system tables
-
-### Lampiran: Edge Functions Summary
-Add 3 new entries:
-| `auto-match-payment` | Reconciliation | 15 |
-| `queue-payment-reminders` | Reminders | 16 |
-| `send-renewal-alert` | Lease Renewal | 19 |
-
-### Lampiran: State Machines Summary
-Add 2 new entries:
-| Waiting List | `WAITING_LIST_TRANSITIONS` | 18 |
-| Contract Amendment | `AMENDMENT_STATUS_TRANSITIONS` | 19 |
+Each with a simple numbered step list referencing the relevant diagram numbers.
 
 ## Technical Details
 
 ### File Modified
-- `old-docs/merchant_activity_diagram.md` -- full update with all 23 diagrams + updated appendices
+- `old-docs/merchant_activity_diagram.md`
 
 ### Execution Order
-1. Update Table of Contents (add entries 15-23)
-2. Update Diagram 6 Invoice state machine table to include `escalated` status
-3. Append 9 new activity diagram sections after section 14
-4. Rewrite Cross-Reference Matrix with new connections
-5. Rewrite Edge Functions Summary with 3 new entries
-6. Rewrite State Machines Summary with 2 new entries
+1. Update document title, subtitle, and add role legend
+2. For each of 23 sections: add "Perjalanan Pengguna" narrative + "Perspektif Peran" role table
+3. Wrap existing state machine tables in `<details>` blocks
+4. Add new "Ringkasan Journey per Peran" section before Lampiran
+5. Keep all Lampiran (Cross-Reference, Edge Functions, State Machines) unchanged
 
