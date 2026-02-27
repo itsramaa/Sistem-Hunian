@@ -1,192 +1,171 @@
 
-# Dashboard Customization + API & Integration Framework
+
+# Caretaker/Staff Role Management + Vendor Management & Performance Tracking
 
 ## Overview
 
 Two features:
-1. **Dashboard Customization** -- Drag-drop widget reordering, show/hide widgets, saved preferences per merchant
-2. **API & Integration Framework** -- REST API via edge function for external integrations + webhook system for event notifications
+1. **Staff Role Management** -- Sub-user system for merchants to invite caretakers, property managers, and accountants with granular permissions scoped to specific properties
+2. **Vendor Performance Tracking** -- Enhanced analytics dashboard for merchant-side vendor evaluation (response time, cost comparison, preferred marking) using existing `vendor_jobs`, `maintenance_reviews`, and `property_vendor_services` data
 
 ---
 
-## Feature 3: Dashboard Customization
+## Feature 6: Caretaker / Staff Role Management
 
-### 3A: Database -- `dashboard_preferences` Table
+### 6A: Database -- New Tables
 
-Create table to store per-merchant widget layout:
-
+**`merchant_staff`** -- Staff members invited by a merchant:
 ```
-dashboard_preferences
-  id              uuid PK
-  merchant_id     uuid FK merchants UNIQUE
-  widget_order    jsonb NOT NULL DEFAULT '[]'   -- ordered list of widget IDs
-  hidden_widgets  jsonb NOT NULL DEFAULT '[]'   -- list of hidden widget IDs
-  created_at      timestamptz DEFAULT now()
-  updated_at      timestamptz DEFAULT now()
+id                uuid PK
+merchant_id       uuid FK merchants NOT NULL
+user_id           uuid NOT NULL (references auth.users)
+staff_role        text NOT NULL (caretaker, property_manager, accountant)
+display_name      text NOT NULL
+email             text NOT NULL
+phone             text
+property_ids      jsonb DEFAULT '[]' (list of property UUIDs this staff has access to -- empty = all)
+is_active         boolean DEFAULT true
+invited_at        timestamptz DEFAULT now()
+accepted_at       timestamptz
+created_at        timestamptz DEFAULT now()
+updated_at        timestamptz DEFAULT now()
+UNIQUE(merchant_id, user_id)
 ```
 
-RLS: merchant can read/write their own preferences only.
+**`staff_permissions`** -- Granular permission overrides per staff member:
+```
+id                uuid PK
+staff_id          uuid FK merchant_staff NOT NULL
+permission_key    text NOT NULL
+is_granted        boolean DEFAULT true
+created_at        timestamptz DEFAULT now()
+UNIQUE(staff_id, permission_key)
+```
 
-Widget IDs will be predefined constants like: `'kpi_strip'`, `'quick_actions'`, `'subscription'`, `'charts'`, `'property_overview'`, `'financial_summary'`, `'vacancy'`.
+RLS: Merchant can CRUD their own staff. Staff users can read their own record.
 
-### 3B: Dashboard Preferences Service
+### 6B: Default Permission Matrix
 
-Create `src/features/dashboard/services/dashboardPreferencesService.ts`:
-- `fetchPreferences(merchantId)` -- get saved preferences or return defaults
-- `savePreferences(merchantId, data)` -- upsert widget order + hidden widgets
-- Default widget order: `['kpi_strip', 'quick_actions', 'charts', 'property_overview', 'vacancy']`
+Predefined permission keys with defaults per role:
 
-### 3C: Hooks
+| Permission Key | Caretaker | Property Manager | Accountant |
+|---|---|---|---|
+| `units.view` | yes | yes | no |
+| `units.edit_status` | yes | yes | no |
+| `maintenance.view` | yes | yes | no |
+| `maintenance.accept` | yes | yes | no |
+| `maintenance.assign_vendor` | no | yes | no |
+| `maintenance.log_activity` | yes | yes | no |
+| `expenses.view` | no | yes | yes |
+| `expenses.create` | no | yes | no |
+| `expenses.approve` | no | yes (below Rp 1M) | no |
+| `invoices.view` | no | yes | yes |
+| `invoices.create` | no | yes | no |
+| `collections.send_letter` | no | yes | no |
+| `financial_reports.view` | no | yes | yes |
+| `tenants.view` | yes | yes | no |
+| `contracts.view` | no | yes | yes |
+| `settings.view` | no | no | no |
 
-Create `src/features/dashboard/hooks/useDashboardPreferences.ts`:
-- `useDashboardPreferences(merchantId)` -- query
-- `useSaveDashboardPreferences()` -- mutation with optimistic update
+### 6C: Staff Service
 
-### 3D: Customize Dashboard Dialog
+Create `src/features/staff/services/staffService.ts`:
+- `fetchStaff(merchantId)` -- list all staff members
+- `inviteStaff(data)` -- create merchant_staff record + insert user_roles row with 'merchant' role for the invited user (if not exists) + set default permissions based on staff_role
+- `updateStaff(id, data)` -- update role, properties, active status
+- `removeStaff(id)` -- soft deactivate (is_active = false)
+- `fetchPermissions(staffId)` -- get permission overrides
+- `updatePermissions(staffId, permissions[])` -- upsert permission grants
+- `checkPermission(userId, merchantId, permissionKey)` -- check if user has a specific permission (used in UI guards)
 
-Create `src/features/dashboard/components/DashboardCustomizeDialog.tsx`:
-- Modal triggered by a "Kustomisasi" button in the dashboard header
-- List of all available widgets with:
-  - Toggle switch to show/hide each widget
-  - Drag handle to reorder (using simple up/down arrow buttons -- no drag-drop library needed)
-  - Widget name + description
-- Preview of layout order
-- Save button persists to database
-- Reset to Default button
+### 6D: Staff Management Page
 
-### 3E: Modify Dashboard Page
+Create `src/pages/merchant/StaffManagement.tsx`:
+- List of all staff with role badge, assigned properties, active status
+- "Undang Staff" button opens dialog:
+  - Email input (existing user or new invite)
+  - Staff role selector (Caretaker / Property Manager / Accountant)
+  - Property assignment (multi-select from merchant's properties, or "Semua Properti")
+- Edit staff: change role, reassign properties, toggle active
+- Permission editor: expandable section per staff showing toggles for each permission key (pre-filled from role defaults, customizable)
 
-Update `src/pages/merchant/Dashboard.tsx`:
-- Import preferences hook
-- Add "Kustomisasi" button next to "Segarkan" in PageHeader
-- Wrap each dashboard section in a widget container identified by widget ID
-- Render widgets in order from preferences, skip hidden ones
-- Each section becomes a `DashboardWidget` wrapper that maps ID to component
+### 6E: Staff Permission Hook
 
-### 3F: Widget Registry
+Create `src/features/staff/hooks/useStaffPermission.ts`:
+- `useStaffPermission(permissionKey)` -- returns `{ hasPermission, isLoading }` 
+- Checks: if user is the merchant owner, always true. If user is staff, checks `merchant_staff` + `staff_permissions`
+- Used as UI guard to show/hide buttons and sections
 
-Create `src/features/dashboard/constants/widgetRegistry.ts`:
-- Map of widget ID to: label, description, component reference, default visibility
-- Used by both the customize dialog and the dashboard renderer
+Create `src/features/staff/hooks/useStaffMembers.ts`:
+- TanStack Query hooks for staff CRUD
+
+### 6F: Permission Constants
+
+Create `src/features/staff/constants/permissions.ts`:
+- `PERMISSION_KEYS` -- all permission key constants
+- `DEFAULT_PERMISSIONS` -- map of staff_role to default permission set
+- `PERMISSION_LABELS` -- Indonesian labels for each permission for the UI
+
+### 6G: Navigation & Routes
+
+- Add `/merchant/staff` route
+- Add "Manajemen Staff" nav item in merchant navigation under "Pengaturan" group with `Users` icon
 
 ---
 
-## Feature 4: API & Integration Framework
+## Feature 7: Vendor Management & Performance Tracking
 
-### 4A: Database -- `api_keys` and `webhook_endpoints` Tables
+### 7A: Vendor Performance Service
 
-**`api_keys`**:
-```
-id              uuid PK
-merchant_id     uuid FK merchants
-key_hash        text NOT NULL        -- SHA-256 hash of the API key
-key_prefix      text NOT NULL        -- first 8 chars for display (e.g. "pk_live_a1b2...")
-name            text NOT NULL        -- friendly name
-scopes          jsonb DEFAULT '["read"]'  -- read, write, webhook
-rate_limit      integer DEFAULT 1000  -- requests per hour
-last_used_at    timestamptz
-is_active       boolean DEFAULT true
-created_at      timestamptz DEFAULT now()
-expires_at      timestamptz
-```
+Create `src/features/vendor-management/services/vendorPerformanceService.ts`:
 
-**`webhook_endpoints`**:
-```
-id              uuid PK
-merchant_id     uuid FK merchants
-url             text NOT NULL
-events          jsonb NOT NULL       -- list of event types to subscribe to
-secret          text NOT NULL        -- webhook signing secret
-is_active       boolean DEFAULT true
-last_triggered_at timestamptz
-failure_count   integer DEFAULT 0
-created_at      timestamptz DEFAULT now()
-updated_at      timestamptz DEFAULT now()
+Uses existing tables -- no new database tables needed:
+- `vendor_jobs` has `created_at`, `started_at`, `completed_at`, `agreed_price` -- enough to calculate response time and cost
+- `maintenance_reviews` has `rating`, `comment` -- for quality metrics
+- `property_vendor_services` has `is_active`, `monthly_cost` -- for assignment tracking
+- `vendors` has `rating`, `total_jobs` -- for overview
+
+Functions:
+- `fetchVendorPerformance(merchantId)` -- aggregate per vendor: avg response time (started_at - created_at), avg completion time, avg rating, total cost, job count, cost per job
+- `fetchVendorComparison(merchantId, vendorIds[])` -- side-by-side comparison data
+- `togglePreferredVendor(merchantId, vendorId, isPreferred)` -- update `property_vendor_services.is_active` or add a `is_preferred` flag
+- `fetchVendorHistory(vendorId, merchantId)` -- job timeline with costs and ratings
+
+### 7B: Database Enhancement
+
+Add column to `property_vendor_services`:
+```sql
+ALTER TABLE property_vendor_services ADD COLUMN IF NOT EXISTS is_preferred boolean DEFAULT false;
 ```
 
-**`webhook_logs`**:
-```
-id              uuid PK
-webhook_id      uuid FK webhook_endpoints
-event_type      text NOT NULL
-payload         jsonb NOT NULL
-response_status integer
-response_body   text
-delivered_at    timestamptz DEFAULT now()
-```
+This allows merchants to mark specific vendors as "preferred" for quick assignment. No other new tables needed.
 
-RLS: merchant CRUD on own keys and endpoints.
+### 7C: Vendor Performance Dashboard
 
-### 4B: API Gateway Edge Function
+Create `src/pages/merchant/VendorPerformance.tsx`:
+- **Stats Strip**: Total vendors, avg rating, avg response time, total spend this month
+- **Tab 1: Ringkasan** -- Table of all vendors the merchant has worked with, showing: name, specialization, avg response time, avg rating (stars), total jobs, total cost, preferred badge. Sortable columns
+- **Tab 2: Perbandingan** -- Select 2-3 vendors to compare side-by-side: bar charts for response time, cost per job, rating. Uses recharts
+- **Tab 3: Riwayat** -- Select a vendor to see full job history timeline with cost, rating per job, and trend line
 
-Create `supabase/functions/merchant-api/index.ts`:
-- Authentication via `X-API-Key` header
-- Validates key hash against `api_keys` table
-- Rate limiting check (count requests in last hour)
-- Routes:
-  - `GET /properties` -- list merchant's properties
-  - `GET /properties/:id` -- single property with units
-  - `GET /units` -- list units (filterable by property_id, status)
-  - `GET /tenants` -- list active tenants
-  - `GET /invoices` -- list invoices (filterable by status, date range)
-  - `GET /payments` -- list payments
-  - `GET /maintenance` -- list maintenance requests
-  - `GET /contracts` -- list contracts
-- All responses follow consistent JSON format with pagination:
-  ```json
-  { "data": [...], "meta": { "page": 1, "per_page": 20, "total": 150 } }
-  ```
-- Update `supabase/config.toml` with `verify_jwt = false` for this function (uses API key auth instead)
+### 7D: Preferred Vendor Quick Actions
 
-### 4C: Webhook Dispatcher Edge Function
+Enhance existing maintenance vendor assignment:
+- In `UpdateMaintenanceDialog.tsx`, show preferred vendors at the top of the vendor dropdown with a star icon
+- Add "Mark as Preferred" toggle in vendor performance table
 
-Create `supabase/functions/webhook-dispatcher/index.ts`:
-- Called internally (by triggers or other edge functions) when events occur
-- Looks up all active webhook endpoints for the merchant that subscribe to the event type
-- Signs payload with HMAC-SHA256 using the endpoint's secret
-- Sends POST to each endpoint URL with:
-  - `X-Webhook-Signature` header
-  - Event payload as JSON body
-- Logs delivery result to `webhook_logs`
-- Supported events: `payment.received`, `payment.verified`, `invoice.created`, `invoice.overdue`, `maintenance.created`, `maintenance.completed`, `tenant.moved_in`, `tenant.moved_out`, `contract.signed`, `contract.expired`
-- Set `verify_jwt = false` in config.toml (called internally)
+### 7E: Hooks
 
-### 4D: API Management Page
+Create `src/features/vendor-management/hooks/useVendorPerformance.ts`:
+- `useVendorPerformance(merchantId)` -- query aggregated performance data
+- `useVendorComparison(merchantId, vendorIds)` -- query comparison data
+- `useVendorHistory(vendorId, merchantId)` -- query job history
+- `useTogglePreferred()` -- mutation
 
-Create `src/pages/merchant/ApiIntegration.tsx`:
-- **Tab 1: API Keys** -- Create, view (masked), revoke API keys. Show scopes and rate limits. Copy key on creation (shown once)
-- **Tab 2: Webhooks** -- Add/edit/delete webhook endpoints. Select events to subscribe. Test endpoint button (sends test payload). View delivery logs with status
-- **Tab 3: Dokumentasi** -- Inline API documentation showing available endpoints, request/response examples, authentication guide, webhook event list with payload schemas
+### 7F: Navigation & Routes
 
-### 4E: API Management Service
-
-Create `src/features/integrations/services/apiIntegrationService.ts`:
-- `createApiKey(merchantId, name, scopes)` -- generate random key, store hash, return plaintext once
-- `listApiKeys(merchantId)` -- list keys (prefix only, no full key)
-- `revokeApiKey(id)` -- set is_active = false
-- `createWebhook(merchantId, url, events)` -- create endpoint with generated secret
-- `updateWebhook(id, data)` -- edit URL/events
-- `deleteWebhook(id)` -- delete endpoint
-- `testWebhook(id)` -- send test event payload
-- `fetchWebhookLogs(webhookId)` -- delivery history
-
-### 4F: Hooks
-
-Create `src/features/integrations/hooks/useApiIntegration.ts`:
-- `useApiKeys(merchantId)` -- query
-- `useCreateApiKey()` -- mutation
-- `useRevokeApiKey()` -- mutation
-- `useWebhooks(merchantId)` -- query
-- `useCreateWebhook()` / `useUpdateWebhook()` / `useDeleteWebhook()` -- mutations
-- `useTestWebhook()` -- mutation
-- `useWebhookLogs(webhookId)` -- query
-
-### 4G: Navigation & Routes
-
-Add to `navigation-config.ts` under a new "Pengaturan" group or existing "Wawasan":
-- `/merchant/api-integration` with `ScanText` icon, label "API & Integrasi"
-
-Add route to `App.tsx`.
+- Add `/merchant/vendor-performance` route
+- Add "Performa Vendor" nav item in merchant navigation under "Operasional" group with `TrendingUp` icon
 
 ---
 
@@ -194,30 +173,28 @@ Add route to `App.tsx`.
 
 | Action | File | Description |
 |--------|------|-------------|
-| CREATE | DB migration | `dashboard_preferences`, `api_keys`, `webhook_endpoints`, `webhook_logs` tables |
-| CREATE | `src/features/dashboard/services/dashboardPreferencesService.ts` | Preferences CRUD |
-| CREATE | `src/features/dashboard/hooks/useDashboardPreferences.ts` | TanStack Query hooks |
-| CREATE | `src/features/dashboard/constants/widgetRegistry.ts` | Widget ID to component mapping |
-| CREATE | `src/features/dashboard/components/DashboardCustomizeDialog.tsx` | Customize modal with reorder + toggle |
-| MODIFY | `src/pages/merchant/Dashboard.tsx` | Dynamic widget rendering from preferences |
-| CREATE | `supabase/functions/merchant-api/index.ts` | REST API gateway edge function |
-| CREATE | `supabase/functions/webhook-dispatcher/index.ts` | Webhook delivery edge function |
-| CREATE | `src/features/integrations/services/apiIntegrationService.ts` | API key + webhook CRUD |
-| CREATE | `src/features/integrations/hooks/useApiIntegration.ts` | TanStack Query hooks |
-| CREATE | `src/pages/merchant/ApiIntegration.tsx` | API management page with docs |
-| MODIFY | `src/shared/components/layouts/navigation-config.ts` | Add API Integration nav item |
-| MODIFY | `src/App.tsx` | Add route |
-| MODIFY | `supabase/config.toml` | Add merchant-api + webhook-dispatcher JWT config |
-| MODIFY | `old-docs/PMS_Audit_Report_FULL.md` | Mark Dashboard Customization + API Framework status |
+| CREATE | DB migration | `merchant_staff`, `staff_permissions` tables + `is_preferred` column on `property_vendor_services` |
+| CREATE | `src/features/staff/services/staffService.ts` | Staff CRUD + permission checks |
+| CREATE | `src/features/staff/hooks/useStaffMembers.ts` | TanStack Query hooks |
+| CREATE | `src/features/staff/hooks/useStaffPermission.ts` | Permission guard hook |
+| CREATE | `src/features/staff/constants/permissions.ts` | Permission keys + defaults |
+| CREATE | `src/pages/merchant/StaffManagement.tsx` | Staff management page |
+| CREATE | `src/features/vendor-management/services/vendorPerformanceService.ts` | Vendor analytics from existing data |
+| CREATE | `src/features/vendor-management/hooks/useVendorPerformance.ts` | TanStack Query hooks |
+| CREATE | `src/pages/merchant/VendorPerformance.tsx` | Vendor performance dashboard |
+| MODIFY | `src/features/maintenance/components/UpdateMaintenanceDialog.tsx` | Preferred vendor sorting |
+| MODIFY | `src/shared/components/layouts/navigation-config.ts` | Add 2 nav items |
+| MODIFY | `src/App.tsx` | Add 2 routes |
+| MODIFY | `old-docs/PMS_Audit_Report_FULL.md` | Mark Feature 6 + 7 status |
 
 ---
 
 ## Technical Notes
 
-- Dashboard customization uses simple up/down arrow buttons for reordering instead of a drag-drop library -- keeps it lightweight with no new dependencies
-- API keys are generated client-side using `crypto.randomUUID()` + `crypto.getRandomValues()`, hashed with SHA-256 before storage. Plaintext shown once on creation
-- Webhook signatures use HMAC-SHA256 with the endpoint's secret for verification by receivers
-- The `merchant-api` edge function uses `verify_jwt = false` because it authenticates via API key header instead of JWT
-- Rate limiting is implemented by counting rows in a simple request log or by checking `last_used_at` + counter field
-- All API responses follow REST best practices: consistent error format, pagination metadata, proper HTTP status codes
-- Webhook dispatcher handles retries by incrementing `failure_count`; endpoints with 10+ consecutive failures are auto-deactivated
+- Staff system does NOT create new `app_role` values -- staff members use the existing `merchant` role but are scoped via `merchant_staff` records. This avoids changing the auth system
+- Permission checks are lightweight: a single query to `merchant_staff` + `staff_permissions` cached via TanStack Query
+- Vendor performance analytics are computed client-side from existing `vendor_jobs` and `maintenance_reviews` data -- no materialized views needed at this scale
+- Response time is calculated as `started_at - created_at` on `vendor_jobs`; completion time as `completed_at - started_at`
+- The `is_preferred` flag on `property_vendor_services` is per-property per-vendor, allowing different preferred vendors per property
+- Staff property scoping uses JSONB array of property IDs for flexible assignment without a junction table
+
