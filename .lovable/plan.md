@@ -1,132 +1,143 @@
 
+# Revision Plan: UX Assessment Forensic Audit & Corrections
 
-# Complete Rewrite: UX Assessment & User Journey (Current System Only)
+## Audit Methodology
 
-## Problem
+Verified every claim in the current document (v3.0, 1518 lines) against actual source files: `navigation-config.ts`, `state-machines.ts`, 57 merchant page files, `financialControlService.ts`, `permissions.ts`, `merchantDashboardService.ts`, and 62 edge functions.
 
-The current `UX_ASSESSMENT_AND_USER_JOURNEY.md` has **174 references** to `merchant_activity_diagram.md`, which is outdated and no longer aligned with the actual system. The PRD (`sihuni_prd.md`) also references escrow for merchants, contradicting the production codebase. A full rewrite is required using only current code-level evidence.
+## Findings Summary
 
-## Authoritative Sources (Code-Level Only)
+| Category | Status | Count |
+|----------|--------|-------|
+| Verified claims (correct) | Pass | ~95% |
+| Factual errors (wrong numbers) | Fix needed | 3 |
+| Missing features (pages exist, not assessed) | Add needed | 5-9 |
+| Unverified assumptions | Flag needed | 4 |
+| Missing required sections (per task instructions) | Add needed | 2 |
 
-These are the ONLY sources used for the rewrite:
+---
 
-| Source | Path | What It Provides |
-|--------|------|------------------|
-| Navigation Config | `src/shared/components/layouts/navigation-config.ts` | 24 merchant sidebar items, 4 groups |
-| State Machines | `src/shared/constants/state-machines.ts` | 31 state machines (all transitions) |
-| Merchant Pages | `src/pages/merchant/*.tsx` (57 files) | Actual merchant UI pages |
-| Dashboard Service | `src/features/dashboard/services/merchantDashboardService.ts` | Dashboard queries, direct payment model |
-| Financial Control | `src/features/finance/services/financialControlService.ts` | Approval workflows |
-| Staff Permissions | `src/features/staff/constants/permissions.ts` | 16 permissions, 3 roles, 4 groups |
-| Edge Functions | `supabase/functions/` (65 functions) | Backend automation |
-| Database Functions | Supabase config | Triggers, generators, validation |
-| Database Schema | `handle_new_user()` trigger | Bootstrap logic (no escrow) |
+## CORRECTIONS REQUIRED
 
-**Excluded**: `merchant_activity_diagram.md`, `sihuni_prd.md` escrow sections, any outdated diagram.
+### 1. Edge Function Count: 65 is Wrong
 
-## Document Structure
+**Claimed**: "65 edge functions"
+**Actual**: 62 edge function directories (excluding `_shared/`)
 
-### Section 0: Merchant System Scope (Current Version)
+Verified by listing `supabase/functions/`: 62 function directories + 1 shared helper directory.
 
-Define clearly:
-- **CAN DO**: 32 features across 57 pages (property, unit, contract, invoice, payment, maintenance, expense, reports, AI/ML, staff, inventory, etc.)
-- **CANNOT DO**: Escrow management, direct bank disbursement scheduling, vendor product management, tenant registration (merchant can only invite)
-- **Vendor-Only**: Escrow (`DISBURSEMENT_STATUS_TRANSITIONS`), Product/order management, Job acceptance
-- **Admin-Only**: Merchant verification approval, payment transfer monitoring, dispute mediation, subscription tier management, platform config, forum moderation
-- **Escrow Confirmation**: "Escrow is NOT part of the merchant system. Migration `20260227084712` removed `create_merchant_escrow` trigger. `merchantDashboardService.ts` hardcodes `balance: 0`. Disbursement is vendor-only."
+**Fix**: Change all instances of "65" to "62".
 
-### Section 1: Merchant Feature Ground Truth (32 Features)
+### 2. "21 Applicable State Machines" is Overstated
 
-Re-extracted from `navigation-config.ts` + `state-machines.ts` + page files. NO diagram references. Each feature maps to:
-- Navigation path (from `navigation-config.ts`)
-- Page file (from `src/pages/merchant/`)
-- State machine (from `state-machines.ts`, or "None")
-- Edge functions (from `supabase/functions/`)
+**Claimed**: "21 state machines applicable to merchant flows"
+**Actual**: 19 explicitly referenced in feature sections. Two additional machines (`SUBSCRIPTION_STATUS_TRANSITIONS`, `PAYMENT_PLAN_STATUS_TRANSITIONS`) are plausible but NOT assessed in any feature section.
 
-### Section 2: Full UX Assessment (32 Features)
+**Fix**: Either change to "19" or add Feature sections for Subscription and Payment Plans to justify "21".
 
-Each feature follows this format:
-```
-### Feature N: {Name}
+### 3. Missing Merchant Features (Pages Exist But Not Assessed)
 
-#### Documentation Source
-- Navigation: navigation-config.ts line X
-- Page: src/pages/merchant/{Page}.tsx
-- State Machine: {name} in state-machines.ts lines X-Y (or "None")
-- Edge Functions: {list} (or "None")
+These merchant pages exist in `src/pages/merchant/` but have no Feature section:
 
-#### Actual Flow (Current Only)
-| Role | Action | Page / Endpoint |
+| Page File | What It Does | In Nav? |
+|-----------|-------------|---------|
+| `Billing.tsx` | Subscription billing dashboard + disbursement settings | No sidebar item, linked from Support/Settings |
+| `Profile.tsx` | Business profile management | bottomNav only (line 169) |
+| `Settings.tsx` | Account settings | No sidebar item |
+| `Support.tsx` | FAQ + help links | No sidebar item |
+| `Feedback.tsx` | User feedback submission | No sidebar item |
+| `Alerts.tsx` | Notification center | bottomNav only (line 168) |
+| `DisputeResolution.tsx` | Dispute handling | No sidebar item |
+| `OcrTutorial.tsx` | OCR usage guide | No sidebar item |
+| `PropertyCompliance.tsx` | Compliance management | Via PropertyDetail tab |
 
-#### State Machine (if defined)
-{transition diagram from code}
+The document's Section 0 mentions "Account: Profile, billing, settings, support, feedback, referrals" but none have individual Feature assessments. The task requires every feature to be traced.
 
-#### UX Friction (Evidence-Based)
-#### Business Impact
-#### Simplification Opportunities
-```
+**Fix**: Add Feature sections (33-37 minimum) for at least: Billing/Subscription, Profile, Alerts, DisputeResolution, and PropertyCompliance. Others (Settings, Support, Feedback, OcrTutorial) can be grouped as "Account & Support Utilities" with a single assessment.
 
-Key changes from previous version:
-- **Feature 8**: "Direct Payment (Payment Transfers)" — NO escrow references. Sources: `PAYMENT_TRANSFER_TRANSITIONS`, `merchantDashboardService.ts` (balance: 0, queries `payment_transfers`)
-- **Feature 1**: Bootstrap creates profiles, user_roles, merchants, merchant_subscriptions. NO `escrow_accounts`
-- **All 32 features**: Source references point to code files only, never to `merchant_activity_diagram.md`
+### 4. Referral System: Claimed But No Page Exists
 
-### Section 3: End-to-End Merchant Journeys
+Section 0 lists "referrals" under Account features. Database tables exist (`referrals`, `referral_rewards`, `referral_commissions`). However, NO merchant page file for referrals exists in `src/pages/merchant/`.
 
-#### A. Onboarding Journey
-- Register -> Profile -> Verification -> Subscription -> Property -> Unit -> Invite Tenant -> Contract -> Invoice -> Payment
-- 4 blocking steps (admin verification, tenant acceptance, signature, tenant payment)
-- No escrow account creation step
+**Fix**: Remove "referrals" from merchant CAN DO scope, or flag as:
+> Not Defined in Current System Documentation -- database tables exist but no merchant UI page found
 
-#### B. Daily Operations
-- Dashboard KPIs -> Invoice management -> Payment tracking -> Maintenance -> Expenses
-- All sourced from actual page implementations
+### 5. Unverified Assumptions to Flag
 
-#### C. Critical Scenarios
-- Late payment -> Collections (7-state machine)
-- Move-out -> 4 sub-machines (notice, inspection, early termination, deposit refund)
-- Vacancy -> Waiting list (6-state machine)
+These claims in the document cannot be verified from the explored code and should be marked with assumption labels:
 
-### Section 4: UX Risk Map
-Severity matrix for all 32 features based on complexity vs. target user sophistication.
+| Claim | Location | Issue |
+|-------|----------|-------|
+| "auto-generate-invoices per contract billing_day" (F14) | Flow table | Trigger mechanism assumed from function name |
+| "15+ day overdue to escalated" (F14) | State machine note | Threshold not verified in edge function code |
+| "Snapshot-based, stale up to cron interval" (F4) | UX Friction | Cron interval not verified |
+| "ensure-user-bootstrap creates profiles, user_roles, merchants, merchant_subscriptions" (F1) | Flow table | Bootstrap output assumed, function code not read |
 
-### Section 5: Scalability UX Check
-24 sidebar items analysis, collapsible "Lainnya" group (12 items), mobile bottom nav (5 items).
+**Fix**: Add assumption markers per Non-Hallucination Protocol:
+> Assumption (Low Confidence): {reason}
 
-### Section 6: System Alignment Verification
+### 6. Missing Edge Functions Not Referenced
 
-```
-- Escrow references found: 0
-- merchant_activity_diagram.md references found: 0
-- Outdated diagram references found: 0
-- Total merchant features analyzed: 32
-- All features verified against: navigation-config.ts, state-machines.ts, page files
-- PRD conflicts noted: PRD Section 2.2/5.2 still references escrow for merchant (outdated)
-- API Contract conflicts noted: API Section 6 references escrow_balance (outdated)
-```
+Several merchant-relevant edge functions are not mentioned in any Feature section:
 
-### Section 7: Final UX Verdict
+- `queue-payment-reminders`, `send-payment-reminder` -- related to F14/F15 but not mentioned
+- `subscription-billing`, `subscription-grace-check`, `subscription-payment`, `subscription-renewal` -- subscription lifecycle, no Feature section
+- `merchant-ai-assistant` -- AI chatbot for merchants, not assessed
+- `whatsapp-notification` -- notification channel, not mentioned
+- `check-payment-plan` -- payment plan validation, not mentioned
+- OCR functions (`ocr-business-document`, `ocr-compliance-document`, `ocr-contract-document`, `ocr-ktp-extract`, `ocr-maintenance-receipt`) -- 5 OCR functions not linked to any feature
 
-Same analytical framework but all evidence from current code only.
+**Fix**: Add cross-references in relevant Feature sections or create new sections.
 
-## Key Differences From Previous Version
+---
 
-| Aspect | Previous | New |
-|--------|----------|-----|
-| Primary source | `merchant_activity_diagram.md` (174 refs) | Code files only (0 diagram refs) |
-| Escrow references | 30 occurrences | 0 (explicitly excluded) |
-| Feature 8 name | "Direct Payment (Escrow & Disbursement)" then patched | "Direct Payment (Payment Transfers)" from scratch |
-| Feature 1 bootstrap | Mentioned escrow_accounts creation | No escrow_accounts |
-| Outdated PRD claims | Treated as authoritative | Flagged as "PRD Section X is outdated vs production code" |
-| API Contract claims | Treated as authoritative | Flagged where conflicts exist (e.g., escrow_balance in API 2.1) |
+## SECTIONS TO ADD (Per Task Requirements)
 
-## File Modified
+### 7. Add: Source Traceability Matrix (Step 1 requirement)
 
-| Action | File |
-|--------|------|
-| FULL REWRITE | `old-docs/UX_ASSESSMENT_AND_USER_JOURNEY.md` |
+The current document has a Feature Ground Truth table but lacks the required format with "Evidence Snippet" and "UX Section Reference" columns.
 
-## Estimated Size
+**Fix**: Add a proper Traceability Matrix after Section 0 with columns:
+`| # | Feature Name | Found In (Document + Section) | Evidence Snippet | UX Section Reference |`
 
-~2000 lines (similar to current), but entirely code-sourced. No incremental patches. No legacy remnants.
+### 8. Add: Hallucination Risk Self-Check (Step 3 requirement)
 
+The current Section 6 "System Alignment Verification" partially covers this but doesn't match the required format.
+
+**Fix**: Add or restructure to include:
+- Total Features Identified from Documentation: X
+- Total Features Analyzed: X  
+- Features Without Source Reference: (must be 0)
+- Assumptions Used: (list all 4+ flagged assumptions)
+
+---
+
+## VERIFIED CORRECT (No Changes Needed)
+
+- All 31 state machines: transitions match `state-machines.ts` exactly
+- All state machine line numbers: verified correct
+- All navigation config line numbers: verified correct (lines 111-163)
+- `balance: 0` at line 207: verified correct
+- `financialControlService.ts` 8 parallel queries: verified correct
+- Staff permissions: 16 permissions, 3 roles, 4 groups all match `permissions.ts`
+- Default permissions per role: all match actual code
+- 57 merchant page files: count verified
+- All referenced edge functions exist in `supabase/functions/`
+- Escrow exclusion: confirmed correct, 0 merchant escrow references
+- Direct Payment Model description: matches `merchantDashboardService.ts`
+- InsightsHub 9 sub-pages: verified against page file listing
+
+---
+
+## Implementation Steps
+
+1. Fix edge function count (65 to 62) throughout document
+2. Add Source Traceability Matrix with Evidence Snippet column
+3. Add Feature sections for uncovered pages (Billing/Subscription, Profile, Alerts, DisputeResolution, PropertyCompliance, Account Utilities)
+4. Fix "21 state machines" claim (change to 19 or add missing feature sections)
+5. Remove or flag "referrals" in merchant scope
+6. Add assumption markers on 4 unverified claims
+7. Add missing edge function cross-references
+8. Add Hallucination Risk Self-Check section in required format
+9. Update feature count from 32 to final number (estimated 37-38)
+10. Update Section 7 Final Verdict to reflect corrected counts and new findings
