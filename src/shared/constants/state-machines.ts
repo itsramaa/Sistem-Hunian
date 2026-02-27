@@ -126,14 +126,20 @@ export const VENDOR_JOB_STATUS_TRANSITIONS: Record<string, string[]> = {
   cancelled: [],   // terminal
 };
 
-// ─── Section 13: Disbursement Lifecycle ────────────────────────────────────
-export const DISBURSEMENT_STATUS_TRANSITIONS: Record<string, string[]> = {
-  pending: ['approved', 'rejected'],
-  approved: ['processing'],
+// ─── Section 13: Payment Transfer Lifecycle (Direct Payment Model) ─────────
+export const PAYMENT_TRANSFER_TRANSITIONS: Record<string, string[]> = {
+  pending: ['processing'],
   processing: ['completed', 'failed'],
   failed: ['pending'],    // retry
   completed: [],   // terminal
-  rejected: [],    // terminal
+};
+
+// ─── Section 13b: Vendor Disbursement Lifecycle ───────────────────────────
+export const DISBURSEMENT_STATUS_TRANSITIONS: Record<string, string[]> = {
+  pending: ['processing'],
+  processing: ['completed', 'failed'],
+  failed: ['pending'],    // retry
+  completed: [],   // terminal
 };
 
 // ─── Section 15: Referral Lifecycle ────────────────────────────────────────
@@ -148,25 +154,23 @@ export const REFERRAL_STATUS_TRANSITIONS: Record<string, string[]> = {
 export const VERIFICATION_TIER_TRANSITIONS: Record<string, string[]> = {
   quick: ['standard'],
   standard: ['premium'],
-  premium: [],  // terminal — highest tier
+  premium: [],  // terminal
 };
 
 // ─── Section 16: Verification Workflows ────────────────────────────────────
 export const VERIFICATION_STATUS_TRANSITIONS: Record<string, string[]> = {
   pending: ['approved', 'rejected'],
-  rejected: ['pending'],   // resubmission
+  rejected: ['pending'],
   approved: [],    // terminal
 };
 
-// Merchant verification uses 'verified' instead of 'approved', plus 'suspended'
 export const MERCHANT_VERIFICATION_TRANSITIONS: Record<string, string[]> = {
   pending: ['verified', 'rejected'],
-  rejected: ['pending'],   // resubmission
+  rejected: ['pending'],
   verified: ['suspended'],
   suspended: ['verified'],
 };
 
-// Vendor document verification
 export const VENDOR_VERIFICATION_TRANSITIONS: Record<string, string[]> = {
   pending: ['verified', 'rejected'],
   rejected: ['pending'],
@@ -190,14 +194,6 @@ export const DEPOSIT_REFUND_TRANSITIONS: Record<string, string[]> = {
   rejected: [],    // terminal
 };
 
-// ─── Section 19: Escrow Transaction Lifecycle ──────────────────────────────
-export const ESCROW_TRANSACTION_TRANSITIONS: Record<string, string[]> = {
-  pending: ['completed', 'failed'],
-  completed: [],   // terminal
-  failed: [],      // terminal
-};
-
-// ─── Section 14: Tenant Invitation (edge function managed) ─────────────────
 export const TENANT_INVITATION_TRANSITIONS: Record<string, string[]> = {
   pending: ['accepted', 'expired'],
   accepted: [],    // terminal

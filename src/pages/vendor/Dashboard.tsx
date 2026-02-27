@@ -3,7 +3,7 @@ import { SalesAnalytics } from '@/features/analytics/components/SalesAnalytics';
 import { useAnalytics } from '@/features/analytics/hooks/useAnalytics';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { VendorChatbot } from '@/features/chatbot/components/VendorChatbot';
-import { VendorEscrowWidget } from '@/features/escrow/components/VendorEscrowWidget';
+import { VendorEarningsWidget } from '@/features/vendor/components/VendorEarningsWidget';
 import { supabase } from '@/lib/integrations/supabase/client';
 import { Tables } from '@/lib/integrations/supabase/types';
 import { VendorLayout } from '@/shared/components/layouts/VendorLayout';
@@ -301,8 +301,8 @@ export default function VendorDashboard() {
             </CardContent>
           </Card>
 
-          {/* Escrow Balance Widget */}
-          {vendor && <VendorEscrowWidget vendorId={vendor.id} />}
+          {/* Earnings Widget */}
+          {vendor && <VendorEarningsWidget vendorId={vendor.id} />}
         </div>
 
         {/* AI Business Assistant */}

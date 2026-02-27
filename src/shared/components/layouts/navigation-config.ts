@@ -197,7 +197,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/admin/vendors", icon: Users, label: "Vendor" },
           { path: "/admin/tenants", icon: User, label: "Penyewa" },
           { path: "/admin/users", icon: Shield, label: "Admin" },
-          { path: "/admin/escrow", icon: Wallet, label: "Escrow" },
+          { path: "/admin/payment-transfers", icon: Wallet, label: "Transfer Dana" },
           { path: "/admin/subscriptions", icon: CreditCard, label: "Langganan" },
           { path: "/admin/disputes", icon: AlertTriangle, label: "Sengketa" },
           { path: "/admin/analytics", icon: BarChart3, label: "Analitik" },

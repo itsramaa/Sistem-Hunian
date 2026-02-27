@@ -434,7 +434,7 @@ serve(async (req) => {
           console.log('Order record updated');
         }
 
-        // Create escrow transaction for rent payments with fee calculation
+        // Direct payment transfer — route funds directly to merchant bank account
         if (transaction.payment_id) {
           const { data: payment } = await supabase
             .from('payments')
@@ -443,106 +443,118 @@ serve(async (req) => {
             .single();
 
           if (payment) {
-            const { data: escrowAccount } = await supabase
-              .from('escrow_accounts')
-              .select('id')
+            // Get merchant's primary bank account
+            const { data: bankAccount } = await supabase
+              .from('bank_accounts')
+              .select('id, bank_name, account_number, account_name')
               .eq('merchant_id', payment.merchant_id)
-              .single();
+              .eq('is_primary', true)
+              .maybeSingle();
 
-            if (escrowAccount) {
-              // Insert escrow transaction with fee breakdown
-              await supabase.from('escrow_transactions').insert({
-                escrow_account_id: escrowAccount.id,
-                amount: netAmount, // Net amount after fees
-                gross_amount: grossAmount,
+            // Create payment_transfers record
+            const { data: transfer, error: transferError } = await supabase
+              .from('payment_transfers')
+              .insert({
+                payment_id: transaction.payment_id,
+                merchant_id: payment.merchant_id,
+                amount: grossAmount,
                 platform_fee: platformFee,
                 gateway_fee: gatewayFee,
-                type: 'deposit',
-                status: 'completed',
-                description: `Rent payment received (Net after ${PLATFORM_FEE_RATE * 100}% platform + ${GATEWAY_FEE_RATE * 100}% gateway fee)`,
-                contract_id: payment.contract_id,
-                reference: external_id,
-                processed_at: new Date().toISOString(),
+                net_amount: netAmount,
+                bank_account_id: bankAccount?.id || null,
+                status: bankAccount ? 'pending' : 'pending', // will be processed next
+                external_reference: external_id,
+              })
+              .select()
+              .single();
+
+            if (transferError) {
+              console.error('Payment transfer record error:', transferError);
+            } else {
+              console.log('Payment transfer record created:', transfer.id);
+
+              // Auto-invoke disbursement to transfer to merchant bank
+              if (bankAccount) {
+                try {
+                  await fetch(`${SUPABASE_URL}/functions/v1/xendit-disbursement`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                    },
+                    body: JSON.stringify({
+                      payment_transfer_id: transfer.id,
+                      bank_account_id: bankAccount.id,
+                      amount: netAmount,
+                      type: 'rent',
+                      description: `Direct transfer for payment ${external_id}`,
+                    }),
+                  });
+                  console.log('Auto-disbursement triggered for direct transfer');
+                } catch (disbErr) {
+                  console.error('Auto-disbursement trigger error:', disbErr);
+                }
+              }
+            }
+
+            // Notify merchant about payment received (direct transfer)
+            const { data: merchant } = await supabase
+              .from('merchants')
+              .select('user_id, business_name')
+              .eq('id', payment.merchant_id)
+              .single();
+
+            if (merchant) {
+              const { data: tenantProfile } = await supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('user_id', transaction.user_id)
+                .single();
+
+              const tenantName = tenantProfile?.full_name || 'Penyewa';
+
+              await supabase.from('notifications').insert({
+                user_id: merchant.user_id,
+                title: 'Pembayaran Diterima',
+                message: `Pembayaran Rp ${grossAmount.toLocaleString('id-ID')} dari ${tenantName} diterima. Transfer Rp ${netAmount.toLocaleString('id-ID')} ke rekening Anda sedang diproses.`,
+                type: 'payment',
+                link: '/merchant/payments',
               });
 
-              // Update escrow account balance with NET amount only
-              const { data: currentEscrow } = await supabase
-                .from('escrow_accounts')
-                .select('balance')
-                .eq('id', escrowAccount.id)
+              console.log('Merchant notification created (direct transfer)');
+
+              const { data: merchantProfile } = await supabase
+                .from('profiles')
+                .select('email, full_name')
+                .eq('user_id', merchant.user_id)
                 .single();
 
-              if (currentEscrow) {
-                await supabase
-                  .from('escrow_accounts')
-                  .update({ balance: currentEscrow.balance + netAmount })
-                  .eq('id', escrowAccount.id);
-              }
-
-              console.log('Escrow transaction created with fees');
-
-              // Notify merchant about payment received
-              const { data: merchant } = await supabase
-                .from('merchants')
-                .select('user_id, business_name')
-                .eq('id', payment.merchant_id)
-                .single();
-
-              if (merchant) {
-                // Get tenant info for merchant notification
-                const { data: tenantProfile } = await supabase
-                  .from('profiles')
-                  .select('full_name')
-                  .eq('user_id', transaction.user_id)
-                  .single();
-
-                const tenantName = tenantProfile?.full_name || 'Penyewa';
-
-                // Create in-app notification for merchant
-                await supabase.from('notifications').insert({
-                  user_id: merchant.user_id,
-                  title: 'Pembayaran Diterima',
-                  message: `Pembayaran Rp ${grossAmount.toLocaleString('id-ID')} dari ${tenantName} telah diterima. Net ke escrow: Rp ${netAmount.toLocaleString('id-ID')}`,
-                  type: 'payment',
-                  link: '/merchant/payments',
-                });
-
-                console.log('Merchant notification created');
-
-                // Send email to merchant
-                const { data: merchantProfile } = await supabase
-                  .from('profiles')
-                  .select('email, full_name')
-                  .eq('user_id', merchant.user_id)
-                  .single();
-
-                if (merchantProfile) {
-                  try {
-                    await fetch(`${SUPABASE_URL}/functions/v1/send-notification`, {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              if (merchantProfile) {
+                try {
+                  await fetch(`${SUPABASE_URL}/functions/v1/send-notification`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                    },
+                    body: JSON.stringify({
+                      type: 'payment_received',
+                      recipientEmail: merchantProfile.email,
+                      recipientName: merchantProfile.full_name || 'Merchant',
+                      data: {
+                        tenantName,
+                        grossAmount,
+                        platformFee,
+                        gatewayFee,
+                        netAmount,
+                        paymentMethod: payment_channel || payment_method,
+                        transactionId: external_id,
                       },
-                      body: JSON.stringify({
-                        type: 'payment_received',
-                        recipientEmail: merchantProfile.email,
-                        recipientName: merchantProfile.full_name || 'Merchant',
-                        data: {
-                          tenantName,
-                          grossAmount,
-                          platformFee,
-                          gatewayFee,
-                          netAmount,
-                          paymentMethod: payment_channel || payment_method,
-                          transactionId: external_id,
-                        },
-                      }),
-                    });
-                    console.log('Merchant email notification sent');
-                  } catch (emailError) {
-                    console.error('Merchant email notification error:', emailError);
-                  }
+                    }),
+                  });
+                  console.log('Merchant email notification sent');
+                } catch (emailError) {
+                  console.error('Merchant email notification error:', emailError);
                 }
               }
             }
