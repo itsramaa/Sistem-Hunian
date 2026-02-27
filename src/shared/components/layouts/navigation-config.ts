@@ -4,6 +4,7 @@ import {
     
     Briefcase,
     Building2,
+    CalendarClock,
     Calculator,
     ClipboardList,
     Command,
@@ -131,6 +132,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/merchant/waiting-list", icon: UserCheck, label: "Daftar Tunggu" },
           { path: "/merchant/tenant-screening", icon: ShieldCheck, label: "Screening Penyewa" },
           { path: "/merchant/maintenance", icon: Wrench, label: "Maintenance" },
+          { path: "/merchant/preventive-maintenance", icon: CalendarClock, label: "Preventif" },
           
         ],
       },

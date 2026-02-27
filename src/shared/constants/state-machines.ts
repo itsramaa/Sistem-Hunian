@@ -216,7 +216,11 @@ export const WAITING_LIST_TRANSITIONS: Record<string, string[]> = {
 // ─── Section 25: Contract Amendment Lifecycle ──────────────────────────────
 export const AMENDMENT_STATUS_TRANSITIONS: Record<string, string[]> = {
   draft: ['sent', 'cancelled'],
-  sent: ['signed', 'rejected'],
+  sent: ['tenant_reviewing', 'rejected', 'cancelled'],
+  tenant_reviewing: ['negotiating', 'agreed', 'rejected'],
+  negotiating: ['agreed', 'rejected', 'cancelled'],
+  agreed: ['signing'],
+  signing: ['signed'],
   signed: [],      // terminal
   rejected: [],    // terminal
   cancelled: [],   // terminal

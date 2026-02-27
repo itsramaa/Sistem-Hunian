@@ -321,33 +321,33 @@ Berdasarkan comprehensive diagram analysis dan removal of escrow+referral, berik
 
 ---
 
-### 🟡 Priority 7: Lease Renewal Automation — Increase Retention
+### ✅ Priority 7: Lease Renewal Automation — Increase Retention
 
 **Why:** Renewal adalah opportunity untuk price increase.
 
 **Requirement:**
-- 30-day reminder: Auto-notify pemilik & tenant
-- Amendment draft: Auto-generate based on price/term change
-- Price recommendation: Suggest increase based on market
-- Tenant negotiation: Back-and-forth offer/counter-offer
-- E-signature: Amendment require digital signature
+- ✅ 30-day reminder: Auto-notify pemilik & tenant — RenewalAlertsList with urgency badges (7/30/90 days)
+- ✅ Amendment draft: Auto-generate based on price/term change — RenewalOfferDialog with pre-filled form
+- ✅ Price recommendation: Suggest increase based on market — AI suggestion badge in offer dialog
+- ✅ Tenant negotiation: Back-and-forth offer/counter-offer — TenantRenewalResponse + NegotiationTimeline
+- ✅ E-signature: Amendment require digital signature — AmendmentSignatureDialog with SignaturePad
 
-**Implementation:** 3 weeks
+**Implementation:** ✅ COMPLETE
 
 ---
 
-### 🟡 Priority 8: Preventive Maintenance Scheduler — Reduce Emergency Cost
+### ✅ Priority 8: Preventive Maintenance Scheduler — Reduce Emergency Cost
 
 **Why:** Planned maintenance cheaper than emergency.
 
 **Requirement:**
-- Schedule board: Calendar view, maintenance events visible
-- Recurring task: AC service Q3, water tank cleaning every 6 month
-- Auto-create: On schedule date, auto-create maintenance request
-- Vendor assign: Auto-assign to preferred vendor if available
-- Cost tracking: Compare actual cost vs preventive cost benefit
+- ✅ Schedule board: Calendar view, maintenance events visible — PreventiveCalendar with monthly grid + colored dots
+- ✅ Recurring task: AC service Q3, water tank cleaning every 6 month — PreventiveScheduleForm with frequency picker (weekly/monthly/quarterly/biannual/annual/custom)
+- ✅ Auto-create: On schedule date, auto-create maintenance request — executeSchedule() method creates maintenance_request
+- ✅ Vendor assign: Auto-assign to preferred vendor if available — auto-sets assigned_vendor_id and status=in_progress
+- ✅ Cost tracking: Compare actual cost vs preventive cost benefit — CostComparisonCard with annualized comparison
 
-**Implementation:** 2 weeks
+**Implementation:** ✅ COMPLETE
 
 ---
 
