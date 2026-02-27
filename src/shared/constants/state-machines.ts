@@ -194,9 +194,13 @@ export const TENANT_INVITATION_TRANSITIONS: Record<string, string[]> = {
 
 // ─── Section 5: Overdue Escalation (collections_cases) ─────────────────────
 export const COLLECTIONS_CASE_TRANSITIONS: Record<string, string[]> = {
-  initiated: ['in_progress'],
-  in_progress: ['resolved'],
-  resolved: [],    // terminal — resolution_type: paid_in_full | payment_plan | write_off | eviction
+  initiated: ['reminder_sent', 'in_progress'],
+  reminder_sent: ['follow_up', 'in_progress'],
+  follow_up: ['in_progress', 'escalated'],
+  in_progress: ['escalated', 'resolved'],
+  escalated: ['legal', 'resolved'],
+  legal: ['resolved'],
+  resolved: [],    // terminal — resolution_type: paid_in_full | payment_plan | write_off | eviction | bad_debt
 };
 
 // ─── Section 24: Waiting List Lifecycle ────────────────────────────────────

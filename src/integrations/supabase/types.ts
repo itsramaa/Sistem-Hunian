@@ -635,6 +635,84 @@ export type Database = {
           },
         ]
       }
+      collections_interactions: {
+        Row: {
+          case_id: string
+          contact_person: string | null
+          created_at: string
+          created_by: string | null
+          direction: string
+          follow_up_date: string | null
+          id: string
+          interaction_type: string
+          merchant_id: string
+          notes: string | null
+          outcome: string | null
+        }
+        Insert: {
+          case_id: string
+          contact_person?: string | null
+          created_at?: string
+          created_by?: string | null
+          direction?: string
+          follow_up_date?: string | null
+          id?: string
+          interaction_type: string
+          merchant_id: string
+          notes?: string | null
+          outcome?: string | null
+        }
+        Update: {
+          case_id?: string
+          contact_person?: string | null
+          created_at?: string
+          created_by?: string | null
+          direction?: string
+          follow_up_date?: string | null
+          id?: string
+          interaction_type?: string
+          merchant_id?: string
+          notes?: string | null
+          outcome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collections_interactions_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "collections_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collections_interactions_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_occupancy_analysis"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "collections_interactions_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "collections_interactions_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collections_interactions_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       compliance_documents: {
         Row: {
           created_at: string

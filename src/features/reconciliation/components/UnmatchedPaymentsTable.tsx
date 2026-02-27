@@ -124,9 +124,13 @@ export function UnmatchedPaymentsTable({ payments, loading, onManualMatch, onAut
                       {p.paidAt ? new Date(p.paidAt).toLocaleDateString('id-ID') : '-'}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={p.reconciliationStatus === 'pending_review' ? 'secondary' : 'outline'}>
-                        {p.reconciliationStatus === 'pending_review' ? 'Review' : 'Belum'}
-                      </Badge>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <Badge variant={p.reconciliationStatus === 'pending_review' ? 'secondary' : 'outline'}>
+                          {p.reconciliationStatus === 'pending_review' ? 'Review' : 'Belum'}
+                        </Badge>
+                        {p.flags?.includes('duplicate') && <Badge variant="destructive" className="text-[10px]">Duplikat</Badge>}
+                        {p.flags?.includes('partial') && <Badge variant="outline" className="text-[10px]">Parsial</Badge>}
+                      </div>
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex gap-1 justify-center">

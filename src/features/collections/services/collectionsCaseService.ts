@@ -92,4 +92,47 @@ export const collectionsCaseService = {
     });
     if (error) throw error;
   },
+
+  async fetchInteractions(caseId: string) {
+    const { data, error } = await supabase
+      .from('collections_interactions')
+      .select('*')
+      .eq('case_id', caseId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data || []).map((r: any) => ({
+      id: r.id,
+      caseId: r.case_id,
+      merchantId: r.merchant_id,
+      interactionType: r.interaction_type,
+      direction: r.direction,
+      outcome: r.outcome,
+      notes: r.notes,
+      contactPerson: r.contact_person,
+      followUpDate: r.follow_up_date,
+      createdBy: r.created_by,
+      createdAt: r.created_at,
+    }));
+  },
+
+  async addInteraction(caseId: string, merchantId: string, data: {
+    interactionType: string;
+    direction: string;
+    outcome: string;
+    notes: string;
+    contactPerson: string;
+    followUpDate: string | null;
+  }) {
+    const { error } = await supabase.from('collections_interactions').insert({
+      case_id: caseId,
+      merchant_id: merchantId,
+      interaction_type: data.interactionType,
+      direction: data.direction,
+      outcome: data.outcome || null,
+      notes: data.notes || null,
+      contact_person: data.contactPerson || null,
+      follow_up_date: data.followUpDate || null,
+    });
+    if (error) throw error;
+  },
 };
