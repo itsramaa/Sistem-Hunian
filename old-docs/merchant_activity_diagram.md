@@ -1,11 +1,11 @@
-# Merchant Activity Diagrams
+# SiHuni User Journey & Activity Diagrams
 
-> Dokumentasi lengkap semua alur aktivitas merchant dalam bentuk Mermaid flowchart diagrams.
-> Setiap diagram merepresentasikan satu domain operasional merchant.
+> Dokumentasi lengkap semua alur aktivitas pengguna SiHuni dalam bentuk Mermaid flowchart diagrams.
+> Setiap diagram merepresentasikan satu domain operasional, dilihat dari **perspektif multi-peran**: Pemilik (Merchant), Penyewa (Tenant), Admin, dan Vendor.
 >
 > **Sumber data**: `state-machines.ts`, edge functions, database triggers, dan page flows.
 >
-> **Konvensi**:
+> **Konvensi Diagram**:
 > - 🟢 Hijau: Start / Success / Terminal positif
 > - 🔴 Merah: Terminal negatif / Error
 > - 🔵 Biru: Proses utama
@@ -13,6 +13,14 @@
 > - `<<edge function>>` = Supabase Edge Function
 > - `<<trigger>>` = Database Trigger
 > - `[See Diagram X]` = Cross-reference ke diagram lain
+>
+> **Konvensi Peran**:
+> | Ikon | Peran | Deskripsi |
+> |------|-------|-----------|
+> | 🏠 | **Pemilik (Merchant)** | Pemilik properti yang mengelola unit, tenant, dan keuangan |
+> | 🧑‍💼 | **Penyewa (Tenant)** | Penghuni yang menyewa unit dan berinteraksi dengan sistem pembayaran |
+> | 🛡️ | **Admin** | Administrator platform yang mengawasi verifikasi, escrow, dan dispute |
+> | 🔧 | **Vendor** | Penyedia jasa maintenance yang menerima dan menyelesaikan pekerjaan |
 
 ---
 
@@ -46,7 +54,9 @@
 
 ## 1. Merchant Onboarding & Verification Flow
 
-Alur registrasi merchant baru hingga verifikasi oleh admin. State machine: `MERCHANT_VERIFICATION_TRANSITIONS`.
+### Perjalanan Pengguna
+
+Seorang calon pemilik properti mendaftar ke SiHuni dengan membuat akun email. Setelah registrasi, ia melengkapi profil bisnis, mengatur alamat, dan mengunggah dokumen verifikasi (KTP, SIUP, NPWP). Dokumen diproses otomatis via OCR. Setelah semua lengkap, status merchant menjadi "pending" dan menunggu review admin. Admin platform mereview dokumen, lalu menyetujui atau menolak. Jika ditolak, merchant dapat memperbaiki dan mengirim ulang dokumen. Setelah diverifikasi, merchant siap menggunakan seluruh fitur platform.
 
 ```mermaid
 flowchart TD
@@ -90,6 +100,16 @@ flowchart TD
     style REINSTATE fill:#f1c40f,color:#333
 ```
 
+### Perspektif Peran
+
+| Peran | Aksi | Halaman / Endpoint |
+|-------|------|--------------------|
+| 🏠 Pemilik | Mendaftar, melengkapi profil, upload dokumen, melihat status verifikasi | `/register`, `/merchant/profile` |
+| 🛡️ Admin | Melihat antrian verifikasi, mereview dokumen, approve/reject, suspend/reinstate | `/admin/merchants`, `/admin/merchants/:id` |
+
+<details>
+<summary>Referensi State Machine</summary>
+
 **State Machine** (`MERCHANT_VERIFICATION_TRANSITIONS`):
 | From | To |
 |------|-----|
@@ -98,11 +118,15 @@ flowchart TD
 | `verified` | `suspended` |
 | `suspended` | `verified` |
 
+</details>
+
 ---
 
 ## 2. Subscription Lifecycle
 
-Alur langganan merchant dari pemilihan tier hingga cancellation. State machine: `SUBSCRIPTION_STATUS_TRANSITIONS`.
+### Perjalanan Pengguna
+
+Setelah terverifikasi, pemilik properti memilih paket langganan (tier) yang sesuai kebutuhan. Ia memulai dengan trial period, kemudian membayar untuk mengaktifkan langganan. Sistem secara berkala memproses tagihan dan pembayaran. Jika pembayaran gagal, langganan masuk ke status past_due dengan grace period. Pemilik dapat upgrade/downgrade tier kapan saja, atau membatalkan langganan dengan memberikan feedback.
 
 ```mermaid
 flowchart TD
@@ -154,6 +178,16 @@ flowchart TD
     style CANCEL_REQ fill:#f1c40f,color:#333
 ```
 
+### Perspektif Peran
+
+| Peran | Aksi | Halaman / Endpoint |
+|-------|------|--------------------|
+| 🏠 Pemilik | Memilih tier, membayar, upgrade/downgrade, cancel | `/merchant/subscription` |
+| 🛡️ Admin | Mengelola daftar tier, melihat status langganan semua merchant | `/admin/subscription-tiers` |
+
+<details>
+<summary>Referensi State Machine</summary>
+
 **State Machine** (`SUBSCRIPTION_STATUS_TRANSITIONS`):
 | From | To |
 |------|-----|
@@ -169,11 +203,15 @@ flowchart TD
 - `subscription-renewal` — Perpanjang langganan
 - `subscription-grace-check` — Cek grace period
 
+</details>
+
 ---
 
 ## 3. Property & Unit Management
 
-Alur pengelolaan properti, unit, fasilitas, dan compliance documents.
+### Perjalanan Pengguna
+
+Pemilik properti yang sudah aktif mulai menambahkan properti-propertinya ke platform. Untuk setiap properti, ia mengatur alamat, fasilitas terdekat, lalu menambahkan unit-unit. Setiap unit bisa dilengkapi dengan fasilitas, guardian/penjaga, dokumen compliance, asuransi, dan profil risiko bencana. Sistem otomatis melacak jumlah unit dan tingkat hunian melalui trigger dan cron job.
 
 ```mermaid
 flowchart TD
@@ -251,6 +289,16 @@ flowchart TD
     style RISK_CHECK fill:#f1c40f,color:#333
 ```
 
+### Perspektif Peran
+
+| Peran | Aksi | Halaman / Endpoint |
+|-------|------|--------------------|
+| 🏠 Pemilik | CRUD properti & unit, kelola fasilitas, compliance, asuransi, risiko bencana | `/merchant/properties`, `/merchant/properties/:id` |
+| 🛡️ Admin | Melihat semua properti di seluruh platform | `/admin/properties` |
+
+<details>
+<summary>Referensi State Machine</summary>
+
 **State Machine** (`UNIT_STATUS_TRANSITIONS`):
 | From | To |
 |------|-----|
@@ -258,11 +306,15 @@ flowchart TD
 | `occupied` | `available`, `maintenance` |
 | `maintenance` | `available`, `occupied` |
 
+</details>
+
 ---
 
 ## 4. Contract Lifecycle
 
-Alur kontrak dari draft hingga selesai/terminasi. Melibatkan tanda tangan digital merchant dan tenant.
+### Perjalanan Pengguna
+
+Pemilik properti membuat kontrak untuk unit yang tersedia, lalu menandatangani secara digital. Penyewa menerima undangan untuk menandatangani kontrak. Setelah kedua pihak menandatangani, kontrak otomatis aktif dan unit berubah status menjadi terisi. Kontrak dapat berakhir secara normal (notice + completed), expire, atau diterminasi lebih awal. Admin dapat melihat semua kontrak di seluruh platform.
 
 ```mermaid
 flowchart TD
@@ -331,6 +383,17 @@ flowchart TD
     style UPLOAD_DOC fill:#f1c40f,color:#333
 ```
 
+### Perspektif Peran
+
+| Peran | Aksi | Halaman / Endpoint |
+|-------|------|--------------------|
+| 🏠 Pemilik | Membuat kontrak, upload dokumen, menandatangani digital, mengelola lifecycle | `/merchant/contracts`, `/merchant/contracts/:id` |
+| 🧑‍💼 Penyewa | Menerima undangan tanda tangan, menandatangani kontrak, melihat detail kontrak | `/tenant/contracts`, `/tenant/contracts/:id` |
+| 🛡️ Admin | Melihat semua kontrak di platform, monitoring status | `/admin/contracts` |
+
+<details>
+<summary>Referensi State Machine</summary>
+
 **State Machine** (`CONTRACT_STATUS_TRANSITIONS`):
 | From | To |
 |------|-----|
@@ -351,11 +414,15 @@ flowchart TD
 | `tenant_signed` | `fully_signed` |
 | `fully_signed` | _(terminal — triggers active + unit occupied)_ |
 
+</details>
+
 ---
 
 ## 5. Tenant Management Flow
 
-Alur undangan tenant, pembuatan akun, dan linking ke kontrak/unit.
+### Perjalanan Pengguna
+
+Pemilik properti mengundang calon penyewa melalui email. Penyewa menerima undangan dan mengklik link untuk menerima. Jika belum punya akun, sistem otomatis membuatkan akun. Setelah invitation accepted, relasi tenant-merchant tercatat dan kontrak siap dibuat. Ketika kontrak selesai, tenant di-unlink dari unit dan riwayat di-update.
 
 ```mermaid
 flowchart TD
@@ -402,6 +469,17 @@ flowchart TD
     style CONTRACT_END fill:#f1c40f,color:#333
 ```
 
+### Perspektif Peran
+
+| Peran | Aksi | Halaman / Endpoint |
+|-------|------|--------------------|
+| 🏠 Pemilik | Mengirim undangan tenant, melihat daftar tenant, cek riwayat & metrik tenant | `/merchant/tenants`, `/merchant/tenants/invite` |
+| 🧑‍💼 Penyewa | Menerima undangan via email, accept/decline, melihat unit & kontrak terkait | `/tenant/invitation/:token`, `/tenant/dashboard` |
+| 🛡️ Admin | Melihat semua tenant di seluruh platform | `/admin/tenants` |
+
+<details>
+<summary>Referensi State Machine</summary>
+
 **State Machine** (`TENANT_INVITATION_TRANSITIONS`):
 | From | To |
 |------|-----|
@@ -414,11 +492,15 @@ flowchart TD
 - `create-tenant-account` — Buat akun tenant baru
 - `get-tenant-invitation` — Ambil detail undangan
 
+</details>
+
 ---
 
 ## 6. Invoice Lifecycle
 
-Alur invoice dari auto-generate hingga pembayaran atau eskalasi overdue.
+### Perjalanan Pengguna
+
+Invoice dibuat secara otomatis oleh sistem berdasarkan kontrak aktif, atau manual oleh pemilik properti. Setelah dikirim, penyewa menerima notifikasi dan bisa melihat detail tagihan. Penyewa membayar melalui berbagai metode. Jika tidak dibayar tepat waktu, invoice menjadi overdue, diikuti denda dan pengingat otomatis. Jika tetap tidak dibayar, invoice bisa di-eskalasi ke collections. Admin dapat melihat agregat invoice di seluruh platform.
 
 ```mermaid
 flowchart TD
@@ -506,6 +588,17 @@ flowchart TD
     style INSTALL_OK fill:#f1c40f,color:#333
 ```
 
+### Perspektif Peran
+
+| Peran | Aksi | Halaman / Endpoint |
+|-------|------|--------------------|
+| 🏠 Pemilik | Membuat invoice manual, mengirim, mengelola overdue, negotiate payment plan | `/merchant/invoices`, `/merchant/invoices/create` |
+| 🧑‍💼 Penyewa | Melihat tagihan, menerima notifikasi, membayar, menerima/menolak payment plan | `/tenant/invoices`, `/tenant/invoices/:id` |
+| 🛡️ Admin | Melihat agregat invoice di seluruh platform, monitoring overdue rates | `/admin/invoices` |
+
+<details>
+<summary>Referensi State Machine</summary>
+
 **State Machine** (`INVOICE_STATUS_TRANSITIONS`):
 | From | To |
 |------|-----|
@@ -525,11 +618,15 @@ flowchart TD
 | `accepted` | `active` |
 | `active` | `completed`, `defaulted` |
 
+</details>
+
 ---
 
 ## 7. Payment & Payment Verification Flow
 
-Alur pembayaran tenant, verifikasi OCR, dan integrasi Xendit payment gateway.
+### Perjalanan Pengguna
+
+Penyewa memilih metode pembayaran: transfer manual (upload bukti), payment gateway Xendit, atau auto-pay. Untuk transfer manual, penyewa mengunggah bukti transfer yang diproses OCR otomatis. Sistem mencoba auto-match, dan jika berhasil, pemilik properti tinggal konfirmasi. Untuk pembayaran via Xendit, penyewa diarahkan ke halaman pembayaran dan hasilnya masuk via webhook. Setelah dikonfirmasi, dana masuk ke escrow.
 
 ```mermaid
 flowchart TD
@@ -576,6 +673,17 @@ flowchart TD
     style WEBHOOK_OK fill:#f1c40f,color:#333
 ```
 
+### Perspektif Peran
+
+| Peran | Aksi | Halaman / Endpoint |
+|-------|------|--------------------|
+| 🧑‍💼 Penyewa | Memilih metode bayar, upload bukti transfer, bayar via Xendit/auto-pay | `/tenant/invoices/:id/pay` |
+| 🏠 Pemilik | Mereview bukti pembayaran, konfirmasi/reject auto-match | `/merchant/payments`, `/merchant/payments/verify` |
+| 🛡️ Admin | Mengawasi aliran dana, melihat payment verification queue | `/admin/payments` |
+
+<details>
+<summary>Referensi State Machine</summary>
+
 **State Machine** (`PAYMENT_VERIFICATION_TRANSITIONS`):
 | From | To |
 |------|-----|
@@ -592,11 +700,15 @@ flowchart TD
 | `paid` | _(terminal)_ |
 | `failed` | _(terminal)_ |
 
+</details>
+
 ---
 
 ## 8. Escrow & Disbursement Flow
 
-Alur dana masuk escrow dan pencairan ke rekening merchant.
+### Perjalanan Pengguna
+
+Setelah pembayaran dikonfirmasi, dana masuk ke akun escrow platform. Sistem menghitung fee platform dan gateway, lalu menyimpan saldo bersih. Ketika jadwal pencairan tiba (atau pemilik merequest), disbursement dibuat. Jika nilai besar, admin mereview sebelum disetujui. Pencairan diproses via Xendit ke rekening bank pemilik. Pemilik perlu mengelola rekening banknya terlebih dahulu.
 
 ```mermaid
 flowchart TD
@@ -654,6 +766,16 @@ flowchart TD
     style RETRY fill:#f1c40f,color:#333
 ```
 
+### Perspektif Peran
+
+| Peran | Aksi | Halaman / Endpoint |
+|-------|------|--------------------|
+| 🏠 Pemilik | Mengelola rekening bank, melihat saldo escrow, request pencairan | `/merchant/escrow`, `/merchant/bank-accounts` |
+| 🛡️ Admin | Mereview disbursement yang perlu manual approval, melihat seluruh aliran escrow | `/admin/escrow`, `/admin/disbursements` |
+
+<details>
+<summary>Referensi State Machine</summary>
+
 **State Machine** (`ESCROW_TRANSACTION_TRANSITIONS`):
 | From | To |
 |------|-----|
@@ -669,11 +791,15 @@ flowchart TD
 | `completed` | _(terminal)_ |
 | `rejected` | _(terminal)_ |
 
+</details>
+
 ---
 
 ## 9. Move-Out & Deposit Refund Flow
 
-Alur move-out notice, inspeksi, early termination, dan deposit refund/dispute.
+### Perjalanan Pengguna
+
+Penyewa mengajukan notice pindah (move-out) atau request terminasi lebih awal. Pemilik menerima dan me-acknowledge notice, lalu menjadwalkan inspeksi unit. Setelah inspeksi selesai, pemilik menghitung deposit refund dikurangi kerusakan. Jika penyewa tidak setuju dengan potongan, ia bisa mengajukan dispute yang akan ditangani oleh admin. Setelah refund diproses, unit kembali tersedia.
 
 ```mermaid
 flowchart TD
@@ -754,7 +880,16 @@ flowchart TD
     style DISPUTE fill:#f1c40f,color:#333
 ```
 
-**State Machines**:
+### Perspektif Peran
+
+| Peran | Aksi | Halaman / Endpoint |
+|-------|------|--------------------|
+| 🧑‍💼 Penyewa | Mengajukan notice move-out atau early termination, menerima/menolak counter offer, mengajukan deposit dispute | `/tenant/move-out`, `/tenant/contracts/:id/terminate` |
+| 🏠 Pemilik | Acknowledge notice, approve move-out, jadwalkan inspeksi, hitung deposit refund, respond dispute | `/merchant/move-out`, `/merchant/inspections` |
+| 🛡️ Admin | Mediasi deposit dispute, resolusi final jika merchant & tenant tidak sepakat | `/admin/disputes` |
+
+<details>
+<summary>Referensi State Machine</summary>
 
 Move-Out Notice (`MOVE_OUT_NOTICE_TRANSITIONS`):
 | From | To |
@@ -782,11 +917,15 @@ Deposit Refund (`DEPOSIT_REFUND_TRANSITIONS`):
 | `approved` | `processing` |
 | `processing` | `completed` |
 
+</details>
+
 ---
 
 ## 10. Maintenance Request Lifecycle
 
-Alur permintaan maintenance dari tenant, penugasan vendor, hingga penyelesaian.
+### Perjalanan Pengguna
+
+Penyewa mengajukan permintaan maintenance (misal: AC rusak, kebocoran) melalui aplikasi. Pemilik menerima notifikasi dan memutuskan: menangani sendiri atau menugaskan vendor. Jika ditugaskan ke vendor, vendor menerima/menolak pekerjaan. Vendor yang menerima mulai bekerja, mencatat progress, dan melaporkan penyelesaian. Penyewa kemudian memberikan review. Sistem DSS menganalisis pola maintenance untuk rekomendasi preventif.
 
 ```mermaid
 flowchart TD
@@ -853,6 +992,18 @@ flowchart TD
     style REVIEW fill:#f1c40f,color:#333
 ```
 
+### Perspektif Peran
+
+| Peran | Aksi | Halaman / Endpoint |
+|-------|------|--------------------|
+| 🧑‍💼 Penyewa | Mengajukan request maintenance, melacak progress, memberikan review setelah selesai | `/tenant/maintenance`, `/tenant/maintenance/:id` |
+| 🏠 Pemilik | Menerima request, assign ke vendor atau handle sendiri, track biaya, update progress | `/merchant/maintenance`, `/merchant/maintenance/:id` |
+| 🔧 Vendor | Menerima/menolak job, update progress pekerjaan, melaporkan penyelesaian | `/vendor/jobs`, `/vendor/jobs/:id` |
+| 🛡️ Admin | Monitoring SLA compliance, melihat analitik maintenance di seluruh platform | `/admin/maintenance` |
+
+<details>
+<summary>Referensi State Machine</summary>
+
 **State Machine** (`MAINTENANCE_STATUS_TRANSITIONS`):
 | From | To |
 |------|-----|
@@ -866,11 +1017,15 @@ flowchart TD
 | `accepted` | `in_progress`, `cancelled` |
 | `in_progress` | `completed`, `cancelled` |
 
+</details>
+
 ---
 
 ## 11. Billing Analytics & Collections
 
-Alur eskalasi overdue, collections case, dan analitik pembayaran.
+### Perjalanan Pengguna
+
+Sistem secara otomatis memindai invoice overdue dan membuat kasus penagihan (collections case). Pemilik menerima notifikasi dan mulai menghubungi tenant. Sistem DSS merekomendasikan strategi penagihan (reminder, WhatsApp, payment plan, eskalasi). Jika berhasil, kasus di-resolve. Admin dapat melihat analitik penagihan secara agregat di seluruh platform.
 
 ```mermaid
 flowchart TD
@@ -916,6 +1071,18 @@ flowchart TD
     style RESULT fill:#f1c40f,color:#333
 ```
 
+### Perspektif Peran
+
+| Peran | Aksi | Halaman / Endpoint |
+|-------|------|--------------------|
+| 🏠 Pemilik | Melihat kasus collections, menghubungi tenant, memilih strategi (plan/escalate/write-off) | `/merchant/collections` |
+| 🛡️ Admin | Melihat analitik penagihan agregat, monitoring escalation rates di seluruh platform | `/admin/collections` |
+
+> **Cross-Reference**: Lihat juga [Diagram 16 (Automated Reminders)](#16-automated-payment-reminders--escalation) untuk auto-create case di T+15, dan [Diagram 20 (Collections Extended)](#20-collections-case-management-extended) untuk payment plan & resolution strategy.
+
+<details>
+<summary>Referensi State Machine</summary>
+
 **State Machine** (`COLLECTIONS_CASE_TRANSITIONS`):
 | From | To |
 |------|-----|
@@ -923,13 +1090,15 @@ flowchart TD
 | `in_progress` | `resolved` |
 | `resolved` | _(terminal — resolution_type: paid_in_full, payment_plan, write_off, eviction)_ |
 
-> **Cross-Reference**: Lihat juga [Diagram 16 (Automated Reminders)](#16-automated-payment-reminders--escalation) untuk auto-create case di T+15, dan [Diagram 20 (Collections Extended)](#20-collections-case-management-extended) untuk payment plan & resolution strategy.
+</details>
 
 ---
 
 ## 12. AI/ML & DSS Advisory Flow
 
-Alur Decision Support System dan Machine Learning models untuk merchant.
+### Perjalanan Pengguna
+
+Pemilik properti mendapatkan rekomendasi cerdas dari Decision Support System (DSS) tentang harga optimal, prioritas maintenance, strategi penagihan, dan insight investasi. Model ML berjalan secara berkala untuk menganalisis data dan menghasilkan rekomendasi. Pemilik dapat melihat, menerima, atau menolak rekomendasi. Jika diterima, dampaknya diukur. Seluruh dokumen yang diupload diproses via OCR untuk ekstraksi data otomatis.
 
 ```mermaid
 flowchart TD
@@ -1019,6 +1188,16 @@ flowchart TD
     style OCR_STATUS fill:#f1c40f,color:#333
 ```
 
+### Perspektif Peran
+
+| Peran | Aksi | Halaman / Endpoint |
+|-------|------|--------------------|
+| 🏠 Pemilik | Melihat rekomendasi DSS, accept/reject, mengukur dampak implementasi | `/merchant/dss`, `/merchant/recommendations` |
+| 🛡️ Admin | Monitoring kesehatan DSS, melihat model performance, cek data quality | `/admin/dss-health` |
+
+<details>
+<summary>Referensi State Machine</summary>
+
 **DSS Recommendation** (`DSS_RECOMMENDATION_TRANSITIONS`):
 | From | To |
 |------|-----|
@@ -1032,11 +1211,15 @@ flowchart TD
 | `processing` | `completed`, `failed`, `requires_review` |
 | `requires_review` | `completed`, `failed` |
 
+</details>
+
 ---
 
 ## 13. Referral System
 
-Alur referral merchant, tracking komisioner, dan reward processing.
+### Perjalanan Pengguna
+
+Pemilik properti, penyewa, atau vendor dapat menghasilkan kode referral dan membagikannya ke orang lain. Calon merchant yang mendaftar menggunakan kode referral akan terhubung sebagai referee. Setelah referee terverifikasi dan berlangganan, referrer mendapat komisi dan reward (diskon langganan). Untuk vendor, referral juga berlaku pada pesanan — vendor yang dirujuk mendapatkan komisi khusus.
 
 ```mermaid
 flowchart TD
@@ -1079,6 +1262,18 @@ flowchart TD
     style VREF_CHECK fill:#f1c40f,color:#333
 ```
 
+### Perspektif Peran
+
+| Peran | Aksi | Halaman / Endpoint |
+|-------|------|--------------------|
+| 🏠 Pemilik | Generate kode referral, share ke calon merchant, lihat komisi & reward | `/merchant/referrals` |
+| 🧑‍💼 Penyewa | Generate kode referral tenant, share ke teman, lihat reward | `/tenant/referrals` |
+| 🔧 Vendor | Generate kode referral vendor, mendapat komisi dari pesanan referral | `/vendor/referrals` |
+| 🛡️ Admin | Mengelola program referral, melihat seluruh referral & komisi, manage payouts | `/admin/referrals` |
+
+<details>
+<summary>Referensi State Machine</summary>
+
 **State Machine** (`REFERRAL_STATUS_TRANSITIONS`):
 | From | To |
 |------|-----|
@@ -1087,11 +1282,15 @@ flowchart TD
 | `completed` | _(terminal)_ |
 | `expired` | _(terminal)_ |
 
+</details>
+
 ---
 
 ## 14. Support, Feedback & Compliance
 
-Alur support live chat, feedback, compliance tracking, insurance, security, dan audit.
+### Perjalanan Pengguna
+
+Semua peran (pemilik, penyewa, vendor) dapat menggunakan AI chatbot untuk mendapatkan bantuan. Chatbot menjawab pertanyaan umum berdasarkan knowledge base. Pemilik juga bisa submit feedback tentang platform. Untuk compliance, pemilik mengelola dokumen dan asuransi properti. Jika ada sengketa, dispute dibuat dan admin memediasi resolusi. Admin mengelola knowledge base chatbot dan memonitor kualitas data.
 
 ```mermaid
 flowchart TD
@@ -1181,17 +1380,33 @@ flowchart TD
     style CLAIM fill:#f1c40f,color:#333
 ```
 
+### Perspektif Peran
+
+| Peran | Aksi | Halaman / Endpoint |
+|-------|------|--------------------|
+| 🏠 Pemilik | Chat AI assistant, submit feedback, kelola compliance & asuransi, buat dispute | `/merchant/support`, `/merchant/compliance` |
+| 🧑‍💼 Penyewa | Chat AI assistant, ajukan dispute, request data export/GDPR | `/tenant/support`, `/tenant/disputes` |
+| 🔧 Vendor | Chat vendor AI assistant | `/vendor/support` |
+| 🛡️ Admin | Kelola knowledge base chatbot, respond feedback, mediasi dispute, monitor audit log & data quality | `/admin/support`, `/admin/kb`, `/admin/disputes` |
+
+<details>
+<summary>Referensi State Machine</summary>
+
 **Dispute** (`DISPUTE_STATUS_TRANSITIONS`):
 | From | To |
 |------|-----|
 | `open` | `in_progress` |
 | `in_progress` | `resolved`, `closed` |
 
+</details>
+
 ---
 
 ## 15. Payment Reconciliation (Auto-Match)
 
-Alur rekonsiliasi pembayaran otomatis. Sistem 3-tier matching: exact, partial, dan manual review. Sumber: `reconciliationService.ts`, edge function `auto-match-payment`.
+### Perjalanan Pengguna
+
+Setelah pembayaran dicatat, sistem otomatis mencoba mencocokkan dengan invoice yang ada. Tier 1 mencari exact match (jumlah + tenant + tanggal sama). Jika tidak ditemukan, Tier 2 mencoba partial match. Jika tetap tidak cocok, pembayaran masuk ke antrian manual review. Pemilik properti dapat mereview dan manual-match pembayaran yang pending.
 
 ```mermaid
 flowchart TD
@@ -1253,6 +1468,18 @@ flowchart TD
     style INV_UPDATE_FINAL fill:#f1c40f,color:#333
 ```
 
+### Perspektif Peran
+
+| Peran | Aksi | Halaman / Endpoint |
+|-------|------|--------------------|
+| 🏠 Pemilik | Mereview pembayaran yang pending, manual-match, konfirmasi/reject partial match | `/merchant/reconciliation` |
+| 🛡️ Admin | Monitoring auto-match rate, melihat unmatched payments via escrow overview | `/admin/escrow` |
+
+> **Catatan**: Sistem auto-match berjalan otomatis. Pemilik hanya perlu intervensi untuk Tier 2 (partial) dan Tier 3 (unmatched).
+
+<details>
+<summary>Referensi State Machine</summary>
+
 **Reconciliation Status Values**:
 | Status | Deskripsi |
 |--------|-----------|
@@ -1261,11 +1488,15 @@ flowchart TD
 | `auto_matched` | Tier 1 — otomatis cocok (exact) |
 | `manually_matched` | Dicocokkan manual oleh merchant |
 
+</details>
+
 ---
 
 ## 16. Automated Payment Reminders & Escalation
 
-Alur pengingat pembayaran otomatis dan eskalasi ke collections. Dijalankan oleh cron daily via edge function `queue-payment-reminders`.
+### Perjalanan Pengguna
+
+Sistem secara otomatis menjalankan cron harian untuk memindai semua invoice overdue. Untuk setiap merchant yang mengaktifkan reminder, sistem mencocokkan jadwal pengingat (misal: hari ke-1 friendly, hari ke-7 firm, hari ke-15 urgent via WhatsApp). Pengingat dikirim ke penyewa melalui channel yang dikonfigurasi. Jika overdue mencapai 15 hari, sistem otomatis membuat kasus collections dan meng-escalate status invoice.
 
 ```mermaid
 flowchart TD
@@ -1317,6 +1548,17 @@ flowchart TD
     style CHECK_ESCALATE fill:#f1c40f,color:#333
 ```
 
+### Perspektif Peran
+
+| Peran | Aksi | Halaman / Endpoint |
+|-------|------|--------------------|
+| 🏠 Pemilik | Mengkonfigurasi jadwal reminder (channel, tone, days_overdue) | `/merchant/settings/reminders` |
+| 🧑‍💼 Penyewa | Menerima pengingat pembayaran via email/SMS/WhatsApp | _(notifikasi otomatis)_ |
+| 🛡️ Admin | Monitoring reminder delivery rates | `/admin/reminders` |
+
+<details>
+<summary>Referensi Teknis</summary>
+
 **Reminder Config** (`merchants.collections_reminder_config` JSONB):
 ```json
 {
@@ -1329,11 +1571,15 @@ flowchart TD
 }
 ```
 
+</details>
+
 ---
 
 ## 17. Expense Tracking
 
-Alur pengelolaan pengeluaran operasional merchant. Sumber: `expenseService.ts`.
+### Perjalanan Pengguna
+
+Pemilik properti mencatat semua pengeluaran operasional (utilities, maintenance, asuransi, pajak, dll). Dashboard menampilkan ringkasan: total bulan ini vs bulan lalu, trend perubahan, dan breakdown per kategori. Pemilik dapat menambah, melihat daftar, dan menghapus pengeluaran. Data ini digunakan oleh Financial Reports (Diagram 22) untuk laporan P&L.
 
 ```mermaid
 flowchart TD
@@ -1373,11 +1619,21 @@ flowchart TD
     style ACTION fill:#f1c40f,color:#333
 ```
 
+### Perspektif Peran
+
+| Peran | Aksi | Halaman / Endpoint |
+|-------|------|--------------------|
+| 🏠 Pemilik | CRUD pengeluaran, lihat summary & trend | `/merchant/expenses` |
+
+> **Catatan**: Fitur ini khusus untuk pemilik properti. Data expenses diagregasi di Financial Reports (Diagram 22).
+
 ---
 
 ## 18. Waiting List & Applicant Management
 
-Alur manajemen daftar tunggu dan applicant. State machine: `WAITING_LIST_TRANSITIONS`. Sumber: `waitingListService.ts`.
+### Perjalanan Pengguna
+
+Pemilik properti mengelola daftar tunggu calon penyewa. Calon penyewa yang berminat dicatat dengan informasi kontak, budget, dan preferensi. Status applicant berubah dari interested -> applied -> offered (dengan unit dan batas waktu) -> accepted/rejected. Jika accepted, pemilik melanjutkan ke pembuatan kontrak.
 
 ```mermaid
 flowchart TD
@@ -1432,6 +1688,17 @@ flowchart TD
     style ACTION fill:#f1c40f,color:#333
 ```
 
+### Perspektif Peran
+
+| Peran | Aksi | Halaman / Endpoint |
+|-------|------|--------------------|
+| 🏠 Pemilik | Mengelola daftar tunggu, tambah applicant, send offer, track response | `/merchant/waiting-list` |
+
+> **Catatan**: Fitur ini khusus untuk pemilik properti. Applicant yang di-accept dilanjutkan ke pembuatan kontrak (Diagram 4).
+
+<details>
+<summary>Referensi State Machine</summary>
+
 **State Machine** (`WAITING_LIST_TRANSITIONS`):
 | From | To |
 |------|-----|
@@ -1441,11 +1708,15 @@ flowchart TD
 | `accepted` | _(terminal)_ |
 | `rejected` | _(terminal)_ |
 
+</details>
+
 ---
 
 ## 19. Lease Renewal & Amendment
 
-Alur perpanjangan sewa dan amandemen kontrak. Cron daily via edge function `send-renewal-alert`. State machine: `AMENDMENT_STATUS_TRANSITIONS`. Sumber: `renewalService.ts`.
+### Perjalanan Pengguna
+
+Sistem secara otomatis memindai kontrak yang akan berakhir dalam 60, 30, dan 7 hari, lalu mengirim alert ke pemilik. Pemilik melihat daftar alert dan memutuskan: membuat amandemen (perubahan terms, perpanjangan) atau proses renewal manual. Amandemen dibuat sebagai draft, dikirim ke penyewa, lalu ditandatangani. Setelah signed, kontrak diperbarui dengan terms baru.
 
 ```mermaid
 flowchart TD
@@ -1493,6 +1764,16 @@ flowchart TD
     style SIGN fill:#f1c40f,color:#333
 ```
 
+### Perspektif Peran
+
+| Peran | Aksi | Halaman / Endpoint |
+|-------|------|--------------------|
+| 🏠 Pemilik | Menerima alert renewal, membuat amandemen, mengirim ke tenant | `/merchant/renewals`, `/merchant/contracts/:id/amend` |
+| 🧑‍💼 Penyewa | Menerima notifikasi amandemen, melihat perubahan terms, menandatangani | `/tenant/contracts/:id`, `/tenant/amendments/:id` |
+
+<details>
+<summary>Referensi State Machine</summary>
+
 **State Machine** (`AMENDMENT_STATUS_TRANSITIONS`):
 | From | To |
 |------|-----|
@@ -1500,11 +1781,15 @@ flowchart TD
 | `sent` | `signed` |
 | `signed` | _(terminal — contract updated)_ |
 
+</details>
+
 ---
 
 ## 20. Collections Case Management (Extended)
 
-Alur manajemen kasus penagihan diperluas dengan payment plan dan strategy resolution. Sumber: `collectionsCaseService.ts`.
+### Perjalanan Pengguna
+
+Kasus penagihan bisa dibuat otomatis oleh reminder system (Diagram 16) atau manual oleh pemilik. Pemilik melihat daftar kasus, menghubungi tenant, dan memilih strategi resolusi: buat payment plan, eskalasi, write-off, atau eviction. Untuk payment plan, sistem menghitung cicilan otomatis. Setelah kasus terselesaikan, status di-update dan dicatat.
 
 ```mermaid
 flowchart TD
@@ -1548,6 +1833,17 @@ flowchart TD
     style STRATEGY fill:#f1c40f,color:#333
 ```
 
+### Perspektif Peran
+
+| Peran | Aksi | Halaman / Endpoint |
+|-------|------|--------------------|
+| 🏠 Pemilik | Mengelola kasus collections, menghubungi tenant, memilih strategi resolusi | `/merchant/collections` |
+
+> **Catatan**: Fitur ini terutama untuk pemilik. Admin dapat melihat kasus agregat melalui analitik collections (Diagram 11).
+
+<details>
+<summary>Referensi Teknis</summary>
+
 **Resolution Types**:
 | Type | Deskripsi |
 |------|-----------|
@@ -1556,11 +1852,15 @@ flowchart TD
 | `write_off` | Tagihan dihapus sebagai kerugian |
 | `eviction` | Proses pengusiran tenant |
 
+</details>
+
 ---
 
 ## 21. Dynamic Pricing Rules
 
-Alur CRUD aturan harga dinamis. Sumber: `dynamicPricingService.ts`.
+### Perjalanan Pengguna
+
+Pemilik properti membuat aturan harga dinamis untuk mengoptimalkan pendapatan. Ia memilih tipe aturan (okupansi, musiman, permintaan, durasi sewa, loyalitas), mengatur adjustment (persentase atau fixed), dan menetapkan prioritas. Aturan dapat diaktifkan/nonaktifkan kapan saja. Sistem menerapkan aturan berdasarkan prioritas tertinggi yang cocok.
 
 ```mermaid
 flowchart TD
@@ -1606,6 +1906,17 @@ flowchart TD
     style ADJ_TYPE fill:#f1c40f,color:#333
 ```
 
+### Perspektif Peran
+
+| Peran | Aksi | Halaman / Endpoint |
+|-------|------|--------------------|
+| 🏠 Pemilik | CRUD aturan pricing, toggle aktif/nonaktif, atur prioritas | `/merchant/pricing` |
+
+> **Catatan**: Fitur ini khusus untuk pemilik properti. Aturan pricing di-referensi dari properti (Diagram 3).
+
+<details>
+<summary>Referensi Teknis</summary>
+
 **Rule Types**:
 | Type | Label | Deskripsi |
 |------|-------|-----------|
@@ -1615,11 +1926,15 @@ flowchart TD
 | `duration` | Durasi Sewa | Diskon untuk kontrak jangka panjang |
 | `loyalty` | Loyalitas | Diskon untuk tenant yang sudah lama |
 
+</details>
+
 ---
 
 ## 22. Financial Reports (P&L)
 
-Alur laporan keuangan Profit & Loss. Sumber: `financialReportService.ts`.
+### Perjalanan Pengguna
+
+Pemilik properti membuka dashboard laporan keuangan dan memilih periode (default 6 bulan). Sistem mengambil data invoice terbayar dan pengeluaran, lalu mengagregasi per bulan. Hasilnya ditampilkan dalam chart: P&L bulanan (bar chart), pendapatan per properti (pie chart), dan pengeluaran per kategori (pie chart). Pemilik bisa melihat tren pendapatan bersih dari waktu ke waktu.
 
 ```mermaid
 flowchart TD
@@ -1642,6 +1957,17 @@ flowchart TD
     style SUMMARY fill:#2ecc71,color:#fff
 ```
 
+### Perspektif Peran
+
+| Peran | Aksi | Halaman / Endpoint |
+|-------|------|--------------------|
+| 🏠 Pemilik | Melihat laporan P&L, chart pendapatan vs pengeluaran, analisis per properti | `/merchant/reports` |
+
+> **Catatan**: Fitur ini khusus untuk pemilik properti. Mengagregasi data dari Invoice (Diagram 6) dan Expenses (Diagram 17).
+
+<details>
+<summary>Referensi Teknis</summary>
+
 **Data Sources**:
 | Source | Filter | Diagram |
 |--------|--------|---------|
@@ -1649,11 +1975,15 @@ flowchart TD
 | `expenses` | `expense_date >= startDate` | Diagram 17 |
 | `properties` | `merchant_id` match | Diagram 3 |
 
+</details>
+
 ---
 
 ## 23. Admin Launch Readiness
 
-Alur dashboard kesiapan peluncuran platform. Sumber: `launchReadinessService.ts`.
+### Perjalanan Pengguna
+
+Admin platform membuka dashboard kesiapan peluncuran untuk mengevaluasi apakah platform siap go-live. Sistem mengambil metrics dari semua tabel dan menjalankan 18 pengecekan kesiapan di 5 kategori. Setiap check menghasilkan status pass/warning/fail. Skor keseluruhan dihitung dan ditampilkan sebagai Go/Caution/No-Go. Admin melihat detail setiap check untuk mengetahui area yang perlu diperbaiki.
 
 ```mermaid
 flowchart TD
@@ -1698,6 +2028,17 @@ flowchart TD
     style DISPLAY fill:#f1c40f,color:#333
 ```
 
+### Perspektif Peran
+
+| Peran | Aksi | Halaman / Endpoint |
+|-------|------|--------------------|
+| 🛡️ Admin | Melihat readiness score, detail setiap check, memutuskan go/no-go | `/admin/launch-readiness` |
+
+> **Catatan**: Fitur ini khusus untuk admin platform. Membaca data dari seluruh sistem untuk scoring kesiapan.
+
+<details>
+<summary>Referensi Teknis</summary>
+
 **Readiness Categories & Weight**:
 | Category | Checks | Key Criteria |
 |----------|--------|-------------|
@@ -1706,6 +2047,74 @@ flowchart TD
 | Finance | 5 | Invoices > 0, payment gateway, match rate >= 80%, collections, expenses |
 | Intelligence | 3 | Dynamic pricing, financial reports, DSS advisor |
 | Infrastructure | 3 | RLS aktif, edge functions deployed, feature flags > 0 |
+
+</details>
+
+---
+
+## Ringkasan Journey per Peran
+
+### 🏠 Pemilik (Merchant) — Full Lifecycle
+
+1. **Registrasi & Verifikasi** → Daftar, lengkapi profil, upload dokumen, tunggu approval admin _(Diagram 1)_
+2. **Pilih Langganan** → Pilih tier, mulai trial, bayar untuk aktivasi _(Diagram 2)_
+3. **Setup Properti** → Tambah properti, unit, fasilitas, compliance, asuransi _(Diagram 3)_
+4. **Undang Penyewa** → Kirim invitation email ke calon tenant _(Diagram 5)_
+5. **Buat Kontrak** → Draft kontrak, tanda tangan digital, aktivasi _(Diagram 4)_
+6. **Kelola Tagihan** → Auto-generate/manual invoice, kirim ke tenant _(Diagram 6)_
+7. **Verifikasi Pembayaran** → Review bukti transfer, konfirmasi auto-match _(Diagram 7, 15)_
+8. **Kelola Escrow** → Pantau saldo, request pencairan ke bank _(Diagram 8)_
+9. **Atur Reminder** → Konfigurasi jadwal pengingat otomatis _(Diagram 16)_
+10. **Tangani Penagihan** → Kelola kasus collections, pilih strategi _(Diagram 11, 20)_
+11. **Proses Move-Out** → Acknowledge notice, inspeksi, hitung deposit refund _(Diagram 9)_
+12. **Kelola Maintenance** → Terima request, assign vendor, track progress _(Diagram 10)_
+13. **Catat Pengeluaran** → Input expenses operasional _(Diagram 17)_
+14. **Kelola Daftar Tunggu** → Track applicant, send offer _(Diagram 18)_
+15. **Perpanjangan Sewa** → Review alert, buat amandemen _(Diagram 19)_
+16. **Atur Harga Dinamis** → CRUD pricing rules _(Diagram 21)_
+17. **Lihat Laporan Keuangan** → Dashboard P&L _(Diagram 22)_
+18. **Gunakan DSS** → Terima & implementasi rekomendasi AI _(Diagram 12)_
+19. **Referral** → Generate kode, share, dapatkan komisi _(Diagram 13)_
+20. **Support** → Chat AI assistant, submit feedback _(Diagram 14)_
+
+### 🧑‍💼 Penyewa (Tenant) — Full Lifecycle
+
+1. **Terima Undangan** → Klik link dari email, accept invitation _(Diagram 5)_
+2. **Tanda Tangan Kontrak** → Review & sign kontrak digital _(Diagram 4)_
+3. **Terima & Bayar Invoice** → Lihat tagihan, pilih metode bayar _(Diagram 6, 7)_
+4. **Terima Pengingat** → Notifikasi otomatis jika overdue _(Diagram 16)_
+5. **Setuju Payment Plan** → Jika overdue, negosiasi cicilan _(Diagram 6B)_
+6. **Ajukan Maintenance** → Report kerusakan, track progress, review _(Diagram 10)_
+7. **Lihat Amandemen** → Review perubahan terms dari pemilik _(Diagram 19)_
+8. **Proses Move-Out** → Submit notice, terima/tolak counter offer, ajukan dispute deposit _(Diagram 9)_
+9. **Referral** → Generate kode tenant, share ke teman _(Diagram 13)_
+10. **Support** → Chat AI assistant, ajukan dispute _(Diagram 14)_
+
+### 🔧 Vendor — Full Lifecycle
+
+1. **Registrasi & Verifikasi** → Daftar sebagai vendor, upload dokumen, tunggu verifikasi _(proses serupa Diagram 1)_
+2. **Terima Job** → Notifikasi assignment dari pemilik _(Diagram 10)_
+3. **Accept/Reject** → Evaluasi job, terima atau tolak _(Diagram 10)_
+4. **Kerjakan & Update** → Update progress, catat biaya _(Diagram 10)_
+5. **Selesaikan & Terima Payment** → Mark complete, terima pembayaran _(Diagram 10)_
+6. **Terima Rating** → Penyewa memberikan review, mempengaruhi avg rating _(Diagram 10)_
+7. **Referral** → Generate kode vendor, dapatkan komisi pesanan _(Diagram 13)_
+8. **Support** → Chat vendor AI assistant _(Diagram 14)_
+
+### 🛡️ Admin — Full Lifecycle
+
+1. **Verifikasi Merchant** → Review dokumen, approve/reject/suspend _(Diagram 1)_
+2. **Kelola Langganan** → Atur tier, monitor status langganan _(Diagram 2)_
+3. **Monitor Properti** → Lihat semua properti di platform _(Diagram 3)_
+4. **Monitor Kontrak** → Lihat semua kontrak _(Diagram 4)_
+5. **Monitor Tenant** → Lihat semua tenant _(Diagram 5)_
+6. **Kelola Escrow** → Review disbursement yang perlu manual approval _(Diagram 8)_
+7. **Mediasi Dispute** → Resolusi sengketa deposit, mediasi pemilik & penyewa _(Diagram 9, 14)_
+8. **Monitor Collections** → Lihat analitik penagihan agregat _(Diagram 11)_
+9. **Monitor DSS Health** → Cek performa model, kualitas data _(Diagram 12)_
+10. **Kelola Referral** → Monitor program, manage payouts _(Diagram 13)_
+11. **Kelola Knowledge Base** → Update FAQ chatbot, respond feedback _(Diagram 14)_
+12. **Launch Readiness** → Evaluasi kesiapan platform go-live _(Diagram 23)_
 
 ---
 
