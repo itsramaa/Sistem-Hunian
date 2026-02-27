@@ -7,6 +7,8 @@ import { SubscriptionWidget } from '@/features/subscriptions/components/Subscrip
 import { MerchantQuickStartChecklist } from '@/features/launch/components/MerchantQuickStartChecklist';
 import { TrialCountdownWidget } from '@/features/subscriptions/components/TrialCountdownWidget';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
+import { useIsMobile } from '@/shared/hooks/use-mobile';
+import { MobileMerchantDashboard } from '@/features/dashboard/components/MobileMerchantDashboard';
 
 import { Alert, AlertDescription } from '@/shared/components/ui/alert';
 import { Button } from '@/shared/components/ui/button';
@@ -39,9 +41,18 @@ export default function MerchantDashboard() {
   const { merchant } = useAuth();
   const navigate = useNavigate();
   useAnalytics();
+  const isMobile = useIsMobile();
   const [vacancyOpen, setVacancyOpen] = useState(true);
 
   const { data: stats, isLoading, error, refetch, isRefetching } = useMerchantDashboardStats();
+
+  if (isLoading) {
+    return <MerchantDashboardSkeleton />;
+  }
+
+  if (isMobile) {
+    return <MobileMerchantDashboard />;
+  }
 
   if (isLoading) {
     return <MerchantDashboardSkeleton />;

@@ -100,6 +100,7 @@ const MerchantWaitingList = lazy(() => import("@/pages/merchant/WaitingList"));
 const MerchantLeaseRenewals = lazy(() => import("@/pages/merchant/LeaseRenewals"));
 const MerchantDynamicPricing = lazy(() => import("@/pages/merchant/DynamicPricing"));
 const MerchantFinancialReports = lazy(() => import("@/pages/merchant/FinancialReports"));
+const MerchantAlerts = lazy(() => import("@/pages/merchant/Alerts"));
 // Hub Pages (only InsightsHub remains as a hub)
 const MerchantInsightsHub = lazy(() => import("@/pages/merchant/InsightsHub"));
 // Tenant Pages
@@ -237,6 +238,7 @@ const App = () => (
                     <Route path="lease-renewals" element={<MerchantLeaseRenewals />} />
                     <Route path="dynamic-pricing" element={<MerchantDynamicPricing />} />
                     <Route path="financial-reports" element={<MerchantFinancialReports />} />
+                    <Route path="alerts" element={<MerchantAlerts />} />
                     <Route path="ocr-tutorial" element={<MerchantOcrTutorial />} />
                     <Route path="tenant-analytics" element={<MerchantTenantAnalytics />} />
                     <Route path="compliance" element={<Navigate to="/merchant/properties" replace />} />

@@ -256,6 +256,15 @@ export const SCREENING_STATUS_TRANSITIONS: Record<string, string[]> = {
   rejected: ['pending'],  // allow re-screening
 };
 
+// ─── Section 27: Expense Approval Lifecycle ──────────────────────────────
+export const EXPENSE_APPROVAL_TRANSITIONS: Record<string, string[]> = {
+  submitted: ['pending_approval', 'approved'],  // auto-approve if < 500K
+  pending_approval: ['approved', 'rejected'],
+  approved: ['verified'],
+  rejected: ['submitted'],  // allow re-submission
+  verified: [],  // terminal
+};
+
 export const DSS_RECOMMENDATION_TRANSITIONS: Record<string, string[]> = {
   generated: ['viewed', 'accepted', 'rejected'],
   viewed: ['accepted', 'rejected'],

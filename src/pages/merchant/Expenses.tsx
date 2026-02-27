@@ -1,57 +1,38 @@
 import { useState } from 'react';
-import { Plus, Search, Trash2, Wallet, TrendingDown, TrendingUp, Receipt } from 'lucide-react';
+import { Plus, Search, Trash2, Wallet, TrendingDown, TrendingUp, Receipt, Eye, ShieldCheck } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
 import { Badge } from '@/shared/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/shared/components/ui/dialog';
-import { Label } from '@/shared/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { StatCard } from '@/shared/components/ui/StatCard';
 import { useExpenses } from '@/features/expenses/hooks/useExpenses';
 import { EXPENSE_CATEGORIES } from '@/features/expenses/services/expenseService';
+import { ExpenseCreateDialog } from '@/features/expenses/components/ExpenseCreateDialog';
+import { ExpenseApprovalList } from '@/features/expenses/components/ExpenseApprovalList';
+import { ReceiptViewer } from '@/features/expenses/components/ReceiptViewer';
+import type { Expense } from '@/features/expenses/services/expenseService';
 
 const CATEGORY_LABELS: Record<string, string> = {
-  utilities: 'Utilitas',
-  maintenance: 'Pemeliharaan',
-  insurance: 'Asuransi',
-  tax: 'Pajak',
-  marketing: 'Pemasaran',
-  admin: 'Administrasi',
-  payroll: 'Gaji',
-  other: 'Lainnya',
+  utilities: 'Utilitas', maintenance: 'Pemeliharaan', insurance: 'Asuransi',
+  tax: 'Pajak', marketing: 'Pemasaran', admin: 'Administrasi',
+  payroll: 'Gaji', other: 'Lainnya',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  submitted: 'Diajukan',
+  pending_approval: 'Menunggu Approval',
+  approved: 'Disetujui',
+  rejected: 'Ditolak',
+  verified: 'Terverifikasi',
 };
 
 export default function MerchantExpenses() {
-  const { summary, expenses, createExpense, deleteExpense } = useExpenses();
+  const { summary, expenses, pendingApprovals, deleteExpense } = useExpenses();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [form, setForm] = useState({
-    category: 'utilities',
-    description: '',
-    amount: '',
-    expenseDate: new Date().toISOString().split('T')[0],
-    paymentMethod: 'bank_transfer',
-    notes: '',
-  });
-
-  const handleSubmit = () => {
-    if (!form.amount || Number(form.amount) <= 0) return;
-    createExpense.mutate({
-      category: form.category,
-      description: form.description,
-      amount: Number(form.amount),
-      expenseDate: form.expenseDate,
-      paymentMethod: form.paymentMethod,
-      notes: form.notes,
-    }, {
-      onSuccess: () => {
-        setDialogOpen(false);
-        setForm({ category: 'utilities', description: '', amount: '', expenseDate: new Date().toISOString().split('T')[0], paymentMethod: 'bank_transfer', notes: '' });
-      },
-    });
-  };
+  const [viewingReceipt, setViewingReceipt] = useState<Expense | null>(null);
 
   const filtered = (expenses.data || []).filter(e =>
     !search ||
@@ -62,6 +43,7 @@ export default function MerchantExpenses() {
   const summaryData = summary.data;
   const trendIcon = (summaryData?.trend || 0) >= 0 ? TrendingUp : TrendingDown;
   const trendColor = (summaryData?.trend || 0) >= 0 ? 'hsl(0 84% 60%)' : 'hsl(142 71% 45%)';
+  const pendingCount = pendingApprovals.data?.length || 0;
 
   return (
     <div className="space-y-6">
@@ -70,48 +52,9 @@ export default function MerchantExpenses() {
           <h1 className="text-2xl font-bold">Pengeluaran</h1>
           <p className="text-muted-foreground">Catat dan lacak semua biaya operasional</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button><Plus className="h-4 w-4 mr-1" /> Tambah Pengeluaran</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Tambah Pengeluaran Baru</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label>Kategori</Label>
-                <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {EXPENSE_CATEGORIES.map(c => (
-                      <SelectItem key={c} value={c}>{CATEGORY_LABELS[c]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Jumlah (Rp)</Label>
-                <Input type="number" placeholder="0" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
-              </div>
-              <div>
-                <Label>Tanggal</Label>
-                <Input type="date" value={form.expenseDate} onChange={e => setForm(f => ({ ...f, expenseDate: e.target.value }))} />
-              </div>
-              <div>
-                <Label>Deskripsi</Label>
-                <Input placeholder="Listrik bulan Februari..." value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
-              </div>
-              <div>
-                <Label>Catatan</Label>
-                <Input placeholder="Catatan tambahan..." value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
-              </div>
-              <Button onClick={handleSubmit} disabled={createExpense.isPending} className="w-full">
-                {createExpense.isPending ? 'Menyimpan...' : 'Simpan'}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => setDialogOpen(true)}>
+          <Plus className="h-4 w-4 mr-1" /> Tambah Pengeluaran
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -143,12 +86,12 @@ export default function MerchantExpenses() {
           index={2}
         />
         <StatCard
-          title="Jumlah Kategori"
-          value={summaryData?.byCategory?.length || 0}
-          subtitle="kategori aktif"
-          icon={Receipt}
+          title="Menunggu Approval"
+          value={pendingCount}
+          subtitle="perlu persetujuan"
+          icon={ShieldCheck}
           accentColor="hsl(262 83% 58%)"
-          loading={summary.isLoading}
+          loading={pendingApprovals.isLoading}
           index={3}
         />
       </div>
@@ -183,61 +126,90 @@ export default function MerchantExpenses() {
         </Card>
       )}
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Daftar Pengeluaran</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Cari pengeluaran..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
-          </div>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tanggal</TableHead>
-                  <TableHead>Kategori</TableHead>
-                  <TableHead>Deskripsi</TableHead>
-                  <TableHead className="text-right">Jumlah</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-center">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                      Belum ada pengeluaran tercatat
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filtered.map(e => (
-                    <TableRow key={e.id}>
-                      <TableCell className="text-sm">{new Date(e.expenseDate).toLocaleDateString('id-ID')}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{CATEGORY_LABELS[e.category] || e.category}</Badge>
-                      </TableCell>
-                      <TableCell className="text-sm">{e.description || '-'}</TableCell>
-                      <TableCell className="text-right font-semibold">Rp {e.amount.toLocaleString('id-ID')}</TableCell>
-                      <TableCell>
-                        <Badge variant={e.approvalStatus === 'approved' ? 'default' : 'secondary'}>
-                          {e.approvalStatus}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button size="sm" variant="ghost" onClick={() => deleteExpense.mutate(e.id)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </TableCell>
+      <Tabs defaultValue="list">
+        <TabsList>
+          <TabsTrigger value="list">Daftar Pengeluaran</TabsTrigger>
+          <TabsTrigger value="approval">
+            Approval {pendingCount > 0 && <Badge variant="destructive" className="ml-1.5 h-5 px-1.5 text-xs">{pendingCount}</Badge>}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="list" className="mt-4">
+          <Card>
+            <CardContent className="space-y-3 pt-4">
+              <div className="relative max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Cari pengeluaran..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+              </div>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Tanggal</TableHead>
+                      <TableHead>Kategori</TableHead>
+                      <TableHead>Deskripsi</TableHead>
+                      <TableHead className="text-right">Jumlah</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-center">Aksi</TableHead>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                          Belum ada pengeluaran tercatat
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filtered.map(e => (
+                        <TableRow key={e.id}>
+                          <TableCell className="text-sm">{new Date(e.expenseDate).toLocaleDateString('id-ID')}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{CATEGORY_LABELS[e.category] || e.category}</Badge>
+                          </TableCell>
+                          <TableCell className="text-sm">{e.description || '-'}</TableCell>
+                          <TableCell className="text-right font-semibold">Rp {e.amount.toLocaleString('id-ID')}</TableCell>
+                          <TableCell>
+                            <Badge variant={e.approvalStatus === 'approved' ? 'default' : e.approvalStatus === 'rejected' ? 'destructive' : 'secondary'}>
+                              {STATUS_LABELS[e.approvalStatus] || e.approvalStatus}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              {e.receiptUrl && (
+                                <Button size="sm" variant="ghost" onClick={() => setViewingReceipt(e)}>
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                              <Button size="sm" variant="ghost" onClick={() => deleteExpense.mutate(e.id)}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="approval" className="mt-4">
+          <ExpenseApprovalList />
+        </TabsContent>
+      </Tabs>
+
+      <ExpenseCreateDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+
+      {viewingReceipt && (
+        <ReceiptViewer
+          expense={viewingReceipt}
+          open={!!viewingReceipt}
+          onOpenChange={() => setViewingReceipt(null)}
+        />
+      )}
     </div>
   );
 }

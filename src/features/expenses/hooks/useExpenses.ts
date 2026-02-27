@@ -4,11 +4,12 @@ import { expenseService, type CreateExpenseInput } from '../services/expenseServ
 import { toast } from 'sonner';
 
 export function useExpenses() {
-  const { merchant } = useAuth();
+  const { merchant, user } = useAuth();
   const queryClient = useQueryClient();
 
   const summaryKey = ['expense-summary', merchant?.id];
   const listKey = ['expense-list', merchant?.id];
+  const pendingKey = ['expense-pending', merchant?.id];
 
   const summary = useQuery({
     queryKey: summaryKey,
@@ -30,6 +31,22 @@ export function useExpenses() {
     staleTime: 2 * 60 * 1000,
   });
 
+  const pendingApprovals = useQuery({
+    queryKey: pendingKey,
+    queryFn: () => {
+      if (!merchant?.id) throw new Error('No merchant');
+      return expenseService.fetchPendingApprovals(merchant.id);
+    },
+    enabled: !!merchant?.id,
+    staleTime: 60 * 1000,
+  });
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: summaryKey });
+    queryClient.invalidateQueries({ queryKey: listKey });
+    queryClient.invalidateQueries({ queryKey: pendingKey });
+  };
+
   const createExpense = useMutation({
     mutationFn: (input: Omit<CreateExpenseInput, 'merchantId'>) => {
       if (!merchant?.id) throw new Error('No merchant');
@@ -37,11 +54,35 @@ export function useExpenses() {
     },
     onSuccess: () => {
       toast.success('Pengeluaran berhasil ditambahkan');
-      queryClient.invalidateQueries({ queryKey: summaryKey });
-      queryClient.invalidateQueries({ queryKey: listKey });
+      invalidateAll();
     },
     onError: () => {
       toast.error('Gagal menambahkan pengeluaran');
+    },
+  });
+
+  const approveExpense = useMutation({
+    mutationFn: (id: string) => {
+      if (!user?.id) throw new Error('No user');
+      return expenseService.approveExpense(id, user.id);
+    },
+    onSuccess: () => {
+      toast.success('Pengeluaran disetujui');
+      invalidateAll();
+    },
+    onError: () => {
+      toast.error('Gagal menyetujui pengeluaran');
+    },
+  });
+
+  const rejectExpense = useMutation({
+    mutationFn: (id: string) => expenseService.rejectExpense(id),
+    onSuccess: () => {
+      toast.success('Pengeluaran ditolak');
+      invalidateAll();
+    },
+    onError: () => {
+      toast.error('Gagal menolak pengeluaran');
     },
   });
 
@@ -49,10 +90,9 @@ export function useExpenses() {
     mutationFn: (id: string) => expenseService.deleteExpense(id),
     onSuccess: () => {
       toast.success('Pengeluaran dihapus');
-      queryClient.invalidateQueries({ queryKey: summaryKey });
-      queryClient.invalidateQueries({ queryKey: listKey });
+      invalidateAll();
     },
   });
 
-  return { summary, expenses, createExpense, deleteExpense };
+  return { summary, expenses, pendingApprovals, createExpense, approveExpense, rejectExpense, deleteExpense };
 }
