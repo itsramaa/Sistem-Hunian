@@ -9,7 +9,7 @@ import { Skeleton } from '@/shared/components/ui/skeleton';
 import { formatCurrency } from '@/shared/utils/currency';
 import { getInvoiceStatusColor } from '@/shared/utils/statusColors';
 import { format } from 'date-fns';
-import { ArrowLeft, CreditCard, Download, FileText, Loader2 } from 'lucide-react';
+import { ArrowLeft, CreditCard, Download, FileText, Loader2, Receipt } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -121,6 +121,32 @@ export default function TenantInvoiceDetail() {
           {canPay && (
             <Button className="w-full rounded-xl gap-2 gradient-cta text-primary-foreground" onClick={() => setSelectedInvoice(invoice)}>
               <CreditCard className="h-4 w-4" /> Pay Now
+            </Button>
+          )}
+          {invoice.status === 'paid' && (
+            <Button variant="outline" className="w-full rounded-xl gap-2" onClick={() => {
+              const receiptHtml = `
+                <!DOCTYPE html><html><head><meta charset="utf-8"><title>Kwitansi ${invoice.invoice_number}</title>
+                <style>body{font-family:system-ui,sans-serif;max-width:600px;margin:40px auto;padding:20px;color:#333}
+                .header{text-align:center;border-bottom:2px solid #333;padding-bottom:16px;margin-bottom:24px}
+                .header h1{font-size:24px;margin:0}.header p{color:#666;margin:4px 0}
+                .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee}
+                .row.total{border-top:2px solid #333;border-bottom:none;font-weight:bold;font-size:18px;margin-top:12px;padding-top:12px}
+                .footer{margin-top:32px;text-align:center;color:#999;font-size:12px}
+                @media print{body{margin:0}}</style></head><body>
+                <div class="header"><h1>KWITANSI PEMBAYARAN</h1><p>No: ${invoice.invoice_number}</p></div>
+                <div class="row"><span>Deskripsi</span><span>${invoice.description || 'Pembayaran Sewa'}</span></div>
+                <div class="row"><span>Tanggal Bayar</span><span>${invoice.paid_at ? format(new Date(invoice.paid_at), 'dd MMMM yyyy') : '-'}</span></div>
+                <div class="row"><span>Subtotal</span><span>${formatCurrency(Number(invoice.amount))}</span></div>
+                <div class="row"><span>Pajak</span><span>${formatCurrency(Number(invoice.tax_amount || 0))}</span></div>
+                ${invoice.late_fee > 0 ? `<div class="row"><span>Denda</span><span>${formatCurrency(invoice.late_fee)}</span></div>` : ''}
+                <div class="row total"><span>Total Dibayar</span><span>${formatCurrency(Number(invoice.total_amount))}</span></div>
+                <div class="footer"><p>Kwitansi ini dibuat secara otomatis oleh sistem.</p><p>Dicetak: ${format(new Date(), 'dd MMMM yyyy HH:mm')}</p></div>
+                </body></html>`;
+              const w = window.open('', '_blank');
+              if (w) { w.document.write(receiptHtml); w.document.close(); w.onload = () => w.print(); }
+            }}>
+              <Receipt className="h-4 w-4" /> Unduh Kwitansi
             </Button>
           )}
         </div>
