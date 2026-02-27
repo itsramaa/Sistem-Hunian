@@ -3895,6 +3895,83 @@ export type Database = {
           },
         ]
       }
+      merchant_staff: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          display_name: string
+          email: string
+          id: string
+          invited_at: string
+          is_active: boolean
+          merchant_id: string
+          phone: string | null
+          property_ids: Json
+          staff_role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          display_name: string
+          email: string
+          id?: string
+          invited_at?: string
+          is_active?: boolean
+          merchant_id: string
+          phone?: string | null
+          property_ids?: Json
+          staff_role: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          display_name?: string
+          email?: string
+          id?: string
+          invited_at?: string
+          is_active?: boolean
+          merchant_id?: string
+          phone?: string | null
+          property_ids?: Json
+          staff_role?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "merchant_staff_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_occupancy_analysis"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "merchant_staff_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "merchant_staff_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merchant_staff_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       merchant_subscriptions: {
         Row: {
           canceled_at: string | null
@@ -6236,6 +6313,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          is_preferred: boolean
           merchant_id: string
           monthly_fee: number | null
           notes: string | null
@@ -6248,6 +6326,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          is_preferred?: boolean
           merchant_id: string
           monthly_fee?: number | null
           notes?: string | null
@@ -6260,6 +6339,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          is_preferred?: boolean
           merchant_id?: string
           monthly_fee?: number | null
           notes?: string | null
@@ -6735,6 +6815,38 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "v_properties_with_addresses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_permissions: {
+        Row: {
+          created_at: string
+          id: string
+          is_granted: boolean
+          permission_key: string
+          staff_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_granted?: boolean
+          permission_key: string
+          staff_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_granted?: boolean
+          permission_key?: string
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_permissions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_staff"
             referencedColumns: ["id"]
           },
         ]

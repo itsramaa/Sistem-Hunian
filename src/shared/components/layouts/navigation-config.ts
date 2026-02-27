@@ -135,7 +135,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/merchant/tenant-screening", icon: ShieldCheck, label: "Screening Penyewa" },
           { path: "/merchant/maintenance", icon: Wrench, label: "Maintenance" },
           { path: "/merchant/preventive-maintenance", icon: CalendarClock, label: "Preventif" },
-          
+          { path: "/merchant/vendor-performance", icon: TrendingUp, label: "Performa Vendor" },
         ],
       },
       {
@@ -158,6 +158,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/merchant/document-templates", icon: FileStack, label: "Template Dokumen" },
           { path: "/merchant/insights", icon: BarChart3, label: "Alat", activePatterns: ["/merchant/analytics", "/merchant/ai-insights", "/merchant/analytics-dashboard", "/merchant/comparative-portfolio", "/merchant/ml-analytics", "/merchant/dss-advisor", "/merchant/market-intelligence", "/merchant/financial-risk", "/merchant/tenant-quality", "/merchant/data-quality", "/merchant/documents"] },
           { path: "/merchant/api-integration", icon: ScanText, label: "API & Integrasi" },
+          { path: "/merchant/staff", icon: Users, label: "Manajemen Staff" },
         ],
       },
     ],
