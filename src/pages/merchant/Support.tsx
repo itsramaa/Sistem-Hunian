@@ -45,7 +45,7 @@ export const faqCategories = [
     items: [
       {
         q: "Bagaimana proses pembayaran sewa bekerja?",
-        a: "Invoice otomatis dibuat berdasarkan kontrak. Tenant menerima notifikasi dan bisa membayar via berbagai metode (transfer bank, e-wallet). Pembayaran masuk ke escrow dan akan di-disbursement ke rekening Anda."
+        a: "Invoice otomatis dibuat berdasarkan kontrak. Tenant menerima notifikasi dan bisa membayar via berbagai metode (transfer bank, e-wallet). Pembayaran akan langsung ditransfer ke rekening bank utama Anda secara otomatis."
       },
       {
         q: "Apa yang terjadi jika tenant telat bayar?",

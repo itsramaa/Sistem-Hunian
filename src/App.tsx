@@ -33,7 +33,7 @@ const AdminAuditLogs = lazy(() => import("@/pages/admin/AuditLogs"));
 const AdminChatbot = lazy(() => import("@/pages/admin/Chatbot"));
 const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
 const AdminDisputes = lazy(() => import("@/pages/admin/Disputes"));
-const AdminEscrow = lazy(() => import("@/pages/admin/Escrow"));
+const AdminPaymentTransfers = lazy(() => import("@/pages/admin/PaymentTransfers"));
 const AdminForumModeration = lazy(() => import("@/pages/admin/ForumModeration"));
 const AdminMerchants = lazy(() => import("@/pages/admin/Merchants"));
 const AdminProperties = lazy(() => import("@/pages/admin/Properties"));
@@ -177,7 +177,7 @@ const App = () => (
                   <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
                   <Route path="/admin/merchants" element={<ProtectedRoute allowedRoles={['admin']}><AdminMerchants /></ProtectedRoute>} />
                   <Route path="/admin/properties" element={<ProtectedRoute allowedRoles={['admin']}><AdminProperties /></ProtectedRoute>} />
-                  <Route path="/admin/escrow" element={<ProtectedRoute allowedRoles={['admin']}><AdminEscrow /></ProtectedRoute>} />
+                  <Route path="/admin/payment-transfers" element={<ProtectedRoute allowedRoles={['admin']}><AdminPaymentTransfers /></ProtectedRoute>} />
                   <Route path="/admin/vendors" element={<ProtectedRoute allowedRoles={['admin']}><AdminVendors /></ProtectedRoute>} />
                   <Route path="/admin/tenants" element={<ProtectedRoute allowedRoles={['admin']}><AdminTenants /></ProtectedRoute>} />
                   <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']}><AdminUsers /></ProtectedRoute>} />

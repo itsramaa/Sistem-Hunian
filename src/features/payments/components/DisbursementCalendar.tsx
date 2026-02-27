@@ -30,11 +30,9 @@ export function DisbursementCalendar({ className }: DisbursementCalendarProps) {
       if (!merchant?.id) return [];
       const start = startOfMonth(currentMonth);
       const end = endOfMonth(currentMonth);
-      const { data: escrowAccount } = await supabase.from('escrow_accounts').select('id').eq('merchant_id', merchant.id).maybeSingle();
-      if (!escrowAccount) return [];
       const { data, error } = await supabase.from('disbursements')
         .select('id, amount, status, scheduled_for, completed_at, type')
-        .eq('escrow_account_id', escrowAccount.id)
+        .eq('vendor_id', merchant.id)
         .gte('scheduled_for', start.toISOString()).lte('scheduled_for', end.toISOString())
         .order('scheduled_for', { ascending: true });
       if (error) throw error;

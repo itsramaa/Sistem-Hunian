@@ -20,22 +20,22 @@ export const dashboardService = {
     const [merchantsRes, paymentsRes, escrowRes, verificationsRes] = await Promise.all([
       supabase.from('merchants').select('id', { count: 'exact' }),
       paymentsQuery,
-      supabase.from('escrow_accounts').select('balance'),
+      (supabase as any).from('payment_transfers').select('net_amount').eq('status', 'completed'),
       supabase.from('vendor_verifications').select('id', { count: 'exact' }).eq('status', 'pending'),
     ]);
 
     if (merchantsRes.error) throw new Error(`Merchants query failed: ${merchantsRes.error.message}`);
     if (paymentsRes.error) throw new Error(`Payments query failed: ${paymentsRes.error.message}`);
-    if (escrowRes.error) throw new Error(`Escrow query failed: ${escrowRes.error.message}`);
+    if (escrowRes.error) console.warn('Payment transfers query:', escrowRes.error.message);
     if (verificationsRes.error) throw new Error(`Verifications query failed: ${verificationsRes.error.message}`);
 
     const totalRevenue = paymentsRes.data?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
-    const escrowBalance = escrowRes.data?.reduce((sum, e) => sum + Number(e.balance), 0) || 0;
+    const totalTransferred = escrowRes.data?.reduce((sum: number, e: any) => sum + Number(e.net_amount), 0) || 0;
 
     return {
       totalMerchants: merchantsRes.count || 0,
       totalGMV: totalRevenue,
-      totalEscrow: escrowBalance,
+      totalEscrow: totalTransferred,
       pendingVerifications: verificationsRes.count || 0
     };
   },

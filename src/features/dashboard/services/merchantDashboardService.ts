@@ -48,12 +48,12 @@ export const merchantDashboardService = {
         .select('id, name, total_units, occupied_units')
         .eq('merchant_id', merchantId),
 
-      // 2. Fetch escrow balance
-      supabase
-        .from('escrow_accounts')
-        .select('balance, pending_balance')
+      // 2. Fetch payment transfers balance (direct payment model)
+      (supabase as any)
+        .from('payment_transfers')
+        .select('net_amount, status')
         .eq('merchant_id', merchantId)
-        .maybeSingle(),
+        .eq('status', 'pending'),
 
       // 3. Fetch active tenants count
       supabase
@@ -98,8 +98,9 @@ export const merchantDashboardService = {
     const occupiedUnits = properties.reduce((sum, p) => sum + (p.occupied_units || 0), 0);
     const occupancyRate = totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0;
 
-    // Process Financials
-    const escrow = escrowRes.data || { balance: 0, pending_balance: 0 };
+    // Process Financials (direct payment model — no escrow)
+    const pendingTransfers = escrowRes.data || [];
+    const pendingBalance = pendingTransfers.reduce((sum: number, t: any) => sum + Number(t.net_amount || 0), 0);
     const monthlyRevenue = monthlyPaymentsRes.data?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
     const lastMonthRevenue = lastMonthPaymentsRes.data?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
     

@@ -7,7 +7,6 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -24,7 +23,7 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
     const { 
-      escrow_account_id,
+      payment_transfer_id,
       vendor_id,
       bank_account_id,
       amount,
@@ -32,7 +31,7 @@ serve(async (req) => {
       type // 'rent' or 'vendor_order'
     } = await req.json();
 
-    console.log('Creating disbursement:', { escrow_account_id, vendor_id, amount, type });
+    console.log('Creating disbursement:', { payment_transfer_id, vendor_id, amount, type });
 
     // Get bank account details
     let bankAccount;
@@ -114,7 +113,6 @@ serve(async (req) => {
     const { data: disbursement, error: disbursementError } = await supabase
       .from('disbursements')
       .insert({
-        escrow_account_id,
         vendor_id,
         type,
         amount,
@@ -134,33 +132,20 @@ serve(async (req) => {
       throw new Error(`Database error: ${disbursementError.message}`);
     }
 
-    // If escrow account, update the pending balance
-    if (escrow_account_id) {
-      const { data: escrow } = await supabase
-        .from('escrow_accounts')
-        .select('balance, pending_balance')
-        .eq('id', escrow_account_id)
-        .single();
+    // If payment_transfer_id provided, update the transfer record
+    if (payment_transfer_id) {
+      await supabase
+        .from('payment_transfers')
+        .update({
+          status: xenditData.status === 'COMPLETED' ? 'completed' : 'processing',
+          xendit_disbursement_id: xenditData.id,
+          external_reference: external_id,
+          processed_at: new Date().toISOString(),
+          completed_at: xenditData.status === 'COMPLETED' ? new Date().toISOString() : null,
+        })
+        .eq('id', payment_transfer_id);
 
-      if (escrow) {
-        await supabase
-          .from('escrow_accounts')
-          .update({
-            balance: escrow.balance - amount,
-            pending_balance: escrow.pending_balance + amount,
-          })
-          .eq('id', escrow_account_id);
-      }
-
-      // Create escrow transaction
-      await supabase.from('escrow_transactions').insert({
-        escrow_account_id,
-        amount: -amount,
-        type: 'withdrawal',
-        status: 'processing',
-        description: `Disbursement to ${bankAccount.account_name}`,
-        reference: external_id,
-      });
+      console.log('Payment transfer record updated');
     }
 
     return new Response(

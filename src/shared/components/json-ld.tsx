@@ -38,7 +38,7 @@ export const softwareApplicationSchema: JsonLdSchema = {
   "featureList": [
     "Manajemen Properti",
     "Penagihan Otomatis",
-    "Escrow Payment",
+    "Pembayaran Langsung",
     "OCR Dokumen",
     "AI Advisor",
     "Risk Scoring",
