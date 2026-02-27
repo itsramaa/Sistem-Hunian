@@ -1,26 +1,27 @@
 # UX Assessment & Merchant User Journey — Current System Only
 
-> **Document Version**: 3.0 (Full Rewrite)
+> **Document Version**: 3.1 (Forensic Audit Revision)
 > **Date**: 2026-02-27
 > **Source Authority**: Code-level only — `navigation-config.ts`, `state-machines.ts`, merchant page files, service files, edge functions
 > **Excluded Sources**: `merchant_activity_diagram.md` (outdated), PRD escrow sections (outdated)
+> **Revision Summary**: Fixed edge function count (65→62), added 6 missing feature sections (F33-F38), added Source Traceability Matrix, added Hallucination Risk Self-Check, flagged referrals, added assumption markers, added missing edge function cross-references
 
 ---
 
 ## Section 0: Merchant System Scope (Current Version)
 
-### What Merchant CAN Do (32 Features, 57 Pages)
+### What Merchant CAN Do (38 Features, 57 Pages)
 
 | Domain | Features |
 |--------|----------|
 | Property & Unit | Property CRUD, unit management, occupancy board, facility/asset inventory |
 | Tenant | Tenant list, invitation, screening, analytics, move-out management, waiting list |
 | Contract | Contract CRUD, signature workflow, amendments, lease renewals |
-| Finance | Invoice management, payment tracking, expense management, financial control, financial reports, reconciliation, collections, utility billing, dynamic pricing |
+| Finance | Invoice management, payment tracking, expense management, financial control, financial reports, reconciliation, collections, utility billing, dynamic pricing, subscription billing |
 | Maintenance | Request management, preventive maintenance, vendor performance tracking |
 | Intelligence | InsightsHub, analytics dashboard, ML predictions, DSS advisor, market intelligence, financial risk, tenant quality scoring, comparative portfolio |
 | Administration | Staff management, document templates, document center, API integration, compliance, data quality, OCR |
-| Account | Profile, billing, settings, support, feedback, referrals |
+| Account | Profile, billing, settings, support, feedback, alerts |
 
 ### What Merchant CANNOT Do
 
@@ -28,6 +29,7 @@
 - **Direct bank disbursement scheduling** — Vendor-only feature
 - **Vendor product management** — Vendor portal only
 - **Tenant account creation** — Merchant can only invite; tenant self-registers via invitation link
+- **Referral management** — ❌ Not Defined in Current System Documentation — database tables exist (`referrals`, `referral_rewards`, `referral_commissions`) but no merchant UI page found in `src/pages/merchant/`
 
 ### Vendor-Only Features
 
@@ -62,9 +64,57 @@
 
 ---
 
-## Section 1: Merchant Feature Ground Truth (32 Features)
+## Section 0.5: Merchant Feature Source Traceability Matrix
 
-All features extracted from `navigation-config.ts` (lines 111-163), `state-machines.ts`, and `src/pages/merchant/` directory.
+Every feature must trace to a real source. Features without source reference are excluded from analysis.
+
+| # | Feature Name | Found In (Document + Section) | Evidence Snippet | UX Section Reference |
+|---|-------------|-------------------------------|------------------|---------------------|
+| 1 | Dashboard | `navigation-config.ts` line 122 | `{ path: "/merchant", icon: LayoutDashboard, label: "Dashboard" }` | Feature 1 |
+| 2 | Properties | `navigation-config.ts` line 123 | `{ path: "/merchant/properties", icon: Building2, label: "Properti" }` | Feature 2 |
+| 3 | Units | `navigation-config.ts` line 123 (activePatterns) | `activePatterns: ["/merchant/units"]` | Feature 3 |
+| 4 | Occupancy Board | `navigation-config.ts` line 124 | `{ path: "/merchant/occupancy-board", label: "Papan Okupansi" }` | Feature 4 |
+| 5 | Tenants | `navigation-config.ts` line 130 | `{ path: "/merchant/tenants", label: "Penyewa" }` | Feature 5 |
+| 6 | Tenant Screening | `navigation-config.ts` line 130 (activePatterns) | `activePatterns: ["/merchant/tenant-screening"]` | Feature 6 |
+| 7 | Contracts | `navigation-config.ts` line 131 | `{ path: "/merchant/contracts", label: "Kontrak" }` | Feature 7 |
+| 8 | Contract Amendments | `state-machines.ts` lines 217-227 | `AMENDMENT_STATUS_TRANSITIONS` (via Contract Detail page) | Feature 8 |
+| 9 | Lease Renewals | `navigation-config.ts` line 131 (activePatterns) | `activePatterns: ["/merchant/lease-renewals"]` | Feature 9 |
+| 10 | Maintenance | `navigation-config.ts` line 132 | `{ path: "/merchant/maintenance", label: "Maintenance" }` | Feature 10 |
+| 11 | Preventive Maintenance | `navigation-config.ts` line 132 (activePatterns) | `activePatterns: ["/merchant/preventive-maintenance"]` | Feature 11 |
+| 12 | Waiting List | `navigation-config.ts` line 133 | `{ path: "/merchant/waiting-list", label: "Daftar Tunggu" }` | Feature 12 |
+| 13 | Financial Control | `navigation-config.ts` line 139 | `{ path: "/merchant/financial-control", label: "Kontrol Keuangan" }` | Feature 13 |
+| 14 | Invoices | `navigation-config.ts` line 140 | `{ path: "/merchant/invoices", label: "Tagihan" }` | Feature 14 |
+| 15 | Payments | `navigation-config.ts` line 141 | `{ path: "/merchant/payments", label: "Pembayaran" }` | Feature 15 |
+| 16 | Direct Payment (Payment Transfers) | `merchantDashboardService.ts` lines 77-81 | queries `payment_transfers` table; `PAYMENT_TRANSFER_TRANSITIONS` line 130 | Feature 16 |
+| 17 | Expenses | `navigation-config.ts` line 142 | `{ path: "/merchant/expenses", label: "Pengeluaran" }` | Feature 17 |
+| 18 | Financial Reports | `navigation-config.ts` line 143 | `{ path: "/merchant/financial-reports", label: "Lap. Keuangan" }` | Feature 18 |
+| 19 | Collections | `navigation-config.ts` line 153 | `{ path: "/merchant/collections", label: "Penagihan" }` | Feature 19 |
+| 20 | Reconciliation | `navigation-config.ts` line 154 | `{ path: "/merchant/reconciliation", label: "Resolusi & Rekonsiliasi" }` | Feature 20 |
+| 21 | Utility Billing | `navigation-config.ts` line 152 | `{ path: "/merchant/utility-billing", label: "Utilitas" }` | Feature 21 |
+| 22 | Dynamic Pricing | `navigation-config.ts` line 155 | `{ path: "/merchant/dynamic-pricing", label: "Harga Dinamis" }` | Feature 22 |
+| 23 | Move-Outs | `navigation-config.ts` line 130 (activePatterns) | `activePatterns: ["/merchant/move-outs"]` | Feature 23 |
+| 24 | Inventory | `navigation-config.ts` line 149 | `{ path: "/merchant/inventory", label: "Inventori" }` | Feature 24 |
+| 25 | Guardians (Staff On-Site) | `navigation-config.ts` line 150 | `{ path: "/merchant/guardians", label: "Penjaga" }` | Feature 25 |
+| 26 | Vendor Performance | `navigation-config.ts` line 151 | `{ path: "/merchant/vendor-performance", label: "Performa Vendor" }` | Feature 26 |
+| 27 | Reports | `navigation-config.ts` line 156 | `{ path: "/merchant/reports", label: "Laporan" }` | Feature 27 |
+| 28 | Document Templates | `navigation-config.ts` line 157 | `{ path: "/merchant/document-templates", label: "Template Dokumen" }` | Feature 28 |
+| 29 | InsightsHub (AI/ML) | `navigation-config.ts` line 158 | `{ path: "/merchant/insights", label: "Alat" }` | Feature 29 |
+| 30 | Staff Management | `navigation-config.ts` line 160 | `{ path: "/merchant/staff", label: "Manajemen Staff" }` | Feature 30 |
+| 31 | API & Integration | `navigation-config.ts` line 159 | `{ path: "/merchant/api-integration", label: "API & Integrasi" }` | Feature 31 |
+| 32 | Tenant Analytics | `navigation-config.ts` line 130 (activePatterns) | `activePatterns: ["/merchant/tenant-analytics"]` | Feature 32 |
+| 33 | Billing / Subscription | `navigation-config.ts` line 168 (bottomNav) → `Billing.tsx` | Page exists: `src/pages/merchant/Billing.tsx`; linked from Support page | Feature 33 |
+| 34 | Profile | `navigation-config.ts` line 169 (bottomNav) | `{ path: "/merchant/profile", icon: User, label: "Profil" }` | Feature 34 |
+| 35 | Alerts / Notifications | `navigation-config.ts` line 168 (bottomNav) | `{ path: "/merchant/alerts", icon: AlertTriangle, label: "Notifikasi" }` | Feature 35 |
+| 36 | Dispute Resolution | `DisputeResolution.tsx` page file | Page exists: `src/pages/merchant/DisputeResolution.tsx`; nav label "Resolusi & Rekonsiliasi" line 154 | Feature 36 |
+| 37 | Property Compliance | `PropertyCompliance.tsx` page file | Page exists: `src/pages/merchant/PropertyCompliance.tsx`; accessed via PropertyDetail tab | Feature 37 |
+| 38 | Account & Support Utilities | Page files: `Settings.tsx`, `Support.tsx`, `Feedback.tsx`, `OcrTutorial.tsx` | 4 pages exist; linked from Support page sidebar and bottomNav Profile | Feature 38 |
+| — | Referrals | ❌ Not Found | Database tables exist but NO `src/pages/merchant/Referral*.tsx` page found | NOT ANALYZED |
+
+---
+
+## Section 1: Merchant Feature Ground Truth (38 Features)
+
+All features extracted from `navigation-config.ts` (lines 111-163), `state-machines.ts`, and `src/pages/merchant/` directory (57 files).
 
 | # | Feature | Nav Path | Page File | State Machine | Edge Functions |
 |---|---------|----------|-----------|---------------|----------------|
@@ -81,31 +131,43 @@ All features extracted from `navigation-config.ts` (lines 111-163), `state-machi
 | 11 | Preventive Maintenance | `/merchant/preventive-maintenance` (via Maintenance) | `PreventiveMaintenance.tsx` | None | None |
 | 12 | Waiting List | `/merchant/waiting-list` | `WaitingList.tsx` | `WAITING_LIST_TRANSITIONS` | None |
 | 13 | Financial Control | `/merchant/financial-control` | `FinancialControl.tsx` | None | None |
-| 14 | Invoices | `/merchant/invoices` | `Invoices.tsx`, `InvoiceDetail.tsx` | `INVOICE_STATUS_TRANSITIONS` | `auto-generate-invoices`, `auto-transition-invoices`, `generate-invoice-pdf`, `xendit-create-invoice` |
-| 15 | Payments | `/merchant/payments` | `Payments.tsx`, `PaymentDetail.tsx` | `PAYMENT_STATUS_TRANSITIONS`, `PAYMENT_VERIFICATION_TRANSITIONS` | `auto-match-payment`, `auto-pay-execute`, `xendit-webhook` |
+| 14 | Invoices | `/merchant/invoices` | `Invoices.tsx`, `InvoiceDetail.tsx` | `INVOICE_STATUS_TRANSITIONS` | `auto-generate-invoices`, `auto-transition-invoices`, `generate-invoice-pdf`, `xendit-create-invoice`, `queue-payment-reminders`, `send-payment-reminder` |
+| 15 | Payments | `/merchant/payments` | `Payments.tsx`, `PaymentDetail.tsx` | `PAYMENT_STATUS_TRANSITIONS`, `PAYMENT_VERIFICATION_TRANSITIONS` | `auto-match-payment`, `auto-pay-execute`, `xendit-webhook`, `ocr-payment-proof` |
 | 16 | Direct Payment (Payment Transfers) | (Dashboard KPI) | (via `merchantDashboardService.ts`) | `PAYMENT_TRANSFER_TRANSITIONS` | None |
-| 17 | Expenses | `/merchant/expenses` | `Expenses.tsx` | `EXPENSE_APPROVAL_TRANSITIONS` | None |
+| 17 | Expenses | `/merchant/expenses` | `Expenses.tsx` | `EXPENSE_APPROVAL_TRANSITIONS` | `ocr-expense-receipt` |
 | 18 | Financial Reports | `/merchant/financial-reports` | `FinancialReports.tsx` | None | None |
-| 19 | Collections | `/merchant/collections` | `Collections.tsx` | `COLLECTIONS_CASE_TRANSITIONS` | `check-overdue-escalation`, `dss-collection-strategy` |
+| 19 | Collections | `/merchant/collections` | `Collections.tsx` | `COLLECTIONS_CASE_TRANSITIONS` | `check-overdue-escalation`, `dss-collection-strategy`, `queue-payment-reminders`, `send-payment-reminder` |
 | 20 | Reconciliation | `/merchant/reconciliation` | `Reconciliation.tsx` | None | None |
 | 21 | Utility Billing | `/merchant/utility-billing` | `UtilityBilling.tsx` | None | None |
 | 22 | Dynamic Pricing | `/merchant/dynamic-pricing` | `DynamicPricing.tsx` | None | `ml-optimal-pricing`, `dss-pricing-advisor` |
 | 23 | Move-Outs | `/merchant/move-outs` (via Tenants) | `MoveOuts.tsx`, `MoveOutDetail.tsx` | `MOVE_OUT_NOTICE_TRANSITIONS`, `MOVE_OUT_INSPECTION_TRANSITIONS`, `EARLY_TERMINATION_TRANSITIONS`, `DEPOSIT_REFUND_TRANSITIONS` | `process-deposit-refund` |
-| 24 | Inventory | `/merchant/inventory` | `Inventory.tsx` | None | None |
+| 24 | Inventory | `/merchant/inventory` | `Inventory.tsx` | None | `ocr-asset-label` |
 | 25 | Guardians (Staff On-Site) | `/merchant/guardians` | `Guardians.tsx` | None | None |
 | 26 | Vendor Performance | `/merchant/vendor-performance` | `VendorPerformance.tsx` | None | None |
 | 27 | Reports | `/merchant/reports` | `Reports.tsx`, `ReportTemplates.tsx` | None | `data-export` |
 | 28 | Document Templates | `/merchant/document-templates` | `DocumentTemplates.tsx` | None | None |
 | 29 | InsightsHub (AI/ML) | `/merchant/insights` | `InsightsHub.tsx` + 9 sub-pages | `DSS_RECOMMENDATION_TRANSITIONS` | `ml-*` (11 functions), `dss-*` (4 functions) |
 | 30 | Staff Management | `/merchant/staff` | `StaffManagement.tsx` | None | None |
-| 31 | API & Integration | `/merchant/api-integration` | `ApiIntegration.tsx` | None | `merchant-api` |
+| 31 | API & Integration | `/merchant/api-integration` | `ApiIntegration.tsx` | None | `merchant-api`, `webhook-dispatcher` |
 | 32 | Tenant Analytics | `/merchant/tenant-analytics` (via Tenants) | `TenantAnalytics.tsx` | None | `compute-tenant-payment-metrics` |
+| 33 | Billing / Subscription | `/merchant/billing` (linked from Support) | `Billing.tsx` | `SUBSCRIPTION_STATUS_TRANSITIONS` | `subscription-billing`, `subscription-grace-check`, `subscription-payment`, `subscription-renewal` |
+| 34 | Profile | `/merchant/profile` (bottomNav) | `Profile.tsx` | `MERCHANT_VERIFICATION_TRANSITIONS`, `VERIFICATION_TIER_TRANSITIONS` | `ocr-ktp-extract`, `ocr-business-document` |
+| 35 | Alerts / Notifications | `/merchant/alerts` (bottomNav) | `Alerts.tsx` | None | `send-notification`, `whatsapp-notification` |
+| 36 | Dispute Resolution | `/merchant/reconciliation` (combined page) | `DisputeResolution.tsx` | `DISPUTE_STATUS_TRANSITIONS` | None |
+| 37 | Property Compliance | (via PropertyDetail tab) | `PropertyCompliance.tsx` | None | `ocr-compliance-document` |
+| 38 | Account & Support Utilities | (linked from Support/bottomNav) | `Settings.tsx`, `Support.tsx`, `Feedback.tsx`, `OcrTutorial.tsx` | None | `merchant-ai-assistant` |
 
-**Total**: 32 features, 57 page files, 21 state machines applicable to merchant flows, 65 edge functions (many shared across roles)
+**Total**: 38 features, 57 page files, 21 state machines applicable to merchant flows, 62 edge functions (many shared across roles)
+
+**State machines applicable to merchant flows (21)**: `CONTRACT_STATUS_TRANSITIONS`, `CONTRACT_SIGNATURE_TRANSITIONS`, `UNIT_STATUS_TRANSITIONS`, `INVOICE_STATUS_TRANSITIONS`, `PAYMENT_STATUS_TRANSITIONS`, `PAYMENT_PLAN_STATUS_TRANSITIONS`, `MAINTENANCE_STATUS_TRANSITIONS`, `SUBSCRIPTION_STATUS_TRANSITIONS`, `MOVE_OUT_NOTICE_TRANSITIONS`, `MOVE_OUT_INSPECTION_TRANSITIONS`, `EARLY_TERMINATION_TRANSITIONS`, `DEPOSIT_REFUND_TRANSITIONS`, `TENANT_INVITATION_TRANSITIONS`, `COLLECTIONS_CASE_TRANSITIONS`, `WAITING_LIST_TRANSITIONS`, `AMENDMENT_STATUS_TRANSITIONS`, `PAYMENT_VERIFICATION_TRANSITIONS`, `SCREENING_STATUS_TRANSITIONS`, `EXPENSE_APPROVAL_TRANSITIONS`, `DSS_RECOMMENDATION_TRANSITIONS`, `PAYMENT_TRANSFER_TRANSITIONS`
+
+**Additionally referenced in Profile (F34)**: `MERCHANT_VERIFICATION_TRANSITIONS`, `VERIFICATION_TIER_TRANSITIONS` — admin-triggered but visible to merchant.
+
+**Dispute (F36)**: `DISPUTE_STATUS_TRANSITIONS` — merchant can view disputes but mediation is admin-only.
 
 ---
 
-## Section 2: Full UX Assessment (32 Features)
+## Section 2: Full UX Assessment (38 Features)
 
 ### Feature 1: Dashboard
 
@@ -124,6 +186,8 @@ All features extracted from `navigation-config.ts` (lines 111-163), `state-machi
 | System | `ensure-user-bootstrap` creates: profiles, user_roles, merchants, merchant_subscriptions (free tier) | Edge function |
 | Merchant | View KPIs: properties, occupancy, revenue, tenants, alerts | Dashboard widgets |
 | Merchant | Filter by property | Property dropdown |
+
+> 🧩 Assumption (Low Confidence): Bootstrap output (profiles, user_roles, merchants, merchant_subscriptions) assumed from function name and database schema. Edge function code not read directly.
 
 #### State Machine
 > ❌ No Explicit State Machine Defined
@@ -234,6 +298,7 @@ Unit availability directly affects revenue. Incorrect status = missed bookings o
 
 #### UX Friction (Evidence-Based)
 1. Snapshot-based (cron) — data may be stale up to cron interval
+   > 🧩 Assumption (Low Confidence): Cron interval not verified in edge function code. Staleness depends on scheduler configuration.
 2. No inline action to convert vacancy to waiting list entry
 
 #### Business Impact
@@ -500,6 +565,7 @@ Maintenance responsiveness directly affects tenant satisfaction and retention.
 #### UX Friction (Evidence-Based)
 1. No dedicated state machine — relies on general maintenance flow once request is generated
 2. Schedule-to-request generation mechanism unclear (no dedicated edge function found)
+   > ⚠ Ambiguous in Documentation – Cannot Conclude whether schedules auto-generate maintenance requests or require manual creation
 
 #### Business Impact
 Preventive maintenance reduces emergency repairs and extends asset life.
@@ -591,7 +657,7 @@ Financial control is the merchant's "command center" for approvals. Confusion be
 - Navigation: `navigation-config.ts` line 140
 - Page: `Invoices.tsx`, `InvoiceDetail.tsx`
 - State Machine: `INVOICE_STATUS_TRANSITIONS` (`state-machines.ts` lines 39-48)
-- Edge Functions: `auto-generate-invoices`, `auto-transition-invoices`, `generate-invoice-pdf`, `xendit-create-invoice`
+- Edge Functions: `auto-generate-invoices`, `auto-transition-invoices`, `generate-invoice-pdf`, `xendit-create-invoice`, `queue-payment-reminders`, `send-payment-reminder`
 
 #### Actual Flow (Current Only)
 
@@ -602,8 +668,13 @@ Financial control is the merchant's "command center" for approvals. Confusion be
 | Merchant | Send invoice to tenant | Status: draft → sent |
 | System | Auto-transition overdue invoices | `auto-transition-invoices` cron |
 | System | Escalate 15+ day overdue | Status: overdue → escalated |
+| System | Queue and send payment reminders | `queue-payment-reminders`, `send-payment-reminder` |
 | Tenant | Pay invoice | Xendit payment link |
 | System | Webhook confirms payment | `xendit-webhook` → status: paid |
+
+> 🧩 Assumption (Low Confidence): Auto-generation trigger mechanism assumed from function name `auto-generate-invoices`. Actual trigger (cron schedule, database trigger, or manual invocation) not verified in edge function code.
+
+> 🧩 Assumption (Low Confidence): "15+ day overdue to escalated" threshold assumed from state machine comment `escalated: ['paid', 'cancelled'],  // collections-level overdue (15+ days)`. Actual threshold not verified in `auto-transition-invoices` edge function code.
 
 #### State Machine
 ```
@@ -619,7 +690,7 @@ draft ─→ sent ─→ paid (terminal)
            │       └→ cancelled (terminal)
            └→ cancelled (terminal)
 ```
-7 states including `escalated` for collections-level overdue (15+ days).
+7 states including `escalated` for collections-level overdue.
 
 #### UX Friction (Evidence-Based)
 1. Auto-generation + auto-transition means merchant may see invoices they didn't create — need clear "auto-generated" label
@@ -642,7 +713,7 @@ Invoices are the primary revenue instrument. Auto-generation reduces manual work
 - Navigation: `navigation-config.ts` line 141
 - Page: `Payments.tsx`, `PaymentDetail.tsx`
 - State Machine: `PAYMENT_STATUS_TRANSITIONS` (lines 51-57), `PAYMENT_VERIFICATION_TRANSITIONS` (lines 247-252)
-- Edge Functions: `auto-match-payment`, `auto-pay-execute`, `xendit-webhook`
+- Edge Functions: `auto-match-payment`, `auto-pay-execute`, `xendit-webhook`, `ocr-payment-proof`
 
 #### Actual Flow (Current Only)
 
@@ -674,7 +745,7 @@ pending ─→ auto_matched ─→ confirmed (terminal)
 #### UX Friction (Evidence-Based)
 1. Two separate state machines (payment status + verification) — merchant sees two statuses for one payment
 2. Auto-match failure requires manual intervention — no guidance on how to match
-3. Payment proof (OCR) exists (`ocr-payment-proof` edge function) but integration to auto-match flow unclear
+3. Payment proof OCR exists (`ocr-payment-proof` edge function) — can assist auto-matching but integration flow unclear
 
 #### Business Impact
 Payment confirmation speed affects cash flow visibility. Manual verification delays = uncertain revenue status.
@@ -731,7 +802,7 @@ This is how merchants actually receive money. Zero visibility into transfer stat
 - Navigation: `navigation-config.ts` line 142
 - Page: `Expenses.tsx`
 - State Machine: `EXPENSE_APPROVAL_TRANSITIONS` (`state-machines.ts` lines 264-270)
-- Edge Functions: None
+- Edge Functions: `ocr-expense-receipt`
 
 #### Actual Flow (Current Only)
 
@@ -753,7 +824,7 @@ submitted ─→ pending_approval ─→ approved ─→ verified (terminal)
 #### UX Friction (Evidence-Based)
 1. Auto-approve threshold (Rp 500K) not visible to user — staff don't know which expenses need owner approval
 2. `verified` as final state adds an extra step beyond `approved` — may feel bureaucratic for small operations
-3. Receipt OCR exists (`ocr-expense-receipt`) but linkage to expense creation unclear
+3. Receipt OCR exists (`ocr-expense-receipt`) — can auto-extract receipt data but linkage to expense creation flow unclear
 
 #### Business Impact
 Expense tracking accuracy affects P&L reporting and tax compliance.
@@ -800,7 +871,7 @@ Financial reports are needed for tax, investor, and compliance purposes.
 - Navigation: `navigation-config.ts` line 153 (Lainnya group)
 - Page: `Collections.tsx`
 - State Machine: `COLLECTIONS_CASE_TRANSITIONS` (`state-machines.ts` lines 196-204)
-- Edge Functions: `check-overdue-escalation`, `dss-collection-strategy`
+- Edge Functions: `check-overdue-escalation`, `dss-collection-strategy`, `queue-payment-reminders`, `send-payment-reminder`
 
 #### Actual Flow (Current Only)
 
@@ -809,6 +880,7 @@ Financial reports are needed for tax, investor, and compliance purposes.
 | System | Auto-create case when invoice escalated | `check-overdue-escalation` cron |
 | Merchant | View collection cases | `/merchant/collections` |
 | Merchant | Send reminder/follow-up | Interaction log |
+| System | Queue and send payment reminders | `queue-payment-reminders`, `send-payment-reminder` |
 | Merchant | Escalate to legal if needed | Status: escalated → legal |
 | Merchant | Resolve case | Status: → resolved (with resolution_type) |
 
@@ -1002,7 +1074,7 @@ Move-out process quality affects tenant satisfaction (for referrals), deposit re
 - Navigation: `navigation-config.ts` line 149
 - Page: `Inventory.tsx`
 - State Machine: None
-- Edge Functions: None
+- Edge Functions: `ocr-asset-label`
 
 #### Actual Flow (Current Only)
 
@@ -1013,7 +1085,7 @@ Move-out process quality affects tenant satisfaction (for referrals), deposit re
 | Merchant | Track depreciation (useful_life_months, salvage_value) | Asset detail |
 
 #### UX Friction (Evidence-Based)
-1. No barcode/QR scanning (OCR exists: `ocr-asset-label` but integration unclear)
+1. OCR-based asset registration possible via `ocr-asset-label` but integration to inventory form unclear
 2. Depreciation calculation exists in schema but display unclear
 3. No linkage to maintenance — damaged asset doesn't auto-create maintenance request
 
@@ -1234,7 +1306,7 @@ Delegation is critical for scaling operations. Permission errors = data exposure
 - Navigation: `navigation-config.ts` line 159
 - Page: `ApiIntegration.tsx`
 - State Machine: None
-- Edge Functions: `merchant-api`
+- Edge Functions: `merchant-api`, `webhook-dispatcher`
 
 #### Actual Flow (Current Only)
 
@@ -1247,7 +1319,7 @@ Delegation is critical for scaling operations. Permission errors = data exposure
 #### UX Friction (Evidence-Based)
 1. Advanced feature for technical users — most small landlords won't use this
 2. Scopes configuration requires understanding of available API endpoints
-3. No webhook configuration UI (though `webhook-dispatcher` edge function exists)
+3. `webhook-dispatcher` edge function exists but no webhook configuration UI found on this page
 
 #### Business Impact
 API enables property management system integration — important for enterprise merchants.
@@ -1255,6 +1327,7 @@ API enables property management system integration — important for enterprise 
 #### Simplification Opportunities
 - Gate behind premium subscription tier
 - Add pre-built integration templates (Google Sheets sync, accounting software)
+- Add webhook configuration UI
 
 ---
 
@@ -1283,6 +1356,288 @@ Tenant analytics informs renewal decisions and risk management.
 #### Simplification Opportunities
 - Show key metrics inline on tenant list/detail pages
 - Real-time computation for small portfolios
+
+---
+
+### Feature 33: Billing / Subscription
+
+#### Documentation Source
+- Page: `src/pages/merchant/Billing.tsx`
+- Components: `BillingDashboard`, `DisbursementScheduleSettings`
+- State Machine: `SUBSCRIPTION_STATUS_TRANSITIONS` (`state-machines.ts` lines 78-84)
+- Edge Functions: `subscription-billing`, `subscription-grace-check`, `subscription-payment`, `subscription-renewal`
+- Navigation: Not in sidebar; accessed via Support page links or direct URL `/merchant/billing`
+
+#### Actual Flow (Current Only)
+
+| Role | Action | Page / Endpoint |
+|------|--------|-----------------|
+| Merchant | View subscription status and plan details | `/merchant/billing` → `BillingDashboard` |
+| Merchant | View/change disbursement schedule settings | `/merchant/billing` → `DisbursementScheduleSettings` |
+| System | Process subscription billing cycle | `subscription-billing` cron |
+| System | Check grace period for past-due subscriptions | `subscription-grace-check` cron |
+| System | Process subscription payment | `subscription-payment` |
+| System | Handle subscription renewal | `subscription-renewal` |
+
+#### State Machine
+```
+trialing ─→ active ─→ past_due ─→ active (retry success)
+   │           │          │
+   │           │          └→ suspended ─→ active (reactivate)
+   │           │                  │
+   │           │                  └→ cancelled (terminal)
+   │           └→ cancelled (terminal)
+   └→ cancelled (terminal)
+```
+5 states. `trialing` → `active` on first payment. `past_due` allows retry. `suspended` requires manual reactivation.
+
+#### UX Friction (Evidence-Based)
+1. **Not in sidebar navigation** — merchant must discover via Support page links or Settings
+2. `SuspensionWarningBanner` component exists (imported in `Billing.tsx`) but merchant may not understand the grace period timeline
+3. Disbursement settings on same page as subscription billing — two unrelated concerns
+4. No upgrade/downgrade comparison view showing feature differences between tiers
+
+#### Business Impact
+Subscription is the platform's revenue model. Difficulty finding billing page = delayed upgrades and missed renewals.
+
+#### Simplification Opportunities
+- Add billing link to sidebar (at least in "Lainnya" group)
+- Separate subscription management from disbursement settings
+- Add tier comparison table with current plan highlighted
+- Show grace period countdown when past_due
+
+---
+
+### Feature 34: Profile
+
+#### Documentation Source
+- Navigation: `navigation-config.ts` line 169 (bottomNav only)
+- Page: `src/pages/merchant/Profile.tsx` (456 lines)
+- State Machine: `MERCHANT_VERIFICATION_TRANSITIONS` (lines 159-164), `VERIFICATION_TIER_TRANSITIONS` (lines 146-150)
+- Edge Functions: `ocr-ktp-extract`, `ocr-business-document` (for document upload verification)
+
+#### Actual Flow (Current Only)
+
+| Role | Action | Page / Endpoint |
+|------|--------|-----------------|
+| Merchant | View/edit business profile (name, type, address) | `/merchant/profile` → Business tab |
+| Merchant | View/edit contact info (name, phone, email) | `/merchant/profile` → Business tab |
+| Merchant | Copy merchant code (for tenant sharing) | Merchant code card |
+| Merchant | Upload verification documents (KTP, NPWP, SIUP, etc.) | `/merchant/profile` → Verification tab |
+| Merchant | View verification status per document | Verification document list |
+| Merchant | Change password | `/merchant/profile` → Security tab |
+
+Profile page has 3 tabs: **Bisnis** (business info + contact), **Verifikasi** (document uploads + tier display), **Keamanan** (password change).
+
+#### State Machine — Merchant Verification
+```
+pending ─→ verified ─→ suspended
+   │                      │
+   └→ rejected ─→ pending └→ verified
+```
+Note: Verification approval/rejection is admin-triggered. Merchant can only upload documents and view status.
+
+#### State Machine — Verification Tier
+```
+quick ─→ standard ─→ premium (terminal)
+```
+Tier progression based on document completeness and admin approval.
+
+#### UX Friction (Evidence-Based)
+1. **Not in sidebar** — only accessible via bottomNav (mobile) or direct URL. Desktop users may not find it easily.
+2. Verification document types are hardcoded in frontend (6 types: KTP, NPWP, surat_kepemilikan, SIUP, akta_perusahaan, proof_of_address) — no guidance on which documents are required for each tier
+3. Merchant code sharing relies on manual copy — no QR code or share link
+4. Password change verifies current password first (good security) but error messages may be unclear
+5. Address update creates/updates `addresses` table record with upsert logic — potential confusion if merchant has multiple addresses
+
+#### Business Impact
+Profile completeness affects verification tier, which affects merchant credibility and potentially feature access.
+
+#### Simplification Opportunities
+- Add to sidebar navigation or make Profile accessible from header avatar
+- Add required document checklist per verification tier
+- Add QR code for merchant code sharing
+- Show verification progress bar (documents uploaded vs. required)
+
+---
+
+### Feature 35: Alerts / Notifications
+
+#### Documentation Source
+- Navigation: `navigation-config.ts` line 168 (bottomNav only)
+- Page: `src/pages/merchant/Alerts.tsx` (202 lines)
+- State Machine: None
+- Edge Functions: `send-notification`, `whatsapp-notification`
+
+#### Actual Flow (Current Only)
+
+| Role | Action | Page / Endpoint |
+|------|--------|-----------------|
+| Merchant | View aggregated alerts from multiple sources | `/merchant/alerts` |
+| Merchant | Click alert to navigate to relevant page | Alert card → deep link |
+
+Alert types (computed from live queries, not stored):
+1. **Overdue invoices** — queries `invoices` where status in `['overdue', 'escalated']`, limit 20
+2. **Pending expense approvals** — queries `expenses` where `approval_status = 'pending_approval'`, limit 10
+3. **Urgent maintenance** — queries `maintenance_requests` where priority in `['urgent', 'high']` and status in `['pending', 'in_progress']`, limit 10
+4. **Expiring contracts** — queries `contracts` where `status = 'active'` and `end_date` within 30 days, limit 10
+5. **Overdue preventive maintenance** — queries `preventive_maintenance_schedules` where `next_scheduled_date < today`, limit 10
+
+Alerts are sorted by severity (high → medium → low).
+
+#### UX Friction (Evidence-Based)
+1. **Not in sidebar** — only accessible via bottomNav (mobile). Desktop users have no sidebar link.
+2. Alerts are computed on-page-load via 5 separate queries — not push notifications
+3. No notification history — alerts disappear once the underlying issue is resolved
+4. No notification preferences on this page (preferences are in Settings)
+5. `staleTime: 60_000` (60 seconds) — alerts may be stale for up to 1 minute
+
+#### Business Impact
+Alerts are the merchant's early warning system. Missing them = delayed action on overdue payments, expired contracts, and stale maintenance.
+
+#### Simplification Opportunities
+- Add to sidebar (at least as a badge count on Dashboard)
+- Implement push notifications for high-severity alerts
+- Add notification history/log
+- Cross-link to Settings for notification preferences
+
+---
+
+### Feature 36: Dispute Resolution
+
+#### Documentation Source
+- Page: `src/pages/merchant/DisputeResolution.tsx` (198 lines)
+- Navigation: `navigation-config.ts` line 154 (label: "Resolusi & Rekonsiliasi") — same nav item as Reconciliation
+- State Machine: `DISPUTE_STATUS_TRANSITIONS` (`state-machines.ts` lines 173-178)
+- Edge Functions: None
+
+#### Actual Flow (Current Only)
+
+| Role | Action | Page / Endpoint |
+|------|--------|-----------------|
+| Merchant | View combined dashboard (reconciliation + complaints + disputes) | `/merchant/reconciliation` |
+| Merchant | Review unmatched payments and manually match | Reconciliation tab |
+| Merchant | View tenant complaints (support tickets) | Complaints tab |
+| Merchant | View disputes | Disputes tab |
+
+The `DisputeResolution.tsx` page combines 3 concerns:
+1. **Reconciliation** — unmatched payments, manual matching, match history, reports
+2. **Tenant Complaints** — queries `support_tickets` table
+3. **Disputes** — queries `disputes` table
+
+#### State Machine — Disputes
+```
+open ─→ in_progress ─→ resolved (terminal)
+                  │
+                  └→ closed (terminal)
+```
+Note: Dispute mediation/resolution is admin-triggered. Merchant can view disputes but cannot change status.
+
+#### UX Friction (Evidence-Based)
+1. **Three unrelated concerns on one page** — reconciliation, complaints, and disputes are distinct workflows combined for convenience
+2. Merchant can view disputes but has no action buttons — dispute resolution is admin-only
+3. Support ticket data relies on `support_tickets` table which may not exist in all environments (cast to `any`)
+4. KPI cards show combined "Total Pending" across all 3 types — may inflate perceived urgency
+
+#### Business Impact
+Dispute resolution affects tenant retention and legal compliance. Combining with reconciliation reduces page count but may confuse merchants about where to handle each type.
+
+#### Simplification Opportunities
+- Separate disputes from reconciliation if dispute volume is significant
+- Add merchant response capability for disputes (currently view-only)
+- Link complaints to relevant contracts/tenants for context
+
+---
+
+### Feature 37: Property Compliance
+
+#### Documentation Source
+- Page: `src/pages/merchant/PropertyCompliance.tsx` (773 lines)
+- Navigation: Accessed via PropertyDetail tab (not in sidebar)
+- State Machine: None
+- Edge Functions: `ocr-compliance-document`
+
+#### Actual Flow (Current Only)
+
+| Role | Action | Page / Endpoint |
+|------|--------|-----------------|
+| Merchant | Select property from dropdown | `/merchant/property-compliance` or PropertyDetail tab |
+| Merchant | View/edit disaster risk profile (flood, earthquake, landslide, fire) | Risk tab |
+| Merchant | Manage insurance policies (create, upload documents, file claims) | Insurance tab |
+| Merchant | Manage compliance documents (upload, track expiry) | Documents tab |
+| Merchant | Track security incidents | Security tab |
+| System | Auto-calculate risk score from risk levels | Client-side weighted formula |
+
+4 tabs: **Risiko Bencana** (disaster risk), **Asuransi** (insurance), **Dokumen** (compliance documents), **Keamanan** (security incidents)
+
+KPIs: Risk score (/100), active policies, expired docs, open incidents.
+
+#### UX Friction (Evidence-Based)
+1. **773 lines in a single page file** — the most complex single page in the merchant portal. Contains 5+ sub-components inline.
+2. Not in sidebar — only accessible via PropertyDetail tab. Merchants may not discover compliance management exists.
+3. Risk score auto-calculated client-side with hardcoded weights (risk_zone: 0.30, flood: 0.25, earthquake: 0.20, landslide: 0.15, fire: 0.10) — not configurable
+4. Insurance claim workflow exists but claim status tracking is basic (submitted → reviewing → approved/rejected → paid)
+5. OCR compliance document extraction available but integration flow from camera to form unclear
+6. Insurance renewal alerts implemented with urgency levels (critical/warning/info) — good proactive UX
+
+#### Business Impact
+Compliance is legally required for property operations. Missing document expiry tracking = legal liability.
+
+#### Simplification Opportunities
+- Add to sidebar or surface compliance alerts on Dashboard
+- Break 773-line page into separate sub-components
+- Add compliance checklist per property type (kos vs. apartment)
+- Auto-notify on document expiry approaching
+
+---
+
+### Feature 38: Account & Support Utilities
+
+#### Documentation Source
+- Pages: `Settings.tsx`, `Support.tsx`, `Feedback.tsx`, `OcrTutorial.tsx`
+- Navigation: Not in sidebar. Linked from Support page sidebar and bottomNav Profile.
+- State Machine: None
+- Edge Functions: `merchant-ai-assistant`
+
+#### Grouped Features
+
+**Settings** (`Settings.tsx`):
+- 3 tabs: Notifikasi, Perbankan, Pencairan
+- Notification preferences via `MerchantNotificationSettings`
+- Bank account management via `BankAccountManager`
+- Disbursement schedule settings via `DisbursementScheduleSettings`
+- Query param support (`?tab=notifications`)
+
+**Support** (`Support.tsx`):
+- FAQ accordion with 5 categories (Properti, Kontrak, Pembayaran, Maintenance, Keamanan)
+- AI Assistant CTA (dispatches `open-chatbot` custom event)
+- Useful links sidebar (Settings, Billing, Profile, Feedback)
+- System status display (API, Database, Payment Gateway)
+
+**Feedback** (`Feedback.tsx`):
+- Feedback form: category, star rating, message, screenshot upload
+- Submits to `merchant_feedback` table
+- Feedback history with status tracking (pending → reviewed → resolved)
+- Admin response display
+
+**OCR Tutorial** (`OcrTutorial.tsx`):
+- 4-step tutorial: choose document type → upload → AI processes → review & confirm
+- 4 OCR types: KTP, bukti transfer, dokumen bisnis, nota pemeliharaan
+- Describes available `ocr-*` edge functions in user-friendly format
+
+#### UX Friction (Evidence-Based)
+1. **None of these 4 pages are in sidebar** — all require discovery via Support links or direct URL
+2. Settings has disbursement settings that also appear on Billing page — duplication
+3. Support page AI assistant trigger uses custom DOM event (`open-chatbot`) — may fail if chatbot component not loaded
+4. Feedback table (`merchant_feedback`) uses `supabase as any` cast — table may not be in TypeScript types
+
+#### Business Impact
+Support utilities affect merchant self-service capability and satisfaction. Hidden pages = more direct support requests.
+
+#### Simplification Opportunities
+- Add Settings to sidebar
+- Remove disbursement settings duplication (keep in one place)
+- Make OCR tutorial discoverable from relevant pages (e.g., expense form, verification upload)
 
 ---
 
@@ -1343,11 +1698,12 @@ Monthly:
 Invoice overdue (auto-transition) →
   System creates collections case (initiated) →
     Merchant sends reminder (reminder_sent) →
-      Follow-up (follow_up) →
-        Active handling (in_progress) →
-          Escalation (escalated) →
-            Legal action (legal) →
-              Resolution (resolved)
+      System queues payment reminders (queue-payment-reminders, send-payment-reminder) →
+        Follow-up (follow_up) →
+          Active handling (in_progress) →
+            Escalation (escalated) →
+              Legal action (legal) →
+                Resolution (resolved)
 Resolution types: paid_in_full, payment_plan, write_off, eviction, bad_debt
 ```
 **State Machine**: `COLLECTIONS_CASE_TRANSITIONS` (7 states)
@@ -1391,6 +1747,18 @@ Add property → Add units → Set pricing (optional: dynamic pricing rules) →
 ```
 No dedicated state machine — operational workflow.
 
+#### C6. Subscription Lifecycle
+```
+Register → free tier (trialing) →
+  First payment → active →
+    Missed payment → past_due →
+      Grace period check (subscription-grace-check) →
+        Payment retry (subscription-payment) →
+          Success → active / Failure → suspended →
+            Manual reactivation or → cancelled (terminal)
+```
+**State Machine**: `SUBSCRIPTION_STATUS_TRANSITIONS` (5 states)
+
 ---
 
 ## Section 4: UX Risk Map
@@ -1402,19 +1770,24 @@ No dedicated state machine — operational workflow.
 | 🟠 High | Contract Amendments (F8) | 9-state negotiation, no expiry | All merchants |
 | 🟠 High | Collections (F19) | 7-state escalation, hidden in Lainnya | All merchants with overdue |
 | 🟠 High | Financial Control (F13) | Computed balance ≠ real balance confusion | All merchants |
+| 🟠 High | Billing/Subscription (F33) | Not in sidebar, hard to discover | All merchants |
 | 🟡 Medium | Dashboard (F1) | 10 parallel queries, confusing balance KPI | All merchants |
 | 🟡 Medium | Contracts (F7) | Complex form, unclear signature status | New merchants |
 | 🟡 Medium | Staff Management (F30) | 16 permissions overwhelming | Multi-property |
 | 🟡 Medium | InsightsHub (F29) | 9 sub-pages, data sufficiency issues | Data-rich merchants |
+| 🟡 Medium | Alerts (F35) | Not in sidebar, computed not pushed | All merchants |
+| 🟡 Medium | Profile (F34) | Not in sidebar, verification tier unclear | New merchants |
+| 🟡 Medium | Property Compliance (F37) | 773-line monolith, hidden in tab | Regulated properties |
 | 🟢 Low | Properties (F2) | Straightforward CRUD | All |
 | 🟢 Low | Tenants (F5) | Clear invitation flow | All |
 | 🟢 Low | Invoices (F14) | Well-automated with crons | All |
+| 🟢 Low | Support (F38) | Clear FAQ + AI assistant | All |
 
 ---
 
 ## Section 5: Scalability UX Check
 
-### Navigation Structure (24 Sidebar Items)
+### Navigation Structure (24 Sidebar Items + 5 BottomNav)
 
 | Group | Items | Count |
 |-------|-------|-------|
@@ -1423,15 +1796,21 @@ No dedicated state machine — operational workflow.
 | Keuangan | Kontrol Keuangan, Tagihan, Pembayaran, Pengeluaran, Lap. Keuangan | 5 |
 | Lainnya (collapsible) | Inventori, Penjaga, Performa Vendor, Utilitas, Penagihan, Resolusi & Rekonsiliasi, Harga Dinamis, Laporan, Template Dokumen, Alat, API & Integrasi, Manajemen Staff | 12 |
 
+**BottomNav (mobile)**: Dashboard, Properti, Tagihan, Notifikasi, Profil (5 items)
+
+**Pages NOT in any nav**: Billing, Settings, Support, Feedback, OcrTutorial, PropertyCompliance (6 pages accessible only via links/direct URL)
+
 **Assessment**:
 - **12 items in Lainnya** — too many. Some are high-priority (Collections, Staff) buried alongside niche features (API Integration, Dynamic Pricing).
 - **Mobile bottom nav**: 5 items (Dashboard, Properti, Tagihan, Notifikasi, Profil) — good prioritization.
 - **Missing from bottom nav**: Payments, Maintenance — two high-frequency actions not accessible from mobile bottom nav.
+- **6 "hidden" pages** — Billing, Settings, Support, Feedback, OcrTutorial, PropertyCompliance have no sidebar entry. These require discovery via other pages or direct URL.
 
 **Recommendations**:
 1. Split "Lainnya" into "Lanjutan" (advanced: dynamic pricing, API, ML) and "Operasional Lainnya" (collections, reconciliation, staff)
 2. Add Maintenance to mobile bottom nav (replace Notifikasi or add as 6th item)
-3. Dynamic promotion: show Collections in main nav when active cases exist
+3. Add Billing and Settings to sidebar
+4. Dynamic promotion: show Collections in main nav when active cases exist
 
 ---
 
@@ -1441,11 +1820,11 @@ No dedicated state machine — operational workflow.
 ✅ Escrow references found in this document: 0 (mentioned only in exclusion statements)
 ✅ merchant_activity_diagram.md references found: 0
 ✅ Outdated diagram references found: 0
-✅ Total merchant features analyzed: 32
+✅ Total merchant features analyzed: 38
 ✅ All features verified against: navigation-config.ts, state-machines.ts, page files
-✅ All state machines sourced from: src/shared/constants/state-machines.ts
-✅ All edge functions sourced from: supabase/functions/ directory listing
-✅ All page files sourced from: src/pages/merchant/ directory listing
+✅ All state machines sourced from: src/shared/constants/state-machines.ts (31 total, 21 merchant-applicable)
+✅ All edge functions sourced from: supabase/functions/ directory listing (62 functions + _shared/)
+✅ All page files sourced from: src/pages/merchant/ directory listing (57 files)
 
 ⚠ PRD conflicts noted:
   - PRD Section 2.2 references escrow for merchant → OUTDATED vs. production code
@@ -1461,7 +1840,7 @@ Sources used (exhaustive):
   - src/features/dashboard/services/merchantDashboardService.ts
   - src/features/finance/services/financialControlService.ts
   - src/features/staff/constants/permissions.ts (16 permissions, 3 roles, 4 groups)
-  - supabase/functions/ (65 functions)
+  - supabase/functions/ (62 functions + _shared/)
 
 Sources NOT used:
   - old-docs/merchant_activity_diagram.md (EXCLUDED — outdated)
@@ -1471,35 +1850,80 @@ Sources NOT used:
 
 ---
 
+## Section 6.5: Hallucination Risk Self-Check
+
+```
+Total Features Identified from Documentation: 39 (38 analyzed + 1 excluded)
+Total Features Analyzed: 38
+Features Without Source Reference: 0
+
+Feature Excluded (with reason):
+  - Referrals: ❌ Not Defined in Current System Documentation — database tables exist
+    (referrals, referral_rewards, referral_commissions) but no merchant UI page found
+    in src/pages/merchant/. NOT ANALYZED.
+
+Assumptions Used (4):
+
+1. 🧩 Assumption (Low Confidence): ensure-user-bootstrap creates profiles, user_roles,
+   merchants, merchant_subscriptions
+   Reason: Assumed from function name and database schema. Edge function code not read directly.
+   Location: Feature 1 (Dashboard), Section 3A (Onboarding)
+
+2. 🧩 Assumption (Low Confidence): auto-generate-invoices triggers per contract billing_day
+   Reason: Assumed from function name. Actual trigger mechanism (cron schedule, database
+   trigger, or manual invocation) not verified in edge function code.
+   Location: Feature 14 (Invoices)
+
+3. 🧩 Assumption (Low Confidence): 15+ day overdue threshold triggers escalated status
+   Reason: Assumed from state machine comment "collections-level overdue (15+ days)".
+   Actual threshold not verified in auto-transition-invoices edge function code.
+   Location: Feature 14 (Invoices)
+
+4. 🧩 Assumption (Low Confidence): Occupancy snapshot cron interval
+   Reason: compute-occupancy-snapshots exists as edge function but cron interval/schedule
+   not verified. Staleness depends on scheduler configuration.
+   Location: Feature 4 (Occupancy Board)
+
+🚨 Audit Integrity: MAINTAINED — All 38 analyzed features have source references.
+   No features were analyzed without documentation backing.
+```
+
+---
+
 ## Section 7: Final UX Verdict
 
 ### Overall Assessment
 
-The merchant system provides **comprehensive property management** with 32 features across 57 pages, supported by 21 applicable state machines and 65 edge functions. The system is **functionally complete** for the target use case (Indonesian property owners managing kos/apartments).
+The merchant system provides **comprehensive property management** with 38 features across 57 pages, supported by 21 applicable state machines and 62 edge functions. The system is **functionally complete** for the target use case (Indonesian property owners managing kos/apartments).
 
-### Top 3 Critical Issues
+### Top 5 Critical Issues
 
 1. **Payment Transfer Invisibility (F16)**: Merchants have zero visibility into how they receive money. The direct payment model works technically (`PAYMENT_TRANSFER_TRANSITIONS`) but the UX provides no merchant-facing page, no transfer history, no status tracking. `balance: 0` on dashboard is misleading. **Fix priority: P0**.
 
 2. **Move-Out Complexity (F23)**: 4 parallel state machines with 17 total states for one event. Small landlords managing 5-10 units will find this overwhelming. A unified wizard is needed. **Fix priority: P1**.
 
-3. **Navigation Overload (Lainnya group)**: 12 items in a single collapsible group hides high-priority features (Collections, Staff) alongside niche features (API, Dynamic Pricing). Restructuring is needed. **Fix priority: P1**.
+3. **Navigation Overload (Lainnya group)**: 12 items in a single collapsible group hides high-priority features (Collections, Staff) alongside niche features (API, Dynamic Pricing). Additionally, 6 pages (Billing, Settings, Support, Feedback, OcrTutorial, PropertyCompliance) have no sidebar entry at all. **Fix priority: P1**.
+
+4. **Billing Page Discovery (F33)**: Subscription management is the platform's revenue model but has no sidebar entry. Merchants must discover it via Support page links. **Fix priority: P1**.
+
+5. **Alerts Not in Sidebar (F35)**: The merchant's early warning system (overdue invoices, expiring contracts, stale maintenance) is only accessible via mobile bottomNav. Desktop users have no sidebar link. **Fix priority: P2**.
 
 ### Strengths
 
-1. **Strong automation**: Auto-invoice generation, auto-payment matching, auto-overdue escalation reduce manual work significantly
-2. **Comprehensive state machines**: 31 defined state machines prevent invalid transitions and provide clear lifecycle management
+1. **Strong automation**: Auto-invoice generation, auto-payment matching, auto-overdue escalation, subscription lifecycle management reduce manual work significantly
+2. **Comprehensive state machines**: 31 defined state machines (21 merchant-applicable) prevent invalid transitions and provide clear lifecycle management
 3. **AI/ML integration**: 11 ML models + 4 DSS engines provide advanced analytics — strong differentiator
 4. **Staff delegation model**: 16 granular permissions with 3 role presets enables scaling from solo owner to property management company
 5. **Progressive disclosure**: "Lainnya" group + Property Detail tab dropdown prevent initial overwhelm
+6. **Compliance management**: Property compliance with disaster risk, insurance, and security incident tracking is a differentiator for regulated markets
 
 ### Target User Fit
 
 | Segment | Fit | Notes |
 |---------|-----|-------|
-| Solo owner (1-3 properties) | 🟡 Medium | Core features good, but complexity of amendments/move-outs/collections may overwhelm |
-| Property manager (4-20 properties) | 🟢 Good | Full feature set matches operational needs, staff delegation works |
-| Enterprise (20+ properties) | 🟡 Medium | API integration helps, but client-side query model may not scale. Financial reports need server-side processing |
+| Solo owner (1-3 properties) | 🟡 Medium | Core features good, but complexity of amendments/move-outs/collections may overwhelm. 6 hidden pages reduce discoverability. |
+| Property manager (4-20 properties) | 🟢 Good | Full feature set matches operational needs, staff delegation works. Compliance features add value. |
+| Enterprise (20+ properties) | 🟡 Medium | API integration helps, but client-side query model may not scale. Financial reports need server-side processing. |
 
 ### Recommended Priority Actions
 
@@ -1507,12 +1931,15 @@ The merchant system provides **comprehensive property management** with 32 featu
 |----------|--------|--------|
 | P0 | Add merchant-facing payment transfer page | Trust & transparency |
 | P1 | Create unified move-out wizard | Reduce operational friction |
-| P1 | Restructure "Lainnya" nav group | Feature discoverability |
+| P1 | Restructure "Lainnya" nav group + add hidden pages to sidebar | Feature discoverability |
+| P1 | Add Billing to sidebar navigation | Platform revenue |
+| P2 | Add Alerts link to sidebar with badge count | Proactive issue management |
 | P2 | Add configurable alert thresholds | Personalization |
 | P2 | Surface top DSS recommendations on Dashboard | AI value delivery |
 | P3 | Server-side report generation | Enterprise scalability |
 | P3 | One-click lease renewal | Reduce vacancy risk |
+| P3 | Break PropertyCompliance into sub-components | Code maintainability |
 
 ---
 
-*Document generated from code-level analysis only. No legacy diagrams, no outdated PRD sections, no escrow references for merchant.*
+*Document generated from code-level analysis only. No legacy diagrams, no outdated PRD sections, no escrow references for merchant. Forensic audit v3.1: 4 assumptions flagged, 1 feature excluded (referrals — no UI), edge function count corrected to 62.*
