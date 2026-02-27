@@ -1,79 +1,129 @@
 
 
-# Feature 8, 9, 10 -- Status Assessment & Remaining Implementation
+# Priority 1 & 2: Reduce Core Workflows + Simplify Financial Control
 
-## Current State
+## Overview
 
-### Feature 8: Property Insurance Integration
-**Status: Already COMPLETE** in audit report. No work needed.
+Two simplification efforts:
+1. **Reduce Core Workflows** -- Consolidate 56 merchant pages into a clear 7-8 core workflow structure with guided navigation
+2. **Simplify Financial Control** -- Build a unified Financial Control Dashboard showing cash balance, receivables, payables, pending approvals, and latest transactions with clear approval status
 
-### Feature 9: Occupancy Trend Analytics & Forecasting UI
-**Status: MOSTLY COMPLETE** -- `MarketIntelligence.tsx` already has:
-- Occupancy prediction chart with confidence bands
-- Seasonal patterns display (peak/low/transition)
-- Turnover KPI strip (current rate, predicted rate, avg vacancy days, trend)
-- Warnings with severity badges and recommended actions
-- Anomaly detection cards
+## Current State Assessment
 
-**Missing items:**
-- What-if price elasticity simulator ("If I drop price 10%, occupancy becomes ___")
-- Dashboard widget showing next-month forecast summary (currently only available deep in Market Intelligence page)
+### Navigation Complexity
+The merchant sidebar has **4 groups** with **28 nav items** across 56 pages. A pemilik kosan with 20 units doesn't need to navigate 28 different menu items daily. The goal is NOT to delete pages, but to restructure navigation so daily workflows are obvious and advanced features are discoverable but not overwhelming.
 
-### Feature 10: Tenant Communication Portal
-**Status: MOSTLY COMPLETE** -- 17 pages exist in `src/pages/tenant/`:
-- Dashboard, Contracts, ContractDetail, SignContract
-- Invoices, InvoiceDetail, Payments
-- Maintenance, MaintenanceDetail
-- Profile, Settings, Forum, Marketplace, etc.
-
-**Missing items:**
-- Payment receipt PDF download (invoice detail exists but no receipt generation)
-- Lease renewal / move-out reminder notifications on tenant dashboard
+### Financial Control Gap
+Currently:
+- Financial Reports page shows P&L, revenue by property, expense by category -- but NO cash balance, receivables, or payables summary
+- Expenses have approval workflow (>=500K needs approval) but there's no unified "pending approvals" view
+- Deposit refunds, move-out notices also have `pending_approval` status but are in separate pages
+- No single place to see "what needs my approval today" across all transaction types
 
 ---
 
 ## Implementation Plan
 
-### 9A: What-If Price Elasticity Simulator
+### 1A: Simplified Navigation Structure
 
-Add a new section inside the "occupancy" tab of `src/pages/merchant/MarketIntelligence.tsx`:
-- Simple slider: "Simulasi perubahan harga: -20% to +20%"
-- Client-side calculation using basic elasticity model:
-  - Default elasticity = -0.5 (configurable)
-  - Formula: `new_occupancy = current_occupancy * (1 + elasticity * price_change_pct)`
-  - Revenue impact = new_occupancy * new_price * total_units
-- Display: predicted occupancy change, revenue impact, and visual comparison bar
-- Uses existing `occData` from the forecast -- no new backend calls needed
+Restructure merchant nav from 4 groups / 28 items to a focused layout:
 
-### 9B: Occupancy Forecast Dashboard Widget
+**NEW NAVIGATION (3 groups, 13 primary items):**
 
-Create `src/features/dashboard/components/OccupancyForecastWidget.tsx`:
-- Compact card showing: current occupancy rate, next-month predicted rate, trend arrow
-- "Lihat Detail" link to `/merchant/market-intelligence`
-- Register in `widgetRegistry.ts` as `'occupancy_forecast'` widget
-- Data source: use existing `merchant_analytics_summary` for current occupancy + simple client-side projection
+| Group | Items | Covers |
+|-------|-------|--------|
+| **Utama** | Dashboard, Properti, Papan Okupansi | Same as now |
+| **Operasional** | Penyewa, Kontrak, Maintenance, Daftar Tunggu | Consolidate: tenants + screening + analytics into "Penyewa"; contracts + renewals into "Kontrak"; maintenance + preventive into "Maintenance" |
+| **Keuangan** | Kontrol Keuangan (NEW), Tagihan, Pembayaran, Pengeluaran, Lap. Keuangan | New unified financial control; remove separate collections/reconciliation/utility/dynamic-pricing from top nav |
 
-### 10A: Payment Receipt Download
+**Secondary items (moved to "Lainnya" collapsible group):**
+- Inventori, Penjaga, Performa Vendor, Utilitas, Penagihan, Resolusi & Rekonsiliasi, Harga Dinamis, Laporan, Template Dokumen, Alat, API & Integrasi, Manajemen Staff
 
-Add receipt download to tenant invoice detail:
-- Modify `src/pages/tenant/InvoiceDetail.tsx` to add "Unduh Kwitansi" button (visible when invoice status = 'paid')
-- Generate receipt as a formatted text/HTML blob downloaded as PDF-like file
-- Include: invoice number, tenant name, property, unit, amount, payment date, payment method
-- Reuse existing `useDownloadInvoice` hook pattern or create simple client-side receipt generator
+This reduces visible nav from 28 to ~13 primary + collapsible advanced section.
 
-### 10B: Lease Renewal & Move-Out Reminders on Tenant Dashboard
+### 1B: Navigation Config Changes
 
-Enhance `src/pages/tenant/Dashboard.tsx`:
-- Query tenant's active contract `end_date`
-- If contract expires within 60 days, show an alert card:
-  - "Kontrak Anda berakhir dalam X hari (DD MMM YYYY)"
-  - Urgency: critical (<=30 days), warning (<=60 days)
-- If contract expires within 30 days, show move-out checklist reminder
-- Uses existing `useTenantActiveContract` hook -- no new queries needed
+Modify `src/shared/components/layouts/navigation-config.ts`:
+- Restructure merchant `mainNav` groups
+- Add a "Lainnya" group for advanced/secondary features
+- Keep all routes functional -- just reorganize navigation hierarchy
 
-### 9C + 10C: Update Audit Report
+### 2A: Financial Control Dashboard (NEW Page)
 
-Mark Feature 9 and 10 with updated status in `old-docs/PMS_Audit_Report_FULL.md`.
+Create `src/pages/merchant/FinancialControl.tsx` -- the single "command center" for all financial approvals and status:
+
+**Layout:**
+```text
++------------------+------------------+------------------+------------------+
+| Saldo Kas        | Piutang          | Hutang           | Menunggu Approve |
+| Rp X.XXX.XXX     | Rp X.XXX.XXX     | Rp X.XXX.XXX     | X item           |
+| (paid invoices    | (unpaid invoices | (pending expenses| (across all      |
+|  - expenses)      |  outstanding)    |  + refunds)      |  types)          |
++------------------+------------------+------------------+------------------+
+
++------------------------------------------------------------------+
+| Perlu Persetujuan Anda                                            |
+| [Expense] Rp 750.000 - AC Repair - 27 Feb     [Approve] [Reject] |
+| [Deposit] Rp 2.000.000 - Unit B3 Move-Out     [Approve] [Reject] |
+| [Move-Out] Unit A5 - Notice by Tenant          [Approve] [Reject] |
++------------------------------------------------------------------+
+
++------------------------------------------------------------------+
+| 10 Transaksi Terakhir                                             |
+| 27 Feb | Payment  | Rp 1.500.000 | Unit A1 | Approved  | green   |
+| 26 Feb | Expense  | Rp 350.000   | Plumber | Auto-OK   | green   |
+| 25 Feb | Refund   | Rp 1.000.000 | Unit B3 | Pending   | yellow  |
++------------------------------------------------------------------+
+```
+
+**Data sources:**
+- **Cash Balance**: Sum of paid invoices (revenue) minus sum of approved expenses = net cash (from `financialReportService` pattern)
+- **Receivables**: Sum of unpaid invoices (`status IN ('pending', 'overdue')`)
+- **Payables**: Sum of pending expenses + pending deposit refunds
+- **Pending Approvals**: Aggregate from 3 sources:
+  1. `expenses` where `approval_status = 'pending_approval'`
+  2. `deposit_refunds` where `status = 'pending_processing'`
+  3. `move_out_notices` where `status = 'pending_approval'`
+- **Latest Transactions**: Union of recent payments, expenses, deposit refunds with approval status badge
+- **Inline Actions**: Approve/Reject buttons for each pending item, calling existing service methods
+
+### 2B: Financial Control Service
+
+Create `src/features/finance/services/financialControlService.ts`:
+- `fetchFinancialControlData(merchantId)` -- single function returning:
+  - `cashBalance`: revenue (paid invoices) minus expenses (approved)
+  - `receivables`: sum of unpaid invoices
+  - `payables`: sum of pending expenses + pending refunds
+  - `pendingApprovals`: array of items needing approval (type, id, amount, description, date)
+  - `recentTransactions`: latest 10 transactions across types with approval status
+
+### 2C: Financial Control Hook
+
+Create `src/features/finance/hooks/useFinancialControl.ts`:
+- TanStack Query hook for `fetchFinancialControlData`
+- Mutation hooks for approve/reject actions (reuse existing `expenseService.approveExpense`, deposit refund approve, move-out approve)
+
+### 2D: Approval Rules Documentation
+
+Codify and display the approval rules clearly on the Financial Control page:
+- **Auto-approved**: Payments from Xendit gateway, expenses below Rp 500.000, scheduled recurring invoices
+- **Mandatory owner approval**: Expenses >= Rp 500.000, deposit refunds, move-out notices, damage claims
+- Display these rules as an info tooltip or collapsible section so the owner understands the system
+
+### 2E: Route & Navigation Registration
+
+- Add `/merchant/financial-control` route in `App.tsx`
+- Add "Kontrol Keuangan" as the first item in the Keuangan nav group with `Shield` icon
+- Register in navigation config
+
+### 2F: Update Audit Report
+
+Update `old-docs/PMS_Audit_Report_FULL.md`:
+- Mark Priority 1 (Reduce Core Workflows) with status per sub-item
+- Mark Priority 2 (Simplify Financial Control) with status per sub-item:
+  - Mandatory owner approval: COMPLETE (already exists for expenses, deposit refunds, move-outs)
+  - Auto-approve: COMPLETE (expenses < 500K, Xendit gateway payments)
+  - Dashboard showing cash balance, receivables, payables, latest 10 transactions: COMPLETE
 
 ---
 
@@ -81,18 +131,19 @@ Mark Feature 9 and 10 with updated status in `old-docs/PMS_Audit_Report_FULL.md`
 
 | Action | File | Description |
 |--------|------|-------------|
-| MODIFY | `src/pages/merchant/MarketIntelligence.tsx` | Add what-if price elasticity simulator section |
-| CREATE | `src/features/dashboard/components/OccupancyForecastWidget.tsx` | Compact forecast widget for dashboard |
-| MODIFY | `src/features/dashboard/constants/widgetRegistry.ts` | Register occupancy_forecast widget |
-| MODIFY | `src/pages/tenant/InvoiceDetail.tsx` | Add payment receipt download button |
-| MODIFY | `src/pages/tenant/Dashboard.tsx` | Add lease renewal/move-out reminder alerts |
-| MODIFY | `old-docs/PMS_Audit_Report_FULL.md` | Mark Features 8, 9, 10 status |
+| CREATE | `src/features/finance/services/financialControlService.ts` | Unified financial control data fetcher |
+| CREATE | `src/features/finance/hooks/useFinancialControl.ts` | TanStack Query hooks for financial control |
+| CREATE | `src/pages/merchant/FinancialControl.tsx` | Financial Control Dashboard page |
+| MODIFY | `src/shared/components/layouts/navigation-config.ts` | Restructure merchant nav to 3 groups + Lainnya |
+| MODIFY | `src/App.tsx` | Add /merchant/financial-control route |
+| MODIFY | `old-docs/PMS_Audit_Report_FULL.md` | Mark Priority 1 + 2 status |
 
 ## Technical Notes
 
-- What-if simulator is purely client-side using a basic price elasticity formula -- no new edge functions needed
-- Payment receipt uses client-side HTML-to-download approach (no server-side PDF generation needed)
-- Lease renewal reminders reuse existing `useTenantActiveContract` hook data
-- Dashboard widget reads from `merchant_analytics_summary` which is already refreshed periodically
-- Feature 8 requires NO changes -- already fully implemented
+- No new database tables needed -- all data comes from existing `invoices`, `expenses`, `deposit_refunds`, `move_out_notices` tables
+- Approval actions reuse existing service methods (`expenseService.approveExpense`, etc.)
+- Cash balance is a derived metric (revenue minus expenses), not stored separately
+- Navigation restructuring preserves ALL existing routes -- just reorganizes the sidebar hierarchy
+- "Lainnya" group uses existing `Collapsible` pattern for show/hide
+- Financial Control page queries are scoped by `merchant_id` via existing RLS policies
 
