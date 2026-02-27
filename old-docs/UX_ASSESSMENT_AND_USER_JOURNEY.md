@@ -37,7 +37,18 @@ Every feature analyzed in this document is mapped to its source documentation. F
 | 21 | Financial Reports (P&L) | `merchant_activity_diagram.md` Diagram 22 | Read-only reporting. ❌ No state machine — query-based | §2 Feature 21 |
 | 22 | Financial Control Center | `role-actions.ts` line 23; `state-machines.ts` lines 264-270 | "Approve Pengeluaran — Setujui atau tolak pengeluaran ≥ Rp 500K". Uses `EXPENSE_APPROVAL_TRANSITIONS` | §2 Feature 22 |
 
-**Traceability Summary**: 22 features identified, all with document source references. 0 features without source.
+| 23 | Occupancy Board | `navigation-config.ts` line 124; `OccupancyBoard.tsx` | Sidebar item "Papan Okupansi". Kanban board with 4 columns: occupied, available, maintenance, notice. Drag-and-drop status updates via `useOccupancyBoard` hook. `OccupancyFilters` for unitType/floor/property filtering | §2 Feature 23 |
+| 24 | Inventory / Asset Management | `navigation-config.ts` line 149; `Inventory.tsx` | Sidebar "Inventori". 3-tab page: Tipe Fasilitas, Aset (with depreciation calc), Assignment. Uses `facility_types`, `assets`, `facility_assignments` tables. Tangible/intangible classification. Client-side depreciation: `(purchasePrice - salvageValue) / usefulLifeMonths * monthsElapsed` | §2 Feature 24 |
+| 25 | Guardian Management | `navigation-config.ts` line 150; `Guardians.tsx` | Sidebar "Penjaga". CRUD for property guardians with roles (security, cleaner, manager, maintenance). Multi-property assignment via `guardian_property_assignments`. Salary tracking with frequency (monthly/weekly/daily) | §2 Feature 25 |
+| 26 | Vendor Performance | `navigation-config.ts` line 151; `VendorPerformance.tsx` | Sidebar "Performa Vendor". 3-tab dashboard: Ringkasan (table), Perbandingan (bar chart), Riwayat. Uses `useVendorPerformance` hook. Toggle preferred vendor. Compare up to 3 vendors | §2 Feature 26 |
+| 27 | Utility Billing | `navigation-config.ts` line 152; `UtilityBilling.tsx` | Sidebar "Utilitas". 3-tab page: Pengaturan (per utility type), Input Meter (readings), Tagihan (charge generation). Uses `useUtilityBilling` hooks. Property-scoped. Meter reading → charge generation workflow | §2 Feature 27 |
+| 28 | Document Templates | `navigation-config.ts` line 157; `DocumentTemplates.tsx` | Sidebar "Template Dokumen". 7 categories: lease_contract, house_rules, move_in_checklist, inspection_report, eviction_notice, payment_reminder, other. System templates (read-only, dupable) vs merchant custom templates. Variable substitution. Editor + Fill/Preview dialogs | §2 Feature 28 |
+| 29 | API & Integration | `navigation-config.ts` line 159; `ApiIntegration.tsx` | Sidebar "API & Integrasi". 3-tab page: API Keys (CRUD, hash-stored, prefix-visible, rate-limited 1000/hr), Webhooks (endpoint CRUD, 8 event types, failure auto-disable at 10 failures, delivery logs), Dokumentasi (inline REST docs). Uses `api_keys`, `webhooks`, `webhook_logs` tables | §2 Feature 29 |
+| 30 | Staff Management | `navigation-config.ts` line 160; `StaffManagement.tsx` | Sidebar "Manajemen Staff". Full RBAC: 3 roles (caretaker, property_manager, accountant). 16 granular permissions across 4 groups (Unit, Maintenance, Keuangan, Operasional). Invite by email, per-staff permission toggle via `PermissionsDialog`. Uses `merchant_staff`, `staff_permissions` tables | §2 Feature 30 |
+| 31 | InsightsHub (Analytics Landing) | `navigation-config.ts` line 158; `InsightsHub.tsx` | Sidebar "Alat". Card-based landing hub linking to 9 sub-tools: 3 Performance (Template Laporan, Portofolio Komparatif, Pusat Dokumen) + 6 Intelligence AI (Prediksi ML, Strategi DSS, Tren Pasar, Risiko Keuangan, Skor Penyewa, Kualitas Data). Tiered labels: "Standar" vs "Premium" | §2 Feature 31 |
+| 32 | Tenant Screening | `TenantScreening.tsx`; `navigation-config.ts` activePattern | Dedicated page "Screening Penyewa". Pre-screening before contract. Grade system: Green/Yellow/Red. Status: pending → scored → approved/rejected. Form collects: occupation, employer, income, previous landlord, guarantor. `ScreeningScoreCard` + `ScreeningApprovalActions` components | §2 Feature 32 |
+
+**Traceability Summary**: 32 features identified, all with document source references. 0 features without source.
 
 ---
 
@@ -1223,6 +1234,484 @@ Uses `EXPENSE_APPROVAL_TRANSITIONS` (same as Feature 17)
 
 ---
 
+### 🔹 Feature 23: Occupancy Board
+
+#### Documentation Source
+- **Document**: `navigation-config.ts` line 124; `OccupancyBoard.tsx`; `useOccupancyBoard.ts`
+- **Section**: Sidebar item "Papan Okupansi"
+- **Reference**: No activity diagram exists for this feature. Source evidence is from page implementation and navigation config.
+
+#### Current Flow (Actual)
+
+| Role | Action | Page / Endpoint |
+|------|--------|-----------------|
+| 🏠 Merchant | Navigate to Occupancy Board | `/merchant/occupancy-board` |
+| 🏠 Merchant | View 4 Kanban columns: Terisi, Kosong-Tersedia, Kosong-Maintenance, Notice Diterima | Board page |
+| 🏠 Merchant | Filter by unit type, floor, property, max price | `OccupancyFilters` component |
+| 🏠 Merchant | View stats strip (total, occupied, available, maintenance, notice counts) | `OccupancyStats` component |
+| 🏠 Merchant | Drag unit card to different column | Drag-and-drop |
+| System | Show confirmation dialog | `AlertDialog` |
+| 🏠 Merchant | Confirm status change | Dialog button |
+| System | Update unit status via `unitService.updateUnit()` | Supabase |
+| System | Invalidate `occupancy-board` query cache | React Query |
+
+#### State Machine
+
+Uses `UNIT_STATUS_TRANSITIONS` (same as Feature 3): `available ↔ occupied ↔ maintenance`
+
+The "notice" column is read-only (derived from contracts with `status = 'notice'`); units cannot be dragged INTO the notice column.
+
+#### UX Friction Analysis
+
+- **Positive**: Visual Kanban board is intuitive for at-a-glance occupancy — matches mental model of "which rooms are full/empty"
+- **Drag-and-drop confirmation dialog** adds a safety step but slows quick operations
+- **Notice column is read-only** — well-designed because notice status comes from contract lifecycle, not manual override
+- **Filtering is comprehensive** (type, floor, property, price) — useful for multi-property merchants
+- **Data enrichment**: Each card shows tenant name, contract end date, maintenance count — high information density
+
+#### Business Impact
+
+- Quick visual assessment replaces mental tracking of "which room is which"
+- Drag-and-drop for maintenance marking is faster than navigating to unit detail
+
+#### Simplification Opportunities
+
+1. **Optional confirmation**: For repeated users, allow "skip confirmation" preference
+2. **Mobile optimization**: Kanban columns may not work well on mobile — consider list view fallback
+
+---
+
+### 🔹 Feature 24: Inventory / Asset Management
+
+#### Documentation Source
+- **Document**: `navigation-config.ts` line 149; `Inventory.tsx`
+- **Section**: Sidebar item "Inventori"
+- **Reference**: Also referenced in `merchant_activity_diagram.md` Diagram 3 as property setup subgraph (asset tracking, OCR label, depreciation)
+
+#### Current Flow (Actual)
+
+| Role | Action | Page / Endpoint |
+|------|--------|-----------------|
+| 🏠 Merchant | Navigate to Inventory page | `/merchant/inventory` |
+| 🏠 Merchant | Tab 1: Create facility types (name, scope, nature, asset_type) | Tipe Fasilitas tab |
+| 🏠 Merchant | Tab 2: Add assets (link to facility type, brand, serial, price, salvage, useful life) | Aset tab via `AddAssetForm` |
+| 🏠 Merchant | View depreciation (client-side straight-line calc) | Asset table "Nilai Buku" column |
+| 🏠 Merchant | Click asset row → Detail panel | `AssetDetailPanel` component |
+| 🏠 Merchant | Tab 3: Assign intangible facilities to properties/units | Assignment tab via `AddAssignmentForm` |
+| System | Query `facility_types`, `assets`, `facility_assignments` tables | Supabase |
+
+#### State Machine
+
+Assets have `status`: available | in_use | maintenance and `condition`: good | damaged | lost.
+
+> ❌ No explicit state machine defined in `state-machines.ts` for asset status transitions. Values are set directly.
+
+#### UX Friction Analysis
+
+- **3-tab structure** (Types → Assets → Assignments) is logical but requires understanding the hierarchy: define types first, then add assets, then assign
+- **Depreciation calculation is client-side** — formula: `(purchasePrice - salvageValue) / usefulLifeMonths * monthsElapsed`. Good for visibility but may diverge from accounting standards
+- **Tangible/intangible distinction** adds conceptual complexity — a kos owner thinks "AC" not "tangible asset with depreciation schedule"
+- **No bulk import** for initial asset registration — tedious for existing properties with 50+ items
+
+#### Business Impact
+
+- Asset tracking enables insurance claims and replacement planning
+- Depreciation data feeds into financial reports
+- For small kos (5-10 rooms, minimal assets), this is significant over-engineering
+
+#### Simplification Opportunities
+
+1. **Quick-add mode**: "Add AC to Room 3" — 3 fields (type, room, price) instead of 8+
+2. **Hide depreciation** behind "Advanced" toggle — most kos owners don't care about salvage value
+3. **Pre-populated facility types** — common items (AC, bed, desk, wardrobe) ready out of box
+
+---
+
+### 🔹 Feature 25: Guardian Management
+
+#### Documentation Source
+- **Document**: `navigation-config.ts` line 150; `Guardians.tsx`
+- **Section**: Sidebar item "Penjaga"
+- **Reference**: Also referenced in `merchant_activity_diagram.md` Diagram 3 as optional property setup step
+
+#### Current Flow (Actual)
+
+| Role | Action | Page / Endpoint |
+|------|--------|-----------------|
+| 🏠 Merchant | Navigate to Guardians page | `/merchant/guardians` |
+| 🏠 Merchant | View stats: total guardians, active count, total active salary | Stats cards |
+| 🏠 Merchant | Filter by name search + role (security/cleaner/manager/maintenance) | Filter bar |
+| 🏠 Merchant | Add guardian: name, phone, role, salary, salary_frequency, status | `GuardianFormDialog` |
+| 🏠 Merchant | Edit guardian details | Edit button → Form |
+| 🏠 Merchant | Assign guardian to multiple properties (primary/backup role) | Assign dialog |
+| 🏠 Merchant | View current property assignments per guardian | Assignment list in dialog |
+| 🏠 Merchant | Remove guardian assignment from property | X button in assignment |
+| 🏠 Merchant | Deactivate/delete guardian | Action buttons |
+
+#### State Machine
+
+Guardians have `status`: active | inactive.
+
+> ❌ No explicit state machine defined in `state-machines.ts`. Status is toggled directly.
+
+#### UX Friction Analysis
+
+- **Well-structured for its purpose** — CRUD with multi-property assignment is clean
+- **Salary tracking** (monthly/weekly/daily frequency) is useful for payroll planning
+- **Multi-property assignment** with primary/backup roles is a good model for kos chains
+- **Role labels** are clear and in Indonesian (Keamanan, Kebersihan, Manajer, Pemeliharaan)
+- **For small kos**: Having a dedicated Guardian page for 1 security guard is excessive — this info could be a property detail field
+
+#### Business Impact
+
+- Useful for kos chains with 3+ properties and shared staff
+- Salary aggregation helps monthly expense planning
+- For single-property kos, this is unnecessary overhead
+
+#### Simplification Opportunities
+
+1. **Merge into Property Detail** for merchants with ≤2 properties
+2. **Show standalone page only** when merchant has 3+ properties or 3+ guardians
+
+---
+
+### 🔹 Feature 26: Vendor Performance
+
+#### Documentation Source
+- **Document**: `navigation-config.ts` line 151; `VendorPerformance.tsx`
+- **Section**: Sidebar item "Performa Vendor"
+- **Reference**: Also referenced in `merchant_activity_diagram.md` Diagram 10 (vendor rating after maintenance completion)
+
+#### Current Flow (Actual)
+
+| Role | Action | Page / Endpoint |
+|------|--------|-----------------|
+| 🏠 Merchant | Navigate to Vendor Performance | `/merchant/vendor-performance` |
+| 🏠 Merchant | View stats: total vendors, avg rating, avg response time, total spend | Stats strip |
+| 🏠 Merchant | Tab "Ringkasan": table with vendor name, specialization, rating, job count, response time, total cost, favorite toggle | Summary table |
+| 🏠 Merchant | Tab "Perbandingan": select 2-3 vendors, view bar chart comparing response time + rating | Compare tab |
+| 🏠 Merchant | Tab "Riwayat": select vendor, view job history (title, status, cost, rating, date) | History tab |
+| 🏠 Merchant | Toggle "favorite" vendor | Star button per vendor |
+
+#### State Machine
+
+> ❌ No explicit state machine defined. Vendor performance is read-only analytics derived from `vendor_jobs` data.
+
+#### UX Friction Analysis
+
+- **Good analytical dashboard** — bar chart comparison is a clear differentiator feature
+- **Favorite toggle** is simple and useful for quick vendor selection during maintenance
+- **3-tab layout** (Summary/Compare/History) is well-organized
+- **Prerequisite**: Requires vendor_jobs data to exist — new merchants with no maintenance history see empty dashboard
+- **Compare feature** requires selecting vendors manually — could auto-suggest top performers
+
+#### Business Impact
+
+- Helps select best vendor for maintenance jobs — directly reduces cost and improves quality
+- Favorite marking speeds up vendor selection in maintenance workflow
+- Only useful after 10+ vendor jobs — early-stage merchants get no value
+
+#### Simplification Opportunities
+
+1. **Auto-rank vendors** on first visit instead of requiring manual comparison setup
+2. **Show "No data yet"** state with guidance on how vendor data gets populated (via maintenance requests)
+
+---
+
+### 🔹 Feature 27: Utility Billing
+
+#### Documentation Source
+- **Document**: `navigation-config.ts` line 152; `UtilityBilling.tsx`; `useUtilityBilling.ts`
+- **Section**: Sidebar item "Utilitas"
+- **Reference**: No activity diagram exists. Implementation in page file and hooks.
+
+#### Current Flow (Actual)
+
+| Role | Action | Page / Endpoint |
+|------|--------|-----------------|
+| 🏠 Merchant | Navigate to Utility Billing | `/merchant/utility-billing` |
+| 🏠 Merchant | Select property from dropdown | Property selector |
+| 🏠 Merchant | Tab "Pengaturan": Configure utility types (water, electricity, internet, common charges) with rates | `UtilitySettingsForm` |
+| 🏠 Merchant | Tab "Input Meter": Select period, enter meter readings per unit | `MeterReadingForm` |
+| System | Fetch last readings for delta calculation | `getLastReadings()` |
+| 🏠 Merchant | Submit meter readings | Save button |
+| 🏠 Merchant | Tab "Tagihan": Generate utility charges for period | `UtilityChargeGenerator` |
+| System | Calculate charges: (current - previous reading) × rate per unit | `generateCharges()` |
+| System | Create invoice line items for utility charges | Supabase |
+
+#### State Machine
+
+> ❌ No explicit state machine defined. Utility billing follows a linear workflow: Settings → Readings → Charges.
+
+#### UX Friction Analysis
+
+- **3-step linear workflow** (configure → input readings → generate charges) is logical and sequential
+- **Property-scoped**: Must select property first — appropriate for multi-property merchants
+- **Meter reading input** requires unit-by-unit entry — tedious for 30+ units
+- **Period selection** is manual — no auto-suggestion for current billing period
+- **No photo/OCR for meter readings** — manual number entry only
+- **Dependency**: Settings must be configured before readings and charges work — not clear to new users
+
+#### Business Impact
+
+- Enables fair utility billing (usage-based vs flat-rate) — reduces tenant disputes
+- Monthly data entry requirement creates operational overhead
+- Missing: No automatic invoice integration — charges generated but not auto-attached to rent invoices
+
+> ⚠️ **Ambiguous in Documentation**: Whether utility charges auto-link to rent invoices or require manual consolidation is not clear from the page code.
+
+#### Simplification Opportunities
+
+1. **Bulk meter input**: Photo/OCR of meter readings instead of manual entry
+2. **Auto-suggest period**: Default to current month's billing period
+3. **Flat-rate shortcut**: "All units pay Rp 100K for water" — skip meter readings entirely
+4. **Auto-attach to invoices**: Utility charges should auto-appear on next month's rent invoice
+
+---
+
+### 🔹 Feature 28: Document Templates
+
+#### Documentation Source
+- **Document**: `navigation-config.ts` line 157; `DocumentTemplates.tsx`
+- **Section**: Sidebar item "Template Dokumen"
+- **Reference**: Uses `document_templates` table. 7 categories defined in `TEMPLATE_CATEGORIES`.
+
+#### Current Flow (Actual)
+
+| Role | Action | Page / Endpoint |
+|------|--------|-----------------|
+| 🏠 Merchant | Navigate to Document Templates | `/merchant/document-templates` |
+| 🏠 Merchant | Filter by category (7 categories: lease_contract, house_rules, move_in_checklist, inspection_report, eviction_notice, payment_reminder, other) | Category dropdown |
+| 🏠 Merchant | View templates grouped by category with version + last update date | Template grid |
+| 🏠 Merchant | Create custom template: name, description, category, content, variables | Editor dialog (`DocumentTemplateEditor`) |
+| 🏠 Merchant | Edit custom template | Edit action |
+| 🏠 Merchant | Duplicate system template to create merchant-specific version | Duplicate action |
+| 🏠 Merchant | Use/fill template: substitute variables with actual values | `DocumentFillDialog` |
+| 🏠 Merchant | Delete custom template | Delete action |
+
+#### State Machine
+
+> ❌ No explicit state machine defined. Templates are simple CRUD with `is_system` flag (system templates are read-only, merchant templates are editable).
+
+#### UX Friction Analysis
+
+- **System vs custom templates** is a good pattern — system templates provide starting points
+- **Variable substitution** enables mail-merge-like document generation
+- **7 categories** is comprehensive but may overwhelm — a typical kos owner uses 2-3 at most (lease contract, house rules, payment reminder)
+- **No PDF export** visible in current code — generated documents are in-app only
+- **Version tracking** (`version` field, `updated_at` display) adds unnecessary complexity for most users
+
+#### Business Impact
+
+- Standardizes legal documents — reduces risk from ad-hoc contracts
+- Reduces time to create recurring documents (payment reminders, inspection reports)
+- For kos owners who use handwritten contracts, this is a significant upgrade
+
+#### Simplification Opportunities
+
+1. **Pre-filled templates** ready to use out of box (e.g., standard kos contract in Indonesian)
+2. **One-click PDF export** for offline printing/sharing
+3. **Hide version tracking** — show only "terakhir diperbarui" without version number
+
+---
+
+### 🔹 Feature 29: API & Integration
+
+#### Documentation Source
+- **Document**: `navigation-config.ts` line 159; `ApiIntegration.tsx`
+- **Section**: Sidebar item "API & Integrasi"
+- **Reference**: Uses `api_keys`, `webhooks`, `webhook_logs` tables. 8 webhook event types in `WEBHOOK_EVENTS`.
+
+#### Current Flow (Actual)
+
+| Role | Action | Page / Endpoint |
+|------|--------|-----------------|
+| 🏠 Merchant | Navigate to API & Integration | `/merchant/api-integration` |
+| 🏠 Merchant | Tab "API Keys": Create key (name, scopes) → receive plain key (shown once) | API Keys tab |
+| System | Hash key, store prefix only | `api_keys` table |
+| 🏠 Merchant | Copy key immediately (warning: not shown again) | Copy button |
+| 🏠 Merchant | Revoke existing key | Trash button |
+| 🏠 Merchant | Tab "Webhooks": Add endpoint URL + select events | Webhooks tab |
+| System | Send HMAC-SHA256 signed payloads to URL | Webhook delivery |
+| System | Auto-disable endpoint after 10 delivery failures | `failure_count` threshold |
+| 🏠 Merchant | View delivery logs per webhook | Eye button |
+| 🏠 Merchant | Tab "Dokumentasi": Inline REST API docs (8 endpoints, format, rate limit) | Docs tab |
+
+#### State Machine
+
+API keys have `is_active` boolean (active → revoked). Webhooks have implicit active/disabled based on `failure_count`.
+
+> ❌ No explicit state machine defined in `state-machines.ts`.
+
+#### UX Friction Analysis
+
+- **Developer-oriented feature** — entirely inappropriate for target user (Ibu Sari, 47, kos owner)
+- **Key shown once** pattern is security-correct but confusing for non-technical users
+- **HMAC-SHA256 signature** in docs — enterprise terminology
+- **Rate limiting (1000/hr)** — irrelevant information for kos owners
+- **Inline docs** are a good practice for developers but wasted on kos target segment
+- **8 REST endpoints documented** with JSON response format examples
+
+#### Business Impact
+
+- Zero revenue impact for typical kos owner
+- Enables third-party integrations for tech-savvy property managers or accounting software integration
+- This is a power-user/developer feature that belongs behind "Advanced" settings
+
+#### Simplification Opportunities
+
+1. **Hide entirely** from sidebar for merchants without developer profile or without any API keys
+2. **Move to Settings** as a sub-section, not a top-level navigation item
+3. **Pre-built integrations** (e.g., "Connect to Jurnal.id") instead of raw API key management
+
+---
+
+### 🔹 Feature 30: Staff Management
+
+#### Documentation Source
+- **Document**: `navigation-config.ts` line 160; `StaffManagement.tsx`; `permissions.ts`
+- **Section**: Sidebar item "Manajemen Staff"
+- **Reference**: Uses `merchant_staff`, `staff_permissions` tables. 3 roles defined in `STAFF_ROLE_LABELS`. 16 permissions in `PERMISSION_KEYS` across 4 groups in `PERMISSION_GROUPS`.
+
+#### Current Flow (Actual)
+
+| Role | Action | Page / Endpoint |
+|------|--------|-----------------|
+| 🏠 Merchant | Navigate to Staff Management | `/merchant/staff` |
+| 🏠 Merchant | View staff cards (name, role badge, email, phone, active status, property count) | Card grid |
+| 🏠 Merchant | Click "Undang Staff" → Fill: name, email, phone (optional), role (caretaker/property_manager/accountant) | Invite dialog |
+| System | Create staff record with default permissions for role | `DEFAULT_PERMISSIONS` mapping |
+| 🏠 Merchant | Click "Izin" on staff card → Toggle 16 individual permissions across 4 groups | `PermissionsDialog` |
+| 🏠 Merchant | Save granular permissions | Save button |
+| 🏠 Merchant | Deactivate staff | "Nonaktifkan" button |
+
+#### Permission Model (from `permissions.ts`)
+
+- **3 Roles**: Caretaker (6 default perms), Property Manager (15 default perms), Accountant (4 default perms)
+- **4 Permission Groups**: Unit (2), Maintenance (4), Keuangan (6), Operasional (4)
+- **16 Total Permissions**: `units.view`, `units.edit_status`, `maintenance.view`, `maintenance.accept`, `maintenance.assign_vendor`, `maintenance.log_activity`, `expenses.view`, `expenses.create`, `expenses.approve`, `invoices.view`, `invoices.create`, `collections.send_letter`, `financial_reports.view`, `tenants.view`, `contracts.view`, `settings.view`
+
+#### State Machine
+
+Staff have `is_active` boolean.
+
+> ❌ No explicit state machine defined in `state-machines.ts`.
+
+#### UX Friction Analysis
+
+- **Well-designed RBAC** for multi-staff operations — role defaults + granular overrides is the right pattern
+- **16 permissions across 4 groups** is manageable via collapsible sections with switches
+- **Invite flow uses placeholder `user_id`** (line 58: `crypto.randomUUID()`) — ⚠️ this suggests email-based lookup is not yet implemented; current invite may not actually connect to a real user account
+- **Default permissions per role** reduce setup time — most merchants won't touch individual toggles
+- **For single-owner kos**: This entire page is irrelevant — there's no staff to manage
+
+> ⚠️ **Ambiguous in Documentation**: The invite flow uses `crypto.randomUUID()` as placeholder user_id (StaffManagement.tsx line 58). It's unclear whether the production flow looks up users by email or creates stub accounts. The comment "should lookup by email" confirms this is incomplete.
+
+#### Business Impact
+
+- Essential for kos chains with caretakers at each property
+- Prevents unauthorized financial actions via permission controls
+- For single-owner operations, this is unused overhead
+
+#### Simplification Opportunities
+
+1. **Auto-hide** when merchant has no staff (show only after first staff invite)
+2. **Fix invite flow** — implement email-based user lookup or invitation email
+3. **Role-only mode** for simple setups — skip granular permissions, just assign role with defaults
+
+---
+
+### 🔹 Feature 31: InsightsHub (Analytics Landing)
+
+#### Documentation Source
+- **Document**: `navigation-config.ts` line 158; `InsightsHub.tsx`
+- **Section**: Sidebar item "Alat"
+- **Reference**: No activity diagram. Card-based hub linking to 9 sub-tools.
+
+#### Current Flow (Actual)
+
+| Role | Action | Page / Endpoint |
+|------|--------|-----------------|
+| 🏠 Merchant | Navigate to InsightsHub | `/merchant/insights` |
+| 🏠 Merchant | View "Performa" section (3 cards): Template Laporan, Portofolio Komparatif, Pusat Dokumen | Performance cards |
+| 🏠 Merchant | View "Intelijen AI" section (6 cards): Prediksi ML, Strategi DSS, Tren Pasar, Risiko Keuangan, Skor Penyewa, Kualitas Data | Intelligence cards |
+| 🏠 Merchant | Click any card → Navigate to specific tool page | `useNavigate()` |
+
+#### State Machine
+
+> ❌ No state machine. This is a navigation hub — stateless landing page.
+
+#### UX Friction Analysis
+
+- **Card-based navigation hub** is a clean information architecture pattern — groups related tools visually
+- **"Standar" vs "Premium" tier badges** clearly indicate feature availability
+- **9 linked sub-tools** from a single page — potential for "click and get lost" navigation
+- **No breadcrumb back** to InsightsHub from sub-tool pages
+- **Naming**: "Alat" (Tools) is vague as a sidebar label — "Alat & Intelijen" is the page title but sidebar says "Alat"
+- **Overwhelming for non-tech merchants**: "Prediksi ML", "Strategi DSS", "Risiko Keuangan" are enterprise/academic terminology
+
+#### Business Impact
+
+- Good organizing principle for advanced analytics features
+- Tiered badging prepares for subscription upsell
+- For kos owners, only 1-2 of the 9 tools may ever be used (reports, maybe comparative)
+
+#### Simplification Opportunities
+
+1. **Show only tier-appropriate tools** — hide Premium tools for non-Premium subscribers
+2. **Rename to simpler labels**: "Prediksi ML" → "Prediksi Pendapatan", "Strategi DSS" → "Saran Otomatis"
+3. **Add breadcrumb navigation** to sub-tool pages for easy return to hub
+
+---
+
+### 🔹 Feature 32: Tenant Screening
+
+#### Documentation Source
+- **Document**: `TenantScreening.tsx`; `navigation-config.ts` (activePattern linked from Tenants section)
+- **Section**: Dedicated page linked from tenant-related navigation
+- **Reference**: Uses `tenant_screenings` table (inferred from `useScreenings` hook). Grade system: green/yellow/red. Status: pending/scored/approved/rejected.
+
+#### Current Flow (Actual)
+
+| Role | Action | Page / Endpoint |
+|------|--------|-----------------|
+| 🏠 Merchant | Navigate to Tenant Screening | `/merchant/tenant-screening` |
+| 🏠 Merchant | Filter by grade (Green/Yellow/Red) and status (Menunggu/Dinilai/Disetujui/Ditolak) | Filter dropdowns |
+| 🏠 Merchant | Click "Screening Baru" → Fill form: candidate name, phone, occupation, employer, income, previous landlord info, guarantor info | `TenantScreeningForm` |
+| System | Score candidate → assign grade (green/yellow/red) | Scoring logic |
+| 🏠 Merchant | View screening result: score card with grade | `ScreeningScoreCard` |
+| 🏠 Merchant | Approve or reject screened tenant | `ScreeningApprovalActions` |
+| 🏠 Merchant | View detail: occupation, employer, income, previous landlord, guarantor, rental notes | Detail dialog |
+
+#### State Machine
+
+Implicit 4-state flow: `pending → scored → approved | rejected`
+
+> ❌ No explicit state machine defined in `state-machines.ts`. States are string values on the `status` field.
+
+#### UX Friction Analysis
+
+- **Green/Yellow/Red grading** is intuitive — visual traffic-light system matches mental model
+- **Pre-screening before contract** is a good safety net — prevents problematic tenancies
+- **Form is comprehensive** but lengthy: candidate info + employment + previous landlord + guarantor = 10+ fields
+- **Scoring algorithm** is opaque — merchant sees grade but not the scoring criteria
+- **For informal kos**: "I'll just interview them" — formal screening is over-process
+- **No integration with contract creation** — approved screening doesn't auto-populate contract tenant data
+
+#### Business Impact
+
+- Reduces bad tenant risk — prevents payment defaults and property damage
+- Data-driven decision replaces gut feeling — valuable for remote property management
+- For owner-occupied kos who personally interview tenants, this adds bureaucracy
+
+#### Simplification Opportunities
+
+1. **Quick screen mode**: Just candidate name + income + previous landlord → auto-grade
+2. **Show scoring criteria** — transparency builds trust in the grade
+3. **Link to contract creation** — "Approved → Create Contract" button auto-fills tenant data
+
+---
+
 ## 3. End-to-End Merchant Journeys
 
 ### A. Onboarding Journey
@@ -1509,9 +1998,11 @@ A typical merchant's daily routine requires touching these pages:
 
 | Metric | Value |
 |--------|-------|
-| Total Features Identified from Documentation | 22 (from Diagrams 1-22 in `merchant_activity_diagram.md` + `role-actions.ts`) |
-| Total Features Analyzed | 22 |
+| Total Features Identified from Documentation | **32** (22 from Diagrams 1-22 in `merchant_activity_diagram.md` + `role-actions.ts`; 10 from `navigation-config.ts` sidebar items + page implementations) |
+| Total Features Analyzed | **32** |
 | Features Without Source Reference | **0** |
+| Features from Activity Diagrams | 22 (Features 1-22) |
+| Features from Navigation/Page Code Only | 10 (Features 23-32) — no activity diagrams exist for these |
 | Audit Integrity | ✅ All features have traceable sources |
 
 ### Assumptions Used
@@ -1537,6 +2028,8 @@ A typical merchant's daily routine requires touching these pages:
 |---|------|---------|
 | 1 | Manual tenant creation capability | §2 Feature 5 |
 | 2 | ML edge function exact count (10 vs 11, OCR categorization) | §2 Feature 12 |
+| 3 | Utility charges auto-linking to rent invoices | §2 Feature 27 |
+| 4 | Staff invite email-based user lookup vs stub account creation | §2 Feature 30 |
 
 ### Documentation Discrepancies Found
 
@@ -1544,6 +2037,11 @@ A typical merchant's daily routine requires touching these pages:
 |---|-------------|-----------|---------|
 | 1 | Lease Amendment states: Diagram vs Code | `merchant_activity_diagram.md` Diagram 19 vs `state-machines.ts` `AMENDMENT_STATUS_TRANSITIONS` | Diagram shows 5 simplified states; code implements 9 states including tenant_reviewing, negotiating, agreed, signing |
 | 2 | Collections Case: Diagram 11 reference vs Code | `merchant_activity_diagram.md` Diagram 11 reference table vs `state-machines.ts` `COLLECTIONS_CASE_TRANSITIONS` | Some diagram references show simplified 3-state; code has 7 states (initiated, reminder_sent, follow_up, in_progress, escalated, legal, resolved) |
+| 3 | Staff invite uses placeholder user_id | `StaffManagement.tsx` line 58 | `crypto.randomUUID()` used as placeholder. Comment states "should lookup by email". Production invite flow is incomplete |
+
+### Coverage Note
+
+Features 23-32 do not have activity diagrams in `merchant_activity_diagram.md` (which covers Diagrams 1-23, where Diagram 23 is admin-only). Their documentation source is `navigation-config.ts` sidebar entries + actual page implementations in `src/pages/merchant/*.tsx`. Flow tables for these features are derived from reading the page source code directly, not from specification documents.
 
 ---
 
@@ -1553,16 +2051,22 @@ A typical merchant's daily routine requires touching these pages:
 |----------|-------|--------|---------------------|
 | Sidebar navigation items (merchant) | **24** | `navigation-config.ts` lines 118-163 (3+4+5+12) | ✅ Verified |
 | State machines | **31** | `state-machines.ts` — all exported `*_TRANSITIONS` constants | ✅ Verified (counted individually) |
+| Features assessed in this document | **32** | 22 from activity diagrams + 10 from navigation/page code | ✅ Complete |
 | Amendment states | **9** | `AMENDMENT_STATUS_TRANSITIONS` lines 217-227 | ✅ Verified |
 | Collections Case states | **7** | `COLLECTIONS_CASE_TRANSITIONS` lines 196-204 | ✅ Verified |
 | ML/AI edge functions | **~14** | Diagram 12 (10 ML + 4 DSS, with OCR overlap) | ⚠️ Approximate — categorization boundaries ambiguous |
 | OCR-related functions | **7** | Diagram 12 (7 document types) | ⚠️ Per diagram, not independently verified |
 | Activity diagrams | **23** | `merchant_activity_diagram.md` | ✅ Per document |
 | Primary merchant actions | **5** | `role-actions.ts` | ✅ Verified |
+| Staff permissions | **16** | `permissions.ts` `PERMISSION_KEYS` | ✅ Verified |
+| Staff roles | **3** | `permissions.ts` `STAFF_ROLE_LABELS` | ✅ Verified |
+| Document template categories | **7** | `DocumentTemplates.tsx` `TEMPLATE_CATEGORIES` | ✅ Verified |
+| Webhook event types | **8** | `ApiIntegration.tsx` `WEBHOOK_EVENTS` | ✅ Verified |
+| InsightsHub sub-tools | **9** | `InsightsHub.tsx` (3 performance + 6 intelligence) | ✅ Verified |
 | Expense categories | **8** | Diagram 17 | ⚠️ Per diagram |
 | Dynamic pricing rule types | **5** | Diagram 21 | ⚠️ Per diagram |
 | Collections resolution types | **4** | Diagram 20 (paid_in_full, payment_plan, write_off, eviction) | ⚠️ Per diagram |
 
 ---
 
-*Document revised with strict source traceability. All 22 features mapped to exact documentation sources. 4 assumptions explicitly labeled with low confidence. 3 items marked as "Not Defined". 2 items marked as "Ambiguous". 2 documentation discrepancies flagged. 0 features without source reference.*
+*Document revised with strict source traceability. All 32 features mapped to exact documentation sources (22 from activity diagrams, 10 from navigation config + page implementations). 4 assumptions explicitly labeled with low confidence. 3 items marked as "Not Defined". 4 items marked as "Ambiguous". 3 documentation discrepancies flagged. 0 features without source reference.*
