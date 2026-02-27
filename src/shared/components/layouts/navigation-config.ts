@@ -10,7 +10,7 @@ import {
     CreditCard,
     FileSearch,
     FileText,
-    Gift,
+    
     Home,
     LayoutDashboard,
     Lightbulb,
@@ -87,7 +87,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/tenant/maintenance", icon: Wrench, label: "Pemeliharaan" },
           { path: "/tenant/orders", icon: ShoppingBag, label: "Pesanan" },
           { path: "/tenant/forum", icon: MessageSquare, label: "Forum" },
-          { path: "/tenant/referrals", icon: Gift, label: "Referral" },
+          
         ],
       },
     ],
@@ -127,7 +127,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/merchant/contracts", icon: ClipboardList, label: "Kontrak", activePatterns: ["/merchant/lease-renewals"] },
           { path: "/merchant/waiting-list", icon: UserCheck, label: "Daftar Tunggu" },
           { path: "/merchant/maintenance", icon: Wrench, label: "Maintenance" },
-          { path: "/merchant/referrals", icon: Gift, label: "Referral" },
+          
         ],
       },
       {
@@ -172,7 +172,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/vendor/assigned-properties", icon: Building2, label: "Properti Assigned" },
           { path: "/vendor/earnings", icon: Wallet, label: "Pendapatan" },
           { path: "/vendor/analytics", icon: BarChart3, label: "Analitik" },
-          { path: "/vendor/referrals", icon: Gift, label: "Referral" },
+          
         ],
       },
     ],
@@ -202,7 +202,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/admin/disputes", icon: AlertTriangle, label: "Sengketa" },
           { path: "/admin/analytics", icon: BarChart3, label: "Analitik" },
           { path: "/admin/platform-config", icon: CreditCard, label: "Konfigurasi" },
-          { path: "/admin/referrals", icon: Users, label: "Referral" },
+          
           { path: "/admin/chatbot", icon: Menu, label: "Chatbot KB" },
           { path: "/admin/orders", icon: ShoppingCart, label: "Pesanan" },
           { path: "/admin/audit-logs", icon: FileText, label: "Log Audit" },
