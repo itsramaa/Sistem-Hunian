@@ -1,167 +1,148 @@
 
 
-# Priority 1: Tenant Screening Gate + Priority 2: Unit Occupancy Board (Kanban)
+# Priority 3: Collections Action Tracker + Priority 4: Payment Verification Dashboard
 
 ## Overview
 
-Two critical features:
-1. **Tenant Screening Gate** -- mandatory pre-contract screening with Green/Yellow/Red scoring, guarantor for high-risk, and gating on contract creation
-2. **Unit Occupancy Board** -- Kanban-style visual board with drag-drop status updates, color-coded unit types, tenant details, and filters
+Two enhancements to strengthen financial control:
+1. **Collections Action Tracker** -- Add interaction logging (calls, SMS, emails), escalation path visualization, message templates, and resolution tracking to the existing Collections module
+2. **Payment Verification Dashboard** -- Enhanced reconciliation page with review workflow, match confidence display, daily/monthly reports, and duplicate/partial payment alerts
 
 ---
 
-## Priority 1: Tenant Screening Gate (Pre-Contract)
+## Priority 3: Collections Action Tracker & Interaction Log
 
-### Phase 1A: Database -- `tenant_screenings` table
+### 3A: Database -- `collections_interactions` table
 
-Create a new `tenant_screenings` table to store structured screening data and results:
+New table to log every contact attempt and outcome for a collections case:
 
 ```text
-tenant_screenings
-  id              uuid PK
-  merchant_id     uuid FK merchants
-  tenant_user_id  uuid (nullable -- for existing tenants)
-  candidate_name  text NOT NULL
-  candidate_email text
-  candidate_phone text
-  occupation      text
-  employer_name   text
-  monthly_income  numeric
-  income_proof_url text (file path in storage)
-  previous_landlord_name  text
-  previous_landlord_phone text
-  previous_rental_notes   text
-  guarantor_name    text
-  guarantor_phone   text
-  guarantor_relation text
-  guarantor_id_url  text (file path in storage)
-  screening_score   numeric (0-100, nullable until scored)
-  screening_grade   text (green/yellow/red)
-  ai_assessment     jsonb (full AI result)
-  status            text (pending/scored/approved/rejected) DEFAULT 'pending'
-  reviewed_by       uuid (merchant user who approved/rejected)
-  reviewed_at       timestamptz
+collections_interactions
+  id                uuid PK DEFAULT gen_random_uuid()
+  case_id           uuid FK collections_cases NOT NULL
+  merchant_id       uuid FK merchants NOT NULL
+  interaction_type  text NOT NULL (call, sms, email, whatsapp, visit, letter)
+  direction         text DEFAULT 'outbound' (inbound, outbound)
+  outcome           text (answered, no_answer, voicemail, promise_to_pay, refused, escalated)
   notes             text
+  contact_person    text
+  follow_up_date    timestamptz
+  created_by        uuid (auth.uid)
   created_at        timestamptz DEFAULT now()
-  updated_at        timestamptz DEFAULT now()
 ```
 
-RLS: merchant can CRUD own screenings. Add `updated_at` trigger. Add state machine `SCREENING_STATUS_TRANSITIONS`.
+RLS: merchant can CRUD own interactions (via `merchant_id = auth.uid()` through merchant lookup).
 
-### Phase 1B: Screening Form UI
+### 3B: Enhance Collections Case State Machine
 
-Create `src/features/screening/` module:
-- `types/index.ts` -- ScreeningFormData type, ScreeningResult type
-- `components/TenantScreeningForm.tsx` -- multi-step form:
-  - Step 1: Personal info (name, email, phone, occupation, employer, income)
-  - Step 2: Rental history (previous landlord name, phone, notes)
-  - Step 3: Income proof upload (file upload to `verification-documents` bucket)
-  - Step 4: Guarantor info (if high-risk or optional)
-- `components/ScreeningScoreCard.tsx` -- displays Green/Yellow/Red badge with score breakdown
-- `components/ScreeningApprovalActions.tsx` -- Approve/Reject buttons for Red-scored tenants
-- `hooks/useScreening.ts` -- CRUD mutations for tenant_screenings table
-- `services/screeningService.ts` -- Supabase queries + invoke `ml-tenant-quality-scoring` for AI scoring
+Expand `COLLECTIONS_CASE_TRANSITIONS` to support the full escalation path:
 
-### Phase 1C: Screening Gate in Contract Creation Flow
-
-Modify the contract creation workflow:
-1. **`CreateContractDialog.tsx`** -- add a screening gate step:
-   - When merchant selects a tenant, check if a valid screening exists (status = 'approved' or grade = 'green'/'yellow')
-   - If no screening or screening grade = 'red' without approval: block contract creation with message "Screening diperlukan sebelum membuat kontrak"
-   - Show link to run screening
-2. **`useContractActions.ts`** -- add screening validation before `createContractMutation.mutate()`
-3. If screening grade = 'red', require `reviewed_by` to be set (merchant must explicitly approve)
-4. If screening grade = 'yellow', show warning but allow proceed
-5. If screening grade = 'green', auto-proceed
-
-### Phase 1D: AI Scoring Integration
-
-Reuse the existing `ml-tenant-quality-scoring` edge function but enhance the screening service to:
-- Map `tenant_screenings` form data to `ScreeningData` format
-- After AI returns result, update `tenant_screenings` with `screening_score`, `screening_grade` (mapped from quality_grade: A/B = green, C = yellow, D/F = red), and full `ai_assessment`
-- Auto-set status to 'scored'
-
-### Phase 1E: Screening Page
-
-Create `src/pages/merchant/TenantScreening.tsx`:
-- Table of all screenings (filterable by grade, status)
-- "New Screening" button opens `TenantScreeningForm`
-- Detail view shows score card + approval actions
-- Add to merchant nav under "Operasional" group
-
-### Phase 1F: Guarantor Handling
-
-- If screening_grade = 'red', make guarantor fields mandatory before approval
-- Store guarantor ID document in `verification-documents` bucket
-- Display guarantor info on screening detail and contract detail
-
----
-
-## Priority 2: Unit Occupancy Board (Kanban)
-
-### Phase 2A: Kanban Board Page
-
-Create `src/pages/merchant/OccupancyBoard.tsx`:
-- 4 columns: **Occupied** | **Vacant-Available** | **Vacant-Maintenance** | **Notice-Received**
-- Each unit rendered as a card with:
-  - Unit number + property name
-  - Color stripe by unit_type (single=blue, double=green, studio=orange, suite=purple, other=gray)
-  - Tenant name (if occupied/notice)
-  - Contract end date (if occupied/notice)
-  - Rent amount
-  - Mini badge for pending maintenance count
-
-### Phase 2B: Kanban Components
-
-Create `src/features/properties/components/occupancy/`:
-- `OccupancyBoard.tsx` -- main board container with 4 columns
-- `OccupancyColumn.tsx` -- single column with drop zone (HTML5 drag-and-drop, no extra library)
-- `OccupancyCard.tsx` -- draggable unit card with color coding
-- `OccupancyFilters.tsx` -- filter bar (floor, unit_type, price range, property)
-- `OccupancyStats.tsx` -- summary strip (total, occupied %, vacant count, maintenance count)
-
-### Phase 2C: Drag-and-Drop Status Update
-
-Implement native HTML5 drag-and-drop (no additional library needed):
-- Drag a card from one column to another
-- On drop, call `unitService.updateUnit(id, { status: newStatus })` 
-- Map columns: Occupied -> `occupied`, Vacant-Available -> `available`, Vacant-Maintenance -> `maintenance`, Notice-Received -> uses contract `notice` status (read-only column, no drop)
-- Show confirmation dialog for status changes (e.g., "Pindahkan unit ke Maintenance?")
-- Refresh data after mutation
-
-### Phase 2D: Data Enrichment
-
-Create `src/features/properties/hooks/useOccupancyBoard.ts`:
-- Fetch all merchant units with property info
-- Join with active contracts to get tenant name + end date for occupied units
-- Join with contracts in 'notice' status for notice column
-- Join with maintenance_requests count for each unit
-- All in a single optimized query
-
-### Phase 2E: Navigation + Route
-
-- Add route in `App.tsx`: `/merchant/occupancy-board` -> `OccupancyBoard`
-- Add nav item in merchant "Utama" group: icon `LayoutGrid`, label "Papan Okupansi"
-
-### Phase 2F: Responsive Design
-
-- Desktop: 4 columns side by side
-- Tablet: 2x2 grid
-- Mobile: vertical stack, swipeable tabs for each column
-
----
-
-## State Machine Addition
-
-Add to `state-machines.ts`:
 ```typescript
-export const SCREENING_STATUS_TRANSITIONS: Record<string, string[]> = {
-  pending: ['scored'],
-  scored: ['approved', 'rejected'],
-  approved: [],   // terminal
-  rejected: ['pending'],  // allow re-screening
+export const COLLECTIONS_CASE_TRANSITIONS: Record<string, string[]> = {
+  initiated: ['reminder_sent'],
+  reminder_sent: ['follow_up', 'in_progress'],
+  follow_up: ['in_progress', 'escalated'],
+  in_progress: ['escalated', 'resolved'],
+  escalated: ['legal', 'resolved'],
+  legal: ['resolved'],
+  resolved: [],  // terminal -- resolution_type: paid_in_full | payment_plan | write_off | eviction | bad_debt
 };
 ```
+
+### 3C: Collections Interaction Log UI
+
+Create new components in `src/features/collections/components/`:
+
+- **`InteractionLogDialog.tsx`** -- Modal to add a new interaction (type, outcome, notes, follow-up date)
+- **`InteractionTimeline.tsx`** -- Chronological timeline of all interactions for a case (styled as vertical timeline with icons per type)
+- **`EscalationPathIndicator.tsx`** -- Visual horizontal stepper showing: Reminder (T+3) -> Follow-up (T+7) -> Case (T+15) -> Legal (T+30), highlighting current position
+
+### 3D: Message Templates
+
+Create `src/features/collections/components/templates/`:
+
+- **`CollectionsTemplateSelector.tsx`** -- Dropdown to select template type (SMS reminder, WhatsApp follow-up, Warning letter, Legal notice)
+- **`CollectionsTemplatePreview.tsx`** -- Preview with auto-filled placeholders (tenant name, amount, days overdue, invoice number, due date)
+- Templates stored as constants in `src/features/collections/constants/messageTemplates.ts` (4 templates: friendly reminder, firm follow-up, warning letter, legal notice)
+
+### 3E: Resolution Tracking Enhancement
+
+Modify `CollectionsCasesList.tsx`:
+- Add resolution type options: `paid_in_full`, `payment_plan`, `write_off`, `eviction`, `bad_debt`
+- Show resolution dialog when transitioning to `resolved` status
+- Add interaction count badge per case row
+
+### 3F: Enhanced Collections Case Detail
+
+Create **`CollectionsCaseDetail.tsx`** -- Expandable detail panel per case showing:
+- Case summary (invoice, tenant, amount, days overdue)
+- Escalation path indicator
+- Interaction timeline
+- Quick action buttons: Log Call, Send SMS Template, Send Warning Letter
+- Resolution actions
+
+### 3G: Service Layer
+
+Extend `collectionsCaseService.ts`:
+- `addInteraction(caseId, data)` -- insert into `collections_interactions`
+- `fetchInteractions(caseId)` -- fetch all interactions for a case
+- `fetchCaseWithInteractions(caseId)` -- case + interactions + reminder history from `payment_reminders_log`
+
+Create `src/features/collections/hooks/useCollectionsInteractions.ts` with TanStack Query mutations.
+
+---
+
+## Priority 4: Payment Verification Review Dashboard
+
+### 4A: Enhanced Reconciliation Page
+
+Refactor `src/pages/merchant/Reconciliation.tsx` into a tabbed layout:
+
+- **Tab 1: "Perlu Review"** -- Current unmatched payments (existing) + enhanced with match confidence, proof photo preview, duplicate/partial flags
+- **Tab 2: "Riwayat Cocok"** -- Match history table (already have `fetchMatchHistory` in service)
+- **Tab 3: "Laporan"** -- Daily/monthly reconciliation summary report
+
+### 4B: Enhanced Payment Review Card
+
+Create `src/features/reconciliation/components/PaymentReviewCard.tsx`:
+- Side-by-side layout: Payment details (left) | Matched invoice details (right)
+- Match confidence bar (color-coded: green >90%, yellow 50-90%, red <50%)
+- Proof photo thumbnail (clickable to enlarge) from `proof_photo_url`
+- Flags: `duplicate` badge (if another payment with same amount+date+tenant exists), `partial` badge (if amount < invoice total)
+
+### 4C: Reconciliation Report
+
+Create `src/features/reconciliation/components/ReconciliationReport.tsx`:
+- Date range picker (daily/weekly/monthly)
+- Summary cards: Total received, Total matched, Total unmatched, Match rate %
+- Table: All payments in period with match status
+- Export-ready layout
+
+### 4D: Duplicate & Partial Payment Detection
+
+Enhance `reconciliationService.ts`:
+- `detectDuplicates(merchantId)` -- find payments with same amount, tenant, and paid_at within 24h window
+- Add `flags` field to `UnmatchedPayment` type: `duplicate`, `partial`, `overpayment`
+- Flag calculation done in `fetchUnmatchedPayments` by comparing payment amount vs suggested invoice amounts
+
+### 4E: Match History with Confidence
+
+Create `src/features/reconciliation/components/MatchHistoryTable.tsx`:
+- Table of all matched payments with: payment ref, invoice number, amount, match type (auto/manual), confidence %, date
+- Filter by match type, date range
+- Uses existing `fetchMatchHistory` service method
+
+### 4F: Reconciliation Hook Enhancement
+
+Extend `useReconciliation.ts`:
+- Add `matchHistory` query using `reconciliationService.fetchMatchHistory`
+- Add `reconciliationStats` computed from match history (match rate, avg confidence, etc.)
+
+---
+
+## Navigation Updates
+
+No new routes needed -- Priority 3 enhances existing `/merchant/collections` page, Priority 4 enhances existing `/merchant/reconciliation` page.
 
 ---
 
@@ -169,35 +150,36 @@ export const SCREENING_STATUS_TRANSITIONS: Record<string, string[]> = {
 
 | Action | File | Description |
 |--------|------|-------------|
-| CREATE | DB migration | `tenant_screenings` table + RLS + updated_at trigger |
-| CREATE | `src/features/screening/types/index.ts` | Screening types |
-| CREATE | `src/features/screening/services/screeningService.ts` | DB queries + AI invoke |
-| CREATE | `src/features/screening/hooks/useScreening.ts` | TanStack Query mutations |
-| CREATE | `src/features/screening/components/TenantScreeningForm.tsx` | Multi-step screening form |
-| CREATE | `src/features/screening/components/ScreeningScoreCard.tsx` | Green/Yellow/Red score display |
-| CREATE | `src/features/screening/components/ScreeningApprovalActions.tsx` | Approve/Reject for red scores |
-| CREATE | `src/features/screening/components/ScreeningTable.tsx` | List all screenings |
-| CREATE | `src/pages/merchant/TenantScreening.tsx` | Screening management page |
-| MODIFY | `src/features/contracts/components/CreateContractDialog.tsx` | Add screening gate |
-| MODIFY | `src/features/contracts/hooks/useContractActions.ts` | Screening validation |
-| MODIFY | `src/shared/constants/state-machines.ts` | Add SCREENING_STATUS_TRANSITIONS |
-| CREATE | `src/features/properties/components/occupancy/OccupancyBoard.tsx` | Kanban board container |
-| CREATE | `src/features/properties/components/occupancy/OccupancyColumn.tsx` | Droppable column |
-| CREATE | `src/features/properties/components/occupancy/OccupancyCard.tsx` | Draggable unit card |
-| CREATE | `src/features/properties/components/occupancy/OccupancyFilters.tsx` | Filter bar |
-| CREATE | `src/features/properties/components/occupancy/OccupancyStats.tsx` | Stats strip |
-| CREATE | `src/features/properties/hooks/useOccupancyBoard.ts` | Data fetching hook |
-| CREATE | `src/pages/merchant/OccupancyBoard.tsx` | Board page |
-| MODIFY | `src/App.tsx` | Add routes |
-| MODIFY | `navigation-config.ts` | Add nav items |
-| MODIFY | `old-docs/PMS_Audit_Report_FULL.md` | Update status to COMPLETE |
+| CREATE | DB migration | `collections_interactions` table + RLS |
+| CREATE | `src/features/collections/components/InteractionLogDialog.tsx` | Log call/SMS/email modal |
+| CREATE | `src/features/collections/components/InteractionTimeline.tsx` | Vertical timeline UI |
+| CREATE | `src/features/collections/components/EscalationPathIndicator.tsx` | Horizontal stepper |
+| CREATE | `src/features/collections/components/templates/CollectionsTemplateSelector.tsx` | Template picker |
+| CREATE | `src/features/collections/components/templates/CollectionsTemplatePreview.tsx` | Preview with placeholders |
+| CREATE | `src/features/collections/constants/messageTemplates.ts` | 4 message templates |
+| CREATE | `src/features/collections/components/cases/CollectionsCaseDetail.tsx` | Expanded case detail |
+| CREATE | `src/features/collections/components/cases/ResolutionDialog.tsx` | Resolution type picker |
+| CREATE | `src/features/collections/hooks/useCollectionsInteractions.ts` | Interaction CRUD hooks |
+| MODIFY | `src/features/collections/services/collectionsCaseService.ts` | Add interaction methods |
+| MODIFY | `src/features/collections/components/cases/CollectionsCasesList.tsx` | Add detail expand, interaction count |
+| MODIFY | `src/shared/constants/state-machines.ts` | Expand COLLECTIONS_CASE_TRANSITIONS |
+| MODIFY | `src/pages/merchant/Collections.tsx` | Enhanced cases tab with detail panel |
+| CREATE | `src/features/reconciliation/components/PaymentReviewCard.tsx` | Side-by-side review |
+| CREATE | `src/features/reconciliation/components/MatchHistoryTable.tsx` | Match history table |
+| CREATE | `src/features/reconciliation/components/ReconciliationReport.tsx` | Daily/monthly report |
+| MODIFY | `src/features/reconciliation/services/reconciliationService.ts` | Add duplicate detection, flags |
+| MODIFY | `src/features/reconciliation/hooks/useReconciliation.ts` | Add match history query |
+| MODIFY | `src/pages/merchant/Reconciliation.tsx` | Tabbed layout with 3 tabs |
+| MODIFY | `src/features/reconciliation/components/UnmatchedPaymentsTable.tsx` | Add flags badges, proof preview |
+| MODIFY | `old-docs/PMS_Audit_Report_FULL.md` | Mark Priority 3 & 4 as COMPLETE |
 
 ---
 
 ## Technical Notes
 
-- **No new npm packages** -- HTML5 drag-and-drop is sufficient for the Kanban board
-- Screening reuses existing `ml-tenant-quality-scoring` edge function via `screening_data` parameter
-- File uploads for income proof and guarantor ID reuse existing `verification-documents` bucket
-- Unit type color coding uses Tailwind classes mapped from `unit_type` field
-- The screening gate is a soft gate for green/yellow and hard gate for red (requires explicit merchant approval)
+- No new npm packages needed -- all UI built with existing Radix/shadcn components
+- `collections_interactions` uses RLS based on `merchant_id` matching merchant ownership
+- Message templates are client-side constants (not stored in DB) -- they auto-fill with case data for copy-paste use
+- Duplicate detection uses a simple SQL window: same `tenant_user_id` + amount within 24h = flagged
+- The expanded escalation path (6 statuses) is backward-compatible -- existing `initiated` and `in_progress` cases remain valid
+
