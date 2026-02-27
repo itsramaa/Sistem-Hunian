@@ -1498,6 +1498,80 @@ export type Database = {
           },
         ]
       }
+      document_templates: {
+        Row: {
+          category: string
+          content: string
+          created_at: string
+          description: string | null
+          id: string
+          is_default: boolean
+          is_system: boolean
+          merchant_id: string | null
+          name: string
+          updated_at: string
+          variables: Json | null
+          version: number
+        }
+        Insert: {
+          category: string
+          content?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean
+          is_system?: boolean
+          merchant_id?: string | null
+          name: string
+          updated_at?: string
+          variables?: Json | null
+          version?: number
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean
+          is_system?: boolean
+          merchant_id?: string | null
+          name?: string
+          updated_at?: string
+          variables?: Json | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_templates_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_occupancy_analysis"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "document_templates_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "document_templates_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_templates_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dss_recommendations: {
         Row: {
           accepted_at: string | null
@@ -7813,6 +7887,317 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      utility_charges: {
+        Row: {
+          allocation_method: string
+          billing_period: string
+          contract_id: string | null
+          created_at: string
+          id: string
+          invoice_id: string | null
+          merchant_id: string
+          property_id: string
+          quantity: number | null
+          rate: number | null
+          status: string
+          tenant_user_id: string | null
+          total_cost: number
+          unit_id: string
+          unit_share: number
+          utility_type: string
+        }
+        Insert: {
+          allocation_method: string
+          billing_period: string
+          contract_id?: string | null
+          created_at?: string
+          id?: string
+          invoice_id?: string | null
+          merchant_id: string
+          property_id: string
+          quantity?: number | null
+          rate?: number | null
+          status?: string
+          tenant_user_id?: string | null
+          total_cost?: number
+          unit_id: string
+          unit_share?: number
+          utility_type: string
+        }
+        Update: {
+          allocation_method?: string
+          billing_period?: string
+          contract_id?: string | null
+          created_at?: string
+          id?: string
+          invoice_id?: string | null
+          merchant_id?: string
+          property_id?: string
+          quantity?: number | null
+          rate?: number | null
+          status?: string
+          tenant_user_id?: string | null
+          total_cost?: number
+          unit_id?: string
+          unit_share?: number
+          utility_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "utility_charges_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "utility_charges_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "utility_charges_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_outstanding_summary"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "utility_charges_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_occupancy_analysis"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "utility_charges_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "utility_charges_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "utility_charges_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "utility_charges_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "utility_charges_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "utility_charges_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      utility_meter_readings: {
+        Row: {
+          created_at: string
+          current_reading: number
+          id: string
+          merchant_id: string
+          notes: string | null
+          photo_url: string | null
+          previous_reading: number
+          property_id: string
+          rate_per_unit: number
+          reading_date: string
+          unit_id: string
+          usage: number | null
+          utility_type: string
+        }
+        Insert: {
+          created_at?: string
+          current_reading?: number
+          id?: string
+          merchant_id: string
+          notes?: string | null
+          photo_url?: string | null
+          previous_reading?: number
+          property_id: string
+          rate_per_unit?: number
+          reading_date: string
+          unit_id: string
+          usage?: number | null
+          utility_type: string
+        }
+        Update: {
+          created_at?: string
+          current_reading?: number
+          id?: string
+          merchant_id?: string
+          notes?: string | null
+          photo_url?: string | null
+          previous_reading?: number
+          property_id?: string
+          rate_per_unit?: number
+          reading_date?: string
+          unit_id?: string
+          usage?: number | null
+          utility_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "utility_meter_readings_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_occupancy_analysis"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "utility_meter_readings_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "utility_meter_readings_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "utility_meter_readings_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "utility_meter_readings_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "utility_meter_readings_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "utility_meter_readings_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      utility_settings: {
+        Row: {
+          allocation_method: string
+          created_at: string
+          fixed_monthly: number | null
+          id: string
+          is_active: boolean
+          merchant_id: string
+          property_id: string
+          rate_per_unit: number | null
+          updated_at: string
+          utility_type: string
+          weight_config: Json | null
+        }
+        Insert: {
+          allocation_method?: string
+          created_at?: string
+          fixed_monthly?: number | null
+          id?: string
+          is_active?: boolean
+          merchant_id: string
+          property_id: string
+          rate_per_unit?: number | null
+          updated_at?: string
+          utility_type: string
+          weight_config?: Json | null
+        }
+        Update: {
+          allocation_method?: string
+          created_at?: string
+          fixed_monthly?: number | null
+          id?: string
+          is_active?: boolean
+          merchant_id?: string
+          property_id?: string
+          rate_per_unit?: number | null
+          updated_at?: string
+          utility_type?: string
+          weight_config?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "utility_settings_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_occupancy_analysis"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "utility_settings_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "utility_settings_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "utility_settings_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "utility_settings_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "utility_settings_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vendor_bank_accounts: {
         Row: {

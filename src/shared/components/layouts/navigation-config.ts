@@ -1,6 +1,7 @@
 import {
     AlertTriangle,
     BarChart3,
+    FileStack,
     
     Briefcase,
     Building2,
@@ -11,6 +12,7 @@ import {
     CreditCard,
     FileSearch,
     FileText,
+    Gauge,
     
     Home,
     LayoutDashboard,
@@ -141,6 +143,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
         items: [
           { path: "/merchant/invoices", icon: FileText, label: "Tagihan" },
           { path: "/merchant/payments", icon: Wallet, label: "Pembayaran" },
+          { path: "/merchant/utility-billing", icon: Gauge, label: "Utilitas" },
           { path: "/merchant/collections", icon: FileSearch, label: "Penagihan" },
           { path: "/merchant/reconciliation", icon: Calculator, label: "Resolusi & Rekonsiliasi" },
           { path: "/merchant/expenses", icon: CreditCard, label: "Pengeluaran" },
@@ -152,6 +155,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
         label: "Wawasan",
         items: [
           { path: "/merchant/reports", icon: FileText, label: "Laporan", activePatterns: ["/merchant/report-templates"] },
+          { path: "/merchant/document-templates", icon: FileStack, label: "Template Dokumen" },
           { path: "/merchant/insights", icon: BarChart3, label: "Alat", activePatterns: ["/merchant/analytics", "/merchant/ai-insights", "/merchant/analytics-dashboard", "/merchant/comparative-portfolio", "/merchant/ml-analytics", "/merchant/dss-advisor", "/merchant/market-intelligence", "/merchant/financial-risk", "/merchant/tenant-quality", "/merchant/data-quality", "/merchant/documents"] },
         ],
       },
