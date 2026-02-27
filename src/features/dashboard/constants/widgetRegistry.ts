@@ -12,6 +12,7 @@ export const WIDGET_REGISTRY: WidgetDefinition[] = [
   { id: 'property_overview', label: 'Rincian Detail', description: 'Ringkasan properti dan keuangan', defaultVisible: true },
   { id: 'vacancy', label: 'Manajemen Kekosongan', description: 'Lacak dan kelola unit kosong', defaultVisible: true },
   { id: 'occupancy_forecast', label: 'Prediksi Okupansi', description: 'Prediksi okupansi bulan depan dan tren', defaultVisible: true },
+  { id: 'alerts_events', label: 'Peringatan & Acara', description: 'Tagihan overdue, maintenance tertunda, kontrak berakhir', defaultVisible: true },
 ];
 
 export const DEFAULT_WIDGET_ORDER = WIDGET_REGISTRY.map(w => w.id);

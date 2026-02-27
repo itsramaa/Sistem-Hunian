@@ -5,6 +5,7 @@ import { usePropertyContext } from '@/shared/stores/propertyContext';
 import { InteractiveDashboardCharts } from '@/features/dashboard/components/InteractiveDashboardCharts';
 import { VacancyDashboard } from '@/features/dashboard/components/VacancyDashboard';
 import { OccupancyForecastWidget } from '@/features/dashboard/components/OccupancyForecastWidget';
+import { AlertsEventsWidget } from '@/features/dashboard/components/AlertsEventsWidget';
 import { SubscriptionWidget } from '@/features/subscriptions/components/SubscriptionWidget';
 import { MerchantQuickStartChecklist } from '@/features/launch/components/MerchantQuickStartChecklist';
 import { TrialCountdownWidget } from '@/features/subscriptions/components/TrialCountdownWidget';
@@ -16,6 +17,7 @@ import { useDashboardPreferences, useSaveDashboardPreferences } from '@/features
 import { getOrderedWidgets, DEFAULT_WIDGET_ORDER } from '@/features/dashboard/constants/widgetRegistry';
 
 import { Alert, AlertDescription } from '@/shared/components/ui/alert';
+import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/shared/components/ui/collapsible';
@@ -114,7 +116,12 @@ export default function MerchantDashboard() {
               <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-success/20 to-success/5 flex items-center justify-center"><Home className="h-4 w-4 text-success" /></div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{Math.round(stats?.properties.occupancyRate || 0)}%</div>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-bold">{Math.round(stats?.properties.occupancyRate || 0)}%</span>
+                <Badge className={`text-[10px] ${(stats?.properties.occupancyRate || 0) >= 80 ? 'bg-success/20 text-success border-success/30' : (stats?.properties.occupancyRate || 0) >= 50 ? 'bg-warning/20 text-warning border-warning/30' : 'bg-destructive/20 text-destructive border-destructive/30'}`}>
+                  {(stats?.properties.occupancyRate || 0) >= 80 ? 'BAIK' : (stats?.properties.occupancyRate || 0) >= 50 ? 'PERHATIAN' : 'KRITIS'}
+                </Badge>
+              </div>
               <Progress value={stats?.properties.occupancyRate || 0} className={`mt-2 h-2 rounded-full ${(stats?.properties.occupancyRate || 0) >= 80 ? '[&>div]:bg-success' : (stats?.properties.occupancyRate || 0) >= 50 ? '[&>div]:bg-warning' : '[&>div]:bg-destructive'}`} />
               <p className="mt-1 text-xs text-muted-foreground">{stats?.properties.occupiedUnits || 0} terisi / {stats?.properties.totalUnits || 0} total</p>
             </CardContent>
@@ -146,7 +153,12 @@ export default function MerchantDashboard() {
               <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-accent/20 to-accent/5 flex items-center justify-center"><Wallet className="h-4 w-4 text-accent" /></div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(stats?.financials.monthlyRevenue || 0)}</div>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-bold">{formatCurrency(stats?.financials.monthlyRevenue || 0)}</span>
+                <Badge className={`text-[10px] ${(stats?.financials.revenueGrowth || 0) > 0 ? 'bg-success/20 text-success border-success/30' : (stats?.financials.revenueGrowth || 0) === 0 ? 'bg-muted text-muted-foreground' : 'bg-destructive/20 text-destructive border-destructive/30'}`}>
+                  {(stats?.financials.revenueGrowth || 0) > 0 ? `+${Math.round(stats?.financials.revenueGrowth || 0)}%` : (stats?.financials.revenueGrowth || 0) === 0 ? 'STABIL' : `${Math.round(stats?.financials.revenueGrowth || 0)}%`}
+                </Badge>
+              </div>
               <p className="text-xs text-muted-foreground">vs {formatCurrency(stats?.financials.lastMonthRevenue || 0)} bulan lalu</p>
             </CardContent>
           </Card>
@@ -283,6 +295,10 @@ export default function MerchantDashboard() {
       <section className="space-y-4">
         <OccupancyForecastWidget />
       </section>
+    ),
+
+    alerts_events: () => (
+      <AlertsEventsWidget stats={stats} />
     ),
   };
 

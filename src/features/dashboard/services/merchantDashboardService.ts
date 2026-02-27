@@ -1,6 +1,13 @@
 import { supabase } from "@/lib/integrations/supabase/client";
 import { getCurrentMonthDateRange, getPreviousMonthDateRange } from "@/shared/utils/dateUtils";
 
+export interface UpcomingEvent {
+  type: 'contract_ending' | 'scheduled_maintenance';
+  description: string;
+  date: string;
+  link?: string;
+}
+
 export interface MerchantDashboardStats {
   properties: {
     total: number;
@@ -26,6 +33,12 @@ export interface MerchantDashboardStats {
     lastMonthActive: number;
     growth: number;
   };
+  alerts: {
+    overdueInvoices: { count: number; totalAmount: number };
+    staleMaintenance: number;
+    expiringContracts: number;
+    upcomingEvents: UpcomingEvent[];
+  };
 }
 
 export const merchantDashboardService = {
@@ -34,13 +47,24 @@ export const merchantDashboardService = {
     const lastMonth = getPreviousMonthDateRange();
 
     // Parallelize queries for performance
+    const fiveDaysAgo = new Date();
+    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    const sixtyDaysFromNow = new Date();
+    sixtyDaysFromNow.setDate(sixtyDaysFromNow.getDate() + 60);
+
     const [
       propertiesRes,
       escrowRes,
       activeTenantsRes,
       monthlyPaymentsRes,
       lastMonthPaymentsRes,
-      lastMonthTenantsRes
+      lastMonthTenantsRes,
+      overdueInvoicesRes,
+      staleMaintenanceRes,
+      expiringContractsRes,
+      upcomingContractsRes
     ] = await Promise.all([
       // 1. Fetch properties
       (() => {
@@ -49,7 +73,7 @@ export const merchantDashboardService = {
         return q;
       })(),
 
-      // 2. Fetch payment transfers balance (direct payment model)
+      // 2. Fetch payment transfers balance
       (supabase as any)
         .from('payment_transfers')
         .select('net_amount, status')
@@ -84,7 +108,42 @@ export const merchantDashboardService = {
       (() => {
         let q = supabase.from('contracts').select('id', { count: 'exact', head: true }).eq('merchant_id', merchantId).eq('status', 'active').lte('created_at', lastMonth.end.toISOString());
         return q;
-      })()
+      })(),
+
+      // 7. Overdue invoices
+      (supabase as any)
+        .from('invoices')
+        .select('total_amount')
+        .eq('merchant_id', merchantId)
+        .in('status', ['overdue', 'escalated']),
+
+      // 8. Stale maintenance (pending > 5 days)
+      supabase
+        .from('maintenance_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('merchant_id', merchantId)
+        .eq('status', 'pending')
+        .lte('created_at', fiveDaysAgo.toISOString()),
+
+      // 9. Expiring contracts (within 30 days)
+      supabase
+        .from('contracts')
+        .select('id', { count: 'exact', head: true })
+        .eq('merchant_id', merchantId)
+        .eq('status', 'active')
+        .lte('end_date', thirtyDaysFromNow.toISOString())
+        .gte('end_date', new Date().toISOString()),
+
+      // 10. Upcoming contract endings (30-60 days) for events
+      supabase
+        .from('contracts')
+        .select('id, end_date, unit_id')
+        .eq('merchant_id', merchantId)
+        .eq('status', 'active')
+        .gt('end_date', thirtyDaysFromNow.toISOString())
+        .lte('end_date', sixtyDaysFromNow.toISOString())
+        .order('end_date', { ascending: true })
+        .limit(5)
     ]);
 
     // Error handling could be more robust, but we'll throw for now to let React Query handle it
@@ -121,6 +180,21 @@ export const merchantDashboardService = {
       tenantGrowth = 100;
     }
 
+    // Process Alerts
+    const overdueInvoicesList = overdueInvoicesRes.data || [];
+    const overdueInvoicesCount = overdueInvoicesList.length;
+    const overdueInvoicesTotal = overdueInvoicesList.reduce((sum: number, inv: any) => sum + Number(inv.total_amount || 0), 0);
+    const staleMaintenanceCount = staleMaintenanceRes.count || 0;
+    const expiringContractsCount = expiringContractsRes.count || 0;
+
+    // Process Upcoming Events
+    const upcomingEvents: UpcomingEvent[] = (upcomingContractsRes.data || []).map((c: any) => ({
+      type: 'contract_ending' as const,
+      description: `Kontrak unit ${c.unit_id?.substring(0, 8)} berakhir`,
+      date: c.end_date,
+      link: `/merchant/contracts`,
+    }));
+
     return {
       properties: {
         total: totalProperties,
@@ -130,7 +204,7 @@ export const merchantDashboardService = {
         list: properties
       },
       financials: {
-        balance: 0, // Direct payment model — no escrow balance
+        balance: 0,
         pendingBalance,
         monthlyRevenue,
         lastMonthRevenue,
@@ -140,7 +214,14 @@ export const merchantDashboardService = {
         active: activeTenants,
         lastMonthActive,
         growth: tenantGrowth
+      },
+      alerts: {
+        overdueInvoices: { count: overdueInvoicesCount, totalAmount: overdueInvoicesTotal },
+        staleMaintenance: staleMaintenanceCount,
+        expiringContracts: expiringContractsCount,
+        upcomingEvents
       }
     };
   }
 };
+
