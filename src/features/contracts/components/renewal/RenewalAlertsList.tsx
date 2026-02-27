@@ -1,6 +1,8 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
 import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
 import { Skeleton } from '@/shared/components/ui/skeleton';
+import { Send } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { id } from 'date-fns/locale';
 import type { RenewalAlert } from '../../services/renewalService';
@@ -8,7 +10,7 @@ import type { RenewalAlert } from '../../services/renewalService';
 function urgencyBadge(endDate: string) {
   const days = differenceInDays(new Date(endDate), new Date());
   if (days <= 7) return <Badge variant="destructive">{days} hari lagi</Badge>;
-  if (days <= 30) return <Badge variant="secondary">{days} hari lagi</Badge>;
+  if (days <= 30) return <Badge variant="destructive">{days} hari lagi</Badge>;
   return <Badge variant="secondary">{days} hari lagi</Badge>;
 }
 
@@ -19,9 +21,10 @@ function formatCurrency(v: number) {
 interface Props {
   alerts?: RenewalAlert[];
   loading?: boolean;
+  onCreateOffer?: (alert: RenewalAlert) => void;
 }
 
-export function RenewalAlertsList({ alerts, loading }: Props) {
+export function RenewalAlertsList({ alerts, loading, onCreateOffer }: Props) {
   if (loading) return <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>;
 
   if (!alerts?.length) return <p className="text-center text-muted-foreground py-8">Tidak ada kontrak yang akan berakhir dalam 90 hari</p>;
@@ -36,6 +39,7 @@ export function RenewalAlertsList({ alerts, loading }: Props) {
             <TableHead>Berakhir</TableHead>
             <TableHead>Sewa</TableHead>
             <TableHead>Urgensi</TableHead>
+            {onCreateOffer && <TableHead>Aksi</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -46,6 +50,13 @@ export function RenewalAlertsList({ alerts, loading }: Props) {
               <TableCell>{format(new Date(a.endDate), 'dd MMM yyyy', { locale: id })}</TableCell>
               <TableCell>{formatCurrency(a.rentAmount)}</TableCell>
               <TableCell>{urgencyBadge(a.endDate)}</TableCell>
+              {onCreateOffer && (
+                <TableCell>
+                  <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => onCreateOffer(a)}>
+                    <Send className="h-3 w-3" /> Buat Penawaran
+                  </Button>
+                </TableCell>
+              )}
             </TableRow>
           ))}
         </TableBody>

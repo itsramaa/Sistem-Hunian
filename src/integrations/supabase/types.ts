@@ -809,11 +809,18 @@ export type Database = {
           effective_date: string | null
           id: string
           merchant_id: string
+          merchant_offer: Json | null
+          merchant_signature: string | null
+          negotiation_status: string | null
           new_values: Json | null
           notes: string | null
           old_values: Json | null
           signed_at: string | null
           status: string
+          tenant_counter_offer: Json | null
+          tenant_signature: string | null
+          tenant_signed_at: string | null
+          tenant_user_id: string | null
           updated_at: string
         }
         Insert: {
@@ -823,11 +830,18 @@ export type Database = {
           effective_date?: string | null
           id?: string
           merchant_id: string
+          merchant_offer?: Json | null
+          merchant_signature?: string | null
+          negotiation_status?: string | null
           new_values?: Json | null
           notes?: string | null
           old_values?: Json | null
           signed_at?: string | null
           status?: string
+          tenant_counter_offer?: Json | null
+          tenant_signature?: string | null
+          tenant_signed_at?: string | null
+          tenant_user_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -837,11 +851,18 @@ export type Database = {
           effective_date?: string | null
           id?: string
           merchant_id?: string
+          merchant_offer?: Json | null
+          merchant_signature?: string | null
+          negotiation_status?: string | null
           new_values?: Json | null
           notes?: string | null
           old_values?: Json | null
           signed_at?: string | null
           status?: string
+          tenant_counter_offer?: Json | null
+          tenant_signature?: string | null
+          tenant_signed_at?: string | null
+          tenant_user_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -5326,6 +5347,123 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      preventive_maintenance_schedules: {
+        Row: {
+          category: string
+          created_at: string | null
+          custom_interval_days: number | null
+          description: string | null
+          estimated_cost: number | null
+          frequency: string
+          id: string
+          is_active: boolean | null
+          last_executed_date: string | null
+          merchant_id: string
+          next_scheduled_date: string
+          preferred_vendor_id: string | null
+          priority: string | null
+          property_id: string | null
+          title: string
+          unit_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string | null
+          custom_interval_days?: number | null
+          description?: string | null
+          estimated_cost?: number | null
+          frequency?: string
+          id?: string
+          is_active?: boolean | null
+          last_executed_date?: string | null
+          merchant_id: string
+          next_scheduled_date: string
+          preferred_vendor_id?: string | null
+          priority?: string | null
+          property_id?: string | null
+          title: string
+          unit_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          custom_interval_days?: number | null
+          description?: string | null
+          estimated_cost?: number | null
+          frequency?: string
+          id?: string
+          is_active?: boolean | null
+          last_executed_date?: string | null
+          merchant_id?: string
+          next_scheduled_date?: string
+          preferred_vendor_id?: string | null
+          priority?: string | null
+          property_id?: string | null
+          title?: string
+          unit_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preventive_maintenance_schedules_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_occupancy_analysis"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "preventive_maintenance_schedules_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "preventive_maintenance_schedules_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_maintenance_schedules_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_maintenance_schedules_preferred_vendor_id_fkey"
+            columns: ["preferred_vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_maintenance_schedules_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_maintenance_schedules_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "v_properties_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_maintenance_schedules_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       products: {
         Row: {

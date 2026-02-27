@@ -24,6 +24,33 @@ export interface ContractAmendment {
   notes: string | null;
   signedAt: string | null;
   createdAt: string;
+  negotiationStatus: string | null;
+  merchantOffer: Record<string, any> | null;
+  tenantCounterOffer: Record<string, any> | null;
+  merchantSignature: string | null;
+  tenantSignature: string | null;
+  tenantSignedAt: string | null;
+}
+
+function mapAmendment(r: any): ContractAmendment {
+  return {
+    id: r.id,
+    contractId: r.contract_id,
+    amendmentType: r.amendment_type,
+    oldValues: r.old_values || {},
+    newValues: r.new_values || {},
+    status: r.status,
+    effectiveDate: r.effective_date,
+    notes: r.notes,
+    signedAt: r.signed_at,
+    createdAt: r.created_at,
+    negotiationStatus: r.negotiation_status || null,
+    merchantOffer: r.merchant_offer || null,
+    tenantCounterOffer: r.tenant_counter_offer || null,
+    merchantSignature: r.merchant_signature || null,
+    tenantSignature: r.tenant_signature || null,
+    tenantSignedAt: r.tenant_signed_at || null,
+  };
 }
 
 export const renewalService = {
@@ -36,7 +63,6 @@ export const renewalService = {
       .limit(50);
 
     if (error) {
-      // Fallback: query contracts expiring within 90 days
       const now = new Date();
       const future = new Date();
       future.setDate(future.getDate() + 90);
@@ -88,18 +114,19 @@ export const renewalService = {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return (data || []).map((r: any) => ({
-      id: r.id,
-      contractId: r.contract_id,
-      amendmentType: r.amendment_type,
-      oldValues: r.old_values || {},
-      newValues: r.new_values || {},
-      status: r.status,
-      effectiveDate: r.effective_date,
-      notes: r.notes,
-      signedAt: r.signed_at,
-      createdAt: r.created_at,
-    }));
+    return (data || []).map(mapAmendment);
+  },
+
+  async fetchAmendmentsByMerchant(merchantId: string): Promise<ContractAmendment[]> {
+    const { data, error } = await supabase
+      .from('contract_amendments')
+      .select('*')
+      .eq('merchant_id', merchantId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error) throw error;
+    return (data || []).map(mapAmendment);
   },
 
   async createAmendment(payload: {
@@ -122,6 +149,108 @@ export const renewalService = {
       status: 'draft',
     });
     if (error) throw error;
+  },
+
+  async sendOffer(payload: {
+    contractId: string;
+    merchantId: string;
+    tenantUserId: string;
+    offer: { newRent: number; newDuration: number; terms?: string };
+    effectiveDate: string;
+    currentRent: number;
+  }): Promise<void> {
+    const { error } = await supabase.from('contract_amendments').insert({
+      contract_id: payload.contractId,
+      merchant_id: payload.merchantId,
+      tenant_user_id: payload.tenantUserId,
+      amendment_type: 'renewal',
+      old_values: { rent_amount: payload.currentRent },
+      new_values: { rent_amount: payload.offer.newRent, duration_months: payload.offer.newDuration },
+      merchant_offer: payload.offer as any,
+      effective_date: payload.effectiveDate,
+      notes: payload.offer.terms || null,
+      status: 'sent',
+      negotiation_status: 'merchant_proposed',
+    });
+    if (error) throw error;
+  },
+
+  async submitCounterOffer(amendmentId: string, counterOffer: { newRent: number; notes: string }): Promise<void> {
+    const { error } = await supabase
+      .from('contract_amendments')
+      .update({
+        tenant_counter_offer: counterOffer as any,
+        negotiation_status: 'tenant_countered',
+        status: 'sent',
+      })
+      .eq('id', amendmentId);
+    if (error) throw error;
+  },
+
+  async acceptOffer(amendmentId: string): Promise<void> {
+    const { error } = await supabase
+      .from('contract_amendments')
+      .update({ negotiation_status: 'agreed', status: 'sent' })
+      .eq('id', amendmentId);
+    if (error) throw error;
+  },
+
+  async rejectOffer(amendmentId: string): Promise<void> {
+    const { error } = await supabase
+      .from('contract_amendments')
+      .update({ negotiation_status: 'rejected', status: 'rejected' })
+      .eq('id', amendmentId);
+    if (error) throw error;
+  },
+
+  async signAsMerchant(amendmentId: string, signatureData: string): Promise<void> {
+    const { error } = await supabase
+      .from('contract_amendments')
+      .update({
+        merchant_signature: signatureData,
+        status: 'sent',
+        signed_at: new Date().toISOString(),
+      })
+      .eq('id', amendmentId);
+    if (error) throw error;
+  },
+
+  async signAsTenant(amendmentId: string, signatureData: string): Promise<void> {
+    // Get amendment details to apply to contract
+    const { data: amendment, error: fetchErr } = await supabase
+      .from('contract_amendments')
+      .select('*')
+      .eq('id', amendmentId)
+      .single();
+    if (fetchErr) throw fetchErr;
+
+    // Update amendment
+    const { error } = await supabase
+      .from('contract_amendments')
+      .update({
+        tenant_signature: signatureData,
+        tenant_signed_at: new Date().toISOString(),
+        signed_at: new Date().toISOString(),
+        status: 'signed',
+      })
+      .eq('id', amendmentId);
+    if (error) throw error;
+
+    // Apply new values to contract
+    const newValues = amendment.new_values as any;
+    if (newValues) {
+      const updates: Record<string, any> = {};
+      if (newValues.rent_amount) updates.rent_amount = newValues.rent_amount;
+      if (newValues.duration_months && amendment.effective_date) {
+        const endDate = new Date(amendment.effective_date);
+        endDate.setMonth(endDate.getMonth() + newValues.duration_months);
+        updates.end_date = endDate.toISOString().split('T')[0];
+        updates.start_date = amendment.effective_date;
+      }
+      if (Object.keys(updates).length > 0) {
+        await supabase.from('contracts').update(updates).eq('id', amendment.contract_id);
+      }
+    }
   },
 
   async signAmendment(amendmentId: string): Promise<void> {

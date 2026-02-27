@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Bell, FileText, CreditCard, Wrench, ClipboardList, ChevronRight } from 'lucide-react';
+import { Bell, FileText, CreditCard, Wrench, ClipboardList, CalendarClock, ChevronRight } from 'lucide-react';
 import { Card, CardContent } from '@/shared/components/ui/card';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface AlertItem {
   id: string;
-  type: 'overdue' | 'expense_approval' | 'maintenance' | 'contract_expiry';
+  type: 'overdue' | 'expense_approval' | 'maintenance' | 'contract_expiry' | 'preventive_overdue';
   title: string;
   description: string;
   severity: 'high' | 'medium' | 'low';
@@ -106,6 +106,27 @@ export default function MerchantAlerts() {
           description: `Berakhir: ${new Date(c.end_date).toLocaleDateString('id-ID')}`,
           severity: 'medium',
           path: `/merchant/contracts/${c.id}`,
+      });
+      });
+
+      // Overdue preventive maintenance
+      const today = new Date().toISOString().split('T')[0];
+      const { data: overdueSchedules } = await supabase
+        .from('preventive_maintenance_schedules')
+        .select('id, title, next_scheduled_date, category')
+        .eq('merchant_id', merchant.id)
+        .eq('is_active', true)
+        .lt('next_scheduled_date', today)
+        .limit(10);
+
+      (overdueSchedules || []).forEach((s: any) => {
+        items.push({
+          id: `preventive-${s.id}`,
+          type: 'preventive_overdue',
+          title: `Jadwal preventif terlambat: ${s.title}`,
+          description: `Seharusnya: ${new Date(s.next_scheduled_date).toLocaleDateString('id-ID')} - ${s.category}`,
+          severity: 'medium',
+          path: '/merchant/preventive-maintenance',
         });
       });
 
@@ -123,6 +144,7 @@ export default function MerchantAlerts() {
     expense_approval: CreditCard,
     maintenance: Wrench,
     contract_expiry: ClipboardList,
+    preventive_overdue: CalendarClock,
   };
 
   const colorMap = {
