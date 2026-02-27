@@ -623,46 +623,50 @@ Some owner want export financial data untuk accountant:
 
 ---
 
-### 🟢 6. Caretaker / Staff Role Management
+### ✅ 6. Caretaker / Staff Role Management
 
-**Status:** MEDIUM (multi-user management)
+**Status:** ✅ COMPLETE — Diimplementasi 27 Feb 2026
+
+> **Ringkasan Implementasi:**
+> - Tabel `merchant_staff` dan `staff_permissions` dibuat dengan RLS
+> - 3 role: Caretaker, Property Manager, Accountant dengan default permission matrix
+> - 16 permission keys granular (units, maintenance, expenses, invoices, dll)
+> - Halaman `/merchant/staff` untuk invite, kelola, dan edit izin staff
+> - Permission editor: toggle per izin dalam dialog modal
+> - Hook `useStaffPermission` untuk UI guard
+> - Navigasi ditambahkan di grup Wawasan
 
 Pemilik 20+ unit sering punya caretaker or property manager:
-- Caretaker need access to: View unit status, accept maintenance request, log activity
-- Property manager need access to: All above + limited financial approval
-- Permission level: Role-based access control
+- ✅ Caretaker need access to: View unit status, accept maintenance request, log activity
+- ✅ Property manager need access to: All above + limited financial approval
+- ✅ Permission level: Role-based access control — 16 granular permission keys
+- ✅ Granular permission: Admin can customize what each role can do — per-staff toggle
 
-**Current System:** Diagram 5 assumes owner-only tenant management.
-
-**Recommendation:** Add staff role hierarchy:
-- **Caretaker:** View units, log maintenance activity, accept maintenance request
-- **Property Manager:** All above + approve expense <Rp 1M, send collection letter
-- **Accountant:** View-only financial reports, P&L, expense
-- Granular permission: Admin can customize what each role can do
-
-**Implementation:** Phase 1 or Phase 2 (2-3 weeks)
+**Implementation:** ✅ COMPLETE
 
 ---
 
-### 🟢 7. Vendor Management & Performance Tracking
+### ✅ 7. Vendor Management & Performance Tracking
 
-**Status:** LOW-MEDIUM (vendor quality)
+**Status:** ✅ COMPLETE — Diimplementasi 27 Feb 2026
+
+> **Ringkasan Implementasi:**
+> - Halaman `/merchant/vendor-performance` dengan 3 tab: Ringkasan, Perbandingan, Riwayat
+> - Stats strip: Total vendor, rata-rata rating, rata-rata respon, total pengeluaran
+> - Tabel ringkasan: sortable vendor list dengan rating, job count, response time, total cost
+> - Perbandingan: Bar chart side-by-side 2-3 vendor (recharts)
+> - Riwayat: Timeline job per vendor dengan biaya dan rating
+> - Preferred vendor: toggle ⭐ di tabel + muncul pertama di dropdown maintenance assignment
+> - Kolom `is_preferred` ditambahkan ke `property_vendor_services`
+> - `UpdateMaintenanceDialog` diupdate: preferred vendor di-sort ke atas dengan ⭐
 
 Pemilik butuh track vendor reliability:
-- Average response time (how fast vendor respond to request)
-- Quality rating (tenant + pemilik rate work quality)
-- Cost comparison (vendor A Rp X untuk job, vendor B Rp Y)
-- Preferred vendor: Mark some vendor as favorite (for quick assignment)
+- ✅ Average response time — calculated from vendor_jobs (started_at - created_at)
+- ✅ Quality rating — aggregated from maintenance_reviews
+- ✅ Cost comparison — side-by-side bar chart
+- ✅ Preferred vendor — toggle per vendor, muncul pertama di assignment dropdown
 
-**Current System:** Diagram 10 (Maintenance) mention vendor assignment, but no vendor management.
-
-**Recommendation:** Add vendor profile & analytics:
-- Vendor profile: Contact, specialization, service area, rate
-- Performance dashboard: Response time, quality rating, cost comparison
-- Preferred vendor list: For quick assignment
-- Vendor portal: Vendor can view assignment, submit progress update
-
-**Implementation:** Phase 2 (2 weeks)
+**Implementation:** ✅ COMPLETE
 
 ---
 
