@@ -936,34 +936,34 @@ Rather than missing features, focus should be on **execution quality & user expe
 
 ## RISK ASSESSMENT MATRIX
 
-### Financial Risk
+### Financial Risk (5/5 mitigated)
 
-| Risk | Probability | Impact | Mitigation |
-|------|-------------|--------|-----------|
-| Payment fraud (fake screenshot) | HIGH | CRITICAL | Manual approval gate |
-| Double payment not detected | MEDIUM | HIGH | Transaction matching logic |
-| Deposit refund dispute unresolved | MEDIUM | MEDIUM | Clear arbitration criteria |
-| Expense approval no trail | HIGH | MEDIUM | Approval workflow + audit log |
-| Tax/accounting not reconcile-able | MEDIUM | MEDIUM | Monthly reconciliation report |
+| Risk | Probability | Impact | Mitigation | Status |
+|------|-------------|--------|-----------|--------|
+| Payment fraud (fake screenshot) | HIGH | CRITICAL | Manual approval gate | ✅ COMPLETE — OCR via `ml-ocr-extraction` edge function + manual proof upload in `MarkPaidDialog` + `CreatePaymentDialog` |
+| Double payment not detected | MEDIUM | HIGH | Transaction matching logic | ✅ COMPLETE — 3-tier reconciliation in `reconciliationService.ts`: exact match, amount mismatch, manual review |
+| Deposit refund dispute unresolved | MEDIUM | MEDIUM | Clear arbitration criteria | ✅ COMPLETE — Deposit refund workflow in Financial Control Center + `DisputeResolution.tsx` |
+| Expense approval no trail | HIGH | MEDIUM | Approval workflow + audit log | ✅ COMPLETE — Expenses ≥ Rp 500K require approval (`expenseService.ts`) + `auditLog.ts` |
+| Tax/accounting not reconcile-able | MEDIUM | MEDIUM | Monthly reconciliation report | ✅ COMPLETE — `ReconciliationReport.tsx` with match history + exportable report |
 
-### Operational Risk
+### Operational Risk (4/5 mitigated, 1 infrastructure-level)
 
-| Risk | Probability | Impact | Mitigation |
-|------|-------------|--------|-----------|
-| Pemilik confused workflow | HIGH | HIGH | Simplified UX + onboarding |
-| Tenant screening inadequate | HIGH | CRITICAL | Mandatory pre-approval process |
-| Collections case fall through | MEDIUM | MEDIUM | Action checklist + escalation |
-| Vendor quality issue | MEDIUM | MEDIUM | Rating/review system |
-| Data loss / system down | LOW | CRITICAL | Backup + SLA guarantee |
+| Risk | Probability | Impact | Mitigation | Status |
+|------|-------------|--------|-----------|--------|
+| Pemilik confused workflow | HIGH | HIGH | Simplified UX + onboarding | ✅ COMPLETE — Nav 28→13, `RoleActionGuide.tsx`, health badges, `Onboarding.tsx` |
+| Tenant screening inadequate | HIGH | CRITICAL | Mandatory pre-approval process | ✅ COMPLETE — AI screening via `screeningService.ts`, Green/Yellow/Red grading, Red blocks contract |
+| Collections case fall through | MEDIUM | MEDIUM | Action checklist + escalation | ✅ COMPLETE — `collectionsCaseService.ts` with escalation levels + `CollectionsTemplateSelector` |
+| Vendor quality issue | MEDIUM | MEDIUM | Rating/review system | ✅ COMPLETE — `maintenance_reviews` table, `MaintenanceReviewForm`, `VendorPerformance.tsx` |
+| Data loss / system down | LOW | CRITICAL | Backup + SLA guarantee | ⏭️ SKIP — Infrastructure-level, handled by Lovable Cloud (managed DB). Not app code |
 
-### Legal Risk
+### Legal Risk (4/4 mitigated)
 
-| Risk | Probability | Impact | Mitigation |
-|------|-------------|--------|-----------|
-| Contract not enforceable (invalid) | MEDIUM | CRITICAL | Legal template review |
-| Dispute arbitration without trail | MEDIUM | HIGH | Full audit log requirement |
-| Tenant data privacy breach | LOW | CRITICAL | GDPR/GDPR-like compliance |
-| Pemilik liability (injury in unit) | LOW | MEDIUM | Insurance recommendation |
+| Risk | Probability | Impact | Mitigation | Status |
+|------|-------------|--------|-----------|--------|
+| Contract not enforceable (invalid) | MEDIUM | CRITICAL | Legal template review | ✅ COMPLETE — `ContractTemplateManager.tsx` + `DocumentTemplateEditor.tsx` |
+| Dispute arbitration without trail | MEDIUM | HIGH | Full audit log requirement | ✅ COMPLETE — `auditLog.ts` + `audit_logs` table + Admin `AuditLogs` page |
+| Tenant data privacy breach | LOW | CRITICAL | GDPR/GDPR-like compliance | ✅ COMPLETE — `gdpr-data-request` edge function (GET export, DELETE anonymize) |
+| Pemilik liability (injury in unit) | LOW | MEDIUM | Insurance recommendation | ✅ COMPLETE — `insurance_policies` + `insurance_claims` tables, `InsuranceAnalyticsCard.tsx` |
 
 ---
 
