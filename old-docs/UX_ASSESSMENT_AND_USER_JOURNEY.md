@@ -2,9 +2,42 @@
 
 > **Auditor Perspective**: Non-technical boarding house owner (Ibu Sari, 47, owns 3 kos-kosan with 30 units total in Yogyakarta, uses WhatsApp and basic banking apps)
 >
-> **Date**: 2026-02-27
+> **Date**: 2026-02-27 (Revised)
 >
-> **Evidence Sources**: `state-machines.ts` (25 state machines), `navigation-config.ts` (4 nav groups, 25 sidebar items), `merchant_activity_diagram.md` (23 diagrams), `merchantDashboardService.ts` (10 parallel queries), `role-actions.ts` (5 primary merchant actions), `PMS_Audit_Report_FULL.md`
+> **Evidence Sources**: `state-machines.ts` (31 state machines), `navigation-config.ts` (4 nav groups, 24 sidebar items), `merchant_activity_diagram.md` (23 diagrams), `role-actions.ts` (5 primary merchant actions)
+
+---
+
+## Step 1: Source Traceability Matrix
+
+Every feature analyzed in this document is mapped to its source documentation. Features without sources are excluded from analysis.
+
+| # | Feature Name | Found In (Document + Section) | Evidence Snippet | UX Section |
+|---|---|---|---|---|
+| 1 | Onboarding & Verification | `merchant_activity_diagram.md` Diagram 1; `state-machines.ts` lines 159-164 | `MERCHANT_VERIFICATION_TRANSITIONS`: pending → verified / rejected | §2 Feature 1 |
+| 2 | Subscription Management | `merchant_activity_diagram.md` Diagram 2; `state-machines.ts` lines 78-84 | `SUBSCRIPTION_STATUS_TRANSITIONS`: trialing → active → past_due → suspended → cancelled | §2 Feature 2 |
+| 3 | Property & Unit Management | `merchant_activity_diagram.md` Diagram 3; `state-machines.ts` lines 32-36 | `UNIT_STATUS_TRANSITIONS`: available / occupied / maintenance | §2 Feature 3 |
+| 4 | Contract Lifecycle | `merchant_activity_diagram.md` Diagram 4; `state-machines.ts` lines 12-29 | `CONTRACT_STATUS_TRANSITIONS` + `CONTRACT_SIGNATURE_TRANSITIONS` | §2 Feature 4 |
+| 5 | Tenant Management | `merchant_activity_diagram.md` Diagram 5; `state-machines.ts` lines 189-193 | `TENANT_INVITATION_TRANSITIONS`: pending → accepted / expired | §2 Feature 5 |
+| 6 | Invoice Management | `merchant_activity_diagram.md` Diagram 6, 6B; `state-machines.ts` lines 39-67 | `INVOICE_STATUS_TRANSITIONS` + `PAYMENT_PLAN_STATUS_TRANSITIONS` | §2 Feature 6 |
+| 7 | Payment & Verification | `merchant_activity_diagram.md` Diagram 7; `state-machines.ts` lines 51-57, 247-252 | `PAYMENT_STATUS_TRANSITIONS` + `PAYMENT_VERIFICATION_TRANSITIONS` | §2 Feature 7 |
+| 8 | Direct Payment (Escrow & Disbursement) | `merchant_activity_diagram.md` Diagram 8; `state-machines.ts` lines 138-143 | `DISBURSEMENT_STATUS_TRANSITIONS`: pending → processing → completed / failed | §2 Feature 8 |
+| 9 | Move-Out & Deposit Refund | `merchant_activity_diagram.md` Diagram 9; `state-machines.ts` lines 87-108, 181-187 | 4 machines: MOVE_OUT_NOTICE, INSPECTION, EARLY_TERMINATION, DEPOSIT_REFUND | §2 Feature 9 |
+| 10 | Maintenance Requests | `merchant_activity_diagram.md` Diagram 10; `state-machines.ts` lines 70-127 | `MAINTENANCE_STATUS_TRANSITIONS` + `VENDOR_JOB_STATUS_TRANSITIONS` | §2 Feature 10 |
+| 11 | Collections & Billing Analytics | `merchant_activity_diagram.md` Diagrams 11, 20; `state-machines.ts` lines 196-204 | `COLLECTIONS_CASE_TRANSITIONS`: 7 states (initiated → resolved) | §2 Feature 11 |
+| 12 | AI/ML & DSS Advisory | `merchant_activity_diagram.md` Diagram 12; `state-machines.ts` lines 272-278 | `DSS_RECOMMENDATION_TRANSITIONS`: generated → viewed → accepted → measured | §2 Feature 12 |
+| 13 | Referral System | `merchant_activity_diagram.md` Diagram 13 | Referral flow described in diagram. `REFERRAL_STATUS_TRANSITIONS` ❌ Not found in `state-machines.ts` — states inferred from diagram only | §2 Feature 13 |
+| 14 | Support, Feedback & Compliance | `merchant_activity_diagram.md` Diagram 14; `state-machines.ts` lines 173-178 | `DISPUTE_STATUS_TRANSITIONS`: open → in_progress → resolved / closed | §2 Feature 14 |
+| 15 | Payment Reconciliation | `merchant_activity_diagram.md` Diagram 15 | 3-tier auto-match described in diagram. ❌ No explicit state machine in `state-machines.ts` — uses string values | §2 Feature 15 |
+| 16 | Automated Payment Reminders | `merchant_activity_diagram.md` Diagram 16 | Cron-based reminder schedule. ❌ No explicit state machine — automated process | §2 Feature 16 |
+| 17 | Expense Tracking | `merchant_activity_diagram.md` Diagram 17; `state-machines.ts` lines 264-270 | `EXPENSE_APPROVAL_TRANSITIONS`: submitted → pending_approval / approved → verified | §2 Feature 17 |
+| 18 | Waiting List | `merchant_activity_diagram.md` Diagram 18; `state-machines.ts` lines 207-214 | `WAITING_LIST_TRANSITIONS`: interested → applied → waitlisted / offered → accepted | §2 Feature 18 |
+| 19 | Lease Renewal & Amendment | `merchant_activity_diagram.md` Diagram 19; `state-machines.ts` lines 217-227 | `AMENDMENT_STATUS_TRANSITIONS`: 9 states. ⚠️ **Discrepancy**: Diagram 19 shows 5 simplified states; code has 9 states including tenant_reviewing, negotiating, agreed, signing | §2 Feature 19 |
+| 20 | Dynamic Pricing | `merchant_activity_diagram.md` Diagram 21 | Rule-based pricing with 5 rule types. ❌ No explicit state machine — active/inactive boolean | §2 Feature 20 |
+| 21 | Financial Reports (P&L) | `merchant_activity_diagram.md` Diagram 22 | Read-only reporting. ❌ No state machine — query-based | §2 Feature 21 |
+| 22 | Financial Control Center | `role-actions.ts` line 23; `state-machines.ts` lines 264-270 | "Approve Pengeluaran — Setujui atau tolak pengeluaran ≥ Rp 500K". Uses `EXPENSE_APPROVAL_TRANSITIONS` | §2 Feature 22 |
+
+**Traceability Summary**: 22 features identified, all with document source references. 0 features without source.
 
 ---
 
@@ -15,10 +48,10 @@
 **Verdict: ⚠️ Partially — with significant learning curve**
 
 **Evidence**:
-- Navigation has **25 sidebar items** across 4 groups ("Utama", "Operasional", "Keuangan", "Lainnya") — source: `navigation-config.ts` lines 118-163
+- Navigation has **24 sidebar items** across 4 groups ("Utama", "Operasional", "Keuangan", "Lainnya") — source: `navigation-config.ts` lines 118-163
 - The "Lainnya" group alone contains **12 items** including Inventori, Penjaga, Performa Vendor, Utilitas, Penagihan, Resolusi & Rekonsiliasi, Harga Dinamis, Laporan, Template Dokumen, Alat (InsightsHub), API & Integrasi, Manajemen Staff
-- System uses **25 state machines** (`state-machines.ts`) governing entity lifecycles — a non-technical user must implicitly understand state transitions even though they're hidden behind UI
-- `RoleActionGuide` (`role-actions.ts`) reduces visible actions to **5 primary** for merchants: Kelola Properti, Buat Tagihan, Approve Pengeluaran, Kirim Reminder, Lihat Laporan — this is the correct approach but doesn't cover the other 20+ pages
+- System uses **31 state machines** (`state-machines.ts`) governing entity lifecycles — a non-technical user must implicitly understand state transitions even though they're hidden behind UI
+- `RoleActionGuide` (`role-actions.ts`) reduces visible actions to **5 primary** for merchants: Kelola Properti, Buat Tagihan, Approve Pengeluaran, Kirim Reminder, Lihat Laporan — this is the correct approach but doesn't cover the other 19+ pages
 
 **Positive indicators**:
 - Dashboard uses health badges (Green/Yellow/Red) for Occupancy, Revenue, Receivables — visual, not numeric
@@ -26,7 +59,7 @@
 - Indonesian language throughout — no English jargon in UI labels
 
 **Negative indicators**:
-- 25 sidebar items is excessive for a kos owner who primarily needs: Units, Tenants, Bills, Payments
+- 24 sidebar items is excessive for a kos owner who primarily needs: Units, Tenants, Bills, Payments
 - Terms like "Rekonsiliasi", "DSS", "Harga Dinamis", "API & Integrasi" are enterprise vocabulary
 - "Kontrol Keuangan" page requires understanding of approval workflows with ≥ Rp 500K thresholds
 
@@ -43,23 +76,23 @@
 | 3 | Set address (headquarters + billing) | No | 3 min |
 | 4 | Upload verification docs (KTP, SIUP, NPWP) | **YES** | 10 min |
 | 5 | OCR processing | Auto | 1 min |
-| 6 | **Wait for admin approval** | **BLOCKING** | **Unknown — hours to days** |
+| 6 | **Wait for admin approval** | **BLOCKING** | **Unknown** |
 | 7 | Choose subscription tier | No | 2 min |
 | 8 | Add property | No | 5 min |
 | 9 | Add units | No | 3 min per unit |
 | 10 | Invite tenant | No | 2 min |
-| 11 | **Wait for tenant to accept** | **BLOCKING** | **Hours to days** |
+| 11 | **Wait for tenant to accept** | **BLOCKING** | **Unknown** |
 | 12 | Create contract | No | 5 min |
-| 13 | **Both parties sign** | **BLOCKING** | **Hours** |
+| 13 | **Both parties sign** | **BLOCKING** | **Unknown** |
 | 14 | Create invoice | No | 3 min |
-| 15 | **Wait for tenant payment** | **BLOCKING** | **Days** |
+| 15 | **Wait for tenant payment** | **BLOCKING** | **Unknown** |
 | 16 | Verify payment | No | 2 min |
 
 **Total minimum steps**: 16
 **Total blocking steps**: 4
-**Time to first revenue**: 2-7 days minimum (due to admin verification + tenant acceptance)
+**Time to first revenue**: Unknown calendar time (due to admin verification + tenant acceptance)
 
-> **Assumption**: Admin verification turnaround time is not documented in the system. Marked as unknown.
+> ❌ **Not Defined in Current System Documentation**: Admin verification turnaround time is not specified anywhere in the system documentation.
 
 ### 1.3 Is the Merchant Overly Dependent on Admin Actions?
 
@@ -81,12 +114,11 @@ Non-admin-dependent (positive):
 
 ### 1.4 Time to First Value
 
-**First Insight**: After Step 8 (add property) → Dashboard shows occupancy = 0% with Red badge. **~30 min** if admin approves instantly.
+**First Insight**: After Step 8 (add property) → Dashboard shows occupancy = 0% with Red badge. Active setup time ~30 min if admin approves instantly.
 
-**First Revenue**: After Step 16. **2-7 days** realistically.
+**First Revenue**: After Step 16. Calendar time unknown due to 4 blocking steps.
 
-**Competitive benchmark** (assumption: typical Indonesian PMS competitors like Mamikos PMS):
-> ⚠️ Assumption: Competitors typically allow property listing within 10 minutes of registration without admin verification. SiHuni's verification requirement adds 1-3 days delay.
+> 🧩 **Assumption (Low Confidence)**: Competitors in Indonesian PMS market (e.g., Mamikos) typically allow property listing within minutes of registration without admin verification. No SiHuni competitor benchmark data exists in system documentation. This assumption is based on general SaaS industry knowledge and may not reflect actual Indonesian PMS market conditions.
 
 ---
 
@@ -95,6 +127,11 @@ Non-admin-dependent (positive):
 ---
 
 ### 🔹 Feature 1: Onboarding & Verification
+
+#### Documentation Source
+- **Document**: `merchant_activity_diagram.md` Diagram 1
+- **Section**: Merchant Registration & Verification
+- **Reference**: `MERCHANT_VERIFICATION_TRANSITIONS` in `state-machines.ts` lines 159-164
 
 #### Current Flow (Actual)
 
@@ -109,8 +146,6 @@ Non-admin-dependent (positive):
 | 🛡️ Admin | Review documents, approve/reject | `/admin/merchants/:id` |
 | 🏠 Merchant | View verification status | `/merchant/profile` |
 
-Source: Diagram 1, `MERCHANT_VERIFICATION_TRANSITIONS`
-
 #### State Machine
 
 ```
@@ -123,19 +158,18 @@ Source: `MERCHANT_VERIFICATION_TRANSITIONS` in `state-machines.ts` lines 159-164
 
 #### UX Friction Analysis
 
-- **Blocking step**: Admin verification is a hard gate — merchant cannot do ANYTHING until approved
+- **Blocking step**: Admin verification is a hard gate — merchant cannot do ANYTHING until approved (evidence: `MERCHANT_VERIFICATION_TRANSITIONS` has no bypass path from `pending`)
 - **Too many documents**: KTP + SIUP + NPWP required upfront. Small kos owners may not have SIUP
 - **No progress indicator**: After upload, merchant sees "PENDING" with no estimated wait time
-- **Resubmission friction**: If rejected, merchant must re-upload ALL documents (no partial resubmit documented)
+- **Resubmission friction**: If rejected, merchant must re-upload (rejected → pending path exists in state machine)
 - **No sandbox mode**: Cannot explore the system while waiting for verification
 
 #### Business Impact
 
-- **Delays monetization**: 1-7 day delay before merchant can use ANY feature
-- **Causes immediate churn**: ~40-60% of small kos owners will abandon if they can't see value within 30 minutes
+- **Delays monetization**: Unknown delay before merchant can use ANY feature
 - **SIUP requirement excludes**: Many informal kos operations don't have SIUP
 
-> ⚠️ Assumption: Churn rate estimate is based on general SaaS onboarding benchmarks, not SiHuni-specific data.
+> 🧩 **Assumption (Low Confidence)**: Onboarding friction causing 40-60% churn is based on general SaaS onboarding benchmarks (not SiHuni-specific data). No SiHuni churn metrics exist in system documentation.
 
 #### Simplification Opportunities
 
@@ -148,6 +182,11 @@ Source: `MERCHANT_VERIFICATION_TRANSITIONS` in `state-machines.ts` lines 159-164
 
 ### 🔹 Feature 2: Subscription Management
 
+#### Documentation Source
+- **Document**: `merchant_activity_diagram.md` Diagram 2
+- **Section**: Subscription Lifecycle
+- **Reference**: `SUBSCRIPTION_STATUS_TRANSITIONS` in `state-machines.ts` lines 78-84
+
 #### Current Flow (Actual)
 
 | Role | Action | Page / Endpoint |
@@ -159,8 +198,6 @@ Source: `MERCHANT_VERIFICATION_TRANSITIONS` in `state-machines.ts` lines 159-164
 | System | Grace period check via `subscription-grace-check` | Edge function |
 | 🏠 Merchant | Upgrade/downgrade tier | `/merchant/subscription` |
 | 🏠 Merchant | Cancel with feedback | `/merchant/subscription` |
-
-Source: Diagram 2, `SUBSCRIPTION_STATUS_TRANSITIONS`
 
 #### State Machine
 
@@ -195,6 +232,11 @@ Source: `SUBSCRIPTION_STATUS_TRANSITIONS` in `state-machines.ts` lines 78-84
 
 ### 🔹 Feature 3: Property & Unit Management
 
+#### Documentation Source
+- **Document**: `merchant_activity_diagram.md` Diagram 3
+- **Section**: Property & Unit Setup
+- **Reference**: `UNIT_STATUS_TRANSITIONS` in `state-machines.ts` lines 32-36
+
 #### Current Flow (Actual)
 
 | Role | Action | Page / Endpoint |
@@ -210,8 +252,6 @@ Source: `SUBSCRIPTION_STATUS_TRANSITIONS` in `state-machines.ts` lines 78-84
 | 🏠 Merchant | Set disaster risk profile | Property detail |
 | System | Auto-update unit counts via `update_property_unit_counts()` trigger | Database trigger |
 | System | Vacancy tracking via `vacancy-tracking-cron` + `compute-occupancy-snapshots` | Edge functions |
-
-Source: Diagram 3, `UNIT_STATUS_TRANSITIONS`
 
 #### State Machine (Units)
 
@@ -246,6 +286,11 @@ Source: `UNIT_STATUS_TRANSITIONS` in `state-machines.ts` lines 32-36
 
 ### 🔹 Feature 4: Contract Lifecycle
 
+#### Documentation Source
+- **Document**: `merchant_activity_diagram.md` Diagram 4
+- **Section**: Contract Creation & Signature
+- **Reference**: `CONTRACT_STATUS_TRANSITIONS` lines 12-21, `CONTRACT_SIGNATURE_TRANSITIONS` lines 24-29
+
 #### Current Flow (Actual)
 
 | Role | Action | Page / Endpoint |
@@ -259,12 +304,11 @@ Source: `UNIT_STATUS_TRANSITIONS` in `state-machines.ts` lines 32-36
 | System | Both signed → contract active, unit → occupied | Trigger |
 | 🏠 Merchant | Issue move-out notice / early termination | Contract detail |
 
-Source: Diagram 4, `CONTRACT_STATUS_TRANSITIONS`, `CONTRACT_SIGNATURE_TRANSITIONS`
-
 #### State Machine
 
 ```
 Contract: draft → active | cancelled
+         pending_signature → active | cancelled (legacy compat)
          active → notice | terminated | expired
          notice → completed
 
@@ -280,7 +324,7 @@ Source: `CONTRACT_STATUS_TRANSITIONS` lines 12-21, `CONTRACT_SIGNATURE_TRANSITIO
 - **Digital signature requirement** from both parties is a blocking step — many kos tenants may not be tech-savvy
 - **Contract PDF upload + OCR** is overkill for typical kos — most use simple WhatsApp agreements
 - **Dual validation** (unit no active contract + tenant no active contract) — good guard, but error message clarity matters
-- **7 contract statuses** (draft, active, notice, terminated, expired, completed, cancelled) — appropriate for lifecycle but confusing for non-technical users
+- **7 contract statuses** (draft, pending_signature, active, notice, terminated, expired, completed, cancelled) — appropriate for lifecycle but confusing for non-technical users
 
 #### Business Impact
 
@@ -298,6 +342,11 @@ Source: `CONTRACT_STATUS_TRANSITIONS` lines 12-21, `CONTRACT_SIGNATURE_TRANSITIO
 
 ### 🔹 Feature 5: Tenant Management
 
+#### Documentation Source
+- **Document**: `merchant_activity_diagram.md` Diagram 5
+- **Section**: Tenant Invitation & Onboarding
+- **Reference**: `TENANT_INVITATION_TRANSITIONS` in `state-machines.ts` lines 189-193
+
 #### Current Flow (Actual)
 
 | Role | Action | Page / Endpoint |
@@ -308,8 +357,6 @@ Source: `CONTRACT_STATUS_TRANSITIONS` lines 12-21, `CONTRACT_SIGNATURE_TRANSITIO
 | System | Create account if needed | `create-tenant-account` edge function |
 | System | Record history | `tenant_merchant_history` table |
 | 🏠 Merchant | View tenant list, metrics, risk scores | `/merchant/tenants` |
-
-Source: Diagram 5, `TENANT_INVITATION_TRANSITIONS`
 
 #### State Machine
 
@@ -322,8 +369,9 @@ Source: `TENANT_INVITATION_TRANSITIONS` in `state-machines.ts` lines 189-193
 #### UX Friction Analysis
 
 - **Email-based invitation assumes tenants have email** — many Indonesian kos tenants communicate primarily via WhatsApp
-- **No manual tenant creation** without invitation flow — merchant can't just type "Budi, HP 0812xxx" and create a tenant record
 - **AI scoring features** (ml-tenant-risk-score, ml-tenant-quality-scoring, compute-tenant-payment-metrics) — powerful but add UI complexity
+
+> ⚠️ **Ambiguous in Documentation — Cannot Conclude**: The claim "no manual tenant creation" needs verification. The API contract (Section 5.1 in API specification) shows phone is optional, suggesting there may be alternative tenant creation paths. The invitation flow is the primary documented path, but manual creation capability cannot be confirmed or denied from current documentation.
 
 #### Business Impact
 
@@ -341,6 +389,11 @@ Source: `TENANT_INVITATION_TRANSITIONS` in `state-machines.ts` lines 189-193
 
 ### 🔹 Feature 6: Invoice Management
 
+#### Documentation Source
+- **Document**: `merchant_activity_diagram.md` Diagrams 6, 6B
+- **Section**: Invoice Lifecycle & Payment Plans
+- **Reference**: `INVOICE_STATUS_TRANSITIONS` lines 39-48, `PAYMENT_PLAN_STATUS_TRANSITIONS` lines 60-67
+
 #### Current Flow (Actual)
 
 | Role | Action | Page / Endpoint |
@@ -354,16 +407,15 @@ Source: `TENANT_INVITATION_TRANSITIONS` in `state-machines.ts` lines 189-193
 | System | Create Xendit payment link | `xendit-create-invoice` edge function |
 | 🏠 Merchant | Manage overdue, negotiate payment plans | Invoice detail |
 
-Source: Diagram 6, 6B, `INVOICE_STATUS_TRANSITIONS`, `PAYMENT_PLAN_STATUS_TRANSITIONS`
-
 #### State Machine
 
 ```
 Invoice: draft → sent | cancelled
          sent → paid | overdue | cancelled | partially_paid
          overdue → paid | cancelled | escalated
-         escalated → paid | cancelled
          partially_paid → paid | cancelled
+         pending → paid | overdue | cancelled (legacy compat)
+         escalated → paid | cancelled
 
 Payment Plan: pending_acceptance → accepted | cancelled
              accepted → active
@@ -396,6 +448,11 @@ Source: `INVOICE_STATUS_TRANSITIONS` lines 39-48, `PAYMENT_PLAN_STATUS_TRANSITIO
 
 ### 🔹 Feature 7: Payment & Verification
 
+#### Documentation Source
+- **Document**: `merchant_activity_diagram.md` Diagram 7
+- **Section**: Payment Processing & Verification
+- **Reference**: `PAYMENT_VERIFICATION_TRANSITIONS` lines 247-252, `PAYMENT_STATUS_TRANSITIONS` lines 51-57
+
 #### Current Flow (Actual)
 
 | Role | Action | Page / Endpoint |
@@ -406,8 +463,6 @@ Source: `INVOICE_STATUS_TRANSITIONS` lines 39-48, `PAYMENT_PLAN_STATUS_TRANSITIO
 | System | Auto-match attempt | `PAYMENT_VERIFICATION_TRANSITIONS` |
 | 🏠 Merchant | Review & confirm/reject payment | `/merchant/payments`, `/merchant/payments/verify` |
 | System | Record payment, update invoice | `payments` table |
-
-Source: Diagram 7, `PAYMENT_VERIFICATION_TRANSITIONS`, `PAYMENT_STATUS_TRANSITIONS`
 
 #### State Machine
 
@@ -426,7 +481,8 @@ Source: `PAYMENT_VERIFICATION_TRANSITIONS` lines 247-252, `PAYMENT_STATUS_TRANSI
 - **3 payment methods** (manual, Xendit, auto-pay) — good optionality
 - **OCR auto-match** reduces merchant workload — excellent UX
 - **But merchant must still confirm auto-matched payments** — adds a manual step even when system is confident
-- **No push notification** to merchant when payment needs verification documented in flow
+
+> ❌ **Not Defined in Current System Documentation**: Whether push notifications are sent to merchant when payment needs verification. The `send-notification` edge function exists in `src/features/notifications/utils/notifications.ts` (invoking `supabase.functions.invoke("send-notification")`), confirming the notification infrastructure exists. However, automatic triggering on payment receipt is not documented in the payment verification flow.
 
 #### Business Impact
 
@@ -437,12 +493,16 @@ Source: `PAYMENT_VERIFICATION_TRANSITIONS` lines 247-252, `PAYMENT_STATUS_TRANSI
 #### Simplification Opportunities
 
 1. **Auto-confirm** when OCR confidence > 95% — skip merchant review
-2. **Push notification** when payment needs action (currently relying on merchant checking dashboard)
-3. **Batch confirmation** — "Confirm all auto-matched this week" button
+2. **Batch confirmation** — "Confirm all auto-matched this week" button
 
 ---
 
 ### 🔹 Feature 8: Direct Payment (Escrow & Disbursement)
+
+#### Documentation Source
+- **Document**: `merchant_activity_diagram.md` Diagram 8
+- **Section**: Escrow & Disbursement
+- **Reference**: `DISBURSEMENT_STATUS_TRANSITIONS` in `state-machines.ts` lines 138-143
 
 #### Current Flow (Actual)
 
@@ -456,8 +516,6 @@ Source: `PAYMENT_VERIFICATION_TRANSITIONS` lines 247-252, `PAYMENT_STATUS_TRANSI
 | System | Webhook callback | `xendit-disbursement-webhook` edge function |
 | 🏠 Merchant | Manage bank accounts | `/merchant/bank-accounts` |
 | 🏠 Merchant | View escrow balance, request payout | `/merchant/escrow` |
-
-Source: Diagram 8, `DISBURSEMENT_STATUS_TRANSITIONS`
 
 #### State Machine
 
@@ -492,6 +550,11 @@ Source: `DISBURSEMENT_STATUS_TRANSITIONS` in `state-machines.ts` lines 138-143
 
 ### 🔹 Feature 9: Move-Out & Deposit Refund
 
+#### Documentation Source
+- **Document**: `merchant_activity_diagram.md` Diagram 9
+- **Section**: Move-Out Process
+- **Reference**: `state-machines.ts` lines 87-108 (notice, inspection, early termination), lines 181-187 (deposit refund)
+
 #### Current Flow (Actual)
 
 | Role | Action | Page / Endpoint |
@@ -503,8 +566,6 @@ Source: `DISBURSEMENT_STATUS_TRANSITIONS` in `state-machines.ts` lines 138-143
 | System | Process refund via Xendit | Disbursement flow |
 | 🧑‍💼 Tenant | Dispute deductions if disagree | `deposit_disputes` table |
 | 🛡️ Admin | Mediate disputes | Admin dispute panel |
-
-Source: Diagram 9, `MOVE_OUT_NOTICE_TRANSITIONS`, `MOVE_OUT_INSPECTION_TRANSITIONS`, `EARLY_TERMINATION_TRANSITIONS`, `DEPOSIT_REFUND_TRANSITIONS`
 
 #### State Machine
 
@@ -547,6 +608,11 @@ Source: Lines 87-108 and 181-187 in `state-machines.ts`
 
 ### 🔹 Feature 10: Maintenance Requests
 
+#### Documentation Source
+- **Document**: `merchant_activity_diagram.md` Diagram 10
+- **Section**: Maintenance Request Lifecycle
+- **Reference**: `MAINTENANCE_STATUS_TRANSITIONS` lines 70-75, `VENDOR_JOB_STATUS_TRANSITIONS` lines 120-127
+
 #### Current Flow (Actual)
 
 | Role | Action | Page / Endpoint |
@@ -560,8 +626,6 @@ Source: Lines 87-108 and 181-187 in `state-machines.ts`
 | 🏠 Merchant | Track expenses + OCR receipt | `maintenance_expenses` + `ocr-maintenance-receipt` |
 | 🧑‍💼 Tenant | Leave review after completion | `maintenance_reviews` |
 | System | Update vendor avg rating | `update_vendor_maintenance_rating()` trigger |
-
-Source: Diagram 10, `MAINTENANCE_STATUS_TRANSITIONS`, `VENDOR_JOB_STATUS_TRANSITIONS`
 
 #### State Machine
 
@@ -600,6 +664,11 @@ Source: `MAINTENANCE_STATUS_TRANSITIONS` lines 70-75, `VENDOR_JOB_STATUS_TRANSIT
 
 ### 🔹 Feature 11: Collections & Billing Analytics
 
+#### Documentation Source
+- **Document**: `merchant_activity_diagram.md` Diagrams 11, 20
+- **Section**: Collections Lifecycle & Overdue Escalation
+- **Reference**: `COLLECTIONS_CASE_TRANSITIONS` in `state-machines.ts` lines 196-204
+
 #### Current Flow (Actual)
 
 | Role | Action | Page / Endpoint |
@@ -611,19 +680,22 @@ Source: `MAINTENANCE_STATUS_TRANSITIONS` lines 70-75, `VENDOR_JOB_STATUS_TRANSIT
 | 🏠 Merchant | Contact tenant, choose strategy (reminder, WhatsApp, payment plan, escalate) | Collections page |
 | System | DSS recommends collection strategy | `dss-collection-strategy` edge function |
 
-Source: Diagram 11, 20, `COLLECTIONS_CASE_TRANSITIONS`
-
 #### State Machine
 
 ```
-initiated → reminder_sent → follow_up → in_progress → escalated → legal → resolved
+initiated → reminder_sent | in_progress
+reminder_sent → follow_up | in_progress
+follow_up → in_progress | escalated
+in_progress → escalated | resolved
+escalated → legal | resolved
+legal → resolved
 ```
 
-Source: `COLLECTIONS_CASE_TRANSITIONS` in `state-machines.ts` lines 196-204
+Source: `COLLECTIONS_CASE_TRANSITIONS` in `state-machines.ts` lines 196-204. **7 states total**: initiated, reminder_sent, follow_up, in_progress, escalated, legal, resolved.
 
 #### UX Friction Analysis
 
-- **7-state collections lifecycle** (initiated → reminder_sent → follow_up → in_progress → escalated → legal → resolved) — enterprise debt collection workflow for a missed Rp 800K rent payment
+- **7-state collections lifecycle** — enterprise debt collection workflow for a missed Rp 800K rent payment
 - **Aging buckets** (Current, 1-30, 31-60, 61-90, 90+) — overkill when most kos have < 30 tenants
 - **DSS collection strategy** — AI recommending collection tactics for informal kos relationships
 - **4 resolution types** (paid_in_full, payment_plan, write_off, eviction) — "eviction" and "write_off" are heavy terms
@@ -645,33 +717,37 @@ Source: `COLLECTIONS_CASE_TRANSITIONS` in `state-machines.ts` lines 196-204
 
 ### 🔹 Feature 12: AI/ML & DSS Advisory
 
+#### Documentation Source
+- **Document**: `merchant_activity_diagram.md` Diagram 12
+- **Section**: ML Model Runs & DSS Recommendations
+- **Reference**: `DSS_RECOMMENDATION_TRANSITIONS` in `state-machines.ts` lines 272-278
+
 #### Current Flow (Actual)
 
 | Role | Action | Page / Endpoint |
 |------|--------|-----------------|
-| System | Run ML models periodically | 10 ML edge functions |
-| System | Generate DSS recommendations | 4 DSS edge functions |
+| System | Run ML models periodically | ML edge functions |
+| System | Generate DSS recommendations | DSS edge functions |
 | 🏠 Merchant | View recommendations | InsightsHub pages |
 | 🏠 Merchant | Accept/reject recommendations | Recommendation detail |
 | System | Measure impact of accepted recommendations | `measured_impact` field |
 
-Source: Diagram 12, `DSS_RECOMMENDATION_TRANSITIONS`
-
 #### State Machine
 
 ```
-generated → viewed → accepted → measured
-generated → viewed → rejected
+generated → viewed | accepted | rejected
+viewed → accepted | rejected
+accepted → measured
 ```
 
 Source: `DSS_RECOMMENDATION_TRANSITIONS` in `state-machines.ts` lines 272-278
 
 #### UX Friction Analysis
 
-- **14 edge functions** for AI/ML (10 ML + 4 DSS) — massive over-engineering
 - **InsightsHub** has 9 sub-pages accessible via cards — most merchants will never explore them
 - **Recommendation accept/reject/measure lifecycle** — assumes merchant understands and acts on data-driven advice
-- **OCR processing** for 7 document types — impressive but most will only use payment proof OCR
+
+> ⚠️ **Ambiguous in Documentation — Cannot Conclude**: The exact count of ML edge functions requires careful verification. Diagram 12 lists 10 ML + 4 DSS functions, but includes `ml-ocr-correction-suggest` which could be categorized as an OCR function rather than a pure ML function. The count should note that 7 of the ML functions are OCR-related. Total count is approximately 14 AI-related edge functions, with categorization boundaries being ambiguous.
 
 #### Business Impact
 
@@ -690,6 +766,11 @@ Source: `DSS_RECOMMENDATION_TRANSITIONS` in `state-machines.ts` lines 272-278
 
 ### 🔹 Feature 13: Referral System
 
+#### Documentation Source
+- **Document**: `merchant_activity_diagram.md` Diagram 13
+- **Section**: Referral Program
+- **Reference**: Diagram 13 flow. ❌ `REFERRAL_STATUS_TRANSITIONS` is **not defined** in `state-machines.ts`
+
 #### Current Flow (Actual)
 
 | Role | Action | Page / Endpoint |
@@ -701,22 +782,14 @@ Source: `DSS_RECOMMENDATION_TRANSITIONS` in `state-machines.ts` lines 272-278
 | System | Process commission on referee subscription | `process-referral-commissions` edge function |
 | System | Apply reward (subscription discount) | `process-referral-reward` edge function |
 
-Source: Diagram 13
-
 #### State Machine
 
-```
-pending → active | expired
-active → completed
-```
-
-> Note: `REFERRAL_STATUS_TRANSITIONS` referenced in Diagram 13 but not explicitly defined in `state-machines.ts`. States inferred from diagram.
+> 🧩 **Assumption (Low Confidence)**: States (pending → active → completed, pending → expired) are inferred from Diagram 13 description. No `REFERRAL_STATUS_TRANSITIONS` constant exists in `state-machines.ts`. The actual state management may differ from the diagram.
 
 #### UX Friction Analysis
 
 - **Well-designed for growth** — standard referral program
 - **Commission + discount reward** — dual incentive is good
-- **Vendor order referral** sub-flow — adds complexity but relevant for marketplace
 - **No in-app sharing** documented — merchant must manually copy code
 
 #### Business Impact
@@ -734,6 +807,11 @@ active → completed
 
 ### 🔹 Feature 14: Support, Feedback & Compliance
 
+#### Documentation Source
+- **Document**: `merchant_activity_diagram.md` Diagram 14
+- **Section**: Support & Compliance
+- **Reference**: `DISPUTE_STATUS_TRANSITIONS` in `state-machines.ts` lines 173-178
+
 #### Current Flow (Actual)
 
 | Role | Action | Page / Endpoint |
@@ -746,8 +824,6 @@ active → completed
 | System | OCR compliance documents | `ocr-compliance-document` edge function |
 | System | Track document expiry, send renewal alerts | Compliance tracking |
 | System | GDPR data export/deletion | `gdpr-data-request` edge function |
-
-Source: Diagram 14, `DISPUTE_STATUS_TRANSITIONS`
 
 #### State Machine (Disputes)
 
@@ -781,6 +857,11 @@ Source: `DISPUTE_STATUS_TRANSITIONS` in `state-machines.ts` lines 173-178
 
 ### 🔹 Feature 15: Payment Reconciliation
 
+#### Documentation Source
+- **Document**: `merchant_activity_diagram.md` Diagram 15
+- **Section**: Payment Reconciliation
+- **Reference**: Diagram 15 flow. ❌ No explicit state machine in `state-machines.ts`
+
 #### Current Flow (Actual)
 
 | Role | Action | Page / Endpoint |
@@ -792,8 +873,6 @@ Source: `DISPUTE_STATUS_TRANSITIONS` in `state-machines.ts` lines 173-178
 | 🏠 Merchant | View 3 stat cards: Unmatched, Needs Review, Total Unmatched (IDR) | `/merchant/reconciliation` |
 | 🏠 Merchant | Review payments with up to 3 suggested invoices | `UnmatchedPaymentsTable` |
 | 🏠 Merchant | Manual-match from suggested invoices | `reconciliationService.manualMatch()` |
-
-Source: Diagram 15
 
 #### State Machine
 
@@ -822,6 +901,11 @@ Source: Diagram 15
 
 ### 🔹 Feature 16: Automated Payment Reminders & Escalation
 
+#### Documentation Source
+- **Document**: `merchant_activity_diagram.md` Diagram 16
+- **Section**: Automated Reminder System
+- **Reference**: Diagram 16 flow. ❌ No explicit state machine — cron-driven process
+
 #### Current Flow (Actual)
 
 | Role | Action | Page / Endpoint |
@@ -833,8 +917,6 @@ Source: Diagram 15
 | System | Auto-create collections case at T+15 | Collections case flow |
 | System | Escalate invoice from `overdue` to `escalated` at T+15 | Invoice status update |
 | 🏠 Merchant | Configure reminder schedule | `/merchant/settings/reminders` |
-
-Source: Diagram 16
 
 #### State Machine
 
@@ -863,6 +945,11 @@ Source: Diagram 16
 
 ### 🔹 Feature 17: Expense Tracking
 
+#### Documentation Source
+- **Document**: `merchant_activity_diagram.md` Diagram 17
+- **Section**: Expense Management
+- **Reference**: `EXPENSE_APPROVAL_TRANSITIONS` in `state-machines.ts` lines 264-270
+
 #### Current Flow (Actual)
 
 | Role | Action | Page / Endpoint |
@@ -872,8 +959,6 @@ Source: Diagram 16
 | 🏠 Merchant | View expense list (ordered by date DESC, limit 50) | Expense list |
 | 🏠 Merchant | Delete expense | Expense action |
 | System | Auto-set `approval_status: submitted` on creation | `expenseService.createExpense()` |
-
-Source: Diagram 17, `EXPENSE_APPROVAL_TRANSITIONS`
 
 #### State Machine
 
@@ -910,6 +995,11 @@ Source: `EXPENSE_APPROVAL_TRANSITIONS` in `state-machines.ts` lines 264-270
 
 ### 🔹 Feature 18: Waiting List
 
+#### Documentation Source
+- **Document**: `merchant_activity_diagram.md` Diagram 18
+- **Section**: Waiting List Management
+- **Reference**: `WAITING_LIST_TRANSITIONS` in `state-machines.ts` lines 207-214
+
 #### Current Flow (Actual)
 
 | Role | Action | Page / Endpoint |
@@ -920,8 +1010,6 @@ Source: `EXPENSE_APPROVAL_TRANSITIONS` in `state-machines.ts` lines 264-270
 | 🏠 Merchant | Send offer (select unit, 7-day expiry) | `SendOfferDialog` |
 | 🏠 Merchant | Track applicant response (accept/reject) | Status tracking |
 | System | Validate all transitions via `isValidTransition(WAITING_LIST_TRANSITIONS)` | Service layer |
-
-Source: Diagram 18, `WAITING_LIST_TRANSITIONS`
 
 #### State Machine
 
@@ -957,6 +1045,12 @@ Source: `WAITING_LIST_TRANSITIONS` in `state-machines.ts` lines 207-214
 
 ### 🔹 Feature 19: Lease Renewal & Amendment
 
+#### Documentation Source
+- **Document**: `merchant_activity_diagram.md` Diagram 19; `state-machines.ts` lines 217-227
+- **Section**: Contract Amendment Lifecycle
+- **Reference**: `AMENDMENT_STATUS_TRANSITIONS` lines 217-227; `send-renewal-alert` edge function (`supabase/functions/send-renewal-alert/index.ts`)
+- **⚠️ Discrepancy Detected**: Diagram 19 shows a simplified 5-state flow (draft, sent, signed, rejected, cancelled). Code implements a full **9-state** negotiation flow including tenant_reviewing, negotiating, agreed, signing. The code is the source of truth.
+
 #### Current Flow (Actual)
 
 | Role | Action | Page / Endpoint |
@@ -966,10 +1060,10 @@ Source: `WAITING_LIST_TRANSITIONS` in `state-machines.ts` lines 207-214
 | 🏠 Merchant | View renewal alerts (with fallback to direct contract query) | `/merchant/renewals` |
 | 🏠 Merchant | Create amendment (old_values, new_values JSON) | Amendment form |
 | 🏠 Merchant | Send amendment to tenant | Amendment detail |
-| 🧑‍💼 Tenant | Review, sign or reject amendment | `/tenant/amendments/:id` |
+| 🧑‍💼 Tenant | Review, counter-offer, or agree | `/tenant/amendments/:id` |
+| System | Track negotiation (offer/counter-offer) | `merchant_offer`, `tenant_counter_offer` fields in `contract_amendments` table |
+| 🏠 Merchant + 🧑‍💼 Tenant | Both sign agreed amendment | Digital signatures |
 | System | Update contract terms on signed amendment | Contract update |
-
-Source: Diagram 19, `AMENDMENT_STATUS_TRANSITIONS`
 
 #### State Machine
 
@@ -978,17 +1072,20 @@ draft → sent | cancelled
 sent → tenant_reviewing | rejected | cancelled
 tenant_reviewing → negotiating | agreed | rejected
 negotiating → agreed | rejected | cancelled
-agreed → signing → signed
+agreed → signing
+signing → signed
 ```
+
+**9 states total**: draft, sent, tenant_reviewing, negotiating, agreed, signing, signed, rejected, cancelled
 
 Source: `AMENDMENT_STATUS_TRANSITIONS` in `state-machines.ts` lines 217-227
 
 #### UX Friction Analysis
 
-- **8 amendment states** (draft, sent, tenant_reviewing, negotiating, agreed, signing, signed, rejected, cancelled) — enterprise contract negotiation
+- **9 amendment states** — enterprise contract negotiation flow for what is typically "Pak, sewa naik jadi Rp 900K ya" — "Ok"
 - **Negotiation flow** (offer → counter-offer → agreed) — suited for commercial leases, not kos
 - **Dual signature** required for amendments — same friction as original contract
-- **Automatic alerts at H-60, H-30, H-7** — excellent proactive feature
+- **Automatic alerts at H-60, H-30, H-7** — excellent proactive feature (verified in `send-renewal-alert` edge function: alerts array with days 60, 30, 7)
 - **Fallback query** when `lease_renewal_alerts` table fails — good resilience
 
 #### Business Impact
@@ -1007,6 +1104,11 @@ Source: `AMENDMENT_STATUS_TRANSITIONS` in `state-machines.ts` lines 217-227
 
 ### 🔹 Feature 20: Dynamic Pricing
 
+#### Documentation Source
+- **Document**: `merchant_activity_diagram.md` Diagram 21
+- **Section**: Dynamic Pricing Rules
+- **Reference**: `dynamic_pricing_rules` table in database schema. ❌ No explicit state machine — rules use `is_active` boolean toggle
+
 #### Current Flow (Actual)
 
 | Role | Action | Page / Endpoint |
@@ -1014,8 +1116,6 @@ Source: `AMENDMENT_STATUS_TRANSITIONS` in `state-machines.ts` lines 217-227
 | 🏠 Merchant | View pricing rules (sorted by priority) | `/merchant/dynamic-pricing` |
 | 🏠 Merchant | Create rule (type, adjustment, conditions, priority, min/max price) | Rule form |
 | 🏠 Merchant | Edit/delete/toggle rules | Rule actions |
-
-Source: Diagram 21
 
 #### State Machine
 
@@ -1044,17 +1144,20 @@ Source: Diagram 21
 
 ### 🔹 Feature 21: Financial Reports (P&L)
 
+#### Documentation Source
+- **Document**: `merchant_activity_diagram.md` Diagram 22
+- **Section**: Financial Reporting
+- **Reference**: Diagram 22 flow. ❌ No state machine — read-only reporting
+
 #### Current Flow (Actual)
 
 | Role | Action | Page / Endpoint |
 |------|--------|-----------------|
 | 🏠 Merchant | Open financial dashboard, select period (default 6 months) | `/merchant/financial-reports` |
-| System | 3 parallel queries: paid invoices, expenses, properties | `financialReportService.fetchFinancialSummary()` |
+| System | Parallel queries: paid invoices, expenses, properties | `financialReportService.fetchFinancialSummary()` |
 | System | Aggregate monthly P&L (revenue - expenses = net income) | Service logic |
 | System | Group revenue by property, expenses by category | Service logic |
 | 🏠 Merchant | View charts: monthly P&L bar chart, revenue pie by property, expense pie by category | Recharts components |
-
-Source: Diagram 22
 
 #### State Machine
 
@@ -1064,7 +1167,6 @@ Source: Diagram 22
 
 - **3 chart types** (bar, 2 pies) — appropriate, not overwhelming
 - **Period selector** (default 6 months) — good default
-- **Revenue uses `invoices.amount`** not `total_amount` — potential data discrepancy
 - **Property breakdown** with default "Lainnya" for unmapped — handles edge case
 
 #### Business Impact
@@ -1083,6 +1185,11 @@ Source: Diagram 22
 
 ### 🔹 Feature 22: Financial Control Center
 
+#### Documentation Source
+- **Document**: `role-actions.ts` line 23
+- **Section**: Expense Approval
+- **Reference**: "Approve Pengeluaran — Setujui atau tolak pengeluaran ≥ Rp 500K". Uses `EXPENSE_APPROVAL_TRANSITIONS` (same as Feature 17)
+
 #### Current Flow (Actual)
 
 | Role | Action | Page / Endpoint |
@@ -1091,8 +1198,6 @@ Source: Diagram 22
 | 🏠 Merchant | Approve/reject expenses ≥ Rp 500K | Approval queue |
 | 🏠 Merchant | View deposit refund approvals | Deposit refund section |
 | System | Audit trail for all approvals | `auditLog.ts` |
-
-Source: `role-actions.ts` line 23: "Approve Pengeluaran — Setujui atau tolak pengeluaran ≥ Rp 500K"
 
 #### State Machine
 
@@ -1129,25 +1234,26 @@ Uses `EXPENSE_APPROVAL_TRANSITIONS` (same as Feature 17)
 | 3 | Set addresses | `/merchant/profile` | 3 min | No |
 | 4 | Upload docs (KTP, SIUP, NPWP) | `/merchant/profile` | 10 min | No |
 | 5 | OCR processing | Auto | 1 min | No |
-| 6 | **Wait for admin verification** | — | **1-72 hours** | **YES** |
+| 6 | **Wait for admin verification** | — | **Unknown** | **YES** |
 | 7 | Choose subscription | `/merchant/subscription` | 2 min | No |
 | 8 | Add property | `/merchant/properties` | 5 min | No |
 | 9 | Set property address | Property detail | 3 min | No |
 | 10 | Add units | Property detail | 2 min/unit | No |
 | 11 | Invite tenant | `/merchant/tenants/invite` | 2 min | No |
-| 12 | **Wait for tenant acceptance** | — | **1-48 hours** | **YES** |
+| 12 | **Wait for tenant acceptance** | — | **Unknown** | **YES** |
 | 13 | Create contract | `/merchant/contracts` | 5 min | No |
 | 14 | Sign contract | Contract detail | 2 min | No |
-| 15 | **Wait for tenant signature** | — | **1-24 hours** | **YES** |
+| 15 | **Wait for tenant signature** | — | **Unknown** | **YES** |
 | 16 | Create invoice | `/merchant/invoices` | 3 min | No |
 | 17 | Send invoice | Invoice detail | 1 min | No |
-| 18 | **Wait for tenant payment** | — | **1-30 days** | **YES** |
+| 18 | **Wait for tenant payment** | — | **Unknown** | **YES** |
 | 19 | Verify payment | `/merchant/payments` | 2 min | No |
 
 **Total Steps**: 19
 **Blocking Steps**: 4 (Admin verification, tenant acceptance, tenant signature, tenant payment)
 **Active Merchant Time**: ~50 minutes
-**Calendar Time to First Revenue**: **3-7 days** minimum
+
+> ❌ **Not Defined in Current System Documentation**: Calendar time to first revenue cannot be calculated because admin verification turnaround time, tenant acceptance time, tenant signature time, and tenant payment time are all undefined in system documentation.
 
 **Assessment**: ⚠️ The 4 blocking steps create a poor first-run experience. The merchant invests 50+ minutes of active setup time across multiple sessions before seeing any financial return.
 
@@ -1167,9 +1273,11 @@ A typical merchant's daily routine requires touching these pages:
 **Minimum daily pages**: 4-5 (Dashboard, Payments, Invoices, Maintenance, Occupancy)
 **Total clicks**: 4-5 from Dashboard
 
-**Assessment**: ✅ Acceptable — the dashboard consolidates alerts, and the sidebar provides 1-click access to all daily pages. The 10 parallel queries in `merchantDashboardService.ts` ensure the dashboard loads with comprehensive data.
+**Assessment**: ✅ Acceptable — the dashboard consolidates alerts, and the sidebar provides 1-click access to all daily pages.
 
-**But**: If automated reminders are configured (Feature 16), steps 4 is eliminated. If OCR auto-match works (Feature 15), step 3 becomes a quick confirmation. **The automation features genuinely reduce daily workload.**
+> 🧩 **Assumption (Low Confidence)**: The claim that `merchantDashboardService.ts` uses "10 parallel queries" was stated in the original document but has not been verified against the actual source code in this revision. The number of parallel queries may differ.
+
+**But**: If automated reminders are configured (Feature 16), step 4 is eliminated. If OCR auto-match works (Feature 15), step 3 becomes a quick confirmation. **The automation features genuinely reduce daily workload.**
 
 ### C. Critical Scenario Journeys
 
@@ -1249,7 +1357,7 @@ A typical merchant's daily routine requires touching these pages:
 | Risk | Feature | Impact | Evidence |
 |------|---------|--------|----------|
 | Admin verification blocks all operations | Onboarding | Revenue loss during wait | Diagram 1: pending → verified requires admin action |
-| 25 sidebar items overwhelm new users | Navigation | Feature abandonment | `navigation-config.ts`: 4 groups, 25 items |
+| 24 sidebar items overwhelm new users | Navigation | Feature abandonment | `navigation-config.ts`: 4 groups, 24 items |
 | Payment verification bottleneck at scale | Payments | Revenue recognition delay | Diagram 7: merchant must confirm every payment |
 | 7-state collections lifecycle confuses merchants | Collections | Ignored feature, uncollected revenue | `COLLECTIONS_CASE_TRANSITIONS`: 7 states |
 | 4 state machines for move-out process | Move-Out | Merchants bypass system, do offline | 4 machines in `state-machines.ts` |
@@ -1259,7 +1367,7 @@ A typical merchant's daily routine requires touching these pages:
 | Risk | Feature | Impact | Evidence |
 |------|---------|--------|----------|
 | Email-only tenant invitation | Tenants | Failed invitations (no email) | Diagram 5: email-based flow |
-| 8 amendment states for contract changes | Renewals | Feature avoidance | `AMENDMENT_STATUS_TRANSITIONS`: 8 states |
+| 9 amendment states for contract changes | Renewals | Feature avoidance | `AMENDMENT_STATUS_TRANSITIONS`: 9 states |
 | Reconciliation jargon | Payments | Confusion | Page name: "Resolusi & Rekonsiliasi" |
 | Expense approval for single-owner ops | Expenses | Unnecessary clicks | `EXPENSE_APPROVAL_TRANSITIONS` |
 | Dynamic pricing complexity | Pricing | Feature never used | 5 rule types + priority ordering |
@@ -1269,7 +1377,7 @@ A typical merchant's daily routine requires touching these pages:
 | Risk | Feature | Impact | Evidence |
 |------|---------|--------|----------|
 | Unit status transitions | Properties | 3 states, clear logic | `UNIT_STATUS_TRANSITIONS`: available/occupied/maintenance |
-| Financial reports | Reports | Simple read-only view | 3 queries + 3 charts |
+| Financial reports | Reports | Simple read-only view | 3 charts |
 | Automated reminders | Reminders | Set-and-forget configuration | Cron-based, auto-escalation |
 | AI chatbot support | Support | Self-service, no merchant burden | AI-driven responses |
 | Dashboard health badges | Dashboard | At-a-glance understanding | Green/Yellow/Red system |
@@ -1282,12 +1390,12 @@ A typical merchant's daily routine requires touching these pages:
 
 | Process | Complexity | Why Over-Engineered | Target Appropriate At |
 |---------|-----------|--------------------|-----------------------|
-| 25 state machines across entities | Very High | A 10-room kos needs at most 5 state concepts (vacant, occupied, payment pending, payment received, maintenance) | 100+ units, commercial leases |
+| 31 state machines across entities | Very High | A 10-room kos needs at most 5 state concepts (vacant, occupied, payment pending, payment received, maintenance) | 100+ units, commercial leases |
 | 7-state collections escalation | High | For a missed Rp 800K payment, "kirim WhatsApp" is the entire process | 50+ units with payment issues |
 | 4 state machines for move-out | High | Kos owner walks to room, checks damage, gives cash back | Formal apartment complexes |
-| 8-state amendment negotiation | High | "Pak, sewa naik jadi Rp 900K ya" — "Ok" | Commercial lease negotiations |
+| 9-state amendment negotiation | High | "Pak, sewa naik jadi Rp 900K ya" — "Ok" | Commercial lease negotiations |
 | 3-tier payment reconciliation | High | Manual bank transfer matching for < 30 payments/month | 100+ payments/month |
-| 14 AI/ML edge functions | Very High | Occupancy forecast for a 10-room kos with 90% occupancy year-round | Portfolio investors |
+| ~14 AI/ML edge functions | Very High | Occupancy forecast for a 10-room kos with 90% occupancy year-round | Portfolio investors |
 | 5-type dynamic pricing engine | High | Most kos: fixed price per room type | Hotels, seasonal properties |
 | Insurance policies + claims module | Medium | Most kos owners have property-level insurance, not unit-level | Large commercial properties |
 | Disaster risk profiles | Medium | Risk zone assessment for a kos in a residential neighborhood | Properties in flood zones |
@@ -1312,7 +1420,7 @@ A typical merchant's daily routine requires touching these pages:
 | Feature | UX Assessment | Verdict |
 |---------|--------------|---------|
 | Dashboard | Shows occupancy for 1 property, 5 units — simple | ✅ Good |
-| Navigation | 25 sidebar items — 20 are irrelevant | ❌ Overwhelming |
+| Navigation | 24 sidebar items — 19 are irrelevant | ❌ Overwhelming |
 | Invoices | 5 invoices/month — manageable | ✅ Good |
 | Payments | 5 verifications/month — quick | ✅ Good |
 | Collections | Rarely needed — 0-1 cases | ⚠️ Feature bloat |
@@ -1347,8 +1455,8 @@ A typical merchant's daily routine requires touching these pages:
 
 | Feature | UX Assessment | Verdict |
 |---------|--------------|---------|
-| Dashboard | 10 parallel queries may show high-level aggregates only | ⚠️ Needs per-property drill-down |
-| Navigation | All 25 items relevant, may need role-based customization | ⚠️ Needs filtering |
+| Dashboard | High-level aggregates only | ⚠️ Needs per-property drill-down |
+| Navigation | All 24 items relevant, may need role-based customization | ⚠️ Needs filtering |
 | Invoices | 100 invoices/month — bulk operations critical | ⚠️ Needs bulk actions |
 | Payments | 100 verifications — auto-confirm essential | ❌ Manual confirm doesn't scale |
 | Collections | 10-15 cases — formal workflow justified | ✅ Essential |
@@ -1359,7 +1467,7 @@ A typical merchant's daily routine requires touching these pages:
 | AI/DSS | Sufficient data for ML models — predictions useful | ✅ Valuable |
 | Waiting List | High occupancy = active waiting list | ✅ Essential |
 
-**Overall at 100 units**: ⚠️ System has the features but **lacks bulk operation UI** (batch invoice send, batch payment confirm, bulk unit management). The one-by-one flow breaks at scale. Supabase's **1000-row query limit** may also hit for payment/invoice queries.
+**Overall at 100 units**: ⚠️ System has the features but **lacks bulk operation UI** (batch invoice send, batch payment confirm, bulk unit management). The one-by-one flow breaks at scale.
 
 ---
 
@@ -1369,15 +1477,15 @@ A typical merchant's daily routine requires touching these pages:
 
 **Reasoning**:
 
-1. **Target user mismatch**: The system is built with enterprise-grade workflows (25 state machines, 14 AI edge functions, 3-tier reconciliation) targeting a user base of non-technical boarding house owners who think in terms of "siapa yang belum bayar?" The cognitive load ratio is inverted — the simplest operations (collect rent, track occupancy) are embedded in the most complex processes.
+1. **Target user mismatch**: The system is built with enterprise-grade workflows (31 state machines, ~14 AI edge functions, 3-tier reconciliation) targeting a user base of non-technical boarding house owners who think in terms of "siapa yang belum bayar?" The cognitive load ratio is inverted — the simplest operations (collect rent, track occupancy) are embedded in the most complex processes.
 
 2. **Core features are solid**: Dashboard with health badges, automated reminders, auto-match payments, financial reports — these 4 features alone would satisfy 80% of merchant needs. They work well and are properly integrated.
 
-3. **Bloat suppresses core value**: The excellent core is buried under 25 sidebar items, 57 pages, and features like dynamic pricing, DSS advisory, disaster risk profiles, and API integration that a typical Ibu Kos will never use.
+3. **Bloat suppresses core value**: The excellent core is buried under 24 sidebar items and features like dynamic pricing, DSS advisory, disaster risk profiles, and API integration that a typical Ibu Kos will never use.
 
-4. **Onboarding is a critical bottleneck**: Admin verification blocking prevents any value delivery for 1-3 days. This is the single highest churn risk in the system.
+4. **Onboarding is a critical bottleneck**: Admin verification blocking prevents any value delivery for an unknown duration. This is the single highest churn risk in the system.
 
-5. **Automation saves the UX**: The automated reminder system (Feature 16), auto-match payments (Feature 15), and auto-generate invoices (Feature 6) are the best UX decisions in the system. They reduce daily merchant workload from ~30 minutes to ~10 minutes.
+5. **Automation saves the UX**: The automated reminder system (Feature 16), auto-match payments (Feature 15), and auto-generate invoices (Feature 6) are the best UX decisions in the system. They reduce daily merchant workload significantly.
 
 6. **Scale readiness**: At 100 units, the system has all the features but lacks bulk operations. The one-by-one confirmation, creation, and management flows don't scale without batch processing UI.
 
@@ -1385,31 +1493,76 @@ A typical merchant's daily routine requires touching these pages:
 
 | Priority | Action | Impact | Effort |
 |----------|--------|--------|--------|
-| P0 | Allow limited access during admin verification | Prevents 40-60% onboarding churn | Medium |
+| P0 | Allow limited access during admin verification | Prevents onboarding churn | Medium |
 | P0 | Add WhatsApp-based tenant invitation | Matches Indonesian communication norms | Low |
 | P1 | Reduce visible sidebar to 8 items for < 20 unit merchants | Reduces cognitive overload | Low |
-| P1 | Auto-confirm payments with > 95% OCR confidence | Eliminates manual bottleneck | Low |
+| P1 | Auto-confirm payments with high OCR confidence | Eliminates manual bottleneck | Low |
 | P2 | Add bulk operations (batch confirm, batch send) | Enables 100+ unit scale | Medium |
 | P2 | Create "Quick Start" wizard: Property → Unit → Tenant → Contract → Invoice | Reduces onboarding from 19 steps to 5 | Medium |
 | P3 | Hide advanced features (Dynamic Pricing, DSS, API) behind Progressive Disclosure | Reduces feature bloat for small operators | Low |
 
 ---
 
-## Appendix: Feature Count Summary
+## 8. Hallucination Risk Self-Check
 
-| Category | Count | Source |
-|----------|-------|--------|
-| Sidebar navigation items | 25 | `navigation-config.ts` merchant mainNav |
-| State machines | 25 | `state-machines.ts` |
-| ML/AI edge functions | 14 | Diagram 12 (10 ML + 4 DSS) |
-| OCR edge functions | 7 | Diagram 12 (7 document types) |
-| Activity diagrams | 23 | `merchant_activity_diagram.md` |
-| Primary merchant actions | 5 | `role-actions.ts` |
-| Dashboard parallel queries | 10 | `merchantDashboardService.ts` |
-| Expense categories | 8 | `EXPENSE_CATEGORIES` in Diagram 17 |
-| Dynamic pricing rule types | 5 | Diagram 21 |
-| Collections resolution types | 4 | Diagram 20 (paid_in_full, payment_plan, write_off, eviction) |
+### Audit Integrity Check
+
+| Metric | Value |
+|--------|-------|
+| Total Features Identified from Documentation | 22 (from Diagrams 1-22 in `merchant_activity_diagram.md` + `role-actions.ts`) |
+| Total Features Analyzed | 22 |
+| Features Without Source Reference | **0** |
+| Audit Integrity | ✅ All features have traceable sources |
+
+### Assumptions Used
+
+| # | Assumption | Confidence | Context |
+|---|-----------|------------|---------|
+| 1 | Onboarding churn rate "40-60%" | 🧩 Low | Based on general SaaS benchmarks, not SiHuni data |
+| 2 | Mamikos PMS competitor benchmark | 🧩 Low | No competitor documentation exists in system |
+| 3 | "10 parallel queries" in merchantDashboardService | 🧩 Low | Stated in original document, not re-verified against source code |
+| 4 | Referral state machine (pending → active → completed) | 🧩 Low | Inferred from Diagram 13; no `REFERRAL_STATUS_TRANSITIONS` in code |
+
+### Items Marked "Not Defined in Current System Documentation"
+
+| # | Item | Section |
+|---|------|---------|
+| 1 | Admin verification turnaround time | §1.2, §3A Step 6 |
+| 2 | Calendar time to first revenue | §3A |
+| 3 | Push notification auto-trigger on payment receipt | §2 Feature 7 |
+
+### Items Marked "Ambiguous in Documentation"
+
+| # | Item | Section |
+|---|------|---------|
+| 1 | Manual tenant creation capability | §2 Feature 5 |
+| 2 | ML edge function exact count (10 vs 11, OCR categorization) | §2 Feature 12 |
+
+### Documentation Discrepancies Found
+
+| # | Discrepancy | Documents | Details |
+|---|-------------|-----------|---------|
+| 1 | Lease Amendment states: Diagram vs Code | `merchant_activity_diagram.md` Diagram 19 vs `state-machines.ts` `AMENDMENT_STATUS_TRANSITIONS` | Diagram shows 5 simplified states; code implements 9 states including tenant_reviewing, negotiating, agreed, signing |
+| 2 | Collections Case: Diagram 11 reference vs Code | `merchant_activity_diagram.md` Diagram 11 reference table vs `state-machines.ts` `COLLECTIONS_CASE_TRANSITIONS` | Some diagram references show simplified 3-state; code has 7 states (initiated, reminder_sent, follow_up, in_progress, escalated, legal, resolved) |
 
 ---
 
-*Document generated from actual system documentation. All feature references point to specific files, state machines, and diagram numbers. Assumptions are labeled with ⚠️ markers.*
+## Appendix: Corrected Feature Count Summary
+
+| Category | Count | Source | Verification Status |
+|----------|-------|--------|---------------------|
+| Sidebar navigation items (merchant) | **24** | `navigation-config.ts` lines 118-163 (3+4+5+12) | ✅ Verified |
+| State machines | **31** | `state-machines.ts` — all exported `*_TRANSITIONS` constants | ✅ Verified (counted individually) |
+| Amendment states | **9** | `AMENDMENT_STATUS_TRANSITIONS` lines 217-227 | ✅ Verified |
+| Collections Case states | **7** | `COLLECTIONS_CASE_TRANSITIONS` lines 196-204 | ✅ Verified |
+| ML/AI edge functions | **~14** | Diagram 12 (10 ML + 4 DSS, with OCR overlap) | ⚠️ Approximate — categorization boundaries ambiguous |
+| OCR-related functions | **7** | Diagram 12 (7 document types) | ⚠️ Per diagram, not independently verified |
+| Activity diagrams | **23** | `merchant_activity_diagram.md` | ✅ Per document |
+| Primary merchant actions | **5** | `role-actions.ts` | ✅ Verified |
+| Expense categories | **8** | Diagram 17 | ⚠️ Per diagram |
+| Dynamic pricing rule types | **5** | Diagram 21 | ⚠️ Per diagram |
+| Collections resolution types | **4** | Diagram 20 (paid_in_full, payment_plan, write_off, eviction) | ⚠️ Per diagram |
+
+---
+
+*Document revised with strict source traceability. All 22 features mapped to exact documentation sources. 4 assumptions explicitly labeled with low confidence. 3 items marked as "Not Defined". 2 items marked as "Ambiguous". 2 documentation discrepancies flagged. 0 features without source reference.*
