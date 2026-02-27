@@ -1,50 +1,78 @@
 
 
-# Risk Assessment Matrix -- Status Update
+# Create UX Assessment & User Journey Document
 
-## Assessment Summary
+## Objective
 
-All 15 risk mitigations in the Risk Assessment Matrix have been analyzed against the current codebase. **14 out of 15 are fully implemented**, and 1 is infrastructure-level (not application code).
+Create `old-docs/UX_ASSESSMENT_AND_USER_JOURNEY.md` -- a comprehensive UX audit of ALL merchant features from the perspective of a non-technical boarding house owner, based strictly on documented system evidence.
 
-## Status Per Item
+## Source Evidence Used
 
-### Financial Risk (5/5 mitigated)
+All findings are grounded in actual codebase artifacts:
+- **Navigation config**: 13 primary + 12 secondary nav items (57 total merchant pages)
+- **State machines**: 25 defined in `state-machines.ts` with 100+ transitions
+- **Activity diagrams**: 23 workflows documented in `merchant_activity_diagram.md`
+- **Dashboard service**: `merchantDashboardService.ts` with 10 parallel queries
+- **Role actions**: 5 primary merchant actions defined in `role-actions.ts`
+- **Audit report**: Existing findings in `PMS_Audit_Report_FULL.md`
 
-| Risk | Mitigation | Status | Evidence |
-|------|-----------|--------|----------|
-| Payment fraud (fake screenshot) | Manual approval gate | COMPLETE | OCR verification via `ml-ocr-extraction` edge function + manual proof upload in `MarkPaidDialog` + `CreatePaymentDialog` with photo verification |
-| Double payment not detected | Transaction matching logic | COMPLETE | 3-tier reconciliation in `reconciliationService.ts`: exact match, amount mismatch suggestion, manual review. `reconciliation_status` field on payments table |
-| Deposit refund dispute unresolved | Clear arbitration criteria | COMPLETE | Deposit refund approval workflow in Financial Control Center + `DisputeResolution.tsx` page with support tickets |
-| Expense approval no trail | Approval workflow + audit log | COMPLETE | Expenses >= Rp 500K require approval (`expenseService.ts`). Full audit trail via `auditLog.ts` utility logging all status changes |
-| Tax/accounting not reconcile-able | Monthly reconciliation report | COMPLETE | `ReconciliationReport.tsx` component with match history, unmatched payments view, and exportable report |
+## Document Structure
 
-### Operational Risk (4/5 mitigated, 1 infrastructure-level)
+### 1. Executive UX Summary
+Assessment of system understandability, flow complexity, admin dependency, and time-to-first-value. Based on actual onboarding flow (Diagram 1: 8 steps before first insight) and navigation complexity (57 pages).
 
-| Risk | Mitigation | Status | Evidence |
-|------|-----------|--------|----------|
-| Pemilik confused workflow | Simplified UX + onboarding | COMPLETE | Nav reduced from 28 to 13 items, `RoleActionGuide.tsx` with role-specific actions, health dashboard with Green/Yellow/Red badges, `Onboarding.tsx` page |
-| Tenant screening inadequate | Mandatory pre-approval | COMPLETE | AI-powered screening gate via `screeningService.ts`, Green/Yellow/Red grading, Red blocks contract creation, guarantor required for high-risk |
-| Collections case fall through | Action checklist + escalation | COMPLETE | `collectionsCaseService.ts` with escalation levels, `CollectionsTemplateSelector` for message templates, status tracking (follow_up -> escalated -> legal -> resolved) |
-| Vendor quality issue | Rating/review system | COMPLETE | `maintenance_reviews` table, `MaintenanceReviewForm`, vendor rating display on dashboards, `VendorPerformance.tsx` analytics page |
-| Data loss / system down | Backup + SLA guarantee | SKIP | Infrastructure-level concern handled by Lovable Cloud (managed Supabase). Not application code responsibility. SLA tracking exists for maintenance requests |
+### 2. Feature-by-Feature UX Assessment (20 merchant features)
+For each feature: actual flow table, state machine reference, UX friction analysis, business impact, and simplification opportunities. Features covered:
+1. Onboarding & Verification
+2. Subscription Management
+3. Property & Unit Management
+4. Contract Lifecycle
+5. Tenant Management
+6. Invoice Management
+7. Payment & Verification
+8. Direct Payment (former Escrow)
+9. Move-Out & Deposit Refund
+10. Maintenance Requests
+11. Collections & Billing Analytics
+12. AI/ML & DSS Advisory
+13. Referral System
+14. Support & Compliance
+15. Payment Reconciliation
+16. Automated Reminders
+17. Expense Tracking
+18. Waiting List
+19. Lease Renewal & Amendment
+20. Dynamic Pricing
+21. Financial Reports
+22. Financial Control Center (new)
 
-### Legal Risk (4/4 mitigated)
+### 3. End-to-End Merchant Journeys
+- A. Onboarding Journey (steps-to-first-value analysis)
+- B. Daily Operational Journey (page navigation count)
+- C. Critical Scenarios (tenant payment, late payment, complaint, full occupancy, expansion)
 
-| Risk | Mitigation | Status | Evidence |
-|------|-----------|--------|----------|
-| Contract not enforceable | Legal template review | COMPLETE | `ContractTemplateManager.tsx` for reusable templates, `DocumentTemplateEditor.tsx` for document templates including `lease_contract` category |
-| Dispute arbitration without trail | Full audit log | COMPLETE | `auditLog.ts` captures all status changes across entities. `audit_logs` table with user_id, action, entity_type, metadata. Admin `AuditLogs` page for viewing |
-| Tenant data privacy breach | GDPR compliance | COMPLETE | `gdpr-data-request` edge function: GET for data export (Right to Access), DELETE for data anonymization (Right to Delete). Privacy settings in tenant `Settings.tsx` |
-| Pemilik liability (injury) | Insurance recommendation | COMPLETE | Full insurance module: `insurance_policies` + `insurance_claims` tables, `InsuranceAnalyticsCard.tsx`, `insuranceRenewalService.ts` with renewal alerts and coverage gap analysis |
+### 4. UX Risk Map
+High/Medium/Low risk categorization based on actual friction points discovered
 
-## Changes Required
+### 5. Over-Complexity Detection
+Enterprise-grade processes inappropriate for small kosan operations (e.g., 25 state machines, 10+ ML edge functions, 3-tier reconciliation for manual transfers)
 
-Only one file needs updating -- the audit report itself. Add implementation status markers to each row in the Risk Assessment Matrix tables.
+### 6. Scalability UX Check
+Assessment at 5, 20, and 100 unit scales -- which features break UX at scale
 
-### File: `old-docs/PMS_Audit_Report_FULL.md`
+### 7. Final UX Verdict
+Evidence-based verdict with specific reasoning
 
-Update lines 937-966 to add status columns to each risk table, marking 14 items as COMPLETE and 1 as SKIP (infrastructure-level).
+## File Created
 
-## Technical Details
+| Action | File |
+|--------|------|
+| CREATE | `old-docs/UX_ASSESSMENT_AND_USER_JOURNEY.md` |
 
-No code changes needed. All mitigations are already implemented across the codebase. This is purely a documentation update to reflect the current state.
+## Technical Notes
+
+- No code changes -- pure documentation
+- All findings reference specific files, state machines, and diagram numbers
+- Assumptions are explicitly labeled per the rules
+- Document will be approximately 3000-4000 lines of detailed, grounded analysis
+
