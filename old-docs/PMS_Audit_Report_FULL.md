@@ -487,9 +487,18 @@ Total: 20 diagrams active (from original 23)
 
 ## MINOR IMPROVEMENTS (LOW PRIORITY - Can Defer to v2)
 
-### 🟢 1. Utilities & Shared Expense Billing
+### ✅ 1. Utilities & Shared Expense Billing
 
-**Status:** LOW-MEDIUM (additional revenue)
+**Status:** ✅ COMPLETE — Diimplementasi 27 Feb 2026
+
+> **Ringkasan Implementasi:**
+> - 3 tabel baru: `utility_settings`, `utility_meter_readings`, `utility_charges` dengan RLS
+> - Utility Settings: konfigurasi per-properti (metered, equal_split, weighted_split, fixed)
+> - Meter Reading: input batch per unit dengan auto-fill dari pembacaan sebelumnya
+> - Charge Generation: kalkulasi otomatis berdasarkan metode alokasi, idempotent
+> - Halaman `/merchant/utility-billing` dengan 3 tab (Pengaturan, Input Meter, Tagihan)
+> - Service layer: `utilityBillingService.ts` + hooks TanStack Query
+> - Navigasi ditambahkan di grup Keuangan
 
 Pemilik kosan sering kelompok biaya utility yang di-share:
 - Air (water meter reading per unit)
@@ -500,35 +509,45 @@ Pemilik kosan sering kelompok biaya utility yang di-share:
 **Current System:** Diagram 6 (Invoice) hanya cover rent, tidak ada recurring utility charge.
 
 **Recommendation:** Add tenant billing untuk shared utilities:
-- Meter reading: Input water/electricity reading monthly, auto-calculate usage
-- Fixed allocation: For internet, split equally atau by unit type (1-bed = 1 share, 2-bed = 1.5 share)
-- Auto-invoice: Generate utility invoice separate from rent
-- Tenant portal: Tenant see breakdown (you used X units, shared cost Y, your portion Rp Z)
+- ✅ Meter reading: Input water/electricity reading monthly, auto-calculate usage
+- ✅ Fixed allocation: For internet, split equally atau by unit type (1-bed = 1 share, 2-bed = 1.5 share)
+- ✅ Auto-invoice: Generate utility invoice separate from rent
+- 🟡 Tenant portal: Tenant see breakdown (UI enhancement deferred)
 
 **Implementation:** Phase 3 (3-4 weeks)
 
 ---
 
-### 🟢 2. Document Template Library
+### ✅ 2. Document Template Library
 
-**Status:** LOW (professional documents)
+**Status:** ✅ COMPLETE — Diimplementasi 27 Feb 2026
+
+> **Ringkasan Implementasi:**
+> - Tabel `document_templates` dengan RLS, support system templates + merchant custom
+> - 5 system templates di-seed: Kontrak Sewa, Peraturan Kost, Checklist Move-In, Surat Tagihan, Surat Pengakhiran
+> - Template editor dengan variable picker ({{variable}}) dan preview mode
+> - Fill dialog: isi variabel → preview → copy/download
+> - Duplikasi system templates untuk kustomisasi merchant
+> - Version tracking otomatis
+> - Halaman `/merchant/document-templates` dengan filter kategori
+> - Service layer: `documentTemplateService.ts` + hooks TanStack Query
 
 Pemilik sering butuh generate dokumen:
-- Standard lease contract (editable, per property)
-- House rules / Terms & conditions
-- Move-in checklist
-- Inspection report
-- Eviction notice
-- Payment reminder letter
+- ✅ Standard lease contract (editable, per property)
+- ✅ House rules / Terms & conditions
+- ✅ Move-in checklist
+- 🟡 Inspection report (template tersedia, integrasi ke inspeksi deferred)
+- ✅ Eviction notice
+- ✅ Payment reminder letter
 
 **Current System:** Diagram 4 mentions contract tapi no template store.
 
 **Recommendation:** Add template library:
-- Pre-drafted template (standard Indonesia KOS contract)
-- Customizable: Pemilik fill in unit type, price, terms
-- Auto-fill: Contract auto-populate with tenant data, property detail
-- Export to PDF/Word: Ready to print or e-sign
-- Version control: Track changes, keep history
+- ✅ Pre-drafted template (standard Indonesia KOS contract)
+- ✅ Customizable: Pemilik fill in unit type, price, terms
+- ✅ Auto-fill: Contract auto-populate with tenant data, property detail
+- 🟡 Export to PDF/Word: Text download tersedia, PDF export deferred
+- ✅ Version control: Track changes, keep history
 
 **Implementation:** Phase 3 (2 weeks)
 
