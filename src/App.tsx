@@ -84,6 +84,8 @@ const MerchantTenantAnalytics = lazy(() => import("@/pages/merchant/TenantAnalyt
 const MerchantCompliance = lazy(() => import("@/pages/merchant/PropertyCompliance"));
 const MerchantFinancialRisk = lazy(() => import("@/pages/merchant/FinancialRiskAnalytics"));
 const MerchantTenantQuality = lazy(() => import("@/pages/merchant/TenantQualityScoring"));
+const MerchantTenantScreening = lazy(() => import("@/pages/merchant/TenantScreening"));
+const MerchantOccupancyBoard = lazy(() => import("@/pages/merchant/OccupancyBoard"));
 const MerchantDataQuality = lazy(() => import("@/pages/merchant/DataQualityHistory"));
 const MerchantDocumentCenter = lazy(() => import("@/pages/merchant/DocumentCenter"));
 const MerchantAnalyticsDashboard = lazy(() => import("@/pages/merchant/AnalyticsDashboard"));
@@ -248,6 +250,8 @@ const App = () => (
                     <Route path="market-intelligence" element={<MerchantMarketIntelligence />} />
                     <Route path="financial-risk" element={<MerchantFinancialRisk />} />
                     <Route path="tenant-quality" element={<MerchantTenantQuality />} />
+                    <Route path="tenant-screening" element={<MerchantTenantScreening />} />
+                    <Route path="occupancy-board" element={<MerchantOccupancyBoard />} />
                     {/* Legacy redirects */}
                     <Route path="assets" element={<Navigate to="/merchant/properties" replace />} />
                     <Route path="occupancy" element={<Navigate to="/merchant/tenants" replace />} />

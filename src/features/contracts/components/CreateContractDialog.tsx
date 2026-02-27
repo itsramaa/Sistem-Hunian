@@ -10,6 +10,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { contractSchema, ContractFormData, paymentFrequencyOptions } from '../types/schema';
 import { useEffect } from 'react';
+import { useScreeningForTenant } from '@/features/screening/hooks/useScreening';
+import { Badge } from '@/shared/components/ui/badge';
+import { AlertTriangle, ShieldAlert, ShieldCheck, ShieldX } from 'lucide-react';
 
 interface CreateContractDialogProps {
   open: boolean;
@@ -29,6 +32,14 @@ export function CreateContractDialog({
   });
 
   useEffect(() => { if (open) form.reset(); }, [open, form]);
+
+  const selectedTenantId = form.watch('tenant_user_id');
+  const { data: screening, isLoading: screeningLoading } = useScreeningForTenant(selectedTenantId || undefined);
+
+  const screeningBlocked = selectedTenantId && !screeningLoading && (
+    !screening || (screening.screening_grade === 'red' && screening.status !== 'approved')
+  );
+  const screeningWarning = screening?.screening_grade === 'yellow';
 
   const handleSubmit = (data: ContractFormData) => { onSubmit(data, form.reset); };
 
@@ -64,6 +75,34 @@ export function CreateContractDialog({
             </Select>
             {form.formState.errors.tenant_user_id && <p className="text-sm text-destructive mt-1">{form.formState.errors.tenant_user_id.message}</p>}
           </div>
+
+          {/* Screening Gate */}
+          {selectedTenantId && !screeningLoading && screening && (
+            <div className={`flex items-center gap-2 p-3 rounded-xl border ${
+              screening.screening_grade === 'green' ? 'bg-emerald-500/10 border-emerald-500/30' :
+              screening.screening_grade === 'yellow' ? 'bg-amber-500/10 border-amber-500/30' :
+              'bg-destructive/10 border-destructive/30'
+            }`}>
+              {screening.screening_grade === 'green' && <ShieldCheck className="h-4 w-4 text-emerald-600" />}
+              {screening.screening_grade === 'yellow' && <ShieldAlert className="h-4 w-4 text-amber-600" />}
+              {screening.screening_grade === 'red' && <ShieldX className="h-4 w-4 text-destructive" />}
+              <span className="text-sm">
+                Screening: <Badge variant="outline" className="ml-1 rounded-lg text-xs">{screening.screening_grade?.toUpperCase()} — Skor {screening.screening_score}</Badge>
+                {screening.screening_grade === 'yellow' && ' (Perhatian: risiko sedang)'}
+                {screening.screening_grade === 'red' && screening.status === 'approved' && ' (Disetujui manual)'}
+              </span>
+            </div>
+          )}
+          {screeningBlocked && (
+            <div className="flex items-center gap-2 p-3 rounded-xl border border-destructive/30 bg-destructive/10">
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+              <div className="text-sm">
+                <p className="font-medium text-destructive">Screening diperlukan sebelum membuat kontrak</p>
+                <a href="/merchant/tenant-screening" className="text-xs underline">Jalankan screening →</a>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Tanggal Mulai</Label>
@@ -106,7 +145,7 @@ export function CreateContractDialog({
           </div>
           <DialogFooter className="flex-col-reverse sm:flex-row">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">Batal</Button>
-            <Button type="submit" disabled={loading} className="gradient-cta rounded-xl">{loading ? 'Membuat...' : 'Buat Kontrak'}</Button>
+            <Button type="submit" disabled={loading || !!screeningBlocked} className="gradient-cta rounded-xl">{loading ? 'Membuat...' : 'Buat Kontrak'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
