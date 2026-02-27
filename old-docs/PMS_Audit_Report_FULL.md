@@ -289,34 +289,35 @@ Berdasarkan comprehensive diagram analysis dan removal of escrow+referral, berik
 
 ---
 
-### 🟡 Priority 5: Expense Approval Workflow — Better Cost Control
+### ✅ Priority 5: Expense Approval Workflow — Better Cost Control
 
 **Why:** Pemilik perlu confidence in spending, with documentation.
 
 **Requirement:**
-- Receipt upload: Photo or PDF scan
-- OCR extract: Amount, vendor, date auto-fill
-- Approval gate: >Rp 500K need approval, <Rp 500K auto-approve
-- Categorization: Auto-categorize based on description
-- Attachment: Store for audit
-- Report integration: Expense flow to P&L
+- ✅ Receipt upload: Photo or PDF scan — ExpenseCreateDialog with camera/gallery/PDF upload
+- ✅ OCR extract: Amount, vendor, date auto-fill — ocr-expense-receipt edge function with Lovable AI
+- ✅ Approval gate: >Rp 500K need approval, <Rp 500K auto-approve — APPROVAL_THRESHOLD constant
+- ✅ Categorization: Auto-categorize based on description — keyword + AI suggested_category
+- ✅ Attachment: Store for audit — verification-documents bucket + ReceiptViewer
+- ✅ Report integration: Expense flow to P&L — already integrated via financialReportService
 
-**Implementation:** 2-3 weeks
+**Implementation:** ✅ COMPLETE
 
 ---
 
-### 🟡 Priority 6: Mobile App (Core Features) — On-The-Go Management
+### ✅ Priority 6: Mobile App (Core Features) — On-The-Go Management
 
 **Why:** Pemilik manage kosan dari mobile 80% of time.
 
 **Requirement - MVP v1:**
-- Dashboard: Occupancy %, latest 5 transaction, critical alerts
-- Send reminder: One-click send SMS/WhatsApp reminder
-- Log expense: Photo + amount + category, done
-- View alerts: Unread messages, overdue invoice, pending approval
-- Tenant search: Find tenant, view profile, payment history
+- ✅ Dashboard: Occupancy %, latest 5 transaction, critical alerts — MobileMerchantDashboard
+- ✅ Send reminder: One-click send SMS/WhatsApp reminder — QuickReminderButton
+- ✅ Log expense: Photo + amount + category, done — QuickExpenseSheet (bottom drawer)
+- ✅ View alerts: Unread messages, overdue invoice, pending approval — /merchant/alerts page
+- ✅ Tenant search: Find tenant, view profile, payment history — existing page + mobile bottom nav
+- ✅ Mobile bottom nav enabled for merchant role
 
-**Implementation:** 6-8 weeks (Phase 2)
+**Implementation:** ✅ COMPLETE
 
 ---
 

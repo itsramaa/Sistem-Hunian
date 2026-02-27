@@ -41,6 +41,9 @@ export interface CreateExpenseInput {
   notes?: string;
   isRecurring?: boolean;
   taxDeductible?: boolean;
+  receiptUrl?: string;
+  ocrData?: Record<string, unknown>;
+  autoApprove?: boolean;
 }
 
 const EXPENSE_CATEGORIES = [
@@ -128,7 +131,8 @@ export const expenseService = {
   },
 
   async createExpense(input: CreateExpenseInput) {
-    const { error } = await supabase.from('expenses').insert({
+    const approvalStatus = input.autoApprove ? 'approved' : 'pending_approval';
+    const insertData: Record<string, unknown> = {
       merchant_id: input.merchantId,
       property_id: input.propertyId || null,
       unit_id: input.unitId || null,
@@ -141,9 +145,64 @@ export const expenseService = {
       notes: input.notes || null,
       is_recurring: input.isRecurring || false,
       tax_deductible: input.taxDeductible || false,
-      approval_status: 'submitted',
-    });
+      approval_status: approvalStatus,
+      receipt_url: input.receiptUrl || null,
+      ocr_data: input.ocrData || null,
+      approved_at: input.autoApprove ? new Date().toISOString() : null,
+    };
+    const { error } = await supabase.from('expenses').insert(insertData as any);
     if (error) throw error;
+  },
+
+  async approveExpense(id: string, userId: string) {
+    const { error } = await supabase
+      .from('expenses')
+      .update({
+        approval_status: 'approved',
+        approved_by: userId,
+        approved_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+    if (error) throw error;
+  },
+
+  async rejectExpense(id: string) {
+    const { error } = await supabase
+      .from('expenses')
+      .update({ approval_status: 'rejected' })
+      .eq('id', id);
+    if (error) throw error;
+  },
+
+  async fetchPendingApprovals(merchantId: string): Promise<Expense[]> {
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('*')
+      .eq('merchant_id', merchantId)
+      .eq('approval_status', 'pending_approval')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return (data || []).map(e => ({
+      id: e.id,
+      merchantId: e.merchant_id,
+      propertyId: e.property_id,
+      unitId: e.unit_id,
+      category: e.category,
+      subcategory: e.subcategory,
+      description: e.description,
+      amount: Number(e.amount),
+      currency: e.currency,
+      expenseDate: e.expense_date,
+      paymentMethod: e.payment_method,
+      receiptUrl: e.receipt_url,
+      approvalStatus: e.approval_status,
+      notes: e.notes,
+      isRecurring: e.is_recurring,
+      taxDeductible: e.tax_deductible,
+      createdAt: e.created_at,
+    }));
   },
 
   async deleteExpense(id: string) {
