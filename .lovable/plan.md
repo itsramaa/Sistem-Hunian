@@ -1,148 +1,124 @@
 
-
-# Priority 3: Collections Action Tracker + Priority 4: Payment Verification Dashboard
+# Priority 5: Expense Approval Workflow + Priority 6: Mobile App (Core Features)
 
 ## Overview
 
-Two enhancements to strengthen financial control:
-1. **Collections Action Tracker** -- Add interaction logging (calls, SMS, emails), escalation path visualization, message templates, and resolution tracking to the existing Collections module
-2. **Payment Verification Dashboard** -- Enhanced reconciliation page with review workflow, match confidence display, daily/monthly reports, and duplicate/partial payment alerts
+Two enhancements:
+1. **Expense Approval Workflow** -- Receipt upload with OCR auto-fill, approval gate (>Rp 500K requires manual approval), auto-categorization, and audit-ready attachment storage
+2. **Mobile App Core** -- Responsive mobile-optimized merchant experience with bottom nav, compact dashboard, one-click reminder, quick expense logging, alerts view, and tenant search
 
 ---
 
-## Priority 3: Collections Action Tracker & Interaction Log
+## Priority 5: Expense Approval Workflow
 
-### 3A: Database -- `collections_interactions` table
+### 5A: OCR Edge Function for Expense Receipts
 
-New table to log every contact attempt and outcome for a collections case:
+Create `supabase/functions/ocr-expense-receipt/index.ts`:
+- Modeled after existing `ocr-maintenance-receipt` pattern
+- Extract: vendor_name, receipt_date, total_amount, line_items, payment_method, suggested_category
+- Auto-categorize based on vendor/description keywords (utilities, maintenance, etc.)
+- Store results in `ocr_results` table, link back via `ocr_data` on `expenses`
+- Uploads go to existing `verification-documents` bucket
 
-```text
-collections_interactions
-  id                uuid PK DEFAULT gen_random_uuid()
-  case_id           uuid FK collections_cases NOT NULL
-  merchant_id       uuid FK merchants NOT NULL
-  interaction_type  text NOT NULL (call, sms, email, whatsapp, visit, letter)
-  direction         text DEFAULT 'outbound' (inbound, outbound)
-  outcome           text (answered, no_answer, voicemail, promise_to_pay, refused, escalated)
-  notes             text
-  contact_person    text
-  follow_up_date    timestamptz
-  created_by        uuid (auth.uid)
-  created_at        timestamptz DEFAULT now()
-```
+### 5B: Enhanced Expense Creation Form
 
-RLS: merchant can CRUD own interactions (via `merchant_id = auth.uid()` through merchant lookup).
+Refactor the expense dialog in `src/pages/merchant/Expenses.tsx` into a dedicated component `src/features/expenses/components/ExpenseCreateDialog.tsx`:
+- **Step 1: Receipt Upload** -- Photo capture (camera/gallery) or PDF upload to `verification-documents` bucket. Optional -- user can skip for manual entry
+- **Step 2: OCR Processing** -- If receipt uploaded, call `ocr-expense-receipt` edge function. Auto-fill amount, vendor, date, suggested category. Show confidence indicator
+- **Step 3: Review & Edit** -- Pre-filled form with all fields editable. Category selector with auto-suggestion highlighted
+- **Approval logic**: If amount >= 500,000, set `approval_status = 'pending_approval'`. If amount < 500,000, set `approval_status = 'approved'` and auto-set `approved_at = now()`
+- Store `receipt_url` (file path) and `ocr_data` (JSON from OCR) on the expense record
 
-### 3B: Enhance Collections Case State Machine
+### 5C: Approval Management UI
 
-Expand `COLLECTIONS_CASE_TRANSITIONS` to support the full escalation path:
+Create `src/features/expenses/components/ExpenseApprovalList.tsx`:
+- Filter expenses by `approval_status = 'pending_approval'`
+- Each item shows: receipt thumbnail, amount, category, date, OCR confidence
+- Approve / Reject buttons that update `approval_status`, `approved_by`, `approved_at`
+- Add an "Approval" tab or section to the Expenses page
 
+### 5D: Expense Service Enhancement
+
+Update `expenseService.ts`:
+- `createExpense` now accepts `receiptUrl` and `ocrData` fields
+- Add `approveExpense(id, userId)` method -- updates `approval_status = 'approved'`, sets `approved_by` and `approved_at`
+- Add `rejectExpense(id, userId)` method -- sets `approval_status = 'rejected'`
+- Add `fetchPendingApprovals(merchantId)` -- query expenses with `pending_approval` status
+
+### 5E: State Machine
+
+Add to `state-machines.ts`:
 ```typescript
-export const COLLECTIONS_CASE_TRANSITIONS: Record<string, string[]> = {
-  initiated: ['reminder_sent'],
-  reminder_sent: ['follow_up', 'in_progress'],
-  follow_up: ['in_progress', 'escalated'],
-  in_progress: ['escalated', 'resolved'],
-  escalated: ['legal', 'resolved'],
-  legal: ['resolved'],
-  resolved: [],  // terminal -- resolution_type: paid_in_full | payment_plan | write_off | eviction | bad_debt
+export const EXPENSE_APPROVAL_TRANSITIONS: Record<string, string[]> = {
+  submitted: ['pending_approval', 'approved'],  // auto-approve if < 500K
+  pending_approval: ['approved', 'rejected'],
+  approved: ['verified'],
+  rejected: ['submitted'],  // allow re-submission
+  verified: [],  // terminal
 };
 ```
 
-### 3C: Collections Interaction Log UI
+### 5F: Receipt Viewer
 
-Create new components in `src/features/collections/components/`:
-
-- **`InteractionLogDialog.tsx`** -- Modal to add a new interaction (type, outcome, notes, follow-up date)
-- **`InteractionTimeline.tsx`** -- Chronological timeline of all interactions for a case (styled as vertical timeline with icons per type)
-- **`EscalationPathIndicator.tsx`** -- Visual horizontal stepper showing: Reminder (T+3) -> Follow-up (T+7) -> Case (T+15) -> Legal (T+30), highlighting current position
-
-### 3D: Message Templates
-
-Create `src/features/collections/components/templates/`:
-
-- **`CollectionsTemplateSelector.tsx`** -- Dropdown to select template type (SMS reminder, WhatsApp follow-up, Warning letter, Legal notice)
-- **`CollectionsTemplatePreview.tsx`** -- Preview with auto-filled placeholders (tenant name, amount, days overdue, invoice number, due date)
-- Templates stored as constants in `src/features/collections/constants/messageTemplates.ts` (4 templates: friendly reminder, firm follow-up, warning letter, legal notice)
-
-### 3E: Resolution Tracking Enhancement
-
-Modify `CollectionsCasesList.tsx`:
-- Add resolution type options: `paid_in_full`, `payment_plan`, `write_off`, `eviction`, `bad_debt`
-- Show resolution dialog when transitioning to `resolved` status
-- Add interaction count badge per case row
-
-### 3F: Enhanced Collections Case Detail
-
-Create **`CollectionsCaseDetail.tsx`** -- Expandable detail panel per case showing:
-- Case summary (invoice, tenant, amount, days overdue)
-- Escalation path indicator
-- Interaction timeline
-- Quick action buttons: Log Call, Send SMS Template, Send Warning Letter
-- Resolution actions
-
-### 3G: Service Layer
-
-Extend `collectionsCaseService.ts`:
-- `addInteraction(caseId, data)` -- insert into `collections_interactions`
-- `fetchInteractions(caseId)` -- fetch all interactions for a case
-- `fetchCaseWithInteractions(caseId)` -- case + interactions + reminder history from `payment_reminders_log`
-
-Create `src/features/collections/hooks/useCollectionsInteractions.ts` with TanStack Query mutations.
+Create `src/features/expenses/components/ReceiptViewer.tsx`:
+- Modal that displays receipt image/PDF from `receipt_url`
+- Shows OCR extracted data alongside for comparison
+- Clickable from expense table rows that have attachments
 
 ---
 
-## Priority 4: Payment Verification Review Dashboard
+## Priority 6: Mobile App (Core Features)
 
-### 4A: Enhanced Reconciliation Page
+Since the system already has `DashboardLayout` auto-switching to `MobileLayout` on mobile, and the merchant role already works on mobile (just without bottom nav), the approach is to **enable and optimize the mobile experience** rather than build a native app.
 
-Refactor `src/pages/merchant/Reconciliation.tsx` into a tabbed layout:
+### 6A: Enable Merchant Bottom Nav
 
-- **Tab 1: "Perlu Review"** -- Current unmatched payments (existing) + enhanced with match confidence, proof photo preview, duplicate/partial flags
-- **Tab 2: "Riwayat Cocok"** -- Match history table (already have `fetchMatchHistory` in service)
-- **Tab 3: "Laporan"** -- Daily/monthly reconciliation summary report
+Update `navigation-config.ts` for merchant role:
+- Set `hasBottomNav: true`
+- Add `bottomNav` array with 5 items: Dashboard, Properti, Tagihan, Notifikasi, Profil
+- This immediately gives merchants a mobile-native navigation experience
 
-### 4B: Enhanced Payment Review Card
+### 6B: Mobile Merchant Dashboard
 
-Create `src/features/reconciliation/components/PaymentReviewCard.tsx`:
-- Side-by-side layout: Payment details (left) | Matched invoice details (right)
-- Match confidence bar (color-coded: green >90%, yellow 50-90%, red <50%)
-- Proof photo thumbnail (clickable to enlarge) from `proof_photo_url`
-- Flags: `duplicate` badge (if another payment with same amount+date+tenant exists), `partial` badge (if amount < invoice total)
+Create `src/features/dashboard/components/MobileMerchantDashboard.tsx`:
+- Compact KPI strip: Occupancy %, Monthly Revenue, Overdue count, Pending approvals
+- Latest 5 transactions section (from invoices/payments)
+- Critical alerts section: overdue invoices, pending expense approvals, maintenance urgent
+- Quick action cards: Send Reminder, Log Expense, View Tenants
+- Conditionally rendered in `MerchantDashboard` when `useIsMobile()` is true
 
-### 4C: Reconciliation Report
+### 6C: Quick Expense Logger (Mobile)
 
-Create `src/features/reconciliation/components/ReconciliationReport.tsx`:
-- Date range picker (daily/weekly/monthly)
-- Summary cards: Total received, Total matched, Total unmatched, Match rate %
-- Table: All payments in period with match status
-- Export-ready layout
+Create `src/features/expenses/components/QuickExpenseSheet.tsx`:
+- Bottom sheet (using vaul `Drawer`) optimized for mobile
+- Camera button for instant receipt photo
+- Amount input (large, easy to tap)
+- Category quick-select (icon grid)
+- One-tap submit
+- Accessible from mobile dashboard quick actions and bottom nav FAB
 
-### 4D: Duplicate & Partial Payment Detection
+### 6D: Mobile Alerts Page
 
-Enhance `reconciliationService.ts`:
-- `detectDuplicates(merchantId)` -- find payments with same amount, tenant, and paid_at within 24h window
-- Add `flags` field to `UnmatchedPayment` type: `duplicate`, `partial`, `overpayment`
-- Flag calculation done in `fetchUnmatchedPayments` by comparing payment amount vs suggested invoice amounts
+Create `src/pages/merchant/Alerts.tsx`:
+- Aggregated view of: overdue invoices, pending expense approvals, maintenance requests (urgent/high), expiring contracts (30 days)
+- Each alert card is actionable (tap to navigate to relevant page)
+- Badge count on bottom nav "Notifikasi" icon
+- Route: `/merchant/alerts`
 
-### 4E: Match History with Confidence
+### 6E: One-Click Reminder
 
-Create `src/features/reconciliation/components/MatchHistoryTable.tsx`:
-- Table of all matched payments with: payment ref, invoice number, amount, match type (auto/manual), confidence %, date
-- Filter by match type, date range
-- Uses existing `fetchMatchHistory` service method
+Create `src/features/payments/components/QuickReminderButton.tsx`:
+- Button that calls existing `send-payment-reminder` edge function
+- Shows in overdue invoice cards on mobile dashboard
+- Confirmation toast after send
+- Reuse in Alerts page for overdue items
 
-### 4F: Reconciliation Hook Enhancement
+### 6F: Mobile Tenant Search
 
-Extend `useReconciliation.ts`:
-- Add `matchHistory` query using `reconciliationService.fetchMatchHistory`
-- Add `reconciliationStats` computed from match history (match rate, avg confidence, etc.)
-
----
-
-## Navigation Updates
-
-No new routes needed -- Priority 3 enhances existing `/merchant/collections` page, Priority 4 enhances existing `/merchant/reconciliation` page.
+The existing `/merchant/tenants` page already works on mobile via `MobileLayout`. Enhance with:
+- Sticky search bar at top
+- Compact card layout instead of table on mobile
+- Quick-tap to see payment history inline
 
 ---
 
@@ -150,36 +126,31 @@ No new routes needed -- Priority 3 enhances existing `/merchant/collections` pag
 
 | Action | File | Description |
 |--------|------|-------------|
-| CREATE | DB migration | `collections_interactions` table + RLS |
-| CREATE | `src/features/collections/components/InteractionLogDialog.tsx` | Log call/SMS/email modal |
-| CREATE | `src/features/collections/components/InteractionTimeline.tsx` | Vertical timeline UI |
-| CREATE | `src/features/collections/components/EscalationPathIndicator.tsx` | Horizontal stepper |
-| CREATE | `src/features/collections/components/templates/CollectionsTemplateSelector.tsx` | Template picker |
-| CREATE | `src/features/collections/components/templates/CollectionsTemplatePreview.tsx` | Preview with placeholders |
-| CREATE | `src/features/collections/constants/messageTemplates.ts` | 4 message templates |
-| CREATE | `src/features/collections/components/cases/CollectionsCaseDetail.tsx` | Expanded case detail |
-| CREATE | `src/features/collections/components/cases/ResolutionDialog.tsx` | Resolution type picker |
-| CREATE | `src/features/collections/hooks/useCollectionsInteractions.ts` | Interaction CRUD hooks |
-| MODIFY | `src/features/collections/services/collectionsCaseService.ts` | Add interaction methods |
-| MODIFY | `src/features/collections/components/cases/CollectionsCasesList.tsx` | Add detail expand, interaction count |
-| MODIFY | `src/shared/constants/state-machines.ts` | Expand COLLECTIONS_CASE_TRANSITIONS |
-| MODIFY | `src/pages/merchant/Collections.tsx` | Enhanced cases tab with detail panel |
-| CREATE | `src/features/reconciliation/components/PaymentReviewCard.tsx` | Side-by-side review |
-| CREATE | `src/features/reconciliation/components/MatchHistoryTable.tsx` | Match history table |
-| CREATE | `src/features/reconciliation/components/ReconciliationReport.tsx` | Daily/monthly report |
-| MODIFY | `src/features/reconciliation/services/reconciliationService.ts` | Add duplicate detection, flags |
-| MODIFY | `src/features/reconciliation/hooks/useReconciliation.ts` | Add match history query |
-| MODIFY | `src/pages/merchant/Reconciliation.tsx` | Tabbed layout with 3 tabs |
-| MODIFY | `src/features/reconciliation/components/UnmatchedPaymentsTable.tsx` | Add flags badges, proof preview |
-| MODIFY | `old-docs/PMS_Audit_Report_FULL.md` | Mark Priority 3 & 4 as COMPLETE |
+| CREATE | `supabase/functions/ocr-expense-receipt/index.ts` | OCR edge function for receipts |
+| CREATE | `src/features/expenses/components/ExpenseCreateDialog.tsx` | Enhanced create form with receipt upload + OCR |
+| CREATE | `src/features/expenses/components/ExpenseApprovalList.tsx` | Pending approval management |
+| CREATE | `src/features/expenses/components/ReceiptViewer.tsx` | Receipt image/PDF viewer modal |
+| CREATE | `src/features/expenses/components/QuickExpenseSheet.tsx` | Mobile-optimized quick expense entry |
+| CREATE | `src/features/dashboard/components/MobileMerchantDashboard.tsx` | Mobile-first compact dashboard |
+| CREATE | `src/pages/merchant/Alerts.tsx` | Aggregated alerts page |
+| CREATE | `src/features/payments/components/QuickReminderButton.tsx` | One-click payment reminder |
+| MODIFY | `src/features/expenses/services/expenseService.ts` | Add approve/reject/OCR methods |
+| MODIFY | `src/features/expenses/hooks/useExpenses.ts` | Add approval mutations |
+| MODIFY | `src/pages/merchant/Expenses.tsx` | Integrate new dialog + approval tab |
+| MODIFY | `src/shared/constants/state-machines.ts` | Add EXPENSE_APPROVAL_TRANSITIONS |
+| MODIFY | `src/shared/components/layouts/navigation-config.ts` | Enable merchant bottomNav + alerts route |
+| MODIFY | `src/pages/merchant/Dashboard.tsx` | Conditional mobile dashboard rendering |
+| MODIFY | `src/App.tsx` | Add /merchant/alerts route |
+| MODIFY | `old-docs/PMS_Audit_Report_FULL.md` | Mark Priority 5 & 6 status |
 
 ---
 
 ## Technical Notes
 
-- No new npm packages needed -- all UI built with existing Radix/shadcn components
-- `collections_interactions` uses RLS based on `merchant_id` matching merchant ownership
-- Message templates are client-side constants (not stored in DB) -- they auto-fill with case data for copy-paste use
-- Duplicate detection uses a simple SQL window: same `tenant_user_id` + amount within 24h = flagged
-- The expanded escalation path (6 statuses) is backward-compatible -- existing `initiated` and `in_progress` cases remain valid
-
+- The `expenses` table already has `receipt_url`, `ocr_data`, `approved_by`, `approved_at` columns -- no DB migration needed
+- OCR edge function reuses `_shared/dss-utils.ts` helpers (callLovableAI, logModelRun, createOcrResult, etc.)
+- Receipt uploads go to existing `verification-documents` bucket (private, RLS-protected)
+- The 500K approval threshold is a client-side constant, easily configurable
+- Mobile bottom nav uses the existing `MobileBottomNav` component -- just needs config entries
+- No native app build needed -- the responsive web app with bottom nav provides a native-like experience
+- `vaul` (already installed) provides the bottom sheet drawer for QuickExpenseSheet
