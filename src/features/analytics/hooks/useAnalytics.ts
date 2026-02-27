@@ -136,16 +136,3 @@ export function useChatbotTracking() {
   return { trackChatbotOpened, trackChatbotMessage };
 }
 
-export function useReferralTracking() {
-  const { trackEvent } = useAnalytics();
-
-  const trackReferralLinkCopied = () => {
-    trackEvent(EventTypes.REFERRAL_LINK_COPIED);
-  };
-
-  const trackReferralLinkShared = (channel: string) => {
-    trackEvent(EventTypes.REFERRAL_LINK_SHARED, { channel });
-  };
-
-  return { trackReferralLinkCopied, trackReferralLinkShared };
-}

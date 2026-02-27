@@ -20,7 +20,6 @@ import {
   ClipboardList,
   DollarSign,
   FileText,
-  Gift,
   Home,
   RefreshCw,
   Store,
@@ -43,12 +42,6 @@ const bannerSlides = [
     subtitle: "Dapatkan reward poin setiap pembayaran",
     bgColor: "bg-gradient-to-r from-emerald-500 to-emerald-600",
   },
-  {
-    id: 3,
-    title: "Ajak Teman, Dapat Bonus",
-    subtitle: "Referral program dengan hadiah menarik",
-    bgColor: "bg-gradient-to-r from-purple-500 to-purple-600",
-  },
 ];
 
 // Quick action items for homepage - 4 column grid (excludes items in bottom nav)
@@ -57,7 +50,6 @@ const quickActions = [
   { path: "/tenant/invoices", icon: FileText, label: "Tagihan", color: "bg-purple-500/10 text-purple-600" },
   { path: "/tenant/contracts", icon: ClipboardList, label: "Kontrak", color: "bg-blue-500/10 text-blue-600" },
   { path: "/tenant/marketplace", icon: Store, label: "Market", color: "bg-emerald-500/10 text-emerald-600" },
-  { path: "/tenant/referrals", icon: Gift, label: "Referral", color: "bg-pink-500/10 text-pink-600" },
 ];
 
 export default function TenantDashboard() {

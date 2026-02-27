@@ -142,14 +142,6 @@ export const DISBURSEMENT_STATUS_TRANSITIONS: Record<string, string[]> = {
   completed: [],   // terminal
 };
 
-// ─── Section 15: Referral Lifecycle ────────────────────────────────────────
-export const REFERRAL_STATUS_TRANSITIONS: Record<string, string[]> = {
-  pending: ['active', 'expired'],
-  active: ['completed'],
-  completed: [],   // terminal
-  expired: [],     // terminal
-};
-
 // ─── Section 15.5: Verification Tier Upgrades ─────────────────────────────
 export const VERIFICATION_TIER_TRANSITIONS: Record<string, string[]> = {
   quick: ['standard'],

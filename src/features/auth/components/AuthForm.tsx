@@ -1,7 +1,7 @@
 import { PasswordStrengthMeter } from '@/features/auth/components/PasswordStrengthMeter';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { getAuthErrorMessage } from '@/features/auth/utils/auth-errors';
-import { referralService } from '@/features/referrals/services/referralService';
+
 import { supabase } from '@/lib/integrations/supabase/client';
 import { Button } from '@/shared/components/ui/button';
 import { Checkbox } from '@/shared/components/ui/checkbox';
@@ -106,7 +106,7 @@ export function AuthForm() {
   const [searchParams] = useSearchParams();
   const initialMode = searchParams.get('mode') as 'login' | 'signup' | null;
   const initialMerchantCode = searchParams.get('merchantCode') || searchParams.get('code') || '';
-  const initialReferralCode = searchParams.get('ref') || sessionStorage.getItem('referral_code') || '';
+  
   
   const isTenantSignup = !!initialMerchantCode;
   
@@ -117,7 +117,7 @@ export function AuthForm() {
     return localStorage.getItem('sihuni_remember_me') === 'true';
   });
   const [merchantCodeError, setMerchantCodeError] = useState<string | null>(null);
-  const [referrerInfo, setReferrerInfo] = useState<{ name: string; role: string } | null>(null);
+  
   const [supportsBiometric, setSupportsBiometric] = useState(false);
   const [errorAnnouncement, setErrorAnnouncement] = useState('');
   const [failedAttempts, setFailedAttempts] = useState(0);
@@ -149,26 +149,6 @@ export function AuthForm() {
     }
   }, [initialMode, isTenantSignup]);
 
-  // Store referral code in session storage
-  useEffect(() => {
-    if (initialReferralCode) {
-      sessionStorage.setItem('referral_code', initialReferralCode);
-    }
-  }, [initialReferralCode]);
-
-  // Validate referral code and get referrer info
-  useEffect(() => {
-    const validateReferral = async () => {
-      if (!initialReferralCode) return;
-      
-      const info = await referralService.validateReferralCode(initialReferralCode);
-      if (info) {
-        setReferrerInfo(info);
-      }
-    };
-
-    validateReferral();
-  }, [initialReferralCode]);
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -358,11 +338,11 @@ export function AuthForm() {
             phone: data.phone || null,
             role: 'tenant',
             merchant_code: data.merchantCode?.toUpperCase(),
-            referral_code: initialReferralCode?.toUpperCase() || undefined,
+            
           },
         });
         if (!webhookError) {
-          sessionStorage.removeItem('referral_code');
+          
         }
       } catch {
         // Auth webhook invocation error - silently handle
@@ -512,16 +492,6 @@ export function AuthForm() {
               </p>
             </div>
 
-            {/* Referral Banner */}
-            {referrerInfo && activeTab === 'signup' && (
-              <div className="mb-4 p-3 rounded-xl border border-primary/20 bg-primary/5">
-                <p className="text-sm text-center">
-                  <span className="font-medium text-primary">Diundang oleh {referrerInfo.name}</span>
-                  <br />
-                  <span className="text-muted-foreground">Anda akan mendapat bonus spesial!</span>
-                </p>
-              </div>
-            )}
 
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'login' | 'signup')}>
               {/* Pill-style tabs */}
