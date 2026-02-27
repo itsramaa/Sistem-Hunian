@@ -29,6 +29,7 @@ export interface UnmatchedPayment {
   tenantName?: string;
   unitNumber?: string;
   suggestedInvoices?: SuggestedInvoice[];
+  flags?: string[];
 }
 
 export interface SuggestedInvoice {
@@ -72,6 +73,24 @@ export const reconciliationService = {
         .order('due_date', { ascending: true })
         .limit(3);
 
+      // Detect flags
+      const flags: string[] = [];
+      const suggestedInvs = (invoices || []).map(inv => ({
+        id: inv.id,
+        invoiceNumber: inv.invoice_number,
+        totalAmount: Number(inv.total_amount),
+        dueDate: inv.due_date,
+        status: inv.status,
+      }));
+      // Check partial
+      if (suggestedInvs.length > 0 && suggestedInvs[0].totalAmount > Number(p.amount)) flags.push('partial');
+      if (suggestedInvs.length > 0 && suggestedInvs[0].totalAmount < Number(p.amount)) flags.push('overpayment');
+      // Check duplicate (same amount+tenant in same batch)
+      const dupeCount = (data || []).filter(
+        d => d.tenant_user_id === p.tenant_user_id && Number(d.amount) === Number(p.amount) && d.id !== p.id
+      ).length;
+      if (dupeCount > 0) flags.push('duplicate');
+
       results.push({
         id: p.id,
         contractId: p.contract_id,
@@ -86,13 +105,8 @@ export const reconciliationService = {
         createdAt: p.created_at,
         proofPhotoUrl: p.proof_photo_url,
         tenantName: profile?.full_name || 'N/A',
-        suggestedInvoices: (invoices || []).map(inv => ({
-          id: inv.id,
-          invoiceNumber: inv.invoice_number,
-          totalAmount: Number(inv.total_amount),
-          dueDate: inv.due_date,
-          status: inv.status,
-        })),
+        suggestedInvoices: suggestedInvs,
+        flags,
       });
     }
 

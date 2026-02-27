@@ -56,7 +56,7 @@ export default function MerchantCollections() {
               <CollectionsCasesList
                 cases={cases}
                 loading={casesLoading}
-                onUpdateStatus={(id, cur, next) => updateCaseStatus.mutate({ caseId: id, currentStatus: cur, newStatus: next })}
+                onUpdateStatus={(id, cur, next, resolution) => updateCaseStatus.mutate({ caseId: id, currentStatus: cur, newStatus: next, resolution })}
               />
             </CardContent>
           </Card>
