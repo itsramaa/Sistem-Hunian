@@ -1,4 +1,5 @@
 import { Button } from '@/shared/components/ui/button';
+import { Checkbox } from '@/shared/components/ui/checkbox';
 import { useNavigate } from 'react-router-dom';
 import {
   DropdownMenu,
@@ -37,13 +38,39 @@ interface MoveOutsTableProps {
   totalNotices: number;
   onPageChange: (page: number) => void;
   itemsPerPage: number;
+  selectedIds?: Set<string>;
+  onSelectionChange?: (ids: Set<string>) => void;
 }
 
 export function MoveOutsTable({
   notices, inspections, tenantProfiles, onScheduleInspection, onConductInspection, type,
-  page, totalPages, totalNotices, onPageChange, itemsPerPage
+  page, totalPages, totalNotices, onPageChange, itemsPerPage,
+  selectedIds, onSelectionChange
 }: MoveOutsTableProps) {
   const navigate = useNavigate();
+  const selectable = !!onSelectionChange;
+  const allSelected = selectable && notices.length > 0 && notices.every(n => selectedIds?.has(n.id));
+  const someSelected = selectable && notices.some(n => selectedIds?.has(n.id)) && !allSelected;
+
+  const toggleAll = () => {
+    if (!onSelectionChange || !selectedIds) return;
+    const next = new Set(selectedIds);
+    if (allSelected) {
+      notices.forEach(n => next.delete(n.id));
+    } else {
+      notices.forEach(n => next.add(n.id));
+    }
+    onSelectionChange(next);
+  };
+
+  const toggleOne = (noticeId: string) => {
+    if (!onSelectionChange || !selectedIds) return;
+    const next = new Set(selectedIds);
+    if (next.has(noticeId)) next.delete(noticeId);
+    else next.add(noticeId);
+    onSelectionChange(next);
+  };
+
   if (notices.length === 0) {
     return (
       <EmptyState
@@ -63,6 +90,17 @@ export function MoveOutsTable({
       <Table>
         <TableHeader>
           <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b border-border/40">
+            {selectable && (
+              <TableHead className="w-10">
+                <Checkbox
+                  checked={allSelected}
+                  ref={undefined}
+                  onCheckedChange={toggleAll}
+                  aria-label="Pilih semua"
+                  {...(someSelected ? { 'data-state': 'indeterminate' } : {})}
+                />
+              </TableHead>
+            )}
             <TableHead className="text-xs uppercase tracking-wider font-semibold">Unit</TableHead>
             <TableHead className="text-xs uppercase tracking-wider font-semibold">Penyewa</TableHead>
             <TableHead className="text-xs uppercase tracking-wider font-semibold">Tanggal Pindah</TableHead>
@@ -79,9 +117,27 @@ export function MoveOutsTable({
             const tenant = tenantProfiles?.[notice.tenant_user_id];
             const daysUntil = differenceInDays(new Date(notice.intended_move_out_date), new Date());
             const isUrgent = daysUntil <= 7 && type === 'upcoming';
+            const isSelected = selectedIds?.has(notice.id);
 
             return (
-              <TableRow key={notice.id} className="hover:bg-primary/5 transition-colors cursor-pointer" onClick={() => navigate(`/merchant/move-outs/${notice.id}`)}>
+              <TableRow
+                key={notice.id}
+                className={`hover:bg-primary/5 transition-colors cursor-pointer ${isSelected ? 'bg-primary/10' : ''}`}
+                onClick={(e) => {
+                  const target = e.target as HTMLElement;
+                  if (target.closest('[role="checkbox"]') || target.closest('button') || target.closest('[role="menuitem"]')) return;
+                  navigate(`/merchant/move-outs/${notice.id}`);
+                }}
+              >
+                {selectable && (
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleOne(notice.id)}
+                      aria-label={`Pilih ${notice.contract?.unit?.unit_number}`}
+                    />
+                  </TableCell>
+                )}
                 <TableCell className="font-medium">
                   {notice.contract?.unit?.unit_number}
                   <span className="block text-xs text-muted-foreground">

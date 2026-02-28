@@ -2666,6 +2666,20 @@ This audit's findings are based entirely on the documented system, not on critic
 
 ---
 
+## 📊 Implementation Tracking: Improvement 5 — Bulk Move-Out Processing
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 5.1 | Add checkbox selection to `MoveOutsTable` | ✅ COMPLETE | Select-all + per-row checkboxes, selection props |
+| 5.2 | Add selection state + bulk action bar to `MoveOuts.tsx` | ✅ COMPLETE | Sticky bottom bar with count, process, and cancel |
+| 5.3 | Create `useBulkMoveOutData` hook | ✅ COMPLETE | Batch fetch notices/inspections/refunds/profiles + bulk mutations |
+| 5.4 | Create `BulkMoveOutProcessor` page component | ✅ COMPLETE | 4 collapsible sections: summary, acknowledge, schedule, settle |
+| 5.5 | Create `BulkMoveOut.tsx` page wrapper | ✅ COMPLETE | Lazy-loaded page at `/merchant/move-outs/bulk` |
+| 5.6 | Wire up route in `App.tsx` | ✅ COMPLETE | Route added before `:noticeId` to avoid conflict |
+| 5.7 | URL-based selection via search params | ✅ COMPLETE | `?ids=uuid1,uuid2` pattern for bookmarkable bulk page |
+
+---
+
 **Audit Complete**  
 *Generated: 2026-02-28*  
 *Analysis Basis: navigation-config.ts + state-machines.ts + merchant page files (57 pages)*
