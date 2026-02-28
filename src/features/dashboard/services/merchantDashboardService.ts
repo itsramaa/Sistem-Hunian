@@ -27,6 +27,8 @@ export interface MerchantDashboardStats {
     monthlyRevenue: number;
     lastMonthRevenue: number;
     revenueGrowth: number;
+    outstandingReceivables: number;
+    outstandingInvoiceCount: number;
   };
   tenants: {
     active: number;
@@ -64,7 +66,9 @@ export const merchantDashboardService = {
       overdueInvoicesRes,
       staleMaintenanceRes,
       expiringContractsRes,
-      upcomingContractsRes
+      upcomingContractsRes,
+      completedTransfersRes,
+      unpaidInvoicesRes
     ] = await Promise.all([
       // 1. Fetch properties
       (() => {
@@ -143,7 +147,21 @@ export const merchantDashboardService = {
         .gt('end_date', thirtyDaysFromNow.toISOString())
         .lte('end_date', sixtyDaysFromNow.toISOString())
         .order('end_date', { ascending: true })
-        .limit(5)
+        .limit(5),
+
+      // 11. Completed transfers (available balance)
+      (supabase as any)
+        .from('payment_transfers')
+        .select('net_amount')
+        .eq('merchant_id', merchantId)
+        .eq('status', 'completed'),
+
+      // 12. Unpaid invoices (outstanding receivables)
+      (supabase as any)
+        .from('invoices')
+        .select('total_amount')
+        .eq('merchant_id', merchantId)
+        .in('status', ['pending', 'overdue'])
     ]);
 
     // Error handling could be more robust, but we'll throw for now to let React Query handle it
@@ -161,6 +179,15 @@ export const merchantDashboardService = {
     const pendingBalance = pendingTransfers.reduce((sum: number, t: any) => sum + Number(t.net_amount || 0), 0);
     const monthlyRevenue = monthlyPaymentsRes.data?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
     const lastMonthRevenue = lastMonthPaymentsRes.data?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+
+    // Completed transfers = available balance
+    const completedTransfers = completedTransfersRes.data || [];
+    const availableBalance = completedTransfers.reduce((sum: number, t: any) => sum + Number(t.net_amount || 0), 0);
+
+    // Outstanding receivables
+    const unpaidInvoices = unpaidInvoicesRes.data || [];
+    const outstandingReceivables = unpaidInvoices.reduce((sum: number, inv: any) => sum + Number(inv.total_amount || 0), 0);
+    const outstandingInvoiceCount = unpaidInvoices.length;
     
     let revenueGrowth = 0;
     if (lastMonthRevenue > 0) {
@@ -204,11 +231,13 @@ export const merchantDashboardService = {
         list: properties
       },
       financials: {
-        balance: 0,
+        balance: availableBalance,
         pendingBalance,
         monthlyRevenue,
         lastMonthRevenue,
-        revenueGrowth
+        revenueGrowth,
+        outstandingReceivables,
+        outstandingInvoiceCount
       },
       tenants: {
         active: activeTenants,
