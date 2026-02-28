@@ -131,7 +131,8 @@ export async function updatePermissions(
 export async function checkPermission(
   userId: string,
   merchantId: string,
-  permissionKey: PermissionKey
+  permissionKey: PermissionKey,
+  propertyId?: string
 ): Promise<boolean> {
   // Check if user is the merchant owner
   const { data: merchant } = await supabase
@@ -146,13 +147,21 @@ export async function checkPermission(
   // Check staff permissions
   const { data: staff } = await supabase
     .from('merchant_staff')
-    .select('id')
+    .select('id, property_ids')
     .eq('merchant_id', merchantId)
     .eq('user_id', userId)
     .eq('is_active', true)
     .maybeSingle();
 
   if (!staff) return false;
+
+  // Property-level scoping: if propertyId provided and staff has specific property_ids, check access
+  if (propertyId) {
+    const propertyIds = (staff.property_ids as string[]) || [];
+    if (propertyIds.length > 0 && !propertyIds.includes(propertyId)) {
+      return false; // Staff not assigned to this property
+    }
+  }
 
   const { data: perm } = await supabase
     .from('staff_permissions')
@@ -162,4 +171,64 @@ export async function checkPermission(
     .maybeSingle();
 
   return perm?.is_granted ?? false;
+}
+
+export async function checkPropertyAccess(
+  userId: string,
+  merchantId: string,
+  propertyId: string
+): Promise<boolean> {
+  // Check if user is the merchant owner
+  const { data: merchant } = await supabase
+    .from('merchants')
+    .select('id')
+    .eq('id', merchantId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (merchant) return true; // Owner has access to all properties
+
+  // Check staff record
+  const { data: staff } = await supabase
+    .from('merchant_staff')
+    .select('property_ids')
+    .eq('merchant_id', merchantId)
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!staff) return false;
+
+  const propertyIds = (staff.property_ids as string[]) || [];
+  // Empty property_ids = all access (backward compatible)
+  if (propertyIds.length === 0) return true;
+  return propertyIds.includes(propertyId);
+}
+
+export async function getStaffPropertyIds(
+  userId: string,
+  merchantId: string
+): Promise<{ propertyIds: string[] | null; isOwner: boolean }> {
+  // Check if owner
+  const { data: merchant } = await supabase
+    .from('merchants')
+    .select('id')
+    .eq('id', merchantId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (merchant) return { propertyIds: null, isOwner: true };
+
+  const { data: staff } = await supabase
+    .from('merchant_staff')
+    .select('property_ids')
+    .eq('merchant_id', merchantId)
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!staff) return { propertyIds: [], isOwner: false };
+
+  const ids = (staff.property_ids as string[]) || [];
+  return { propertyIds: ids, isOwner: false };
 }

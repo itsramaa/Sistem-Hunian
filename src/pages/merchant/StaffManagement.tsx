@@ -26,8 +26,10 @@ import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Switch } from '@/shared/components/ui/switch';
 import { Badge } from '@/shared/components/ui/badge';
+import { Checkbox } from '@/shared/components/ui/checkbox';
 import { useToast } from '@/shared/hooks/use-toast';
 import {
+  Building2,
   ChevronDown,
   Loader2,
   Plus,
@@ -37,36 +39,73 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/shared/components/ui/collapsible';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+
+function useProperties(merchantId: string | undefined) {
+  return useQuery({
+    queryKey: ['merchant-properties-staff', merchantId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('properties')
+        .select('id, name')
+        .eq('merchant_id', merchantId!)
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!merchantId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
 
 export default function StaffManagement() {
   const { merchant } = useAuth();
   const { toast } = useToast();
   const { data: staff = [], isLoading } = useStaffMembers(merchant?.id);
+  const { data: properties = [] } = useProperties(merchant?.id);
   const inviteMutation = useInviteStaff();
   const removeMutation = useRemoveStaff();
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [permStaffId, setPermStaffId] = useState<string | null>(null);
   const [form, setForm] = useState({ email: '', displayName: '', phone: '', role: 'caretaker' as StaffRole });
+  const [allProperties, setAllProperties] = useState(true);
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
 
   const handleInvite = async () => {
     if (!merchant?.id || !form.email || !form.displayName) return;
     try {
-      // For now, use a placeholder user_id. In production, look up user by email
       await inviteMutation.mutateAsync({
         merchant_id: merchant.id,
-        user_id: crypto.randomUUID(), // placeholder - should lookup by email
+        user_id: crypto.randomUUID(),
         staff_role: form.role,
         display_name: form.displayName,
         email: form.email,
         phone: form.phone || undefined,
+        property_ids: allProperties ? [] : selectedPropertyIds,
       });
       toast({ title: 'Staff diundang', description: `${form.displayName} ditambahkan sebagai ${STAFF_ROLE_LABELS[form.role]}` });
       setInviteOpen(false);
       setForm({ email: '', displayName: '', phone: '', role: 'caretaker' });
+      setAllProperties(true);
+      setSelectedPropertyIds([]);
     } catch (e: any) {
       toast({ title: 'Gagal', description: e.message, variant: 'destructive' });
     }
+  };
+
+  const togglePropertySelection = (id: string) => {
+    setSelectedPropertyIds(prev =>
+      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+    );
+  };
+
+  // Build property name map for display
+  const propertyNameMap = new Map(properties.map(p => [p.id, p.name]));
+
+  const resolvePropertyNames = (ids: string[]): string[] => {
+    return ids.map(id => propertyNameMap.get(id) || id).sort();
   };
 
   const roleBadgeColor: Record<StaffRole, string> = {
@@ -93,46 +132,58 @@ export default function StaffManagement() {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {staff.map((s: any) => (
-            <Card key={s.id} className={`rounded-2xl border-border/40 ${!s.is_active ? 'opacity-50' : ''}`}>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">{s.display_name}</CardTitle>
-                  <Badge variant="secondary" className={`${roleBadgeColor[s.staff_role as StaffRole] || ''} text-xs`}>
-                    {STAFF_ROLE_LABELS[s.staff_role as StaffRole] || s.staff_role}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-sm text-muted-foreground">{s.email}</p>
-                {s.phone && <p className="text-sm text-muted-foreground">{s.phone}</p>}
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>{s.is_active ? '✅ Aktif' : '⛔ Nonaktif'}</span>
-                  {(s.property_ids as string[])?.length > 0 && (
-                    <span>• {(s.property_ids as string[]).length} properti</span>
-                  )}
-                </div>
-                <div className="flex gap-2 pt-2">
-                  <Button variant="outline" size="sm" className="rounded-xl gap-1" onClick={() => setPermStaffId(s.id)}>
-                    <Shield className="h-3 w-3" /> Izin
-                  </Button>
-                  {s.is_active && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="rounded-xl gap-1 text-destructive"
-                      onClick={() => {
-                        removeMutation.mutate({ id: s.id, merchantId: merchant?.id || '' });
-                        toast({ title: 'Staff dinonaktifkan' });
-                      }}
-                    >
-                      <UserMinus className="h-3 w-3" /> Nonaktifkan
+          {staff.map((s: any) => {
+            const staffPropertyIds = (s.property_ids as string[]) || [];
+            const propertyNames = resolvePropertyNames(staffPropertyIds);
+            return (
+              <Card key={s.id} className={`rounded-2xl border-border/40 ${!s.is_active ? 'opacity-50' : ''}`}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">{s.display_name}</CardTitle>
+                    <Badge variant="secondary" className={`${roleBadgeColor[s.staff_role as StaffRole] || ''} text-xs`}>
+                      {STAFF_ROLE_LABELS[s.staff_role as StaffRole] || s.staff_role}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-muted-foreground">{s.email}</p>
+                  {s.phone && <p className="text-sm text-muted-foreground">{s.phone}</p>}
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>{s.is_active ? '✅ Aktif' : '⛔ Nonaktif'}</span>
+                  </div>
+                  {/* Property scope display */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    {staffPropertyIds.length === 0 ? (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">Semua Properti</Badge>
+                    ) : (
+                      propertyNames.map(name => (
+                        <Badge key={name} variant="outline" className="text-[10px] px-1.5 py-0">{name}</Badge>
+                      ))
+                    )}
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <Button variant="outline" size="sm" className="rounded-xl gap-1" onClick={() => setPermStaffId(s.id)}>
+                      <Shield className="h-3 w-3" /> Izin
                     </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    {s.is_active && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl gap-1 text-destructive"
+                        onClick={() => {
+                          removeMutation.mutate({ id: s.id, merchantId: merchant?.id || '' });
+                          toast({ title: 'Staff dinonaktifkan' });
+                        }}
+                      >
+                        <UserMinus className="h-3 w-3" /> Nonaktifkan
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -167,6 +218,37 @@ export default function StaffManagement() {
                 </SelectContent>
               </Select>
             </div>
+            {/* Property Selector */}
+            <div className="grid gap-2">
+              <Label>Akses Properti</Label>
+              <div className="rounded-xl border border-border/40 p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="all-properties"
+                    checked={allProperties}
+                    onCheckedChange={(checked) => {
+                      setAllProperties(!!checked);
+                      if (checked) setSelectedPropertyIds([]);
+                    }}
+                  />
+                  <Label htmlFor="all-properties" className="text-sm font-normal cursor-pointer">
+                    Semua Properti
+                  </Label>
+                </div>
+                {!allProperties && properties.map(p => (
+                  <div key={p.id} className="flex items-center gap-2 pl-4">
+                    <Checkbox
+                      id={`prop-${p.id}`}
+                      checked={selectedPropertyIds.includes(p.id)}
+                      onCheckedChange={() => togglePropertySelection(p.id)}
+                    />
+                    <Label htmlFor={`prop-${p.id}`} className="text-sm font-normal cursor-pointer">
+                      {p.name}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setInviteOpen(false)} className="rounded-xl">Batal</Button>
@@ -180,13 +262,28 @@ export default function StaffManagement() {
 
       {/* Permissions Dialog */}
       {permStaffId && (
-        <PermissionsDialog staffId={permStaffId} onClose={() => setPermStaffId(null)} />
+        <PermissionsDialog
+          staffId={permStaffId}
+          staff={staff}
+          properties={properties}
+          onClose={() => setPermStaffId(null)}
+        />
       )}
     </div>
   );
 }
 
-function PermissionsDialog({ staffId, onClose }: { staffId: string; onClose: () => void }) {
+function PermissionsDialog({
+  staffId,
+  staff,
+  properties,
+  onClose,
+}: {
+  staffId: string;
+  staff: any[];
+  properties: { id: string; name: string }[];
+  onClose: () => void;
+}) {
   const { data: perms = [], isLoading } = useStaffPermissions(staffId);
   const updateMutation = useUpdateStaffPermissions();
   const { toast } = useToast();
@@ -219,6 +316,12 @@ function PermissionsDialog({ staffId, onClose }: { staffId: string; onClose: () 
     }
   };
 
+  // Resolve property scope for this staff member
+  const staffMember = staff.find((s: any) => s.id === staffId);
+  const staffPropertyIds = (staffMember?.property_ids as string[]) || [];
+  const propertyNameMap = new Map(properties.map(p => [p.id, p.name]));
+  const scopeNames = staffPropertyIds.map(id => propertyNameMap.get(id) || id);
+
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px] rounded-2xl max-h-[80vh] overflow-y-auto">
@@ -226,6 +329,20 @@ function PermissionsDialog({ staffId, onClose }: { staffId: string; onClose: () 
           <DialogTitle>Edit Izin Staff</DialogTitle>
           <DialogDescription>Atur izin akses granular untuk staff ini.</DialogDescription>
         </DialogHeader>
+
+        {/* Property scope info */}
+        <div className="flex items-start gap-2 rounded-xl bg-muted/50 p-3 text-sm">
+          <Building2 className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+          <div>
+            <span className="font-medium">Cakupan Properti: </span>
+            {staffPropertyIds.length === 0 ? (
+              <span className="text-muted-foreground">Semua Properti</span>
+            ) : (
+              <span className="text-muted-foreground">{scopeNames.join(', ')}</span>
+            )}
+          </div>
+        </div>
+
         {isLoading ? (
           <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
         ) : (
