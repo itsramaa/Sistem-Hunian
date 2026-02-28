@@ -1740,6 +1740,14 @@ Alert Status Badge:
 
 **Implementation Effort:** Low-Medium — add quick action buttons to Alert component, trigger state transitions/modals without navigation.
 
+**Implementation Status:**
+- 6.1 ✅ COMPLETE — Extended AlertItem interface with action metadata (invoiceId, tenantUserId, contractId, invoiceAmount, unitNumber, tenantName, daysOverdue)
+- 6.2 ✅ COMPLETE — Created AlertActionCard component with expandable cards, accordion pattern, contextual action buttons
+- 6.3 ✅ COMPLETE — Overdue invoice quick actions: Send Reminder, Process Payment (InlinePaymentMatchDialog), Lihat Detail, Dismiss
+- 6.4 ✅ COMPLETE — Non-overdue alert types: Navigate to detail + Dismiss actions
+- 6.5 ✅ COMPLETE — Local dismiss mechanism with Set<string> state, show/hide dismissed toggle
+- 6.6 ✅ COMPLETE — Inline action feedback (actioned state with checkmark + summary text)
+
 ---
 
 ### C. DASHBOARD IMPROVEMENTS (Action-First Design)
