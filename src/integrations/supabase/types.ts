@@ -5390,6 +5390,103 @@ export type Database = {
           },
         ]
       }
+      payment_transfers: {
+        Row: {
+          amount: number
+          bank_account_id: string | null
+          completed_at: string | null
+          created_at: string | null
+          external_reference: string | null
+          failure_reason: string | null
+          gateway_fee: number | null
+          id: string
+          merchant_id: string
+          net_amount: number
+          payment_id: string | null
+          platform_fee: number | null
+          status: string
+          updated_at: string | null
+          xendit_disbursement_id: string | null
+        }
+        Insert: {
+          amount: number
+          bank_account_id?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          external_reference?: string | null
+          failure_reason?: string | null
+          gateway_fee?: number | null
+          id?: string
+          merchant_id: string
+          net_amount: number
+          payment_id?: string | null
+          platform_fee?: number | null
+          status?: string
+          updated_at?: string | null
+          xendit_disbursement_id?: string | null
+        }
+        Update: {
+          amount?: number
+          bank_account_id?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          external_reference?: string | null
+          failure_reason?: string | null
+          gateway_fee?: number | null
+          id?: string
+          merchant_id?: string
+          net_amount?: number
+          payment_id?: string | null
+          platform_fee?: number | null
+          status?: string
+          updated_at?: string | null
+          xendit_disbursement_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_transfers_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_transfers_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_occupancy_analysis"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "payment_transfers_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "payment_transfers_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_transfers_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchants_with_addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_transfers_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_verifications: {
         Row: {
           amount_difference: number | null
