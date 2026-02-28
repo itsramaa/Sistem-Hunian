@@ -1,118 +1,100 @@
 
 
-# Improvement 5: Bulk Move-Out Processing
+# Improvement 6: Alert-to-Action Automation
 
 ## Overview
 
-Add multi-select capability to the MoveOuts list page so merchants can select multiple notices and process them in batch. Instead of navigating to the single-notice wizard 5 times, the merchant selects multiple notices and opens a bulk processing page that handles all selected notices in parallel.
+Transform the Alerts page from static "click-to-navigate" cards into expandable alert cards with inline quick action buttons. Each alert type gets contextual actions (send reminder, process payment, call tenant, dismiss) that execute directly from the Alerts page without navigating away.
 
-## Architecture Decision
+## Architecture
 
-Rather than rewriting the existing single-notice wizard (which handles complex per-notice flows like inspection checklists and signatures), we add a **bulk action layer on top**:
+The current Alerts page dynamically assembles alerts from multiple DB queries (overdue invoices, pending expenses, urgent maintenance, etc.). Rather than building a persistent alert tracking system (which would require a new table and complex sync logic), we enhance the existing approach by:
 
-1. **MoveOutsTable** gets row checkboxes and a bulk action bar
-2. A new **BulkMoveOutProcessor** page handles batch operations on selected notices
-3. The single-notice wizard remains for detailed per-notice work (inspections with signatures, etc.)
-
-This is practical because some steps (like conducting an inspection with a physical checklist and signatures) are inherently per-unit and can't be meaningfully batched. What CAN be batched: acknowledging notices, scheduling inspections for same date, approving deposit refunds, and terminating contracts.
+1. Enriching the `AlertItem` interface with action-relevant metadata (e.g., `tenantUserId`, `invoiceAmount`)
+2. Making alert cards expandable to show quick action buttons
+3. Reusing existing components (`InlinePaymentMatchDialog`) and services (`collectionsService.sendReminder`)
+4. Adding a local dismiss mechanism (sessionStorage-based, clears on refresh)
 
 ## What Changes
 
-### 1. Modify: `MoveOutsTable.tsx` -- Add checkbox selection
+### 1. Modify: `src/pages/merchant/Alerts.tsx` -- Complete overhaul
 
-- Add a "select all" checkbox in the header
-- Add per-row checkboxes (clicking checkbox does NOT navigate to detail)
-- Track selected notice IDs via new props: `selectedIds`, `onSelectionChange`
-- Row click on non-checkbox area still navigates to single wizard
+**Data changes:**
+- Extend `AlertItem` interface to include action metadata: `invoiceId`, `tenantUserId`, `contractId`, `merchantId`, `invoiceAmount`, `unitNumber` (all optional, populated based on alert type)
+- Store these fields when constructing overdue invoice alerts (they already come from the query)
 
-### 2. Modify: `MoveOuts.tsx` -- Add bulk state and action bar
+**UI changes:**
+- Replace single-click-navigate cards with expandable cards (click toggles expansion)
+- Expanded state shows contextual quick action buttons based on alert type:
+  - **Overdue invoices**: Send Reminder, Process Payment (opens `InlinePaymentMatchDialog`), Call Tenant, Dismiss
+  - **Expense approvals**: Navigate to Expenses (keep current behavior), Dismiss
+  - **Maintenance**: Navigate to Detail (keep current behavior), Dismiss
+  - **Contract expiry**: Navigate to Contract (keep current behavior), Dismiss
+  - **Preventive overdue**: Navigate to PM page (keep current behavior), Dismiss
+- Show action feedback inline (e.g., "Pengingat terhasil dikirim" badge on card after sending)
+- Dismissed alerts are hidden (tracked in local state, `Set<string>`)
 
-- Add `selectedNoticeIds` state (Set of strings)
-- Pass selection props to MoveOutsTable
-- Show a sticky bulk action bar when 2+ notices selected:
-  - "Process X Pindah Keluar" button (navigates to bulk processor)
-  - "Batal Pilih" button (clears selection)
-  - Count badge
+**Action handlers:**
+- `handleSendReminder(alert)`: Calls `collectionsService.sendReminder()`, shows success toast, marks alert as "actioned"
+- `handleProcessPayment(alert)`: Opens `InlinePaymentMatchDialog` (reuse from Improvement 4)
+- `handleDismiss(alert)`: Adds alert ID to dismissed set, hides from list
+- Navigation actions remain for non-overdue alert types
 
-### 3. Create: `BulkMoveOutProcessor.tsx` (new page component)
+### 2. Create: `src/features/notifications/components/AlertActionCard.tsx`
 
-A full-page component at route `/merchant/move-outs/bulk` that receives notice IDs via URL search params. Contains 4 collapsible sections (not wizard steps -- all visible at once for batch overview):
+A reusable expandable alert card component that encapsulates:
+- Collapsed view: icon, title, description, severity badge, expand chevron (rotates on expand)
+- Expanded view: action buttons grid based on alert type
+- "Actioned" state: shows green checkmark + action summary instead of buttons
+- Props: `alert`, `expanded`, `onToggle`, `onAction`, `actioned`
 
-**Section 1: Ringkasan Penyewa (Tenant Summary)**
-- Table showing all selected notices: Tenant, Unit, Move-out date, Current status
-- Option to remove individual notices from the batch
+### 3. Update: `old-docs/SYSTEM_AUDIT_REPORT.md`
 
-**Section 2: Konfirmasi Pemberitahuan (Bulk Acknowledge)**
-- Shows which notices are still "submitted" (unacknowledged)
-- "Konfirmasi Semua" button -- bulk updates all to "acknowledged"
-- Already-acknowledged notices show green checkmark
-
-**Section 3: Jadwal Inspeksi (Bulk Schedule Inspection)**
-- Date/time picker shared across all selected units
-- Checkboxes per unit to include/exclude from batch scheduling
-- "Jadwalkan Semua" button -- creates inspection records for all selected
-
-**Section 4: Selesaikan Deposit & Kontrak (Bulk Settle)**
-- Summary table: Tenant, Deposit, Deductions, Net Refund, Status
-- "Setujui Semua Refund" button -- bulk approves deposit refunds
-- "Akhiri Semua Kontrak" button -- bulk terminates contracts
-- Per-row override possible
-
-### 4. Create: `useBulkMoveOutData.ts` (new hook)
-
-Fetches data for multiple notice IDs in one go:
-- Batch fetch notices with contract/unit/property joins
-- Batch fetch inspections for all notice IDs
-- Batch fetch deposit refunds for all contract IDs
-- Batch fetch tenant profiles
-- Provides bulk mutation functions
-
-### 5. Wire up route
-
-Add route for `/merchant/move-outs/bulk` pointing to a new page wrapper.
-
-### 6. Update `old-docs/SYSTEM_AUDIT_REPORT.md`
-
-Add Improvement 5 tracking lines.
+Add Improvement 6 tracking lines.
 
 ## Files Changed
 
 | File | Action | Description |
 |------|--------|-------------|
-| `src/features/contracts/components/MoveOutsTable.tsx` | MODIFY | Add checkbox selection |
-| `src/pages/merchant/MoveOuts.tsx` | MODIFY | Add selection state + bulk action bar |
-| `src/features/contracts/components/move-out-wizard/BulkMoveOutProcessor.tsx` | CREATE | Bulk processing page |
-| `src/features/contracts/hooks/useBulkMoveOutData.ts` | CREATE | Hook for batch data + mutations |
-| `src/pages/merchant/BulkMoveOut.tsx` | CREATE | Page wrapper for bulk route |
-| Route config | MODIFY | Add `/merchant/move-outs/bulk` route |
-| `old-docs/SYSTEM_AUDIT_REPORT.md` | UPDATE | Improvement 5 tracking |
+| `src/features/notifications/components/AlertActionCard.tsx` | CREATE | Expandable alert card with inline actions |
+| `src/pages/merchant/Alerts.tsx` | MODIFY | Add action metadata, expand/collapse, action handlers, dismiss, reuse InlinePaymentMatchDialog |
+| `old-docs/SYSTEM_AUDIT_REPORT.md` | UPDATE | Improvement 6 tracking |
 
 ## Technical Details
 
-### Checkbox Selection in Table
+### AlertItem Interface Extension
 
-The checkbox column is added as the first column. Clicking the checkbox toggles selection without triggering row navigation. The row `onClick` handler checks `e.target` to skip navigation when clicking checkboxes.
-
-### Bulk Action Bar
-
-A sticky bar at the bottom of the page (similar to email bulk select UI):
 ```text
-[X selected] | [Proses Pindah Keluar (X)] | [Batal Pilih]
+Additional fields (all optional):
+- invoiceId?: string        -- for overdue alerts
+- tenantUserId?: string     -- for overdue alerts (reminder + payment match)
+- contractId?: string       -- for overdue alerts (payment match)
+- merchantId?: string       -- for all (from merchant context)
+- invoiceAmount?: number    -- for overdue alerts (payment match dialog)
+- unitNumber?: string       -- for overdue alerts (display)
 ```
 
-### Bulk Mutations
+These fields are already available from the existing `invoices` query in the `queryFn`. We just need to store them instead of discarding them.
 
-Each bulk action calls Supabase with batch updates:
-- Acknowledge: `supabase.from('move_out_notices').update({status:'acknowledged'}).in('id', noticeIds)`
-- Schedule inspection: Loop + insert for each notice (inspection records are per-notice)
-- Approve refunds: `supabase.from('deposit_refunds').update({status:'approved'}).in('contract_id', contractIds)`
-- Terminate contracts: `supabase.from('contracts').update({status:'terminated'}).in('id', contractIds)`
+### Expandable Card UX
 
-### URL-Based Selection
+- Only one card can be expanded at a time (accordion pattern via `expandedId` state)
+- Clicking card header toggles expansion
+- ChevronRight rotates to ChevronDown when expanded
+- Action buttons are rendered in a flex-wrap grid inside the expanded area
 
-Selected notice IDs are passed via URL search params (`?ids=uuid1,uuid2,uuid3`) so the bulk page can be bookmarked/refreshed without losing context.
+### Reuse of InlinePaymentMatchDialog
+
+For overdue invoice alerts, the "Process Payment" action constructs an `OutstandingInvoice` object from the alert metadata and passes it to `InlinePaymentMatchDialog`. After successful match, the alert query is invalidated, causing the alert to disappear from the list.
+
+### Dismiss Mechanism
+
+- Local `Set<string>` state tracks dismissed alert IDs
+- Dismissed alerts are filtered out before rendering
+- Resets on page refresh (intentional -- alerts are regenerated from live data each time)
+- A "Show dismissed" toggle at the bottom reveals dismissed alerts if needed
 
 ### No Database Changes
 
-All existing tables support batch operations via `.in()` queries. No new tables or columns needed.
+All alert data is already queried from existing tables. No new tables, columns, or RLS policies needed.
 
