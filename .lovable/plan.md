@@ -1,105 +1,93 @@
 
 
-# Improvement 3: Add Payment Transfer Status Page
+# Improvement 4: Inline Payment Matching on Collections Page
 
 ## Overview
 
-Add a "Status Transfer" tab to the existing Payments page (`/merchant/payments`) that shows real-time transfer status for fund disbursements from the payment gateway to the merchant's bank account. This resolves the P0 visibility gap identified in the audit.
+Add inline payment matching capabilities to the OutstandingTable on the Collections page. Each overdue invoice row gets expanded quick actions and a "Process Payment" dialog that shows candidate unmatched payments ranked by match confidence, allowing one-click matching without navigating away.
 
-## Prerequisites: Database Migration
+## What Changes
 
-The `payment_transfers` table does NOT exist yet in the database. Edge functions already reference it (via `as any` casts in `xendit-webhook`, `xendit-disbursement`, `xendit-disbursement-webhook`), so we need to create it.
+### 1. New Component: `InlinePaymentMatchDialog.tsx`
 
-### Table: `payment_transfers`
+**Location:** `src/features/collections/components/InlinePaymentMatchDialog.tsx`
 
-```text
-Columns:
-- id (uuid, PK, default gen_random_uuid())
-- payment_id (uuid, FK -> payments.id)
-- merchant_id (uuid, FK -> merchants.id, NOT NULL)
-- amount (numeric, NOT NULL)
-- platform_fee (numeric, default 0)
-- gateway_fee (numeric, default 0)
-- net_amount (numeric, NOT NULL)
-- bank_account_id (uuid, FK -> bank_accounts.id, nullable)
-- status (text, NOT NULL, default 'pending') -- pending, processing, completed, failed
-- external_reference (text, nullable)
-- xendit_disbursement_id (text, nullable)
-- failure_reason (text, nullable)
-- completed_at (timestamptz, nullable)
-- created_at (timestamptz, default now())
-- updated_at (timestamptz, default now())
-```
+A dialog triggered from each invoice row that:
+- Shows invoice summary (number, amount, tenant, days overdue)
+- Fetches candidate unmatched payments for the same tenant/contract using `reconciliationService` logic
+- Displays top 3 candidates ranked by match score (exact match = 99%, close amount = 90%, partial = 70%)
+- Each candidate has "Confirm Match" button that calls `reconciliationService.manualMatch()`
+- Shows payment details: amount, date, method, reference, proof photo link
+- After matching: shows success state, invalidates queries for real-time table update
+- Alternative actions section: links to manual entry or payment plan (future)
 
-RLS policies:
-- Merchants can SELECT their own transfers (`merchant_id` matches via `merchants.user_id = auth.uid()`)
-- No INSERT/UPDATE/DELETE for merchants (backend-only writes via service role)
+### 2. New Hook: `useInvoiceCandidatePayments.ts`
 
-Enable realtime for live status updates.
-
-## New Files
-
-### 1. `src/features/payments/hooks/usePaymentTransfers.ts`
+**Location:** `src/features/collections/hooks/useInvoiceCandidatePayments.ts`
 
 React Query hook that:
-- Fetches `payment_transfers` for the merchant, joined with `bank_accounts` (bank name, account number)
-- Computes aggregate stats (pending total, completed this week, failed count, 7-day average)
-- Subscribes to Supabase Realtime for live status updates
-- Returns typed data
+- Takes `invoiceId`, `tenantUserId`, `contractId`, `merchantId`, `invoiceAmount`
+- Fetches unmatched/pending_review payments for the same tenant + contract
+- Computes a simple match confidence score per payment:
+  - Exact amount match = 0.99
+  - Within 5% = 0.90
+  - Within 20% = 0.70
+  - Otherwise = 0.50
+- Sorts by confidence descending, limits to top 5
+- Returns typed `CandidatePayment[]`
 
-### 2. `src/features/payments/components/TransferStatusTab.tsx`
+### 3. Modified Component: `OutstandingTable.tsx`
 
-The new tab content with:
-- **Aggregate metrics row** (4 StatCards): Pending Transfers, Completed This Week, Failed (Needs Attention), 7-Day Average
-- **Transfer list** grouped by status section (Failed first for attention, then Processing, then Completed)
-- Each transfer card shows: amount, net amount, bank destination, created date, completed/failed date, status badge, failure reason
-- **Failed transfers**: "Retry" button that invokes the `xendit-disbursement` edge function
-- **Empty state** when no transfers exist yet
+Expand each invoice row's action column from a single "Ingatkan" button to a dropdown with:
+- **Send Reminder** (existing functionality, preserved)
+- **Process Payment** (opens `InlinePaymentMatchDialog`)
+- **Call Tenant** (tel: link using tenant phone, if available)
 
-### 3. Modify: `src/pages/merchant/Payments.tsx`
+Add a small badge on rows that have candidate payments available (e.g., "2 pembayaran cocok").
 
-Add a third tab "Status Transfer" alongside "Riwayat Pembayaran" and "Tagihan Terlambat":
-- Import `TransferStatusTab` and `usePaymentTransfers`
-- Add tab trigger with badge showing failed transfer count (red) or processing count (yellow)
-- Render `TransferStatusTab` in new `TabsContent`
+### 4. Update `old-docs/SYSTEM_AUDIT_REPORT.md`
 
-### 4. Update: `old-docs/SYSTEM_AUDIT_REPORT.md`
-
-Add Implementation Tracking section for Improvement 3 with per-line status tracking.
-
-## Technical Details
-
-### Realtime Subscription
-Subscribe to `payment_transfers` changes filtered by `merchant_id` to update transfer status in real-time when webhooks arrive from Xendit.
-
-### Retry Failed Transfers
-The "Retry" button calls `supabase.functions.invoke('xendit-disbursement')` with the transfer's `payment_transfer_id` and `bank_account_id`. This reuses the existing edge function.
-
-### Status Badges
-Reuse the same badge patterns from the admin `PaymentTransfers.tsx` page:
-- Completed: green with CheckCircle2
-- Processing: secondary with Clock
-- Pending: outline with Clock  
-- Failed: destructive with XCircle
-
-### No Navigation Changes
-The transfer status is a tab within the existing Payments page, not a new page. No sidebar changes needed.
+Add Implementation Tracking for Improvement 4 with per-line status.
 
 ## Files Changed
 
 | File | Action | Description |
 |------|--------|-------------|
-| Database migration | CREATE TABLE | `payment_transfers` table + RLS + realtime |
-| `src/features/payments/hooks/usePaymentTransfers.ts` | CREATE | Hook for fetching + realtime subscription |
-| `src/features/payments/components/TransferStatusTab.tsx` | CREATE | Transfer status tab UI |
-| `src/pages/merchant/Payments.tsx` | MODIFY | Add third tab |
-| `old-docs/SYSTEM_AUDIT_REPORT.md` | UPDATE | Tracking for Improvement 3 |
+| `src/features/collections/hooks/useInvoiceCandidatePayments.ts` | CREATE | Hook to fetch + score candidate payments |
+| `src/features/collections/components/InlinePaymentMatchDialog.tsx` | CREATE | Dialog for payment matching |
+| `src/features/collections/components/OutstandingTable.tsx` | MODIFY | Add dropdown actions + dialog trigger |
+| `old-docs/SYSTEM_AUDIT_REPORT.md` | UPDATE | Improvement 4 tracking |
 
-## Implementation Order
+## Technical Details
 
-1. Create `payment_transfers` table (migration)
-2. Create `usePaymentTransfers` hook
-3. Create `TransferStatusTab` component
-4. Add tab to Payments page
-5. Update audit report
+### Match Confidence Scoring (Client-Side)
+
+```text
+score = 1.0   if payment.amount == invoice.outstandingAmount (exact)
+score = 0.95  if abs(payment.amount - invoice.outstandingAmount) / invoice.outstandingAmount < 0.05
+score = 0.80  if abs(payment.amount - invoice.outstandingAmount) / invoice.outstandingAmount < 0.20
+score = 0.50  otherwise (same tenant/contract but amount mismatch)
+```
+
+### Data Flow
+
+1. User clicks "Process Payment" on invoice row
+2. Dialog opens, `useInvoiceCandidatePayments` fires query
+3. Query fetches from `payments` table where `tenant_user_id` + `contract_id` match and `reconciliation_status` in ('unmatched', 'pending_review')
+4. Results scored and displayed
+5. User clicks "Confirm Match" on a candidate
+6. `reconciliationService.manualMatch()` is called (existing function -- creates match record, updates payment status, updates invoice status)
+7. React Query invalidation triggers table refresh -- invoice disappears from outstanding list or shows "paid"
+
+### Realtime Already Configured
+
+The `useCollectionsDashboard` hook already subscribes to realtime changes on `invoices` and `payments` tables, so after matching, the table auto-refreshes without manual reload.
+
+### No Database Changes
+
+All required tables (`payments`, `payment_invoice_match`, `invoices`) and their RLS policies already exist. The `reconciliationService.manualMatch()` function handles the full matching workflow.
+
+### No New Dependencies
+
+Uses existing Dialog, Table, Badge, Button, DropdownMenu components from the design system.
 
