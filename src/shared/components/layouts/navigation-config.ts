@@ -49,6 +49,7 @@ export interface NavItem {
   icon: LucideIcon;
   label: string;
   activePatterns?: string[];
+  badgeKey?: string;
 }
 
 export interface NavGroup {
@@ -124,6 +125,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
         label: "Utama",
         items: [
           { path: "/merchant", icon: LayoutDashboard, label: "Dashboard" },
+          { path: "/merchant/alerts", icon: Bell, label: "Notifikasi", badgeKey: "alerts" },
         ],
       },
       {
@@ -175,7 +177,6 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/merchant/profile", icon: User, label: "Profil" },
           { path: "/merchant/billing", icon: Receipt, label: "Langganan" },
           { path: "/merchant/settings", icon: Settings, label: "Pengaturan" },
-          { path: "/merchant/alerts", icon: Bell, label: "Notifikasi" },
           { path: "/merchant/support", icon: HelpCircle, label: "Bantuan" },
           { path: "/merchant/feedback", icon: MessageCircle, label: "Feedback" },
         ],

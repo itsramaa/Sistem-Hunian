@@ -1902,6 +1902,14 @@ On hover/click:
 
 **Implementation Effort:** Low — add sidebar link + badge, fetch alerts from alert service, show dropdown.
 
+**Implementation Status:**
+- 8.1 Promote Notifikasi to Utama group in sidebar: ✅ COMPLETE
+- 8.2 Add badgeKey to NavItem interface: ✅ COMPLETE
+- 8.3 Create useAlertCounts hook (lightweight count queries): ✅ COMPLETE
+- 8.4 Render badge counts in nav-main.tsx: ✅ COMPLETE
+- 8.5 Wire useAlertCounts in AppSidebar for merchant role: ✅ COMPLETE
+- 8.6 Dropdown on hover/click with 3 most urgent alerts: ⏭️ SKIP — existing Alerts page already provides full list; sidebar badge + link is sufficient for MVP
+
 ---
 
 ### D. FEATURE INTEGRATION IMPROVEMENTS

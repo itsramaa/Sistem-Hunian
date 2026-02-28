@@ -12,6 +12,7 @@ import {
   SidebarRail,
 } from "@/shared/components/ui/sidebar";
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useAlertCounts } from "@/features/notifications/hooks/useAlertCounts";
 import { UserRole, navigationConfig } from "@/shared/components/layouts/navigation-config";
 import { NavMain } from "@/shared/components/layouts/sidebar/nav-main";
 import { NavSecondary } from "@/shared/components/layouts/sidebar/nav-secondary";
@@ -40,6 +41,9 @@ export function AppSidebar({ role, ...props }: AppSidebarProps) {
   const verificationStatus = entityInfo?.verification_status;
   const subscriptionTier = role === "merchant" ? merchant?.merchant_subscriptions?.[0]?.subscription_tiers?.name || "free" : null;
 
+  const { data: alertCounts } = useAlertCounts(role === "merchant" ? merchant?.id : undefined);
+  const badges: Record<string, number> = alertCounts?.total ? { alerts: alertCounts.total } : {};
+
   const secondaryNavItems = [
     {
       title: "Bantuan",
@@ -66,7 +70,7 @@ export function AppSidebar({ role, ...props }: AppSidebarProps) {
         )}
       </SidebarHeader>
       <SidebarContent>
-        <NavMain groups={config.mainNav} basePath={basePath} />
+        <NavMain groups={config.mainNav} basePath={basePath} badges={badges} />
         <Separator className="mx-3 w-auto bg-border/30" />
         <NavSecondary items={secondaryNavItems} />
       </SidebarContent>
