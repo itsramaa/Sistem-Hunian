@@ -1,42 +1,47 @@
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, FileText, CreditCard, Wrench, ClipboardList, CalendarClock, ChevronRight } from 'lucide-react';
-import { Card, CardContent } from '@/shared/components/ui/card';
-import { Badge } from '@/shared/components/ui/badge';
+import { Bell, FileText, CreditCard, Wrench, ClipboardList, CalendarClock, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
+import { Card } from '@/shared/components/ui/card';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-
-interface AlertItem {
-  id: string;
-  type: 'overdue' | 'expense_approval' | 'maintenance' | 'contract_expiry' | 'preventive_overdue';
-  title: string;
-  description: string;
-  severity: 'high' | 'medium' | 'low';
-  path: string;
-}
+import { toast } from 'sonner';
+import { AlertActionCard, type AlertItemExtended } from '@/features/notifications/components/AlertActionCard';
+import { InlinePaymentMatchDialog } from '@/features/collections/components/InlinePaymentMatchDialog';
+import { collectionsService } from '@/features/collections/services/collectionsService';
+import type { OutstandingInvoice } from '@/features/collections/services/collectionsService';
 
 export default function MerchantAlerts() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { merchant } = useAuth();
+
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [actionedMap, setActionedMap] = useState<Record<string, string>>({});
+  const [actionLoading, setActionLoading] = useState(false);
+  const [showDismissed, setShowDismissed] = useState(false);
+  const [matchInvoice, setMatchInvoice] = useState<OutstandingInvoice | null>(null);
 
   const { data: alerts = [], isLoading } = useQuery({
     queryKey: ['merchant-alerts', merchant?.id],
     queryFn: async () => {
       if (!merchant?.id) return [];
-      const items: AlertItem[] = [];
+      const items: AlertItemExtended[] = [];
 
-      // Overdue invoices
+      // Overdue invoices - now fetching extra metadata
       const { data: overdueInvoices } = await supabase
         .from('invoices')
-        .select('id, invoice_number, amount, due_date, tenant_name')
+        .select('id, invoice_number, amount, total_amount, due_date, tenant_name, tenant_user_id, contract_id, unit_number')
         .eq('merchant_id', merchant.id)
         .in('status', ['overdue', 'escalated'])
         .order('due_date', { ascending: true })
         .limit(20);
 
       (overdueInvoices || []).forEach(inv => {
+        const daysOverdue = Math.floor((Date.now() - new Date(inv.due_date).getTime()) / 86400000);
         items.push({
           id: `overdue-${inv.id}`,
           type: 'overdue',
@@ -44,13 +49,21 @@ export default function MerchantAlerts() {
           description: `${inv.tenant_name || 'Penyewa'} - Rp ${Number(inv.amount).toLocaleString('id-ID')}`,
           severity: 'high',
           path: `/merchant/invoices/${inv.id}`,
+          invoiceId: inv.id,
+          tenantUserId: inv.tenant_user_id,
+          contractId: inv.contract_id,
+          merchantId: merchant.id,
+          invoiceAmount: Number(inv.total_amount || inv.amount),
+          unitNumber: inv.unit_number || undefined,
+          tenantName: inv.tenant_name || undefined,
+          daysOverdue: Math.max(0, daysOverdue),
         });
       });
 
       // Pending expense approvals
-      const { data: pendingExpenses, count: expenseCount } = await supabase
+      const { data: pendingExpenses } = await supabase
         .from('expenses')
-        .select('id, amount, category, description', { count: 'exact' })
+        .select('id, amount, category, description')
         .eq('merchant_id', merchant.id)
         .eq('approval_status', 'pending_approval')
         .limit(10);
@@ -106,7 +119,7 @@ export default function MerchantAlerts() {
           description: `Berakhir: ${new Date(c.end_date).toLocaleDateString('id-ID')}`,
           severity: 'medium',
           path: `/merchant/contracts/${c.id}`,
-      });
+        });
       });
 
       // Overdue preventive maintenance
@@ -147,10 +160,65 @@ export default function MerchantAlerts() {
     preventive_overdue: CalendarClock,
   };
 
-  const colorMap = {
-    high: 'border-destructive/30 bg-destructive/5',
-    medium: 'border-warning/30 bg-warning/5',
-    low: 'border-border',
+  const visibleAlerts = useMemo(() =>
+    alerts.filter(a => showDismissed || !dismissedIds.has(a.id)),
+    [alerts, dismissedIds, showDismissed]
+  );
+
+  const dismissedCount = useMemo(() =>
+    alerts.filter(a => dismissedIds.has(a.id)).length,
+    [alerts, dismissedIds]
+  );
+
+  const handleAction = async (alert: AlertItemExtended, action: string) => {
+    switch (action) {
+      case 'send_reminder':
+        if (!alert.invoiceId || !alert.tenantUserId) return;
+        setActionLoading(true);
+        try {
+          await collectionsService.sendReminder(alert.invoiceId, alert.tenantUserId);
+          toast.success('Pengingat berhasil dikirim');
+          setActionedMap(prev => ({ ...prev, [alert.id]: 'Pengingat berhasil dikirim' }));
+        } catch {
+          toast.error('Gagal mengirim pengingat');
+        } finally {
+          setActionLoading(false);
+        }
+        break;
+
+      case 'process_payment':
+        if (!alert.invoiceId || !alert.tenantUserId || !alert.merchantId) return;
+        setMatchInvoice({
+          invoiceId: alert.invoiceId,
+          merchantId: alert.merchantId,
+          tenantUserId: alert.tenantUserId,
+          contractId: alert.contractId || '',
+          unitId: '',
+          unitNumber: alert.unitNumber || '',
+          tenantName: alert.tenantName || '',
+          invoiceNumber: alert.title.replace('Tagihan ', '').replace(' overdue', ''),
+          totalAmount: alert.invoiceAmount || 0,
+          paidAmount: 0,
+          outstandingAmount: alert.invoiceAmount || 0,
+          daysOverdue: alert.daysOverdue || 0,
+          agingBucket: '',
+          bucketOrder: 0,
+          dueDate: '',
+          lastPaymentDate: null,
+          status: 'overdue',
+        });
+        break;
+
+      case 'navigate':
+        navigate(alert.path);
+        break;
+
+      case 'dismiss':
+        setDismissedIds(prev => new Set(prev).add(alert.id));
+        setExpandedId(null);
+        toast('Alert di-dismiss', { description: alert.title });
+        break;
+    }
   };
 
   return (
@@ -170,32 +238,50 @@ export default function MerchantAlerts() {
         </div>
       ) : (
         <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">{alerts.length} item memerlukan perhatian</p>
-          {alerts.map(alert => {
-            const Icon = iconMap[alert.type];
-            return (
-              <Card
-                key={alert.id}
-                className={`rounded-xl cursor-pointer hover:shadow-md transition-all ${colorMap[alert.severity]}`}
-                onClick={() => navigate(alert.path)}
-              >
-                <CardContent className="p-3 flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-lg bg-background flex items-center justify-center shrink-0">
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{alert.title}</p>
-                    <p className="text-xs text-muted-foreground truncate">{alert.description}</p>
-                  </div>
-                  <Badge variant={alert.severity === 'high' ? 'destructive' : 'secondary'} className="shrink-0 text-xs">
-                    {alert.severity === 'high' ? 'Urgent' : alert.severity === 'medium' ? 'Perlu Aksi' : 'Info'}
-                  </Badge>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                </CardContent>
-              </Card>
-            );
-          })}
+          <p className="text-sm text-muted-foreground">
+            {visibleAlerts.length} item memerlukan perhatian
+            {dismissedCount > 0 && !showDismissed && ` (${dismissedCount} di-dismiss)`}
+          </p>
+
+          {visibleAlerts.map(alert => (
+            <AlertActionCard
+              key={alert.id}
+              alert={alert}
+              icon={iconMap[alert.type]}
+              expanded={expandedId === alert.id}
+              onToggle={() => setExpandedId(prev => prev === alert.id ? null : alert.id)}
+              onAction={(action) => handleAction(alert, action)}
+              actioned={actionedMap[alert.id] || null}
+              actionLoading={actionLoading && expandedId === alert.id}
+            />
+          ))}
+
+          {dismissedCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-xs text-muted-foreground gap-1.5"
+              onClick={() => setShowDismissed(prev => !prev)}
+            >
+              {showDismissed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+              {showDismissed ? 'Sembunyikan dismissed' : `Tampilkan ${dismissedCount} dismissed`}
+            </Button>
+          )}
         </div>
+      )}
+
+      {/* Reuse InlinePaymentMatchDialog */}
+      {matchInvoice && (
+        <InlinePaymentMatchDialog
+          invoice={matchInvoice}
+          open={!!matchInvoice}
+          onOpenChange={(open) => {
+            if (!open) {
+              setMatchInvoice(null);
+              queryClient.invalidateQueries({ queryKey: ['merchant-alerts'] });
+            }
+          }}
+        />
       )}
     </div>
   );
