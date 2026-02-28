@@ -60,12 +60,18 @@ serve(async (req) => {
   const startTime = Date.now();
 
   try {
-    const userClient = createUserClient(req);
-    const user = await authenticateUser(userClient);
+    const authHeader = req.headers.get("Authorization") || "";
+    const userClient = createUserClient(authHeader);
     const serviceClient = createServiceClient();
-    const merchantId = await getMerchantId(serviceClient, user.id);
 
-    await checkTierLimit(serviceClient, merchantId, "ml_ocr_correction", TIER_LIMITS);
+    const auth = await authenticateUser(req, userClient);
+    if (auth.error) return auth.error;
+
+    const merchantId = await getMerchantId(serviceClient, auth.userId);
+    if (!merchantId) return errorResponse("Merchant not found", 404);
+
+    const tierCheck = await checkTierLimit(serviceClient, merchantId, "ml_ocr_correction", TIER_LIMITS);
+    if (!tierCheck.allowed) return tierCheck.error!;
 
     const { ocr_result_id } = await req.json();
     if (!ocr_result_id) {
@@ -117,41 +123,31 @@ Focus on:
 Only suggest corrections when you have reasonable confidence the current value is wrong. Do not suggest changes for fields that look correct.`;
 
     const aiResponse = await callLovableAI({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert document analysis AI specializing in Indonesian documents (KTP, business permits, receipts, compliance documents). Analyze OCR results and suggest corrections based on document patterns and context.",
-        },
-        { role: "user", content: prompt },
-      ],
+      systemPrompt: "You are an expert document analysis AI specializing in Indonesian documents (KTP, business permits, receipts, compliance documents). Analyze OCR results and suggest corrections based on document patterns and context.",
+      userContent: [{ type: "text", text: prompt }],
       tools: [SUGGESTION_TOOL],
-      tool_choice: { type: "function", function: { name: "suggest_corrections" } },
+      toolChoice: { type: "function", function: { name: "suggest_corrections" } },
+      model: "google/gemini-2.5-flash",
     });
 
-    const toolCall = aiResponse.choices?.[0]?.message?.tool_calls?.[0];
-    let result = { suggestions: [], overall_assessment: "Unable to analyze" };
-
-    if (toolCall?.function?.arguments) {
-      try {
-        result = JSON.parse(toolCall.function.arguments);
-      } catch {
-        console.error("Failed to parse AI response");
-      }
-    }
+    const result = aiResponse.toolCallResult as {
+      suggestions: Array<{ confidence: number }>;
+      overall_assessment: string;
+    };
 
     const processingTime = Date.now() - startTime;
 
     await logModelRun(serviceClient, {
-      merchant_id: merchantId,
-      model_type: "ml_ocr_correction",
-      input_params: { ocr_result_id, document_type: documentType },
-      output_result: result,
-      confidence_score: result.suggestions.length > 0
-        ? result.suggestions.reduce((sum: number, s: { confidence: number }) => sum + s.confidence, 0) / result.suggestions.length
-        : 100,
-      processing_time_ms: processingTime,
-      status: "completed",
+      functionName: "ml-ocr-correction-suggest",
+      merchantId,
+      userId: auth.userId,
+      inputSummary: `OCR result: ${ocr_result_id}, type: ${documentType}`,
+      outputSummary: result.overall_assessment,
+      confidenceScore: result.suggestions.length > 0
+        ? result.suggestions.reduce((sum, s) => sum + s.confidence, 0) / result.suggestions.length / 100
+        : 1,
+      executionTimeMs: processingTime,
+      tokensUsed: aiResponse.tokensUsed,
     });
 
     return successResponse(result);
