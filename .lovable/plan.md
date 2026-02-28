@@ -1,101 +1,135 @@
 
 
-# Improvement 9: Auto-Link Maintenance Costs to Expenses
+# Improvement 10: Property-Level Staff Permission Scoping
 
 ## Overview
 
-When a maintenance request is marked as "completed" and has a vendor with an `agreed_price`, the system will automatically create a linked expense record. This eliminates manual data entry and ensures 100% cost tracking.
+The `merchant_staff` table already has a `property_ids` column, but it is never enforced anywhere. Staff permissions are completely global -- `checkPermission()` doesn't check which properties a staff member is assigned to. This improvement activates property-level scoping so that staff can only access data for their assigned properties.
 
 ## Current State
 
-- `maintenanceService.updateStatus()` already handles completion logic (lines 368-413): completes vendor jobs, creates earnings, sends notifications
-- The `expenses` table has `vendor_id`, `property_id`, `unit_id` fields but no `maintenance_request_id` reference
-- A separate `maintenance_expenses` table exists (for OCR receipt tracking) but is independent from the main `expenses` table
-- The expense auto-approval threshold is Rp 500k (amounts below are auto-approved)
+- `merchant_staff.property_ids` (JSON array) exists but is decorative -- only displayed as a count badge in the UI
+- `staff_permissions` table has no property-level scoping
+- `checkPermission()` returns true/false based solely on permission key, ignoring property context
+- The invite dialog has no property selector
+- No data queries (invoices, maintenance, expenses, etc.) filter by staff's assigned properties
 
 ## What Changes
 
-### 1. Database Migration: Add `maintenance_request_id` to `expenses`
+### 1. Modify: `checkPermission` to accept optional `propertyId`
 
-Add an optional foreign key column `maintenance_request_id` on the `expenses` table referencing `maintenance_requests(id)`. This enables:
-- Linking expenses back to their originating maintenance request
-- Preventing duplicate expense creation (unique-ish check before insert)
-- Audit trail between maintenance and finance modules
+Update `checkPermission()` in `staffService.ts` to:
+- Accept an optional `propertyId` parameter
+- When provided, fetch the staff member's `property_ids` and check if the requested property is in the list
+- If `property_ids` is empty, treat as "all properties" (backward compatible)
+- Owner still bypasses all checks
 
-### 2. Modify: `maintenanceService.updateStatus()` -- Auto-create expense on completion
+This is the core enforcement point -- all existing callers continue working (propertyId is optional).
 
-Inside the existing `if (payload.status === 'completed')` block (after vendor job completion), add logic to:
+### 2. Create: `checkPropertyAccess` helper function
 
-1. Fetch the maintenance request's `unit_id` and look up the `property_id` from the `units` table (already available from the request query)
-2. Check if an expense already exists for this `maintenance_request_id` (prevent duplicates)
-3. If vendor job has `agreed_price`, create an expense record:
-   - `merchant_id`: from the request
-   - `category`: 'maintenance'
-   - `subcategory`: request category (e.g., 'plumbing', 'electrical')
-   - `description`: "Pemeliharaan - [request title]"
-   - `amount`: agreed_price
-   - `expense_date`: today
-   - `property_id`: from unit lookup
-   - `unit_id`: from the request
-   - `vendor_id`: assigned_vendor_id
-   - `maintenance_request_id`: request id
-   - `approval_status`: auto-approve if under Rp 500k, else 'pending_approval'
-   - `notes`: completion notes from the request
+New exported function in `staffService.ts`:
+- Given a `userId`, `merchantId`, and `propertyId`, returns whether the staff member has access to that property
+- Owners always have access
+- Staff with empty `property_ids` have access to all properties
+- Staff with non-empty `property_ids` only have access to listed properties
 
-4. Show a toast message is already handled client-side; after the mutation succeeds, we add expense query invalidation
+### 3. Modify: `useStaffPermission` hook to accept optional `propertyId`
 
-### 3. Modify: `useMaintenance.ts` -- Invalidate expense queries on completion
+Update the hook signature to `useStaffPermission(permissionKey, propertyId?)` so components can pass the current property context. The hook passes this through to `checkPermission`.
 
-In the `useUpdateMaintenanceRequest` `onSuccess` callback, also invalidate expense-related queries so the Expenses page reflects the new auto-created record immediately.
+### 4. Modify: Invite Dialog -- Add property selector
 
-### 4. Modify: `Maintenance.tsx` -- Add toast about auto-linked expense
+Update the invite form in `StaffManagement.tsx` to include a multi-select for properties:
+- Fetch merchant's properties using existing property queries
+- Show checkboxes for each property
+- "Semua Properti" option (empty array = all access)
+- Pass selected `property_ids` to `inviteStaff`
 
-Update the success toast in `handleUpdateStatus` to mention expense auto-creation when status is 'completed'.
+### 5. Modify: Staff Card -- Show assigned property names
 
-### 5. Update: `old-docs/SYSTEM_AUDIT_REPORT.md`
+Instead of just showing "3 properti" count, resolve and display the actual property names. This gives merchants clear visibility into what each staff member can access.
 
-Add Improvement 9 tracking lines.
+### 6. Modify: Permissions Dialog -- Show property scope info
+
+Add a read-only section at the top of the Permissions Dialog showing which properties this staff member is scoped to, with a link to edit.
+
+### 7. Create: `useStaffPropertyAccess` hook
+
+New hook that returns the current user's accessible property IDs:
+- Owners get all properties
+- Staff get their `property_ids` (or all if empty)
+- Used by data-fetching hooks to filter queries
+
+### 8. Update: `old-docs/SYSTEM_AUDIT_REPORT.md`
+
+Add Improvement 10 tracking lines.
 
 ## Files Changed
 
 | File | Action | Description |
 |------|--------|-------------|
-| Database migration | CREATE | Add `maintenance_request_id` column to `expenses` table |
-| `src/features/maintenance/services/maintenanceService.ts` | MODIFY | Add expense auto-creation in completion block |
-| `src/features/maintenance/hooks/useMaintenance.ts` | MODIFY | Invalidate expense queries on status update |
-| `src/pages/merchant/Maintenance.tsx` | MODIFY | Enhanced toast on completion |
-| `old-docs/SYSTEM_AUDIT_REPORT.md` | UPDATE | Improvement 9 tracking |
+| `src/features/staff/services/staffService.ts` | MODIFY | Add propertyId param to checkPermission, add checkPropertyAccess helper |
+| `src/features/staff/hooks/useStaffPermission.ts` | MODIFY | Accept optional propertyId parameter |
+| `src/features/staff/hooks/useStaffPropertyAccess.ts` | CREATE | Hook returning accessible property IDs for current staff user |
+| `src/pages/merchant/StaffManagement.tsx` | MODIFY | Add property selector to invite dialog, show property names on cards, show scope in permissions dialog |
+| `old-docs/SYSTEM_AUDIT_REPORT.md` | UPDATE | Improvement 10 tracking |
 
 ## Technical Details
 
-### Migration SQL
+### Updated `checkPermission` signature
 
 ```text
-ALTER TABLE expenses ADD COLUMN maintenance_request_id uuid REFERENCES maintenance_requests(id);
-CREATE INDEX idx_expenses_maintenance_request_id ON expenses(maintenance_request_id) WHERE maintenance_request_id IS NOT NULL;
+checkPermission(userId, merchantId, permissionKey, propertyId?)
+  1. Owner check (unchanged) -> true
+  2. Find staff record (unchanged)
+  3. NEW: If propertyId provided AND staff.property_ids is non-empty:
+     - Check if propertyId is in staff.property_ids
+     - If not, return false (no access to this property)
+  4. Check permission key (unchanged)
 ```
 
-### Expense Auto-Creation Logic (in maintenanceService.updateStatus)
-
-After existing vendor job completion block (around line 400), insert:
+### `checkPropertyAccess` function
 
 ```text
-1. Query: Check if expense with this maintenance_request_id already exists
-2. If not exists AND vendorJob.agreed_price > 0:
-   a. Fetch property_id from units table using request.unit_id
-   b. Determine approval_status: agreed_price < 500000 ? 'approved' : 'pending_approval'
-   c. INSERT into expenses with all pre-populated fields
-   d. Log to audit trail
+checkPropertyAccess(userId, merchantId, propertyId)
+  1. Owner -> true
+  2. Find staff with property_ids
+  3. If property_ids is empty -> true (all access)
+  4. If propertyId in property_ids -> true
+  5. Else -> false
 ```
 
-### Duplicate Prevention
+### `useStaffPropertyAccess` hook
 
-Before creating expense, check:
 ```text
-SELECT id FROM expenses WHERE maintenance_request_id = [request_id] LIMIT 1
+Returns: { accessiblePropertyIds: string[] | null, isAllAccess: boolean, isLoading }
+- null = owner (all access)
+- empty array with isAllAccess=true = staff with no restrictions
+- non-empty array = staff limited to these properties
 ```
-If exists, skip creation (idempotent).
 
-### No New UI Components
+### Property Selector in Invite Dialog
 
-This is purely backend logic -- the expense appears automatically in the existing Expenses page. The only UI change is an enhanced toast message on completion.
+Uses existing property data (from property queries already available in the merchant context). Renders as a list of checkboxes:
+```text
+Akses Properti:
+[x] Semua Properti (default)
+[ ] Bangunan Sejahtera
+[ ] Kost Bahagia
+[ ] Rumah Harmoni
+```
+
+When "Semua Properti" is unchecked, individual properties become selectable.
+
+### No Database Changes
+
+The `merchant_staff.property_ids` column already exists. No schema changes needed. The enforcement happens purely in application logic via `checkPermission` and the new `checkPropertyAccess` helper.
+
+### Backward Compatibility
+
+- All existing `checkPermission` calls continue working (no propertyId = no property check)
+- All existing `useStaffPermission` calls continue working (propertyId is optional)
+- Staff with empty `property_ids` retain full access (same as before)
+- Only staff explicitly assigned to specific properties get scoped
+
