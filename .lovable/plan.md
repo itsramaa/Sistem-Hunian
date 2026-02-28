@@ -1,102 +1,120 @@
 
-# Improvement 1: Restructure Navigation Hierarchy + Fix Build Errors
+# Improvement 2: Unified Move-Out Wizard
 
-## Overview
+## What We're Building
 
-Two parallel tasks:
-1. **Restructure merchant sidebar navigation** in `navigation-config.ts` from 4 groups (Utama, Operasional, Keuangan, Lainnya) to 6 groups matching the audit plan
-2. **Fix 15 build errors** in edge functions (pre-existing TypeScript issues)
-3. **Track progress** in `SYSTEM_AUDIT_REPORT.md`
+Replace the current MoveOutDetail page (`src/pages/merchant/MoveOutDetail.tsx`) with a step-based wizard that unifies the 4 move-out state machines (Notice, Inspection, Deposit Refund, Contract Termination) into a single guided workflow. The wizard is accessed from the existing MoveOuts list page when clicking on a notice row.
 
----
+## Current State (What Exists)
 
-## Part A: Navigation Restructure
+The system already has solid building blocks:
+- **MoveOutDetail page**: Read-only detail view (no actions for merchant)
+- **ScheduleInspectionDialog**: Schedule inspection date/time
+- **MoveOutInspectionForm**: Conduct inspection with checklist, deductions, signatures, creates `deposit_refunds` record
+- **EarlyTerminationReviewDialog**: Approve/deny/negotiate early termination
+- **MoveOutDashboard component**: Tenant-facing timeline tracker (uses `move_out_timeline`, `move_out_tasks`, `deposit_refunds`)
+- **Database tables**: `move_out_notices`, `move_out_inspections`, `move_out_timeline`, `move_out_tasks`, `deposit_refunds`, `early_termination_requests`
+- **State machines**: `MOVE_OUT_NOTICE_TRANSITIONS`, `MOVE_OUT_INSPECTION_TRANSITIONS`, `EARLY_TERMINATION_TRANSITIONS`, `DEPOSIT_REFUND_TRANSITIONS`
 
-### File: `src/shared/components/layouts/navigation-config.ts`
+No database changes needed -- all required tables and columns already exist.
 
-Replace the merchant `mainNav` array (lines 118-162) with 6 groups:
+## Architecture
 
-| Group | Label | Items | Changes |
-|-------|-------|-------|---------|
-| 1 | **Utama** | Dashboard | Unchanged (1 item) |
-| 2 | **Properti & Okupansi** | Properti, Papan Okupansi, Inventori, Maintenance, Penjaga (Tim On-Site) | Inventory + Guardians moved from "Lainnya"; Guardians label clarified |
-| 3 | **Penyewa & Kontrak** | Penyewa, Kontrak, Daftar Tunggu | Same items, new group label |
-| 4 | **Keuangan** | Kontrol Keuangan, Tagihan, Pembayaran, Penagihan, Pengeluaran, Rekonsiliasi, Utilitas, Harga Dinamis, Lap. Keuangan | Collections elevated; Reconciliation label simplified; Financial Reports moved to end |
-| 5 | **Wawasan & Manajemen** | Alat (InsightsHub), Laporan, Template Dokumen, Manajemen Staff, Performa Vendor, API & Integrasi | InsightsHub + Staff elevated from "Lainnya" |
-| 6 | **Akun** | Profil, Langganan, Pengaturan, Notifikasi, Bantuan, Feedback | 6 previously orphaned/hidden pages now in sidebar |
+### Approach: Replace MoveOutDetail with Wizard Page
 
-### Key Changes:
-- **"Lainnya" group eliminated** -- all items redistributed
-- **6 orphaned pages added**: Profile, Billing, Settings, Alerts, Support, Feedback
-- **Labels clarified**: "Resolusi & Rekonsiliasi" becomes "Rekonsiliasi"; "Penjaga" becomes "Penjaga (Tim On-Site)"
-- **Collections elevated** from collapsed group to Keuangan section
-- **InsightsHub + Staff** elevated to visible "Wawasan & Manajemen" group
-- **Collapsible behavior**: The "Lainnya" collapsible logic in `nav-main.tsx` will no longer trigger since no group is named "Lainnya"
+Instead of a modal (which would be too cramped for the inspection form + signatures), we replace the existing `MoveOutDetail.tsx` page at route `/merchant/move-outs/:noticeId` with a wizard-style page.
 
-### New imports needed:
-- `Bell` (for Alerts/Notifikasi icon)
-- `Receipt` (for Billing/Langganan icon)
-- `HelpCircle` (for Support/Bantuan icon)
-- `MessageCircle` (for Feedback icon)
+### File Structure
 
-### No changes to `nav-main.tsx`:
-The collapsible check `group.label === "Lainnya"` will simply never match -- harmless. No functional change needed.
-
----
-
-## Part B: Fix 15 Build Errors in Edge Functions
-
-### Error Category 1: `err` is of type `unknown` (4 files)
-Add `(err as Error).message` or `(e as Error).message`:
-- `auto-match-payment/index.ts` line 162
-- `compute-occupancy-snapshots/index.ts` line 102
-- `compute-tenant-payment-metrics/index.ts` line 136
-- `queue-payment-reminders/index.ts` line 140
-- `send-renewal-alert/index.ts` line 67
-
-### Error Category 2: `.catch()` on `PromiseLike` (2 files)
-Replace `.then(() => {}).catch(() => {})` with `Promise.resolve(...).then(...).catch(...)`:
-- `ml-churn-prediction/index.ts` line 127
-- `ml-tenant-risk-score/index.ts` line 162
-
-### Error Category 3: `ai-chatbot/index.ts` line 188 (type cast)
-The Supabase join returns `property` as an array. Fix by casting through `unknown`:
-```typescript
-const contractUnit = activeContract?.unit as unknown as { unit_number: string; property: { name: string } } | null;
+```
+src/features/contracts/components/move-out-wizard/
+  MoveOutWizard.tsx          -- Main wizard container with step navigation
+  WizardStepNoticeReview.tsx -- Step 1: Review notice + tenant info
+  WizardStepInspection.tsx   -- Step 2: Schedule or conduct inspection
+  WizardStepDeposit.tsx      -- Step 3: Settle deposit & terminate contract
+  WizardStepConfirmation.tsx -- Step 4: Summary + actions
+  useMoveOutWizardData.ts    -- Hook: fetches all related data in one place
 ```
 
-### Error Category 4: `ml-ocr-correction-suggest/index.ts` (7 errors)
-This file uses `callLovableAI` incorrectly -- passing `messages` instead of `systemPrompt` + `userContent`, and accessing `aiResponse.choices` which doesn't exist on `AiToolCallResult`. Also uses wrong param names for `logModelRun`.
+### Step Design (4 Steps, Not 5)
 
-Fixes:
-1. `createUserClient(req)` -> extract auth header first: `createUserClient(req.headers.get("Authorization") || "")`
-2. `authenticateUser(userClient)` -> `authenticateUser(req, userClient)`
-3. `user.id` -> `user.userId`
-4. `merchantId` null check before `checkTierLimit`
-5. Restructure `callLovableAI` call to use correct interface (`systemPrompt`, `userContent`, `tools`, `toolChoice`)
-6. Use `aiResponse.toolCallResult` instead of `aiResponse.choices[0].message.tool_calls[0]`
-7. Fix `logModelRun` params: `merchant_id` -> `merchantId`, add `functionName`, `userId`
+Combining the audit's 5 steps into 4 practical steps since "Select Tenant" is already handled by clicking a row in the MoveOuts list:
 
----
+**Step 1 -- Tinjau Pemberitahuan (Review Notice)**
+- Shows: tenant info, unit, move-out date, days remaining, reason, early termination status
+- If early termination pending: embed the approve/deny/negotiate controls (currently in `EarlyTerminationReviewDialog`)
+- Action: "Acknowledge Notice" (updates `move_out_notices.status` from `submitted` to `acknowledged`)
+- Visual: unified status tracker showing all 4 state machine states
 
-## Part C: Track Progress in SYSTEM_AUDIT_REPORT.md
+**Step 2 -- Inspeksi (Inspection)**
+- If no inspection: show schedule form (reuse logic from `ScheduleInspectionDialog`)
+- If inspection scheduled: show date, allow "Conduct Inspection" which shows the full checklist form (reuse logic from `MoveOutInspectionForm`)
+- If inspection completed: show results summary (condition report, deductions)
 
-Add an implementation tracking section after the Improvement 1 block (around line 1360) with per-line status tracking using the required format (COMPLETE/PARTIAL/NOT STARTED/SKIP/BLOCKED).
+**Step 3 -- Penyelesaian Deposit & Kontrak (Deposit Settlement & Contract)**
+- Display: original deposit, deductions from inspection, net refund, outstanding invoices
+- Action: "Approve Deposit Refund" (updates `deposit_refunds.status`)
+- Action: "Terminate Contract" (updates `contracts.status` to `terminated`, triggers unit status change via existing DB trigger)
+- Bank details input for refund transfer
 
----
+**Step 4 -- Konfirmasi (Confirmation)**
+- Summary of all actions taken
+- Status of each state machine
+- Actions: "Kirim Konfirmasi ke Penyewa", "Cetak Checklist", "Kembali ke Daftar"
 
-## Files Modified
+### Unified Status Tracker Component
 
-| File | Change |
-|------|--------|
-| `src/shared/components/layouts/navigation-config.ts` | Restructure merchant mainNav to 6 groups |
-| `supabase/functions/ai-chatbot/index.ts` | Fix type cast (line 188) |
-| `supabase/functions/auto-match-payment/index.ts` | Fix `err` unknown type |
-| `supabase/functions/compute-occupancy-snapshots/index.ts` | Fix `e` unknown type |
-| `supabase/functions/compute-tenant-payment-metrics/index.ts` | Fix `e` unknown type |
-| `supabase/functions/ml-churn-prediction/index.ts` | Fix `.catch()` on PromiseLike |
-| `supabase/functions/ml-ocr-correction-suggest/index.ts` | Fix 7 type errors (API mismatch) |
-| `supabase/functions/ml-tenant-risk-score/index.ts` | Fix `.catch()` on PromiseLike |
-| `supabase/functions/queue-payment-reminders/index.ts` | Fix `err` unknown type |
-| `supabase/functions/send-renewal-alert/index.ts` | Fix `error` unknown type |
-| `old-docs/SYSTEM_AUDIT_REPORT.md` | Add implementation tracking section |
+A horizontal stepper shown at the top of every step:
+```
+[Notice] ──> [Inspection] ──> [Deposit & Contract] ──> [Complete]
+   ✓             In Progress          Pending              Pending
+```
+
+Each step shows green/yellow/gray based on the actual database state, not wizard navigation. Merchant can jump to any completed or current step.
+
+## Files Changed
+
+| File | Action | Description |
+|------|--------|-------------|
+| `src/features/contracts/components/move-out-wizard/MoveOutWizard.tsx` | CREATE | Main wizard container |
+| `src/features/contracts/components/move-out-wizard/WizardStepNoticeReview.tsx` | CREATE | Step 1 |
+| `src/features/contracts/components/move-out-wizard/WizardStepInspection.tsx` | CREATE | Step 2 (reuses inspection logic) |
+| `src/features/contracts/components/move-out-wizard/WizardStepDeposit.tsx` | CREATE | Step 3 |
+| `src/features/contracts/components/move-out-wizard/WizardStepConfirmation.tsx` | CREATE | Step 4 |
+| `src/features/contracts/components/move-out-wizard/useMoveOutWizardData.ts` | CREATE | Unified data hook |
+| `src/pages/merchant/MoveOutDetail.tsx` | REPLACE | Renders MoveOutWizard instead of static detail |
+| `old-docs/SYSTEM_AUDIT_REPORT.md` | UPDATE | Add implementation tracking for Improvement 2 |
+
+## Technical Details
+
+### useMoveOutWizardData Hook
+Single hook that fetches all related data:
+- `move_out_notices` (with contract, unit, property joins)
+- `move_out_inspections`
+- `move_out_timeline`
+- `deposit_refunds`
+- `early_termination_requests`
+- `profiles` (tenant)
+- Outstanding `invoices` for the contract
+
+### Step Navigation Logic
+- Steps are not strictly linear -- merchant can revisit completed steps
+- "Next" button is disabled until the current step's required action is done
+- Step completion is derived from database state, not local wizard state:
+  - Step 1 complete: notice status is `acknowledged` or later
+  - Step 2 complete: inspection status is `completed`
+  - Step 3 complete: deposit refund is `approved` or later AND contract is `terminated`
+  - Step 4: always accessible once Step 3 is done
+
+### Reuse Strategy
+- Inspection checklist logic (8 items, condition radio, deductions, signatures) is extracted from `MoveOutInspectionForm` and reused inline in Step 2
+- Early termination review controls are extracted from `EarlyTerminationReviewDialog` and embedded in Step 1
+- Deposit calculation display is similar to `MoveOutInspectionForm`'s deposit section
+
+### No Database Migration Needed
+All tables (`move_out_notices`, `move_out_inspections`, `deposit_refunds`, `move_out_timeline`, `early_termination_requests`) already exist with the required columns. The wizard just orchestrates writes to these existing tables.
+
+### UI Patterns
+- Uses existing design system: `rounded-2xl` cards, `gradient-icon-box`, `bg-card/90 backdrop-blur-sm`, glass-table styles
+- Indonesian language for all labels (matching existing MoveOuts page)
+- Progress stepper at top using existing `Progress` component
