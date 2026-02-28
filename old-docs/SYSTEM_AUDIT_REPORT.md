@@ -1438,6 +1438,19 @@ Step 5: Confirmation
 
 **Implementation Effort:** Medium — consolidate 4 state machine transitions into 1 wizard modal, auto-link entities.
 
+##### 📋 Implementation Tracking — Improvement 2
+
+| # | Line Item | Status | Notes |
+|---|-----------|--------|-------|
+| 2.1 | Create `useMoveOutWizardData` unified data hook | ✅ COMPLETE | Fetches notice, inspection, deposit_refunds, early_termination, profile, invoices |
+| 2.2 | Create `MoveOutWizard.tsx` main container with step tracker | ✅ COMPLETE | 4-step horizontal stepper, state-driven navigation |
+| 2.3 | Create `WizardStepNoticeReview.tsx` (Step 1) | ✅ COMPLETE | Acknowledge notice + embedded early termination review |
+| 2.4 | Create `WizardStepInspection.tsx` (Step 2) | ✅ COMPLETE | Schedule → Conduct → Summary flow with inline checklist, signatures, deposit calc |
+| 2.5 | Create `WizardStepDeposit.tsx` (Step 3) | ✅ COMPLETE | Deposit approval with bank details + contract termination |
+| 2.6 | Create `WizardStepConfirmation.tsx` (Step 4) | ✅ COMPLETE | Summary of all 4 state machines + print/send actions |
+| 2.7 | Replace `MoveOutDetail.tsx` with wizard | ✅ COMPLETE | Page now renders MoveOutWizard component |
+| 2.8 | No database migration needed | ⏭️ SKIP | All tables already exist |
+
 ---
 
 #### Improvement 3: Add Payment Transfer Status Page
