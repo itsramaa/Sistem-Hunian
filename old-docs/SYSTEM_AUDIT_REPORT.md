@@ -2638,6 +2638,20 @@ This audit's findings are based entirely on the documented system, not on critic
 
 ---
 
+## 📊 Implementation Tracking: Improvement 3 — Payment Transfer Status
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 3.1 | Create `payment_transfers` table (migration) | ✅ COMPLETE | Table with RLS, indexes, realtime enabled |
+| 3.2 | RLS policy: merchants SELECT own transfers | ✅ COMPLETE | Via `merchants.user_id = auth.uid()` |
+| 3.3 | Create `usePaymentTransfers` hook | ✅ COMPLETE | React Query + Realtime subscription + stats |
+| 3.4 | Create `TransferStatusTab` component | ✅ COMPLETE | Stats cards, grouped list, retry button, empty state |
+| 3.5 | Add "Status Transfer" tab to Payments page | ✅ COMPLETE | Third tab with badge indicators |
+| 3.6 | Retry failed transfers via edge function | ✅ COMPLETE | Calls `xendit-disbursement` |
+| 3.7 | Realtime updates on transfer status changes | ✅ COMPLETE | Supabase channel subscription |
+
+---
+
 **Audit Complete**  
 *Generated: 2026-02-28*  
 *Analysis Basis: navigation-config.ts + state-machines.ts + merchant page files (57 pages)*

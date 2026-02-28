@@ -6,7 +6,9 @@ import { PaymentPlanDialog } from '@/features/payments/components/PaymentPlanDia
 import { PaymentsFilters } from '@/features/payments/components/PaymentsFilters';
 import { PaymentsStats } from '@/features/payments/components/PaymentsStats';
 import { PaymentsTable } from '@/features/payments/components/PaymentsTable';
+import { TransferStatusTab } from '@/features/payments/components/TransferStatusTab';
 import { useMerchantPayments } from '@/features/payments/hooks/useMerchantPayments';
+import { usePaymentTransfers } from '@/features/payments/hooks/usePaymentTransfers';
 import { Invoice, Payment } from '@/features/payments/types';
 
 import { Badge } from '@/shared/components/ui/badge';
@@ -15,7 +17,7 @@ import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { TabsPageSkeleton } from '@/shared/components/ui/PageSkeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { useDebounce } from '@/shared/hooks/useDebounce';
-import { Bell, CreditCard, Loader2, Plus, RefreshCw } from 'lucide-react';
+import { ArrowDownToLine, Bell, CreditCard, Loader2, Plus, RefreshCw } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 const ITEMS_PER_PAGE = 10;
@@ -39,6 +41,7 @@ export default function MerchantPayments() {
     refetchPayments
   } = useMerchantPayments(merchantId);
 
+  const { transfers, stats: transferStats, isLoading: isTransfersLoading, retryTransfer } = usePaymentTransfers(merchantId);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [isMarkPaidOpen, setIsMarkPaidOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -167,6 +170,20 @@ export default function MerchantPayments() {
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="transfers" className="pill-tab-trigger relative">
+              <ArrowDownToLine className="h-4 w-4 mr-1" />
+              Status Transfer
+              {transferStats.failedCount > 0 && (
+                <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs rounded-full">
+                  {transferStats.failedCount}
+                </Badge>
+              )}
+              {transferStats.failedCount === 0 && transfers.filter(t => t.status === 'processing' || t.status === 'pending').length > 0 && (
+                <Badge variant="secondary" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs rounded-full">
+                  {transfers.filter(t => t.status === 'processing' || t.status === 'pending').length}
+                </Badge>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="history">
@@ -193,6 +210,15 @@ export default function MerchantPayments() {
               totalInvoices={filteredOverdueInvoices.length}
               onPageChange={setOverduePage}
               itemsPerPage={ITEMS_PER_PAGE}
+            />
+          </TabsContent>
+
+          <TabsContent value="transfers">
+            <TransferStatusTab
+              transfers={transfers}
+              stats={transferStats}
+              isLoading={isTransfersLoading}
+              onRetry={retryTransfer}
             />
           </TabsContent>
         </Tabs>
