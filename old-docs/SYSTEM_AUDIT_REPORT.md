@@ -2652,6 +2652,20 @@ This audit's findings are based entirely on the documented system, not on critic
 
 ---
 
+## 📊 Implementation Tracking: Improvement 4 — Inline Payment Matching
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 4.1 | Create `useInvoiceCandidatePayments` hook | ✅ COMPLETE | Fetches unmatched payments, scores confidence, sorts top 5 |
+| 4.2 | Create `InlinePaymentMatchDialog` component | ✅ COMPLETE | Invoice summary, candidate list, confirm match, success state |
+| 4.3 | Replace single action button with DropdownMenu | ✅ COMPLETE | Send Reminder, Process Payment, Call Tenant |
+| 4.4 | Integrate dialog trigger from OutstandingTable | ✅ COMPLETE | Opens dialog with selected invoice context |
+| 4.5 | Match confirmation calls `reconciliationService.manualMatch()` | ✅ COMPLETE | Reuses existing reconciliation logic |
+| 4.6 | React Query invalidation after match | ✅ COMPLETE | Invalidates collections-summary + collections-detail |
+| 4.7 | Realtime auto-refresh (existing) | ✅ COMPLETE | Already configured in useCollectionsDashboard |
+
+---
+
 **Audit Complete**  
 *Generated: 2026-02-28*  
 *Analysis Basis: navigation-config.ts + state-machines.ts + merchant page files (57 pages)*
