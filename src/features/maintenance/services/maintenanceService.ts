@@ -400,6 +400,57 @@ export const maintenanceService = {
         }
       }
 
+      // Auto-create linked expense record
+      if (request.assigned_vendor_id) {
+        const { data: vendorJobForExpense } = await supabase
+          .from('vendor_jobs')
+          .select('agreed_price')
+          .eq('maintenance_request_id', payload.id)
+          .eq('status', 'completed')
+          .maybeSingle();
+
+        if (vendorJobForExpense?.agreed_price && vendorJobForExpense.agreed_price > 0) {
+          // Check for duplicate
+          const { data: existingExpense } = await (supabase as any)
+            .from('expenses')
+            .select('id')
+            .eq('maintenance_request_id', payload.id)
+            .maybeSingle();
+
+          if (!existingExpense) {
+            // Lookup property_id from unit
+            let propertyId: string | null = null;
+            if (request.unit_id) {
+              const { data: unit } = await supabase
+                .from('units')
+                .select('property_id')
+                .eq('id', request.unit_id)
+                .maybeSingle();
+              propertyId = unit?.property_id ?? null;
+            }
+
+            const agreedPrice = vendorJobForExpense.agreed_price;
+            const approvalStatus = agreedPrice < 500000 ? 'approved' : 'pending_approval';
+
+            await (supabase as any).from('expenses').insert({
+              merchant_id: request.merchant_id,
+              category: 'maintenance',
+              subcategory: request.category || null,
+              description: `Pemeliharaan - ${request.title}`,
+              amount: agreedPrice,
+              expense_date: new Date().toISOString().split('T')[0],
+              property_id: propertyId,
+              unit_id: request.unit_id || null,
+              vendor_id: request.assigned_vendor_id,
+              maintenance_request_id: payload.id,
+              approval_status: approvalStatus,
+              notes: payload.notes || null,
+              approved_at: approvalStatus === 'approved' ? new Date().toISOString() : null,
+            });
+          }
+        }
+      }
+
       // Notify Tenant of completion
       if (request.tenant_user_id) {
         await supabase.from('notifications').insert({

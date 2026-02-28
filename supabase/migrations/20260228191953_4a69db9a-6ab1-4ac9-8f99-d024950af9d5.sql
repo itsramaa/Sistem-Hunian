@@ -1,0 +1,2 @@
+ALTER TABLE public.expenses ADD COLUMN maintenance_request_id uuid REFERENCES public.maintenance_requests(id);
+CREATE INDEX idx_expenses_maintenance_request_id ON public.expenses(maintenance_request_id) WHERE maintenance_request_id IS NOT NULL;

@@ -1985,6 +1985,13 @@ Step 4: Verification (Merchant reviews)
 
 **Implementation Effort:** Low-Medium — add trigger to Maintenance status machine → create Expense record with pre-populated fields.
 
+**Implementation Status:**
+- 9.1 Add `maintenance_request_id` column to `expenses` table (migration): ✅ COMPLETE
+- 9.2 Auto-create expense on maintenance completion in `maintenanceService.updateStatus()`: ✅ COMPLETE
+- 9.3 Duplicate prevention check before expense creation: ✅ COMPLETE
+- 9.4 Invalidate expense queries on status update (`useMaintenance.ts`): ✅ COMPLETE
+- 9.5 Enhanced toast on completion mentioning auto-linked expense (`Maintenance.tsx`): ✅ COMPLETE
+
 ---
 
 #### Improvement 10: Property-Level Staff Permission Scoping
