@@ -2128,6 +2128,7 @@ export type Database = {
           expense_date: string
           id: string
           is_recurring: boolean
+          maintenance_request_id: string | null
           merchant_id: string
           notes: string | null
           ocr_data: Json | null
@@ -2153,6 +2154,7 @@ export type Database = {
           expense_date?: string
           id?: string
           is_recurring?: boolean
+          maintenance_request_id?: string | null
           merchant_id: string
           notes?: string | null
           ocr_data?: Json | null
@@ -2178,6 +2180,7 @@ export type Database = {
           expense_date?: string
           id?: string
           is_recurring?: boolean
+          maintenance_request_id?: string | null
           merchant_id?: string
           notes?: string | null
           ocr_data?: Json | null
@@ -2192,6 +2195,13 @@ export type Database = {
           vendor_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "expenses_maintenance_request_id_fkey"
+            columns: ["maintenance_request_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_requests"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "expenses_merchant_id_fkey"
             columns: ["merchant_id"]
