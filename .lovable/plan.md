@@ -1,133 +1,94 @@
 
 
-# Improvement 7: Replace "Balance: 0" with Action-Driven Dashboard
+# Improvement 8: Mobile Alerts to Desktop Sidebar
 
 ## Overview
 
-The dashboard currently hardcodes `balance: 0` in `merchantDashboardService.ts` and shows no cash flow information. This improvement replaces that with real financial data and adds a prioritized action items widget, making the dashboard a true operational command center.
+The "Notifikasi" sidebar item currently sits buried in the "Akun" group (6th group, 4th item). Desktop merchants easily miss critical alerts. This improvement promotes the alerts link to a prominent position and adds a live unread badge count directly on the sidebar item.
 
-## Scope Decisions
+## Current State
 
-The user's UX spec describes 5 sections. The dashboard already implements most of them via existing widgets:
-
-- **Section 1 (Cash Flow)**: NEW -- needs to be built
-- **Section 2 (Action Items)**: NEW -- needs to be built  
-- **Section 3 (Occupancy Health)**: ALREADY EXISTS as `kpi_strip` + `property_overview` + `vacancy` widgets
-- **Section 4 (AI Recommendations)**: SKIP -- InsightsHub is a separate feature; wiring it into dashboard is a separate improvement
-- **Section 5 (Quick Links)**: ALREADY EXISTS as `quick_actions` widget
-
-So we focus on the two new sections plus fixing the hardcoded balance.
+- `Notifikasi` already exists in the sidebar at `/merchant/alerts` under the "Akun" group (line 178 of navigation-config.ts)
+- `NotificationsDropdown` already exists in the desktop header (bell icon with badge) -- this handles DB-driven notifications
+- The Alerts page (`/merchant/alerts`) shows dynamically-assembled operational alerts (overdue invoices, maintenance, contracts) -- these are NOT the same as DB notifications
+- Mobile bottom nav already has "Notifikasi" as a primary tab
 
 ## What Changes
 
-### 1. Fix: `merchantDashboardService.ts` -- Real balance calculation
+### 1. Promote "Notifikasi" in sidebar navigation
 
-Replace `balance: 0` with actual computed balance:
-- **Available Balance** = Sum of completed payment transfers (net_amount where status = 'completed')
-- **Pending Balance** = Already computed (pending transfers)
-- **Outstanding Receivables** = Sum of unpaid invoices (status in pending, overdue)
-- **Receivable Count** = Number of unpaid invoices
+Move the alerts item from the "Akun" group to the "Utama" group (right below Dashboard), making it the second item merchants see. Remove it from "Akun" to avoid duplication.
 
-Add new fields to `MerchantDashboardStats.financials`:
-- `availableBalance: number` (completed transfers)
-- `outstandingReceivables: number` (unpaid invoice total)
-- `outstandingInvoiceCount: number`
+**File:** `src/shared/components/layouts/navigation-config.ts`
 
-Add two new queries to the existing `Promise.all`:
-- Completed transfers: `payment_transfers` where status = 'completed'
-- Unpaid invoices: `invoices` where status in ('pending', 'overdue')
+### 2. Add badge support to NavItem interface
 
-### 2. Create: `CashFlowWidget.tsx`
+Extend `NavItem` with an optional `badge` field that can be rendered by `nav-main.tsx`. Since badge counts are dynamic (from DB), we use a string identifier that the sidebar resolves at render time.
 
-**Location:** `src/features/dashboard/components/CashFlowWidget.tsx`
+**File:** `src/shared/components/layouts/navigation-config.ts`
+- Add `badgeKey?: string` to `NavItem` interface
+- Set `badgeKey: 'alerts'` on the Notifikasi item
 
-A compact card showing 4 metrics in a grid:
-- Available Balance (green, from completed transfers)
-- Pending Transfers (amber, links to /merchant/payments)
-- Outstanding Receivables (orange, links to /merchant/collections)
-- 7-Day Forecast (blue, simple sum: available + pending + receivables)
+### 3. Create a hook for alert counts
 
-Bottom row: "Lihat Laporan Keuangan" button linking to /merchant/financial-reports
+Create `useAlertCounts` hook that queries the same data sources as the Alerts page but returns only counts. This is lightweight (count queries, not full data).
 
-### 3. Create: `ActionItemsWidget.tsx`
+**File:** `src/features/notifications/hooks/useAlertCounts.ts` (NEW)
+- Queries overdue invoices count, pending expenses count, stale maintenance count, expiring contracts count
+- Returns total count + per-type counts
+- Uses `merchant?.id` as dependency, polls every 5 minutes (staleTime)
 
-**Location:** `src/features/dashboard/components/ActionItemsWidget.tsx`
+### 4. Render badges in nav-main.tsx
 
-Uses existing `useMerchantDashboardStats` data (overdue invoices, stale maintenance, expiring contracts) plus one additional query for pending maintenance approvals. Organizes items into 3 priority tiers:
+Update `NavMain` to accept an optional `badges` map and render a small count badge next to items that have a `badgeKey`.
 
-- **URGENT (red)**: Overdue invoices 15+ days, stale maintenance, pending approvals
-- **UPCOMING (amber)**: Expiring contracts within 30 days
-- **ON TRACK (green)**: Paid invoices this week count
+**File:** `src/shared/components/layouts/sidebar/nav-main.tsx`
+- Accept new prop: `badges?: Record<string, number>`
+- When rendering an item with `badgeKey`, show a small red badge with the count (if > 0)
+- Badge uses same style as NotificationsDropdown badge
 
-Each item has a direct action button (navigate to relevant page). Uses existing stats data -- no new service needed, just reshapes what's already fetched.
+### 5. Wire badge data in AppSidebar
 
-### 4. Update: Widget Registry
+Call `useAlertCounts` in `AppSidebar` for merchant role and pass the badge map down to `NavMain`.
 
-Add two new widget IDs to `widgetRegistry.ts`:
-- `cash_flow`: "Arus Kas" -- positioned first (before kpi_strip)
-- `action_items`: "Prioritas Hari Ini" -- positioned second (after cash_flow)
+**File:** `src/shared/components/layouts/sidebar/app-sidebar.tsx`
 
-### 5. Update: Dashboard page
+### 6. Update audit tracking
 
-Add renderers for `cash_flow` and `action_items` in the `widgetRenderers` map in `Dashboard.tsx`.
-
-### 6. Update: Mobile Dashboard
-
-Add a simplified cash flow strip to `MobileMerchantDashboard.tsx` replacing the current basic Pendapatan card with richer financial data.
-
-### 7. Update: `old-docs/SYSTEM_AUDIT_REPORT.md`
-
-Add Improvement 7 tracking lines.
+**File:** `old-docs/SYSTEM_AUDIT_REPORT.md`
 
 ## Files Changed
 
 | File | Action | Description |
 |------|--------|-------------|
-| `src/features/dashboard/services/merchantDashboardService.ts` | MODIFY | Fix balance: 0, add receivables + completed transfers queries |
-| `src/features/dashboard/components/CashFlowWidget.tsx` | CREATE | Cash flow snapshot widget |
-| `src/features/dashboard/components/ActionItemsWidget.tsx` | CREATE | Prioritized action items widget |
-| `src/features/dashboard/constants/widgetRegistry.ts` | MODIFY | Add cash_flow and action_items entries |
-| `src/pages/merchant/Dashboard.tsx` | MODIFY | Add widget renderers for new widgets |
-| `src/features/dashboard/components/MobileMerchantDashboard.tsx` | MODIFY | Add cash flow data to mobile view |
-| `old-docs/SYSTEM_AUDIT_REPORT.md` | UPDATE | Improvement 7 tracking |
+| `src/shared/components/layouts/navigation-config.ts` | MODIFY | Move Notifikasi to Utama group, add `badgeKey` to NavItem |
+| `src/features/notifications/hooks/useAlertCounts.ts` | CREATE | Lightweight hook returning alert counts |
+| `src/shared/components/layouts/sidebar/nav-main.tsx` | MODIFY | Render badge counts on items with `badgeKey` |
+| `src/shared/components/layouts/sidebar/app-sidebar.tsx` | MODIFY | Wire useAlertCounts and pass badges to NavMain |
+| `old-docs/SYSTEM_AUDIT_REPORT.md` | UPDATE | Improvement 8 tracking |
 
 ## Technical Details
 
-### New Queries in merchantDashboardService
+### Badge Count Query (useAlertCounts)
 
-Two additional queries added to the existing `Promise.all` (12 total, up from 10):
+Four lightweight count queries in a single `Promise.all`:
+- Overdue invoices: `supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('merchant_id', X).in('status', ['overdue','escalated'])`
+- Pending expenses: `supabase.from('expenses').select('id', { count: 'exact', head: true }).eq('merchant_id', X).eq('status', 'pending_approval')`
+- Stale maintenance: `supabase.from('maintenance_requests').select('id', { count: 'exact', head: true }).eq('merchant_id', X).eq('status', 'pending')`
+- Expiring contracts: count query with date filter
 
-```text
-Query 11: Completed transfers
-  FROM payment_transfers
-  WHERE merchant_id = X AND status = 'completed'
-  SELECT net_amount
+Total = sum of all counts. Cached with 5-minute staleTime to avoid excessive queries.
 
-Query 12: Unpaid invoices (for receivables)
-  FROM invoices
-  WHERE merchant_id = X AND status IN ('pending', 'overdue')
-  SELECT total_amount
-```
-
-### Updated financials interface
+### NavItem Badge Rendering
 
 ```text
-financials: {
-  balance: number          -- NOW: computed as sum of completed transfers
-  pendingBalance: number   -- existing
-  monthlyRevenue: number   -- existing
-  lastMonthRevenue: number -- existing
-  revenueGrowth: number    -- existing
-  outstandingReceivables: number  -- NEW
-  outstandingInvoiceCount: number -- NEW
-}
+[Icon] Notifikasi  [3]
+                    ^^^-- small red circle badge, only if count > 0
 ```
 
-### 7-Day Forecast (Simple)
-
-Client-side calculation: `availableBalance + pendingBalance + outstandingReceivables`. No ML needed -- it's a "if everything comes in" optimistic projection displayed with appropriate disclaimer text.
+In collapsed sidebar mode, the badge appears as a dot on the icon (like the header bell).
 
 ### No Database Changes
 
-All data already exists in `payment_transfers`, `invoices`, `maintenance_requests`, and `contracts` tables. No new tables, columns, or RLS policies needed.
+All queries use existing tables. No new tables, columns, or RLS policies needed.
 
