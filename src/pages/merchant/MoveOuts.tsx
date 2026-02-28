@@ -13,15 +13,18 @@ import { PageHeader } from "@/shared/components/ui/PageHeader";
 import { StatCard } from "@/shared/components/ui/StatCard";
 import { TabsPageSkeleton } from "@/shared/components/ui/PageSkeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
+import { Button } from "@/shared/components/ui/button";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 import { differenceInDays } from "date-fns";
-import { AlertTriangle, CheckCircle2, Clock, DoorOpen, Home, Users } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, DoorOpen, Home, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const ITEMS_PER_PAGE = 10;
 
 const MerchantMoveOuts = () => {
   const { merchant } = useAuth();
+  const navigate = useNavigate();
   const [selectedNotice, setSelectedNotice] = useState<MoveOutNotice | null>(null);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [inspectionFormOpen, setInspectionFormOpen] = useState(false);
@@ -31,6 +34,7 @@ const MerchantMoveOuts = () => {
   const debouncedSearch = useDebounce(searchQuery, 500);
   const [upcomingPage, setUpcomingPage] = useState(1);
   const [completedPage, setCompletedPage] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => { setUpcomingPage(1); setCompletedPage(1); }, [debouncedSearch]);
 
@@ -68,6 +72,11 @@ const MerchantMoveOuts = () => {
   const handleConductInspection = (notice: MoveOutNotice) => { setSelectedNotice(notice); setInspectionFormOpen(true); };
   const handleReviewEarlyTerm = (request: EarlyTerminationRequest) => { setSelectedEarlyTerm(request); setEarlyTermDialogOpen(true); };
 
+  const handleBulkProcess = () => {
+    const ids = Array.from(selectedIds).join(',');
+    navigate(`/merchant/move-outs/bulk?ids=${ids}`);
+  };
+
   if (isLoading) return <TabsPageSkeleton statsCount={4} />;
 
   return (
@@ -100,7 +109,7 @@ const MerchantMoveOuts = () => {
         </TabsList>
 
         <TabsContent value="upcoming" className="space-y-4">
-          <MoveOutsTable type="upcoming" notices={paginatedUpcoming} inspections={inspections} tenantProfiles={tenantProfiles} onScheduleInspection={handleScheduleInspection} onConductInspection={handleConductInspection} page={upcomingPage} totalPages={Math.ceil(filteredUpcoming.length / ITEMS_PER_PAGE)} totalNotices={filteredUpcoming.length} onPageChange={setUpcomingPage} itemsPerPage={ITEMS_PER_PAGE} />
+          <MoveOutsTable type="upcoming" notices={paginatedUpcoming} inspections={inspections} tenantProfiles={tenantProfiles} onScheduleInspection={handleScheduleInspection} onConductInspection={handleConductInspection} page={upcomingPage} totalPages={Math.ceil(filteredUpcoming.length / ITEMS_PER_PAGE)} totalNotices={filteredUpcoming.length} onPageChange={setUpcomingPage} itemsPerPage={ITEMS_PER_PAGE} selectedIds={selectedIds} onSelectionChange={setSelectedIds} />
         </TabsContent>
 
         <TabsContent value="pending-approval" className="space-y-4">
@@ -113,6 +122,21 @@ const MerchantMoveOuts = () => {
 
         <TabsContent value="vacancies"><VacancyDashboard /></TabsContent>
       </Tabs>
+
+      {/* Bulk Action Bar */}
+      {selectedIds.size >= 2 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-background/95 backdrop-blur-md border border-border shadow-xl rounded-full px-6 py-3">
+          <span className="text-sm font-medium">{selectedIds.size} dipilih</span>
+          <Button size="sm" onClick={handleBulkProcess} className="rounded-full">
+            <DoorOpen className="h-4 w-4 mr-2" />
+            Proses Pindah Keluar ({selectedIds.size})
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())} className="rounded-full">
+            <X className="h-4 w-4 mr-1" />
+            Batal
+          </Button>
+        </div>
+      )}
 
       <ScheduleInspectionDialog open={scheduleDialogOpen} onOpenChange={setScheduleDialogOpen} notice={selectedNotice} onScheduled={() => { refetch(); setScheduleDialogOpen(false); }} />
       <MoveOutInspectionForm open={inspectionFormOpen} onOpenChange={setInspectionFormOpen} notice={selectedNotice} onCompleted={() => { refetch(); setInspectionFormOpen(false); }} />
