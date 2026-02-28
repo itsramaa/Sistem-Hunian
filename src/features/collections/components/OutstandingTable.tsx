@@ -1,13 +1,17 @@
 import { useState } from 'react';
-import { Bell, Search } from 'lucide-react';
+import { Bell, Search, MoreHorizontal, Banknote, Phone } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
 import { Badge } from '@/shared/components/ui/badge';
 import { Skeleton } from '@/shared/components/ui/skeleton';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/shared/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import type { OutstandingInvoice } from '../services/collectionsService';
 import { collectionsService } from '../services/collectionsService';
+import { InlinePaymentMatchDialog } from './InlinePaymentMatchDialog';
 
 interface Props {
   invoices: OutstandingInvoice[] | undefined;
@@ -24,6 +28,7 @@ const bucketVariant = (bucket: string): 'default' | 'secondary' | 'destructive' 
 export function OutstandingTable({ invoices, loading }: Props) {
   const [search, setSearch] = useState('');
   const [sendingId, setSendingId] = useState<string | null>(null);
+  const [matchInvoice, setMatchInvoice] = useState<OutstandingInvoice | null>(null);
 
   const filtered = (invoices || []).filter(inv =>
     !search ||
@@ -104,15 +109,32 @@ export function OutstandingTable({ invoices, loading }: Props) {
                       : '-'}
                   </TableCell>
                   <TableCell className="text-center">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={sendingId === inv.invoiceId}
-                      onClick={() => handleReminder(inv)}
-                    >
-                      <Bell className="h-3.5 w-3.5 mr-1" />
-                      {sendingId === inv.invoiceId ? '...' : 'Ingatkan'}
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          disabled={sendingId === inv.invoiceId}
+                          onClick={() => handleReminder(inv)}
+                        >
+                          <Bell className="h-4 w-4 mr-2" />
+                          {sendingId === inv.invoiceId ? 'Mengirim...' : 'Kirim Pengingat'}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setMatchInvoice(inv)}>
+                          <Banknote className="h-4 w-4 mr-2" />
+                          Proses Pembayaran
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <a href={`tel:`}>
+                            <Phone className="h-4 w-4 mr-2" />
+                            Hubungi Penyewa
+                          </a>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))
@@ -120,6 +142,15 @@ export function OutstandingTable({ invoices, loading }: Props) {
           </TableBody>
         </Table>
       </div>
+
+      {/* Inline Payment Match Dialog */}
+      {matchInvoice && (
+        <InlinePaymentMatchDialog
+          invoice={matchInvoice}
+          open={!!matchInvoice}
+          onOpenChange={(open) => { if (!open) setMatchInvoice(null); }}
+        />
+      )}
     </div>
   );
 }
