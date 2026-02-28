@@ -1,100 +1,133 @@
 
 
-# Improvement 6: Alert-to-Action Automation
+# Improvement 7: Replace "Balance: 0" with Action-Driven Dashboard
 
 ## Overview
 
-Transform the Alerts page from static "click-to-navigate" cards into expandable alert cards with inline quick action buttons. Each alert type gets contextual actions (send reminder, process payment, call tenant, dismiss) that execute directly from the Alerts page without navigating away.
+The dashboard currently hardcodes `balance: 0` in `merchantDashboardService.ts` and shows no cash flow information. This improvement replaces that with real financial data and adds a prioritized action items widget, making the dashboard a true operational command center.
 
-## Architecture
+## Scope Decisions
 
-The current Alerts page dynamically assembles alerts from multiple DB queries (overdue invoices, pending expenses, urgent maintenance, etc.). Rather than building a persistent alert tracking system (which would require a new table and complex sync logic), we enhance the existing approach by:
+The user's UX spec describes 5 sections. The dashboard already implements most of them via existing widgets:
 
-1. Enriching the `AlertItem` interface with action-relevant metadata (e.g., `tenantUserId`, `invoiceAmount`)
-2. Making alert cards expandable to show quick action buttons
-3. Reusing existing components (`InlinePaymentMatchDialog`) and services (`collectionsService.sendReminder`)
-4. Adding a local dismiss mechanism (sessionStorage-based, clears on refresh)
+- **Section 1 (Cash Flow)**: NEW -- needs to be built
+- **Section 2 (Action Items)**: NEW -- needs to be built  
+- **Section 3 (Occupancy Health)**: ALREADY EXISTS as `kpi_strip` + `property_overview` + `vacancy` widgets
+- **Section 4 (AI Recommendations)**: SKIP -- InsightsHub is a separate feature; wiring it into dashboard is a separate improvement
+- **Section 5 (Quick Links)**: ALREADY EXISTS as `quick_actions` widget
+
+So we focus on the two new sections plus fixing the hardcoded balance.
 
 ## What Changes
 
-### 1. Modify: `src/pages/merchant/Alerts.tsx` -- Complete overhaul
+### 1. Fix: `merchantDashboardService.ts` -- Real balance calculation
 
-**Data changes:**
-- Extend `AlertItem` interface to include action metadata: `invoiceId`, `tenantUserId`, `contractId`, `merchantId`, `invoiceAmount`, `unitNumber` (all optional, populated based on alert type)
-- Store these fields when constructing overdue invoice alerts (they already come from the query)
+Replace `balance: 0` with actual computed balance:
+- **Available Balance** = Sum of completed payment transfers (net_amount where status = 'completed')
+- **Pending Balance** = Already computed (pending transfers)
+- **Outstanding Receivables** = Sum of unpaid invoices (status in pending, overdue)
+- **Receivable Count** = Number of unpaid invoices
 
-**UI changes:**
-- Replace single-click-navigate cards with expandable cards (click toggles expansion)
-- Expanded state shows contextual quick action buttons based on alert type:
-  - **Overdue invoices**: Send Reminder, Process Payment (opens `InlinePaymentMatchDialog`), Call Tenant, Dismiss
-  - **Expense approvals**: Navigate to Expenses (keep current behavior), Dismiss
-  - **Maintenance**: Navigate to Detail (keep current behavior), Dismiss
-  - **Contract expiry**: Navigate to Contract (keep current behavior), Dismiss
-  - **Preventive overdue**: Navigate to PM page (keep current behavior), Dismiss
-- Show action feedback inline (e.g., "Pengingat terhasil dikirim" badge on card after sending)
-- Dismissed alerts are hidden (tracked in local state, `Set<string>`)
+Add new fields to `MerchantDashboardStats.financials`:
+- `availableBalance: number` (completed transfers)
+- `outstandingReceivables: number` (unpaid invoice total)
+- `outstandingInvoiceCount: number`
 
-**Action handlers:**
-- `handleSendReminder(alert)`: Calls `collectionsService.sendReminder()`, shows success toast, marks alert as "actioned"
-- `handleProcessPayment(alert)`: Opens `InlinePaymentMatchDialog` (reuse from Improvement 4)
-- `handleDismiss(alert)`: Adds alert ID to dismissed set, hides from list
-- Navigation actions remain for non-overdue alert types
+Add two new queries to the existing `Promise.all`:
+- Completed transfers: `payment_transfers` where status = 'completed'
+- Unpaid invoices: `invoices` where status in ('pending', 'overdue')
 
-### 2. Create: `src/features/notifications/components/AlertActionCard.tsx`
+### 2. Create: `CashFlowWidget.tsx`
 
-A reusable expandable alert card component that encapsulates:
-- Collapsed view: icon, title, description, severity badge, expand chevron (rotates on expand)
-- Expanded view: action buttons grid based on alert type
-- "Actioned" state: shows green checkmark + action summary instead of buttons
-- Props: `alert`, `expanded`, `onToggle`, `onAction`, `actioned`
+**Location:** `src/features/dashboard/components/CashFlowWidget.tsx`
 
-### 3. Update: `old-docs/SYSTEM_AUDIT_REPORT.md`
+A compact card showing 4 metrics in a grid:
+- Available Balance (green, from completed transfers)
+- Pending Transfers (amber, links to /merchant/payments)
+- Outstanding Receivables (orange, links to /merchant/collections)
+- 7-Day Forecast (blue, simple sum: available + pending + receivables)
 
-Add Improvement 6 tracking lines.
+Bottom row: "Lihat Laporan Keuangan" button linking to /merchant/financial-reports
+
+### 3. Create: `ActionItemsWidget.tsx`
+
+**Location:** `src/features/dashboard/components/ActionItemsWidget.tsx`
+
+Uses existing `useMerchantDashboardStats` data (overdue invoices, stale maintenance, expiring contracts) plus one additional query for pending maintenance approvals. Organizes items into 3 priority tiers:
+
+- **URGENT (red)**: Overdue invoices 15+ days, stale maintenance, pending approvals
+- **UPCOMING (amber)**: Expiring contracts within 30 days
+- **ON TRACK (green)**: Paid invoices this week count
+
+Each item has a direct action button (navigate to relevant page). Uses existing stats data -- no new service needed, just reshapes what's already fetched.
+
+### 4. Update: Widget Registry
+
+Add two new widget IDs to `widgetRegistry.ts`:
+- `cash_flow`: "Arus Kas" -- positioned first (before kpi_strip)
+- `action_items`: "Prioritas Hari Ini" -- positioned second (after cash_flow)
+
+### 5. Update: Dashboard page
+
+Add renderers for `cash_flow` and `action_items` in the `widgetRenderers` map in `Dashboard.tsx`.
+
+### 6. Update: Mobile Dashboard
+
+Add a simplified cash flow strip to `MobileMerchantDashboard.tsx` replacing the current basic Pendapatan card with richer financial data.
+
+### 7. Update: `old-docs/SYSTEM_AUDIT_REPORT.md`
+
+Add Improvement 7 tracking lines.
 
 ## Files Changed
 
 | File | Action | Description |
 |------|--------|-------------|
-| `src/features/notifications/components/AlertActionCard.tsx` | CREATE | Expandable alert card with inline actions |
-| `src/pages/merchant/Alerts.tsx` | MODIFY | Add action metadata, expand/collapse, action handlers, dismiss, reuse InlinePaymentMatchDialog |
-| `old-docs/SYSTEM_AUDIT_REPORT.md` | UPDATE | Improvement 6 tracking |
+| `src/features/dashboard/services/merchantDashboardService.ts` | MODIFY | Fix balance: 0, add receivables + completed transfers queries |
+| `src/features/dashboard/components/CashFlowWidget.tsx` | CREATE | Cash flow snapshot widget |
+| `src/features/dashboard/components/ActionItemsWidget.tsx` | CREATE | Prioritized action items widget |
+| `src/features/dashboard/constants/widgetRegistry.ts` | MODIFY | Add cash_flow and action_items entries |
+| `src/pages/merchant/Dashboard.tsx` | MODIFY | Add widget renderers for new widgets |
+| `src/features/dashboard/components/MobileMerchantDashboard.tsx` | MODIFY | Add cash flow data to mobile view |
+| `old-docs/SYSTEM_AUDIT_REPORT.md` | UPDATE | Improvement 7 tracking |
 
 ## Technical Details
 
-### AlertItem Interface Extension
+### New Queries in merchantDashboardService
+
+Two additional queries added to the existing `Promise.all` (12 total, up from 10):
 
 ```text
-Additional fields (all optional):
-- invoiceId?: string        -- for overdue alerts
-- tenantUserId?: string     -- for overdue alerts (reminder + payment match)
-- contractId?: string       -- for overdue alerts (payment match)
-- merchantId?: string       -- for all (from merchant context)
-- invoiceAmount?: number    -- for overdue alerts (payment match dialog)
-- unitNumber?: string       -- for overdue alerts (display)
+Query 11: Completed transfers
+  FROM payment_transfers
+  WHERE merchant_id = X AND status = 'completed'
+  SELECT net_amount
+
+Query 12: Unpaid invoices (for receivables)
+  FROM invoices
+  WHERE merchant_id = X AND status IN ('pending', 'overdue')
+  SELECT total_amount
 ```
 
-These fields are already available from the existing `invoices` query in the `queryFn`. We just need to store them instead of discarding them.
+### Updated financials interface
 
-### Expandable Card UX
+```text
+financials: {
+  balance: number          -- NOW: computed as sum of completed transfers
+  pendingBalance: number   -- existing
+  monthlyRevenue: number   -- existing
+  lastMonthRevenue: number -- existing
+  revenueGrowth: number    -- existing
+  outstandingReceivables: number  -- NEW
+  outstandingInvoiceCount: number -- NEW
+}
+```
 
-- Only one card can be expanded at a time (accordion pattern via `expandedId` state)
-- Clicking card header toggles expansion
-- ChevronRight rotates to ChevronDown when expanded
-- Action buttons are rendered in a flex-wrap grid inside the expanded area
+### 7-Day Forecast (Simple)
 
-### Reuse of InlinePaymentMatchDialog
-
-For overdue invoice alerts, the "Process Payment" action constructs an `OutstandingInvoice` object from the alert metadata and passes it to `InlinePaymentMatchDialog`. After successful match, the alert query is invalidated, causing the alert to disappear from the list.
-
-### Dismiss Mechanism
-
-- Local `Set<string>` state tracks dismissed alert IDs
-- Dismissed alerts are filtered out before rendering
-- Resets on page refresh (intentional -- alerts are regenerated from live data each time)
-- A "Show dismissed" toggle at the bottom reveals dismissed alerts if needed
+Client-side calculation: `availableBalance + pendingBalance + outstandingReceivables`. No ML needed -- it's a "if everything comes in" optimistic projection displayed with appropriate disclaimer text.
 
 ### No Database Changes
 
-All alert data is already queried from existing tables. No new tables, columns, or RLS policies needed.
+All data already exists in `payment_transfers`, `invoices`, `maintenance_requests`, and `contracts` tables. No new tables, columns, or RLS policies needed.
 
