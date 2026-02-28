@@ -1,93 +1,118 @@
 
 
-# Improvement 4: Inline Payment Matching on Collections Page
+# Improvement 5: Bulk Move-Out Processing
 
 ## Overview
 
-Add inline payment matching capabilities to the OutstandingTable on the Collections page. Each overdue invoice row gets expanded quick actions and a "Process Payment" dialog that shows candidate unmatched payments ranked by match confidence, allowing one-click matching without navigating away.
+Add multi-select capability to the MoveOuts list page so merchants can select multiple notices and process them in batch. Instead of navigating to the single-notice wizard 5 times, the merchant selects multiple notices and opens a bulk processing page that handles all selected notices in parallel.
+
+## Architecture Decision
+
+Rather than rewriting the existing single-notice wizard (which handles complex per-notice flows like inspection checklists and signatures), we add a **bulk action layer on top**:
+
+1. **MoveOutsTable** gets row checkboxes and a bulk action bar
+2. A new **BulkMoveOutProcessor** page handles batch operations on selected notices
+3. The single-notice wizard remains for detailed per-notice work (inspections with signatures, etc.)
+
+This is practical because some steps (like conducting an inspection with a physical checklist and signatures) are inherently per-unit and can't be meaningfully batched. What CAN be batched: acknowledging notices, scheduling inspections for same date, approving deposit refunds, and terminating contracts.
 
 ## What Changes
 
-### 1. New Component: `InlinePaymentMatchDialog.tsx`
+### 1. Modify: `MoveOutsTable.tsx` -- Add checkbox selection
 
-**Location:** `src/features/collections/components/InlinePaymentMatchDialog.tsx`
+- Add a "select all" checkbox in the header
+- Add per-row checkboxes (clicking checkbox does NOT navigate to detail)
+- Track selected notice IDs via new props: `selectedIds`, `onSelectionChange`
+- Row click on non-checkbox area still navigates to single wizard
 
-A dialog triggered from each invoice row that:
-- Shows invoice summary (number, amount, tenant, days overdue)
-- Fetches candidate unmatched payments for the same tenant/contract using `reconciliationService` logic
-- Displays top 3 candidates ranked by match score (exact match = 99%, close amount = 90%, partial = 70%)
-- Each candidate has "Confirm Match" button that calls `reconciliationService.manualMatch()`
-- Shows payment details: amount, date, method, reference, proof photo link
-- After matching: shows success state, invalidates queries for real-time table update
-- Alternative actions section: links to manual entry or payment plan (future)
+### 2. Modify: `MoveOuts.tsx` -- Add bulk state and action bar
 
-### 2. New Hook: `useInvoiceCandidatePayments.ts`
+- Add `selectedNoticeIds` state (Set of strings)
+- Pass selection props to MoveOutsTable
+- Show a sticky bulk action bar when 2+ notices selected:
+  - "Process X Pindah Keluar" button (navigates to bulk processor)
+  - "Batal Pilih" button (clears selection)
+  - Count badge
 
-**Location:** `src/features/collections/hooks/useInvoiceCandidatePayments.ts`
+### 3. Create: `BulkMoveOutProcessor.tsx` (new page component)
 
-React Query hook that:
-- Takes `invoiceId`, `tenantUserId`, `contractId`, `merchantId`, `invoiceAmount`
-- Fetches unmatched/pending_review payments for the same tenant + contract
-- Computes a simple match confidence score per payment:
-  - Exact amount match = 0.99
-  - Within 5% = 0.90
-  - Within 20% = 0.70
-  - Otherwise = 0.50
-- Sorts by confidence descending, limits to top 5
-- Returns typed `CandidatePayment[]`
+A full-page component at route `/merchant/move-outs/bulk` that receives notice IDs via URL search params. Contains 4 collapsible sections (not wizard steps -- all visible at once for batch overview):
 
-### 3. Modified Component: `OutstandingTable.tsx`
+**Section 1: Ringkasan Penyewa (Tenant Summary)**
+- Table showing all selected notices: Tenant, Unit, Move-out date, Current status
+- Option to remove individual notices from the batch
 
-Expand each invoice row's action column from a single "Ingatkan" button to a dropdown with:
-- **Send Reminder** (existing functionality, preserved)
-- **Process Payment** (opens `InlinePaymentMatchDialog`)
-- **Call Tenant** (tel: link using tenant phone, if available)
+**Section 2: Konfirmasi Pemberitahuan (Bulk Acknowledge)**
+- Shows which notices are still "submitted" (unacknowledged)
+- "Konfirmasi Semua" button -- bulk updates all to "acknowledged"
+- Already-acknowledged notices show green checkmark
 
-Add a small badge on rows that have candidate payments available (e.g., "2 pembayaran cocok").
+**Section 3: Jadwal Inspeksi (Bulk Schedule Inspection)**
+- Date/time picker shared across all selected units
+- Checkboxes per unit to include/exclude from batch scheduling
+- "Jadwalkan Semua" button -- creates inspection records for all selected
 
-### 4. Update `old-docs/SYSTEM_AUDIT_REPORT.md`
+**Section 4: Selesaikan Deposit & Kontrak (Bulk Settle)**
+- Summary table: Tenant, Deposit, Deductions, Net Refund, Status
+- "Setujui Semua Refund" button -- bulk approves deposit refunds
+- "Akhiri Semua Kontrak" button -- bulk terminates contracts
+- Per-row override possible
 
-Add Implementation Tracking for Improvement 4 with per-line status.
+### 4. Create: `useBulkMoveOutData.ts` (new hook)
+
+Fetches data for multiple notice IDs in one go:
+- Batch fetch notices with contract/unit/property joins
+- Batch fetch inspections for all notice IDs
+- Batch fetch deposit refunds for all contract IDs
+- Batch fetch tenant profiles
+- Provides bulk mutation functions
+
+### 5. Wire up route
+
+Add route for `/merchant/move-outs/bulk` pointing to a new page wrapper.
+
+### 6. Update `old-docs/SYSTEM_AUDIT_REPORT.md`
+
+Add Improvement 5 tracking lines.
 
 ## Files Changed
 
 | File | Action | Description |
 |------|--------|-------------|
-| `src/features/collections/hooks/useInvoiceCandidatePayments.ts` | CREATE | Hook to fetch + score candidate payments |
-| `src/features/collections/components/InlinePaymentMatchDialog.tsx` | CREATE | Dialog for payment matching |
-| `src/features/collections/components/OutstandingTable.tsx` | MODIFY | Add dropdown actions + dialog trigger |
-| `old-docs/SYSTEM_AUDIT_REPORT.md` | UPDATE | Improvement 4 tracking |
+| `src/features/contracts/components/MoveOutsTable.tsx` | MODIFY | Add checkbox selection |
+| `src/pages/merchant/MoveOuts.tsx` | MODIFY | Add selection state + bulk action bar |
+| `src/features/contracts/components/move-out-wizard/BulkMoveOutProcessor.tsx` | CREATE | Bulk processing page |
+| `src/features/contracts/hooks/useBulkMoveOutData.ts` | CREATE | Hook for batch data + mutations |
+| `src/pages/merchant/BulkMoveOut.tsx` | CREATE | Page wrapper for bulk route |
+| Route config | MODIFY | Add `/merchant/move-outs/bulk` route |
+| `old-docs/SYSTEM_AUDIT_REPORT.md` | UPDATE | Improvement 5 tracking |
 
 ## Technical Details
 
-### Match Confidence Scoring (Client-Side)
+### Checkbox Selection in Table
 
+The checkbox column is added as the first column. Clicking the checkbox toggles selection without triggering row navigation. The row `onClick` handler checks `e.target` to skip navigation when clicking checkboxes.
+
+### Bulk Action Bar
+
+A sticky bar at the bottom of the page (similar to email bulk select UI):
 ```text
-score = 1.0   if payment.amount == invoice.outstandingAmount (exact)
-score = 0.95  if abs(payment.amount - invoice.outstandingAmount) / invoice.outstandingAmount < 0.05
-score = 0.80  if abs(payment.amount - invoice.outstandingAmount) / invoice.outstandingAmount < 0.20
-score = 0.50  otherwise (same tenant/contract but amount mismatch)
+[X selected] | [Proses Pindah Keluar (X)] | [Batal Pilih]
 ```
 
-### Data Flow
+### Bulk Mutations
 
-1. User clicks "Process Payment" on invoice row
-2. Dialog opens, `useInvoiceCandidatePayments` fires query
-3. Query fetches from `payments` table where `tenant_user_id` + `contract_id` match and `reconciliation_status` in ('unmatched', 'pending_review')
-4. Results scored and displayed
-5. User clicks "Confirm Match" on a candidate
-6. `reconciliationService.manualMatch()` is called (existing function -- creates match record, updates payment status, updates invoice status)
-7. React Query invalidation triggers table refresh -- invoice disappears from outstanding list or shows "paid"
+Each bulk action calls Supabase with batch updates:
+- Acknowledge: `supabase.from('move_out_notices').update({status:'acknowledged'}).in('id', noticeIds)`
+- Schedule inspection: Loop + insert for each notice (inspection records are per-notice)
+- Approve refunds: `supabase.from('deposit_refunds').update({status:'approved'}).in('contract_id', contractIds)`
+- Terminate contracts: `supabase.from('contracts').update({status:'terminated'}).in('id', contractIds)`
 
-### Realtime Already Configured
+### URL-Based Selection
 
-The `useCollectionsDashboard` hook already subscribes to realtime changes on `invoices` and `payments` tables, so after matching, the table auto-refreshes without manual reload.
+Selected notice IDs are passed via URL search params (`?ids=uuid1,uuid2,uuid3`) so the bulk page can be bookmarked/refreshed without losing context.
 
 ### No Database Changes
 
-All required tables (`payments`, `payment_invoice_match`, `invoices`) and their RLS policies already exist. The `reconciliationService.manualMatch()` function handles the full matching workflow.
-
-### No New Dependencies
-
-Uses existing Dialog, Table, Badge, Button, DropdownMenu components from the design system.
+All existing tables support batch operations via `.in()` queries. No new tables or columns needed.
 
