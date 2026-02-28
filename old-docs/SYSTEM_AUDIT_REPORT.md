@@ -2712,6 +2712,21 @@ This audit's findings are based entirely on the documented system, not on critic
 
 ---
 
+## 📊 Implementation Tracking: Improvement 10 — Property-Level Staff Permission Scoping
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 10.1 | Update `checkPermission` to accept optional `propertyId` | ✅ COMPLETE | Checks staff.property_ids when propertyId provided; empty = all access |
+| 10.2 | Create `checkPropertyAccess` helper function | ✅ COMPLETE | Owner bypass, empty property_ids = all access, else check inclusion |
+| 10.3 | Create `getStaffPropertyIds` helper function | ✅ COMPLETE | Returns propertyIds + isOwner for hook consumption |
+| 10.4 | Update `useStaffPermission` hook with optional `propertyId` | ✅ COMPLETE | Passes propertyId to checkPermission, included in query key |
+| 10.5 | Create `useStaffPropertyAccess` hook | ✅ COMPLETE | Returns accessiblePropertyIds, isAllAccess, isOwner, isLoading |
+| 10.6 | Add property selector to invite dialog | ✅ COMPLETE | Checkbox list with "Semua Properti" default; passes property_ids to inviteStaff |
+| 10.7 | Show assigned property names on staff cards | ✅ COMPLETE | Resolves property IDs to names via property query; shows badges |
+| 10.8 | Show property scope info in permissions dialog | ✅ COMPLETE | Read-only section at top showing assigned property names |
+
+---
+
 **Audit Complete**  
 *Generated: 2026-02-28*  
 *Analysis Basis: navigation-config.ts + state-machines.ts + merchant page files (57 pages)*
