@@ -1,94 +1,101 @@
 
 
-# Improvement 8: Mobile Alerts to Desktop Sidebar
+# Improvement 9: Auto-Link Maintenance Costs to Expenses
 
 ## Overview
 
-The "Notifikasi" sidebar item currently sits buried in the "Akun" group (6th group, 4th item). Desktop merchants easily miss critical alerts. This improvement promotes the alerts link to a prominent position and adds a live unread badge count directly on the sidebar item.
+When a maintenance request is marked as "completed" and has a vendor with an `agreed_price`, the system will automatically create a linked expense record. This eliminates manual data entry and ensures 100% cost tracking.
 
 ## Current State
 
-- `Notifikasi` already exists in the sidebar at `/merchant/alerts` under the "Akun" group (line 178 of navigation-config.ts)
-- `NotificationsDropdown` already exists in the desktop header (bell icon with badge) -- this handles DB-driven notifications
-- The Alerts page (`/merchant/alerts`) shows dynamically-assembled operational alerts (overdue invoices, maintenance, contracts) -- these are NOT the same as DB notifications
-- Mobile bottom nav already has "Notifikasi" as a primary tab
+- `maintenanceService.updateStatus()` already handles completion logic (lines 368-413): completes vendor jobs, creates earnings, sends notifications
+- The `expenses` table has `vendor_id`, `property_id`, `unit_id` fields but no `maintenance_request_id` reference
+- A separate `maintenance_expenses` table exists (for OCR receipt tracking) but is independent from the main `expenses` table
+- The expense auto-approval threshold is Rp 500k (amounts below are auto-approved)
 
 ## What Changes
 
-### 1. Promote "Notifikasi" in sidebar navigation
+### 1. Database Migration: Add `maintenance_request_id` to `expenses`
 
-Move the alerts item from the "Akun" group to the "Utama" group (right below Dashboard), making it the second item merchants see. Remove it from "Akun" to avoid duplication.
+Add an optional foreign key column `maintenance_request_id` on the `expenses` table referencing `maintenance_requests(id)`. This enables:
+- Linking expenses back to their originating maintenance request
+- Preventing duplicate expense creation (unique-ish check before insert)
+- Audit trail between maintenance and finance modules
 
-**File:** `src/shared/components/layouts/navigation-config.ts`
+### 2. Modify: `maintenanceService.updateStatus()` -- Auto-create expense on completion
 
-### 2. Add badge support to NavItem interface
+Inside the existing `if (payload.status === 'completed')` block (after vendor job completion), add logic to:
 
-Extend `NavItem` with an optional `badge` field that can be rendered by `nav-main.tsx`. Since badge counts are dynamic (from DB), we use a string identifier that the sidebar resolves at render time.
+1. Fetch the maintenance request's `unit_id` and look up the `property_id` from the `units` table (already available from the request query)
+2. Check if an expense already exists for this `maintenance_request_id` (prevent duplicates)
+3. If vendor job has `agreed_price`, create an expense record:
+   - `merchant_id`: from the request
+   - `category`: 'maintenance'
+   - `subcategory`: request category (e.g., 'plumbing', 'electrical')
+   - `description`: "Pemeliharaan - [request title]"
+   - `amount`: agreed_price
+   - `expense_date`: today
+   - `property_id`: from unit lookup
+   - `unit_id`: from the request
+   - `vendor_id`: assigned_vendor_id
+   - `maintenance_request_id`: request id
+   - `approval_status`: auto-approve if under Rp 500k, else 'pending_approval'
+   - `notes`: completion notes from the request
 
-**File:** `src/shared/components/layouts/navigation-config.ts`
-- Add `badgeKey?: string` to `NavItem` interface
-- Set `badgeKey: 'alerts'` on the Notifikasi item
+4. Show a toast message is already handled client-side; after the mutation succeeds, we add expense query invalidation
 
-### 3. Create a hook for alert counts
+### 3. Modify: `useMaintenance.ts` -- Invalidate expense queries on completion
 
-Create `useAlertCounts` hook that queries the same data sources as the Alerts page but returns only counts. This is lightweight (count queries, not full data).
+In the `useUpdateMaintenanceRequest` `onSuccess` callback, also invalidate expense-related queries so the Expenses page reflects the new auto-created record immediately.
 
-**File:** `src/features/notifications/hooks/useAlertCounts.ts` (NEW)
-- Queries overdue invoices count, pending expenses count, stale maintenance count, expiring contracts count
-- Returns total count + per-type counts
-- Uses `merchant?.id` as dependency, polls every 5 minutes (staleTime)
+### 4. Modify: `Maintenance.tsx` -- Add toast about auto-linked expense
 
-### 4. Render badges in nav-main.tsx
+Update the success toast in `handleUpdateStatus` to mention expense auto-creation when status is 'completed'.
 
-Update `NavMain` to accept an optional `badges` map and render a small count badge next to items that have a `badgeKey`.
+### 5. Update: `old-docs/SYSTEM_AUDIT_REPORT.md`
 
-**File:** `src/shared/components/layouts/sidebar/nav-main.tsx`
-- Accept new prop: `badges?: Record<string, number>`
-- When rendering an item with `badgeKey`, show a small red badge with the count (if > 0)
-- Badge uses same style as NotificationsDropdown badge
-
-### 5. Wire badge data in AppSidebar
-
-Call `useAlertCounts` in `AppSidebar` for merchant role and pass the badge map down to `NavMain`.
-
-**File:** `src/shared/components/layouts/sidebar/app-sidebar.tsx`
-
-### 6. Update audit tracking
-
-**File:** `old-docs/SYSTEM_AUDIT_REPORT.md`
+Add Improvement 9 tracking lines.
 
 ## Files Changed
 
 | File | Action | Description |
 |------|--------|-------------|
-| `src/shared/components/layouts/navigation-config.ts` | MODIFY | Move Notifikasi to Utama group, add `badgeKey` to NavItem |
-| `src/features/notifications/hooks/useAlertCounts.ts` | CREATE | Lightweight hook returning alert counts |
-| `src/shared/components/layouts/sidebar/nav-main.tsx` | MODIFY | Render badge counts on items with `badgeKey` |
-| `src/shared/components/layouts/sidebar/app-sidebar.tsx` | MODIFY | Wire useAlertCounts and pass badges to NavMain |
-| `old-docs/SYSTEM_AUDIT_REPORT.md` | UPDATE | Improvement 8 tracking |
+| Database migration | CREATE | Add `maintenance_request_id` column to `expenses` table |
+| `src/features/maintenance/services/maintenanceService.ts` | MODIFY | Add expense auto-creation in completion block |
+| `src/features/maintenance/hooks/useMaintenance.ts` | MODIFY | Invalidate expense queries on status update |
+| `src/pages/merchant/Maintenance.tsx` | MODIFY | Enhanced toast on completion |
+| `old-docs/SYSTEM_AUDIT_REPORT.md` | UPDATE | Improvement 9 tracking |
 
 ## Technical Details
 
-### Badge Count Query (useAlertCounts)
-
-Four lightweight count queries in a single `Promise.all`:
-- Overdue invoices: `supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('merchant_id', X).in('status', ['overdue','escalated'])`
-- Pending expenses: `supabase.from('expenses').select('id', { count: 'exact', head: true }).eq('merchant_id', X).eq('status', 'pending_approval')`
-- Stale maintenance: `supabase.from('maintenance_requests').select('id', { count: 'exact', head: true }).eq('merchant_id', X).eq('status', 'pending')`
-- Expiring contracts: count query with date filter
-
-Total = sum of all counts. Cached with 5-minute staleTime to avoid excessive queries.
-
-### NavItem Badge Rendering
+### Migration SQL
 
 ```text
-[Icon] Notifikasi  [3]
-                    ^^^-- small red circle badge, only if count > 0
+ALTER TABLE expenses ADD COLUMN maintenance_request_id uuid REFERENCES maintenance_requests(id);
+CREATE INDEX idx_expenses_maintenance_request_id ON expenses(maintenance_request_id) WHERE maintenance_request_id IS NOT NULL;
 ```
 
-In collapsed sidebar mode, the badge appears as a dot on the icon (like the header bell).
+### Expense Auto-Creation Logic (in maintenanceService.updateStatus)
 
-### No Database Changes
+After existing vendor job completion block (around line 400), insert:
 
-All queries use existing tables. No new tables, columns, or RLS policies needed.
+```text
+1. Query: Check if expense with this maintenance_request_id already exists
+2. If not exists AND vendorJob.agreed_price > 0:
+   a. Fetch property_id from units table using request.unit_id
+   b. Determine approval_status: agreed_price < 500000 ? 'approved' : 'pending_approval'
+   c. INSERT into expenses with all pre-populated fields
+   d. Log to audit trail
+```
 
+### Duplicate Prevention
+
+Before creating expense, check:
+```text
+SELECT id FROM expenses WHERE maintenance_request_id = [request_id] LIMIT 1
+```
+If exists, skip creation (idempotent).
+
+### No New UI Components
+
+This is purely backend logic -- the expense appears automatically in the existing Expenses page. The only UI change is an enhanced toast message on completion.
