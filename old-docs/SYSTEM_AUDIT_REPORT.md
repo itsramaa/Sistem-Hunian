@@ -1359,6 +1359,21 @@ REMOVED FROM SIDEBAR (Auto-discover via context):
 
 **Implementation Effort:** Low — reorganize existing items, add 2 new sidebar sections.
 
+##### 📋 Implementation Tracking — Improvement 1
+
+| # | Line Item | Status | Notes |
+|---|-----------|--------|-------|
+| 1.1 | Eliminate "Lainnya" group — redistribute all items | ✅ COMPLETE | All 12 items moved to new groups |
+| 1.2 | Create "Properti & Okupansi" group (Properti, Papan Okupansi, Inventori, Maintenance, Penjaga) | ✅ COMPLETE | Inventori + Penjaga moved from Lainnya; Penjaga label → "Penjaga (Tim On-Site)" |
+| 1.3 | Create "Penyewa & Kontrak" group (Penyewa, Kontrak, Daftar Tunggu) | ✅ COMPLETE | Same items, new group label |
+| 1.4 | Create "Keuangan" group with Collections elevated | ✅ COMPLETE | Penagihan moved up; "Resolusi & Rekonsiliasi" → "Rekonsiliasi"; Lap. Keuangan moved to end |
+| 1.5 | Create "Wawasan & Manajemen" group (InsightsHub, Reports, Templates, Staff, Vendor, API) | ✅ COMPLETE | InsightsHub + Staff elevated from collapsed Lainnya |
+| 1.6 | Create "Akun" group with 6 orphaned pages (Profil, Langganan, Pengaturan, Notifikasi, Bantuan, Feedback) | ✅ COMPLETE | All 6 previously hidden/orphaned pages now in sidebar |
+| 1.7 | Add new Lucide icons (Bell, Receipt, HelpCircle, MessageCircle) | ✅ COMPLETE | Imported in navigation-config.ts |
+| 1.8 | Fix 15 edge function build errors (type safety) | ✅ COMPLETE | Fixed: unknown err types (5), PromiseLike catch (2), ai-chatbot type cast (1), ml-ocr-correction-suggest API mismatch (7) |
+| 1.9 | Create "Payment Transfer Status" page | ⏳ NOT STARTED | P0 issue — planned for Improvement 2+ |
+| 1.10 | Remove PropertyCompliance, OcrTutorial, Referrals from sidebar scope | ⏭️ SKIP | Already not in sidebar; auto-discoverable via Property Detail tab / Settings |
+
 ---
 
 #### Improvement 2: Create Unified Move-Out Workflow

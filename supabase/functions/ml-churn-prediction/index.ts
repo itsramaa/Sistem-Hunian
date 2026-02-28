@@ -118,13 +118,15 @@ serve(async (req) => {
     // Notify for high-risk tenants
     for (const p of prediction.predictions || []) {
       if (p.churn_probability > 0.6) {
-        await serviceClient.from("notifications").insert({
-          user_id: auth.userId,
-          title: `⚠️ Churn Risk: Tenant may leave`,
-          message: `Churn probability: ${Math.round(p.churn_probability * 100)}%. ${p.risk_factors?.[0] || ""}`,
-          type: "churn_alert",
-          metadata: { tenant_user_id: p.tenant_user_id, churn_probability: p.churn_probability },
-        }).then(() => {}).catch(() => {});
+        try {
+          await serviceClient.from("notifications").insert({
+            user_id: auth.userId,
+            title: `⚠️ Churn Risk: Tenant may leave`,
+            message: `Churn probability: ${Math.round(p.churn_probability * 100)}%. ${p.risk_factors?.[0] || ""}`,
+            type: "churn_alert",
+            metadata: { tenant_user_id: p.tenant_user_id, churn_probability: p.churn_probability },
+          });
+        } catch { /* ignore notification failures */ }
       }
     }
 
