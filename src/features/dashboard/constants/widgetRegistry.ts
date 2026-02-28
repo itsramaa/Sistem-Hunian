@@ -6,6 +6,8 @@ export interface WidgetDefinition {
 }
 
 export const WIDGET_REGISTRY: WidgetDefinition[] = [
+  { id: 'cash_flow', label: 'Arus Kas', description: 'Saldo, transfer pending, piutang, dan proyeksi 7 hari', defaultVisible: true },
+  { id: 'action_items', label: 'Prioritas Hari Ini', description: 'Item tindakan urgent dan mendatang', defaultVisible: true },
   { id: 'kpi_strip', label: 'Ringkasan Bisnis', description: 'KPI utama: properti, hunian, penyewa, pendapatan', defaultVisible: true },
   { id: 'quick_actions', label: 'Aksi & Langganan', description: 'Aksi cepat dan status langganan', defaultVisible: true },
   { id: 'charts', label: 'Analitik Performa', description: 'Grafik revenue, okupansi, dan pembayaran', defaultVisible: true },

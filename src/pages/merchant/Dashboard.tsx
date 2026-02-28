@@ -6,6 +6,8 @@ import { InteractiveDashboardCharts } from '@/features/dashboard/components/Inte
 import { VacancyDashboard } from '@/features/dashboard/components/VacancyDashboard';
 import { OccupancyForecastWidget } from '@/features/dashboard/components/OccupancyForecastWidget';
 import { AlertsEventsWidget } from '@/features/dashboard/components/AlertsEventsWidget';
+import { CashFlowWidget } from '@/features/dashboard/components/CashFlowWidget';
+import { ActionItemsWidget } from '@/features/dashboard/components/ActionItemsWidget';
 import { SubscriptionWidget } from '@/features/subscriptions/components/SubscriptionWidget';
 import { MerchantQuickStartChecklist } from '@/features/launch/components/MerchantQuickStartChecklist';
 import { TrialCountdownWidget } from '@/features/subscriptions/components/TrialCountdownWidget';
@@ -93,6 +95,8 @@ export default function MerchantDashboard() {
 
   // Widget renderers mapped by ID
   const widgetRenderers: Record<string, () => JSX.Element> = {
+    cash_flow: () => <CashFlowWidget />,
+    action_items: () => <ActionItemsWidget />,
     kpi_strip: () => (
       <section className="space-y-4">
         <h2 className="text-lg font-semibold tracking-tight">Ringkasan Bisnis</h2>

@@ -1865,6 +1865,15 @@ CUSTOMIZATION
 | No insights visible | "AI Recommendations" section with 3 actionable insights | InsightsHub becomes visible + valuable |
 | No quick access to high-frequency pages | Quick Links section | 2 fewer sidebar clicks for Collections, Invoices, Alerts |
 
+**Implementation Status:**
+- 7.1 ✅ COMPLETE — Fixed hardcoded `balance: 0` in merchantDashboardService.ts; now computes from completed payment_transfers
+- 7.2 ✅ COMPLETE — Added 2 new queries (completed transfers, unpaid invoices) to Promise.all in fetchStats
+- 7.3 ✅ COMPLETE — Extended MerchantDashboardStats.financials with outstandingReceivables, outstandingInvoiceCount
+- 7.4 ✅ COMPLETE — Created CashFlowWidget with 4 metrics: Saldo Tersedia, Transfer Pending, Piutang, Proyeksi 7 Hari
+- 7.5 ✅ COMPLETE — Created ActionItemsWidget with urgent/upcoming/on-track priority tiers
+- 7.6 ✅ COMPLETE — Registered cash_flow and action_items in widgetRegistry.ts (positioned first and second)
+- 7.7 ✅ COMPLETE — Updated MobileMerchantDashboard to show real balance + pending instead of revenue growth
+
 **Implementation Effort:** High — requires querying multiple data sources (payments, invoices, units, recommendations), rendering real-time. But can be built incrementally (start with cash flow, add actions, add AI insights).
 
 ---

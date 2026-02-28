@@ -43,12 +43,14 @@ export function MobileMerchantDashboard() {
           <CardContent className="p-3">
             <div className="flex items-center gap-2 mb-1">
               <CreditCard className="h-4 w-4 text-success" />
-              <span className="text-xs text-muted-foreground">Pendapatan</span>
+              <span className="text-xs text-muted-foreground">Saldo</span>
             </div>
-            <div className="text-lg font-bold">{formatCurrency(stats?.financials.monthlyRevenue || 0)}</div>
-            <Badge className={`text-[9px] px-1.5 py-0 mt-1 ${(stats?.financials.revenueGrowth || 0) > 0 ? 'bg-success/20 text-success border-success/30' : (stats?.financials.revenueGrowth || 0) === 0 ? 'bg-muted text-muted-foreground' : 'bg-destructive/20 text-destructive border-destructive/30'}`}>
-              {(stats?.financials.revenueGrowth || 0) > 0 ? `+${Math.round(stats?.financials.revenueGrowth || 0)}%` : (stats?.financials.revenueGrowth || 0) === 0 ? 'STABIL' : `${Math.round(stats?.financials.revenueGrowth || 0)}%`}
-            </Badge>
+            <div className="text-lg font-bold">{formatCurrency(stats?.financials.balance || 0)}</div>
+            <div className="flex items-center gap-1 mt-1">
+              <Badge className="text-[9px] px-1.5 py-0 bg-warning/20 text-warning border-warning/30">
+                Pending: {formatCurrency(stats?.financials.pendingBalance || 0)}
+              </Badge>
+            </div>
           </CardContent>
         </Card>
 
