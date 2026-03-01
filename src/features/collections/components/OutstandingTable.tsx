@@ -11,7 +11,7 @@ import {
 import { toast } from 'sonner';
 import type { OutstandingInvoice } from '../services/collectionsService';
 import { collectionsService } from '../services/collectionsService';
-import { InlinePaymentMatchDialog } from './InlinePaymentMatchDialog';
+import { InvoiceDetailSheet } from './InvoiceDetailSheet';
 
 interface Props {
   invoices: OutstandingInvoice[] | undefined;
@@ -28,7 +28,7 @@ const bucketVariant = (bucket: string): 'default' | 'secondary' | 'destructive' 
 export function OutstandingTable({ invoices, loading }: Props) {
   const [search, setSearch] = useState('');
   const [sendingId, setSendingId] = useState<string | null>(null);
-  const [matchInvoice, setMatchInvoice] = useState<OutstandingInvoice | null>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<OutstandingInvoice | null>(null);
 
   const filtered = (invoices || []).filter(inv =>
     !search ||
@@ -92,7 +92,12 @@ export function OutstandingTable({ invoices, loading }: Props) {
               </TableRow>
             ) : (
               filtered.map(inv => (
-                <TableRow key={inv.invoiceId}>
+                <TableRow
+                  key={inv.invoiceId}
+                  className="cursor-pointer hover:bg-primary/5 transition-colors"
+                  onClick={() => setSelectedInvoice(inv)}
+                  data-state={selectedInvoice?.invoiceId === inv.invoiceId ? 'selected' : undefined}
+                >
                   <TableCell className="font-medium">{inv.unitNumber}</TableCell>
                   <TableCell>{inv.tenantName}</TableCell>
                   <TableCell className="font-mono text-xs">{inv.invoiceNumber}</TableCell>
@@ -108,7 +113,7 @@ export function OutstandingTable({ invoices, loading }: Props) {
                       ? new Date(inv.lastPaymentDate).toLocaleDateString('id-ID')
                       : '-'}
                   </TableCell>
-                  <TableCell className="text-center">
+                  <TableCell className="text-center" onClick={e => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button size="sm" variant="outline" className="h-8 w-8 p-0">
@@ -123,7 +128,7 @@ export function OutstandingTable({ invoices, loading }: Props) {
                           <Bell className="h-4 w-4 mr-2" />
                           {sendingId === inv.invoiceId ? 'Mengirim...' : 'Kirim Pengingat'}
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setMatchInvoice(inv)}>
+                        <DropdownMenuItem onClick={() => setSelectedInvoice(inv)}>
                           <Banknote className="h-4 w-4 mr-2" />
                           Proses Pembayaran
                         </DropdownMenuItem>
@@ -143,14 +148,12 @@ export function OutstandingTable({ invoices, loading }: Props) {
         </Table>
       </div>
 
-      {/* Inline Payment Match Dialog */}
-      {matchInvoice && (
-        <InlinePaymentMatchDialog
-          invoice={matchInvoice}
-          open={!!matchInvoice}
-          onOpenChange={(open) => { if (!open) setMatchInvoice(null); }}
-        />
-      )}
+      {/* Invoice Detail Sheet */}
+      <InvoiceDetailSheet
+        invoice={selectedInvoice}
+        open={!!selectedInvoice}
+        onOpenChange={(open) => { if (!open) setSelectedInvoice(null); }}
+      />
     </div>
   );
 }

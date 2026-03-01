@@ -691,25 +691,19 @@ The system uses **full-page navigation** for most actions, causing excessive con
 
 ### Current Interaction Patterns
 
-#### Pattern 1: Full-Page for Simple Actions
-**Example: Invoice Payment Processing**
-- User is on Collections page
-- Sees unpaid invoice (Rp 2M, 20 days overdue)
-- Clicks invoice → Full page loads (Invoice Detail)
-- Clicks "Process Payment" button
-- Navigates to Payments page (full page load)
-- Searches for matching payment record
-- Confirms match
-- Returns to Collections (full page load back)
+#### Pattern 1: Full-Page for Simple Actions ✅ COMPLETE
+**Status:** Implemented via `InvoiceDetailSheet` — right-sliding panel on Collections page
 
-**Total Steps:** 5–6 full page navigations for a 10-second action.
-
-**Better Interaction:**
-- Collections page → Click invoice → Inline panel slides from right showing:
-  - Unpaid balance
-  - Matching payment (if exists)
-  - "Confirm Match" button (modal or inline)
-  - Status updates without full-page refresh
+**Implementation Details:**
+- ✅ `InvoiceDetailSheet.tsx` created — Sheet panel with invoice summary, quick actions, inline payment matching
+- ✅ `OutstandingTable.tsx` updated — row click opens Sheet, dropdown retained as secondary access
+- ✅ Row click with `cursor-pointer` + `hover:bg-primary/5` highlight
+- ✅ `e.stopPropagation()` on dropdown to prevent double-open
+- ✅ Reuses `useInvoiceCandidatePayments` hook for candidate payments
+- ✅ Reuses `reconciliationService.manualMatch` for payment confirmation
+- ✅ Reuses `collectionsService.sendReminder` for reminder action
+- ✅ Sheet width `sm:max-w-md` for adequate payment card display
+- ✅ Success state after matching with auto query invalidation
 
 **Impact:** Reduces 6 steps to 2–3 actions, same page context.
 
