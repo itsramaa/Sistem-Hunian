@@ -755,7 +755,9 @@ The system uses **full-page navigation** for most actions, causing excessive con
 
 ---
 
-#### Pattern 4: No Async Status Updates
+#### Pattern 4: No Async Status Updates ✅ COMPLETE
+**Status:** All invoice/payment actions now use sonner toast with rich Indonesian messages. No page refresh needed. Loading states use `toast.loading()`, success uses `toast.success()`, errors use `toast.error()` with contextual messages. Standardized on sonner across payment flows.
+
 **Current:** User navigates to Invoices, clicks "Send Reminder". Full-page refresh to see "Reminder Sent" status.
 
 **Better:** Modal toast notification: "Reminder sent to Tenant A (2 min ago)" — no page refresh.
@@ -764,7 +766,9 @@ The system uses **full-page navigation** for most actions, causing excessive con
 
 ---
 
-#### Pattern 5: Modal vs. Full-Page Inconsistency
+#### Pattern 5: Modal vs. Full-Page Inconsistency ✅ COMPLETE
+**Status:** InvoicesTable row click now opens InvoiceDetailsDialog inline (consistent with Collections OutstandingTable). Removed full-page navigation to `/merchant/invoices/:id`. All detail views now use inline dialogs/sheets.
+
 **Not Documented:** Document doesn't specify which actions use modals vs. full pages.
 
 ⚠️ **UI Layout Not Clearly Defined in System Documentation**

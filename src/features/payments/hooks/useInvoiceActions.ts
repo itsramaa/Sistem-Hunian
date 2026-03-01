@@ -2,12 +2,11 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useMerchantContracts } from '@/features/contracts/hooks/useMerchantContracts';
 import { useMerchantInvoices } from '@/features/payments/hooks/useMerchantInvoices';
 import { Invoice } from '@/features/payments/types';
-import { useToast } from '@/shared/hooks/use-toast';
+import { toast } from 'sonner';
 import { useState } from 'react';
 
 export function useInvoiceActions() {
   const { merchant } = useAuth();
-  const { toast } = useToast();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [viewInvoice, setViewInvoice] = useState<Invoice | null>(null);
 
@@ -35,10 +34,10 @@ export function useInvoiceActions() {
   }) => {
     try {
       await createInvoiceMutation.mutateAsync(data);
-      toast({ title: 'Invoice created successfully' });
+      toast.success('Faktur berhasil dibuat');
       setIsCreateOpen(false);
     } catch (error) {
-      toast({ title: 'Failed to create invoice', description: (error as Error).message, variant: 'destructive' });
+      toast.error('Gagal membuat faktur: ' + (error as Error).message);
     }
   };
 
@@ -48,34 +47,34 @@ export function useInvoiceActions() {
         invoiceId,
         merchantName: merchant?.business_name || 'Landlord',
       });
-      toast({ title: 'Invoice sent successfully', description: 'Email notification sent to tenant' });
+      toast.success('Faktur berhasil dikirim ke penyewa');
     } catch (error) {
-      toast({ title: 'Failed to send invoice', variant: 'destructive' });
+      toast.error('Gagal mengirim faktur');
     }
   };
 
   const handleMarkAsPaid = async (invoiceId: string, currentStatus: string) => {
     try {
       await markAsPaidMutation.mutateAsync({ invoiceId, currentStatus });
-      toast({ title: 'Invoice marked as paid' });
+      toast.success('Faktur ditandai lunas');
       setViewInvoice(null);
     } catch (error) {
-      toast({ title: 'Failed to update invoice', description: (error as Error).message, variant: 'destructive' });
+      toast.error('Gagal memperbarui faktur: ' + (error as Error).message);
     }
   };
 
   const handleSendReminder = async (invoiceId: string, tenantUserId: string) => {
     try {
       await sendReminderMutation.mutateAsync({ invoiceId, tenantUserId });
-      toast({ title: 'Reminder sent', description: 'Payment reminder sent to tenant' });
+      toast.success('Pengingat pembayaran berhasil dikirim');
     } catch (error) {
-      toast({ title: 'Failed to send reminder', description: (error as Error).message, variant: 'destructive' });
+      toast.error('Gagal mengirim pengingat: ' + (error as Error).message);
     }
   };
 
   const downloadInvoicePdf = async (invoiceId: string) => {
     try {
-      toast({ title: 'Generating PDF...', description: 'Please wait' });
+      const toastId = toast.loading('Membuat PDF...');
       const result = await generatePdfMutation.mutateAsync(invoiceId);
       const printWindow = window.open('', '_blank');
       if (printWindow) {
@@ -83,9 +82,10 @@ export function useInvoiceActions() {
         printWindow.document.close();
         printWindow.onload = () => printWindow.print();
       }
+      toast.dismiss(toastId);
     } catch (error) {
       console.error('Error generating PDF:', error);
-      toast({ title: 'Failed to generate PDF', variant: 'destructive' });
+      toast.error('Gagal membuat PDF');
     }
   };
 
