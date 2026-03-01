@@ -1,100 +1,109 @@
 
 
-# Improvement: Inline Invoice Detail Panel on Collections Page (Pattern 1 Fix)
+# Improvement: Pattern 2 & 3 - State Machine Visibility + Bulk Operations
 
-## Overview
+## Analysis Summary
 
-Replace the current dropdown-menu-only interaction on the Collections outstanding table with a **click-to-open Sheet panel** that slides from the right. Clicking a table row opens an inline panel showing invoice details, send-reminder action, and payment matching -- all without leaving the page. This reduces the workflow from 5-6 page navigations to 2-3 in-context actions.
+**Pattern 3 (Bulk Operations): Already Implemented**
+The codebase already has:
+- Checkbox selection on `MoveOutsTable` with `selectedIds` state
+- Floating bulk action bar at bottom of MoveOuts page (appears when 2+ selected)
+- `BulkMoveOutProcessor` component with 4 collapsible sections (summary, acknowledge, schedule inspection, settle deposits)
+- `useBulkMoveOutData` hook with bulk mutations
 
-## Current State
+Status: COMPLETE. Only needs audit report update.
 
-- `OutstandingTable` has a dropdown menu (3-dot button) per row with actions: Send Reminder, Process Payment, Call Tenant
-- "Process Payment" opens `InlinePaymentMatchDialog` (a centered Dialog/modal) showing candidate payments
-- There is no way to click a row to see invoice details inline
-- The Sheet component (`src/shared/components/ui/sheet.tsx`) exists with `side="right"` support
+**Pattern 2 (State Transitions Without Feedback): Partially Implemented**
+The Move-Out Wizard exists with 4 steps, and the Confirmation step (step 4) shows all 4 state machine statuses. However:
+- Steps 1-3 do NOT show the parallel state machine progression
+- The merchant has no visibility into how their current action affects Unit status, Contract status, and Deposit status simultaneously
+- The step tracker at top only shows wizard steps, not the underlying domain state machines
 
 ## What Changes
 
-### 1. Create: `InvoiceDetailSheet` component
+### 1. Create: `StateMachineTracker` component
 
-New component: `src/features/collections/components/InvoiceDetailSheet.tsx`
+A compact sidebar/panel component showing 4 parallel state machine progressions in real-time:
+- **Pemberitahuan**: submitted -> acknowledged -> in_progress -> completed
+- **Unit**: occupied -> vacating -> available
+- **Deposit**: pending_processing -> approved -> processing -> completed
+- **Kontrak**: active -> terminated
 
-A right-sliding Sheet panel that shows:
-- **Invoice summary** section (unit, tenant, invoice number, amount, days overdue, due date, last payment)
-- **Quick actions** section:
-  - "Kirim Pengingat" button (reuse existing reminder logic)
-  - "Hubungi Penyewa" link
-- **Payment matching** section (embedded directly, not a separate dialog):
-  - Reuses `useInvoiceCandidatePayments` hook
-  - Shows candidate payments with confidence scores
-  - "Konfirmasi Cocok" button inline
-  - Success state after matching
-- Uses the existing `Sheet`, `SheetContent`, `SheetHeader`, `SheetTitle` components with `side="right"`
+Each row shows: label, current state (color-coded badge), and a mini progress indicator. The current state pulses subtly. States that change as a result of the current wizard step are highlighted.
 
-### 2. Modify: `OutstandingTable` -- Add row click to open Sheet
+This component reads from `useMoveOutWizardData` return values (notice.status, contract.status, depositRefund.status) and derives unit status from contract state.
 
-- Clicking a table row opens the `InvoiceDetailSheet` for that invoice
-- The dropdown menu remains as a secondary access method
-- "Proses Pembayaran" in dropdown now also opens the Sheet (instead of the Dialog)
-- Row gets a `cursor-pointer` and hover highlight
-- The existing `InlinePaymentMatchDialog` import can be removed (functionality absorbed into the Sheet)
+**File:** `src/features/contracts/components/move-out-wizard/StateMachineTracker.tsx` (NEW)
+
+### 2. Modify: `MoveOutWizard` -- Embed tracker in layout
+
+Update the wizard layout to include the `StateMachineTracker` as a persistent sidebar on desktop (right side) and a collapsible section on mobile (above step content). The tracker stays visible across all 4 wizard steps.
+
+Layout change: The current single-column step content becomes a 2-column layout on lg+ screens:
+- Left (lg:col-span-3): Step content (unchanged)
+- Right (lg:col-span-1): StateMachineTracker (persistent)
+
+**File:** `src/features/contracts/components/move-out-wizard/MoveOutWizard.tsx` (MODIFY)
 
 ### 3. Update: `old-docs/SYSTEM_AUDIT_REPORT.md`
 
-Track Pattern 1 implementation with step-level status markers.
+Mark Pattern 2 and Pattern 3 implementation status.
 
 ## Files Changed
 
 | File | Action | Description |
 |------|--------|-------------|
-| `src/features/collections/components/InvoiceDetailSheet.tsx` | CREATE | Right-sliding panel with invoice details + inline payment matching |
-| `src/features/collections/components/OutstandingTable.tsx` | MODIFY | Add row click handler, replace Dialog with Sheet |
-| `old-docs/SYSTEM_AUDIT_REPORT.md` | UPDATE | Pattern 1 implementation tracking |
+| `src/features/contracts/components/move-out-wizard/StateMachineTracker.tsx` | CREATE | Persistent 4-state-machine visibility panel |
+| `src/features/contracts/components/move-out-wizard/MoveOutWizard.tsx` | MODIFY | Add tracker to layout as sidebar |
+| `old-docs/SYSTEM_AUDIT_REPORT.md` | UPDATE | Pattern 2 & 3 status tracking |
 
 ## Technical Details
 
-### InvoiceDetailSheet Structure
+### StateMachineTracker Component
 
 ```text
-Sheet (side="right", max-w-md)
-  SheetHeader
-    SheetTitle: "Detail Tagihan"
-    SheetDescription: Invoice number
-  
-  ScrollArea
-    Section 1: Invoice Summary (reuse summary card from InlinePaymentMatchDialog)
-      - Unit, Tenant, Amount, Days Overdue, Due Date, Last Payment
-    
-    Section 2: Quick Actions (horizontal button row)
-      - Kirim Pengingat (with loading state)
-      - Hubungi Penyewa (tel: link)
-    
-    Section 3: Payment Matching (embedded)
-      - Header: "Pembayaran Kandidat (N ditemukan)"
-      - Candidate cards with confidence badges
-      - "Konfirmasi Cocok" button per card
-      - Success state after match
+Props: { data: ReturnType<typeof useMoveOutWizardData> }
+
+Renders 4 rows:
+1. Pemberitahuan: notice.status mapped to progression
+2. Unit: derived from contract.status (active=occupied, terminated=available)
+3. Deposit: depositRefund?.status or "Belum ada"
+4. Kontrak: contract?.status
+
+Each row:
+  [Icon] [Label]
+  [state-1] -> [state-2] -> [state-3]  (current state highlighted)
 ```
 
-### Row Click Behavior
+Visual states:
+- Completed states: green text, green dot
+- Current state: primary color, subtle pulse animation
+- Future states: muted/gray
 
-- Clicking anywhere on a `TableRow` opens the Sheet for that invoice
-- The dropdown 3-dot button uses `e.stopPropagation()` to prevent double-open
-- Selected row gets a subtle highlight (`bg-primary/5`)
+### Layout Change in MoveOutWizard
 
-### Reuse Strategy
+Current:
+```text
+<div className="min-h-[400px]">
+  {step content}
+</div>
+```
 
-- `useInvoiceCandidatePayments` hook: reused as-is inside the Sheet
-- `collectionsService.sendReminder`: reused for reminder action
-- `reconciliationService.manualMatch`: reused for payment matching
-- `formatCurrency`: reused for amount display
-- The `InlinePaymentMatchDialog` component becomes unused after this change and can be kept for backward compatibility or removed
+New:
+```text
+<div className="grid grid-cols-1 lg:grid-cols-4 gap-6 min-h-[400px]">
+  <div className="lg:col-span-3">
+    {step content}
+  </div>
+  <aside className="lg:col-span-1">
+    <StateMachineTracker data={data} />
+  </aside>
+</div>
+```
 
-### Sheet Width
-
-Override the default `sm:max-w-sm` to `sm:max-w-md` (448px) to give enough room for payment candidate cards with confidence badges.
+On mobile, the tracker renders above the step content as a compact horizontal bar with collapsible detail.
 
 ### No Database Changes
 
-Purely a frontend interaction improvement. All data queries and mutations are already in place.
+All state data is already fetched by `useMoveOutWizardData`. The tracker is purely a presentation layer reading existing data.
 
