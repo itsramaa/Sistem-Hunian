@@ -394,7 +394,7 @@ This section analyzes complete workflows from merchant perspective: onboarding f
 4. **Payment delay cascades** — Transfer processing (2–3 days) means cash not available until day 30+
 5. **No progress visibility** — Dashboard doesn't show "waiting for admin approval" or "waiting for tenant signature"
 
-**Recommendation:** Add onboarding checklist on Dashboard showing which steps are blocking vs. complete.
+**Recommendation:** Add onboarding checklist on Dashboard showing which steps are blocking vs. complete. ✅ COMPLETE
 
 ---
 
@@ -2724,6 +2724,21 @@ This audit's findings are based entirely on the documented system, not on critic
 | 10.6 | Add property selector to invite dialog | ✅ COMPLETE | Checkbox list with "Semua Properti" default; passes property_ids to inviteStaff |
 | 10.7 | Show assigned property names on staff cards | ✅ COMPLETE | Resolves property IDs to names via property query; shows badges |
 | 10.8 | Show property scope info in permissions dialog | ✅ COMPLETE | Read-only section at top showing assigned property names |
+
+---
+
+## 📊 Implementation Tracking: Section 2B-A — Enhanced Onboarding Journey Checklist
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 2B-A.1 | Extend CheckItem interface with 4-state status model | ✅ COMPLETE | `completed`, `active`, `blocking`, `pending` states |
+| 2B-A.2 | Create `useOnboardingJourney` hook | ✅ COMPLETE | 10-step sequential gating with blocking detection |
+| 2B-A.3 | Query tenant_invitations for pending/accepted status | ✅ COMPLETE | Lightweight head queries with 5min staleTime |
+| 2B-A.4 | Query contracts for signature_status | ✅ COMPLETE | Checks fully_signed vs unsigned |
+| 2B-A.5 | Query payments for first paid payment | ✅ COMPLETE | Head query on payments table |
+| 2B-A.6 | Rewrite MerchantQuickStartChecklist with 10 steps | ✅ COMPLETE | Amber clock for blocking, blue for active, green for done |
+| 2B-A.7 | Show verification_status from useAuth | ✅ COMPLETE | Step 3 shows blocking state when pending |
+| 2B-A.8 | Progress bar reflects all 10 steps | ✅ COMPLETE | Percentage based on completed/total |
 
 ---
 
