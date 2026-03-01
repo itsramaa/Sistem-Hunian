@@ -709,7 +709,7 @@ The system uses **full-page navigation** for most actions, causing excessive con
 
 ---
 
-#### Pattern 2: State Transitions Without Feedback
+#### Pattern 2: State Transitions Without Feedback ✅ COMPLETE
 **Example: Move-Out Workflow**
 - User navigates to Tenants > Move-Outs
 - Initiates tenant move-out (triggers TENANT_MOVE_OUT_TRANSITIONS)
@@ -724,9 +724,16 @@ The system uses **full-page navigation** for most actions, causing excessive con
   - All 4 state machines visible in one wizard
   - Merchant knows what's blocking re-listing
 
+**Implementation Status:**
+- ✅ `StateMachineTracker` component created — shows 4 parallel state machines (Pemberitahuan, Unit, Deposit, Kontrak) with real-time progression
+- ✅ Embedded as persistent sidebar in `MoveOutWizard` (desktop: right column, mobile: collapsible above content)
+- ✅ Current state pulses with `animate-pulse`; completed states show green; future states muted
+- ✅ Derives unit status from contract status (active→occupied, terminated→available)
+- ✅ Visible across all 4 wizard steps, not just step 4
+
 ---
 
-#### Pattern 3: No Bulk Operations
+#### Pattern 3: No Bulk Operations ✅ COMPLETE
 **Scenario:** Small property owner manages 10 units. 2 tenants move out in same month.
 - Must process move-out for Tenant A (navigate: Tenants → Move-Outs → Confirm)
 - Must process move-out for Tenant B (navigate: Tenants → Move-Outs → Confirm)
@@ -740,7 +747,11 @@ The system uses **full-page navigation** for most actions, causing excessive con
 - Single wizard handles both, updates both state machines in parallel
 - Saves 4 navigation cycles
 
-**Document Evidence:** No mention of bulk operations in state machines or page files → **not implemented**.
+**Implementation Status:**
+- ✅ `MoveOutsTable` has checkbox selection with `selectedIds` state
+- ✅ Floating bulk action bar appears when 2+ items selected
+- ✅ `BulkMoveOutProcessor` component with 4 collapsible sections (summary, acknowledge, schedule inspection, settle deposits)
+- ✅ `useBulkMoveOutData` hook with bulk mutations for parallel processing
 
 ---
 
