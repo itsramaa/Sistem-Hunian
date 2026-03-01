@@ -1,27 +1,55 @@
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { useMerchantDashboardStats } from "@/features/dashboard/hooks/useMerchantDashboardStats";
+import { useOnboardingJourney, OnboardingStatus } from "@/features/launch/hooks/useOnboardingJourney";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Progress } from "@/shared/components/ui/progress";
 import { Button } from "@/shared/components/ui/button";
-import { CheckCircle2, Circle, ChevronRight, Rocket, X } from "lucide-react";
+import { CheckCircle2, Circle, ChevronRight, Rocket, X, Clock, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 
-interface CheckItem {
-  id: string;
-  label: string;
-  description: string;
-  completed: boolean;
-  path: string;
-}
+const statusConfig: Record<OnboardingStatus, {
+  icon: typeof CheckCircle2;
+  iconClass: string;
+  bgClass: string;
+  textClass: string;
+  clickable: boolean;
+}> = {
+  completed: {
+    icon: CheckCircle2,
+    iconClass: 'text-success',
+    bgClass: 'bg-success/5 hover:bg-success/10',
+    textClass: 'line-through text-muted-foreground',
+    clickable: false,
+  },
+  active: {
+    icon: Circle,
+    iconClass: 'text-primary',
+    bgClass: 'hover:bg-primary/5 border border-transparent hover:border-border/40',
+    textClass: 'text-foreground',
+    clickable: true,
+  },
+  blocking: {
+    icon: Clock,
+    iconClass: 'text-warning animate-pulse',
+    bgClass: 'bg-warning/5',
+    textClass: 'text-muted-foreground',
+    clickable: false,
+  },
+  pending: {
+    icon: Circle,
+    iconClass: 'text-muted-foreground/30',
+    bgClass: 'opacity-50',
+    textClass: 'text-muted-foreground/60',
+    clickable: false,
+  },
+};
 
 export function MerchantQuickStartChecklist() {
   const { merchant } = useAuth();
-  const { data: stats } = useMerchantDashboardStats();
+  const { steps, completedCount, totalSteps, progress, allDone } = useOnboardingJourney();
   const navigate = useNavigate();
   const [dismissed, setDismissed] = useState(false);
 
-  // Persist dismissal per merchant
   useEffect(() => {
     if (merchant?.id) {
       const key = `quickstart_dismissed_${merchant.id}`;
@@ -36,49 +64,6 @@ export function MerchantQuickStartChecklist() {
     setDismissed(true);
   };
 
-  const items: CheckItem[] = [
-    {
-      id: 'profile',
-      label: 'Lengkapi profil bisnis',
-      description: 'Nama bisnis, alamat, dan info kontak',
-      completed: !!merchant?.business_name && merchant.business_name !== 'My Business',
-      path: '/merchant/profile',
-    },
-    {
-      id: 'property',
-      label: 'Tambah properti pertama',
-      description: 'Daftarkan kos/apartemen Anda',
-      completed: (stats?.properties.total || 0) > 0,
-      path: '/merchant/properties',
-    },
-    {
-      id: 'unit',
-      label: 'Buat unit di properti',
-      description: 'Tambah kamar/unit yang tersedia',
-      completed: (stats?.properties.totalUnits || 0) > 0,
-      path: '/merchant/properties',
-    },
-    {
-      id: 'tenant',
-      label: 'Tambah penyewa pertama',
-      description: 'Undang atau buat kontrak untuk penyewa',
-      completed: (stats?.tenants.active || 0) > 0,
-      path: '/merchant/tenants',
-    },
-    {
-      id: 'invoice',
-      label: 'Buat tagihan pertama',
-      description: 'Kirim tagihan sewa ke penyewa',
-      completed: (stats?.financials.monthlyRevenue || 0) > 0,
-      path: '/merchant/invoices',
-    },
-  ];
-
-  const completedCount = items.filter(i => i.completed).length;
-  const progress = (completedCount / items.length) * 100;
-  const allDone = completedCount === items.length;
-
-  // Don't show if dismissed or all completed
   if (dismissed || allDone) return null;
 
   return (
@@ -93,7 +78,7 @@ export function MerchantQuickStartChecklist() {
             <div>
               <CardTitle className="text-base">Quick Start</CardTitle>
               <CardDescription>
-                {completedCount}/{items.length} langkah selesai
+                {completedCount}/{totalSteps} langkah selesai
               </CardDescription>
             </div>
           </div>
@@ -104,33 +89,34 @@ export function MerchantQuickStartChecklist() {
         <Progress value={progress} className="h-2 mt-2 rounded-full [&>div]:bg-primary" />
       </CardHeader>
       <CardContent>
-        <div className="space-y-2">
-          {items.map(item => (
-            <div
-              key={item.id}
-              className={`flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer ${
-                item.completed 
-                  ? 'bg-success/5 hover:bg-success/10' 
-                  : 'hover:bg-primary/5 border border-transparent hover:border-border/40'
-              }`}
-              onClick={() => !item.completed && navigate(item.path)}
-            >
-              {item.completed ? (
-                <CheckCircle2 className="h-5 w-5 text-success shrink-0" />
-              ) : (
-                <Circle className="h-5 w-5 text-muted-foreground/40 shrink-0" />
-              )}
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium ${item.completed ? 'line-through text-muted-foreground' : ''}`}>
-                  {item.label}
-                </p>
-                <p className="text-xs text-muted-foreground">{item.description}</p>
+        <div className="space-y-1.5">
+          {steps.map(step => {
+            const config = statusConfig[step.status];
+            const Icon = config.icon;
+
+            return (
+              <div
+                key={step.id}
+                className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
+                  config.clickable ? 'cursor-pointer' : ''
+                } ${config.bgClass}`}
+                onClick={() => config.clickable && step.path && navigate(step.path)}
+              >
+                <Icon className={`h-5 w-5 shrink-0 ${config.iconClass}`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium ${config.textClass}`}>
+                    {step.label}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {step.blockingLabel || step.description}
+                  </p>
+                </div>
+                {config.clickable && step.path && (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                )}
               </div>
-              {!item.completed && (
-                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </CardContent>
     </Card>
