@@ -9,6 +9,7 @@ import { WizardStepNoticeReview } from "./WizardStepNoticeReview";
 import { WizardStepInspection } from "./WizardStepInspection";
 import { WizardStepDeposit } from "./WizardStepDeposit";
 import { WizardStepConfirmation } from "./WizardStepConfirmation";
+import { StateMachineTracker } from "./StateMachineTracker";
 
 const STEPS = [
   { id: 1, label: "Pemberitahuan", icon: FileText },
@@ -134,34 +135,46 @@ export function MoveOutWizard({ noticeId }: MoveOutWizardProps) {
         </div>
       </nav>
 
-      {/* Step Content */}
-      <div className="min-h-[400px]">
-        {activeStep === 1 && (
-          <WizardStepNoticeReview
-            data={data}
-            onNext={() => setActiveStep(2)}
-          />
-        )}
-        {activeStep === 2 && (
-          <WizardStepInspection
-            data={data}
-            onNext={() => setActiveStep(3)}
-            onBack={() => setActiveStep(1)}
-          />
-        )}
-        {activeStep === 3 && (
-          <WizardStepDeposit
-            data={data}
-            onNext={() => setActiveStep(4)}
-            onBack={() => setActiveStep(2)}
-          />
-        )}
-        {activeStep === 4 && (
-          <WizardStepConfirmation
-            data={data}
-            onBack={() => setActiveStep(3)}
-          />
-        )}
+      {/* Step Content + State Machine Tracker */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 min-h-[400px]">
+        {/* Mobile: collapsible tracker above content */}
+        <div className="lg:hidden">
+          <StateMachineTracker data={data} />
+        </div>
+
+        <div className="lg:col-span-3">
+          {activeStep === 1 && (
+            <WizardStepNoticeReview
+              data={data}
+              onNext={() => setActiveStep(2)}
+            />
+          )}
+          {activeStep === 2 && (
+            <WizardStepInspection
+              data={data}
+              onNext={() => setActiveStep(3)}
+              onBack={() => setActiveStep(1)}
+            />
+          )}
+          {activeStep === 3 && (
+            <WizardStepDeposit
+              data={data}
+              onNext={() => setActiveStep(4)}
+              onBack={() => setActiveStep(2)}
+            />
+          )}
+          {activeStep === 4 && (
+            <WizardStepConfirmation
+              data={data}
+              onBack={() => setActiveStep(3)}
+            />
+          )}
+        </div>
+
+        {/* Desktop: persistent sidebar */}
+        <aside className="hidden lg:block lg:col-span-1">
+          <StateMachineTracker data={data} />
+        </aside>
       </div>
     </div>
   );
