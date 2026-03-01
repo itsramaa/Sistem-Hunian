@@ -1,135 +1,115 @@
 
 
-# Improvement 10: Property-Level Staff Permission Scoping
+# Improvement: Enhanced Onboarding Journey Checklist with Blocking Step Visibility
 
 ## Overview
 
-The `merchant_staff` table already has a `property_ids` column, but it is never enforced anywhere. Staff permissions are completely global -- `checkPermission()` doesn't check which properties a staff member is assigned to. This improvement activates property-level scoping so that staff can only access data for their assigned properties.
+Upgrade the existing `MerchantQuickStartChecklist` to show the full 10-step onboarding journey (from registration to first revenue), with clear visual indicators for **blocking steps** -- steps where the merchant is waiting on someone else (admin, tenant, system). Currently the checklist only tracks 5 binary milestones and has no concept of "waiting" states.
 
 ## Current State
 
-- `merchant_staff.property_ids` (JSON array) exists but is decorative -- only displayed as a count badge in the UI
-- `staff_permissions` table has no property-level scoping
-- `checkPermission()` returns true/false based solely on permission key, ignoring property context
-- The invite dialog has no property selector
-- No data queries (invoices, maintenance, expenses, etc.) filter by staff's assigned properties
+- `MerchantQuickStartChecklist` tracks 5 items: profile, property, unit, tenant, invoice -- all binary (done/not done)
+- No visibility into blocking steps: admin verification, tenant invitation acceptance, contract signing, first payment
+- `merchant.verification_status` is available from `useAuth()` but not shown in the checklist
+- `tenant_invitations` table has `status` field (pending/accepted/cancelled)
+- Contracts have `signature_status` (pending_signatures/partially_signed/fully_signed)
+- Invoice/payment status is queryable
 
 ## What Changes
 
-### 1. Modify: `checkPermission` to accept optional `propertyId`
+### 1. Extend `CheckItem` interface to support blocking states
 
-Update `checkPermission()` in `staffService.ts` to:
-- Accept an optional `propertyId` parameter
-- When provided, fetch the staff member's `property_ids` and check if the requested property is in the list
-- If `property_ids` is empty, treat as "all properties" (backward compatible)
-- Owner still bypasses all checks
+Add a `status` field: `'completed' | 'active' | 'blocking' | 'pending'`
+- `completed`: Done (green check)
+- `active`: Merchant can act now (blue, clickable)
+- `blocking`: Waiting on external party (amber/yellow, with "Menunggu..." label)
+- `pending`: Not yet reachable (gray)
 
-This is the core enforcement point -- all existing callers continue working (propertyId is optional).
+### 2. Create `useOnboardingJourney` hook
 
-### 2. Create: `checkPropertyAccess` helper function
+New hook that queries the data needed for 10-step journey status:
+- `merchant.verification_status` (from `useAuth`)
+- Property count (from `useMerchantDashboardStats`)
+- Unit count (from stats)
+- Pending invitations count (query `tenant_invitations` where status = 'pending')
+- Active tenants (from stats)
+- Contracts with unsigned status (query `contracts` where signature_status != 'fully_signed')
+- First invoice existence (from stats)
+- First payment existence (query `payments` where status = 'paid')
 
-New exported function in `staffService.ts`:
-- Given a `userId`, `merchantId`, and `propertyId`, returns whether the staff member has access to that property
-- Owners always have access
-- Staff with empty `property_ids` have access to all properties
-- Staff with non-empty `property_ids` only have access to listed properties
+Returns the 10 checklist items with computed statuses.
 
-### 3. Modify: `useStaffPermission` hook to accept optional `propertyId`
+**File:** `src/features/launch/hooks/useOnboardingJourney.ts` (NEW)
 
-Update the hook signature to `useStaffPermission(permissionKey, propertyId?)` so components can pass the current property context. The hook passes this through to `checkPermission`.
+### 3. Rewrite `MerchantQuickStartChecklist` to use journey data
 
-### 4. Modify: Invite Dialog -- Add property selector
+Replace the hardcoded 5-item list with the 10-step journey from the hook. Visual changes:
+- Blocking items show an amber clock icon + "Menunggu verifikasi admin" text
+- Active items show blue circle + action prompt
+- Completed items show green check (unchanged)
+- Pending items show gray circle (unchanged)
+- Progress bar reflects all 10 steps
 
-Update the invite form in `StaffManagement.tsx` to include a multi-select for properties:
-- Fetch merchant's properties using existing property queries
-- Show checkboxes for each property
-- "Semua Properti" option (empty array = all access)
-- Pass selected `property_ids` to `inviteStaff`
+**File:** `src/features/launch/components/MerchantQuickStartChecklist.tsx` (MODIFY)
 
-### 5. Modify: Staff Card -- Show assigned property names
+### 4. Update audit report
 
-Instead of just showing "3 properti" count, resolve and display the actual property names. This gives merchants clear visibility into what each staff member can access.
-
-### 6. Modify: Permissions Dialog -- Show property scope info
-
-Add a read-only section at the top of the Permissions Dialog showing which properties this staff member is scoped to, with a link to edit.
-
-### 7. Create: `useStaffPropertyAccess` hook
-
-New hook that returns the current user's accessible property IDs:
-- Owners get all properties
-- Staff get their `property_ids` (or all if empty)
-- Used by data-fetching hooks to filter queries
-
-### 8. Update: `old-docs/SYSTEM_AUDIT_REPORT.md`
-
-Add Improvement 10 tracking lines.
+**File:** `old-docs/SYSTEM_AUDIT_REPORT.md` (UPDATE)
 
 ## Files Changed
 
 | File | Action | Description |
 |------|--------|-------------|
-| `src/features/staff/services/staffService.ts` | MODIFY | Add propertyId param to checkPermission, add checkPropertyAccess helper |
-| `src/features/staff/hooks/useStaffPermission.ts` | MODIFY | Accept optional propertyId parameter |
-| `src/features/staff/hooks/useStaffPropertyAccess.ts` | CREATE | Hook returning accessible property IDs for current staff user |
-| `src/pages/merchant/StaffManagement.tsx` | MODIFY | Add property selector to invite dialog, show property names on cards, show scope in permissions dialog |
-| `old-docs/SYSTEM_AUDIT_REPORT.md` | UPDATE | Improvement 10 tracking |
+| `src/features/launch/hooks/useOnboardingJourney.ts` | CREATE | Hook computing 10-step journey status |
+| `src/features/launch/components/MerchantQuickStartChecklist.tsx` | MODIFY | Use new hook, render blocking/active/pending states |
+| `old-docs/SYSTEM_AUDIT_REPORT.md` | UPDATE | Track 2B-A recommendation implementation |
 
 ## Technical Details
 
-### Updated `checkPermission` signature
+### 10-Step Journey Items
+
+| # | Label | Status Logic |
+|---|-------|-------------|
+| 1 | Registrasi akun | Always completed (user is logged in) |
+| 2 | Lengkapi profil bisnis | `merchant.business_name !== 'My Business'` |
+| 3 | Verifikasi admin | `verification_status`: pending = blocking, verified = completed |
+| 4 | Tambah properti pertama | `stats.properties.total > 0` |
+| 5 | Buat unit di properti | `stats.properties.totalUnits > 0` |
+| 6 | Undang penyewa | Has pending/accepted invitation or active tenant |
+| 7 | Penyewa menerima undangan | Blocking if invitation pending, completed if tenant active |
+| 8 | Buat kontrak | Has any contract |
+| 9 | Tanda tangan kontrak | Blocking if contract unsigned, completed if fully_signed |
+| 10 | Pembayaran pertama | `stats.financials.monthlyRevenue > 0` or any paid payment |
+
+### Status Computation Logic
+
+Each step is computed sequentially -- if a prior step is incomplete, all subsequent steps are `pending`. Blocking steps are identified when the step's prerequisite is met but the step itself depends on an external party.
+
+### Visual Design
 
 ```text
-checkPermission(userId, merchantId, permissionKey, propertyId?)
-  1. Owner check (unchanged) -> true
-  2. Find staff record (unchanged)
-  3. NEW: If propertyId provided AND staff.property_ids is non-empty:
-     - Check if propertyId is in staff.property_ids
-     - If not, return false (no access to this property)
-  4. Check permission key (unchanged)
+[check] Registrasi akun                          -- green, completed
+[check] Lengkapi profil bisnis                    -- green, completed
+[clock] Verifikasi admin                          -- amber, "Menunggu verifikasi..."
+[gray]  Tambah properti pertama                   -- gray, pending (blocked by step 3)
+[gray]  Buat unit di properti                     -- gray, pending
+...
 ```
 
-### `checkPropertyAccess` function
+Blocking items show:
+- Amber/warning clock icon
+- "Menunggu..." description text
+- Non-clickable (merchant can't act)
+- Subtle amber background
 
-```text
-checkPropertyAccess(userId, merchantId, propertyId)
-  1. Owner -> true
-  2. Find staff with property_ids
-  3. If property_ids is empty -> true (all access)
-  4. If propertyId in property_ids -> true
-  5. Else -> false
-```
+### Query Efficiency
 
-### `useStaffPropertyAccess` hook
+The hook reuses `useMerchantDashboardStats` for most data. Only 2 additional lightweight queries:
+1. `tenant_invitations` count (pending status, merchant_id filter)
+2. `contracts` with `signature_status` check (1 row, head query)
 
-```text
-Returns: { accessiblePropertyIds: string[] | null, isAllAccess: boolean, isLoading }
-- null = owner (all access)
-- empty array with isAllAccess=true = staff with no restrictions
-- non-empty array = staff limited to these properties
-```
-
-### Property Selector in Invite Dialog
-
-Uses existing property data (from property queries already available in the merchant context). Renders as a list of checkboxes:
-```text
-Akses Properti:
-[x] Semua Properti (default)
-[ ] Bangunan Sejahtera
-[ ] Kost Bahagia
-[ ] Rumah Harmoni
-```
-
-When "Semua Properti" is unchecked, individual properties become selectable.
+Both use `staleTime: 5 * 60 * 1000` to avoid excessive requests.
 
 ### No Database Changes
 
-The `merchant_staff.property_ids` column already exists. No schema changes needed. The enforcement happens purely in application logic via `checkPermission` and the new `checkPropertyAccess` helper.
-
-### Backward Compatibility
-
-- All existing `checkPermission` calls continue working (no propertyId = no property check)
-- All existing `useStaffPermission` calls continue working (propertyId is optional)
-- Staff with empty `property_ids` retain full access (same as before)
-- Only staff explicitly assigned to specific properties get scoped
-
+All data is already available in existing tables. No schema modifications needed.
