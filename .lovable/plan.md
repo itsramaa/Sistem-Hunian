@@ -1,115 +1,100 @@
 
 
-# Improvement: Enhanced Onboarding Journey Checklist with Blocking Step Visibility
+# Improvement: Inline Invoice Detail Panel on Collections Page (Pattern 1 Fix)
 
 ## Overview
 
-Upgrade the existing `MerchantQuickStartChecklist` to show the full 10-step onboarding journey (from registration to first revenue), with clear visual indicators for **blocking steps** -- steps where the merchant is waiting on someone else (admin, tenant, system). Currently the checklist only tracks 5 binary milestones and has no concept of "waiting" states.
+Replace the current dropdown-menu-only interaction on the Collections outstanding table with a **click-to-open Sheet panel** that slides from the right. Clicking a table row opens an inline panel showing invoice details, send-reminder action, and payment matching -- all without leaving the page. This reduces the workflow from 5-6 page navigations to 2-3 in-context actions.
 
 ## Current State
 
-- `MerchantQuickStartChecklist` tracks 5 items: profile, property, unit, tenant, invoice -- all binary (done/not done)
-- No visibility into blocking steps: admin verification, tenant invitation acceptance, contract signing, first payment
-- `merchant.verification_status` is available from `useAuth()` but not shown in the checklist
-- `tenant_invitations` table has `status` field (pending/accepted/cancelled)
-- Contracts have `signature_status` (pending_signatures/partially_signed/fully_signed)
-- Invoice/payment status is queryable
+- `OutstandingTable` has a dropdown menu (3-dot button) per row with actions: Send Reminder, Process Payment, Call Tenant
+- "Process Payment" opens `InlinePaymentMatchDialog` (a centered Dialog/modal) showing candidate payments
+- There is no way to click a row to see invoice details inline
+- The Sheet component (`src/shared/components/ui/sheet.tsx`) exists with `side="right"` support
 
 ## What Changes
 
-### 1. Extend `CheckItem` interface to support blocking states
+### 1. Create: `InvoiceDetailSheet` component
 
-Add a `status` field: `'completed' | 'active' | 'blocking' | 'pending'`
-- `completed`: Done (green check)
-- `active`: Merchant can act now (blue, clickable)
-- `blocking`: Waiting on external party (amber/yellow, with "Menunggu..." label)
-- `pending`: Not yet reachable (gray)
+New component: `src/features/collections/components/InvoiceDetailSheet.tsx`
 
-### 2. Create `useOnboardingJourney` hook
+A right-sliding Sheet panel that shows:
+- **Invoice summary** section (unit, tenant, invoice number, amount, days overdue, due date, last payment)
+- **Quick actions** section:
+  - "Kirim Pengingat" button (reuse existing reminder logic)
+  - "Hubungi Penyewa" link
+- **Payment matching** section (embedded directly, not a separate dialog):
+  - Reuses `useInvoiceCandidatePayments` hook
+  - Shows candidate payments with confidence scores
+  - "Konfirmasi Cocok" button inline
+  - Success state after matching
+- Uses the existing `Sheet`, `SheetContent`, `SheetHeader`, `SheetTitle` components with `side="right"`
 
-New hook that queries the data needed for 10-step journey status:
-- `merchant.verification_status` (from `useAuth`)
-- Property count (from `useMerchantDashboardStats`)
-- Unit count (from stats)
-- Pending invitations count (query `tenant_invitations` where status = 'pending')
-- Active tenants (from stats)
-- Contracts with unsigned status (query `contracts` where signature_status != 'fully_signed')
-- First invoice existence (from stats)
-- First payment existence (query `payments` where status = 'paid')
+### 2. Modify: `OutstandingTable` -- Add row click to open Sheet
 
-Returns the 10 checklist items with computed statuses.
+- Clicking a table row opens the `InvoiceDetailSheet` for that invoice
+- The dropdown menu remains as a secondary access method
+- "Proses Pembayaran" in dropdown now also opens the Sheet (instead of the Dialog)
+- Row gets a `cursor-pointer` and hover highlight
+- The existing `InlinePaymentMatchDialog` import can be removed (functionality absorbed into the Sheet)
 
-**File:** `src/features/launch/hooks/useOnboardingJourney.ts` (NEW)
+### 3. Update: `old-docs/SYSTEM_AUDIT_REPORT.md`
 
-### 3. Rewrite `MerchantQuickStartChecklist` to use journey data
-
-Replace the hardcoded 5-item list with the 10-step journey from the hook. Visual changes:
-- Blocking items show an amber clock icon + "Menunggu verifikasi admin" text
-- Active items show blue circle + action prompt
-- Completed items show green check (unchanged)
-- Pending items show gray circle (unchanged)
-- Progress bar reflects all 10 steps
-
-**File:** `src/features/launch/components/MerchantQuickStartChecklist.tsx` (MODIFY)
-
-### 4. Update audit report
-
-**File:** `old-docs/SYSTEM_AUDIT_REPORT.md` (UPDATE)
+Track Pattern 1 implementation with step-level status markers.
 
 ## Files Changed
 
 | File | Action | Description |
 |------|--------|-------------|
-| `src/features/launch/hooks/useOnboardingJourney.ts` | CREATE | Hook computing 10-step journey status |
-| `src/features/launch/components/MerchantQuickStartChecklist.tsx` | MODIFY | Use new hook, render blocking/active/pending states |
-| `old-docs/SYSTEM_AUDIT_REPORT.md` | UPDATE | Track 2B-A recommendation implementation |
+| `src/features/collections/components/InvoiceDetailSheet.tsx` | CREATE | Right-sliding panel with invoice details + inline payment matching |
+| `src/features/collections/components/OutstandingTable.tsx` | MODIFY | Add row click handler, replace Dialog with Sheet |
+| `old-docs/SYSTEM_AUDIT_REPORT.md` | UPDATE | Pattern 1 implementation tracking |
 
 ## Technical Details
 
-### 10-Step Journey Items
-
-| # | Label | Status Logic |
-|---|-------|-------------|
-| 1 | Registrasi akun | Always completed (user is logged in) |
-| 2 | Lengkapi profil bisnis | `merchant.business_name !== 'My Business'` |
-| 3 | Verifikasi admin | `verification_status`: pending = blocking, verified = completed |
-| 4 | Tambah properti pertama | `stats.properties.total > 0` |
-| 5 | Buat unit di properti | `stats.properties.totalUnits > 0` |
-| 6 | Undang penyewa | Has pending/accepted invitation or active tenant |
-| 7 | Penyewa menerima undangan | Blocking if invitation pending, completed if tenant active |
-| 8 | Buat kontrak | Has any contract |
-| 9 | Tanda tangan kontrak | Blocking if contract unsigned, completed if fully_signed |
-| 10 | Pembayaran pertama | `stats.financials.monthlyRevenue > 0` or any paid payment |
-
-### Status Computation Logic
-
-Each step is computed sequentially -- if a prior step is incomplete, all subsequent steps are `pending`. Blocking steps are identified when the step's prerequisite is met but the step itself depends on an external party.
-
-### Visual Design
+### InvoiceDetailSheet Structure
 
 ```text
-[check] Registrasi akun                          -- green, completed
-[check] Lengkapi profil bisnis                    -- green, completed
-[clock] Verifikasi admin                          -- amber, "Menunggu verifikasi..."
-[gray]  Tambah properti pertama                   -- gray, pending (blocked by step 3)
-[gray]  Buat unit di properti                     -- gray, pending
-...
+Sheet (side="right", max-w-md)
+  SheetHeader
+    SheetTitle: "Detail Tagihan"
+    SheetDescription: Invoice number
+  
+  ScrollArea
+    Section 1: Invoice Summary (reuse summary card from InlinePaymentMatchDialog)
+      - Unit, Tenant, Amount, Days Overdue, Due Date, Last Payment
+    
+    Section 2: Quick Actions (horizontal button row)
+      - Kirim Pengingat (with loading state)
+      - Hubungi Penyewa (tel: link)
+    
+    Section 3: Payment Matching (embedded)
+      - Header: "Pembayaran Kandidat (N ditemukan)"
+      - Candidate cards with confidence badges
+      - "Konfirmasi Cocok" button per card
+      - Success state after match
 ```
 
-Blocking items show:
-- Amber/warning clock icon
-- "Menunggu..." description text
-- Non-clickable (merchant can't act)
-- Subtle amber background
+### Row Click Behavior
 
-### Query Efficiency
+- Clicking anywhere on a `TableRow` opens the Sheet for that invoice
+- The dropdown 3-dot button uses `e.stopPropagation()` to prevent double-open
+- Selected row gets a subtle highlight (`bg-primary/5`)
 
-The hook reuses `useMerchantDashboardStats` for most data. Only 2 additional lightweight queries:
-1. `tenant_invitations` count (pending status, merchant_id filter)
-2. `contracts` with `signature_status` check (1 row, head query)
+### Reuse Strategy
 
-Both use `staleTime: 5 * 60 * 1000` to avoid excessive requests.
+- `useInvoiceCandidatePayments` hook: reused as-is inside the Sheet
+- `collectionsService.sendReminder`: reused for reminder action
+- `reconciliationService.manualMatch`: reused for payment matching
+- `formatCurrency`: reused for amount display
+- The `InlinePaymentMatchDialog` component becomes unused after this change and can be kept for backward compatibility or removed
+
+### Sheet Width
+
+Override the default `sm:max-w-sm` to `sm:max-w-md` (448px) to give enough room for payment candidate cards with confidence badges.
 
 ### No Database Changes
 
-All data is already available in existing tables. No schema modifications needed.
+Purely a frontend interaction improvement. All data queries and mutations are already in place.
+
