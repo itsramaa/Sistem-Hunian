@@ -75,10 +75,10 @@ export const maintenanceService = {
         tenant:profiles!maintenance_requests_tenant_user_id_fkey(user_id, full_name, email, phone)
       `)
       .eq('id', id)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
-    return (data as unknown) as MaintenanceRequest;
+    return data ? (data as unknown as MaintenanceRequest) : null;
   },
 
   async createRequest(payload: CreateMaintenanceRequestPayload): Promise<MaintenanceRequest> {
@@ -158,6 +158,7 @@ export const maintenanceService = {
         unit_id: payload.unit_id,
         merchant_id: payload.merchant_id,
         images: payload.images || null,
+        estimated_cost: payload.estimated_cost || null,
       } as any)
       .select()
       .single();

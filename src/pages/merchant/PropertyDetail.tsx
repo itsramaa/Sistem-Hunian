@@ -308,7 +308,7 @@ export default function PropertyDetail() {
   const filteredUnits = unitFilter === 'all' ? units : units.filter((u: any) => u.status === unitFilter);
   const maintenanceUnits = units.filter((u: any) => u.status === 'maintenance').length;
   const activeContracts = propertyContracts.filter((c: any) => c.status === 'active');
-  const pendingMaintenance = propertyMaintenance.filter((r: any) => r.status !== 'resolved' && r.status !== 'closed');
+  const pendingMaintenance = propertyMaintenance.filter((r: any) => r.status !== 'completed' && r.status !== 'cancelled');
 
   // Paginated data
   const unitTotalPages = Math.ceil(filteredUnits.length / ITEMS_PER_PAGE);

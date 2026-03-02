@@ -112,7 +112,7 @@ export default function MerchantMaintenanceDetail() {
   const { toast } = useToast();
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
 
-  const { data: request, isLoading } = useMaintenanceRequest(id);
+  const { data: request, isLoading, error } = useMaintenanceRequest(id);
   const { data: vendors = [] } = useVerifiedVendors();
   const updateStatusMutation = useUpdateMaintenanceRequest();
 
@@ -192,15 +192,26 @@ export default function MerchantMaintenanceDetail() {
     );
   }
 
-  if (!request) {
+  if (error || !request) {
     return (
       <div className="space-y-6">
         <Button variant="ghost" asChild className="gap-2 rounded-xl" aria-label="Kembali ke daftar pemeliharaan">
           <Link to="/merchant/maintenance"><ArrowLeft className="h-4 w-4" aria-hidden="true" /> Kembali</Link>
         </Button>
         <div className="text-center py-16" role="alert">
-          <Wrench className="h-12 w-12 mx-auto text-muted-foreground mb-4" aria-hidden="true" />
-          <h2 className="text-xl font-semibold">Permintaan pemeliharaan tidak ditemukan</h2>
+          {error ? (
+            <>
+              <AlertTriangle className="h-12 w-12 mx-auto text-destructive mb-4" aria-hidden="true" />
+              <h2 className="text-xl font-semibold mb-2">Gagal memuat data pemeliharaan</h2>
+              <p className="text-sm text-muted-foreground mb-4">{(error as Error).message}</p>
+              <Button variant="outline" onClick={() => window.location.reload()} className="rounded-xl">Coba Lagi</Button>
+            </>
+          ) : (
+            <>
+              <Wrench className="h-12 w-12 mx-auto text-muted-foreground mb-4" aria-hidden="true" />
+              <h2 className="text-xl font-semibold">Permintaan pemeliharaan tidak ditemukan</h2>
+            </>
+          )}
         </div>
       </div>
     );
