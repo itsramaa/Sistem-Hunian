@@ -39,10 +39,11 @@ import {
   Plus,
   RefreshCw,
   ScrollText,
-  Settings2,
+  SlidersHorizontal,
   TrendingUp,
   Users,
-  Wallet
+  Wallet,
+  X
 } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -245,23 +246,22 @@ export default function MerchantDashboard() {
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-success/20 to-success/5 flex items-center justify-center"><Wallet className="h-4 w-4 text-success" /></div>
-                <div><CardTitle>Ringkasan Keuangan</CardTitle><CardDescription>Performa pendapatan bulan ini</CardDescription></div>
+                <div><CardTitle>Ringkasan Keuangan</CardTitle><CardDescription>Ikhtisar keuangan cepat</CardDescription></div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="rounded-xl bg-card/80 backdrop-blur-sm border border-border/40 p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-muted-foreground">Pendapatan Bulanan</p>
-                      <p className="text-2xl font-bold">{formatCurrency(stats?.financials.monthlyRevenue || 0)}</p>
-                    </div>
-                    <div className={`flex items-center rounded-full px-2 py-1 text-xs font-medium ${(stats?.financials.revenueGrowth || 0) >= 0 ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}>
-                      {(stats?.financials.revenueGrowth || 0) >= 0 ? <ArrowUpRight className="mr-1 h-3 w-3" /> : <ArrowDownRight className="mr-1 h-3 w-3" />}
-                      {Math.abs(Math.round(stats?.financials.revenueGrowth || 0))}%
-                    </div>
-                  </div>
-                  <div className="mt-4 text-xs text-muted-foreground">vs {formatCurrency(stats?.financials.lastMonthRevenue || 0)} bulan lalu</div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-card/80 border border-border/40">
+                  <span className="text-sm text-muted-foreground">Saldo Tersedia</span>
+                  <span className="text-sm font-semibold">{formatCurrency(stats?.financials.balance || 0)}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-xl bg-card/80 border border-border/40">
+                  <span className="text-sm text-muted-foreground">Saldo Tertunda</span>
+                  <span className="text-sm font-semibold">{formatCurrency(stats?.financials.pendingBalance || 0)}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-xl bg-card/80 border border-border/40">
+                  <span className="text-sm text-muted-foreground">Piutang</span>
+                  <span className="text-sm font-semibold text-warning">{formatCurrency(stats?.financials.outstandingReceivables || 0)}</span>
                 </div>
                 <Button className="w-full gradient-cta rounded-xl shadow-md" onClick={() => navigate('/merchant/reports')}>Lihat Laporan Detail</Button>
               </div>
@@ -306,6 +306,11 @@ export default function MerchantDashboard() {
     ),
   };
 
+  // Resolve scoped property name
+  const scopedPropertyName = selectedPropertyId
+    ? stats?.properties.list.find(p => p.id === selectedPropertyId)?.name
+    : null;
+
   return (
     <div className="space-y-8 pb-8">
       {/* PageHeader */}
@@ -315,14 +320,33 @@ export default function MerchantDashboard() {
         description={`Selamat datang kembali, ${merchant?.business_name || 'Merchant'}! Berikut ringkasan bisnis Anda.`}
       >
         <Button variant="outline" size="sm" onClick={() => setCustomizeOpen(true)} className="gap-2 rounded-xl">
-          <Settings2 className="h-4 w-4" />
-          Kustomisasi
+          <SlidersHorizontal className="h-4 w-4" />
+          Personalisasi Dasbor
         </Button>
         <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isRefetching} className="gap-2 rounded-xl" aria-label="Segarkan data dashboard">
           <RefreshCw className={`h-4 w-4 ${isRefetching ? 'animate-spin' : ''}`} />
           Segarkan
         </Button>
       </PageHeader>
+
+      {/* Scope Indicator */}
+      {selectedPropertyId && scopedPropertyName && (
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary/5 border border-primary/20">
+          <Building2 className="h-4 w-4 text-primary shrink-0" />
+          <span className="text-sm font-medium text-primary">
+            Menampilkan data untuk: <strong>{scopedPropertyName}</strong>
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 ml-auto text-primary hover:text-primary/80 hover:bg-primary/10 rounded-lg"
+            onClick={() => usePropertyContext.getState().setSelectedProperty(null)}
+            aria-label="Hapus filter properti"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
 
       {/* Alert Strip */}
       <TrialCountdownWidget />
