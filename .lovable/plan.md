@@ -1,47 +1,58 @@
 
+# Fix: Maintenance Bugs (Detail Not Found + Buggy Behavior)
 
-# Improvement: Pattern 4 (Async Status Feedback) and Pattern 5 (Modal vs Full-Page Consistency)
+## Root Cause Analysis
 
-## Analysis
+Found **5 bugs** across the maintenance feature:
 
-### Pattern 4: No Async Status Updates
-The app already uses toast notifications -- no actual full-page refreshes occur. However, there are two problems:
-1. **Mixed toast systems**: 27 files use shadcn's `useToast` (bottom-right, dismissable) while newer code uses sonner (top-center, auto-dismiss). This creates inconsistent feedback UX.
-2. **Generic messages**: Toasts say "Reminder sent" without context (tenant name, amount). Messages are partly English, partly Indonesian.
+### Bug 1: `getRequestById` uses `.single()` instead of `.maybeSingle()`
+In `maintenanceService.ts` line 78, `.single()` **throws an error** when no rows are returned. This means the detail page query enters an **error state** (not `data = null`), but the page only checks `!request` (no error handling). Result: user sees loading skeleton forever or a cryptic error instead of the "not found" message.
 
-**Fix**: Standardize all payment/invoice action feedback on **sonner** with rich, contextual Indonesian messages. Sonner is the better choice because it's simpler (no hook needed), auto-dismisses, and is already used in newer code.
+### Bug 2: Detail page has no error state handling
+`MaintenanceDetail.tsx` checks `isLoading` and `!request`, but never checks `error`. When `.single()` throws, `isLoading = false` and `request = undefined`, but the error may prevent proper rendering.
 
-### Pattern 5: Modal vs Full-Page Inconsistency
-The InvoicesTable currently navigates to a full page (`/merchant/invoices/:id`) on row click, while the Collections OutstandingTable opens an inline Sheet. This is inconsistent.
+### Bug 3: Timeline table mismatch
+- **Writes** go to `maintenance_timeline` table (status changes, reviews)
+- **Reads** come from `maintenance_updates` table (manual replies only)
+- The `UpdateTimeline` component only shows manual replies, missing all automated status change entries
 
-**Fix**: Make InvoicesTable row click open `InvoiceDetailsDialog` inline (already exists as a prop `onView`) instead of navigating to a full page. Remove the `useNavigate` call.
+### Bug 4: `createMerchantRequest` drops `estimated_cost`
+The `CreateMaintenanceDialog` collects `estimated_cost` and sends it in the payload, but `maintenanceService.createMerchantRequest()` never includes it in the insert. The field is silently dropped.
 
-## Files Changed
+### Bug 5: Wrong status filter in PropertyDetail
+`pendingMaintenance` filters `status !== 'resolved' && status !== 'closed'` but these statuses don't exist. Actual statuses are: `pending`, `in_progress`, `completed`, `cancelled`. So the badge count is always wrong (shows ALL maintenance as pending).
 
-| File | Action | Description |
-|------|--------|-------------|
-| `src/features/payments/hooks/useInvoiceActions.ts` | MODIFY | Switch from shadcn toast to sonner with rich Indonesian messages |
-| `src/features/payments/components/InvoicesTable.tsx` | MODIFY | Row click opens detail dialog instead of full-page navigation |
-| `old-docs/SYSTEM_AUDIT_REPORT.md` | UPDATE | Pattern 4 and 5 tracking |
+## Fixes
+
+### File 1: `src/features/maintenance/services/maintenanceService.ts`
+- **Line 78**: Change `.single()` to `.maybeSingle()` in `getRequestById`
+- **Line 151-163**: Add `estimated_cost` to the insert in `createMerchantRequest`
+
+### File 2: `src/pages/merchant/MaintenanceDetail.tsx`
+- Add `error` from the query destructuring
+- Add error state UI before the "not found" check (shows proper error message with retry button)
+
+### File 3: `src/features/maintenance/components/UpdateTimeline.tsx`
+- Merge data from both `maintenance_updates` AND `maintenance_timeline` tables
+- Sort combined entries by `created_at` ascending
+- Display timeline entries (status changes) with distinct styling from manual updates
+
+### File 4: `src/pages/merchant/PropertyDetail.tsx`
+- **Line 311**: Change `pendingMaintenance` filter from `status !== 'resolved' && status !== 'closed'` to `status !== 'completed' && status !== 'cancelled'`
+
+### File 5: `old-docs/SYSTEM_AUDIT_REPORT.md`
+- Track all 5 bug fixes
 
 ## Technical Details
 
-### useInvoiceActions.ts Changes
-- Replace `import { useToast } from '@/shared/hooks/use-toast'` with `import { toast } from 'sonner'`
-- Remove `const { toast } = useToast()` line
-- Convert all `toast({ title, description, variant })` calls to `toast.success(message)` / `toast.error(message)`:
-  - `handleCreateInvoice`: `toast.success('Faktur berhasil dibuat')`
-  - `handleSendInvoice`: `toast.success('Faktur berhasil dikirim ke penyewa')`
-  - `handleMarkAsPaid`: `toast.success('Faktur ditandai lunas')`
-  - `handleSendReminder`: `toast.success('Pengingat pembayaran berhasil dikirim')`
-  - `downloadInvoicePdf`: `toast.loading('Membuat PDF...')` then success/error
-  - All error cases: `toast.error('Gagal [action]: ' + error.message)`
+### UpdateTimeline merge strategy
+```text
+1. Fetch maintenance_updates (manual replies with content, photos)
+2. Fetch maintenance_timeline (automated status changes with message, actor)
+3. Normalize both into a common shape: { id, type, content/message, author_role, status, photos, created_at }
+4. Merge + sort by created_at ascending
+5. Render with type-specific styling (status changes get icon + badge, replies get avatar + content)
+```
 
-### InvoicesTable.tsx Changes
-- Remove `import { useNavigate } from 'react-router-dom'` and `const navigate = useNavigate()`
-- Change row `onClick` from `navigate(\`/merchant/invoices/${invoice.id}\`)` to `onView(invoice)`
-- This makes the Invoices page consistent with Collections (inline detail view via dialog/sheet)
-
-### No Database Changes
-Purely frontend feedback improvements.
-
+### No database changes needed
+All fixes are purely frontend.
