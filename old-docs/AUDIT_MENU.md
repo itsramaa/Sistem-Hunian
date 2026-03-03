@@ -447,9 +447,9 @@ Properties page (remembers page 3 from last visit)
   → Stays on page 3, property updates in-place (no reload)
 ```
 
-**Bulk operations**:
+**Bulk operations**: ✅ COMPLETE
 - **Old**: Edit each property individually (9 clicks for 9 properties).
-- **New**: Checkbox select multiple properties → "Bulk Actions" menu [Archive All] [Update Images] [Merge Units] (future).
+- **New**: Checkbox select multiple properties → floating "Bulk Actions" bar with [Ubah Status ▾] [Hapus] actions. Select-all per page. Grid + List views supported.
 
 ---
 
@@ -496,8 +496,8 @@ Properties page (remembers page 3 from last visit)
 | **50 properties** | ✅ COMPLETE | Jump-to-page input when >5 pages. 25/50 per-page options. | ✓ Faster lookup. |
 | **100+ properties** | ⏭️ SKIP | Server-side search, faceted filters, property tagging — deferred to P2. | Future work. |
 
-**Bulk action framework**:
-- ⏭️ SKIP — Checkbox select + bulk actions: future feature, not in current scope.
+**Bulk action framework**: ✅ COMPLETE
+- Checkbox select + bulk actions implemented: Delete Selected (with canDelete validation per property), Change Status (active/inactive/maintenance). Floating toolbar with count indicator. Grid checkbox on hover, table checkbox column with select-all header.
 
 **Automation readiness**:
 - ⏭️ SKIP — "Automation Rules" column: future feature.
@@ -514,14 +514,14 @@ Properties page (remembers page 3 from last visit)
 | Pagination selector 9/25/50 + Jump to page | **P1** | ✅ COMPLETE |
 | Subscription warning near "Tambah Properti" | **P1** | 🟡 PARTIAL (both in header area, not inline) |
 | Operational Insights collapsible + persist state | **P1** | ✅ COMPLETE |
-| Checklist select + Bulk actions framework | **P1** | ⏭️ SKIP (future) |
+| Checklist select + Bulk actions framework | **P1** | ✅ COMPLETE (checkbox multi-select, floating bulk bar, delete + status change) |
 | Server-side fuzzy search optimization | **P2** | ⏭️ SKIP (future) |
 | Recently viewed properties sidebar | **P2** | ⏭️ SKIP (future) |
 | Faceted filters (type, status, occupancy ranges) | **P2** | ⏭️ SKIP (future) |
 
 **Rollout**:
 - **Phase 1**: ✅ COMPLETE — P0 changes (localStorage, Clear Filters, occupancy consistency).
-- **Phase 2**: ✅ COMPLETE — P1 changes (Pagination improvements, Insights collapsible). ⏭️ Bulk actions deferred.
+- **Phase 2**: ✅ COMPLETE — P1 changes (Pagination improvements, Insights collapsible, Bulk actions).
 - **Phase 3**: ⏭️ NOT STARTED — P2 changes (Search optimization, Recently viewed, Faceted filters).
 
 ---
@@ -600,7 +600,7 @@ Properties page (remembers page 3 from last visit)
 ### H. Optimization Opportunities
 
 1. **Server-side pagination**: Currently loads all properties then paginates client-side. Will not scale past 1000 properties (Supabase default limit).
-2. **Bulk actions**: No multi-select for bulk delete/status change.
+2. **Bulk actions**: ✅ COMPLETE — Multi-select with bulk delete/status change implemented via floating toolbar.
 3. **Map view**: Properties have lat/lng — a map view would add value.
 
 ---

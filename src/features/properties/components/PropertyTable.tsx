@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Property } from '@/features/properties/types';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
+import { Checkbox } from '@/shared/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
@@ -23,6 +24,9 @@ interface PropertyTableProps {
   onPageChange: (page: number) => void;
   itemsPerPage: number;
   onItemsPerPageChange?: (value: number) => void;
+  selectedIds?: Set<string>;
+  onSelectId?: (id: string) => void;
+  onSelectAll?: () => void;
 }
 
 const statusColors: Record<string, string> = {
@@ -58,6 +62,7 @@ function getPageNumbers(current: number, total: number): (number | 'ellipsis')[]
 export function PropertyTable({ 
   properties, onEdit, onDelete, onManageUnits, onManagePhotos, onDuplicate,
   deleteLoadingId, page, totalPages, totalProperties, onPageChange, itemsPerPage, onItemsPerPageChange,
+  selectedIds, onSelectId, onSelectAll,
 }: PropertyTableProps) {
   const navigate = useNavigate();
   const pageNumbers = getPageNumbers(page, totalPages);
@@ -67,6 +72,15 @@ export function PropertyTable({
       <Table>
         <TableHeader>
           <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b-0">
+            {onSelectId && (
+              <TableHead className="w-[40px]">
+                <Checkbox
+                  checked={properties.length > 0 && properties.every(p => selectedIds?.has(p.id))}
+                  onCheckedChange={() => onSelectAll?.()}
+                  aria-label="Pilih semua"
+                />
+              </TableHead>
+            )}
             <TableHead className="font-semibold text-xs uppercase tracking-wider w-[300px]">Properti</TableHead>
             <TableHead className="font-semibold text-xs uppercase tracking-wider">Lokasi</TableHead>
             <TableHead className="font-semibold text-xs uppercase tracking-wider">Unit</TableHead>
@@ -86,6 +100,15 @@ export function PropertyTable({
                 role="row"
                 aria-label={`Properti ${property.name}`}
               >
+                {onSelectId && (
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selectedIds?.has(property.id) ?? false}
+                      onCheckedChange={() => onSelectId(property.id)}
+                      aria-label={`Pilih ${property.name}`}
+                    />
+                  </TableCell>
+                )}
                 <TableCell>
                   <div className="flex items-center gap-3">
                     {property.images && property.images.length > 0 ? (
@@ -146,7 +169,7 @@ export function PropertyTable({
           })}
           {properties.length === 0 && (
             <TableRow>
-              <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">Properti tidak ditemukan.</TableCell>
+              <TableCell colSpan={onSelectId ? 7 : 6} className="h-24 text-center text-muted-foreground">Properti tidak ditemukan.</TableCell>
             </TableRow>
           )}
         </TableBody>
