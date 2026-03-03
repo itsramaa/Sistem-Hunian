@@ -13,10 +13,14 @@ import { MerchantQuickStartChecklist } from '@/features/launch/components/Mercha
 import { TrialCountdownWidget } from '@/features/subscriptions/components/TrialCountdownWidget';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { useIsMobile } from '@/shared/hooks/use-mobile';
-import { MobileMerchantDashboard } from '@/features/dashboard/components/MobileMerchantDashboard';
 import { DashboardCustomizeDialog } from '@/features/dashboard/components/DashboardCustomizeDialog';
 import { useDashboardPreferences, useSaveDashboardPreferences } from '@/features/dashboard/hooks/useDashboardPreferences';
 import { getOrderedWidgets, DEFAULT_WIDGET_ORDER } from '@/features/dashboard/constants/widgetRegistry';
+import { LazyWidget } from '@/features/dashboard/components/LazyWidget';
+import { PropertySummaryDrawer } from '@/features/dashboard/components/drawers/PropertySummaryDrawer';
+import { OccupancyDrawer } from '@/features/dashboard/components/drawers/OccupancyDrawer';
+import { TenantHealthDrawer } from '@/features/dashboard/components/drawers/TenantHealthDrawer';
+import { RevenueBreakdownDrawer } from '@/features/dashboard/components/drawers/RevenueBreakdownDrawer';
 
 import { Alert, AlertDescription } from '@/shared/components/ui/alert';
 import { Badge } from '@/shared/components/ui/badge';
@@ -24,6 +28,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/shared/components/ui/collapsible';
 import { Progress } from '@/shared/components/ui/progress';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { MerchantDashboardSkeleton } from '@/shared/components/ui/skeletons';
 import { formatCurrency } from '@/shared/utils/currency';
 import {
@@ -48,6 +53,9 @@ import {
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+// Eager widget IDs (above fold, no lazy wrapper)
+const EAGER_WIDGETS = new Set(['cash_flow', 'action_items', 'kpi_strip', 'quick_actions']);
+
 export default function MerchantDashboard() {
   const { merchant } = useAuth();
   const navigate = useNavigate();
@@ -55,6 +63,7 @@ export default function MerchantDashboard() {
   const isMobile = useIsMobile();
   const [vacancyOpen, setVacancyOpen] = useState(true);
   const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [openDrawer, setOpenDrawer] = useState<string | null>(null);
   const selectedPropertyId = usePropertyContext((s) => s.selectedPropertyId);
 
   const { data: stats, isLoading, error, refetch, isRefetching } = useMerchantDashboardStats();
@@ -67,10 +76,6 @@ export default function MerchantDashboard() {
 
   if (isLoading) {
     return <MerchantDashboardSkeleton />;
-  }
-
-  if (isMobile) {
-    return <MobileMerchantDashboard />;
   }
 
   if (error) {
@@ -91,7 +96,7 @@ export default function MerchantDashboard() {
     { icon: Plus, label: 'Tambah Properti', path: '/merchant/properties', color: 'from-primary/20 to-primary/5' },
     { icon: FileText, label: 'Buat Tagihan', path: '/merchant/invoices', color: 'from-success/20 to-success/5' },
     { icon: ScrollText, label: 'Buat Kontrak', path: '/merchant/contracts', color: 'from-warning/20 to-warning/5' },
-    { icon: TrendingUp, label: 'Lihat Laporan', path: '/merchant/reports', color: 'from-accent/20 to-accent/5' },
+    { icon: TrendingUp, label: 'Buat Laporan', path: '/merchant/reports', color: 'from-accent/20 to-accent/5' },
   ];
 
   // Widget renderers mapped by ID
@@ -103,7 +108,7 @@ export default function MerchantDashboard() {
         <h2 className="text-lg font-semibold tracking-tight">Ringkasan Bisnis</h2>
         <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
           {/* KPI Card: Total Properti */}
-          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 cursor-pointer animate-fade-in" style={{ animationDelay: '0ms', animationFillMode: 'both' }} onClick={() => navigate('/merchant/properties')} role="button" aria-label={`Total Properti: ${stats?.properties.total || 0}`}>
+          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 cursor-pointer animate-fade-in" style={{ animationDelay: '0ms', animationFillMode: 'both' }} onClick={() => setOpenDrawer('properties')} role="button" aria-label={`Total Properti: ${stats?.properties.total || 0}`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Properti</CardTitle>
               <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center"><Building2 className="h-4 w-4 text-primary" /></div>
@@ -115,7 +120,7 @@ export default function MerchantDashboard() {
           </Card>
 
           {/* KPI Card: Tingkat Hunian */}
-          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 cursor-pointer animate-fade-in" style={{ animationDelay: '80ms', animationFillMode: 'both' }} onClick={() => navigate('/merchant/properties')} role="button" aria-label={`Tingkat Hunian: ${Math.round(stats?.properties.occupancyRate || 0)}%`}>
+          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 cursor-pointer animate-fade-in" style={{ animationDelay: '80ms', animationFillMode: 'both' }} onClick={() => setOpenDrawer('occupancy')} role="button" aria-label={`Tingkat Hunian: ${Math.round(stats?.properties.occupancyRate || 0)}%`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Tingkat Hunian</CardTitle>
               <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-success/20 to-success/5 flex items-center justify-center"><Home className="h-4 w-4 text-success" /></div>
@@ -133,7 +138,7 @@ export default function MerchantDashboard() {
           </Card>
 
           {/* KPI Card: Penyewa Aktif */}
-          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 cursor-pointer animate-fade-in" style={{ animationDelay: '160ms', animationFillMode: 'both' }} onClick={() => navigate('/merchant/tenants')} role="button" aria-label={`Penyewa Aktif: ${stats?.tenants.active || 0}`}>
+          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 cursor-pointer animate-fade-in" style={{ animationDelay: '160ms', animationFillMode: 'both' }} onClick={() => setOpenDrawer('tenants')} role="button" aria-label={`Penyewa Aktif: ${stats?.tenants.active || 0}`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Penyewa Aktif</CardTitle>
               <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-warning/20 to-warning/5 flex items-center justify-center"><Users className="h-4 w-4 text-warning" /></div>
@@ -152,7 +157,7 @@ export default function MerchantDashboard() {
           </Card>
 
           {/* KPI Card: Pendapatan */}
-          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 cursor-pointer animate-fade-in" style={{ animationDelay: '240ms', animationFillMode: 'both' }} onClick={() => navigate('/merchant/payments')} role="button" aria-label={`Pendapatan Bulan Ini: ${formatCurrency(stats?.financials.monthlyRevenue || 0)}`}>
+          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 cursor-pointer animate-fade-in" style={{ animationDelay: '240ms', animationFillMode: 'both' }} onClick={() => setOpenDrawer('revenue')} role="button" aria-label={`Pendapatan Bulan Ini: ${formatCurrency(stats?.financials.monthlyRevenue || 0)}`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Pendapatan Bulan Ini</CardTitle>
               <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-accent/20 to-accent/5 flex items-center justify-center"><Wallet className="h-4 w-4 text-accent" /></div>
@@ -205,71 +210,80 @@ export default function MerchantDashboard() {
       </section>
     ),
 
-    property_overview: () => (
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold tracking-tight">Rincian Detail</h2>
-        <div className={`grid gap-4 md:grid-cols-2 ${!selectedPropertyId ? 'lg:grid-cols-7' : ''}`}>
-          {!selectedPropertyId && (
-            <Card className="col-span-4 bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
+    property_overview: () => {
+      const propertyList = stats?.properties.list || [];
+      const capped = propertyList.slice(0, 5);
+      return (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold tracking-tight">Rincian Detail</h2>
+          <div className={`grid gap-4 md:grid-cols-2 ${!selectedPropertyId ? 'lg:grid-cols-7' : ''}`}>
+            {!selectedPropertyId && (
+              <Card className="col-span-4 bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center"><Building2 className="h-4 w-4 text-primary" /></div>
+                    <div><CardTitle>Ringkasan Properti</CardTitle><CardDescription>Rincian hunian per properti (Top 5)</CardDescription></div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {capped.map((property) => {
+                      const occupancy = property.total_units > 0 ? (property.occupied_units / property.total_units) * 100 : 0;
+                      return (
+                        <div key={property.id} className="space-y-2 cursor-pointer hover:bg-primary/5 rounded-xl p-3 -mx-2 transition-colors" onClick={() => navigate(`/merchant/properties/${property.id}`)}>
+                          <div className="flex items-center justify-between text-sm">
+                            <div className="font-medium">{property.name}</div>
+                            <div className="text-muted-foreground">{property.occupied_units}/{property.total_units} Unit ({Math.round(occupancy)}%)</div>
+                          </div>
+                          <Progress value={occupancy} className="h-2 rounded-full" />
+                        </div>
+                      );
+                    })}
+                    {propertyList.length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        Belum ada properti terdaftar.
+                        <Button variant="link" onClick={() => navigate('/merchant/properties')} className="px-1">Tambahkan properti pertama Anda</Button>
+                      </div>
+                    )}
+                    {propertyList.length > 5 && (
+                      <Button variant="link" className="w-full" onClick={() => navigate('/merchant/properties')}>
+                        Lihat Semua Properti ({propertyList.length})
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <Card className={`${!selectedPropertyId ? 'col-span-3' : 'col-span-full'} bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40`}>
               <CardHeader>
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center"><Building2 className="h-4 w-4 text-primary" /></div>
-                  <div><CardTitle>Ringkasan Properti</CardTitle><CardDescription>Rincian hunian per properti</CardDescription></div>
+                  <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-success/20 to-success/5 flex items-center justify-center"><Wallet className="h-4 w-4 text-success" /></div>
+                  <div><CardTitle>Ringkasan Keuangan</CardTitle><CardDescription>Ikhtisar keuangan cepat</CardDescription></div>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {stats?.properties.list.map((property) => {
-                    const occupancy = property.total_units > 0 ? (property.occupied_units / property.total_units) * 100 : 0;
-                    return (
-                      <div key={property.id} className="space-y-2 cursor-pointer hover:bg-primary/5 rounded-xl p-3 -mx-2 transition-colors" onClick={() => navigate(`/merchant/properties/${property.id}`)}>
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="font-medium">{property.name}</div>
-                          <div className="text-muted-foreground">{property.occupied_units}/{property.total_units} Unit ({Math.round(occupancy)}%)</div>
-                        </div>
-                        <Progress value={occupancy} className="h-2 rounded-full" />
-                      </div>
-                    );
-                  })}
-                  {(!stats?.properties.list || stats.properties.list.length === 0) && (
-                    <div className="text-center py-8 text-muted-foreground">
-                      Tidak ada properti ditemukan.
-                      <Button variant="link" onClick={() => navigate('/merchant/properties')} className="px-1">Tambahkan properti pertama Anda</Button>
-                    </div>
-                  )}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-card/80 border border-border/40">
+                    <span className="text-sm text-muted-foreground">Saldo Tersedia</span>
+                    <span className="text-sm font-semibold">{formatCurrency(stats?.financials.balance || 0)}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-card/80 border border-border/40">
+                    <span className="text-sm text-muted-foreground">Saldo Tertunda</span>
+                    <span className="text-sm font-semibold">{formatCurrency(stats?.financials.pendingBalance || 0)}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-card/80 border border-border/40">
+                    <span className="text-sm text-muted-foreground">Piutang</span>
+                    <span className="text-sm font-semibold text-warning">{formatCurrency(stats?.financials.outstandingReceivables || 0)}</span>
+                  </div>
+                  <Button className="w-full gradient-cta rounded-xl shadow-md" onClick={() => navigate('/merchant/reports')}>Lihat Laporan Detail</Button>
                 </div>
               </CardContent>
             </Card>
-          )}
-
-          <Card className={`${!selectedPropertyId ? 'col-span-3' : 'col-span-full'} bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40`}>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-success/20 to-success/5 flex items-center justify-center"><Wallet className="h-4 w-4 text-success" /></div>
-                <div><CardTitle>Ringkasan Keuangan</CardTitle><CardDescription>Ikhtisar keuangan cepat</CardDescription></div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 rounded-xl bg-card/80 border border-border/40">
-                  <span className="text-sm text-muted-foreground">Saldo Tersedia</span>
-                  <span className="text-sm font-semibold">{formatCurrency(stats?.financials.balance || 0)}</span>
-                </div>
-                <div className="flex items-center justify-between p-3 rounded-xl bg-card/80 border border-border/40">
-                  <span className="text-sm text-muted-foreground">Saldo Tertunda</span>
-                  <span className="text-sm font-semibold">{formatCurrency(stats?.financials.pendingBalance || 0)}</span>
-                </div>
-                <div className="flex items-center justify-between p-3 rounded-xl bg-card/80 border border-border/40">
-                  <span className="text-sm text-muted-foreground">Piutang</span>
-                  <span className="text-sm font-semibold text-warning">{formatCurrency(stats?.financials.outstandingReceivables || 0)}</span>
-                </div>
-                <Button className="w-full gradient-cta rounded-xl shadow-md" onClick={() => navigate('/merchant/reports')}>Lihat Laporan Detail</Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-    ),
+          </div>
+        </section>
+      );
+    },
 
     vacancy: () => (
       <section className="space-y-4">
@@ -312,20 +326,29 @@ export default function MerchantDashboard() {
     : null;
 
   return (
-    <div className="space-y-8 pb-8">
+    <div className={`space-y-8 ${isMobile ? 'pb-20' : 'pb-8'}`}>
       {/* PageHeader */}
       <PageHeader
         icon={LayoutDashboard}
         title="Dashboard"
         description={`Selamat datang kembali, ${merchant?.business_name || 'Merchant'}! Berikut ringkasan bisnis Anda.`}
       >
-        <Button variant="outline" size="sm" onClick={() => setCustomizeOpen(true)} className="gap-2 rounded-xl">
-          <SlidersHorizontal className="h-4 w-4" />
-          Personalisasi Dasbor
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" size="sm" onClick={() => setCustomizeOpen(true)} className="gap-2 rounded-xl">
+                <SlidersHorizontal className="h-4 w-4" />
+                <span className="hidden sm:inline">Personalisasi Dasbor</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Atur urutan dan visibilitas widget sesuai kebutuhan Anda
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isRefetching} className="gap-2 rounded-xl" aria-label="Segarkan data dashboard">
           <RefreshCw className={`h-4 w-4 ${isRefetching ? 'animate-spin' : ''}`} />
-          Segarkan
+          <span className="hidden sm:inline">Segarkan</span>
         </Button>
       </PageHeader>
 
@@ -356,8 +379,23 @@ export default function MerchantDashboard() {
       {visibleWidgets.map(widget => {
         const renderer = widgetRenderers[widget.id];
         if (!renderer) return null;
-        return <div key={widget.id}>{renderer()}</div>;
+
+        if (EAGER_WIDGETS.has(widget.id)) {
+          return <div key={widget.id}>{renderer()}</div>;
+        }
+
+        return (
+          <LazyWidget key={widget.id}>
+            {renderer()}
+          </LazyWidget>
+        );
       })}
+
+      {/* KPI Drawers */}
+      <PropertySummaryDrawer open={openDrawer === 'properties'} onOpenChange={(v) => !v && setOpenDrawer(null)} stats={stats} />
+      <OccupancyDrawer open={openDrawer === 'occupancy'} onOpenChange={(v) => !v && setOpenDrawer(null)} stats={stats} />
+      <TenantHealthDrawer open={openDrawer === 'tenants'} onOpenChange={(v) => !v && setOpenDrawer(null)} stats={stats} />
+      <RevenueBreakdownDrawer open={openDrawer === 'revenue'} onOpenChange={(v) => !v && setOpenDrawer(null)} stats={stats} />
 
       {/* Customize Dialog */}
       <DashboardCustomizeDialog
