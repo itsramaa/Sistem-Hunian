@@ -5,7 +5,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
-import { ArrowUpDown, Grid, List, RotateCcw, Search, X } from 'lucide-react';
+import { ArrowUpDown, Grid, List, Loader2, RotateCcw, Search, X } from 'lucide-react';
 
 export type SortOption = 'name-asc' | 'name-desc' | 'occupancy-high' | 'occupancy-low' | 'newest' | 'oldest';
 
@@ -22,6 +22,7 @@ interface PropertyFiltersProps {
   onViewModeChange: (mode: 'grid' | 'list') => void;
   onResetFilters: () => void;
   activeFilterCount: number;
+  isSearching?: boolean;
   className?: string;
 }
 
@@ -49,13 +50,17 @@ const sortOptions: { value: SortOption; label: string }[] = [
 export function PropertyFilters({
   searchTerm, onSearchChange, typeFilter, onTypeFilterChange,
   statusFilter, onStatusFilterChange, sortBy, onSortByChange,
-  viewMode, onViewModeChange, onResetFilters, activeFilterCount, className = '',
+  viewMode, onViewModeChange, onResetFilters, activeFilterCount, isSearching = false, className = '',
 }: PropertyFiltersProps) {
   return (
     <div className={`glass-filter-bar space-y-3 ${className}`} role="search" aria-label="Filter Properti">
       <div className="flex flex-col md:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          {isSearching ? (
+            <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground animate-spin" aria-hidden="true" />
+          ) : (
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          )}
           <Input
             placeholder="Cari properti..."
             value={searchTerm}

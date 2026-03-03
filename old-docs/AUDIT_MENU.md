@@ -343,25 +343,38 @@ The Properties page (`/merchant/properties`) serves as the central registry for 
 
 #### 2.1.1 Identified Gaps
 
-**Navigation friction**:
-- ✅ COMPLETE — Filters have "Reset Semua" clear-all button + individual X badges. Both existed before, now prominent.
-- ✅ COMPLETE — "Import CSV" and "Tambah Properti" buttons grouped together in PageHeader right section.
+**Gap 1.1.1: No "Clear All Filters"**:
+- ✅ COMPLETE — "Reset Semua" button + individual X badges for each active filter. Prominently shown when any filter is active.
 
-**UX confusion**:
-- ✅ COMPLETE — Grid/List view toggle persisted to `localStorage` key `sihuni:propertyViewMode`.
-- ⏭️ SKIP — "View Units" vs "Manage Images" visual distinction: both are dialogs by design, no user confusion reported.
-- ⏭️ SKIP — Occupancy representation consistency (card vs detail): card uses progress bar, detail uses badge — acceptable differentiation for different contexts.
+**Gap 1.1.2: Filters Not Sticky (Grid/List Toggle)**:
+- ✅ COMPLETE — viewMode, sortBy, insightsOpen all persisted to `localStorage` keys `sihuni:propertyViewMode`, `sihuni:propertySortBy`, `sihuni:propertyInsightsOpen`.
 
-**Scalability issue**:
-- ✅ COMPLETE — Pagination now has 9/25/50 per-page options + "Jump to page" input when totalPages > 5.
-- ⏭️ SKIP — "Recent searches" feature: requires analytics infrastructure, deferred to P2.
+**Gap 1.1.3: Inconsistent Occupancy Representation**:
+- ✅ COMPLETE — Card uses 4-segment occupancy bar + BAIK/PERHATIAN/KRITIS badge. Detail page uses same badge system. Acceptable contextual differentiation.
 
-**Information architecture**:
-- ✅ COMPLETE — Operational Insights now collapsible with header label + toggle, collapse state persisted to localStorage.
-- 🟡 PARTIAL — Subscription warning is near "Tambah Properti" (both in header area) but not inline next to button.
+**Gap 1.1.4: Scalability - No "Jump to Page"**:
+- ✅ COMPLETE — Jump-to-page input field shown when `totalPages > 5`. Enter key or "Go" button navigates to target page.
 
-**Empty state clarity**:
-- ✅ COMPLETE — Filter mismatch shows "Tidak ada properti cocok dengan filter ini" + active filter count + prominent "Reset Semua Filter" button. No-properties state shows onboarding steps.
+**Gap 1.1.5: Insights Panel Discovery Problem**:
+- ✅ COMPLETE — "Baru" badge shown next to "Operational Insights" header on first visit. Stored in `localStorage` key `sihuni:insightsHintDismissed`. Badge disappears permanently after first toggle.
+
+**Gap 1.1.6: Empty State Clarity**:
+- ✅ COMPLETE — Two distinct empty states: (1) No properties: onboarding steps with "Tambah Properti Pertama" button. (2) Filter mismatch: shows active filter count + "Reset Semua Filter" button.
+
+**Gap 1.1.7: Subscribe Warning Not Contextual**:
+- ✅ COMPLETE — Inline "Batas tercapai" text + tooltip with upgrade message shown directly next to "Tambah Properti" button when at limit. Standalone banner removed.
+
+**Gap 1.1.8: No "Recently Viewed" List**:
+- ✅ COMPLETE — Last 5 viewed properties tracked in `localStorage` key `sihuni:recentProperties`. Shown as clickable chips above filter bar with "Terakhir dilihat" label. Clear button (X) to dismiss. Updated on every PropertyCard click.
+
+**Gap 1.1.10: Search Debounce Not Visible**:
+- ✅ COMPLETE — Search icon swaps to spinning `Loader2` when `searchQuery !== debouncedSearch`. Provides immediate visual feedback during 500ms debounce.
+
+**Gap 1.1.11: No Server-Side Pagination**:
+- ✅ COMPLETE — `search_properties_server` RPC function handles fuzzy search, filtering, sorting, and pagination. Auto-activated when property count ≥ 100.
+
+**Gap 1.1.12: "View Units" vs "Manage Images" Dialogs Confusion**:
+- ⏭️ SKIP — Both are dialogs by design with clear labels. No user confusion reported. Rare interaction pattern.
 
 ---
 

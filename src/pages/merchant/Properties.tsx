@@ -14,6 +14,7 @@ import { SubscriptionLimitWarning } from '@/features/subscriptions/components/Su
 import { useSubscriptionLimits } from '@/features/subscriptions/hooks/useSubscriptionLimits';
 import { ImageGalleryUpload } from '@/shared/components/FileUpload';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
+import { Badge } from '@/shared/components/ui/badge';
 
 import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert';
 import { Button } from '@/shared/components/ui/button';
@@ -42,6 +43,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  Clock,
   Home,
   Plus,
   RefreshCw,
@@ -51,17 +53,32 @@ import {
   TrendingUp,
   Users,
   Upload,
+  X,
   ChevronDown as ChevronDownIcon,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const DEFAULT_ITEMS_PER_PAGE = 9;
+
+interface RecentProperty {
+  id: string;
+  name: string;
+  timestamp: number;
+}
 
 function readLocalStorage<T>(key: string, fallback: T): T {
   try {
     const stored = localStorage.getItem(key);
     return stored ? (JSON.parse(stored) as T) : fallback;
   } catch { return fallback; }
+}
+
+function addRecentProperty(property: { id: string; name: string }) {
+  const recent = readLocalStorage<RecentProperty[]>('sihuni:recentProperties', []);
+  const filtered = recent.filter(r => r.id !== property.id);
+  const updated = [{ id: property.id, name: property.name, timestamp: Date.now() }, ...filtered].slice(0, 5);
+  localStorage.setItem('sihuni:recentProperties', JSON.stringify(updated));
 }
 
 export default function MerchantProperties() {
@@ -99,6 +116,9 @@ export default function MerchantProperties() {
   const [jumpToPage, setJumpToPage] = useState('');
   const { toast } = useToast();
   const { data: limits } = useSubscriptionLimits();
+  const navigate = useNavigate();
+  const [recentProperties, setRecentProperties] = useState<RecentProperty[]>(() => readLocalStorage('sihuni:recentProperties', []));
+  const [insightsHintSeen, setInsightsHintSeen] = useState<boolean>(() => readLocalStorage('sihuni:insightsHintDismissed', false));
 
   // Server-side search state (for 100+ properties)
   const useServerSearch = properties.length >= 100;
@@ -406,12 +426,23 @@ export default function MerchantProperties() {
         <Button variant="outline" onClick={() => setShowImportDialog(true)} className="rounded-xl gap-2">
           <Upload className="h-4 w-4" /> Import CSV
         </Button>
-        <Button onClick={() => setShowAddDialog(true)} disabled={limits && !limits.canAddProperty} className="gradient-cta text-primary-foreground hover:opacity-90 rounded-xl gap-2">
-          <Plus className="h-4 w-4" />Tambah Properti
-        </Button>
+        <div className="flex items-center gap-2">
+          {limits && !limits.canAddProperty && (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-xs text-destructive font-medium">Batas tercapai</span>
+                </TooltipTrigger>
+                <TooltipContent>Paket Anda mendukung {limits.maxProperties} properti. Upgrade untuk menambah lebih banyak.</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          <Button onClick={() => setShowAddDialog(true)} disabled={limits && !limits.canAddProperty} className="gradient-cta text-primary-foreground hover:opacity-90 rounded-xl gap-2">
+            <Plus className="h-4 w-4" />Tambah Properti
+          </Button>
+        </div>
       </PageHeader>
       <div className="space-y-6">
-        <SubscriptionLimitWarning />
         
         <PropertyFormDialog open={showAddDialog} onOpenChange={handleDialogClose} property={editingProperty} onSubmit={handleSubmit} isLoading={isCreating || isUpdating} />
         <DeletePropertyDialog open={!!deleteDialogProperty} onOpenChange={(open) => !open && setDeleteDialogProperty(null)} property={deleteDialogProperty} onConfirm={handleDeleteConfirm} isLoading={!!deleteLoading} />
@@ -496,9 +527,20 @@ export default function MerchantProperties() {
 
             {/* Operational Insights Panel — Collapsible */}
             {insights && properties.length >= 2 && (
-              <Collapsible open={insightsOpen} onOpenChange={setInsightsOpen}>
+              <Collapsible open={insightsOpen} onOpenChange={(open) => {
+                setInsightsOpen(open);
+                if (!insightsHintSeen) {
+                  setInsightsHintSeen(true);
+                  localStorage.setItem('sihuni:insightsHintDismissed', JSON.stringify(true));
+                }
+              }}>
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Operational Insights</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Operational Insights</h3>
+                    {!insightsHintSeen && (
+                      <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4 animate-pulse">Baru</Badge>
+                    )}
+                  </div>
                   <CollapsibleTrigger asChild>
                     <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded-full">
                       {insightsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -550,11 +592,31 @@ export default function MerchantProperties() {
               </Collapsible>
             )}
 
+            {/* Recently Viewed */}
+            {recentProperties.length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" />Terakhir dilihat:</span>
+                {recentProperties.map(rp => (
+                  <button
+                    key={rp.id}
+                    onClick={() => { addRecentProperty(rp); navigate(`/merchant/properties/${rp.id}`); }}
+                    className="text-xs px-2.5 py-1 rounded-full bg-muted/50 hover:bg-muted border border-border/30 text-foreground transition-colors truncate max-w-[150px]"
+                  >
+                    {rp.name}
+                  </button>
+                ))}
+                <button onClick={() => { setRecentProperties([]); localStorage.removeItem('sihuni:recentProperties'); }} className="text-xs text-muted-foreground hover:text-foreground">
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+
             {/* Filters */}
             <PropertyFilters
               searchTerm={searchQuery} onSearchChange={setSearchQuery} typeFilter={typeFilter} onTypeFilterChange={setTypeFilter}
               statusFilter={statusFilter} onStatusFilterChange={setStatusFilter} sortBy={sortBy} onSortByChange={setSortBy}
               viewMode={viewMode} onViewModeChange={setViewMode} onResetFilters={handleResetFilters} activeFilterCount={activeFilterCount}
+              isSearching={searchQuery !== debouncedSearch}
             />
 
             {/* Error State */}
@@ -619,7 +681,7 @@ export default function MerchantProperties() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {paginatedProperties.map((property, index) => (
                         <div key={property.id} className="animate-in fade-in-0 slide-in-from-bottom-4" style={{ animationDelay: `${index * 60}ms`, animationFillMode: 'both' }}>
-                          <PropertyCard property={property} onEdit={handleEdit} onDelete={handleDeleteClick} onManageUnits={setUnitsProperty} onManagePhotos={handleOpenImages} onDuplicate={handleDuplicate} isDeleting={deleteLoading === property.id} selected={selectedIds.has(property.id)} onSelect={handleSelectId} />
+                          <PropertyCard property={property} onEdit={handleEdit} onDelete={handleDeleteClick} onManageUnits={setUnitsProperty} onManagePhotos={handleOpenImages} onDuplicate={handleDuplicate} onNavigate={(p) => { addRecentProperty(p); setRecentProperties(readLocalStorage('sihuni:recentProperties', [])); }} isDeleting={deleteLoading === property.id} selected={selectedIds.has(property.id)} onSelect={handleSelectId} />
                         </div>
                       ))}
                     </div>
