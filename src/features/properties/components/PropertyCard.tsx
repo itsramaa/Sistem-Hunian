@@ -16,6 +16,7 @@ interface PropertyCardProps {
   onManageUnits: (property: Property) => void;
   onManagePhotos: (property: Property) => void;
   onDuplicate?: (property: Property) => void;
+  onNavigate?: (property: Property) => void;
   isDeleting?: boolean;
   selected?: boolean;
   onSelect?: (id: string) => void;
@@ -59,6 +60,7 @@ export function PropertyCard({
   onManageUnits, 
   onManagePhotos,
   onDuplicate,
+  onNavigate,
   isDeleting,
   selected,
   onSelect,
@@ -73,6 +75,7 @@ export function PropertyCard({
   const handleCardClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.closest('button') || target.closest('[role="menuitem"]') || target.closest('[data-radix-popper-content-wrapper]') || target.closest('[data-checkbox]')) return;
+    onNavigate?.(property);
     navigate(`/merchant/properties/${property.id}`);
   };
 
