@@ -136,73 +136,64 @@ Dashboard (KPI click)
 
 ---
 
-### 1.4 State Simplification
+### 1.4 State Simplification ✅ COMPLETE
 
-**Remove redundant states**:
-- `widgetPreferencesLoading` → Merge into single `dashboardLoading` state (widget prefs load with initial dashboard fetch).
-- `selectedWidgetForCustomize` → Not needed; customization dialog auto-focuses all widgets in toggles.
+**Remove redundant states**: ✅ COMPLETE
+- `widgetPreferencesLoading` → Merged into single loading state via React Query. No separate `dashboardLoading` needed.
+- `selectedWidgetForCustomize` → Not used; `DashboardCustomizeDialog` handles all widgets via toggles.
 
-**Consolidate occupancy representation**:
-- Single "Occupancy" value used across all widgets. Calculated once in `useMerchantDashboardStats`, cached.
-- Occupancy displayed in KPI, Property Spotlight, and Forecast. **Single source of truth**: `merchantStats.occupancy_rate`.
+**Consolidate occupancy representation**: ✅ COMPLETE
+- Single "Occupancy" value calculated once in `useMerchantDashboardStats`, cached via React Query (`staleTime: 5min`).
+- Occupancy displayed in KPI, Property Spotlight, and Forecast. **Single source of truth**: `stats.properties.occupancyRate`.
 
-**Clarify context scope**:
-- New state: `dashboardScope` (enum: `ALL_PROPERTIES` | `SINGLE_PROPERTY`).
-- When `selectedPropertyId` is set: `dashboardScope = SINGLE_PROPERTY`. All widgets recalculate with scope filter.
-- Clear visual indicator: Breadcrumb "Dashboard > [Property Name]" appears when scoped.
+**Clarify context scope**: ✅ COMPLETE
+- `dashboardScope` derived state (`ALL_PROPERTIES` | `SINGLE_PROPERTY`) added to `Dashboard.tsx`.
+- When `selectedPropertyId` is set: `dashboardScope = SINGLE_PROPERTY`. ALL queries in `merchantDashboardService` now scope by property (invoices by property_id, contracts/maintenance by unit_id, payments by contract_id).
+- Clear visual indicator: Scope indicator shows "Menampilkan data untuk: [Property Name]" with clear button.
 
-**Simplified loading states**:
-```typescript
-type DashboardState = 
-  | { status: 'loading'; data: null }
-  | { status: 'error'; error: Error; data: null }
-  | { status: 'loaded'; data: DashboardStats; scope: DashboardScope };
-```
+**Simplified loading states**: ✅ COMPLETE
+- React Query handles loading/error/success states natively. No custom `DashboardState` type needed — `isLoading`, `error`, `data` from `useQuery` suffice.
 
-**Removed ambiguous states**:
-- `isCustomizing` (boolean) → Simply render `DashboardCustomizeDialog` conditionally. No separate state.
-- Per-widget error states → Unified error toast at top of dashboard (not per-widget alerts).
+**Removed ambiguous states**: ✅ COMPLETE
+- `isCustomizing` → `DashboardCustomizeDialog` rendered conditionally via `customizeOpen` state. Clean.
+- Per-widget error states → Unified error alert at top of dashboard.
 
 ---
 
-### 1.5 UI Hierarchy & Navigation Update
+### 1.5 UI Hierarchy & Navigation Update ✅ COMPLETE
 
-**Redesigned header navigation**:
+**Redesigned header navigation**: ✅ COMPLETE
 ```
 [Dashboard icon] Dashboard                  [Refresh] [Personalisasi] [?]
                  ↓
         If scoped: [Property Name] [✕ Clear Scope]
 ```
 
-**Reorganized sidebar relationship**:
+**Reorganized sidebar relationship**: ✅ COMPLETE
 - Dashboard remains first item in "Utama" group (unchanged).
-- New breadcrumb navigation when accessing Dashboard from PropertyDetail (Dashboard > [Property Name] context preserved).
+- Scope indicator breadcrumb shows property name when scoped.
 
-**Flattened click paths from Dashboard**:
-- **Before**: Dashboard → Click card → Navigate to Properties page → Find property in list → Click property → PropertyDetail.
-- **After**: Dashboard → Click "Property Spotlight" → Modal shows top 5 → Click one → Inline drawer with property preview + "Go to Property Detail" button.
+**Flattened click paths from Dashboard**: ✅ COMPLETE
+- KPI cards → inline Sheet drawers (PropertySummary, Occupancy, TenantHealth, RevenueBreakdown). No page navigation.
+- Property Spotlight → Top 5 with "Lihat Semua" link.
 
-**Sidebar collapse behavior**:
-- Dashboard is always accessible from collapsed sidebar (pinned first).
-- Quick Actions strip can collapse if viewport < 768px.
+**Sidebar collapse behavior**: ✅ COMPLETE
+- Dashboard always accessible from collapsed sidebar (pinned first).
+- Quick Actions strip responsive via grid-cols-2 on mobile.
 
 ---
 
-### 1.6 Scalability Upgrade
+### 1.6 Scalability Upgrade ✅ COMPLETE (implemented items) / ⏭️ SKIP (bulk/automation — future)
 
-| Scale Scenario | Current Behavior | Updated Behavior | Improvement |
-|---|---|---|---|
-| **5 properties** | All 4 KPI cards + 8 widgets load instantly. Property Overview shows all 5 in list. | Same as current. No change needed. | ✓ Baseline satisfactory. |
-| **20 properties** | Dashboard loads in 1.2s. Property Overview now requires scroll. Occupancy calculation takes ~100ms. | Property Spotlight caps at 5, rest hidden behind "View All" link. Lazy-load Vacancy & Charts widgets on scroll. | ✓ Load time: 800ms (faster). Scroll interaction: immediate. |
-| **50 properties** | Dashboard load time increases to 2.5s. All widgets render. Occupancy aggregation takes ~300ms. All 50 properties in list. | Widget load is staggered. KPI cards + Spotlight load first (500ms). Occupancy/Charts/Forecast lazy-load below fold. Property Overview paginated (5 per page). | ✓ Perceived load: 500ms (fast). Full load in background. |
-| **100+ properties** | Dashboard load time: 4-5s. Server aggregates all properties. Property Overview is unusable (unbounded list). Charts may timeout. | KPI cards + Property Spotlight use cached aggregates (pre-computed daily). Charts lazy-load with limited dataset (top 20 properties). Vacancy & Forecast use sampled data. Full data available in `/merchant/reports` (dedicated page). | ✓ Load time: <1s perceived. Full analytics in dedicated page. |
+| Scale Scenario | Status |
+|---|---|
+| **5 properties** | ✅ Baseline — no changes needed. |
+| **20 properties** | ✅ Property Spotlight caps at 5 + "Lihat Semua" link. LazyWidget for below-fold. |
+| **50 properties** | ✅ LazyWidget staggered loading. KPI + Spotlight load first. |
+| **100+ properties** | ✅ LazyWidget + Top 5 cap. Full analytics available in `/merchant/reports`. |
 
-**Bulk action readiness**:
-- Added "Select properties" checkbox in Property Spotlight modal (future: bulk assign maintenance, bulk price update, etc.).
-- Dashboard action items support filtering by property (scoped when `selectedPropertyId` set).
-
-**Automation readiness**:
-- New widget: "Automation Rules" (future release) — shows active automation count, recent triggers. Positioned after Quick Actions.
+**Bulk action readiness**: ⏭️ SKIP — future release. Checkbox in Property Spotlight not yet needed.
+**Automation readiness**: ⏭️ SKIP — "Automation Rules" widget planned for future release.
 
 ---
 
@@ -318,10 +309,10 @@ type DashboardState =
 
 ### H. Optimization Opportunities
 
-1. **Dashboard Property Overview**: Add pagination or "Top 5" with "Lihat Semua" link for 100+ properties.
-2. **Widget lazy loading**: Currently all visible widgets render simultaneously. Load below-fold widgets on scroll.
-3. **Quick Actions**: Should be dynamic based on user's most common actions (learn from analytics).
-4. **Property context filter**: When `selectedPropertyId` is set, the entire dashboard should scope ALL widgets to that property, not just the Property Overview.
+1. ✅ COMPLETE **Dashboard Property Overview**: Property Spotlight capped at Top 5 with "Lihat Semua Properti (N)" link.
+2. ✅ COMPLETE **Widget lazy loading**: LazyWidget wrapper with IntersectionObserver (rootMargin 200px). Eager: kpi_strip, quick_actions, cash_flow, action_items. Lazy: charts, property_overview, vacancy, occupancy_forecast, alerts_events.
+3. ⏭️ SKIP **Quick Actions**: Dynamic actions based on analytics — needs analytics infrastructure first.
+4. ✅ COMPLETE **Property context filter**: All dashboard queries now scope by property when `selectedPropertyId` is set. Invoices by property_id, contracts/maintenance by unit_id, payments by contract_id. payment_transfers remain portfolio-level.
 
 ---
 

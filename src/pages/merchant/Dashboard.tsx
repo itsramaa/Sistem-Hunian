@@ -56,6 +56,8 @@ import { useNavigate } from 'react-router-dom';
 // Eager widget IDs (above fold, no lazy wrapper)
 const EAGER_WIDGETS = new Set(['cash_flow', 'action_items', 'kpi_strip', 'quick_actions']);
 
+type DashboardScope = 'ALL_PROPERTIES' | 'SINGLE_PROPERTY';
+
 export default function MerchantDashboard() {
   const { merchant } = useAuth();
   const navigate = useNavigate();
@@ -65,6 +67,7 @@ export default function MerchantDashboard() {
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [openDrawer, setOpenDrawer] = useState<string | null>(null);
   const selectedPropertyId = usePropertyContext((s) => s.selectedPropertyId);
+  const dashboardScope: DashboardScope = selectedPropertyId ? 'SINGLE_PROPERTY' : 'ALL_PROPERTIES';
 
   const { data: stats, isLoading, error, refetch, isRefetching } = useMerchantDashboardStats();
   const { data: prefs } = useDashboardPreferences(merchant?.id);
