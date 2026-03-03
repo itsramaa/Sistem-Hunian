@@ -38,6 +38,12 @@ function getOccupancyColor(rate: number): string {
   return 'bg-destructive';
 }
 
+function getOccupancyBadge(rate: number): { label: string; className: string } {
+  if (rate >= 80) return { label: 'BAIK', className: 'bg-success/15 text-success border-success/30' };
+  if (rate >= 50) return { label: 'PERHATIAN', className: 'bg-warning/15 text-warning border-warning/30' };
+  return { label: 'KRITIS', className: 'bg-destructive/15 text-destructive border-destructive/30' };
+}
+
 function isNewProperty(createdAt: string): boolean {
   const created = new Date(createdAt);
   const sevenDaysAgo = new Date();
@@ -110,6 +116,11 @@ export function PropertyCard({
               <Sparkles className="h-2.5 w-2.5 mr-0.5" />Baru
             </Badge>
           )}
+          {property.total_units > 0 && (
+            <Badge variant="outline" className={`absolute top-2 right-2 text-[10px] font-bold px-1.5 py-0 h-5 rounded-full ${getOccupancyBadge(occupancyRate).className}`}>
+              {getOccupancyBadge(occupancyRate).label}
+            </Badge>
+          )}
         </div>
       ) : (
         <div className="relative h-32 bg-gradient-to-br from-primary/5 via-primary/10 to-accent/10 flex items-center justify-center">
@@ -117,6 +128,11 @@ export function PropertyCard({
           {isNew && (
             <Badge className="absolute top-2 left-2 bg-accent text-accent-foreground text-[10px] px-1.5 py-0 h-5 rounded-full">
               <Sparkles className="h-2.5 w-2.5 mr-0.5" />Baru
+            </Badge>
+          )}
+          {property.total_units > 0 && (
+            <Badge variant="outline" className={`absolute top-2 right-2 text-[10px] font-bold px-1.5 py-0 h-5 rounded-full ${getOccupancyBadge(occupancyRate).className}`}>
+              {getOccupancyBadge(occupancyRate).label}
             </Badge>
           )}
         </div>

@@ -478,9 +478,9 @@ Properties page (remembers page 3 from last visit)
 - ✅ COMPLETE — Breadcrumb on detail page: Dashboard > Properti > [Property Name].
 
 **Card design hierarchy**:
-- 🟡 PARTIAL — Occupancy status shown on cards but not as top-right badge. Card design uses progress bar.
-- ⏭️ SKIP — "+N Penyewa" clickable label: not implemented, deferred (low priority).
-- ⏭️ SKIP — Revenue mini-indicator: not implemented, deferred.
+- ✅ COMPLETE — Occupancy status badge (BAIK/PERHATIAN/KRITIS) shown at top-right corner of PropertyCard image section and inline in PropertyTable unit column. ≥80% → green "BAIK", 50-79% → yellow "PERHATIAN", <50% → red "KRITIS".
+- ⏭️ SKIP — "+N Penyewa" clickable label: Property type lacks tenant count data; would require extra query per card. Deferred.
+- ⏭️ SKIP — Revenue mini-indicator: Property type has no revenue field; would need join with payments table. Deferred.
 
 **Filter bar redesign**:
 - ✅ COMPLETE — Filters inline (search, type, status all visible). Sorting in separate dropdown. "Clear Filters" only when active.
