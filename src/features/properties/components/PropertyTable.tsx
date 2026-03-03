@@ -47,6 +47,12 @@ function getOccupancyColor(rate: number): string {
   return 'text-destructive';
 }
 
+function getOccupancyBadge(rate: number): { label: string; className: string } {
+  if (rate >= 80) return { label: 'BAIK', className: 'bg-success/15 text-success border-success/30' };
+  if (rate >= 50) return { label: 'PERHATIAN', className: 'bg-warning/15 text-warning border-warning/30' };
+  return { label: 'KRITIS', className: 'bg-destructive/15 text-destructive border-destructive/30' };
+}
+
 function getPageNumbers(current: number, total: number): (number | 'ellipsis')[] {
   if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
   const pages: (number | 'ellipsis')[] = [1];
@@ -128,11 +134,18 @@ export function PropertyTable({
                 </TableCell>
                 <TableCell className="text-sm">{property.city}, {property.province}</TableCell>
                 <TableCell>
-                  <div className="flex flex-col">
-                    <span className={`text-sm font-medium ${getOccupancyColor(occupancyRate)}`}>
-                      {property.occupied_units}/{property.total_units}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{Math.round(occupancyRate)}% terisi</span>
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-col">
+                      <span className={`text-sm font-medium ${getOccupancyColor(occupancyRate)}`}>
+                        {property.occupied_units}/{property.total_units}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{Math.round(occupancyRate)}% terisi</span>
+                    </div>
+                    {property.total_units > 0 && (
+                      <Badge variant="outline" className={`text-[10px] font-bold px-1.5 py-0 h-5 rounded-full ${getOccupancyBadge(occupancyRate).className}`}>
+                        {getOccupancyBadge(occupancyRate).label}
+                      </Badge>
+                    )}
                   </div>
                 </TableCell>
                 <TableCell>
