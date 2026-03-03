@@ -9445,6 +9445,7 @@ export type Database = {
       }
       v_properties_with_addresses: {
         Row: {
+          active_tenant_count: number | null
           address_id: string | null
           amenities: string[] | null
           avg_annual_unexpected_cost: number | null
@@ -9465,6 +9466,7 @@ export type Database = {
           merchant_id: string | null
           monthly_amortization: number | null
           monthly_maintenance_cost: number | null
+          monthly_revenue: number | null
           name: string | null
           nearby_facilities: Json | null
           occupied_units: number | null
@@ -9552,6 +9554,41 @@ export type Database = {
       refresh_merchant_analytics: {
         Args: { p_merchant_id?: string }
         Returns: undefined
+      }
+      search_properties_server: {
+        Args: {
+          p_limit?: number
+          p_merchant_id: string
+          p_offset?: number
+          p_search?: string
+          p_sort?: string
+          p_status?: string
+          p_type?: string
+        }
+        Returns: {
+          active_tenant_count: number
+          amenities: string[]
+          created_at: string
+          description: string
+          id: string
+          images: string[]
+          merchant_id: string
+          monthly_revenue: number
+          name: string
+          occupied_units: number
+          property_code: string
+          property_type: string
+          resolved_address: string
+          resolved_city: string
+          resolved_latitude: number
+          resolved_longitude: number
+          resolved_postal_code: string
+          resolved_province: string
+          status: string
+          total_count: number
+          total_units: number
+          updated_at: string
+        }[]
       }
     }
     Enums: {

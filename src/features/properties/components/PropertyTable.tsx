@@ -6,8 +6,10 @@ import { Checkbox } from '@/shared/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
-import { Building2, ChevronLeft, ChevronRight, Copy, DoorOpen, Edit, Image as ImageIcon, MoreHorizontal, RefreshCw, Trash2 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
+import { Building2, ChevronLeft, ChevronRight, Copy, DoorOpen, Edit, Image as ImageIcon, MoreHorizontal, RefreshCw, Trash2, Users, Bot } from 'lucide-react';
 import { formatLabel } from '@/shared/utils/utils';
+import { formatCurrencyCompact } from '@/shared/utils/currency';
 import { Label } from '@/shared/components/ui/label';
 
 interface PropertyTableProps {
@@ -90,8 +92,11 @@ export function PropertyTable({
             <TableHead className="font-semibold text-xs uppercase tracking-wider w-[300px]">Properti</TableHead>
             <TableHead className="font-semibold text-xs uppercase tracking-wider">Lokasi</TableHead>
             <TableHead className="font-semibold text-xs uppercase tracking-wider">Unit</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Penyewa</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Pendapatan</TableHead>
             <TableHead className="font-semibold text-xs uppercase tracking-wider">Fasilitas</TableHead>
             <TableHead className="font-semibold text-xs uppercase tracking-wider">Status</TableHead>
+            <TableHead className="font-semibold text-xs uppercase tracking-wider">Otomasi</TableHead>
             <TableHead className="font-semibold text-xs uppercase tracking-wider text-right">Aksi</TableHead>
           </TableRow>
         </TableHeader>
@@ -149,6 +154,27 @@ export function PropertyTable({
                   </div>
                 </TableCell>
                 <TableCell>
+                  <button
+                    className="flex items-center gap-1 text-sm text-primary hover:underline font-medium"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/merchant/properties/${property.id}?tab=tenants`);
+                    }}
+                  >
+                    <Users className="h-3.5 w-3.5" />
+                    {property.active_tenant_count ?? 0}
+                  </button>
+                </TableCell>
+                <TableCell>
+                  {(property.monthly_revenue ?? 0) > 0 ? (
+                    <span className="text-sm font-medium text-success">
+                      {formatCurrencyCompact(property.monthly_revenue!)}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </TableCell>
+                <TableCell>
                   {property.amenities && property.amenities.length > 0 ? (
                     <Badge variant="secondary" className="text-xs rounded-full">{property.amenities.length} fasilitas</Badge>
                   ) : (
@@ -157,6 +183,19 @@ export function PropertyTable({
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline" className={`rounded-full ${statusColors[property.status]}`}>{statusLabels[property.status] || property.status}</Badge>
+                </TableCell>
+                <TableCell>
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground cursor-default">
+                          <Bot className="h-3.5 w-3.5" />
+                          —
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>Segera hadir</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </TableCell>
                 <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                   <DropdownMenu>
@@ -182,7 +221,7 @@ export function PropertyTable({
           })}
           {properties.length === 0 && (
             <TableRow>
-              <TableCell colSpan={onSelectId ? 7 : 6} className="h-24 text-center text-muted-foreground">Properti tidak ditemukan.</TableCell>
+              <TableCell colSpan={onSelectId ? 10 : 9} className="h-24 text-center text-muted-foreground">Properti tidak ditemukan.</TableCell>
             </TableRow>
           )}
         </TableBody>

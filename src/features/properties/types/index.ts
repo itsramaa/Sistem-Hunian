@@ -56,6 +56,8 @@ export interface Property {
   status: 'active' | 'inactive' | 'maintenance';
   created_at: string;
   updated_at: string;
+  active_tenant_count?: number;
+  monthly_revenue?: number;
   // New fields - all optional for backward compat
   guardian_name?: string | null;
   guardian_phone?: string | null;
