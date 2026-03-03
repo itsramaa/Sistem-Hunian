@@ -525,17 +525,21 @@ Properties page (remembers page 3 from last visit)
 | Add "Clear All Filters" button | **P0** | ✅ COMPLETE |
 | Consolidate occupancy representation | **P0** | ✅ COMPLETE (KPI cards match dashboard style) |
 | Pagination selector 9/25/50 + Jump to page | **P1** | ✅ COMPLETE |
-| Subscription warning near "Tambah Properti" | **P1** | 🟡 PARTIAL (both in header area, not inline) |
+| Subscription warning near "Tambah Properti" | **P1** | ✅ COMPLETE (inline "Batas tercapai" + tooltip next to button) |
 | Operational Insights collapsible + persist state | **P1** | ✅ COMPLETE |
 | Checklist select + Bulk actions framework | **P1** | ✅ COMPLETE (checkbox multi-select, floating bulk bar, delete + status change) |
 | Server-side fuzzy search optimization | **P2** | ✅ COMPLETE (`search_properties_server` RPC, auto-activated ≥100 properties) |
-| Recently viewed properties sidebar | **P2** | ⏭️ SKIP (future) |
+| Recently viewed properties | **P2** | ✅ COMPLETE (last 5 tracked in localStorage, clickable chips above filters) |
+| 5-sec undo toast on property delete | **P1** | ✅ COMPLETE (sonner toast with Undo button, re-creates property on click) |
+| Scroll to top on page change | **P1** | ✅ COMPLETE (`window.scrollTo({ top: 0, behavior: 'smooth' })` on page state change) |
+| Search debounce loading indicator | **P1** | ✅ COMPLETE (Loader2 spinner replaces Search icon during debounce) |
+| Insights panel discovery hint | **P2** | ✅ COMPLETE ("Baru" badge on first visit, dismissed via localStorage) |
 | Faceted filters (type, status, occupancy ranges) | **P2** | ⏭️ SKIP (future) |
 
 **Rollout**:
 - **Phase 1**: ✅ COMPLETE — P0 changes (localStorage, Clear Filters, occupancy consistency).
-- **Phase 2**: ✅ COMPLETE — P1 changes (Pagination improvements, Insights collapsible, Bulk actions).
-- **Phase 3**: ⏭️ NOT STARTED — P2 changes (Search optimization, Recently viewed, Faceted filters).
+- **Phase 2**: ✅ COMPLETE — P1 changes (Pagination, Insights, Bulk actions, Undo toast, Scroll-to-top, Search indicator).
+- **Phase 3**: ✅ COMPLETE — P2 changes (Server-side search, Recently viewed, Insights discovery hint). Faceted filters deferred.
 
 ---
 
