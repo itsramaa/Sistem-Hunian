@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Property } from '@/features/properties/types';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
+import { Checkbox } from '@/shared/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { Building2, Copy, DoorOpen, Edit, Image as ImageIcon, MapPin, MoreHorizontal, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
@@ -15,6 +16,8 @@ interface PropertyCardProps {
   onManagePhotos: (property: Property) => void;
   onDuplicate?: (property: Property) => void;
   isDeleting?: boolean;
+  selected?: boolean;
+  onSelect?: (id: string) => void;
   style?: React.CSSProperties;
 }
 
@@ -50,16 +53,19 @@ export function PropertyCard({
   onManagePhotos,
   onDuplicate,
   isDeleting,
+  selected,
+  onSelect,
   style,
 }: PropertyCardProps) {
   const navigate = useNavigate();
   const occupancyRate = property.total_units > 0 ? (property.occupied_units / property.total_units) * 100 : 0;
   const isNew = isNewProperty(property.created_at);
   const segments = getOccupancySegments(occupancyRate);
+  const hasSelection = onSelect !== undefined;
 
   const handleCardClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (target.closest('button') || target.closest('[role="menuitem"]') || target.closest('[data-radix-popper-content-wrapper]')) return;
+    if (target.closest('button') || target.closest('[role="menuitem"]') || target.closest('[data-radix-popper-content-wrapper]') || target.closest('[data-checkbox]')) return;
     navigate(`/merchant/properties/${property.id}`);
   };
 
@@ -69,6 +75,21 @@ export function PropertyCard({
       style={style}
       onClick={handleCardClick}
     >
+      {/* Selection checkbox */}
+      {hasSelection && (
+        <div
+          data-checkbox
+          className={`absolute top-2 left-2 z-10 transition-opacity ${selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Checkbox
+            checked={selected}
+            onCheckedChange={() => onSelect?.(property.id)}
+            className="h-5 w-5 bg-background/80 backdrop-blur-sm border-2 shadow-sm"
+          />
+        </div>
+      )}
+
       {/* Image section */}
       {property.images && property.images.length > 0 ? (
         <div className="relative h-32 overflow-hidden">

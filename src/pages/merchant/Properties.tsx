@@ -12,11 +12,19 @@ import { CreatePropertyPayload, Property, UpdatePropertyPayload } from '@/featur
 import { SubscriptionLimitWarning } from '@/features/subscriptions/components/SubscriptionLimitWarning';
 import { useSubscriptionLimits } from '@/features/subscriptions/hooks/useSubscriptionLimits';
 import { ImageGalleryUpload } from '@/shared/components/FileUpload';
+import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 
 import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert';
 import { Button } from '@/shared/components/ui/button';
+import { Checkbox } from '@/shared/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/shared/components/ui/collapsible';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/shared/components/ui/dropdown-menu';
 import { Input } from '@/shared/components/ui/input';
 import { Progress } from '@/shared/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
@@ -38,11 +46,13 @@ import {
   RefreshCw,
   RotateCcw,
   Sparkles,
+  Trash2,
   TrendingUp,
   Users,
   Upload,
+  ChevronDown as ChevronDownIcon,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const DEFAULT_ITEMS_PER_PAGE = 9;
 
@@ -88,6 +98,59 @@ export default function MerchantProperties() {
   const [jumpToPage, setJumpToPage] = useState('');
   const { toast } = useToast();
   const { data: limits } = useSubscriptionLimits();
+
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
+
+  const handleSelectId = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleSelectAllPage = () => {
+    const pageIds = paginatedProperties.map(p => p.id);
+    setSelectedIds(prev => {
+      const allSelected = pageIds.every(id => prev.has(id));
+      const next = new Set(prev);
+      if (allSelected) { pageIds.forEach(id => next.delete(id)); } else { pageIds.forEach(id => next.add(id)); }
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    setBulkLoading(true);
+    let deleted = 0;
+    const errors: string[] = [];
+    for (const id of selectedIds) {
+      try {
+        const check = await checkCanDelete(id);
+        if (!check.canDelete) { errors.push(check.reason || 'Tidak dapat menghapus'); continue; }
+        await deleteProperty(id);
+        deleted++;
+      } catch (e) { errors.push((e as Error).message); }
+    }
+    setBulkLoading(false);
+    setBulkDeleteOpen(false);
+    setSelectedIds(new Set());
+    if (deleted > 0) toast({ title: 'Properti Dihapus', description: `${deleted} properti berhasil dihapus.` });
+    if (errors.length > 0) toast({ variant: 'destructive', title: 'Beberapa gagal', description: `${errors.length} properti gagal dihapus.` });
+  };
+
+  const handleBulkStatusChange = async (status: string) => {
+    setBulkLoading(true);
+    let updated = 0;
+    for (const id of selectedIds) {
+      try { await updateProperty({ id, payload: { status } as any }); updated++; } catch (e) { console.error(e); }
+    }
+    setBulkLoading(false);
+    setSelectedIds(new Set());
+    if (updated > 0) toast({ title: 'Status Diperbarui', description: `${updated} properti diubah ke ${status === 'active' ? 'Aktif' : status === 'inactive' ? 'Nonaktif' : 'Pemeliharaan'}.` });
+  };
 
   // Persist viewMode & sortBy to localStorage
   useEffect(() => { localStorage.setItem('sihuni:propertyViewMode', JSON.stringify(viewMode)); }, [viewMode]);
@@ -510,10 +573,18 @@ export default function MerchantProperties() {
               <>
                 {viewMode === 'grid' ? (
                   <>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Checkbox
+                        checked={paginatedProperties.length > 0 && paginatedProperties.every(p => selectedIds.has(p.id))}
+                        onCheckedChange={handleSelectAllPage}
+                        aria-label="Pilih semua di halaman ini"
+                      />
+                      <span className="text-sm text-muted-foreground">Pilih semua halaman ini</span>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {paginatedProperties.map((property, index) => (
                         <div key={property.id} className="animate-in fade-in-0 slide-in-from-bottom-4" style={{ animationDelay: `${index * 60}ms`, animationFillMode: 'both' }}>
-                          <PropertyCard property={property} onEdit={handleEdit} onDelete={handleDeleteClick} onManageUnits={setUnitsProperty} onManagePhotos={handleOpenImages} onDuplicate={handleDuplicate} isDeleting={deleteLoading === property.id} />
+                          <PropertyCard property={property} onEdit={handleEdit} onDelete={handleDeleteClick} onManageUnits={setUnitsProperty} onManagePhotos={handleOpenImages} onDuplicate={handleDuplicate} isDeleting={deleteLoading === property.id} selected={selectedIds.has(property.id)} onSelect={handleSelectId} />
                         </div>
                       ))}
                     </div>
@@ -521,7 +592,7 @@ export default function MerchantProperties() {
                   </>
                 ) : (
                   <>
-                    <PropertyTable properties={paginatedProperties} onEdit={handleEdit} onDelete={handleDeleteClick} onManageUnits={setUnitsProperty} onManagePhotos={handleOpenImages} onDuplicate={handleDuplicate} deleteLoadingId={deleteLoading} page={page} totalPages={totalPages} totalProperties={filteredProperties.length} onPageChange={setPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} />
+                    <PropertyTable properties={paginatedProperties} onEdit={handleEdit} onDelete={handleDeleteClick} onManageUnits={setUnitsProperty} onManagePhotos={handleOpenImages} onDuplicate={handleDuplicate} deleteLoadingId={deleteLoading} page={page} totalPages={totalPages} totalProperties={filteredProperties.length} onPageChange={setPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} selectedIds={selectedIds} onSelectId={handleSelectId} onSelectAll={handleSelectAllPage} />
                     {renderPagination()}
                   </>
                 )}
@@ -549,7 +620,51 @@ export default function MerchantProperties() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Bulk Delete Confirm Dialog */}
+        <ConfirmDialog
+          open={bulkDeleteOpen}
+          onOpenChange={setBulkDeleteOpen}
+          title="Hapus Properti Terpilih"
+          description={`Anda akan menghapus ${selectedIds.size} properti. Tindakan ini tidak dapat dibatalkan.`}
+          confirmLabel="Hapus Semua"
+          cancelLabel="Batal"
+          variant="destructive"
+          isLoading={bulkLoading}
+          onConfirm={handleBulkDelete}
+        />
       </div>
+
+      {/* Floating Bulk Actions Bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 fade-in-0">
+          <div className="flex items-center gap-3 bg-card border border-border shadow-2xl rounded-2xl px-5 py-3">
+            <div className="flex items-center gap-2">
+              <Checkbox checked={true} className="h-4 w-4" />
+              <span className="text-sm font-medium">{selectedIds.size} properti dipilih</span>
+            </div>
+            <div className="h-5 w-px bg-border" />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="rounded-xl gap-1.5" disabled={bulkLoading}>
+                  Ubah Status <ChevronDownIcon className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center">
+                <DropdownMenuItem onClick={() => handleBulkStatusChange('active')}>Aktif</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleBulkStatusChange('inactive')}>Nonaktif</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleBulkStatusChange('maintenance')}>Pemeliharaan</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button variant="destructive" size="sm" className="rounded-xl gap-1.5" onClick={() => setBulkDeleteOpen(true)} disabled={bulkLoading}>
+              <Trash2 className="h-3.5 w-3.5" /> Hapus
+            </Button>
+            <Button variant="ghost" size="sm" className="rounded-xl text-muted-foreground" onClick={() => setSelectedIds(new Set())} disabled={bulkLoading}>
+              Batal
+            </Button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
