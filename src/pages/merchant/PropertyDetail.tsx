@@ -433,7 +433,7 @@ export default function PropertyDetail() {
         initialStep={editInitialStep}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
+      <div>
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="pill-tab-list w-full sm:w-auto flex-wrap" aria-label="Navigasi detail properti">
             <TabsTrigger value="overview" className="pill-tab-trigger">Ringkasan</TabsTrigger>
@@ -449,58 +449,92 @@ export default function PropertyDetail() {
           </TabsList>
 
           {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-4 mt-4 animate-fade-in">
-            <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-muted-foreground" aria-hidden="true" />Alamat
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm">{property.address}</p>
-                <p className="text-sm text-muted-foreground">{property.city}, {property.province} {property.postal_code}</p>
-              </CardContent>
-            </Card>
-            {property.description && (
-              <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
-                <CardHeader><CardTitle className="text-base">Deskripsi</CardTitle></CardHeader>
-                <CardContent><p className="text-sm text-muted-foreground">{property.description}</p></CardContent>
-              </Card>
-            )}
-            {/* Fasilitas Card - Editable */}
-            <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-base">Fasilitas</CardTitle>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" className="rounded-xl gap-1 text-xs h-7" onClick={() => { setEditingAmenities(property.amenities || []); setShowFacilitiesDialog(true); }}>
-                    <Settings2 className="h-3.5 w-3.5" /> Edit Fasilitas
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {property.amenities && property.amenities.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {property.amenities.map((a: string) => (
-                      <Badge
-                        key={a}
-                        variant="secondary"
-                        className="rounded-full cursor-pointer hover:bg-primary/10 transition-colors"
-                        onClick={() => navigate('/merchant/inventory')}
-                      >
-                        {facilityNameMap[a] || a.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
-                        <ExternalLink className="h-2.5 w-2.5 ml-1 opacity-50" />
-                      </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Belum ada fasilitas ditambahkan.</p>
+          <TabsContent value="overview" className="mt-4 animate-fade-in">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
+              <div className="space-y-4">
+                <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground" aria-hidden="true" />Alamat
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm">{property.address}</p>
+                    <p className="text-sm text-muted-foreground">{property.city}, {property.province} {property.postal_code}</p>
+                  </CardContent>
+                </Card>
+                {property.description && (
+                  <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
+                    <CardHeader><CardTitle className="text-base">Deskripsi</CardTitle></CardHeader>
+                    <CardContent><p className="text-sm text-muted-foreground">{property.description}</p></CardContent>
+                  </Card>
                 )}
-              </CardContent>
-            </Card>
+                {/* Fasilitas Card - Editable */}
+                <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="text-base">Fasilitas</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" className="rounded-xl gap-1 text-xs h-7" onClick={() => { setEditingAmenities(property.amenities || []); setShowFacilitiesDialog(true); }}>
+                        <Settings2 className="h-3.5 w-3.5" /> Edit Fasilitas
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {property.amenities && property.amenities.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {property.amenities.map((a: string) => (
+                          <Badge
+                            key={a}
+                            variant="secondary"
+                            className="rounded-full cursor-pointer hover:bg-primary/10 transition-colors"
+                            onClick={() => navigate('/merchant/inventory')}
+                          >
+                            {facilityNameMap[a] || a.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                            <ExternalLink className="h-2.5 w-2.5 ml-1 opacity-50" />
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Belum ada fasilitas ditambahkan.</p>
+                    )}
+                  </CardContent>
+                </Card>
 
-            {/* Peraturan Section */}
-            {merchant?.id && <RulesSection propertyId={id!} merchantId={merchant.id} />}
+                {/* Peraturan Section */}
+                {merchant?.id && <RulesSection propertyId={id!} merchantId={merchant.id} />}
+              </div>
 
+              {/* Info Properti - Right Sidebar (only in overview tab) */}
+              <div className="space-y-4">
+                <section className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40" aria-labelledby="property-info-title">
+                  <CardHeader><CardTitle id="property-info-title" className="text-base">Info Properti</CardTitle></CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Hash className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span className="truncate font-mono text-xs" aria-label={`ID Properti: ${property.id}`}>{property.id}</span>
+                    </div>
+                    <Separator />
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>Dibuat {format(new Date(property.created_at), 'dd MMM yyyy')}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>Update {format(new Date(property.updated_at), 'dd MMM yyyy')}</span>
+                    </div>
+                    <Separator />
+                    <div className="flex justify-between"><span className="text-muted-foreground">Total Unit</span><span className="font-medium">{totalUnits}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Terisi</span><span className="font-medium text-success">{occupiedUnits}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Tersedia</span><span className="font-medium">{units.filter((u: any) => u.status === 'available').length}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Perbaikan</span><span className="font-medium text-warning">{maintenanceUnits}</span></div>
+                    <Separator />
+                    <div className="flex justify-between"><span className="text-muted-foreground">Pendapatan</span><span className="font-medium text-success">{formatCurrency(revenuePotential)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Rata-rata Sewa</span><span className="font-medium">{formatCurrency(avgRent)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Fasilitas</span><span className="font-medium">{property.amenities?.length || 0}</span></div>
+                  </CardContent>
+                </section>
+              </div>
+            </div>
           </TabsContent>
 
           {/* Units Tab */}
@@ -803,40 +837,6 @@ export default function PropertyDetail() {
 
         </Tabs>
 
-        {/* Sidebar */}
-        <div className="space-y-4">
-          <section className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40" aria-labelledby="property-info-title">
-            <CardHeader><CardTitle id="property-info-title" className="text-base">Info Properti</CardTitle></CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Hash className="h-3.5 w-3.5" aria-hidden="true" />
-                <span className="truncate font-mono text-xs" aria-label={`ID Properti: ${property.id}`}>{property.id}</span>
-              </div>
-              <Separator />
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>Dibuat {format(new Date(property.created_at), 'dd MMM yyyy')}</span>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>Update {format(new Date(property.updated_at), 'dd MMM yyyy')}</span>
-              </div>
-            </CardContent>
-          </section>
-          <section className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40" aria-labelledby="summary-title">
-            <CardHeader><CardTitle id="summary-title" className="text-base">Ringkasan</CardTitle></CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">Total Unit</span><span className="font-medium">{totalUnits}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Terisi</span><span className="font-medium text-success">{occupiedUnits}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Tersedia</span><span className="font-medium">{units.filter((u: any) => u.status === 'available').length}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Perbaikan</span><span className="font-medium text-warning">{maintenanceUnits}</span></div>
-              <Separator />
-              <div className="flex justify-between"><span className="text-muted-foreground">Pendapatan</span><span className="font-medium text-success">{formatCurrency(revenuePotential)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Rata-rata Sewa</span><span className="font-medium">{formatCurrency(avgRent)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Fasilitas</span><span className="font-medium">{property.amenities?.length || 0}</span></div>
-            </CardContent>
-          </section>
-        </div>
       </div>
 
       {/* Tenant Details Dialog */}
