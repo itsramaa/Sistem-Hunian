@@ -186,6 +186,9 @@ export default function MerchantProperties() {
 
   useEffect(() => { setPage(1); }, [debouncedSearch, typeFilter, statusFilter, sortBy, itemsPerPage]);
 
+  // Scroll to top on page change (Flow E)
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, [page]);
+
   // Server-side search effect
   useEffect(() => {
     if (!useServerSearch || !merchant?.id) return;
@@ -302,11 +305,53 @@ export default function MerchantProperties() {
 
   const handleDeleteConfirm = async () => {
     if (!deleteDialogProperty) return;
+    const propertySnapshot = { ...deleteDialogProperty };
     setDeleteLoading(deleteDialogProperty.id);
     try {
       await deleteProperty(deleteDialogProperty.id);
-      toast({ title: 'Properti Dihapus', description: 'Properti telah berhasil dihapus' });
       setDeleteDialogProperty(null);
+
+      // 5-second undo toast (Flow D)
+      let undone = false;
+      toast({
+        title: 'Properti Dihapus',
+        description: `"${propertySnapshot.name}" telah dihapus`,
+        duration: 5000,
+        action: (
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-lg gap-1"
+            onClick={async () => {
+              undone = true;
+              try {
+                await createProperty({
+                  name: propertySnapshot.name,
+                  property_type: propertySnapshot.property_type,
+                  address: propertySnapshot.address || '',
+                  city: propertySnapshot.city || '',
+                  province: propertySnapshot.province || '',
+                  postal_code: propertySnapshot.postal_code || null,
+                  description: propertySnapshot.description || null,
+                  amenities: propertySnapshot.amenities || [],
+                  images: propertySnapshot.images || [],
+                  guardian_name: propertySnapshot.guardian_name || null,
+                  guardian_phone: propertySnapshot.guardian_phone || null,
+                  latitude: propertySnapshot.latitude || null,
+                  longitude: propertySnapshot.longitude || null,
+                } as CreatePropertyPayload);
+                toast({ title: 'Dibatalkan', description: `"${propertySnapshot.name}" berhasil dipulihkan` });
+              } catch (e) {
+                console.error('Undo failed:', e);
+                toast({ variant: 'destructive', title: 'Gagal Membatalkan', description: 'Properti tidak dapat dipulihkan.' });
+              }
+            }}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Undo
+          </Button>
+        ),
+      });
     } catch (error) {
       console.error('Error deleting property:', error);
       toast({ variant: 'destructive', title: 'Kesalahan Menghapus Properti', description: (error as Error).message || 'Gagal menghapus properti' });
