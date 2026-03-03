@@ -43,12 +43,44 @@ export interface MerchantDashboardStats {
   };
 }
 
+/**
+ * Fetch unit IDs for a given property. Used to scope queries on tables
+ * that don't have a direct property_id column.
+ */
+async function fetchUnitIdsForProperty(propertyId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('units')
+    .select('id')
+    .eq('property_id', propertyId);
+  if (error) throw error;
+  return (data || []).map((u) => u.id);
+}
+
+/**
+ * Fetch contract IDs scoped to a set of unit IDs + merchant.
+ */
+async function fetchContractIdsForUnits(merchantId: string, unitIds: string[]): Promise<string[]> {
+  if (unitIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from('contracts')
+    .select('id')
+    .eq('merchant_id', merchantId)
+    .in('unit_id', unitIds);
+  if (error) throw error;
+  return (data || []).map((c) => c.id);
+}
+
+function calcGrowth(current: number, previous: number): number {
+  if (previous > 0) return ((current - previous) / previous) * 100;
+  if (current > 0) return 100;
+  return 0;
+}
+
 export const merchantDashboardService = {
   async fetchStats(merchantId: string, propertyId?: string | null): Promise<MerchantDashboardStats> {
     const currentMonth = getCurrentMonthDateRange();
     const lastMonth = getPreviousMonthDateRange();
 
-    // Parallelize queries for performance
     const fiveDaysAgo = new Date();
     fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
     const thirtyDaysFromNow = new Date();
@@ -56,6 +88,29 @@ export const merchantDashboardService = {
     const sixtyDaysFromNow = new Date();
     sixtyDaysFromNow.setDate(sixtyDaysFromNow.getDate() + 60);
 
+    // --- Phase 1: Resolve scope IDs if property-scoped ---
+    let unitIds: string[] | null = null;
+    let contractIds: string[] | null = null;
+
+    if (propertyId) {
+      unitIds = await fetchUnitIdsForProperty(propertyId);
+      contractIds = await fetchContractIdsForUnits(merchantId, unitIds);
+    }
+
+    // Helper: apply unit_id scoping to a query builder (uses any to avoid TS2589 deep instantiation)
+    const scopeByUnit = (q: any): any => {
+      if (unitIds && unitIds.length > 0) return q.in('unit_id', unitIds);
+      if (unitIds && unitIds.length === 0) return q.in('unit_id', ['__none__']);
+      return q;
+    };
+
+    const scopeByContract = (q: any): any => {
+      if (contractIds && contractIds.length > 0) return q.in('contract_id', contractIds);
+      if (contractIds && contractIds.length === 0) return q.in('contract_id', ['__none__']);
+      return q;
+    };
+
+    // --- Phase 2: Parallelize all queries ---
     const [
       propertiesRes,
       escrowRes,
@@ -70,151 +125,128 @@ export const merchantDashboardService = {
       completedTransfersRes,
       unpaidInvoicesRes
     ] = await Promise.all([
-      // 1. Fetch properties
+      // 1. Properties
       (() => {
         let q = supabase.from('properties').select('id, name, total_units, occupied_units').eq('merchant_id', merchantId);
         if (propertyId) q = q.eq('id', propertyId);
         return q;
       })(),
 
-      // 2. Fetch payment transfers balance
+      // 2. Pending transfers (portfolio-level, no property scoping)
       (supabase as any)
         .from('payment_transfers')
         .select('net_amount, status')
         .eq('merchant_id', merchantId)
         .eq('status', 'pending'),
 
-      // 3. Fetch active tenants count
-      supabase
-        .from('contracts')
-        .select('id', { count: 'exact', head: true })
-        .eq('merchant_id', merchantId)
-        .eq('status', 'active'),
-
-      // 4. Fetch this month's payments
-      (supabase as any)
-        .from('payments')
-        .select('amount')
-        .eq('merchant_id', merchantId)
-        .eq('status', 'paid')
-        .gte('created_at', currentMonth.start.toISOString()),
-
-      // 5. Fetch last month's payments
-      (supabase as any)
-        .from('payments')
-        .select('amount')
-        .eq('merchant_id', merchantId)
-        .eq('status', 'paid')
-        .gte('created_at', lastMonth.start.toISOString())
-        .lte('created_at', lastMonth.end.toISOString()),
-
-      // 6. Fetch last month's active tenants
+      // 3. Active tenants (scoped by unit)
       (() => {
-        let q = supabase.from('contracts').select('id', { count: 'exact', head: true }).eq('merchant_id', merchantId).eq('status', 'active').lte('created_at', lastMonth.end.toISOString());
+        let q = supabase.from('contracts').select('id', { count: 'exact', head: true })
+          .eq('merchant_id', merchantId).eq('status', 'active');
+        return scopeByUnit(q);
+      })(),
+
+      // 4. This month's payments (scoped by contract)
+      (() => {
+        let q = (supabase as any).from('payments').select('amount')
+          .eq('merchant_id', merchantId).eq('status', 'paid')
+          .gte('created_at', currentMonth.start.toISOString());
+        return scopeByContract(q);
+      })(),
+
+      // 5. Last month's payments (scoped by contract)
+      (() => {
+        let q = (supabase as any).from('payments').select('amount')
+          .eq('merchant_id', merchantId).eq('status', 'paid')
+          .gte('created_at', lastMonth.start.toISOString())
+          .lte('created_at', lastMonth.end.toISOString());
+        return scopeByContract(q);
+      })(),
+
+      // 6. Last month's active tenants (scoped by unit)
+      (() => {
+        let q = supabase.from('contracts').select('id', { count: 'exact', head: true })
+          .eq('merchant_id', merchantId).eq('status', 'active')
+          .lte('created_at', lastMonth.end.toISOString());
+        return scopeByUnit(q);
+      })(),
+
+      // 7. Overdue invoices (scoped by property_id)
+      (() => {
+        let q = (supabase as any).from('invoices').select('total_amount')
+          .eq('merchant_id', merchantId).in('status', ['overdue', 'escalated']);
+        if (propertyId) q = q.eq('property_id', propertyId);
         return q;
       })(),
 
-      // 7. Overdue invoices
-      (supabase as any)
-        .from('invoices')
-        .select('total_amount')
-        .eq('merchant_id', merchantId)
-        .in('status', ['overdue', 'escalated']),
+      // 8. Stale maintenance (scoped by unit)
+      (() => {
+        let q = supabase.from('maintenance_requests').select('id', { count: 'exact', head: true })
+          .eq('merchant_id', merchantId).eq('status', 'pending')
+          .lte('created_at', fiveDaysAgo.toISOString());
+        return scopeByUnit(q);
+      })(),
 
-      // 8. Stale maintenance (pending > 5 days)
-      supabase
-        .from('maintenance_requests')
-        .select('id', { count: 'exact', head: true })
-        .eq('merchant_id', merchantId)
-        .eq('status', 'pending')
-        .lte('created_at', fiveDaysAgo.toISOString()),
+      // 9. Expiring contracts within 30 days (scoped by unit)
+      (() => {
+        let q = supabase.from('contracts').select('id', { count: 'exact', head: true })
+          .eq('merchant_id', merchantId).eq('status', 'active')
+          .lte('end_date', thirtyDaysFromNow.toISOString())
+          .gte('end_date', new Date().toISOString());
+        return scopeByUnit(q);
+      })(),
 
-      // 9. Expiring contracts (within 30 days)
-      supabase
-        .from('contracts')
-        .select('id', { count: 'exact', head: true })
-        .eq('merchant_id', merchantId)
-        .eq('status', 'active')
-        .lte('end_date', thirtyDaysFromNow.toISOString())
-        .gte('end_date', new Date().toISOString()),
+      // 10. Upcoming contract endings 30-60 days (scoped by unit)
+      (() => {
+        let q = supabase.from('contracts').select('id, end_date, unit_id')
+          .eq('merchant_id', merchantId).eq('status', 'active')
+          .gt('end_date', thirtyDaysFromNow.toISOString())
+          .lte('end_date', sixtyDaysFromNow.toISOString())
+          .order('end_date', { ascending: true }).limit(5);
+        return scopeByUnit(q);
+      })(),
 
-      // 10. Upcoming contract endings (30-60 days) for events
-      supabase
-        .from('contracts')
-        .select('id, end_date, unit_id')
-        .eq('merchant_id', merchantId)
-        .eq('status', 'active')
-        .gt('end_date', thirtyDaysFromNow.toISOString())
-        .lte('end_date', sixtyDaysFromNow.toISOString())
-        .order('end_date', { ascending: true })
-        .limit(5),
-
-      // 11. Completed transfers (available balance)
+      // 11. Completed transfers (portfolio-level, no property scoping)
       (supabase as any)
         .from('payment_transfers')
         .select('net_amount')
         .eq('merchant_id', merchantId)
         .eq('status', 'completed'),
 
-      // 12. Unpaid invoices (outstanding receivables)
-      (supabase as any)
-        .from('invoices')
-        .select('total_amount')
-        .eq('merchant_id', merchantId)
-        .in('status', ['pending', 'overdue'])
+      // 12. Unpaid invoices (scoped by property_id)
+      (() => {
+        let q = (supabase as any).from('invoices').select('total_amount')
+          .eq('merchant_id', merchantId).in('status', ['pending', 'overdue']);
+        if (propertyId) q = q.eq('property_id', propertyId);
+        return q;
+      })(),
     ]);
 
-    // Error handling could be more robust, but we'll throw for now to let React Query handle it
     if (propertiesRes.error) throw propertiesRes.error;
-    
-    // Process Properties
+
+    // --- Process results ---
     const properties = propertiesRes.data || [];
-    const totalProperties = properties.length;
     const totalUnits = properties.reduce((sum, p) => sum + (p.total_units || 0), 0);
     const occupiedUnits = properties.reduce((sum, p) => sum + (p.occupied_units || 0), 0);
     const occupancyRate = totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0;
 
-    // Process Financials (direct payment model — no escrow)
     const pendingTransfers = escrowRes.data || [];
     const pendingBalance = pendingTransfers.reduce((sum: number, t: any) => sum + Number(t.net_amount || 0), 0);
-    const monthlyRevenue = monthlyPaymentsRes.data?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
-    const lastMonthRevenue = lastMonthPaymentsRes.data?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+    const monthlyRevenue = monthlyPaymentsRes.data?.reduce((sum: number, p: any) => sum + Number(p.amount), 0) || 0;
+    const lastMonthRevenue = lastMonthPaymentsRes.data?.reduce((sum: number, p: any) => sum + Number(p.amount), 0) || 0;
 
-    // Completed transfers = available balance
     const completedTransfers = completedTransfersRes.data || [];
     const availableBalance = completedTransfers.reduce((sum: number, t: any) => sum + Number(t.net_amount || 0), 0);
 
-    // Outstanding receivables
     const unpaidInvoices = unpaidInvoicesRes.data || [];
     const outstandingReceivables = unpaidInvoices.reduce((sum: number, inv: any) => sum + Number(inv.total_amount || 0), 0);
-    const outstandingInvoiceCount = unpaidInvoices.length;
-    
-    let revenueGrowth = 0;
-    if (lastMonthRevenue > 0) {
-      revenueGrowth = ((monthlyRevenue - lastMonthRevenue) / lastMonthRevenue) * 100;
-    } else if (monthlyRevenue > 0) {
-      revenueGrowth = 100;
-    }
 
-    // Process Tenants
     const activeTenants = activeTenantsRes.count || 0;
     const lastMonthActive = lastMonthTenantsRes.count || 0;
-    
-    let tenantGrowth = 0;
-    if (lastMonthActive > 0) {
-      tenantGrowth = ((activeTenants - lastMonthActive) / lastMonthActive) * 100;
-    } else if (activeTenants > 0) {
-      tenantGrowth = 100;
-    }
 
-    // Process Alerts
     const overdueInvoicesList = overdueInvoicesRes.data || [];
-    const overdueInvoicesCount = overdueInvoicesList.length;
     const overdueInvoicesTotal = overdueInvoicesList.reduce((sum: number, inv: any) => sum + Number(inv.total_amount || 0), 0);
-    const staleMaintenanceCount = staleMaintenanceRes.count || 0;
-    const expiringContractsCount = expiringContractsRes.count || 0;
 
-    // Process Upcoming Events
     const upcomingEvents: UpcomingEvent[] = (upcomingContractsRes.data || []).map((c: any) => ({
       type: 'contract_ending' as const,
       description: `Kontrak unit ${c.unit_id?.substring(0, 8)} berakhir`,
@@ -224,33 +256,32 @@ export const merchantDashboardService = {
 
     return {
       properties: {
-        total: totalProperties,
+        total: properties.length,
         totalUnits,
         occupiedUnits,
         occupancyRate,
-        list: properties
+        list: properties,
       },
       financials: {
         balance: availableBalance,
         pendingBalance,
         monthlyRevenue,
         lastMonthRevenue,
-        revenueGrowth,
+        revenueGrowth: calcGrowth(monthlyRevenue, lastMonthRevenue),
         outstandingReceivables,
-        outstandingInvoiceCount
+        outstandingInvoiceCount: unpaidInvoices.length,
       },
       tenants: {
         active: activeTenants,
         lastMonthActive,
-        growth: tenantGrowth
+        growth: calcGrowth(activeTenants, lastMonthActive),
       },
       alerts: {
-        overdueInvoices: { count: overdueInvoicesCount, totalAmount: overdueInvoicesTotal },
-        staleMaintenance: staleMaintenanceCount,
-        expiringContracts: expiringContractsCount,
-        upcomingEvents
-      }
+        overdueInvoices: { count: overdueInvoicesList.length, totalAmount: overdueInvoicesTotal },
+        staleMaintenance: staleMaintenanceRes.count || 0,
+        expiringContracts: expiringContractsRes.count || 0,
+        upcomingEvents,
+      },
     };
-  }
+  },
 };
-
