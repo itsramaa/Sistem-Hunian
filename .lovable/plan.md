@@ -1,52 +1,44 @@
 
 
-# Bulk Operations for Properties Page
+# 2.1.5 & 2.1.6 — Remaining Implementation
+
+## Analysis
+
+### 2.1.5 UI Hierarchy & Navigation Update
+| Item | Status | Action |
+|------|--------|--------|
+| Sidebar "Properti" as primary link | ✅ COMPLETE | No change |
+| Breadcrumb on detail page | ✅ COMPLETE | No change |
+| **Occupancy status badge (BAIK/PERHATIAN/KRITIS)** | 🟡 PARTIAL | **Implement** — add badge at top-right of PropertyCard |
+| "+N Penyewa" clickable label | ⏭️ SKIP | Property type lacks tenant count data; would require extra query per card. Defer. |
+| Revenue mini-indicator | ⏭️ SKIP | Property type has no revenue field; would need join with payments table. Defer. |
+| Filter bar redesign | ✅ COMPLETE | No change |
+
+### 2.1.6 Scalability Upgrade
+| Item | Status | Action |
+|------|--------|--------|
+| 5/20/50 properties | ✅ COMPLETE | No change |
+| 100+ (server-side search) | ⏭️ SKIP | P2 future work |
+| Bulk actions | ✅ COMPLETE | No change |
+| Automation readiness | ⏭️ SKIP | Future feature |
 
 ## What We're Building
-Add checkbox multi-select to properties (both grid and list views) with a floating "Bulk Actions" toolbar that appears when items are selected. Actions: **Delete Selected**, **Change Status** (active/inactive/maintenance).
 
-## Implementation
+**One change**: Add occupancy status badge (BAIK / PERHATIAN / KRITIS) to the top-right corner of `PropertyCard`, matching the Dashboard design language.
 
-### 1. State in `Properties.tsx`
-- Add `selectedIds: Set<string>` state
-- Add `selectAll` toggle (selects all on current page)
-- Add `handleBulkDelete` — loops through selected, calls `deleteProperty` for each, shows toast with count
-- Add `handleBulkStatusChange(status)` — loops through selected, calls `updateProperty` for each
-- Clear selection after bulk action completes
+- **≥80%** → green badge "BAIK"
+- **50-79%** → yellow badge "PERHATIAN"  
+- **<50%** → red badge "KRITIS"
 
-### 2. Floating Bulk Actions Bar (in `Properties.tsx`)
-When `selectedIds.size > 0`, render a sticky bottom bar:
-```text
-┌──────────────────────────────────────────────────────┐
-│ ☑ 3 properti dipilih    [Ubah Status ▾]  [🗑 Hapus]  │  
-└──────────────────────────────────────────────────────┘
-```
-- "Ubah Status" → DropdownMenu with 3 options (Aktif, Nonaktif, Pemeliharaan)
-- "Hapus" → ConfirmDialog before executing
-- Shows count of selected items
+Also add the same badge to `PropertyTable` rows (next to the existing occupancy percentage).
 
-### 3. Grid View — Checkbox on `PropertyCard`
-- Add `selected` and `onSelect` props to `PropertyCard`
-- Render a `Checkbox` in the top-left corner of the card (always visible when in selection mode, or on hover)
-- Clicking checkbox toggles selection without navigating
-
-### 4. List View — Checkbox column in `PropertyTable`
-- Add checkbox column as first `<TableHead>` with select-all checkbox
-- Each row gets a `<Checkbox>` in first `<TableCell>`
-- Add `selectedIds`, `onSelectId`, `onSelectAll` props
-
-### 5. Select All in header area
-- Add a "Select All" checkbox near the results counter that toggles all items on the current page
-
-### 6. Update AUDIT_MENU.md
-- Mark bulk operations as ✅ COMPLETE
+Then update `AUDIT_MENU.md` section 2.1.5 to mark occupancy badge as COMPLETE.
 
 ## Files
 
 | File | Action |
 |------|--------|
-| `src/pages/merchant/Properties.tsx` | EDIT — selection state, bulk handlers, floating bar, select-all, pass props |
-| `src/features/properties/components/PropertyCard.tsx` | EDIT — add `selected`/`onSelect` props, render checkbox |
-| `src/features/properties/components/PropertyTable.tsx` | EDIT — add checkbox column, select-all header, selection props |
-| `old-docs/AUDIT_MENU.md` | EDIT — mark bulk operations complete |
+| `src/features/properties/components/PropertyCard.tsx` | Add occupancy status badge at top-right corner |
+| `src/features/properties/components/PropertyTable.tsx` | Add occupancy status badge next to occupancy cell |
+| `old-docs/AUDIT_MENU.md` | Update 2.1.5 status |
 
