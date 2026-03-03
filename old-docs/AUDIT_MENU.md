@@ -208,18 +208,20 @@ type DashboardState =
 
 ### 1.7 Implementation Priority
 
-| Change | Priority | Justification | Est. Effort |
-|--------|----------|---------------|------------|
-| Add "Personalisasi" button (redesigned, larger) | **P0** | Current Settings2 icon has <5% discoverability. Users don't customize. Big usability win. | 2 hours |
-| Consolidate redundant revenue data (decide SoT) | **P0** | Revenue confusion is top data trust issue. Must resolve before any other changes. | 4 hours |
-| KPI cards → Inline modals/drawers (no navigation) | **P0** | Reduces cognitive load. 50% click reduction on common workflows. Immediate UX win. | 8 hours |
-| Mobile/Desktop parity (merge MobileMerchantDashboard) | **P1** | Code duplication + inconsistency. One implementation means faster updates. | 12 hours |
-| Property Spotlight cap at 5 + pagination | **P1** | Scales to 100+ properties. Performance improvement. | 4 hours |
-| Lazy-load below-fold widgets | **P1** | Improves perceived performance. Critical for 50+ property merchants. | 6 hours |
-| Add `dashboardScope` context state | **P1** | Enables future filtering features. Cleans up state logic. | 3 hours |
-| Subscription widget sticky/always-top | **P2** | Improves visibility for upsell. Minor refactor. | 2 hours |
-| Charts/Analytics lazy-load for 100+ properties | **P2** | Edge case optimization. Handles scale but not critical immediately. | 5 hours |
-| Breadcrumb navigation (scoped context) | **P2** | Clarifies current scope. Nice-to-have UX improvement. | 3 hours |
+| Change | Priority | Status | Justification | Est. Effort |
+|--------|----------|--------|---------------|------------|
+| Add "Personalisasi" button (redesigned, larger) | **P0** | ✅ COMPLETE | Current Settings2 icon has <5% discoverability. Users don't customize. Big usability win. | 2 hours |
+| Consolidate redundant revenue data (decide SoT) | **P0** | ✅ COMPLETE | Revenue confusion is top data trust issue. Must resolve before any other changes. | 4 hours |
+| KPI cards → Inline modals/drawers (no navigation) | **P0→P1** | ✅ COMPLETE | 4 KPI cards now open Sheet drawers (PropertySummary, Occupancy, TenantHealth, RevenueBreakdown) instead of navigate(). 50% click reduction. | 8 hours |
+| Mobile/Desktop parity (merge MobileMerchantDashboard) | **P1** | ✅ COMPLETE | Deleted MobileMerchantDashboard.tsx. Single responsive Dashboard.tsx with Tailwind breakpoints. pb-20 on mobile for bottom nav. | 12 hours |
+| Property Spotlight cap at 5 + pagination | **P1** | ✅ COMPLETE | property_overview widget now shows slice(0,5) with "Lihat Semua Properti (N)" link when >5. | 4 hours |
+| Lazy-load below-fold widgets | **P1** | ✅ COMPLETE | LazyWidget wrapper using IntersectionObserver (rootMargin 200px). Eager: kpi_strip, quick_actions, cash_flow, action_items. Lazy: charts, property_overview, vacancy, occupancy_forecast, alerts_events. | 6 hours |
+| Help tooltip on Personalisasi button | **P1** | ✅ COMPLETE | Tooltip: "Atur urutan dan visibilitas widget sesuai kebutuhan Anda" | 1 hour |
+| Consistent empty states | **P1** | ✅ COMPLETE | Standardized to "Belum ada properti terdaftar" + action button pattern. | 1 hour |
+| Add `dashboardScope` context state | **P1** | ✅ COMPLETE | Already implemented via selectedPropertyId + scope indicator breadcrumb. | 3 hours |
+| Subscription widget sticky/always-top | **P2** | ⏳ NOT STARTED | Improves visibility for upsell. Minor refactor. | 2 hours |
+| Charts/Analytics lazy-load for 100+ properties | **P2** | ✅ COMPLETE | Charts widget wrapped in LazyWidget. | 5 hours |
+| Breadcrumb navigation (scoped context) | **P2** | ✅ COMPLETE | Scope indicator shows "Menampilkan data untuk: [Property Name]" with clear button. | 3 hours |
 
 **Phased rollout**:
 - **Phase 1 (Week 1)**: P0 changes (Personalisasi button, revenue consolidation, KPI modals).
