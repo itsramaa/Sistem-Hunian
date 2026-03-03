@@ -1,61 +1,152 @@
 
 
-# Flow Analysis & Gap Implementation Plan
+# Create `old-docs/DSS-ML.md` — Comprehensive DSS & ML Documentation
 
-## Flow-by-Flow Verification
+## Overview
+Create a single comprehensive markdown documentation file that catalogs every DSS, AI, and ML component in the SiHuni system, including edge functions, services, hooks, UI components, database tables, shared utilities, and page integrations.
 
-### Flow A: Main Page Load — ✅ COMPLETE
-All items implemented: localStorage restore (viewMode, itemsPerPage, sortBy, insightsExpanded), header, subscription alert, toolbar, KPI cards, insights panel, results counter, grid/list, pagination.
+## Document Structure
 
-### Flow B: Filter + Search — ✅ COMPLETE  
-Debounce 500ms with loading indicator, client-side filtering, empty states differentiated, server-side search for 100+. All match the diagram.
+The file will be organized into these sections:
 
-### Flow C: Property Edit Multi-Step — ✅ COMPLETE
-4-step dialog (Basic Info → Location → Details → Media), validation per step, back preserves data, success/error toasts. Error keeps dialog open. Steps match (diagram shows 3 steps but actual has 4 which is better).
+### 1. Architecture Overview
+- AI Gateway: Lovable AI (`callLovableAI`) → Google Gemini 2.5 Pro (vision/prediction) + Flash (chatbot)
+- Shared infrastructure: `supabase/functions/_shared/dss-utils.ts` (530 lines)
+- Tier-gated access: free → starter → professional → enterprise
+- Audit logging: `ml_model_runs` table
 
-### Flow D: Delete with Dependency Check — 🟡 PARTIAL (2 gaps)
+### 2. Edge Functions (22 functions using dss-utils)
 
-| Item | Status | Gap |
-|------|--------|-----|
-| Confirmation dialog | ✅ | Exists |
-| `canDelete` check | ✅ | Checks occupied units + active contracts |
-| Error dialog with reasons | ✅ | Shows reason via toast |
-| Delete execution | ✅ | Works |
-| **5-sec undo toast** | ❌ | `SoftDeleteManager` component exists but is NOT used in Properties delete flow |
-| **KPI card auto-update** | ✅ | Query invalidation handles this |
+**ML Prediction (10)**:
+| Function | Tier Limits | Purpose |
+|----------|------------|---------|
+| `ml-revenue-forecast` | pro:5, ent:∞ | Monthly revenue prediction |
+| `ml-tenant-risk-score` | start:3, pro:20, ent:∞ | Tenant risk 0-100 |
+| `ml-churn-prediction` | pro only, ent:∞ | Churn probability |
+| `ml-optimal-pricing` | pro only, ent:∞ | Unit price optimization |
+| `ml-tenant-quality-scoring` | start:3, pro:15, ent:∞ | Quality grade A-F |
+| `ml-financial-analytics` | pro:3, ent:∞ | ROI/NPV/IRR/Break-even |
+| `ml-risk-assessment` | pro:3, ent:∞ | Disaster & insurance risk |
+| `ml-price-intelligence` | pro:3, ent:∞ | Price segments & trends |
+| `ml-occupancy-forecast` | pro:5, ent:∞ | Occupancy predictions |
+| `ml-data-quality-check` | — | Data validation |
 
-### Flow E: Pagination & View Toggle — 🟡 PARTIAL (1 gap)
+**DSS Advisors (4)**:
+| Function | Purpose |
+|----------|---------|
+| `dss-pricing-advisor` | Pricing recommendations |
+| `dss-collection-strategy` | Debt collection strategy |
+| `dss-maintenance-priority` | Maintenance prioritization |
+| `dss-investment-insight` | Investment analysis |
 
-| Item | Status | Gap |
-|------|--------|-----|
-| Page click updates items | ✅ | Works |
-| Items per page change resets to page 1 | ✅ | `useEffect` resets page on itemsPerPage change |
-| View toggle preserves state | ✅ | All state preserved |
-| **Scroll to top on page change** | ❌ | No `window.scrollTo(0, 0)` on page change |
+**OCR Processing (8)**:
+| Function | Purpose |
+|----------|---------|
+| `ocr-ktp-extract` | KTP identity card |
+| `ocr-payment-proof` | Payment receipts |
+| `ocr-business-document` | NIB/SIUP/Akta/NPWP |
+| `ocr-contract-document` | Contracts |
+| `ocr-compliance-document` | IMB/PBB compliance |
+| `ocr-expense-receipt` | Expense receipts |
+| `ocr-maintenance-receipt` | Maintenance receipts |
+| `ocr-asset-label` | Asset labels |
 
-## Implementation
+**AI Assistants (3)**:
+| Function | Purpose |
+|----------|---------|
+| `merchant-ai-assistant` | Merchant contextual chatbot |
+| `vendor-ai-assistant` | Vendor chatbot |
+| `ai-chatbot` | General/tenant chatbot |
 
-### 1. Scroll to Top on Page Change (Flow E)
-**File**: `src/pages/merchant/Properties.tsx`
-- Add `useEffect` watching `page` → `window.scrollTo({ top: 0, behavior: 'smooth' })`
+**ML Support**:
+| Function | Purpose |
+|----------|---------|
+| `ml-ocr-correction-suggest` | AI correction suggestions |
+| `compute-occupancy-snapshots` | Snapshot cron |
+| `compute-tenant-payment-metrics` | Payment metric cron |
+| `log-rls-access` | RLS audit logging |
 
-### 2. Undo Toast on Property Delete (Flow D)
-**File**: `src/pages/merchant/Properties.tsx`
-- Import and use `SoftDeleteManager` + `UndoToastContainer` from existing component
-- Change delete flow: instead of immediately calling `deleteProperty`, use `handleSoftDelete` which shows undo toast for 5 seconds, then permanently deletes
-- This requires: snapshot property data before delete, restore on undo (re-create via `createProperty`)
+### 3. Frontend Services (8 files)
+All in `src/features/dss/services/`:
+- `mlService.ts` — revenue forecast, risk score, churn, optimal pricing
+- `dssAdvisorService.ts` — pricing, collection, maintenance, investment
+- `financialRiskService.ts` — ROI/NPV/IRR + disaster risk types & invocations
+- `marketIntelligenceService.ts` — price intelligence + occupancy forecast types
+- `tenantQualityService.ts` — quality scoring A-F + screening
+- `tenantAnalyticsService.ts` — demographics, occupancy metrics, payment profiles
+- `ocrDocumentService.ts` — CRUD OCR results, signed URLs
+- `ocrCorrectionService.ts` — AI correction suggestions
 
-**Alternative (simpler)**: Use `sonner` toast with an undo action button. On delete success, show a 5-second toast with "Undo" button. If clicked within 5 seconds, re-create the property. This is simpler but the undo is best-effort (units/contracts won't be restored).
+### 4. Hooks (13 files)
+All in `src/features/dss/hooks/`:
+- `useMlAnalytics.ts` — useRevenueForecast, useTenantRiskScores, useRefreshRiskScore, useChurnPrediction, useOptimalPricing, useModelRunHistory
+- `useDssAdvisors.ts` — usePricingAdvisor, useCollectionStrategy, useMaintenancePriority, useInvestmentInsight, useDssRecommendations, useUpdateRecommendation
+- `useDssReadiness.ts` — 4-level checklist (24 items), overall score
+- `useDssHealthMetrics.ts` — OCR stats, model run stats, validation stats (30-day window, 30s polling)
+- `useMerchantTier.ts` — tier detection + feature access matrix
+- `useFinancialRisk.ts` — useFinancialAnalytics, useRiskAssessment
+- `useMarketIntelligence.ts` — usePriceIntelligence, useOccupancyForecast
+- `useTenantQuality.ts` — useTenantQualityScoring
+- `useTenantAnalytics.ts` — useTenantDemographics, useOccupancyMetrics, useTenantPaymentProfiles
+- `useOcrDocuments.ts` — useOcrResults, useOcrResultDetail, useUpdateOcrResult
+- `useOcrCorrection.ts` — useOcrCorrectionSuggestions
+- `useRlsMonitor.ts` — RLS denial monitoring (30s polling)
+- `useRlsAlertSettings.ts` — alert threshold config
 
-**Recommended**: Use the simpler approach — show a `toast` with duration 5000ms and an action button. The existing `SoftDeleteManager` component requires `onRestore` which would need re-inserting the property, which is feasible since we already have `createProperty`.
+### 5. UI Components
 
-### 3. Update AUDIT_MENU.md
-- Mark Flow D undo toast and Flow E scroll-to-top as COMPLETE
+**Feature Components** (`src/features/dss/components/`):
+- `DssReadinessCard.tsx` — Progress card with 4-level readiness
+- `DssReadinessChecklist.tsx` — Expandable checklist per level
+- `OcrUploadCard.tsx` — Document upload with type selector
+- `OcrDocumentViewer.tsx` — PDF/image preview with highlighting
+- `OcrResultEditor.tsx` — Manual correction editor
+- `RiskDashboardWidgets.tsx` — Risk score dashboard widgets
+- `RecommendationList.tsx` — List of DSS recommendations
+- `TierGate.tsx` — Combined tier + readiness gate
 
-## Files
+**Shared DSS Components** (`src/shared/components/dss/`):
+- `ConfidenceBadge.tsx` — Color-coded confidence 0-100%
+- `RiskScoreIndicator.tsx` — Progress bar risk meter
+- `ExtractedField.tsx` — OCR field with confidence badge
+- `TierGatedFeature.tsx` — Blur overlay for locked features
+- `RecommendationCard.tsx` — Action card (accept/defer/reject)
+
+**Chatbot Components** (`src/features/chatbot/components/`):
+- `MerchantChatbot.tsx` — Merchant AI assistant with quick actions
+- `VendorChatbot.tsx` — Vendor-specific chatbot
+- `ChatbotWidget.tsx` — Floating widget trigger
+- `ChatbotDialog.tsx` — Dialog wrapper
+- `ChatMessageRenderer.tsx` — Message bubble renderer
+- `FaqTab.tsx` — FAQ display
+- `LiveChatTab.tsx` — Live chat interface
+- `admin/KnowledgeDialog.tsx` — Knowledge CRUD dialog
+- `admin/KnowledgeFilters.tsx` — Search/filter for knowledge
+- `admin/KnowledgeStats.tsx` — Knowledge base stats
+- `admin/KnowledgeTable.tsx` — Knowledge entry table
+
+### 6. Page Integrations (8 pages)
+- `MlAnalytics.tsx` — All ML model dashboard
+- `DssAdvisor.tsx` — DSS recommendations
+- `MarketIntelligence.tsx` — Price intelligence + occupancy forecast
+- `FinancialRiskAnalytics.tsx` — Financial + risk assessment
+- `TenantQualityScoring.tsx` — Tenant quality A-F
+- `TenantAnalytics.tsx` — Demographics + payment profiles
+- `DocumentCenter.tsx` — OCR document management
+- `PropertyDetail.tsx` — DSS readiness card integration
+
+### 7. Validation & Utils
+- `src/features/dss/utils/dss-validation.ts` — Zod schemas (KTP, payment proof, business doc, maintenance receipt), state machine transitions, validation logging
+
+### 8. Database Tables
+`ml_model_runs`, `ocr_results`, `dss_recommendations`, `dss_validation_logs`, `tenant_risk_scores`, `rls_access_logs`, `rls_alert_settings`, `chatbot_knowledge`, `occupancy_snapshots`, `tenant_payment_metrics`
+
+### 9. Shared Infrastructure (`dss-utils.ts`)
+Full listing of exported functions: `createServiceClient`, `createUserClient`, `authenticateUser`, `checkTierLimit`, `getMerchantId`, `downloadImageAsBase64`, `callLovableAI`, `AiGatewayError`, `logModelRun`, `createOcrResult`, `createDssRecommendation`, `upsertRiskScore`, `aggregatePaymentHistory`, `aggregateOccupancyData`, `aggregateMaintenanceData`, `errorResponse`, `successResponse`
+
+## Files to Create/Edit
 
 | File | Action |
 |------|--------|
-| `src/pages/merchant/Properties.tsx` | Add scroll-to-top effect + undo toast on delete |
-| `old-docs/AUDIT_MENU.md` | Update flow verification status |
+| `old-docs/DSS-ML.md` | **CREATE** — Full documentation |
 
