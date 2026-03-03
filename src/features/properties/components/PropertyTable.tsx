@@ -165,8 +165,8 @@ export function PropertyTable({
                 <SelectTrigger className="h-8 w-[70px] rounded-lg"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="9">9</SelectItem>
-                  <SelectItem value="18">18</SelectItem>
-                  <SelectItem value="27">27</SelectItem>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
                 </SelectContent>
               </Select>
             </div>
