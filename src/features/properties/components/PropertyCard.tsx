@@ -5,8 +5,9 @@ import { Button } from '@/shared/components/ui/button';
 import { Checkbox } from '@/shared/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
-import { Building2, Copy, DoorOpen, Edit, Image as ImageIcon, MapPin, MoreHorizontal, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
+import { Building2, Copy, DoorOpen, Edit, Image as ImageIcon, MapPin, MoreHorizontal, RefreshCw, Sparkles, Trash2, Users, TrendingUp } from 'lucide-react';
 import { formatLabel } from '@/shared/utils/utils';
+import { formatCurrencyCompact } from '@/shared/utils/currency';
 
 interface PropertyCardProps {
   property: Property;
@@ -251,6 +252,30 @@ export function PropertyCard({
               }`}
             />
           ))}
+        </div>
+
+        {/* Tenant count + Revenue */}
+        <div className="flex items-center justify-between">
+          {(property.active_tenant_count ?? 0) > 0 ? (
+            <button
+              className="flex items-center gap-1 text-xs text-primary hover:underline font-medium"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/merchant/properties/${property.id}?tab=tenants`);
+              }}
+            >
+              <Users className="h-3 w-3" />
+              +{property.active_tenant_count} Penyewa
+            </button>
+          ) : (
+            <span className="text-xs text-muted-foreground">0 Penyewa</span>
+          )}
+          {(property.monthly_revenue ?? 0) > 0 && (
+            <span className="flex items-center gap-1 text-xs font-medium text-success">
+              <TrendingUp className="h-3 w-3" />
+              {formatCurrencyCompact(property.monthly_revenue!)}/bln
+            </span>
+          )}
         </div>
       </div>
     </div>

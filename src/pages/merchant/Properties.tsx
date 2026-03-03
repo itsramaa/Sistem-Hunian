@@ -8,6 +8,7 @@ import { PropertiesPageSkeleton } from '@/features/properties/components/Propert
 import { PropertyTable } from '@/features/properties/components/PropertyTable';
 import { UnitsManager } from '@/features/properties/components/UnitsManager';
 import { useMerchantProperties } from '@/features/properties/hooks/useMerchantProperties';
+import { propertyService } from '@/features/properties/services/propertyService';
 import { CreatePropertyPayload, Property, UpdatePropertyPayload } from '@/features/properties/types';
 import { SubscriptionLimitWarning } from '@/features/subscriptions/components/SubscriptionLimitWarning';
 import { useSubscriptionLimits } from '@/features/subscriptions/hooks/useSubscriptionLimits';
@@ -99,6 +100,12 @@ export default function MerchantProperties() {
   const { toast } = useToast();
   const { data: limits } = useSubscriptionLimits();
 
+  // Server-side search state (for 100+ properties)
+  const useServerSearch = properties.length >= 100;
+  const [serverResults, setServerResults] = useState<Property[]>([]);
+  const [serverTotalCount, setServerTotalCount] = useState(0);
+  const [serverLoading, setServerLoading] = useState(false);
+
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -158,6 +165,30 @@ export default function MerchantProperties() {
   useEffect(() => { localStorage.setItem('sihuni:propertyInsightsOpen', JSON.stringify(insightsOpen)); }, [insightsOpen]);
 
   useEffect(() => { setPage(1); }, [debouncedSearch, typeFilter, statusFilter, sortBy, itemsPerPage]);
+
+  // Server-side search effect
+  useEffect(() => {
+    if (!useServerSearch || !merchant?.id) return;
+    let cancelled = false;
+    const doSearch = async () => {
+      setServerLoading(true);
+      try {
+        const { properties: results, totalCount } = await propertyService.searchPropertiesServer(
+          merchant.id, debouncedSearch, typeFilter, statusFilter, sortBy, itemsPerPage, (page - 1) * itemsPerPage
+        );
+        if (!cancelled) {
+          setServerResults(results);
+          setServerTotalCount(totalCount);
+        }
+      } catch (e) {
+        console.error('Server search failed:', e);
+      } finally {
+        if (!cancelled) setServerLoading(false);
+      }
+    };
+    doSearch();
+    return () => { cancelled = true; };
+  }, [useServerSearch, merchant?.id, debouncedSearch, typeFilter, statusFilter, sortBy, itemsPerPage, page]);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -272,8 +303,9 @@ export default function MerchantProperties() {
     }
   };
 
-  // Filter + Sort
-  const filteredProperties = useMemo(() => {
+  // Filter + Sort (client-side — only used when < 100 properties)
+  const clientFilteredProperties = useMemo(() => {
+    if (useServerSearch) return [];
     let result = properties.filter(property => {
       const matchesSearch = property.name.toLowerCase().includes(debouncedSearch.toLowerCase()) || property.city.toLowerCase().includes(debouncedSearch.toLowerCase());
       const matchesType = typeFilter === 'all' || property.property_type === typeFilter;
@@ -291,10 +323,13 @@ export default function MerchantProperties() {
       }
     });
     return result;
-  }, [properties, debouncedSearch, typeFilter, statusFilter, sortBy]);
+  }, [properties, debouncedSearch, typeFilter, statusFilter, sortBy, useServerSearch]);
 
-  const totalPages = Math.ceil(filteredProperties.length / itemsPerPage);
-  const paginatedProperties = useMemo(() => filteredProperties.slice((page - 1) * itemsPerPage, page * itemsPerPage), [filteredProperties, page, itemsPerPage]);
+  // Unified: use server results when 100+, otherwise client-side
+  const filteredProperties = useServerSearch ? serverResults : clientFilteredProperties;
+  const totalFilteredCount = useServerSearch ? serverTotalCount : clientFilteredProperties.length;
+  const totalPages = Math.ceil(totalFilteredCount / itemsPerPage);
+  const paginatedProperties = useServerSearch ? serverResults : clientFilteredProperties.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
   const totalUnits = properties.reduce((sum, p) => sum + p.total_units, 0);
   const occupiedUnits = properties.reduce((sum, p) => sum + p.occupied_units, 0);
@@ -328,7 +363,7 @@ export default function MerchantProperties() {
     return (
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-6">
         <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">Menampilkan {((page - 1) * itemsPerPage) + 1} - {Math.min(page * itemsPerPage, filteredProperties.length)} dari {filteredProperties.length}</span>
+          <span className="text-sm text-muted-foreground">Menampilkan {((page - 1) * itemsPerPage) + 1} - {Math.min(page * itemsPerPage, totalFilteredCount)} dari {totalFilteredCount}</span>
           <Select value={String(itemsPerPage)} onValueChange={(v) => setItemsPerPage(Number(v))}>
             <SelectTrigger className="h-8 w-[70px] rounded-lg"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -535,7 +570,7 @@ export default function MerchantProperties() {
             )}
 
             {/* Properties Content */}
-            {filteredProperties.length === 0 ? (
+            {paginatedProperties.length === 0 ? (
               <div className="glass-stat-card">
                 <div className="flex flex-col items-center justify-center py-16 bg-gradient-to-br from-primary/5 via-muted/30 to-accent/5 rounded-2xl">
                   <div className="gradient-icon-box w-24 h-24 mb-6"><Building2 className="h-12 w-12 text-muted-foreground/50" /></div>
@@ -592,7 +627,7 @@ export default function MerchantProperties() {
                   </>
                 ) : (
                   <>
-                    <PropertyTable properties={paginatedProperties} onEdit={handleEdit} onDelete={handleDeleteClick} onManageUnits={setUnitsProperty} onManagePhotos={handleOpenImages} onDuplicate={handleDuplicate} deleteLoadingId={deleteLoading} page={page} totalPages={totalPages} totalProperties={filteredProperties.length} onPageChange={setPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} selectedIds={selectedIds} onSelectId={handleSelectId} onSelectAll={handleSelectAllPage} />
+                    <PropertyTable properties={paginatedProperties} onEdit={handleEdit} onDelete={handleDeleteClick} onManageUnits={setUnitsProperty} onManagePhotos={handleOpenImages} onDuplicate={handleDuplicate} deleteLoadingId={deleteLoading} page={page} totalPages={totalPages} totalProperties={totalFilteredCount} onPageChange={setPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} selectedIds={selectedIds} onSelectId={handleSelectId} onSelectAll={handleSelectAllPage} />
                     {renderPagination()}
                   </>
                 )}
