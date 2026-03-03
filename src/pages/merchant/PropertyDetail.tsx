@@ -129,6 +129,9 @@ export default function PropertyDetail() {
   const [showFacilitiesDialog, setShowFacilitiesDialog] = useState(false);
   const [editingAmenities, setEditingAmenities] = useState<string[]>([]);
 
+  // Facility type names — must be before early returns (Rules of Hooks)
+  const { data: facilityNameMap = {} } = useFacilityTypeNames(property?.amenities || []);
+
   // Tenant creation mutation
   const addTenantMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -297,7 +300,6 @@ export default function PropertyDetail() {
     );
   }
 
-  const { data: facilityNameMap = {} } = useFacilityTypeNames(property.amenities || []);
   const units = (property as any).units || [];
   const occupiedUnits = units.filter((u: any) => u.status === 'occupied').length;
   const totalUnits = units.length;
