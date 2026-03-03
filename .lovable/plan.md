@@ -1,69 +1,61 @@
 
 
-# Gap Analysis: 2.1 PROPERTI — Implementation Plan
+# Flow Analysis & Gap Implementation Plan
 
-## Current State Assessment
+## Flow-by-Flow Verification
 
-| Gap | Description | Status | Action |
-|-----|-------------|--------|--------|
-| 1.1.1 | No "Clear All Filters" | ✅ COMPLETE | "Reset Semua" + individual X badges already exist |
-| 1.1.2 | Filters Not Sticky | ✅ COMPLETE | viewMode, sortBy, insightsOpen all persisted to localStorage |
-| 1.1.3 | Inconsistent Occupancy | ✅ COMPLETE | Card uses segmented bar + BAIK/PERHATIAN/KRITIS badge, detail uses badge — acceptable |
-| 1.1.4 | No "Jump to Page" | ✅ COMPLETE | Jump-to-page input shown when totalPages > 5 |
-| 1.1.5 | Insights Panel Discovery | 🟡 PARTIAL | Panel exists and is collapsible, but no hint for new users |
-| 1.1.6 | Empty State Clarity | ✅ COMPLETE | Differentiates "no properties" vs "filter mismatch" with distinct messages |
-| 1.1.7 | Subscribe Warning Not Contextual | 🟡 PARTIAL | Warning is separate banner, not adjacent to button |
-| 1.1.8 | No "Recently Viewed" | ⏳ NOT STARTED | **Implement** |
-| 1.1.10 | Search Debounce Not Visible | ⏳ NOT STARTED | **Implement** |
-| 1.1.11 | No Server-Side Pagination | ✅ COMPLETE | `search_properties_server` RPC, auto-activated ≥100 |
-| 1.1.12 | View Units vs Manage Images | ⏭️ SKIP | Both are dialogs by design, rare confusion |
+### Flow A: Main Page Load — ✅ COMPLETE
+All items implemented: localStorage restore (viewMode, itemsPerPage, sortBy, insightsExpanded), header, subscription alert, toolbar, KPI cards, insights panel, results counter, grid/list, pagination.
 
-## Implementation (4 items)
+### Flow B: Filter + Search — ✅ COMPLETE  
+Debounce 500ms with loading indicator, client-side filtering, empty states differentiated, server-side search for 100+. All match the diagram.
 
-### 1. Search Loading Indicator (Gap 1.1.10)
-When user types in search and debounce is pending (`searchQuery !== debouncedSearch`), show a small spinner inside the search input (replacing the search icon). Gives immediate feedback that search is processing.
+### Flow C: Property Edit Multi-Step — ✅ COMPLETE
+4-step dialog (Basic Info → Location → Details → Media), validation per step, back preserves data, success/error toasts. Error keeps dialog open. Steps match (diagram shows 3 steps but actual has 4 which is better).
 
-**File**: `src/features/properties/components/PropertyFilters.tsx`
-- Replace static `Search` icon with `Loader2` (spinning) when `isSearching` prop is true
-- Add `isSearching?: boolean` prop
+### Flow D: Delete with Dependency Check — 🟡 PARTIAL (2 gaps)
 
+| Item | Status | Gap |
+|------|--------|-----|
+| Confirmation dialog | ✅ | Exists |
+| `canDelete` check | ✅ | Checks occupied units + active contracts |
+| Error dialog with reasons | ✅ | Shows reason via toast |
+| Delete execution | ✅ | Works |
+| **5-sec undo toast** | ❌ | `SoftDeleteManager` component exists but is NOT used in Properties delete flow |
+| **KPI card auto-update** | ✅ | Query invalidation handles this |
+
+### Flow E: Pagination & View Toggle — 🟡 PARTIAL (1 gap)
+
+| Item | Status | Gap |
+|------|--------|-----|
+| Page click updates items | ✅ | Works |
+| Items per page change resets to page 1 | ✅ | `useEffect` resets page on itemsPerPage change |
+| View toggle preserves state | ✅ | All state preserved |
+| **Scroll to top on page change** | ❌ | No `window.scrollTo(0, 0)` on page change |
+
+## Implementation
+
+### 1. Scroll to Top on Page Change (Flow E)
 **File**: `src/pages/merchant/Properties.tsx`
-- Pass `isSearching={searchQuery !== debouncedSearch}` to PropertyFilters
+- Add `useEffect` watching `page` → `window.scrollTo({ top: 0, behavior: 'smooth' })`
 
-### 2. Insights Panel Discovery Hint (Gap 1.1.5)
-Add a subtle "tip" badge next to the Insights header on first visit. Store `sihuni:insightsHintDismissed` in localStorage. Once user expands/collapses once, dismiss forever.
-
+### 2. Undo Toast on Property Delete (Flow D)
 **File**: `src/pages/merchant/Properties.tsx`
-- Add `insightsHintSeen` state from localStorage
-- Show a small `Badge` saying "Baru" next to "Operational Insights" title if not yet seen
-- On first toggle, set localStorage flag
+- Import and use `SoftDeleteManager` + `UndoToastContainer` from existing component
+- Change delete flow: instead of immediately calling `deleteProperty`, use `handleSoftDelete` which shows undo toast for 5 seconds, then permanently deletes
+- This requires: snapshot property data before delete, restore on undo (re-create via `createProperty`)
 
-### 3. Subscription Warning Contextual (Gap 1.1.7)
-Move the subscription limit warning inline next to the "Tambah Properti" button instead of a separate banner. Show as a tooltip or small inline text when at limit.
+**Alternative (simpler)**: Use `sonner` toast with an undo action button. On delete success, show a 5-second toast with "Undo" button. If clicked within 5 seconds, re-create the property. This is simpler but the undo is best-effort (units/contracts won't be restored).
 
-**File**: `src/pages/merchant/Properties.tsx`
-- Remove standalone `<SubscriptionLimitWarning />` banner
-- Add inline warning text/tooltip next to "Tambah Properti" button when `limits && !limits.canAddProperty`
+**Recommended**: Use the simpler approach — show a `toast` with duration 5000ms and an action button. The existing `SoftDeleteManager` component requires `onRestore` which would need re-inserting the property, which is feasible since we already have `createProperty`.
 
-### 4. Recently Viewed Properties (Gap 1.1.8)
-Track last 5 viewed properties in localStorage (`sihuni:recentProperties`). Show as a small collapsible section above the filter bar when the list has entries.
+### 3. Update AUDIT_MENU.md
+- Mark Flow D undo toast and Flow E scroll-to-top as COMPLETE
 
-**File**: `src/pages/merchant/Properties.tsx`
-- Read/write `sihuni:recentProperties` (array of `{id, name, timestamp}`, max 5)
-- On property card click (navigate), push to recent list
-- Render a "Terakhir Dilihat" section with clickable chips
-
-**File**: `src/features/properties/components/PropertyCard.tsx`
-- No change needed — navigation already happens via `handleCardClick`
-
-### 5. Update AUDIT_MENU.md
-Update section 2.1 gaps with line-by-line status for all 11 gaps.
-
-## Files Summary
+## Files
 
 | File | Action |
 |------|--------|
-| `src/features/properties/components/PropertyFilters.tsx` | Add `isSearching` prop, swap icon |
-| `src/pages/merchant/Properties.tsx` | Search indicator, insights hint, inline subscription warning, recently viewed |
-| `old-docs/AUDIT_MENU.md` | Update all gap statuses |
+| `src/pages/merchant/Properties.tsx` | Add scroll-to-top effect + undo toast on delete |
+| `old-docs/AUDIT_MENU.md` | Update flow verification status |
 
