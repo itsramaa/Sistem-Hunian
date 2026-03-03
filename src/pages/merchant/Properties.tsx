@@ -357,7 +357,7 @@ export default function MerchantProperties() {
                     </Tooltip>
                   </div>
                 </div>
-                <div className="glass-stat-card p-5 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
+                <div className="glass-stat-card p-5 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 cursor-pointer" onClick={() => { setSortBy('occupancy-high'); setPage(1); }} role="button" tabIndex={0} aria-label="Urutkan berdasarkan hunian tertinggi">
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-xs text-muted-foreground uppercase tracking-wider">Hunian</p>
@@ -378,7 +378,7 @@ export default function MerchantProperties() {
                     </div>
                   </div>
                 </div>
-                <div className="glass-stat-card p-5 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
+                <div className="glass-stat-card p-5 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 cursor-pointer" onClick={() => { setSortBy('occupancy-low'); setPage(1); }} role="button" tabIndex={0} aria-label="Urutkan berdasarkan unit kosong terbanyak">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xs text-muted-foreground uppercase tracking-wider">Unit Kosong</p>

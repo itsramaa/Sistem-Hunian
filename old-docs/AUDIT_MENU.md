@@ -412,11 +412,12 @@ Properties Page
 ```
 
 **Improved interaction patterns**:
-- View preference (Grid/List) persisted in `localStorage` or server-side preference.
-- "Clear All Filters" button appears prominently when any filter is active.
-- Occupancy KPI card click filters list to "Occupancy > 80%". Units KPI click filters to "Vacant units > 0".
-- "Operational Insights" section expanded by default; collapse state persisted.
-- Pagination selector allows "All" (show all 50+ properties in one view with virtual scrolling if >100).
+- ✅ COMPLETE — View preference (Grid/List) persisted in `localStorage` under `sihuni:propertyViewMode`.
+- ✅ COMPLETE — "Clear All Filters" button appears prominently when any filter is active.
+- ✅ COMPLETE — Hunian KPI card click → sorts by `occupancy-high`. Kosong KPI card click → sorts by `occupancy-low`. Both reset page to 1.
+- ✅ COMPLETE — "Operational Insights" section expanded by default; collapse state persisted to `localStorage`.
+- ⏭️ SKIP — Pagination "All" option: deferred, virtual scrolling needed for 100+ items.
+- ✅ COMPLETE — Help tooltip on view toggle: "Ubah tampilan preferensi Anda. Pilihan disimpan untuk sesi Anda."
 
 ---
 

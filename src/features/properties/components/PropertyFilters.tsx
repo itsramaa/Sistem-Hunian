@@ -4,6 +4,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { ArrowUpDown, Grid, List, RotateCcw, Search, X } from 'lucide-react';
 
 export type SortOption = 'name-asc' | 'name-desc' | 'occupancy-high' | 'occupancy-low' | 'newest' | 'oldest';
@@ -96,28 +97,37 @@ export function PropertyFilters({
           </Select>
         </div>
         {/* Pill View Toggle */}
-        <div className="flex gap-0.5 rounded-full p-1 bg-muted/30 shrink-0 border border-border/30" role="group" aria-label="Mode Tampilan">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onViewModeChange('grid')}
-            className={`h-8 w-8 rounded-full ${viewMode === 'grid' ? 'bg-primary text-primary-foreground shadow-sm' : ''}`}
-            aria-label="Tampilan Grid"
-            aria-pressed={viewMode === 'grid'}
-          >
-            <Grid className="h-4 w-4" aria-hidden="true" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onViewModeChange('list')}
-            className={`h-8 w-8 rounded-full ${viewMode === 'list' ? 'bg-primary text-primary-foreground shadow-sm' : ''}`}
-            aria-label="Tampilan List"
-            aria-pressed={viewMode === 'list'}
-          >
-            <List className="h-4 w-4" aria-hidden="true" />
-          </Button>
-        </div>
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex gap-0.5 rounded-full p-1 bg-muted/30 shrink-0 border border-border/30" role="group" aria-label="Mode Tampilan">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onViewModeChange('grid')}
+                  className={`h-8 w-8 rounded-full ${viewMode === 'grid' ? 'bg-primary text-primary-foreground shadow-sm' : ''}`}
+                  aria-label="Tampilan Grid"
+                  aria-pressed={viewMode === 'grid'}
+                >
+                  <Grid className="h-4 w-4" aria-hidden="true" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onViewModeChange('list')}
+                  className={`h-8 w-8 rounded-full ${viewMode === 'list' ? 'bg-primary text-primary-foreground shadow-sm' : ''}`}
+                  aria-label="Tampilan List"
+                  aria-pressed={viewMode === 'list'}
+                >
+                  <List className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>Ubah tampilan preferensi Anda. Pilihan disimpan untuk sesi Anda.</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       {activeFilterCount > 0 && (
