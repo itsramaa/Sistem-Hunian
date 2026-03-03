@@ -40,17 +40,12 @@ import { useFacilityTypeNames } from '@/features/inventory/hooks/useFacilityType
 import { RulesSection } from '@/features/rules/components/RulesSection';
 
 const LazyGuardians = lazy(() => import('@/pages/merchant/Guardians'));
-const LazyCompliance = lazy(() => import('@/pages/merchant/PropertyCompliance'));
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/integrations/supabase/client';
-import { PropertyFinancialForm, FinancialFormData } from '@/features/properties/components/PropertyFinancialForm';
-import { PropertyFinancialMetrics } from '@/features/properties/components/PropertyFinancialMetrics';
 import { PropertyFormDialog, PropertyFormData } from '@/features/properties/components/PropertyFormDialog';
 import { propertyService } from '@/features/properties/services/propertyService';
 import { toast } from 'sonner';
-import { useDssReadiness } from '@/features/dss/hooks/useDssReadiness';
-import { DssReadinessCard } from '@/features/dss/components/DssReadinessCard';
 import { RenovationHistoryCard } from '@/features/properties/components/RenovationHistoryCard';
 
 const statusColors: Record<string, string> = {
@@ -447,13 +442,9 @@ export default function PropertyDetail() {
               <UserCheck className="h-3.5 w-3.5 mr-1" aria-hidden="true" />Staf
             </TabsTrigger>
             <TabsTrigger value="tenants" className="pill-tab-trigger">Penyewa ({activeContracts.length})</TabsTrigger>
-            <TabsTrigger value="financial" className="pill-tab-trigger">Keuangan</TabsTrigger>
             <TabsTrigger value="maintenance" className="pill-tab-trigger">
               Pemeliharaan
               {pendingMaintenance.length > 0 && <Badge variant="secondary" className="ml-1.5 rounded-full text-xs">{pendingMaintenance.length}</Badge>}
-            </TabsTrigger>
-            <TabsTrigger value="risk" className="pill-tab-trigger">
-              <Shield className="h-3.5 w-3.5 mr-1" aria-hidden="true" />Risiko
             </TabsTrigger>
           </TabsList>
 
@@ -510,21 +501,6 @@ export default function PropertyDetail() {
             {/* Peraturan Section */}
             {merchant?.id && <RulesSection propertyId={id!} merchantId={merchant.id} />}
 
-            {/* DSS Readiness & Financial Metrics in Overview */}
-            <OverviewDssMetrics property={property} revenuePotential={revenuePotential} occupancyRate={occupancyRate} />
-          </TabsContent>
-
-          {/* Risk Tab */}
-          <TabsContent value="risk" className="space-y-4 mt-4 animate-fade-in">
-            <Suspense fallback={<ContentSkeleton />}>
-              <LazyCompliance propertyId={id} />
-            </Suspense>
-          </TabsContent>
-
-          {/* Financial Tab */}
-          <TabsContent value="financial" className="space-y-4 mt-4 animate-fade-in">
-            <FinancialTabContent property={property} revenuePotential={revenuePotential} occupancyRate={occupancyRate / 100} />
-            <RenovationHistoryCard propertyId={property.id} merchantId={property.merchant_id} />
           </TabsContent>
 
           {/* Units Tab */}
@@ -964,47 +940,5 @@ export default function PropertyDetail() {
       </Dialog>
 
     </div>
-  );
-}
-
-function OverviewDssMetrics({ property, revenuePotential, occupancyRate }: { property: any; revenuePotential: number; occupancyRate: number }) {
-  const readiness = useDssReadiness(property.id, property.merchant_id);
-  return (
-    <>
-      <DssReadinessCard readiness={readiness} />
-      <PropertyFinancialMetrics
-        property={property}
-        monthlyRevenue={revenuePotential}
-        occupancyRate={occupancyRate / 100}
-      />
-    </>
-  );
-}
-
-function FinancialTabContent({ property, revenuePotential, occupancyRate }: { property: any; revenuePotential: number; occupancyRate: number }) {
-  const queryClient = useQueryClient();
-  const updateMutation = useMutation({
-    mutationFn: (data: FinancialFormData) => propertyService.updateProperty(property.id, data as any),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['property-detail', property.id] });
-      toast.success('Data keuangan berhasil disimpan');
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  return (
-    <PropertyFinancialForm
-      initialData={{
-        construction_cost: property.construction_cost || 0,
-        renovation_cost: property.renovation_cost || 0,
-        funding_source: property.funding_source || 'modal_sendiri',
-        monthly_amortization: property.monthly_amortization || 0,
-        monthly_maintenance_cost: property.monthly_maintenance_cost || 0,
-        avg_annual_unexpected_cost: property.avg_annual_unexpected_cost || 0,
-        marketing_cost: property.marketing_cost || 0,
-      }}
-      onSubmit={async (data) => { await updateMutation.mutateAsync(data); }}
-      isLoading={updateMutation.isPending}
-    />
   );
 }
