@@ -1,46 +1,52 @@
 
 
-# Properties 2.1 — Remaining Gaps
+# Bulk Operations for Properties Page
 
-## Already Complete (no work needed)
-- ✅ Clear All Filters button + individual badges
-- ✅ Import CSV + Tambah Properti grouped in header
-- ✅ View mode persisted to localStorage
-- ✅ Sort persisted to localStorage
-- ✅ Pagination 9/25/50 + jump-to-page
-- ✅ Operational Insights collapsible + persisted
-- ✅ Empty state: filter mismatch vs no properties
-- ✅ KPI cards (Properti, Unit, Hunian, Kosong)
-- ✅ Active filter badges with X buttons
+## What We're Building
+Add checkbox multi-select to properties (both grid and list views) with a floating "Bulk Actions" toolbar that appears when items are selected. Actions: **Delete Selected**, **Change Status** (active/inactive/maintenance).
 
-## Remaining Items (from 2.1.2 spec)
+## Implementation
 
-### Task 1: KPI Card Click Actions
-The spec says:
-- "Kosong" card click → filter to show properties with vacant units
-- "Hunian" card click → sort by occupancy high
+### 1. State in `Properties.tsx`
+- Add `selectedIds: Set<string>` state
+- Add `selectAll` toggle (selects all on current page)
+- Add `handleBulkDelete` — loops through selected, calls `deleteProperty` for each, shows toast with count
+- Add `handleBulkStatusChange(status)` — loops through selected, calls `updateProperty` for each
+- Clear selection after bulk action completes
 
-Currently KPI cards are static. Add `onClick` + `cursor-pointer` to:
-- **Kosong card**: set `sortBy` to `occupancy-low` (surfaces high-vacancy properties first)
-- **Hunian card**: set `sortBy` to `occupancy-high`
+### 2. Floating Bulk Actions Bar (in `Properties.tsx`)
+When `selectedIds.size > 0`, render a sticky bottom bar:
+```text
+┌──────────────────────────────────────────────────────┐
+│ ☑ 3 properti dipilih    [Ubah Status ▾]  [🗑 Hapus]  │  
+└──────────────────────────────────────────────────────┘
+```
+- "Ubah Status" → DropdownMenu with 3 options (Aktif, Nonaktif, Pemeliharaan)
+- "Hapus" → ConfirmDialog before executing
+- Shows count of selected items
 
-Both reset page to 1. Simple 2-line additions per card.
+### 3. Grid View — Checkbox on `PropertyCard`
+- Add `selected` and `onSelect` props to `PropertyCard`
+- Render a `Checkbox` in the top-left corner of the card (always visible when in selection mode, or on hover)
+- Clicking checkbox toggles selection without navigating
 
-### Task 2: Help Tooltip on View Toggle
-The spec mentions: `"Ubah tampilan preferensi Anda. Pilihan disimpan untuk sesi Anda."`
+### 4. List View — Checkbox column in `PropertyTable`
+- Add checkbox column as first `<TableHead>` with select-all checkbox
+- Each row gets a `<Checkbox>` in first `<TableCell>`
+- Add `selectedIds`, `onSelectId`, `onSelectAll` props
 
-Add a small `Tooltip` wrapping the view toggle group in `PropertyFilters.tsx`.
+### 5. Select All in header area
+- Add a "Select All" checkbox near the results counter that toggles all items on the current page
 
-### Task 3: Update AUDIT_MENU.md
-Mark the KPI click actions and help tooltip as COMPLETE. Mark "All" pagination option as SKIP (virtual scrolling needed for 100+ items, deferred).
-
----
+### 6. Update AUDIT_MENU.md
+- Mark bulk operations as ✅ COMPLETE
 
 ## Files
 
 | File | Action |
 |------|--------|
-| `src/pages/merchant/Properties.tsx` | EDIT — add onClick to Hunian + Kosong KPI cards |
-| `src/features/properties/components/PropertyFilters.tsx` | EDIT — add tooltip on view toggle group |
-| `old-docs/AUDIT_MENU.md` | EDIT — update 2.1.2 interaction patterns status |
+| `src/pages/merchant/Properties.tsx` | EDIT — selection state, bulk handlers, floating bar, select-all, pass props |
+| `src/features/properties/components/PropertyCard.tsx` | EDIT — add `selected`/`onSelect` props, render checkbox |
+| `src/features/properties/components/PropertyTable.tsx` | EDIT — add checkbox column, select-all header, selection props |
+| `old-docs/AUDIT_MENU.md` | EDIT — mark bulk operations complete |
 
