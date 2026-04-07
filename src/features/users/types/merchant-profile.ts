@@ -121,23 +121,29 @@ export interface MaintenanceRequest {
   resolved_at: string | null;
 }
 
-export interface PaymentTransfer {
+export interface EscrowAccount {
   id: string;
-  payment_id: string;
   merchant_id: string;
-  amount: number;
-  platform_fee: number;
-  gateway_fee: number;
-  net_amount: number;
-  bank_account_id: string | null;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  xendit_disbursement_id: string | null;
-  external_reference: string | null;
-  processed_at: string | null;
-  completed_at: string | null;
-  failure_reason: string | null;
+  balance: number;
+  pending_balance: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface EscrowTransaction {
+  id: string;
+  escrow_account_id: string;
+  contract_id: string | null;
+  type: 'deposit' | 'payment' | 'disbursement' | 'fee' | 'refund';
+  amount: number;
+  gross_amount: number | null;
+  platform_fee: number | null;
+  gateway_fee: number | null;
+  status: 'pending' | 'completed' | 'failed';
+  description: string | null;
+  reference: string | null;
+  created_at: string;
+  processed_at: string | null;
 }
 
 export interface SubscriptionTier {
@@ -181,7 +187,7 @@ export interface DashboardStats {
   lastMonthRevenue: number;
   revenueChange: number;
   tenantChange: number;
-  transferBalance: number;
+  escrowBalance: number;
   pendingBalance: number;
   activeTenants: number;
   lastMonthTenants: number;

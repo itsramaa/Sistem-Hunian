@@ -50,14 +50,7 @@ export function UpdateMaintenanceDialog({ open, onOpenChange, request, vendors, 
   if (!request) return null;
 
   const availableStatuses = [request.status, ...(VALID_STATUS_TRANSITIONS[request.status] || [])];
-  const filteredVendors = vendors
-    .filter(v => !v.service_categories || v.service_categories.length === 0 || v.service_categories.includes(request.category))
-    .sort((a, b) => {
-      // Preferred vendors first (check if vendor has is_preferred flag via extended type)
-      const aPref = (a as any).is_preferred ? 1 : 0;
-      const bPref = (b as any).is_preferred ? 1 : 0;
-      return bPref - aPref;
-    });
+  const filteredVendors = vendors.filter(v => !v.service_categories || v.service_categories.length === 0 || v.service_categories.includes(request.category));
 
   const handleSubmit = () => {
     if (status === request.status && !vendorId && !notes) { onOpenChange(false); return; }
@@ -104,9 +97,7 @@ export function UpdateMaintenanceDialog({ open, onOpenChange, request, vendors, 
               <SelectContent className="rounded-xl">
                 <SelectItem value="unassigned">No Vendor</SelectItem>
                 {filteredVendors.map((vendor) => (
-                  <SelectItem key={vendor.id} value={vendor.id}>
-                    {(vendor as any).is_preferred ? '⭐ ' : ''}{vendor.business_name}
-                  </SelectItem>
+                  <SelectItem key={vendor.id} value={vendor.id}>{vendor.business_name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

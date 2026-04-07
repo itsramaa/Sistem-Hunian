@@ -80,77 +80,6 @@ export type Database = {
         }
         Relationships: []
       }
-      api_keys: {
-        Row: {
-          created_at: string
-          expires_at: string | null
-          id: string
-          is_active: boolean
-          key_hash: string
-          key_prefix: string
-          last_used_at: string | null
-          merchant_id: string
-          name: string
-          rate_limit: number
-          scopes: Json
-        }
-        Insert: {
-          created_at?: string
-          expires_at?: string | null
-          id?: string
-          is_active?: boolean
-          key_hash: string
-          key_prefix: string
-          last_used_at?: string | null
-          merchant_id: string
-          name: string
-          rate_limit?: number
-          scopes?: Json
-        }
-        Update: {
-          created_at?: string
-          expires_at?: string | null
-          id?: string
-          is_active?: boolean
-          key_hash?: string
-          key_prefix?: string
-          last_used_at?: string | null
-          merchant_id?: string
-          name?: string
-          rate_limit?: number
-          scopes?: Json
-        }
-        Relationships: [
-          {
-            foreignKeyName: "api_keys_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_occupancy_analysis"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "api_keys_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_property_summary"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "api_keys_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "api_keys_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "v_merchants_with_addresses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       assets: {
         Row: {
           brand: string | null
@@ -226,6 +155,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "assets_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -360,6 +296,13 @@ export type Database = {
             foreignKeyName: "bank_accounts_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "bank_accounts_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -413,6 +356,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "cancellation_feedback_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -670,13 +620,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "collections_cases_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "v_outstanding_summary"
-            referencedColumns: ["invoice_id"]
-          },
-          {
             foreignKeyName: "collections_cases_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
@@ -694,89 +637,18 @@ export type Database = {
             foreignKeyName: "collections_cases_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
-            referencedRelation: "merchants"
-            referencedColumns: ["id"]
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
           },
           {
             foreignKeyName: "collections_cases_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
-            referencedRelation: "v_merchants_with_addresses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      collections_interactions: {
-        Row: {
-          case_id: string
-          contact_person: string | null
-          created_at: string
-          created_by: string | null
-          direction: string
-          follow_up_date: string | null
-          id: string
-          interaction_type: string
-          merchant_id: string
-          notes: string | null
-          outcome: string | null
-        }
-        Insert: {
-          case_id: string
-          contact_person?: string | null
-          created_at?: string
-          created_by?: string | null
-          direction?: string
-          follow_up_date?: string | null
-          id?: string
-          interaction_type: string
-          merchant_id: string
-          notes?: string | null
-          outcome?: string | null
-        }
-        Update: {
-          case_id?: string
-          contact_person?: string | null
-          created_at?: string
-          created_by?: string | null
-          direction?: string
-          follow_up_date?: string | null
-          id?: string
-          interaction_type?: string
-          merchant_id?: string
-          notes?: string | null
-          outcome?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "collections_interactions_case_id_fkey"
-            columns: ["case_id"]
-            isOneToOne: false
-            referencedRelation: "collections_cases"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "collections_interactions_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_occupancy_analysis"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "collections_interactions_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_property_summary"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "collections_interactions_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "collections_interactions_merchant_id_fkey"
+            foreignKeyName: "collections_cases_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "v_merchants_with_addresses"
@@ -846,6 +718,13 @@ export type Database = {
             foreignKeyName: "compliance_documents_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "compliance_documents_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -868,108 +747,6 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "v_properties_with_addresses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      contract_amendments: {
-        Row: {
-          amendment_type: string
-          contract_id: string
-          created_at: string
-          effective_date: string | null
-          id: string
-          merchant_id: string
-          merchant_offer: Json | null
-          merchant_signature: string | null
-          negotiation_status: string | null
-          new_values: Json | null
-          notes: string | null
-          old_values: Json | null
-          signed_at: string | null
-          status: string
-          tenant_counter_offer: Json | null
-          tenant_signature: string | null
-          tenant_signed_at: string | null
-          tenant_user_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          amendment_type?: string
-          contract_id: string
-          created_at?: string
-          effective_date?: string | null
-          id?: string
-          merchant_id: string
-          merchant_offer?: Json | null
-          merchant_signature?: string | null
-          negotiation_status?: string | null
-          new_values?: Json | null
-          notes?: string | null
-          old_values?: Json | null
-          signed_at?: string | null
-          status?: string
-          tenant_counter_offer?: Json | null
-          tenant_signature?: string | null
-          tenant_signed_at?: string | null
-          tenant_user_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          amendment_type?: string
-          contract_id?: string
-          created_at?: string
-          effective_date?: string | null
-          id?: string
-          merchant_id?: string
-          merchant_offer?: Json | null
-          merchant_signature?: string | null
-          negotiation_status?: string | null
-          new_values?: Json | null
-          notes?: string | null
-          old_values?: Json | null
-          signed_at?: string | null
-          status?: string
-          tenant_counter_offer?: Json | null
-          tenant_signature?: string | null
-          tenant_signed_at?: string | null
-          tenant_user_id?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "contract_amendments_contract_id_fkey"
-            columns: ["contract_id"]
-            isOneToOne: false
-            referencedRelation: "contracts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "contract_amendments_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_occupancy_analysis"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "contract_amendments_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_property_summary"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "contract_amendments_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "contract_amendments_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "v_merchants_with_addresses"
             referencedColumns: ["id"]
           },
         ]
@@ -1102,6 +879,13 @@ export type Database = {
             foreignKeyName: "contracts_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "contracts_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -1117,62 +901,6 @@ export type Database = {
             columns: ["unit_id"]
             isOneToOne: false
             referencedRelation: "units"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      dashboard_preferences: {
-        Row: {
-          created_at: string
-          hidden_widgets: Json
-          id: string
-          merchant_id: string
-          updated_at: string
-          widget_order: Json
-        }
-        Insert: {
-          created_at?: string
-          hidden_widgets?: Json
-          id?: string
-          merchant_id: string
-          updated_at?: string
-          widget_order?: Json
-        }
-        Update: {
-          created_at?: string
-          hidden_widgets?: Json
-          id?: string
-          merchant_id?: string
-          updated_at?: string
-          widget_order?: Json
-        }
-        Relationships: [
-          {
-            foreignKeyName: "dashboard_preferences_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: true
-            referencedRelation: "merchant_occupancy_analysis"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "dashboard_preferences_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: true
-            referencedRelation: "merchant_property_summary"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "dashboard_preferences_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: true
-            referencedRelation: "merchants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "dashboard_preferences_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: true
-            referencedRelation: "v_merchants_with_addresses"
             referencedColumns: ["id"]
           },
         ]
@@ -1230,6 +958,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "data_quality_checks_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -1456,6 +1191,13 @@ export type Database = {
             foreignKeyName: "disaster_risk_profiles_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "disaster_risk_profiles_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -1625,80 +1367,6 @@ export type Database = {
           },
         ]
       }
-      document_templates: {
-        Row: {
-          category: string
-          content: string
-          created_at: string
-          description: string | null
-          id: string
-          is_default: boolean
-          is_system: boolean
-          merchant_id: string | null
-          name: string
-          updated_at: string
-          variables: Json | null
-          version: number
-        }
-        Insert: {
-          category: string
-          content?: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_default?: boolean
-          is_system?: boolean
-          merchant_id?: string | null
-          name: string
-          updated_at?: string
-          variables?: Json | null
-          version?: number
-        }
-        Update: {
-          category?: string
-          content?: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_default?: boolean
-          is_system?: boolean
-          merchant_id?: string | null
-          name?: string
-          updated_at?: string
-          variables?: Json | null
-          version?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "document_templates_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_occupancy_analysis"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "document_templates_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_property_summary"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "document_templates_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "document_templates_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "v_merchants_with_addresses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       dss_recommendations: {
         Row: {
           accepted_at: string | null
@@ -1770,6 +1438,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "dss_recommendations_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -1911,6 +1586,13 @@ export type Database = {
             foreignKeyName: "dynamic_pricing_rules_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "dynamic_pricing_rules_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -2040,6 +1722,13 @@ export type Database = {
             foreignKeyName: "escrow_accounts_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "escrow_accounts_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -2128,7 +1817,6 @@ export type Database = {
           expense_date: string
           id: string
           is_recurring: boolean
-          maintenance_request_id: string | null
           merchant_id: string
           notes: string | null
           ocr_data: Json | null
@@ -2154,7 +1842,6 @@ export type Database = {
           expense_date?: string
           id?: string
           is_recurring?: boolean
-          maintenance_request_id?: string | null
           merchant_id: string
           notes?: string | null
           ocr_data?: Json | null
@@ -2180,7 +1867,6 @@ export type Database = {
           expense_date?: string
           id?: string
           is_recurring?: boolean
-          maintenance_request_id?: string | null
           merchant_id?: string
           notes?: string | null
           ocr_data?: Json | null
@@ -2196,13 +1882,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "expenses_maintenance_request_id_fkey"
-            columns: ["maintenance_request_id"]
-            isOneToOne: false
-            referencedRelation: "maintenance_requests"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "expenses_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
@@ -2214,6 +1893,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "expenses_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -2319,6 +2005,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "facilities_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -2452,6 +2145,13 @@ export type Database = {
             foreignKeyName: "facility_types_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "facility_types_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -2517,6 +2217,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "feature_flags_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -2871,6 +2578,13 @@ export type Database = {
             foreignKeyName: "insurance_claims_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "insurance_claims_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -2961,6 +2675,13 @@ export type Database = {
             foreignKeyName: "insurance_policies_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "insurance_policies_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -3027,13 +2748,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "invoice_status_history_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "v_outstanding_summary"
-            referencedColumns: ["invoice_id"]
-          },
-          {
             foreignKeyName: "invoice_status_history_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
@@ -3045,6 +2759,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "invoice_status_history_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -3171,6 +2892,13 @@ export type Database = {
             foreignKeyName: "invoices_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "invoices_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -3221,13 +2949,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "late_fee_records_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "v_outstanding_summary"
-            referencedColumns: ["invoice_id"]
           },
         ]
       }
@@ -3309,6 +3030,13 @@ export type Database = {
             foreignKeyName: "lease_renewal_alerts_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "lease_renewal_alerts_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -3365,6 +3093,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "live_chat_conversations_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -3496,6 +3231,13 @@ export type Database = {
             foreignKeyName: "maintenance_expenses_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "maintenance_expenses_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -3608,6 +3350,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "maintenance_requests_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -3822,6 +3571,13 @@ export type Database = {
             foreignKeyName: "merchant_analytics_summary_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: true
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "merchant_analytics_summary_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: true
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -3893,88 +3649,18 @@ export type Database = {
             foreignKeyName: "merchant_feedback_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
-            referencedRelation: "merchants"
-            referencedColumns: ["id"]
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
           },
           {
             foreignKeyName: "merchant_feedback_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
-            referencedRelation: "v_merchants_with_addresses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      merchant_staff: {
-        Row: {
-          accepted_at: string | null
-          created_at: string
-          display_name: string
-          email: string
-          id: string
-          invited_at: string
-          is_active: boolean
-          merchant_id: string
-          phone: string | null
-          property_ids: Json
-          staff_role: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          accepted_at?: string | null
-          created_at?: string
-          display_name: string
-          email: string
-          id?: string
-          invited_at?: string
-          is_active?: boolean
-          merchant_id: string
-          phone?: string | null
-          property_ids?: Json
-          staff_role: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          accepted_at?: string | null
-          created_at?: string
-          display_name?: string
-          email?: string
-          id?: string
-          invited_at?: string
-          is_active?: boolean
-          merchant_id?: string
-          phone?: string | null
-          property_ids?: Json
-          staff_role?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "merchant_staff_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_occupancy_analysis"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "merchant_staff_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_property_summary"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "merchant_staff_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "merchant_staff_merchant_id_fkey"
+            foreignKeyName: "merchant_feedback_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "v_merchants_with_addresses"
@@ -4065,6 +3751,13 @@ export type Database = {
             foreignKeyName: "merchant_subscriptions_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: true
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "merchant_subscriptions_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: true
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -4143,6 +3836,13 @@ export type Database = {
             foreignKeyName: "merchant_verification_history_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "merchant_verification_history_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -4208,6 +3908,13 @@ export type Database = {
             foreignKeyName: "merchant_verifications_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "merchant_verifications_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -4225,7 +3932,6 @@ export type Database = {
           billing_address_id: string | null
           business_name: string
           business_type: string | null
-          collections_reminder_config: Json
           created_at: string
           headquarters_address_id: string | null
           id: string
@@ -4244,7 +3950,6 @@ export type Database = {
           billing_address_id?: string | null
           business_name: string
           business_type?: string | null
-          collections_reminder_config?: Json
           created_at?: string
           headquarters_address_id?: string | null
           id?: string
@@ -4263,7 +3968,6 @@ export type Database = {
           billing_address_id?: string | null
           business_name?: string
           business_type?: string | null
-          collections_reminder_config?: Json
           created_at?: string
           headquarters_address_id?: string | null
           id?: string
@@ -4357,6 +4061,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "ml_model_runs_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -4670,6 +4381,13 @@ export type Database = {
             foreignKeyName: "occupancy_forecast_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "occupancy_forecast_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -4765,6 +4483,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "occupancy_snapshots_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -4868,6 +4593,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "ocr_results_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -5044,98 +4776,6 @@ export type Database = {
           },
         ]
       }
-      payment_invoice_match: {
-        Row: {
-          created_at: string
-          id: string
-          invoice_id: string
-          match_confidence: number | null
-          match_reason: string | null
-          match_type: string
-          matched_amount: number
-          matched_by: string | null
-          merchant_id: string
-          payment_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          invoice_id: string
-          match_confidence?: number | null
-          match_reason?: string | null
-          match_type?: string
-          matched_amount?: number
-          matched_by?: string | null
-          merchant_id: string
-          payment_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          invoice_id?: string
-          match_confidence?: number | null
-          match_reason?: string | null
-          match_type?: string
-          matched_amount?: number
-          matched_by?: string | null
-          merchant_id?: string
-          payment_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "payment_invoice_match_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoices"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_invoice_match_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "v_outstanding_summary"
-            referencedColumns: ["invoice_id"]
-          },
-          {
-            foreignKeyName: "payment_invoice_match_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_occupancy_analysis"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "payment_invoice_match_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_property_summary"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "payment_invoice_match_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_invoice_match_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "v_merchants_with_addresses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_invoice_match_payment_id_fkey"
-            columns: ["payment_id"]
-            isOneToOne: false
-            referencedRelation: "payments"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       payment_plan_installments: {
         Row: {
           amount: number
@@ -5177,13 +4817,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_plan_installments_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "v_outstanding_summary"
-            referencedColumns: ["invoice_id"]
           },
           {
             foreignKeyName: "payment_plan_installments_payment_plan_id_fkey"
@@ -5267,13 +4900,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "payment_plans_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "v_outstanding_summary"
-            referencedColumns: ["invoice_id"]
-          },
-          {
             foreignKeyName: "payment_plans_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
@@ -5285,6 +4911,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "payment_plans_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -5364,13 +4997,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "payment_reminders_log_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "v_outstanding_summary"
-            referencedColumns: ["invoice_id"]
-          },
-          {
             foreignKeyName: "payment_reminders_log_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
@@ -5388,6 +5014,13 @@ export type Database = {
             foreignKeyName: "payment_reminders_log_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "payment_reminders_log_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -5396,103 +5029,6 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "v_merchants_with_addresses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      payment_transfers: {
-        Row: {
-          amount: number
-          bank_account_id: string | null
-          completed_at: string | null
-          created_at: string | null
-          external_reference: string | null
-          failure_reason: string | null
-          gateway_fee: number | null
-          id: string
-          merchant_id: string
-          net_amount: number
-          payment_id: string | null
-          platform_fee: number | null
-          status: string
-          updated_at: string | null
-          xendit_disbursement_id: string | null
-        }
-        Insert: {
-          amount: number
-          bank_account_id?: string | null
-          completed_at?: string | null
-          created_at?: string | null
-          external_reference?: string | null
-          failure_reason?: string | null
-          gateway_fee?: number | null
-          id?: string
-          merchant_id: string
-          net_amount: number
-          payment_id?: string | null
-          platform_fee?: number | null
-          status?: string
-          updated_at?: string | null
-          xendit_disbursement_id?: string | null
-        }
-        Update: {
-          amount?: number
-          bank_account_id?: string | null
-          completed_at?: string | null
-          created_at?: string | null
-          external_reference?: string | null
-          failure_reason?: string | null
-          gateway_fee?: number | null
-          id?: string
-          merchant_id?: string
-          net_amount?: number
-          payment_id?: string | null
-          platform_fee?: number | null
-          status?: string
-          updated_at?: string | null
-          xendit_disbursement_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "payment_transfers_bank_account_id_fkey"
-            columns: ["bank_account_id"]
-            isOneToOne: false
-            referencedRelation: "bank_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_transfers_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_occupancy_analysis"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "payment_transfers_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_property_summary"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "payment_transfers_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_transfers_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "v_merchants_with_addresses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_transfers_payment_id_fkey"
-            columns: ["payment_id"]
-            isOneToOne: false
-            referencedRelation: "payments"
             referencedColumns: ["id"]
           },
         ]
@@ -5573,13 +5109,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "payment_verifications_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "v_outstanding_summary"
-            referencedColumns: ["invoice_id"]
-          },
-          {
             foreignKeyName: "payment_verifications_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
@@ -5591,6 +5120,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "payment_verifications_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -5628,7 +5164,6 @@ export type Database = {
           payment_method: string | null
           payment_type: string
           proof_photo_url: string | null
-          reconciliation_status: string
           reference: string | null
           status: string
           tenant_user_id: string
@@ -5645,7 +5180,6 @@ export type Database = {
           payment_method?: string | null
           payment_type?: string
           proof_photo_url?: string | null
-          reconciliation_status?: string
           reference?: string | null
           status?: string
           tenant_user_id: string
@@ -5662,7 +5196,6 @@ export type Database = {
           payment_method?: string | null
           payment_type?: string
           proof_photo_url?: string | null
-          reconciliation_status?: string
           reference?: string | null
           status?: string
           tenant_user_id?: string
@@ -5688,6 +5221,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "payments_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -5732,123 +5272,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
-      }
-      preventive_maintenance_schedules: {
-        Row: {
-          category: string
-          created_at: string | null
-          custom_interval_days: number | null
-          description: string | null
-          estimated_cost: number | null
-          frequency: string
-          id: string
-          is_active: boolean | null
-          last_executed_date: string | null
-          merchant_id: string
-          next_scheduled_date: string
-          preferred_vendor_id: string | null
-          priority: string | null
-          property_id: string | null
-          title: string
-          unit_id: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          category?: string
-          created_at?: string | null
-          custom_interval_days?: number | null
-          description?: string | null
-          estimated_cost?: number | null
-          frequency?: string
-          id?: string
-          is_active?: boolean | null
-          last_executed_date?: string | null
-          merchant_id: string
-          next_scheduled_date: string
-          preferred_vendor_id?: string | null
-          priority?: string | null
-          property_id?: string | null
-          title: string
-          unit_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          category?: string
-          created_at?: string | null
-          custom_interval_days?: number | null
-          description?: string | null
-          estimated_cost?: number | null
-          frequency?: string
-          id?: string
-          is_active?: boolean | null
-          last_executed_date?: string | null
-          merchant_id?: string
-          next_scheduled_date?: string
-          preferred_vendor_id?: string | null
-          priority?: string | null
-          property_id?: string | null
-          title?: string
-          unit_id?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "preventive_maintenance_schedules_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_occupancy_analysis"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "preventive_maintenance_schedules_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_property_summary"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "preventive_maintenance_schedules_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "preventive_maintenance_schedules_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "v_merchants_with_addresses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "preventive_maintenance_schedules_preferred_vendor_id_fkey"
-            columns: ["preferred_vendor_id"]
-            isOneToOne: false
-            referencedRelation: "vendors"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "preventive_maintenance_schedules_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "properties"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "preventive_maintenance_schedules_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "v_properties_with_addresses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "preventive_maintenance_schedules_unit_id_fkey"
-            columns: ["unit_id"]
-            isOneToOne: false
-            referencedRelation: "units"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       products: {
         Row: {
@@ -6086,6 +5509,13 @@ export type Database = {
             foreignKeyName: "properties_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "properties_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -6263,6 +5693,13 @@ export type Database = {
             foreignKeyName: "property_guardians_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "property_guardians_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -6390,6 +5827,13 @@ export type Database = {
             foreignKeyName: "property_renovations_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "property_renovations_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -6420,7 +5864,6 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          is_preferred: boolean
           merchant_id: string
           monthly_fee: number | null
           notes: string | null
@@ -6433,7 +5876,6 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
-          is_preferred?: boolean
           merchant_id: string
           monthly_fee?: number | null
           notes?: string | null
@@ -6446,7 +5888,6 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
-          is_preferred?: boolean
           merchant_id?: string
           monthly_fee?: number | null
           notes?: string | null
@@ -6469,6 +5910,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "property_vendor_services_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -6520,6 +5968,184 @@ export type Database = {
         Update: {
           id?: string
           name?: string
+        }
+        Relationships: []
+      }
+      referral_commissions: {
+        Row: {
+          cancellation_reason: string | null
+          commission_amount: number
+          commission_rate: number
+          created_at: string
+          eligible_date: string | null
+          id: string
+          month_number: number
+          paid_at: string | null
+          referee_id: string
+          referral_id: string
+          referrer_id: string
+          status: string
+          subscription_amount: number
+          updated_at: string
+        }
+        Insert: {
+          cancellation_reason?: string | null
+          commission_amount?: number
+          commission_rate?: number
+          created_at?: string
+          eligible_date?: string | null
+          id?: string
+          month_number?: number
+          paid_at?: string | null
+          referee_id: string
+          referral_id: string
+          referrer_id: string
+          status?: string
+          subscription_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          cancellation_reason?: string | null
+          commission_amount?: number
+          commission_rate?: number
+          created_at?: string
+          eligible_date?: string | null
+          id?: string
+          month_number?: number
+          paid_at?: string | null
+          referee_id?: string
+          referral_id?: string
+          referrer_id?: string
+          status?: string
+          subscription_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_commissions_referral_id_fkey"
+            columns: ["referral_id"]
+            isOneToOne: false
+            referencedRelation: "referrals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_rewards: {
+        Row: {
+          amount: number
+          created_at: string
+          credited_at: string | null
+          expires_at: string | null
+          id: string
+          referral_id: string | null
+          status: string
+          type: string
+          updated_at: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          credited_at?: string | null
+          expires_at?: string | null
+          id?: string
+          referral_id?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          credited_at?: string | null
+          expires_at?: string | null
+          id?: string
+          referral_id?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_rewards_referral_id_fkey"
+            columns: ["referral_id"]
+            isOneToOne: false
+            referencedRelation: "referrals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referrals: {
+        Row: {
+          bonus_paid: boolean | null
+          bonus_paid_at: string | null
+          completed_at: string | null
+          converted_at: string | null
+          created_at: string
+          first_payment_at: string | null
+          id: string
+          referee_avg_rating: number | null
+          referee_monthly_payment: number | null
+          referee_order_count: number | null
+          referee_role: string | null
+          referee_subscription_tier: string | null
+          referee_user_id: string | null
+          referral_code: string
+          referrer_role: string
+          referrer_user_id: string
+          reward_amount: number | null
+          reward_paid: boolean | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          bonus_paid?: boolean | null
+          bonus_paid_at?: string | null
+          completed_at?: string | null
+          converted_at?: string | null
+          created_at?: string
+          first_payment_at?: string | null
+          id?: string
+          referee_avg_rating?: number | null
+          referee_monthly_payment?: number | null
+          referee_order_count?: number | null
+          referee_role?: string | null
+          referee_subscription_tier?: string | null
+          referee_user_id?: string | null
+          referral_code: string
+          referrer_role: string
+          referrer_user_id: string
+          reward_amount?: number | null
+          reward_paid?: boolean | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          bonus_paid?: boolean | null
+          bonus_paid_at?: string | null
+          completed_at?: string | null
+          converted_at?: string | null
+          created_at?: string
+          first_payment_at?: string | null
+          id?: string
+          referee_avg_rating?: number | null
+          referee_monthly_payment?: number | null
+          referee_order_count?: number | null
+          referee_role?: string | null
+          referee_subscription_tier?: string | null
+          referee_user_id?: string | null
+          referral_code?: string
+          referrer_role?: string
+          referrer_user_id?: string
+          reward_amount?: number | null
+          reward_paid?: boolean | null
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -6621,6 +6247,13 @@ export type Database = {
             foreignKeyName: "rls_alert_settings_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "rls_alert_settings_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -6709,6 +6342,13 @@ export type Database = {
             foreignKeyName: "rule_types_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "rule_types_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -6780,6 +6420,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "rules_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -6900,6 +6547,13 @@ export type Database = {
             foreignKeyName: "security_incidents_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "security_incidents_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -6922,38 +6576,6 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "v_properties_with_addresses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      staff_permissions: {
-        Row: {
-          created_at: string
-          id: string
-          is_granted: boolean
-          permission_key: string
-          staff_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          is_granted?: boolean
-          permission_key: string
-          staff_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          is_granted?: boolean
-          permission_key?: string
-          staff_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "staff_permissions_staff_id_fkey"
-            columns: ["staff_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_staff"
             referencedColumns: ["id"]
           },
         ]
@@ -7027,6 +6649,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "subscription_changes_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -7129,6 +6758,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "subscription_invoices_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -7277,6 +6913,13 @@ export type Database = {
             foreignKeyName: "tenant_invitations_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "tenant_invitations_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -7360,6 +7003,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "tenant_merchant_history_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -7461,98 +7111,18 @@ export type Database = {
             foreignKeyName: "tenant_payment_metrics_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
-            referencedRelation: "merchants"
-            referencedColumns: ["id"]
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
           },
           {
             foreignKeyName: "tenant_payment_metrics_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
-            referencedRelation: "v_merchants_with_addresses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      tenant_quality_scores: {
-        Row: {
-          communication_score: number
-          compliance_score: number
-          contract_id: string | null
-          created_at: string
-          id: string
-          last_calculated_at: string | null
-          maintenance_score: number
-          merchant_id: string
-          overall_quality_score: number
-          payment_score: number
-          recommendation: string
-          risk_level: string
-          tenant_user_id: string
-          updated_at: string
-        }
-        Insert: {
-          communication_score?: number
-          compliance_score?: number
-          contract_id?: string | null
-          created_at?: string
-          id?: string
-          last_calculated_at?: string | null
-          maintenance_score?: number
-          merchant_id: string
-          overall_quality_score?: number
-          payment_score?: number
-          recommendation?: string
-          risk_level?: string
-          tenant_user_id: string
-          updated_at?: string
-        }
-        Update: {
-          communication_score?: number
-          compliance_score?: number
-          contract_id?: string | null
-          created_at?: string
-          id?: string
-          last_calculated_at?: string | null
-          maintenance_score?: number
-          merchant_id?: string
-          overall_quality_score?: number
-          payment_score?: number
-          recommendation?: string
-          risk_level?: string
-          tenant_user_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "tenant_quality_scores_contract_id_fkey"
-            columns: ["contract_id"]
-            isOneToOne: false
-            referencedRelation: "contracts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tenant_quality_scores_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_occupancy_analysis"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "tenant_quality_scores_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_property_summary"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "tenant_quality_scores_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "tenant_quality_scores_merchant_id_fkey"
+            foreignKeyName: "tenant_payment_metrics_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "v_merchants_with_addresses"
@@ -7631,6 +7201,13 @@ export type Database = {
             foreignKeyName: "tenant_risk_scores_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "tenant_risk_scores_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -7646,122 +7223,6 @@ export type Database = {
             columns: ["ml_model_run_id"]
             isOneToOne: false
             referencedRelation: "ml_model_runs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      tenant_screenings: {
-        Row: {
-          ai_assessment: Json | null
-          candidate_email: string | null
-          candidate_name: string
-          candidate_phone: string | null
-          created_at: string
-          employer_name: string | null
-          guarantor_id_url: string | null
-          guarantor_name: string | null
-          guarantor_phone: string | null
-          guarantor_relation: string | null
-          id: string
-          income_proof_url: string | null
-          merchant_id: string
-          monthly_income: number | null
-          notes: string | null
-          occupation: string | null
-          previous_landlord_name: string | null
-          previous_landlord_phone: string | null
-          previous_rental_notes: string | null
-          reviewed_at: string | null
-          reviewed_by: string | null
-          screening_grade: string | null
-          screening_score: number | null
-          status: string
-          tenant_user_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          ai_assessment?: Json | null
-          candidate_email?: string | null
-          candidate_name: string
-          candidate_phone?: string | null
-          created_at?: string
-          employer_name?: string | null
-          guarantor_id_url?: string | null
-          guarantor_name?: string | null
-          guarantor_phone?: string | null
-          guarantor_relation?: string | null
-          id?: string
-          income_proof_url?: string | null
-          merchant_id: string
-          monthly_income?: number | null
-          notes?: string | null
-          occupation?: string | null
-          previous_landlord_name?: string | null
-          previous_landlord_phone?: string | null
-          previous_rental_notes?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          screening_grade?: string | null
-          screening_score?: number | null
-          status?: string
-          tenant_user_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          ai_assessment?: Json | null
-          candidate_email?: string | null
-          candidate_name?: string
-          candidate_phone?: string | null
-          created_at?: string
-          employer_name?: string | null
-          guarantor_id_url?: string | null
-          guarantor_name?: string | null
-          guarantor_phone?: string | null
-          guarantor_relation?: string | null
-          id?: string
-          income_proof_url?: string | null
-          merchant_id?: string
-          monthly_income?: number | null
-          notes?: string | null
-          occupation?: string | null
-          previous_landlord_name?: string | null
-          previous_landlord_phone?: string | null
-          previous_rental_notes?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          screening_grade?: string | null
-          screening_score?: number | null
-          status?: string
-          tenant_user_id?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "tenant_screenings_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_occupancy_analysis"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "tenant_screenings_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_property_summary"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "tenant_screenings_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tenant_screenings_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "v_merchants_with_addresses"
             referencedColumns: ["id"]
           },
         ]
@@ -7871,6 +7332,13 @@ export type Database = {
             foreignKeyName: "tenants_linked_merchant_id_fkey"
             columns: ["linked_merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "tenants_linked_merchant_id_fkey"
+            columns: ["linked_merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -7945,6 +7413,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "unit_assets_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -8077,6 +7552,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "unit_listings_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -8233,317 +7715,6 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
-      }
-      utility_charges: {
-        Row: {
-          allocation_method: string
-          billing_period: string
-          contract_id: string | null
-          created_at: string
-          id: string
-          invoice_id: string | null
-          merchant_id: string
-          property_id: string
-          quantity: number | null
-          rate: number | null
-          status: string
-          tenant_user_id: string | null
-          total_cost: number
-          unit_id: string
-          unit_share: number
-          utility_type: string
-        }
-        Insert: {
-          allocation_method: string
-          billing_period: string
-          contract_id?: string | null
-          created_at?: string
-          id?: string
-          invoice_id?: string | null
-          merchant_id: string
-          property_id: string
-          quantity?: number | null
-          rate?: number | null
-          status?: string
-          tenant_user_id?: string | null
-          total_cost?: number
-          unit_id: string
-          unit_share?: number
-          utility_type: string
-        }
-        Update: {
-          allocation_method?: string
-          billing_period?: string
-          contract_id?: string | null
-          created_at?: string
-          id?: string
-          invoice_id?: string | null
-          merchant_id?: string
-          property_id?: string
-          quantity?: number | null
-          rate?: number | null
-          status?: string
-          tenant_user_id?: string | null
-          total_cost?: number
-          unit_id?: string
-          unit_share?: number
-          utility_type?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "utility_charges_contract_id_fkey"
-            columns: ["contract_id"]
-            isOneToOne: false
-            referencedRelation: "contracts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "utility_charges_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoices"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "utility_charges_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "v_outstanding_summary"
-            referencedColumns: ["invoice_id"]
-          },
-          {
-            foreignKeyName: "utility_charges_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_occupancy_analysis"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "utility_charges_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_property_summary"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "utility_charges_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "utility_charges_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "v_merchants_with_addresses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "utility_charges_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "properties"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "utility_charges_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "v_properties_with_addresses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "utility_charges_unit_id_fkey"
-            columns: ["unit_id"]
-            isOneToOne: false
-            referencedRelation: "units"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      utility_meter_readings: {
-        Row: {
-          created_at: string
-          current_reading: number
-          id: string
-          merchant_id: string
-          notes: string | null
-          photo_url: string | null
-          previous_reading: number
-          property_id: string
-          rate_per_unit: number
-          reading_date: string
-          unit_id: string
-          usage: number | null
-          utility_type: string
-        }
-        Insert: {
-          created_at?: string
-          current_reading?: number
-          id?: string
-          merchant_id: string
-          notes?: string | null
-          photo_url?: string | null
-          previous_reading?: number
-          property_id: string
-          rate_per_unit?: number
-          reading_date: string
-          unit_id: string
-          usage?: number | null
-          utility_type: string
-        }
-        Update: {
-          created_at?: string
-          current_reading?: number
-          id?: string
-          merchant_id?: string
-          notes?: string | null
-          photo_url?: string | null
-          previous_reading?: number
-          property_id?: string
-          rate_per_unit?: number
-          reading_date?: string
-          unit_id?: string
-          usage?: number | null
-          utility_type?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "utility_meter_readings_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_occupancy_analysis"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "utility_meter_readings_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_property_summary"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "utility_meter_readings_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "utility_meter_readings_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "v_merchants_with_addresses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "utility_meter_readings_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "properties"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "utility_meter_readings_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "v_properties_with_addresses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "utility_meter_readings_unit_id_fkey"
-            columns: ["unit_id"]
-            isOneToOne: false
-            referencedRelation: "units"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      utility_settings: {
-        Row: {
-          allocation_method: string
-          created_at: string
-          fixed_monthly: number | null
-          id: string
-          is_active: boolean
-          merchant_id: string
-          property_id: string
-          rate_per_unit: number | null
-          updated_at: string
-          utility_type: string
-          weight_config: Json | null
-        }
-        Insert: {
-          allocation_method?: string
-          created_at?: string
-          fixed_monthly?: number | null
-          id?: string
-          is_active?: boolean
-          merchant_id: string
-          property_id: string
-          rate_per_unit?: number | null
-          updated_at?: string
-          utility_type: string
-          weight_config?: Json | null
-        }
-        Update: {
-          allocation_method?: string
-          created_at?: string
-          fixed_monthly?: number | null
-          id?: string
-          is_active?: boolean
-          merchant_id?: string
-          property_id?: string
-          rate_per_unit?: number | null
-          updated_at?: string
-          utility_type?: string
-          weight_config?: Json | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "utility_settings_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_occupancy_analysis"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "utility_settings_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_property_summary"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "utility_settings_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "utility_settings_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "v_merchants_with_addresses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "utility_settings_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "properties"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "utility_settings_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "v_properties_with_addresses"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       vendor_bank_accounts: {
         Row: {
@@ -8706,6 +7877,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "vendor_jobs_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -8899,7 +8077,15 @@ export type Database = {
           valid_from?: string | null
           valid_until?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "vouchers_referral_id_fkey"
+            columns: ["referral_id"]
+            isOneToOne: false
+            referencedRelation: "referrals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       waiting_list: {
         Row: {
@@ -8993,6 +8179,13 @@ export type Database = {
             foreignKeyName: "waiting_list_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "waiting_list_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -9022,112 +8215,6 @@ export type Database = {
             columns: ["unit_id"]
             isOneToOne: false
             referencedRelation: "units"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      webhook_endpoints: {
-        Row: {
-          created_at: string
-          events: Json
-          failure_count: number
-          id: string
-          is_active: boolean
-          last_triggered_at: string | null
-          merchant_id: string
-          secret: string
-          updated_at: string
-          url: string
-        }
-        Insert: {
-          created_at?: string
-          events?: Json
-          failure_count?: number
-          id?: string
-          is_active?: boolean
-          last_triggered_at?: string | null
-          merchant_id: string
-          secret: string
-          updated_at?: string
-          url: string
-        }
-        Update: {
-          created_at?: string
-          events?: Json
-          failure_count?: number
-          id?: string
-          is_active?: boolean
-          last_triggered_at?: string | null
-          merchant_id?: string
-          secret?: string
-          updated_at?: string
-          url?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "webhook_endpoints_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_occupancy_analysis"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "webhook_endpoints_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_property_summary"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "webhook_endpoints_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "webhook_endpoints_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "v_merchants_with_addresses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      webhook_logs: {
-        Row: {
-          delivered_at: string
-          event_type: string
-          id: string
-          payload: Json
-          response_body: string | null
-          response_status: number | null
-          webhook_id: string
-        }
-        Insert: {
-          delivered_at?: string
-          event_type: string
-          id?: string
-          payload?: Json
-          response_body?: string | null
-          response_status?: number | null
-          webhook_id: string
-        }
-        Update: {
-          delivered_at?: string
-          event_type?: string
-          id?: string
-          payload?: Json
-          response_body?: string | null
-          response_status?: number | null
-          webhook_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "webhook_logs_webhook_id_fkey"
-            columns: ["webhook_id"]
-            isOneToOne: false
-            referencedRelation: "webhook_endpoints"
             referencedColumns: ["id"]
           },
         ]
@@ -9205,13 +8292,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "xendit_transactions_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "v_outstanding_summary"
-            referencedColumns: ["invoice_id"]
-          },
-          {
             foreignKeyName: "xendit_transactions_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
@@ -9248,6 +8328,18 @@ export type Database = {
           total_revenue: number | null
           unit_count: number | null
           verification_status: string | null
+        }
+        Relationships: []
+      }
+      merchant_referral_summary: {
+        Row: {
+          converted_at: string | null
+          merchant_id: string | null
+          referral_code: string | null
+          referral_status: string | null
+          referrer_user_id: string | null
+          reward_amount: number | null
+          total_commissions: number | null
         }
         Relationships: []
       }
@@ -9298,6 +8390,13 @@ export type Database = {
             foreignKeyName: "maintenance_expenses_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "maintenance_expenses_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -9327,6 +8426,13 @@ export type Database = {
             columns: ["derived_merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "maintenance_requests_merchant_id_fkey"
+            columns: ["derived_merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -9384,68 +8490,8 @@ export type Database = {
           },
         ]
       }
-      v_outstanding_summary: {
-        Row: {
-          aging_bucket: string | null
-          bucket_order: number | null
-          contract_id: string | null
-          created_at: string | null
-          days_overdue: number | null
-          due_date: string | null
-          invoice_id: string | null
-          invoice_number: string | null
-          last_payment_date: string | null
-          merchant_id: string | null
-          outstanding_amount: number | null
-          paid_amount: number | null
-          status: string | null
-          tenant_name: string | null
-          tenant_user_id: string | null
-          total_amount: number | null
-          unit_id: string | null
-          unit_number: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "invoices_contract_id_fkey"
-            columns: ["contract_id"]
-            isOneToOne: false
-            referencedRelation: "contracts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoices_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_occupancy_analysis"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "invoices_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchant_property_summary"
-            referencedColumns: ["merchant_id"]
-          },
-          {
-            foreignKeyName: "invoices_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "merchants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoices_merchant_id_fkey"
-            columns: ["merchant_id"]
-            isOneToOne: false
-            referencedRelation: "v_merchants_with_addresses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       v_properties_with_addresses: {
         Row: {
-          active_tenant_count: number | null
           address_id: string | null
           amenities: string[] | null
           avg_annual_unexpected_cost: number | null
@@ -9466,7 +8512,6 @@ export type Database = {
           merchant_id: string | null
           monthly_amortization: number | null
           monthly_maintenance_cost: number | null
-          monthly_revenue: number | null
           name: string | null
           nearby_facilities: Json | null
           occupied_units: number | null
@@ -9504,6 +8549,13 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchant_property_summary"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "properties_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_referral_summary"
             referencedColumns: ["merchant_id"]
           },
           {
@@ -9554,41 +8606,6 @@ export type Database = {
       refresh_merchant_analytics: {
         Args: { p_merchant_id?: string }
         Returns: undefined
-      }
-      search_properties_server: {
-        Args: {
-          p_limit?: number
-          p_merchant_id: string
-          p_offset?: number
-          p_search?: string
-          p_sort?: string
-          p_status?: string
-          p_type?: string
-        }
-        Returns: {
-          active_tenant_count: number
-          amenities: string[]
-          created_at: string
-          description: string
-          id: string
-          images: string[]
-          merchant_id: string
-          monthly_revenue: number
-          name: string
-          occupied_units: number
-          property_code: string
-          property_type: string
-          resolved_address: string
-          resolved_city: string
-          resolved_latitude: number
-          resolved_longitude: number
-          resolved_postal_code: string
-          resolved_province: string
-          status: string
-          total_count: number
-          total_units: number
-          updated_at: string
-        }[]
       }
     }
     Enums: {

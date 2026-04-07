@@ -74,11 +74,7 @@ export default function MerchantMaintenance() {
   const handleUpdateStatus = (data: UpdateMaintenanceStatusPayload) => {
     updateMutation.mutate(data, {
       onSuccess: () => {
-        const isCompleted = data.status === 'completed';
-        toast({ 
-          title: 'Permintaan berhasil diperbarui',
-          description: isCompleted ? 'Biaya pemeliharaan otomatis ditautkan ke Expenses.' : undefined,
-        });
+        toast({ title: 'Permintaan berhasil diperbarui' });
         setSelectedRequest(null);
       },
       onError: (error: Error) => {

@@ -3,20 +3,18 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { merchantDashboardService } from '../services/merchantDashboardService';
 import { useEffect } from 'react';
 import { supabase } from '@/lib/integrations/supabase/client';
-import { usePropertyContext } from '@/shared/stores/propertyContext';
 
 export function useMerchantDashboardStats() {
   const { merchant } = useAuth();
   const queryClient = useQueryClient();
-  const selectedPropertyId = usePropertyContext((s) => s.selectedPropertyId);
 
-  const queryKey = ['merchant-dashboard', merchant?.id, selectedPropertyId];
+  const queryKey = ['merchant-dashboard', merchant?.id];
 
   const { data, isLoading, error, refetch, isRefetching } = useQuery({
     queryKey,
     queryFn: () => {
       if (!merchant?.id) throw new Error('Merchant not authenticated');
-      return merchantDashboardService.fetchStats(merchant.id, selectedPropertyId);
+      return merchantDashboardService.fetchStats(merchant.id);
     },
     enabled: !!merchant?.id,
     staleTime: 5 * 60 * 1000, // 5 minutes

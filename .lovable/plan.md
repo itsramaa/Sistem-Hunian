@@ -1,33 +1,35 @@
 
+# Phase 0: Foundation — COMPLETED ✅
 
-# Fix Property Detail Page — Blank Screen Bug
+## Status Summary
+- Step 1: Reset MASTER_IMPLEMENTATION_PLAN.md -- ✅ DONE
+- Step 2: Create 7 missing DB tables -- ✅ DONE
+- Step 3: Verification Tiers -- ✅ DONE
+- Step 4: Invoice State Machine Update -- ✅ DONE
 
-## Root Cause
+---
 
-**Line 300** in `PropertyDetail.tsx` calls a React hook (`useFacilityTypeNames`) **after** an early return on lines 287-298. This violates React's Rules of Hooks — hooks must always be called in the same order, never after conditional returns.
+## Next: Phase 1 — Critical Adoption Features
 
-```
-Line 287: if (isLoading) return <PropertyDetailSkeleton />;  ← early return
-Line 289: if (error || !property) return ...;                 ← early return
-Line 300: const { data: facilityNameMap } = useFacilityTypeNames(...);  ← HOOK AFTER RETURN = CRASH
-```
+### Step 5: Collections Dashboard
+- Outstanding by age widget (color-coded buckets)
+- Collections today + expected this week widgets
+- Drill-down table (click bucket -> tenant list with actions)
+- DB view `v_outstanding_summary`
 
-React will throw an error like "Rendered fewer hooks than expected" causing the entire component to blank out.
+### Step 6: Auto Payment Reconciliation
+- 3-tier matching service (exact, amount mismatch, manual)
+- UI for unmatched payments review
 
-## Fix
+### Step 7: Payment Reminders with Escalation
+- Escalation schedule (T+2 email, T+5 SMS, T+10 WhatsApp, T+15 collections)
+- `payment_reminders_log` entries
+- Merchant settings UI
 
-Move the `useFacilityTypeNames` hook call **above** the early returns (before line 287), alongside all other hooks. Pass a safe fallback when `property` is not yet loaded:
+### Step 8: Expense Tracking
+- Manual entry form + OCR receipt upload
+- Dashboard widget (monthly total, category breakdown)
+- Profit calculation: Net Profit = Collections - Expenses
 
-```typescript
-// Move BEFORE early returns (around line 130, with other hooks)
-const { data: facilityNameMap = {} } = useFacilityTypeNames(property?.amenities || []);
-```
-
-Then remove line 300.
-
-## Files
-
-| File | Change |
-|------|--------|
-| `src/pages/merchant/PropertyDetail.tsx` | Move `useFacilityTypeNames` hook above early returns |
-
+### Step 9: Tenant Profile Consolidation
+- 5-tab layout in TenantDetail (Contract, Payments, Maintenance, Compliance, Quality Score)

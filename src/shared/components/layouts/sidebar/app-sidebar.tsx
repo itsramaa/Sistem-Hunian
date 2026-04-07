@@ -7,18 +7,14 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
-  SidebarMenu,
-  SidebarMenuItem,
   SidebarRail,
 } from "@/shared/components/ui/sidebar";
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { useAlertCounts } from "@/features/notifications/hooks/useAlertCounts";
 import { UserRole, navigationConfig } from "@/shared/components/layouts/navigation-config";
 import { NavMain } from "@/shared/components/layouts/sidebar/nav-main";
 import { NavSecondary } from "@/shared/components/layouts/sidebar/nav-secondary";
 import { NavUser } from "@/shared/components/layouts/sidebar/nav-user";
 import { TeamSwitcher } from "@/shared/components/layouts/sidebar/team-switcher";
-import { PropertySwitcher } from "@/shared/components/layouts/sidebar/PropertySwitcher";
 import { Separator } from "@/shared/components/ui/separator";
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
@@ -41,9 +37,6 @@ export function AppSidebar({ role, ...props }: AppSidebarProps) {
   const verificationStatus = entityInfo?.verification_status;
   const subscriptionTier = role === "merchant" ? merchant?.merchant_subscriptions?.[0]?.subscription_tiers?.name || "free" : null;
 
-  const { data: alertCounts } = useAlertCounts(role === "merchant" ? merchant?.id : undefined);
-  const badges: Record<string, number> = alertCounts?.total ? { alerts: alertCounts.total } : {};
-
   const secondaryNavItems = [
     {
       title: "Bantuan",
@@ -61,16 +54,9 @@ export function AppSidebar({ role, ...props }: AppSidebarProps) {
     <Sidebar variant="inset" collapsible="icon" {...props}>
       <SidebarHeader>
         <TeamSwitcher team={config.brand} basePath={basePath} />
-        {role === 'merchant' && merchant?.id && (
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <PropertySwitcher merchantId={merchant.id} />
-            </SidebarMenuItem>
-          </SidebarMenu>
-        )}
       </SidebarHeader>
       <SidebarContent>
-        <NavMain groups={config.mainNav} basePath={basePath} badges={badges} />
+        <NavMain groups={config.mainNav} basePath={basePath} />
         <Separator className="mx-3 w-auto bg-border/30" />
         <NavSecondary items={secondaryNavItems} />
       </SidebarContent>

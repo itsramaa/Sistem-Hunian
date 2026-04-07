@@ -1,0 +1,296 @@
+sequenceDiagram
+    participant CRON as Cron Jobs
+    participant DB as Database
+    participant XD as Xendit API
+    participant M as Merchant
+    participant ES as Escrow Service
+
+    Note over CRON,ES: Daily Billing Check (Automated)
+
+    CRON->>DB: Run at 00:00 WIB daily
+    Note right of CRON: Check merchants due for billing
+    
+    DB->>DB: Query merchants for billing
+    Note right of DB: SELECT * FROM merchants<br/>WHERE subscription_status = 'active'<br/>AND next_billing_date = CURRENT_DATE<br/>AND subscription_tier != 'free'
+    
+    DB-->>CRON: Return list of merchants to bill
+    
+    loop For each merchant due for billing
+        CRON->>DB: Get merchant billing details
+        Note right of DB: Query:<br/>- Subscription tier<br/>- Billing email<br/>- Saved payment method<br/>- Discount codes<br/>- Billing history
+        
+        DB-->>CRON: Return merchant billing data
+        
+        CRON->>CRON: Calculate billing amount
+        Note right of CRON: Base calculation:<br/>tier_monthly_price = subscription_tier.price<br/><br/>Apply discounts if any:<br/>- Referral discount<br/>- Promotional discount<br/>- Loyalty discount<br/><br/>Final amount = base - discounts
+        
+        Note right of CRON: Example:<br/>Pro tier: Rp 299,000<br/>Referral discount (20%): -Rp 59,800<br/>Final: Rp 239,200
+        
+        CRON->>XD: POST /v2/invoices
+        Note right of XD: Body:<br/>{<br/>  external_id: "REC-" + merchant_id + "-" + date,<br/>  amount: calculated_amount,<br/>  payer_email: merchant_email,<br/>  description: "SiHuni [Tier] - Monthly Subscription",<br/>  invoice_duration: 259200, // 3 days<br/>  success_redirect_url,<br/>  failure_redirect_url<br/>}
+        
+        XD-->>CRON: Return invoice_id + payment_url
+        
+        CRON->>DB: BEGIN TRANSACTION
+        
+        DB->>DB: INSERT INTO subscription_invoices
+        Note right of DB: merchant_id, subscription_tier,<br/>amount, billing_period_start,<br/>billing_period_end,<br/>xendit_invoice_id,<br/>status: 'pending',<br/>due_date: NOW() + 3 days,<br/>created_at
+        
+        DB->>DB: UPDATE merchants SET
+        Note right of DB: last_billing_date: NOW(),<br/>current_invoice_id: new_invoice_id
+        
+        DB->>DB: INSERT INTO notifications
+        Note right of DB: type: 'subscription_invoice',<br/>merchant_id, amount, due_date
+        
+        DB->>DB: COMMIT TRANSACTION
+        
+        alt Has saved payment method
+            CRON->>XD: Attempt auto-charge
+            Note right of XD: Use saved card token<br/>or bank account
+            
+            XD->>XD: Process automatic payment
+            
+            alt Auto-payment successful
+                XD->>CRON: Payment succeeded
+                
+                CRON->>DB: UPDATE subscription_invoices
+                Note right of DB: status: 'paid',<br/>paid_at: NOW(),<br/>payment_method: 'auto'
+                
+                CRON->>DB: UPDATE merchants SET
+                Note right of DB: next_billing_date: NOW() + 30 days,<br/>subscription_status: 'active'
+                
+                DB-->>M: Email: "Payment successful"
+                Note right of M: Subject: Subscription renewed<br/><br/>Body:<br/>- Payment confirmed<br/>- Receipt attached<br/>- Next billing date<br/>- Invoice details
+                
+                DB-->>M: Push: Auto-payment success
+                
+            else Auto-payment failed
+                XD-->>CRON: Payment failed
+                
+                CRON->>DB: UPDATE subscription_invoices
+                Note right of DB: status: 'payment_failed',<br/>failure_reason
+                
+                DB-->>M: Email: "Auto-payment failed"
+                Note right of M: Subject: ⚠️ Payment Required<br/><br/>Body:<br/>- Auto-payment failed<br/>- Reason: [card expired/insufficient]<br/>- Pay manually before [due_date]<br/>- Update payment method<br/>- [Pay Now] button
+                
+                DB-->>M: Push: Payment action required
+            end
+            
+        else No saved payment method (Manual)
+            DB-->>M: Email: "Subscription Invoice"
+            Note right of M: Subject: Your SiHuni invoice is ready<br/><br/>Body:<br/>- Invoice amount<br/>- Due date (3 days)<br/>- Payment link<br/>- Payment methods available<br/>- [Pay Invoice] button
+            
+            DB-->>M: Push notification: Invoice ready
+        end
+    end
+    
+    Note over M,ES: Merchant Manual Payment
+
+    M->>FE: Receive invoice email
+    M->>FE: Click "Pay Now" button
+    FE->>M: Redirect to payment page
+    
+    FE->>DB: Query invoice details
+    Note right of DB: SELECT * FROM subscription_invoices<br/>WHERE merchant_id AND status = 'pending'
+    
+    DB-->>FE: Return invoice data
+    
+    FE->>M: Display invoice + payment options
+    Note right of M: Invoice #INV-SUB-2025-001<br/><br/>Pro Plan - Monthly<br/>Amount: Rp 299,000<br/>Due: December 27, 2025<br/><br/>Payment methods:<br/>- Virtual Account<br/>- QRIS<br/>- E-Wallet<br/>- Credit Card
+    
+    M->>FE: Select payment method
+    FE->>M: Redirect to Xendit checkout
+    
+    M->>XD: Complete payment
+    XD->>ES: POST /webhooks/xendit
+    Note right of XD: Event: invoice.paid
+    
+    ES->>DB: Query invoice by xendit_invoice_id
+    DB-->>ES: Return subscription invoice
+    
+    ES->>DB: BEGIN TRANSACTION
+    
+    DB->>DB: UPDATE subscription_invoices SET
+    Note right of DB: status: 'paid',<br/>paid_at: NOW(),<br/>payment_method: selected_method
+    
+    DB->>DB: UPDATE merchants SET
+    Note right of DB: subscription_status: 'active',<br/>next_billing_date: NOW() + 30 days,<br/>grace_period_end: NULL
+    
+    DB->>DB: INSERT INTO subscription_payments
+    Note right of DB: invoice_id, merchant_id,<br/>amount, payment_method,<br/>transaction_id
+    
+    DB->>DB: INSERT INTO notifications
+    Note right of DB: type: 'subscription_renewed'
+    
+    DB->>DB: COMMIT TRANSACTION
+    
+    DB-->>M: Email: "Payment confirmed"
+    Note right of M: Receipt + renewal confirmation
+    
+    FE->>M: Redirect to success page
+    Note right of M: "Subscription Renewed! ✓<br/><br/>Active until: Jan 24, 2026<br/>Next billing: Jan 24, 2026"
+    
+    Note over CRON,ES: Payment Reminder System
+    
+    CRON->>DB: Daily check for upcoming due dates
+    Note right of CRON: Run at 09:00 WIB
+    
+    DB->>DB: Query pending invoices
+    Note right of DB: Find invoices WHERE:<br/>- status = 'pending'<br/>- due_date = NOW() + 2 days (H-2)<br/>- due_date = NOW() + 1 day (H-1)<br/>- due_date = NOW() (due today)
+    
+    loop For each reminder trigger
+        alt 2 days before due (H-2)
+            DB-->>M: Email: "Reminder: Invoice due soon"
+            Note right of M: Friendly reminder<br/>Payment due in 2 days
+            
+        else 1 day before due (H-1)
+            DB-->>M: Email: "Urgent: Invoice due tomorrow"
+            Note right of M: Urgent tone<br/>Payment due tomorrow
+            
+            DB-->>M: Push notification: Payment reminder
+            
+        else Due date (H+0)
+            DB-->>M: Email: "Final notice: Payment due today"
+            Note right of M: Final reminder<br/>Payment due today
+            
+            DB-->>M: Push: Payment due now
+        end
+    end
+    
+    Note over CRON,ES: Grace Period & Suspension
+    
+    CRON->>DB: Check overdue invoices
+    Note right of CRON: Run daily at 12:00 WIB
+    
+    DB->>DB: Query overdue invoices
+    Note right of DB: SELECT * FROM subscription_invoices<br/>WHERE status = 'pending'<br/>AND due_date < NOW()
+    
+    loop For each overdue invoice
+        alt Just became overdue (day 0)
+            DB->>DB: UPDATE merchants SET
+            Note right of DB: subscription_status: 'suspended',<br/>grace_period_end: NOW() + 7 days
+            
+            DB-->>M: Email: "Subscription suspended"
+            Note right of M: Subject: ⚠️ Payment overdue<br/><br/>Body:<br/>- Subscription suspended<br/>- Features limited<br/>- Grace period: 7 days<br/>- Pay to reactivate<br/>- [Pay Now] urgent CTA
+            
+            DB-->>M: Push: Urgent payment required
+            
+            FE->>M: Show suspension banner
+            Note right of M: Red banner on dashboard:<br/>"Subscription suspended<br/>Pay now to restore access"
+            
+        else In grace period (days 1-7)
+            DB-->>M: Daily reminder email
+            Note right of M: "Payment still pending<br/>Grace period: X days left<br/>Account will be cancelled if not paid"
+            
+        else Grace period expired (day 7+)
+            DB->>DB: UPDATE merchants SET
+            Note right of DB: subscription_status: 'cancelled',<br/>cancellation_reason: 'non_payment',<br/>cancelled_at: NOW()
+            
+            DB->>DB: UPDATE subscription_invoices SET
+            Note right of DB: status: 'cancelled'
+            
+            DB->>DB: Archive merchant data
+            Note right of DB: Data retention: 90 days<br/>After 90 days: permanent deletion
+            
+            DB-->>M: Email: "Subscription cancelled"
+            Note right of M: Subject: Subscription cancelled<br/><br/>Body:<br/>- Account cancelled due to non-payment<br/>- Data retained 90 days<br/>- Reactivate within 90 days<br/>- Contact support if error
+            
+            FE->>M: Block all features
+            Note right of M: Show reactivation page<br/>Cannot access dashboard
+        end
+    end
+    
+    Note over M,ES: Reactivation After Suspension
+    
+    M->>FE: Pay overdue invoice (during grace period)
+    FE->>XD: Process payment
+    XD->>ES: Webhook: payment.paid
+    
+    ES->>DB: BEGIN TRANSACTION
+    
+    DB->>DB: UPDATE subscription_invoices SET status = 'paid'
+    
+    DB->>DB: UPDATE merchants SET
+    Note right of DB: subscription_status: 'active',<br/>grace_period_end: NULL,<br/>next_billing_date: NOW() + 30 days
+    
+    DB->>DB: Restore full access
+    Note right of DB: Remove feature restrictions
+    
+    DB->>DB: COMMIT TRANSACTION
+    
+    DB-->>M: Email: "Subscription reactivated"
+    Note right of M: "Welcome back!<br/>Full access restored"
+    
+    FE->>M: Success message
+    Note right of M: "Account Reactivated! ✓<br/>All features restored"
+    
+    Note over M,ES: Subscription Downgrade
+    
+    M->>FE: Request downgrade (e.g., Pro → Basic)
+    FE->>DB: Check current usage vs new tier limits
+    
+    alt Usage exceeds new tier limits
+        DB->>DB: Calculate excess usage
+        Note right of DB: Current: 5 properties, 25 units<br/>Basic limit: 3 properties, 15 units<br/>Excess: 2 properties, 10 units
+        
+        DB-->>FE: Error: Cannot downgrade
+        
+        FE->>M: Show blocker message
+        Note right of M: "Cannot downgrade to Basic<br/><br/>You're using:<br/>- 5 properties (limit: 3)<br/>- 25 units (limit: 15)<br/><br/>Please reduce to:<br/>- 3 properties or fewer<br/>- 15 units or fewer<br/><br/>Then try again"
+        
+        M->>FE: Reduce properties/units
+        M->>FE: Retry downgrade
+        
+    else Usage within new tier limits
+        FE->>DB: Schedule downgrade
+        Note right of DB: Downgrade effective:<br/>next_billing_date<br/><br/>Current billing continues<br/>until end of paid period
+        
+        DB->>DB: INSERT INTO pending_subscription_changes
+        Note right of DB: merchant_id, current_tier: 'Pro',<br/>pending_tier: 'Basic',<br/>effective_date: next_billing_date,<br/>reason: 'merchant_requested'
+        
+        DB-->>M: Email: "Downgrade scheduled"
+        Note right of M: "Downgrade confirmed<br/><br/>Current: Pro (until Jan 24)<br/>New: Basic (from Jan 24)<br/><br/>You'll save: Rp 200k/month<br/>Starting next billing cycle"
+        
+        FE->>M: Success confirmation
+        Note right of M: "Downgrade scheduled<br/>Effective: January 24, 2026"
+        
+        CRON->>DB: On effective_date
+        DB->>DB: Execute pending downgrade
+        Note right of DB: UPDATE merchants SET<br/>subscription_tier: 'Basic',<br/>properties_limit: 3,<br/>units_limit: 15,<br/>next_billing_amount: 99000
+        
+        DB-->>M: Email: "Downgraded to Basic"
+    end
+    
+    Note over M,ES: Subscription Cancellation
+    
+    M->>FE: Navigate to /merchant/settings/billing
+    M->>FE: Click "Cancel Subscription"
+    
+    FE->>M: Show cancellation survey
+    Note right of M: "We're sorry to see you go<br/><br/>Why are you cancelling?<br/>- Too expensive<br/>- Not using enough<br/>- Missing features<br/>- Found alternative<br/>- Other<br/><br/>Feedback: (optional)"
+    
+    M->>FE: Submit cancellation reason
+    
+    FE->>M: Show cancellation confirmation
+    Note right of M: "Cancel subscription?<br/><br/>⚠️ This will:<br/>- End subscription at period end<br/>- No refund for current period<br/>- Data retained 90 days<br/>- Can reactivate anytime<br/><br/>[Keep Subscription] [Confirm Cancel]"
+    
+    M->>FE: Confirm cancellation
+    
+    FE->>DB: BEGIN TRANSACTION
+    
+    DB->>DB: UPDATE merchants SET
+    Note right of DB: subscription_status: 'cancelled',<br/>cancellation_requested_at: NOW(),<br/>cancellation_effective_date: next_billing_date,<br/>cancellation_reason
+    
+    DB->>DB: Cancel future billing
+    Note right of DB: Prevent auto-renewal<br/>No invoice generation after effective date
+    
+    DB->>DB: INSERT INTO cancellation_feedback
+    Note right of DB: For product improvement
+    
+    DB->>DB: COMMIT TRANSACTION
+    
+    DB-->>M: Email: "Cancellation confirmed"
+    Note right of M: "Subscription cancelled<br/><br/>Active until: [current period end]<br/>After that: read-only access<br/>Data retained: 90 days<br/><br/>Change your mind?<br/>[Reactivate Subscription]"
+    
+    FE->>M: Success message
+    Note right of M: "Subscription will end on<br/>January 24, 2026<br/><br/>You can still use all features<br/>until then."

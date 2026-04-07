@@ -185,7 +185,7 @@ serve(async (req) => {
         .limit(3);
 
       // Phase 6: Get property security & compliance info
-      const contractUnit = activeContract?.unit as unknown as { unit_number: string; property: { name: string } } | null;
+      const contractUnit = activeContract?.unit as { unit_number: string; property: { name: string } } | null;
       let securityContext = "";
       let insuranceContext = "";
 

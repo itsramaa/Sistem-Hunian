@@ -3,10 +3,8 @@ import { useComplianceSummary } from '@/features/compliance/hooks/useCompliance'
 import { useOcrCompliance } from '@/features/compliance/hooks/useOcrCompliance';
 import { useMerchantProperties } from '@/features/properties/hooks/useMerchantProperties';
 import { DISASTER_TYPES, DOC_TYPE_LABELS, DOC_TYPES, INCIDENT_TYPES, POLICY_TYPES, RISK_LABEL, RISK_LEVELS, SEVERITY_LEVELS } from '@/features/compliance/types';
-import type { ComplianceDocument, DisasterRiskProfile, InsuranceClaim, InsurancePolicy, SecurityIncident } from '@/features/compliance/types';
+import type { ComplianceDocument, DisasterRiskProfile, InsurancePolicy, SecurityIncident } from '@/features/compliance/types';
 import { complianceService } from '@/features/compliance/services/complianceService';
-import { checkInsuranceRenewals, type RenewalAlert } from '@/features/compliance/services/insuranceRenewalService';
-import { InsuranceAnalyticsCard } from '@/features/compliance/components/InsuranceAnalyticsCard';
 import { RiskScoreIndicator } from '@/shared/components/dss/RiskScoreIndicator';
 import { OcrCameraButton } from '@/shared/components/OcrCameraButton';
 import { Badge } from '@/shared/components/ui/badge';
@@ -18,12 +16,11 @@ import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { Textarea } from '@/shared/components/ui/textarea';
-import { AlertTriangle, Bell, Download, FileText, Loader2, Plus, Shield, ShieldAlert, Umbrella, Upload } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, FileText, Loader2, Plus, Shield, ShieldAlert, Umbrella } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { formatCurrency } from '@/shared/utils/currency';
 
 interface PropertyComplianceProps {
   propertyId?: string;
@@ -224,27 +221,12 @@ function DisasterRiskTab({ propertyId, merchantId, profile }: { propertyId: stri
   );
 }
 
-// ====== Insurance Tab (Enhanced with Claims, Renewals, Analytics, Document Upload) ======
+// ====== Insurance Tab ======
 function InsuranceTab({ propertyId, merchantId, policies }: { propertyId: string; merchantId: string; policies: InsurancePolicy[] }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [claimDialogOpen, setClaimDialogOpen] = useState(false);
-  const [claimPolicyId, setClaimPolicyId] = useState('');
-  const [claimSaving, setClaimSaving] = useState(false);
-  const [docUploading, setDocUploading] = useState<string | null>(null);
   const [form, setForm] = useState({ policy_number: '', provider: '', policy_type: 'comprehensive', coverage_amount: 0, premium_amount: 0, premium_frequency: 'annual', start_date: '', end_date: '' });
-  const [claimForm, setClaimForm] = useState({ incident_date: '', incident_type: 'damage', description: '', claim_amount: 0 });
-
-  // Fetch claims
-  const { data: claims = [] } = useQuery({
-    queryKey: ['insurance-claims', merchantId, propertyId],
-    queryFn: () => complianceService.fetchClaims(merchantId),
-    enabled: !!merchantId,
-  });
-
-  // Renewal alerts
-  const renewalAlerts = useMemo(() => checkInsuranceRenewals(policies), [policies]);
 
   const handleCreate = async () => {
     setSaving(true);
@@ -255,51 +237,6 @@ function InsuranceTab({ propertyId, merchantId, policies }: { propertyId: string
       toast.success('Polis ditambahkan');
     } catch { toast.error('Gagal'); }
     setSaving(false);
-  };
-
-  const handleCreateClaim = async () => {
-    setClaimSaving(true);
-    try {
-      await complianceService.createClaim({
-        policy_id: claimPolicyId,
-        merchant_id: merchantId,
-        claim_date: new Date().toISOString().split('T')[0],
-        incident_date: claimForm.incident_date,
-        incident_type: claimForm.incident_type,
-        description: claimForm.description,
-        claim_amount: claimForm.claim_amount,
-        approved_amount: null,
-        status: 'submitted',
-        documents: [],
-        resolution_notes: null,
-        resolved_at: null,
-      });
-      qc.invalidateQueries({ queryKey: ['insurance-claims'] });
-      qc.invalidateQueries({ queryKey: ['compliance-summary', propertyId] });
-      setClaimDialogOpen(false);
-      toast.success('Klaim asuransi diajukan');
-    } catch { toast.error('Gagal mengajukan klaim'); }
-    setClaimSaving(false);
-  };
-
-  const handleDocUpload = async (policyId: string, file: File) => {
-    setDocUploading(policyId);
-    try {
-      const filePath = `insurance/${merchantId}/${policyId}-${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from('verification-documents')
-        .upload(filePath, file);
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage.from('verification-documents').getPublicUrl(filePath);
-
-      await complianceService.updateInsurancePolicy(policyId, {
-        coverage_details: { document_url: urlData.publicUrl },
-      });
-      qc.invalidateQueries({ queryKey: ['compliance-summary', propertyId] });
-      toast.success('Dokumen polis diunggah');
-    } catch { toast.error('Gagal mengunggah dokumen'); }
-    setDocUploading(null);
   };
 
   const handleOcrExtracted = (data: Record<string, any>) => {
@@ -315,207 +252,84 @@ function InsuranceTab({ propertyId, merchantId, policies }: { propertyId: string
     comprehensive: 'Komprehensif', fire: 'Kebakaran', flood: 'Banjir', earthquake: 'Gempa Bumi', liability: 'Tanggung Jawab Hukum',
   };
 
-  const claimStatusLabels: Record<string, string> = {
-    submitted: 'Diajukan', reviewing: 'Dalam Review', approved: 'Disetujui', rejected: 'Ditolak', paid: 'Dibayar',
-  };
-  const claimStatusColors: Record<string, string> = {
-    submitted: 'text-warning', reviewing: 'text-primary', approved: 'text-success', rejected: 'text-destructive', paid: 'text-success',
-  };
-
   return (
-    <div className="space-y-4">
-      {/* Renewal Alerts */}
-      {renewalAlerts.length > 0 && (
-        <Card className="rounded-2xl border-warning/30 bg-warning/5">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2"><Bell className="h-4 w-4 text-warning" /> Pengingat Perpanjangan Asuransi</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {renewalAlerts.map(alert => (
-              <div key={alert.policy.id} className="flex items-center justify-between p-2 rounded-lg bg-background text-sm">
-                <div>
-                  <span className="font-medium">{alert.policy.provider} — {alert.policy.policy_number}</span>
-                  <span className="text-xs text-muted-foreground ml-2">berakhir {alert.policy.end_date}</span>
+    <Card className="rounded-2xl">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="text-lg">Polis Asuransi</CardTitle>
+          <CardDescription>Kelola polis dan cakupan asuransi properti</CardDescription>
+        </div>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild><Button size="sm" className="rounded-xl"><Plus className="h-4 w-4 mr-1" />Tambah Polis</Button></DialogTrigger>
+          <DialogContent className="rounded-2xl">
+            <DialogHeader><DialogTitle>Tambah Polis Asuransi</DialogTitle></DialogHeader>
+            <div className="grid gap-3">
+              <OcrCameraButton
+                label="Scan Dokumen Polis"
+                bucket="verification-documents"
+                edgeFunction="ocr-compliance-document"
+                extraPayload={{ property_id: propertyId, expected_type: 'insurance_policy' }}
+                onExtracted={handleOcrExtracted}
+                size="sm"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1"><Label className="text-xs">No. Polis</Label><Input className="rounded-xl" value={form.policy_number} onChange={e => setForm(f => ({ ...f, policy_number: e.target.value }))} /></div>
+                <div className="space-y-1"><Label className="text-xs">Provider</Label><Input className="rounded-xl" value={form.provider} onChange={e => setForm(f => ({ ...f, provider: e.target.value }))} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Tipe</Label>
+                  <Select value={form.policy_type} onValueChange={v => setForm(f => ({ ...f, policy_type: v }))}>
+                    <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                    <SelectContent>{POLICY_TYPES.map(t => <SelectItem key={t} value={t} className="capitalize">{policyTypeLabels[t] || t}</SelectItem>)}</SelectContent>
+                  </Select>
                 </div>
-                <Badge variant={alert.urgency === 'critical' ? 'destructive' : alert.urgency === 'warning' ? 'secondary' : 'outline'}>
-                  {alert.daysUntilExpiry <= 0 ? 'Expired!' : `${alert.daysUntilExpiry} hari lagi`}
-                </Badge>
+                <div className="space-y-1">
+                  <Label className="text-xs">Frekuensi Premi</Label>
+                  <Select value={form.premium_frequency} onValueChange={v => setForm(f => ({ ...f, premium_frequency: v }))}>
+                    <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="monthly">Bulanan</SelectItem>
+                      <SelectItem value="quarterly">Triwulan</SelectItem>
+                      <SelectItem value="annual">Tahunan</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1"><Label className="text-xs">Coverage (Rp)</Label><Input type="number" className="rounded-xl" value={form.coverage_amount} onChange={e => setForm(f => ({ ...f, coverage_amount: Number(e.target.value) }))} /></div>
+                <div className="space-y-1"><Label className="text-xs">Premi (Rp)</Label><Input type="number" className="rounded-xl" value={form.premium_amount} onChange={e => setForm(f => ({ ...f, premium_amount: Number(e.target.value) }))} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1"><Label className="text-xs">Mulai</Label><Input type="date" className="rounded-xl" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} /></div>
+                <div className="space-y-1"><Label className="text-xs">Berakhir</Label><Input type="date" className="rounded-xl" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} /></div>
+              </div>
+              <Button onClick={handleCreate} disabled={saving} className="rounded-xl gradient-cta">{saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}Simpan</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </CardHeader>
+      <CardContent>
+        {policies.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8">Belum ada polis asuransi</p>
+        ) : (
+          <div className="space-y-3">
+            {policies.map(p => (
+              <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
+                <div>
+                  <p className="font-medium">{p.provider} — {p.policy_number}</p>
+                  <p className="text-xs text-muted-foreground">{policyTypeLabels[p.policy_type] || p.policy_type} • {p.start_date} s/d {p.end_date}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold">Rp {p.coverage_amount.toLocaleString('id-ID')}</p>
+                  <Badge variant="outline" className={p.status === 'active' ? 'text-success border-success/30' : 'text-destructive border-destructive/30'}>{p.status === 'active' ? 'Aktif' : p.status}</Badge>
+                </div>
               </div>
             ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Analytics */}
-      <InsuranceAnalyticsCard policies={policies} claims={claims} />
-
-      {/* Policies Card */}
-      <Card className="rounded-2xl">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-lg">Polis Asuransi</CardTitle>
-            <CardDescription>Kelola polis dan cakupan asuransi properti</CardDescription>
           </div>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild><Button size="sm" className="rounded-xl"><Plus className="h-4 w-4 mr-1" />Tambah Polis</Button></DialogTrigger>
-            <DialogContent className="rounded-2xl">
-              <DialogHeader><DialogTitle>Tambah Polis Asuransi</DialogTitle></DialogHeader>
-              <div className="grid gap-3">
-                <OcrCameraButton
-                  label="Scan Dokumen Polis"
-                  bucket="verification-documents"
-                  edgeFunction="ocr-compliance-document"
-                  extraPayload={{ property_id: propertyId, expected_type: 'insurance_policy' }}
-                  onExtracted={handleOcrExtracted}
-                  size="sm"
-                />
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1"><Label className="text-xs">No. Polis</Label><Input className="rounded-xl" value={form.policy_number} onChange={e => setForm(f => ({ ...f, policy_number: e.target.value }))} /></div>
-                  <div className="space-y-1"><Label className="text-xs">Provider</Label><Input className="rounded-xl" value={form.provider} onChange={e => setForm(f => ({ ...f, provider: e.target.value }))} /></div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Tipe</Label>
-                    <Select value={form.policy_type} onValueChange={v => setForm(f => ({ ...f, policy_type: v }))}>
-                      <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                      <SelectContent>{POLICY_TYPES.map(t => <SelectItem key={t} value={t} className="capitalize">{policyTypeLabels[t] || t}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Frekuensi Premi</Label>
-                    <Select value={form.premium_frequency} onValueChange={v => setForm(f => ({ ...f, premium_frequency: v }))}>
-                      <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="monthly">Bulanan</SelectItem>
-                        <SelectItem value="quarterly">Triwulan</SelectItem>
-                        <SelectItem value="annual">Tahunan</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1"><Label className="text-xs">Coverage (Rp)</Label><Input type="number" className="rounded-xl" value={form.coverage_amount} onChange={e => setForm(f => ({ ...f, coverage_amount: Number(e.target.value) }))} /></div>
-                  <div className="space-y-1"><Label className="text-xs">Premi (Rp)</Label><Input type="number" className="rounded-xl" value={form.premium_amount} onChange={e => setForm(f => ({ ...f, premium_amount: Number(e.target.value) }))} /></div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1"><Label className="text-xs">Mulai</Label><Input type="date" className="rounded-xl" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} /></div>
-                  <div className="space-y-1"><Label className="text-xs">Berakhir</Label><Input type="date" className="rounded-xl" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} /></div>
-                </div>
-                <Button onClick={handleCreate} disabled={saving} className="rounded-xl gradient-cta">{saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}Simpan</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </CardHeader>
-        <CardContent>
-          {policies.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">Belum ada polis asuransi</p>
-          ) : (
-            <div className="space-y-3">
-              {policies.map(p => {
-                const docUrl = (p.coverage_details as any)?.document_url;
-                return (
-                  <div key={p.id} className="p-3 rounded-xl bg-muted/50 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{p.provider} — {p.policy_number}</p>
-                        <p className="text-xs text-muted-foreground">{policyTypeLabels[p.policy_type] || p.policy_type} • {p.start_date} s/d {p.end_date}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-semibold">Rp {p.coverage_amount.toLocaleString('id-ID')}</p>
-                        <Badge variant="outline" className={p.status === 'active' ? 'text-success border-success/30' : 'text-destructive border-destructive/30'}>{p.status === 'active' ? 'Aktif' : p.status}</Badge>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                      {p.status === 'active' && (
-                        <Button size="sm" variant="outline" className="rounded-lg text-xs" onClick={() => { setClaimPolicyId(p.id); setClaimForm({ incident_date: '', incident_type: 'damage', description: '', claim_amount: 0 }); setClaimDialogOpen(true); }}>
-                          Ajukan Klaim
-                        </Button>
-                      )}
-                      {docUrl ? (
-                        <Button size="sm" variant="ghost" className="rounded-lg text-xs" asChild>
-                          <a href={docUrl} target="_blank" rel="noopener noreferrer"><Download className="h-3 w-3 mr-1" />Lihat Dokumen</a>
-                        </Button>
-                      ) : (
-                        <Button size="sm" variant="ghost" className="rounded-lg text-xs relative" disabled={docUploading === p.id}>
-                          {docUploading === p.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Upload className="h-3 w-3 mr-1" />}
-                          Upload Dokumen
-                          <input
-                            type="file"
-                            accept="application/pdf,image/*"
-                            className="absolute inset-0 opacity-0 cursor-pointer"
-                            onChange={e => { const f = e.target.files?.[0]; if (f) handleDocUpload(p.id, f); }}
-                          />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Claims Section */}
-      {claims.length > 0 && (
-        <Card className="rounded-2xl">
-          <CardHeader>
-            <CardTitle className="text-lg">Riwayat Klaim</CardTitle>
-            <CardDescription>Daftar klaim asuransi yang diajukan</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {claims.map(c => (
-                <div key={c.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
-                  <div>
-                    <p className="font-medium text-sm">{c.incident_type} — {c.description || 'Tanpa deskripsi'}</p>
-                    <p className="text-xs text-muted-foreground">Insiden: {c.incident_date} • Diajukan: {c.claim_date}</p>
-                  </div>
-                  <div className="text-right space-y-1">
-                    <p className="text-sm font-semibold">{formatCurrency(c.claim_amount)}</p>
-                    <Badge variant="outline" className={claimStatusColors[c.status] || ''}>
-                      {claimStatusLabels[c.status] || c.status}
-                    </Badge>
-                    {c.approved_amount !== null && c.approved_amount > 0 && (
-                      <p className="text-xs text-success">Disetujui: {formatCurrency(c.approved_amount)}</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Claim Dialog */}
-      <Dialog open={claimDialogOpen} onOpenChange={setClaimDialogOpen}>
-        <DialogContent className="rounded-2xl">
-          <DialogHeader><DialogTitle>Ajukan Klaim Asuransi</DialogTitle></DialogHeader>
-          <div className="grid gap-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label className="text-xs">Tanggal Insiden</Label><Input type="date" className="rounded-xl" value={claimForm.incident_date} onChange={e => setClaimForm(f => ({ ...f, incident_date: e.target.value }))} /></div>
-              <div className="space-y-1">
-                <Label className="text-xs">Tipe Insiden</Label>
-                <Select value={claimForm.incident_type} onValueChange={v => setClaimForm(f => ({ ...f, incident_type: v }))}>
-                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="damage">Kerusakan</SelectItem>
-                    <SelectItem value="theft">Pencurian</SelectItem>
-                    <SelectItem value="fire">Kebakaran</SelectItem>
-                    <SelectItem value="flood">Banjir</SelectItem>
-                    <SelectItem value="natural_disaster">Bencana Alam</SelectItem>
-                    <SelectItem value="other">Lainnya</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-1"><Label className="text-xs">Deskripsi</Label><Textarea className="rounded-xl" value={claimForm.description} onChange={e => setClaimForm(f => ({ ...f, description: e.target.value }))} /></div>
-            <div className="space-y-1"><Label className="text-xs">Jumlah Klaim (Rp)</Label><Input type="number" className="rounded-xl" value={claimForm.claim_amount} onChange={e => setClaimForm(f => ({ ...f, claim_amount: Number(e.target.value) }))} /></div>
-            <Button onClick={handleCreateClaim} disabled={claimSaving} className="rounded-xl gradient-cta">{claimSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}Ajukan Klaim</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

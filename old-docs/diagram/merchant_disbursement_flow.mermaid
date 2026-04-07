@@ -1,0 +1,246 @@
+sequenceDiagram
+    participant M as Merchant
+    participant FE as Frontend
+    participant DB as Database
+    participant ES as Escrow Service
+    participant XD as Xendit API
+    participant BANK as Bank Account
+
+    Note over M,BANK: View Escrow Balance
+
+    M->>FE: Navigate to /merchant/escrow
+    FE->>DB: Query merchant escrow data
+    Note right of DB: SELECT escrow_balance,<br/>pending_balance,<br/>total_disbursed,<br/>last_disbursement_date
+    
+    DB-->>FE: Return escrow summary
+    
+    FE->>DB: Query recent transactions
+    Note right of DB: SELECT * FROM escrow_transactions<br/>WHERE merchant_id<br/>ORDER BY created_at DESC<br/>LIMIT 50
+    
+    DB-->>FE: Return transaction history
+    
+    FE->>T: Display escrow dashboard
+    Note right of M: Shows:<br/>- Available Balance: Rp 10,447,500<br/>- Pending Balance: Rp 1,500,000<br/>- Total Disbursed: Rp 25,000,000<br/>- Transaction list
+    
+    Note over M,BANK: Configure Disbursement Settings
+    
+    M->>FE: Navigate to /merchant/settings/disbursement
+    FE->>DB: Query current disbursement config
+    DB-->>FE: Return settings
+    
+    FE->>M: Display disbursement options
+    Note right of M: Schedule options:<br/>1. Daily (0.25% fee)<br/>2. Weekly - FREE (every Monday)<br/>3. Monthly - FREE (day 1)<br/>4. On-Demand (0.5% fee)
+    
+    M->>FE: Select disbursement schedule (e.g., Weekly)
+    M->>FE: Set minimum threshold (e.g., Rp 1,000,000)
+    M->>FE: Input bank account details
+    Note right of M: Fields:<br/>- Bank name<br/>- Account number<br/>- Account holder name<br/>- Branch (optional)
+    
+    FE->>DB: UPDATE merchants SET
+    Note right of DB: disbursement_schedule: 'weekly',<br/>disbursement_day: 'monday',<br/>min_disbursement_amount: 1000000,<br/>bank_account_number,<br/>bank_account_name,<br/>bank_name
+    
+    DB-->>FE: Settings updated
+    FE->>M: Success: "Disbursement settings saved"
+    
+    Note over M,BANK: Auto Disbursement (Verified Merchant)
+    
+    DB->>DB: Cron job: Check disbursement schedules
+    Note right of DB: Daily at 09:00 WIB
+    
+    alt Daily Schedule
+        DB->>DB: Query merchants WHERE
+        Note right of DB: verified = true AND<br/>disbursement_schedule = 'daily' AND<br/>escrow_balance >= min_amount
+        
+        loop For each merchant
+            ES->>ES: Calculate disbursement amount
+            Note right of ES: Balance: Rp 10,447,500<br/>Fee (0.25%): Rp 26,119<br/>Net Payout: Rp 10,421,381
+            
+            ES->>DB: BEGIN TRANSACTION
+            
+            DB->>DB: INSERT INTO disbursement_requests
+            Note right of DB: merchant_id, amount: 10,421,381,<br/>fee: 26,119, gross: 10,447,500,<br/>schedule: 'daily',<br/>status: 'processing'
+            
+            ES->>XD: POST /disbursements
+            Note right of XD: Body:<br/>{<br/>  external_id: disbursement_id,<br/>  bank_code: "BCA",<br/>  account_holder_name,<br/>  account_number,<br/>  amount: 10421381,<br/>  description: "SiHuni Disbursement"<br/>}
+            
+            XD->>BANK: Initiate bank transfer
+            BANK-->>XD: Transfer queued
+            XD-->>ES: Disbursement ID created
+            
+            DB->>DB: UPDATE disbursement_requests
+            Note right of DB: xendit_disbursement_id,<br/>status: 'pending'
+            
+            DB->>DB: UPDATE merchants SET
+            Note right of DB: escrow_balance = 0,<br/>last_disbursement_date: NOW()
+            
+            DB->>DB: INSERT INTO escrow_transactions
+            Note right of DB: type: 'disbursement',<br/>amount: -10447500,<br/>fee: 26119,<br/>status: 'pending'
+            
+            DB->>DB: COMMIT TRANSACTION
+            
+            DB-->>M: Email: "Disbursement Processing"
+            Note right of M: "Amount: Rp 10,421,381<br/>ETA: 1-2 business days"
+        end
+        
+    else Weekly Schedule (Free)
+        DB->>DB: Check if today is Monday
+        
+        DB->>DB: Query merchants WHERE
+        Note right of DB: verified = true AND<br/>disbursement_schedule = 'weekly' AND<br/>disbursement_day = 'monday' AND<br/>escrow_balance >= min_amount
+        
+        loop For each merchant
+            ES->>ES: Calculate payout (NO FEE)
+            Note right of ES: Balance: Rp 10,447,500<br/>Fee: Rp 0<br/>Net Payout: Rp 10,447,500
+            
+            ES->>XD: POST /disbursements (full amount)
+            XD->>BANK: Transfer funds
+            
+            ES->>DB: Record disbursement (fee: 0)
+            DB-->>M: Email: "Weekly Disbursement - No Fee"
+        end
+        
+    else Monthly Schedule (Free)
+        DB->>DB: Check if today is day 1 of month
+        
+        DB->>DB: Query merchants WHERE
+        Note right of DB: disbursement_schedule = 'monthly'
+        
+        loop For each merchant
+            ES->>ES: Calculate payout (NO FEE)
+            ES->>XD: POST /disbursements
+            DB-->>M: Email: "Monthly Disbursement"
+        end
+    end
+    
+    Note over M,BANK: Xendit Disbursement Webhook
+    
+    XD->>ES: POST /webhooks/xendit/disbursement
+    Note right of XD: Event: disbursement.completed<br/>OR disbursement.failed
+    
+    ES->>ES: Verify webhook signature
+    ES->>DB: Query disbursement_requests
+    Note right of DB: WHERE xendit_disbursement_id = ?
+    
+    DB-->>ES: Return disbursement record
+    
+    alt Disbursement Successful
+        XD->>BANK: Transfer completed
+        BANK-->>XD: Confirmation
+        
+        ES->>DB: BEGIN TRANSACTION
+        
+        DB->>DB: UPDATE disbursement_requests
+        Note right of DB: status: 'completed',<br/>completed_at: NOW(),<br/>bank_reference: xendit_ref
+        
+        DB->>DB: UPDATE escrow_transactions
+        Note right of DB: status: 'completed'
+        
+        DB->>DB: INSERT INTO notifications
+        Note right of DB: type: 'disbursement_success',<br/>amount, bank_account
+        
+        DB->>DB: COMMIT TRANSACTION
+        
+        DB-->>M: Email: "Funds Transferred"
+        Note right of M: "Rp 10,421,381 sent to<br/>BCA xxx-xxx-1234"
+        
+        DB-->>M: Push: Disbursement successful
+        
+    else Disbursement Failed
+        XD-->>ES: Error: Invalid account or insufficient funds
+        
+        ES->>DB: BEGIN TRANSACTION
+        
+        DB->>DB: UPDATE disbursement_requests
+        Note right of DB: status: 'failed',<br/>failure_reason: error_message
+        
+        DB->>DB: Rollback escrow deduction
+        Note right of DB: UPDATE merchants SET<br/>escrow_balance += original_amount
+        
+        DB->>DB: UPDATE escrow_transactions
+        Note right of DB: status: 'failed'
+        
+        DB->>DB: COMMIT TRANSACTION
+        
+        DB-->>M: Email: "Disbursement Failed"
+        Note right of M: "Reason: [error]<br/>Funds returned to escrow.<br/>Please update bank details."
+    end
+    
+    Note over M,BANK: On-Demand Disbursement (0.5% Fee)
+    
+    M->>FE: Click "Request Instant Disbursement"
+    FE->>DB: Check escrow balance
+    DB-->>FE: balance: Rp 5,000,000
+    
+    FE->>FE: Calculate instant disbursement
+    Note right of FE: Amount: Rp 5,000,000<br/>Fee (0.5%): Rp 25,000<br/>You Receive: Rp 4,975,000
+    
+    FE->>M: Show confirmation modal
+    Note right of M: "Instant Disbursement<br/>Fee: Rp 25,000<br/>Receive: Rp 4,975,000<br/>ETA: Within 1 hour"
+    
+    M->>FE: Confirm instant disbursement
+    
+    FE->>DB: BEGIN TRANSACTION
+    
+    DB->>DB: INSERT INTO disbursement_requests
+    Note right of DB: type: 'on_demand',<br/>fee: 25000,<br/>status: 'processing'
+    
+    ES->>XD: POST /disbursements (instant)
+    XD->>BANK: Instant transfer
+    BANK-->>XD: Transfer initiated
+    
+    DB->>DB: UPDATE merchants.escrow_balance = 0
+    DB->>DB: INSERT INTO escrow_transactions
+    DB->>DB: COMMIT TRANSACTION
+    
+    DB-->>M: Push: "Instant disbursement processing"
+    
+    XD->>ES: Webhook: disbursement.completed
+    ES->>DB: Update status to completed
+    
+    DB-->>M: Email: "Instant Transfer Completed"
+    Note right of M: "Funds should arrive within 1 hour"
+    
+    Note over M,BANK: Manual Disbursement (Non-Verified Merchant)
+    
+    M->>FE: Request disbursement (non-verified)
+    FE->>DB: Check verification status
+    DB-->>FE: verified: false
+    
+    FE->>M: Show manual disbursement notice
+    Note right of M: "Manual Review Required<br/>Processing: 1-3 business days<br/>Get verified for instant access"
+    
+    M->>FE: Confirm manual request
+    
+    FE->>DB: BEGIN TRANSACTION
+    
+    DB->>DB: INSERT INTO disbursement_requests
+    Note right of DB: status: 'pending_review',<br/>requires_manual_review: true
+    
+    DB->>DB: INSERT INTO notifications (admin)
+    Note right of DB: type: 'disbursement_review_needed',<br/>merchant_id, amount
+    
+    DB->>DB: COMMIT TRANSACTION
+    
+    DB-->>M: Email: "Disbursement Under Review"
+    Note right of M: "Your request is being reviewed.<br/>ETA: 1-3 business days"
+    
+    DB-->>DB: Notify admin for review
+    
+    Note over M,BANK: Admin Manual Review (for non-verified)
+    
+    DB-->>FE: Admin receives notification
+    FE->>DB: Admin reviews disbursement request
+    
+    alt Approve Disbursement
+        FE->>ES: Admin approves
+        ES->>XD: Process disbursement
+        XD->>BANK: Transfer funds
+        DB->>DB: Update status: completed
+        DB-->>M: Email: Approved and processed
+        
+    else Reject Disbursement
+        FE->>DB: Admin rejects with reason
+        DB->>DB: Update status: rejected
+        DB->>DB: Rollback escrow balance
+        DB-->>M: Email: Rejected with reason
+    end

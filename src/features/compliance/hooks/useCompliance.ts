@@ -98,24 +98,3 @@ export function useCreateSecurityIncident() {
     onError: () => toast.error('Gagal mencatat insiden'),
   });
 }
-
-export function useInsuranceClaims(merchantId?: string, policyId?: string) {
-  return useQuery({
-    queryKey: ['insurance-claims', merchantId, policyId],
-    queryFn: () => complianceService.fetchClaims(merchantId!, policyId),
-    enabled: !!merchantId,
-  });
-}
-
-export function useCreateInsuranceClaim() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: complianceService.createClaim,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['insurance-claims'] });
-      qc.invalidateQueries({ queryKey: ['compliance-summary'] });
-      toast.success('Klaim asuransi diajukan');
-    },
-    onError: () => toast.error('Gagal mengajukan klaim'),
-  });
-}

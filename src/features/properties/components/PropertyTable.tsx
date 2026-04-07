@@ -2,14 +2,11 @@ import { useNavigate } from 'react-router-dom';
 import { Property } from '@/features/properties/types';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
-import { Checkbox } from '@/shared/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
-import { Building2, ChevronLeft, ChevronRight, Copy, DoorOpen, Edit, Image as ImageIcon, MoreHorizontal, RefreshCw, Trash2, Users, Bot } from 'lucide-react';
+import { Building2, ChevronLeft, ChevronRight, Copy, DoorOpen, Edit, Image as ImageIcon, MoreHorizontal, RefreshCw, Trash2 } from 'lucide-react';
 import { formatLabel } from '@/shared/utils/utils';
-import { formatCurrencyCompact } from '@/shared/utils/currency';
 import { Label } from '@/shared/components/ui/label';
 
 interface PropertyTableProps {
@@ -26,9 +23,6 @@ interface PropertyTableProps {
   onPageChange: (page: number) => void;
   itemsPerPage: number;
   onItemsPerPageChange?: (value: number) => void;
-  selectedIds?: Set<string>;
-  onSelectId?: (id: string) => void;
-  onSelectAll?: () => void;
 }
 
 const statusColors: Record<string, string> = {
@@ -49,12 +43,6 @@ function getOccupancyColor(rate: number): string {
   return 'text-destructive';
 }
 
-function getOccupancyBadge(rate: number): { label: string; className: string } {
-  if (rate >= 80) return { label: 'BAIK', className: 'bg-success/15 text-success border-success/30' };
-  if (rate >= 50) return { label: 'PERHATIAN', className: 'bg-warning/15 text-warning border-warning/30' };
-  return { label: 'KRITIS', className: 'bg-destructive/15 text-destructive border-destructive/30' };
-}
-
 function getPageNumbers(current: number, total: number): (number | 'ellipsis')[] {
   if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
   const pages: (number | 'ellipsis')[] = [1];
@@ -70,7 +58,6 @@ function getPageNumbers(current: number, total: number): (number | 'ellipsis')[]
 export function PropertyTable({ 
   properties, onEdit, onDelete, onManageUnits, onManagePhotos, onDuplicate,
   deleteLoadingId, page, totalPages, totalProperties, onPageChange, itemsPerPage, onItemsPerPageChange,
-  selectedIds, onSelectId, onSelectAll,
 }: PropertyTableProps) {
   const navigate = useNavigate();
   const pageNumbers = getPageNumbers(page, totalPages);
@@ -80,23 +67,11 @@ export function PropertyTable({
       <Table>
         <TableHeader>
           <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b-0">
-            {onSelectId && (
-              <TableHead className="w-[40px]">
-                <Checkbox
-                  checked={properties.length > 0 && properties.every(p => selectedIds?.has(p.id))}
-                  onCheckedChange={() => onSelectAll?.()}
-                  aria-label="Pilih semua"
-                />
-              </TableHead>
-            )}
             <TableHead className="font-semibold text-xs uppercase tracking-wider w-[300px]">Properti</TableHead>
             <TableHead className="font-semibold text-xs uppercase tracking-wider">Lokasi</TableHead>
             <TableHead className="font-semibold text-xs uppercase tracking-wider">Unit</TableHead>
-            <TableHead className="font-semibold text-xs uppercase tracking-wider">Penyewa</TableHead>
-            <TableHead className="font-semibold text-xs uppercase tracking-wider">Pendapatan</TableHead>
             <TableHead className="font-semibold text-xs uppercase tracking-wider">Fasilitas</TableHead>
             <TableHead className="font-semibold text-xs uppercase tracking-wider">Status</TableHead>
-            <TableHead className="font-semibold text-xs uppercase tracking-wider">Otomasi</TableHead>
             <TableHead className="font-semibold text-xs uppercase tracking-wider text-right">Aksi</TableHead>
           </TableRow>
         </TableHeader>
@@ -111,15 +86,6 @@ export function PropertyTable({
                 role="row"
                 aria-label={`Properti ${property.name}`}
               >
-                {onSelectId && (
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                      checked={selectedIds?.has(property.id) ?? false}
-                      onCheckedChange={() => onSelectId(property.id)}
-                      aria-label={`Pilih ${property.name}`}
-                    />
-                  </TableCell>
-                )}
                 <TableCell>
                   <div className="flex items-center gap-3">
                     {property.images && property.images.length > 0 ? (
@@ -139,40 +105,12 @@ export function PropertyTable({
                 </TableCell>
                 <TableCell className="text-sm">{property.city}, {property.province}</TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-2">
-                    <div className="flex flex-col">
-                      <span className={`text-sm font-medium ${getOccupancyColor(occupancyRate)}`}>
-                        {property.occupied_units}/{property.total_units}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{Math.round(occupancyRate)}% terisi</span>
-                    </div>
-                    {property.total_units > 0 && (
-                      <Badge variant="outline" className={`text-[10px] font-bold px-1.5 py-0 h-5 rounded-full ${getOccupancyBadge(occupancyRate).className}`}>
-                        {getOccupancyBadge(occupancyRate).label}
-                      </Badge>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <button
-                    className="flex items-center gap-1 text-sm text-primary hover:underline font-medium"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/merchant/properties/${property.id}?tab=tenants`);
-                    }}
-                  >
-                    <Users className="h-3.5 w-3.5" />
-                    {property.active_tenant_count ?? 0}
-                  </button>
-                </TableCell>
-                <TableCell>
-                  {(property.monthly_revenue ?? 0) > 0 ? (
-                    <span className="text-sm font-medium text-success">
-                      {formatCurrencyCompact(property.monthly_revenue!)}
+                  <div className="flex flex-col">
+                    <span className={`text-sm font-medium ${getOccupancyColor(occupancyRate)}`}>
+                      {property.occupied_units}/{property.total_units}
                     </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
-                  )}
+                    <span className="text-xs text-muted-foreground">{Math.round(occupancyRate)}% terisi</span>
+                  </div>
                 </TableCell>
                 <TableCell>
                   {property.amenities && property.amenities.length > 0 ? (
@@ -183,19 +121,6 @@ export function PropertyTable({
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline" className={`rounded-full ${statusColors[property.status]}`}>{statusLabels[property.status] || property.status}</Badge>
-                </TableCell>
-                <TableCell>
-                  <TooltipProvider delayDuration={200}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground cursor-default">
-                          <Bot className="h-3.5 w-3.5" />
-                          —
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>Segera hadir</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
                 </TableCell>
                 <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                   <DropdownMenu>
@@ -221,7 +146,7 @@ export function PropertyTable({
           })}
           {properties.length === 0 && (
             <TableRow>
-              <TableCell colSpan={onSelectId ? 10 : 9} className="h-24 text-center text-muted-foreground">Properti tidak ditemukan.</TableCell>
+              <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">Properti tidak ditemukan.</TableCell>
             </TableRow>
           )}
         </TableBody>
@@ -240,8 +165,8 @@ export function PropertyTable({
                 <SelectTrigger className="h-8 w-[70px] rounded-lg"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="9">9</SelectItem>
-                  <SelectItem value="25">25</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="18">18</SelectItem>
+                  <SelectItem value="27">27</SelectItem>
                 </SelectContent>
               </Select>
             </div>

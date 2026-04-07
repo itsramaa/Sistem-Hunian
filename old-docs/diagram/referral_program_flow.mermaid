@@ -1,0 +1,349 @@
+sequenceDiagram
+    participant R as Referrer
+    participant FE as Frontend
+    participant DB as Database
+    participant WA as WhatsApp/Email/Social
+    participant RF as Referee (New User)
+    participant ES as Escrow Service
+
+    Note over R,ES: MERCHANT REFERRAL PROGRAM
+
+    Note over R,RF: Generate Referral Link (Merchant)
+
+    R->>FE: Navigate to /merchant/referrals
+    FE->>DB: Query merchant referral data
+    Note right of DB: SELECT referral_code,<br/>total_referrals,<br/>successful_conversions,<br/>total_earnings,<br/>pending_earnings
+    
+    DB-->>FE: Return referral stats
+    
+    FE->>R: Display referral dashboard
+    Note right of R: Dashboard shows:<br/><br/>📊 Referral Stats<br/>- Your code: MERCHANT-ABC123<br/>- Total referred: 12<br/>- Converted: 8 (66%)<br/>- Total earned: Rp 2,400,000<br/>- Pending: Rp 600,000<br/><br/>💰 Commission Structure<br/>- 20% of referee subscription<br/>- For first 6 months<br/>- Paid monthly<br/><br/>📈 Referred Merchants List<br/>- Name, Status, Tier, Earnings
+    
+    R->>FE: Click "Generate Link" or "Copy Link"
+    
+    FE->>DB: Check if referral code exists
+    
+    alt Referral code exists
+        DB-->>FE: Return existing code
+        
+    else No referral code
+        FE->>FE: Generate unique code
+        Note right of FE: Format: MERCHANT-{user_id_short}
+        
+        FE->>DB: INSERT INTO referral_codes
+        Note right of DB: referrer_id, referrer_role: 'merchant',<br/>code: generated_code,<br/>created_at
+        
+        DB-->>FE: Code created
+    end
+    
+    FE->>FE: Build referral URL
+    Note right of FE: https://sihuni.com/invite/merchant?ref=MERCHANT-ABC123
+    
+    FE->>R: Display shareable link + options
+    Note right of R: Share options:<br/>- Copy link<br/>- Share via WhatsApp<br/>- Share via Email<br/>- Share via social media<br/>- QR Code download
+    
+    R->>FE: Click "Share via WhatsApp"
+    FE->>WA: Open WhatsApp with pre-filled message
+    Note right of WA: "Kelola properti sewamu lebih mudah!<br/><br/>Coba SiHuni - Platform manajemen properti.<br/>Daftar pakai link ini:<br/>https://sihuni.com/invite/merchant?ref=MERCHANT-ABC123<br/><br/>Bonus: Trial 14 hari gratis!"
+    
+    R->>WA: Send to potential referee
+    WA->>RF: Deliver referral message
+    
+    Note over RF,ES: Referee Registration via Referral
+
+    RF->>FE: Click referral link
+    FE->>FE: Extract referral code from URL
+    Note right of FE: Parse ?ref=MERCHANT-ABC123
+    
+    FE->>DB: Validate referral code
+    Note right of DB: SELECT * FROM referral_codes<br/>WHERE code = ?<br/>AND is_active = true
+    
+    alt Valid referral code
+        DB-->>FE: Return referrer info
+        
+        FE->>RF: Show registration page with banner
+        Note right of RF: Banner shows:<br/>"Invited by: [Referrer Name]<br/>Special bonus: Extended trial!"
+        
+        RF->>FE: Complete registration
+        FE->>DB: BEGIN TRANSACTION
+        
+        DB->>DB: INSERT INTO auth.users (standard flow)
+        DB->>DB: INSERT INTO merchants (referee)
+        
+        DB->>DB: INSERT INTO referrals
+        Note right of DB: referrer_id, referrer_role: 'merchant',<br/>referee_id, referee_role: 'merchant',<br/>referral_code,<br/>status: 'registered',<br/>created_at
+        
+        DB->>DB: Apply referral bonus
+        Note right of DB: Give referee:<br/>- Extended trial: +7 days<br/>- First month discount: 10%<br/><br/>Example:<br/>Pro trial: 7 → 14 days<br/>First payment: 299k → 269k
+        
+        DB->>DB: UPDATE merchants (referee) SET
+        Note right of DB: trial_end_date: NOW() + 14 days,<br/>referral_discount: 10,<br/>referral_discount_months: 1
+        
+        DB->>DB: INSERT INTO notifications (referrer)
+        Note right of DB: type: 'referral_registered',<br/>referee_name
+        
+        DB->>DB: COMMIT TRANSACTION
+        
+        DB-->>R: Push: "Someone used your referral!"
+        Note right of R: "🎉 New Referral!<br/>[Name] signed up using your link"
+        
+        DB-->>RF: Welcome email with bonus info
+        Note right of RF: "Welcome + Extended Trial!<br/>14 days free (thanks to referral)"
+        
+        FE->>RF: Registration success
+        
+    else Invalid/expired code
+        FE->>RF: Show standard registration
+        Note right of RF: Registration without referral benefits
+    end
+    
+    Note over R,ES: Commission Calculation & Payment
+
+    RF->>FE: Upgrade to paid subscription (after trial)
+    FE->>DB: Process subscription payment (covered in other flow)
+    
+    DB->>DB: Trigger: On first subscription payment
+    
+    DB->>DB: Query referral relationship
+    Note right of DB: SELECT * FROM referrals<br/>WHERE referee_id = ?<br/>AND status = 'registered'
+    
+    DB-->>DB: Found referral record
+    
+    DB->>DB: BEGIN TRANSACTION
+    
+    DB->>DB: UPDATE referrals SET
+    Note right of DB: status: 'converted',<br/>converted_at: NOW(),<br/>referee_subscription_tier,<br/>referee_monthly_payment
+    
+    DB->>DB: Calculate commission
+    Note right of DB: Commission structure:<br/>20% of referee's subscription<br/>For 6 months<br/><br/>Example:<br/>Referee pays: Rp 299,000/month (Pro)<br/>Commission: 299,000 * 0.20 = Rp 59,800<br/>Duration: 6 months<br/>Total potential: Rp 358,800
+    
+    DB->>DB: INSERT INTO referral_commissions
+    Note right of DB: referral_id, referrer_id,<br/>referee_id, month_number: 1,<br/>subscription_amount: 299000,<br/>commission_rate: 0.20,<br/>commission_amount: 59800,<br/>status: 'pending',<br/>eligible_date: NOW() + 30 days
+    
+    DB->>DB: INSERT INTO notifications (referrer)
+    Note right of DB: type: 'referral_converted',<br/>commission_amount,<br/>payment_schedule
+    
+    DB->>DB: COMMIT TRANSACTION
+    
+    DB-->>R: Email: "Referral Commission Earned!"
+    Note right of R: Subject: 🎉 You earned Rp 59,800!<br/><br/>Body:<br/>Your referral [Name] upgraded to Pro!<br/><br/>Your commission:<br/>- Month 1: Rp 59,800<br/>- Next 5 months: Rp 59,800/month<br/>- Total: Rp 358,800<br/><br/>Payment: Monthly, 30 days after each subscription payment
+    
+    DB-->>R: Push: Commission earned
+    
+    Note over R,ES: Monthly Commission Payout
+
+    DB->>DB: Cron job: Process referral commissions
+    Note right of DB: Run daily at 01:00 WIB
+    
+    DB->>DB: Query eligible commissions
+    Note right of DB: SELECT * FROM referral_commissions<br/>WHERE status = 'pending'<br/>AND eligible_date <= NOW()
+    
+    loop For each eligible commission
+        DB->>DB: Verify referee still subscribed
+        Note right of DB: Check referee subscription_status = 'active'
+        
+        alt Referee still active
+            ES->>ES: Process commission payment
+            
+            ES->>DB: BEGIN TRANSACTION
+            
+            DB->>DB: UPDATE referral_commissions SET
+            Note right of DB: status: 'paid',<br/>paid_at: NOW()
+            
+            DB->>DB: INSERT INTO merchant_earnings
+            Note right of DB: merchant_id: referrer_id,<br/>source: 'referral_commission',<br/>amount: commission_amount,<br/>referral_commission_id
+            
+            DB->>DB: UPDATE merchants (referrer) SET
+            Note right of DB: escrow_balance += commission_amount
+            
+            DB->>DB: INSERT INTO notifications
+            Note right of DB: type: 'commission_paid',<br/>amount
+            
+            DB->>DB: COMMIT TRANSACTION
+            
+            DB-->>R: Email: "Commission Paid"
+            Note right of R: "Rp 59,800 added to your balance<br/>Month 3 of 6 for [Referee Name]"
+            
+            DB->>DB: Create next month commission (if < 6 months)
+            Note right of DB: INSERT INTO referral_commissions<br/>month_number: next_month,<br/>eligible_date: +30 days
+            
+        else Referee cancelled subscription
+            DB->>DB: UPDATE referral_commissions SET
+            Note right of DB: status: 'cancelled',<br/>cancellation_reason: 'referee_unsubscribed'
+            
+            DB-->>R: Notification: Commission stopped
+            Note right of R: "Referral commission ended<br/>[Referee] cancelled subscription"
+        end
+    end
+    
+    Note over R,ES: TENANT REFERRAL PROGRAM
+
+    Note over R,RF: Tenant Referral (Voucher-based)
+
+    R->>FE: Navigate to /tenant/referrals
+    FE->>DB: Query tenant referral data
+    
+    DB-->>FE: Return referral stats
+    
+    FE->>R: Display tenant referral page
+    Note right of R: Dashboard shows:<br/><br/>🎁 Referral Rewards<br/>- Your code: TENANT-XYZ789<br/>- Friends referred: 5<br/>- Rewards earned: 3 vouchers<br/>- Voucher balance: Rp 75,000<br/><br/>💎 How it works:<br/>1. Friend uses your code<br/>2. Friend pays first rent (min 500k)<br/>3. You get: Rp 25k voucher<br/>4. Friend pays 3 months straight?<br/>5. You get: +Rp 25k bonus!<br/><br/>📋 Referred Friends List
+    
+    R->>FE: Copy referral code
+    FE->>R: Display code + share options
+    
+    R->>WA: Share code to potential tenant
+    Note right of WA: "Hey! Pakai kode referral saya<br/>di SiHuni: TENANT-XYZ789<br/><br/>Daftar jadi tenant via aplikasi."
+    
+    WA->>RF: Deliver message
+    
+    RF->>FE: Register as tenant (via merchant invitation)
+    FE->>RF: Show "Have referral code?" field
+    
+    RF->>FE: Enter referral code: TENANT-XYZ789
+    FE->>DB: Validate code
+    
+    alt Valid tenant referral code
+        DB-->>FE: Code valid
+        
+        FE->>DB: BEGIN TRANSACTION
+        
+        DB->>DB: INSERT INTO referrals
+        Note right of DB: referrer_id, referrer_role: 'tenant',<br/>referee_id, referee_role: 'tenant',<br/>referral_code,<br/>status: 'registered'
+        
+        DB->>DB: COMMIT TRANSACTION
+        
+        DB-->>R: Notification: Friend registered
+        DB-->>RF: Note: Rewards pending first payment
+        
+    else Invalid code
+        FE->>RF: Continue without referral
+    end
+    
+    Note over RF,ES: Tenant Referral Reward Trigger
+
+    RF->>FE: Pay first rent (invoice >= 500k)
+    FE->>DB: Process payment (covered in payment flow)
+    
+    DB->>DB: Trigger: After first rent payment
+    
+    DB->>DB: Check referral conditions
+    Note right of DB: Conditions:<br/>- First rent paid<br/>- Amount >= Rp 500,000<br/>- Payment successful
+    
+    alt Conditions met
+        DB->>DB: BEGIN TRANSACTION
+        
+        DB->>DB: UPDATE referrals SET
+        Note right of DB: status: 'reward_earned',<br/>first_payment_at: NOW()
+        
+        DB->>DB: INSERT INTO vouchers
+        Note right of DB: owner_id: referrer_id,<br/>code: auto_generated,<br/>discount_type: 'fixed',<br/>discount_value: 25000,<br/>min_order: 0,<br/>valid_until: NOW() + 90 days,<br/>applicable_to: 'marketplace_orders'
+        
+        DB->>DB: INSERT INTO notifications (referrer)
+        Note right of DB: type: 'referral_reward_voucher',<br/>amount: 25000
+        
+        DB->>DB: COMMIT TRANSACTION
+        
+        DB-->>R: Email: "Voucher Reward!"
+        Note right of R: Subject: 🎉 Rp 25k Voucher!<br/><br/>[Friend] paid first rent!<br/>You earned Rp 25k voucher.<br/><br/>Use it at marketplace:<br/>Code: [VOUCHER_CODE]<br/>Valid: 90 days
+        
+        DB-->>R: Push: Voucher received
+        
+        FE->>R: Show voucher in wallet
+        
+    else Conditions not met
+        DB-->>R: Notification: Pending reward
+        Note right of R: "Reward pending: Friend needs to<br/>pay first rent (min 500k)"
+    end
+    
+    Note over RF,ES: Bonus Reward (3 Months Consecutive)
+
+    DB->>DB: Cron: Check consecutive payments
+    Note right of DB: Trigger when referee pays<br/>3rd consecutive month
+    
+    DB->>DB: Query referrals with 3 payments
+    Note right of DB: Check payment_history<br/>for 3 consecutive months
+    
+    alt 3 consecutive payments confirmed
+        DB->>DB: INSERT INTO vouchers (bonus)
+        Note right of DB: Bonus voucher: Rp 25,000<br/>Total earned: Rp 50,000
+        
+        DB-->>R: Email: "Bonus Voucher!"
+        Note right of R: "[Friend] paid 3 months straight!<br/>Bonus: Rp 25k voucher!<br/>Total from this referral: Rp 50k"
+    end
+    
+    Note over R,ES: VENDOR REFERRAL PROGRAM
+
+    Note over R,RF: Vendor Referral (Cashback-based)
+
+    R->>FE: Navigate to /vendor/referrals
+    FE->>DB: Query vendor referral data
+    
+    FE->>R: Display vendor referral page
+    Note right of R: Dashboard shows:<br/><br/>💰 Referral Cashback<br/>- Your code: VENDOR-QWE456<br/>- Vendors referred: 3<br/>- Cashback earned: Rp 150,000<br/>- Pending: Rp 50,000<br/><br/>💵 How it works:<br/>1. Friend uses your code<br/>2. Friend completes 10 orders (avg rating >4.0)<br/>3. You get: Rp 50k cashback<br/>4. Friend stays 3 months + 50 orders?<br/>5. You get: +Rp 100k bonus!<br/><br/>📋 Referred Vendors
+    
+    R->>FE: Share vendor referral code
+    R->>WA: Send to potential vendor
+    
+    RF->>FE: Register as vendor with code
+    FE->>DB: INSERT INTO referrals (vendor type)
+    
+    DB-->>R: Notification: Vendor registered
+    
+    Note over RF,ES: Vendor Referral Reward (10 Orders)
+
+    RF->>FE: Complete 10th order
+    FE->>DB: Check order count + avg rating
+    
+    DB->>DB: Validate conditions
+    Note right of DB: Conditions:<br/>- 10+ completed orders<br/>- Avg rating >= 4.0<br/>- All orders completed properly
+    
+    alt Conditions met
+        ES->>ES: Credit cashback to referrer
+        
+        ES->>DB: BEGIN TRANSACTION
+        
+        DB->>DB: UPDATE referrals SET status = 'cashback_tier1'
+        
+        DB->>DB: INSERT INTO vendor_earnings (referrer)
+        Note right of DB: source: 'referral_cashback',<br/>amount: 50000
+        
+        DB->>DB: UPDATE vendors (referrer)
+        Note right of DB: earnings_balance += 50000
+        
+        DB->>DB: COMMIT TRANSACTION
+        
+        DB-->>R: Email: "Cashback Earned!"
+        Note right of R: "Rp 50k cashback!<br/>[Friend] completed 10 orders"
+        
+    else Conditions not met
+        DB-->>R: Progress notification
+        Note right of R: "[Friend] progress:<br/>7/10 orders, keep going!"
+    end
+    
+    Note over RF,ES: Vendor Bonus (3 Months + 50 Orders)
+
+    DB->>DB: Check referee vendor milestones
+    Note right of DB: Milestone: 3 months active<br/>+ 50+ completed orders
+    
+    alt Milestone reached
+        ES->>ES: Credit bonus cashback
+        
+        DB->>DB: INSERT INTO vendor_earnings
+        Note right of DB: amount: 100000,<br/>source: 'referral_bonus'
+        
+        DB-->>R: Email: "Mega Bonus!"
+        Note right of R: "🎉 Rp 100k Bonus Cashback!<br/>[Friend] hit 3-month milestone!<br/>Total earned: Rp 150k"
+    end
+    
+    Note over R,ES: Referral Analytics (All Roles)
+
+    R->>FE: View referral analytics
+    FE->>DB: Query comprehensive referral data
+    
+    DB->>DB: Calculate metrics
+    Note right of DB: Aggregate:<br/>- Total referrals<br/>- Conversion rate<br/>- Total earnings<br/>- Average earning per referral<br/>- Best performing month<br/>- Referral source breakdown
+    
+    DB-->>FE: Return analytics
+    
+    FE->>R: Display analytics dashboard
+    Note right of R: Charts showing:<br/>- Referrals over time (line)<br/>- Conversion funnel<br/>- Earnings by month (bar)<br/>- Top referrals (table)<br/>- Pending vs paid rewards

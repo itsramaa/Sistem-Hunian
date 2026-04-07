@@ -16,6 +16,7 @@ import { formatCurrency } from '@/shared/utils/currency';
 import { getInvoiceStatusColor } from '@/shared/utils/statusColors';
 import { format } from 'date-fns';
 import { Bell, Download, Eye, FileText, Loader2, MoreHorizontal, Send } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Invoice } from '../types';
 
 interface InvoicesTableProps {
@@ -49,6 +50,7 @@ export const InvoicesTable = ({
   onPageChange,
   itemsPerPage
 }: InvoicesTableProps) => {
+  const navigate = useNavigate();
   if (isLoading) {
     return (
       <div className="glass-table">
@@ -115,7 +117,7 @@ export const InvoicesTable = ({
         </TableHeader>
         <TableBody>
           {invoices.map((invoice) => (
-            <TableRow key={invoice.id} className="hover:bg-primary/5 cursor-pointer transition-colors" onClick={() => onView(invoice)}>
+            <TableRow key={invoice.id} className="hover:bg-primary/5 cursor-pointer transition-colors" onClick={() => navigate(`/merchant/invoices/${invoice.id}`)}>
               <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
               <TableCell className="max-w-[200px] truncate">
                 {invoice.description || '-'}

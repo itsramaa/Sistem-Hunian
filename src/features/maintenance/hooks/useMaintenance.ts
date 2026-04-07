@@ -82,10 +82,6 @@ export const useUpdateMaintenanceRequest = () => {
       queryClient.invalidateQueries({ queryKey: ['tenant-maintenance-requests'] });
       // Invalidate timeline as well since status update might add timeline entries
       queryClient.invalidateQueries({ queryKey: ['maintenance-updates', variables.id] });
-      // Invalidate expense queries so auto-created expenses appear immediately
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
-      queryClient.invalidateQueries({ queryKey: ['expense-summary'] });
-      queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
     },
   });
 };

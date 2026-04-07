@@ -25,7 +25,7 @@ export const SEGMENT_TRANSLATIONS: Record<string, string> = {
   'products': 'Produk',
   'jobs': 'Pekerjaan',
   'earnings': 'Pendapatan',
-  
+  'referrals': 'Referral',
   'chat': 'Percakapan',
   'forum': 'Forum',
   'marketplace': 'Marketplace',

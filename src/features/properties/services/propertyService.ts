@@ -19,8 +19,6 @@ export const propertyService = {
       postal_code: p.resolved_postal_code,
       latitude: p.resolved_latitude,
       longitude: p.resolved_longitude,
-      active_tenant_count: p.active_tenant_count ?? 0,
-      monthly_revenue: p.monthly_revenue ?? 0,
     })) as Property[];
   },
 
@@ -174,41 +172,5 @@ export const propertyService = {
     }
 
     return { canDelete: true };
-  },
-
-  async searchPropertiesServer(
-    merchantId: string,
-    search: string,
-    type: string,
-    status: string,
-    sort: string,
-    limit: number,
-    offset: number
-  ): Promise<{ properties: Property[]; totalCount: number }> {
-    const { data, error } = await supabase.rpc('search_properties_server' as any, {
-      p_merchant_id: merchantId,
-      p_search: search,
-      p_type: type,
-      p_status: status,
-      p_sort: sort,
-      p_limit: limit,
-      p_offset: offset,
-    });
-
-    if (error) throw error;
-    const rows = (data || []) as any[];
-    const totalCount = rows.length > 0 ? Number(rows[0].total_count) : 0;
-    const properties = rows.map((p: any) => ({
-      ...p,
-      address: p.resolved_address || '',
-      city: p.resolved_city || '',
-      province: p.resolved_province || '',
-      postal_code: p.resolved_postal_code || '',
-      latitude: p.resolved_latitude,
-      longitude: p.resolved_longitude,
-      active_tenant_count: p.active_tenant_count ?? 0,
-      monthly_revenue: p.monthly_revenue ?? 0,
-    })) as Property[];
-    return { properties, totalCount };
-  },
+  }
 };

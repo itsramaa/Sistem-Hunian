@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { TrendingUp, Sparkles, Loader2, BarChart3, DollarSign, LineChart, Activity, AlertTriangle, SlidersHorizontal } from "lucide-react";
-import { Slider } from "@/shared/components/ui/slider";
+import { TrendingUp, Sparkles, Loader2, BarChart3, DollarSign, LineChart, Activity, AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/shared/components/ui/PageHeader";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
@@ -47,10 +46,6 @@ export default function MarketIntelligence() {
 
   const priceData = priceIntel.data?.analysis as PriceIntelligenceResult | undefined;
   const occData = occForecast.data?.forecast as OccupancyForecastResult | undefined;
-
-  // What-if simulator state
-  const [priceChangePct, setPriceChangePct] = useState(0);
-  const elasticity = -0.5;
 
   return (
     <div className="space-y-6">
@@ -405,93 +400,6 @@ export default function MarketIntelligence() {
                     ))}
                   </div>
                 )}
-
-                {/* What-If Price Elasticity Simulator */}
-                <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border-border/40" role="region" aria-label="Simulasi Elastisitas Harga">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <SlidersHorizontal className="h-4 w-4 text-primary" aria-hidden="true" />
-                      Simulasi Elastisitas Harga
-                    </CardTitle>
-                    <CardDescription>
-                      Jika harga berubah, bagaimana dampak terhadap okupansi dan pendapatan?
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {(() => {
-                      const currentOcc = occData.monthly_predictions?.[0]?.predicted_occupancy_rate ?? 0.85;
-                      const newOcc = Math.min(1, Math.max(0, currentOcc * (1 + elasticity * (priceChangePct / 100))));
-                      const baseRevenue = currentOcc * 100; // normalized
-                      const newRevenue = newOcc * (100 + priceChangePct);
-                      const revenueDiff = newRevenue - baseRevenue;
-                      return (
-                        <>
-                          <div>
-                            <div className="flex items-center justify-between mb-3">
-                              <span className="text-sm font-medium">Perubahan Harga</span>
-                              <Badge variant={priceChangePct === 0 ? 'secondary' : priceChangePct > 0 ? 'default' : 'destructive'} className="rounded-full text-sm px-3">
-                                {priceChangePct > 0 ? '+' : ''}{priceChangePct}%
-                              </Badge>
-                            </div>
-                            <Slider
-                              value={[priceChangePct]}
-                              onValueChange={(v) => setPriceChangePct(v[0])}
-                              min={-20}
-                              max={20}
-                              step={1}
-                              aria-label="Slider perubahan harga"
-                            />
-                            <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
-                              <span>-20%</span><span>0%</span><span>+20%</span>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-4">
-                            <div className="text-center p-3 rounded-xl bg-muted/50">
-                              <p className="text-xs text-muted-foreground mb-1">Okupansi Saat Ini</p>
-                              <p className="text-xl font-bold">{(currentOcc * 100).toFixed(1)}%</p>
-                            </div>
-                            <div className="text-center p-3 rounded-xl bg-primary/5 border border-primary/20">
-                              <p className="text-xs text-muted-foreground mb-1">Prediksi Okupansi</p>
-                              <p className="text-xl font-bold text-primary">{(newOcc * 100).toFixed(1)}%</p>
-                              <p className="text-[10px] text-muted-foreground">
-                                {((newOcc - currentOcc) * 100) > 0 ? '+' : ''}{((newOcc - currentOcc) * 100).toFixed(1)}pp
-                              </p>
-                            </div>
-                            <div className="text-center p-3 rounded-xl bg-muted/50">
-                              <p className="text-xs text-muted-foreground mb-1">Dampak Revenue</p>
-                              <p className={`text-xl font-bold ${revenueDiff >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-                                {revenueDiff >= 0 ? '+' : ''}{revenueDiff.toFixed(1)}%
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Visual comparison bar */}
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-3">
-                              <span className="text-xs text-muted-foreground w-20">Saat Ini</span>
-                              <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
-                                <div className="h-full bg-muted-foreground/40 rounded-full transition-all" style={{ width: `${currentOcc * 100}%` }} />
-                              </div>
-                              <span className="text-xs w-12 text-right">{(currentOcc * 100).toFixed(0)}%</span>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className="text-xs text-muted-foreground w-20">Prediksi</span>
-                              <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
-                                <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${newOcc * 100}%` }} />
-                              </div>
-                              <span className="text-xs w-12 text-right">{(newOcc * 100).toFixed(0)}%</span>
-                            </div>
-                          </div>
-
-                          <p className="text-xs text-muted-foreground">
-                            💡 Elastisitas harga: {elasticity} — Setiap 10% penurunan harga meningkatkan okupansi ~5%.
-                          </p>
-                        </>
-                      );
-                    })()}
-                  </CardContent>
-                </Card>
 
                 {/* Anomalies */}
                 {(occData.anomalies || []).length > 0 && (

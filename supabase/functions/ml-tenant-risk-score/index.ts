@@ -153,15 +153,13 @@ serve(async (req) => {
 
       // Notify if critical
       if (score.risk_score >= 76) {
-        try {
-          await serviceClient.from("notifications").insert({
-            user_id: auth.userId,
-            title: `⚠️ Tenant Risk Alert: ${score.risk_level}`,
-            message: `Tenant risk score: ${score.risk_score}/100. ${score.summary}`,
-            type: "risk_alert",
-            metadata: { tenant_user_id: tid, risk_score: score.risk_score },
-          });
-        } catch { /* ignore notification failures */ }
+        await serviceClient.from("notifications").insert({
+          user_id: auth.userId,
+          title: `⚠️ Tenant Risk Alert: ${score.risk_level}`,
+          message: `Tenant risk score: ${score.risk_score}/100. ${score.summary}`,
+          type: "risk_alert",
+          metadata: { tenant_user_id: tid, risk_score: score.risk_score },
+        }).then(() => {}).catch(() => {});
       }
 
       results.push({ tenant_user_id: tid, ...score, model_run_id: modelRunId });

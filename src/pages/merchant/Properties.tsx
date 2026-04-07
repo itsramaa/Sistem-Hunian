@@ -8,26 +8,14 @@ import { PropertiesPageSkeleton } from '@/features/properties/components/Propert
 import { PropertyTable } from '@/features/properties/components/PropertyTable';
 import { UnitsManager } from '@/features/properties/components/UnitsManager';
 import { useMerchantProperties } from '@/features/properties/hooks/useMerchantProperties';
-import { propertyService } from '@/features/properties/services/propertyService';
 import { CreatePropertyPayload, Property, UpdatePropertyPayload } from '@/features/properties/types';
 import { SubscriptionLimitWarning } from '@/features/subscriptions/components/SubscriptionLimitWarning';
 import { useSubscriptionLimits } from '@/features/subscriptions/hooks/useSubscriptionLimits';
 import { ImageGalleryUpload } from '@/shared/components/FileUpload';
-import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
-import { Badge } from '@/shared/components/ui/badge';
 
 import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert';
 import { Button } from '@/shared/components/ui/button';
-import { Checkbox } from '@/shared/components/ui/checkbox';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/shared/components/ui/collapsible';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/shared/components/ui/dropdown-menu';
-import { Input } from '@/shared/components/ui/input';
 import { Progress } from '@/shared/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
@@ -39,47 +27,19 @@ import {
   ArrowDown,
   ArrowUp,
   Building2,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ChevronUp,
-  Clock,
   Home,
   Plus,
   RefreshCw,
-  RotateCcw,
   Sparkles,
-  Trash2,
   TrendingUp,
   Users,
   Upload,
-  X,
-  ChevronDown as ChevronDownIcon,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
 
 const DEFAULT_ITEMS_PER_PAGE = 9;
-
-interface RecentProperty {
-  id: string;
-  name: string;
-  timestamp: number;
-}
-
-function readLocalStorage<T>(key: string, fallback: T): T {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? (JSON.parse(stored) as T) : fallback;
-  } catch { return fallback; }
-}
-
-function addRecentProperty(property: { id: string; name: string }) {
-  const recent = readLocalStorage<RecentProperty[]>('sihuni:recentProperties', []);
-  const filtered = recent.filter(r => r.id !== property.id);
-  const updated = [{ id: property.id, name: property.name, timestamp: Date.now() }, ...filtered].slice(0, 5);
-  localStorage.setItem('sihuni:recentProperties', JSON.stringify(updated));
-}
 
 export default function MerchantProperties() {
   const { merchant } = useAuth();
@@ -100,8 +60,8 @@ export default function MerchantProperties() {
   const debouncedSearch = useDebounce(searchQuery, 500);
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<SortOption>(() => readLocalStorage('sihuni:propertySortBy', 'newest'));
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => readLocalStorage('sihuni:propertyViewMode', 'grid'));
+  const [sortBy, setSortBy] = useState<SortOption>('newest');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [page, setPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -112,106 +72,10 @@ export default function MerchantProperties() {
   const [imagesProperty, setImagesProperty] = useState<Property | null>(null);
   const [propertyImages, setPropertyImages] = useState<string[]>([]);
   const [showImportDialog, setShowImportDialog] = useState(false);
-  const [insightsOpen, setInsightsOpen] = useState<boolean>(() => readLocalStorage('sihuni:propertyInsightsOpen', true));
-  const [jumpToPage, setJumpToPage] = useState('');
   const { toast } = useToast();
   const { data: limits } = useSubscriptionLimits();
-  const navigate = useNavigate();
-  const [recentProperties, setRecentProperties] = useState<RecentProperty[]>(() => readLocalStorage('sihuni:recentProperties', []));
-  const [insightsHintSeen, setInsightsHintSeen] = useState<boolean>(() => readLocalStorage('sihuni:insightsHintDismissed', false));
-
-  // Server-side search state (for 100+ properties)
-  const useServerSearch = properties.length >= 100;
-  const [serverResults, setServerResults] = useState<Property[]>([]);
-  const [serverTotalCount, setServerTotalCount] = useState(0);
-  const [serverLoading, setServerLoading] = useState(false);
-
-  // Bulk selection state
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
-  const [bulkLoading, setBulkLoading] = useState(false);
-
-  const handleSelectId = useCallback((id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const handleSelectAllPage = () => {
-    const pageIds = paginatedProperties.map(p => p.id);
-    setSelectedIds(prev => {
-      const allSelected = pageIds.every(id => prev.has(id));
-      const next = new Set(prev);
-      if (allSelected) { pageIds.forEach(id => next.delete(id)); } else { pageIds.forEach(id => next.add(id)); }
-      return next;
-    });
-  };
-
-  const handleBulkDelete = async () => {
-    setBulkLoading(true);
-    let deleted = 0;
-    const errors: string[] = [];
-    for (const id of selectedIds) {
-      try {
-        const check = await checkCanDelete(id);
-        if (!check.canDelete) { errors.push(check.reason || 'Tidak dapat menghapus'); continue; }
-        await deleteProperty(id);
-        deleted++;
-      } catch (e) { errors.push((e as Error).message); }
-    }
-    setBulkLoading(false);
-    setBulkDeleteOpen(false);
-    setSelectedIds(new Set());
-    if (deleted > 0) toast({ title: 'Properti Dihapus', description: `${deleted} properti berhasil dihapus.` });
-    if (errors.length > 0) toast({ variant: 'destructive', title: 'Beberapa gagal', description: `${errors.length} properti gagal dihapus.` });
-  };
-
-  const handleBulkStatusChange = async (status: string) => {
-    setBulkLoading(true);
-    let updated = 0;
-    for (const id of selectedIds) {
-      try { await updateProperty({ id, payload: { status } as any }); updated++; } catch (e) { console.error(e); }
-    }
-    setBulkLoading(false);
-    setSelectedIds(new Set());
-    if (updated > 0) toast({ title: 'Status Diperbarui', description: `${updated} properti diubah ke ${status === 'active' ? 'Aktif' : status === 'inactive' ? 'Nonaktif' : 'Pemeliharaan'}.` });
-  };
-
-  // Persist viewMode & sortBy to localStorage
-  useEffect(() => { localStorage.setItem('sihuni:propertyViewMode', JSON.stringify(viewMode)); }, [viewMode]);
-  useEffect(() => { localStorage.setItem('sihuni:propertySortBy', JSON.stringify(sortBy)); }, [sortBy]);
-  useEffect(() => { localStorage.setItem('sihuni:propertyInsightsOpen', JSON.stringify(insightsOpen)); }, [insightsOpen]);
 
   useEffect(() => { setPage(1); }, [debouncedSearch, typeFilter, statusFilter, sortBy, itemsPerPage]);
-
-  // Scroll to top on page change (Flow E)
-  useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, [page]);
-
-  // Server-side search effect
-  useEffect(() => {
-    if (!useServerSearch || !merchant?.id) return;
-    let cancelled = false;
-    const doSearch = async () => {
-      setServerLoading(true);
-      try {
-        const { properties: results, totalCount } = await propertyService.searchPropertiesServer(
-          merchant.id, debouncedSearch, typeFilter, statusFilter, sortBy, itemsPerPage, (page - 1) * itemsPerPage
-        );
-        if (!cancelled) {
-          setServerResults(results);
-          setServerTotalCount(totalCount);
-        }
-      } catch (e) {
-        console.error('Server search failed:', e);
-      } finally {
-        if (!cancelled) setServerLoading(false);
-      }
-    };
-    doSearch();
-    return () => { cancelled = true; };
-  }, [useServerSearch, merchant?.id, debouncedSearch, typeFilter, statusFilter, sortBy, itemsPerPage, page]);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -305,53 +169,11 @@ export default function MerchantProperties() {
 
   const handleDeleteConfirm = async () => {
     if (!deleteDialogProperty) return;
-    const propertySnapshot = { ...deleteDialogProperty };
     setDeleteLoading(deleteDialogProperty.id);
     try {
       await deleteProperty(deleteDialogProperty.id);
+      toast({ title: 'Properti Dihapus', description: 'Properti telah berhasil dihapus' });
       setDeleteDialogProperty(null);
-
-      // 5-second undo toast (Flow D)
-      let undone = false;
-      toast({
-        title: 'Properti Dihapus',
-        description: `"${propertySnapshot.name}" telah dihapus`,
-        duration: 5000,
-        action: (
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-lg gap-1"
-            onClick={async () => {
-              undone = true;
-              try {
-                await createProperty({
-                  name: propertySnapshot.name,
-                  property_type: propertySnapshot.property_type,
-                  address: propertySnapshot.address || '',
-                  city: propertySnapshot.city || '',
-                  province: propertySnapshot.province || '',
-                  postal_code: propertySnapshot.postal_code || null,
-                  description: propertySnapshot.description || null,
-                  amenities: propertySnapshot.amenities || [],
-                  images: propertySnapshot.images || [],
-                  guardian_name: propertySnapshot.guardian_name || null,
-                  guardian_phone: propertySnapshot.guardian_phone || null,
-                  latitude: propertySnapshot.latitude || null,
-                  longitude: propertySnapshot.longitude || null,
-                } as CreatePropertyPayload);
-                toast({ title: 'Dibatalkan', description: `"${propertySnapshot.name}" berhasil dipulihkan` });
-              } catch (e) {
-                console.error('Undo failed:', e);
-                toast({ variant: 'destructive', title: 'Gagal Membatalkan', description: 'Properti tidak dapat dipulihkan.' });
-              }
-            }}
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Undo
-          </Button>
-        ),
-      });
     } catch (error) {
       console.error('Error deleting property:', error);
       toast({ variant: 'destructive', title: 'Kesalahan Menghapus Properti', description: (error as Error).message || 'Gagal menghapus properti' });
@@ -360,17 +182,8 @@ export default function MerchantProperties() {
 
   const handleDialogClose = (open: boolean) => { if (!open) { setShowAddDialog(false); setEditingProperty(null); } else { setShowAddDialog(true); } };
 
-  const handleJumpToPage = () => {
-    const target = parseInt(jumpToPage, 10);
-    if (target >= 1 && target <= totalPages) {
-      setPage(target);
-      setJumpToPage('');
-    }
-  };
-
-  // Filter + Sort (client-side — only used when < 100 properties)
-  const clientFilteredProperties = useMemo(() => {
-    if (useServerSearch) return [];
+  // Filter + Sort
+  const filteredProperties = useMemo(() => {
     let result = properties.filter(property => {
       const matchesSearch = property.name.toLowerCase().includes(debouncedSearch.toLowerCase()) || property.city.toLowerCase().includes(debouncedSearch.toLowerCase());
       const matchesType = typeFilter === 'all' || property.property_type === typeFilter;
@@ -388,13 +201,10 @@ export default function MerchantProperties() {
       }
     });
     return result;
-  }, [properties, debouncedSearch, typeFilter, statusFilter, sortBy, useServerSearch]);
+  }, [properties, debouncedSearch, typeFilter, statusFilter, sortBy]);
 
-  // Unified: use server results when 100+, otherwise client-side
-  const filteredProperties = useServerSearch ? serverResults : clientFilteredProperties;
-  const totalFilteredCount = useServerSearch ? serverTotalCount : clientFilteredProperties.length;
-  const totalPages = Math.ceil(totalFilteredCount / itemsPerPage);
-  const paginatedProperties = useServerSearch ? serverResults : clientFilteredProperties.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+  const totalPages = Math.ceil(filteredProperties.length / itemsPerPage);
+  const paginatedProperties = useMemo(() => filteredProperties.slice((page - 1) * itemsPerPage, page * itemsPerPage), [filteredProperties, page, itemsPerPage]);
 
   const totalUnits = properties.reduce((sum, p) => sum + p.total_units, 0);
   const occupiedUnits = properties.reduce((sum, p) => sum + p.occupied_units, 0);
@@ -422,72 +232,18 @@ export default function MerchantProperties() {
   };
   const pageNumbers = getPageNumbers(page, totalPages);
 
-  // Shared pagination UI for both grid and table
-  const renderPagination = () => {
-    if (totalPages <= 1) return null;
-    return (
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-6">
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">Menampilkan {((page - 1) * itemsPerPage) + 1} - {Math.min(page * itemsPerPage, totalFilteredCount)} dari {totalFilteredCount}</span>
-          <Select value={String(itemsPerPage)} onValueChange={(v) => setItemsPerPage(Number(v))}>
-            <SelectTrigger className="h-8 w-[70px] rounded-lg"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="9">9</SelectItem>
-              <SelectItem value="25">25</SelectItem>
-              <SelectItem value="50">50</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={() => setPage(page - 1)} disabled={page <= 1} className="h-8 rounded-full"><ChevronLeft className="h-4 w-4" /></Button>
-          {pageNumbers.map((p, i) => p === 'ellipsis' ? <span key={`e${i}`} className="px-2 text-muted-foreground">…</span> : (
-            <Button key={p} variant={p === page ? 'default' : 'ghost'} size="sm" className={`h-8 w-8 p-0 rounded-full ${p === page ? 'gradient-cta text-primary-foreground' : ''}`} onClick={() => setPage(p)}>{p}</Button>
-          ))}
-          <Button variant="ghost" size="sm" onClick={() => setPage(page + 1)} disabled={page >= totalPages} className="h-8 rounded-full"><ChevronRight className="h-4 w-4" /></Button>
-          {totalPages > 5 && (
-            <div className="flex items-center gap-1 ml-2">
-              <Input
-                type="number"
-                min={1}
-                max={totalPages}
-                value={jumpToPage}
-                onChange={(e) => setJumpToPage(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleJumpToPage()}
-                placeholder="Hal."
-                className="h-8 w-16 rounded-lg text-xs"
-                aria-label="Lompat ke halaman"
-              />
-              <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs px-2" onClick={handleJumpToPage}>Go</Button>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
   return (
     <>
-      <PageHeader icon={Building2} title={`Properti (${properties.length})`} description="Kelola properti dan unit Anda">
+      <PageHeader icon={Building2} title="Properti Saya" description="Kelola properti dan unit Anda">
         <Button variant="outline" onClick={() => setShowImportDialog(true)} className="rounded-xl gap-2">
           <Upload className="h-4 w-4" /> Import CSV
         </Button>
-        <div className="flex items-center gap-2">
-          {limits && !limits.canAddProperty && (
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="text-xs text-destructive font-medium">Batas tercapai</span>
-                </TooltipTrigger>
-                <TooltipContent>Paket Anda mendukung {limits.maxProperties} properti. Upgrade untuk menambah lebih banyak.</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-          <Button onClick={() => setShowAddDialog(true)} disabled={limits && !limits.canAddProperty} className="gradient-cta text-primary-foreground hover:opacity-90 rounded-xl gap-2">
-            <Plus className="h-4 w-4" />Tambah Properti
-          </Button>
-        </div>
+        <Button onClick={() => setShowAddDialog(true)} disabled={limits && !limits.canAddProperty} className="gradient-cta text-primary-foreground hover:opacity-90 rounded-xl gap-2">
+          <Plus className="h-4 w-4" />Tambah Properti
+        </Button>
       </PageHeader>
       <div className="space-y-6">
+        <SubscriptionLimitWarning />
         
         <PropertyFormDialog open={showAddDialog} onOpenChange={handleDialogClose} property={editingProperty} onSubmit={handleSubmit} isLoading={isCreating || isUpdating} />
         <DeletePropertyDialog open={!!deleteDialogProperty} onOpenChange={(open) => !open && setDeleteDialogProperty(null)} property={deleteDialogProperty} onConfirm={handleDeleteConfirm} isLoading={!!deleteLoading} />
@@ -531,7 +287,7 @@ export default function MerchantProperties() {
                     </Tooltip>
                   </div>
                 </div>
-                <div className="glass-stat-card p-5 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 cursor-pointer" onClick={() => { setSortBy('occupancy-high'); setPage(1); }} role="button" tabIndex={0} aria-label="Urutkan berdasarkan hunian tertinggi">
+                <div className="glass-stat-card p-5 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-xs text-muted-foreground uppercase tracking-wider">Hunian</p>
@@ -552,7 +308,7 @@ export default function MerchantProperties() {
                     </div>
                   </div>
                 </div>
-                <div className="glass-stat-card p-5 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 cursor-pointer" onClick={() => { setSortBy('occupancy-low'); setPage(1); }} role="button" tabIndex={0} aria-label="Urutkan berdasarkan unit kosong terbanyak">
+                <div className="glass-stat-card p-5 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xs text-muted-foreground uppercase tracking-wider">Unit Kosong</p>
@@ -570,89 +326,46 @@ export default function MerchantProperties() {
               </div>
             </TooltipProvider>
 
-            {/* Operational Insights Panel — Collapsible */}
+            {/* Operational Insights Panel */}
             {insights && properties.length >= 2 && (
-              <Collapsible open={insightsOpen} onOpenChange={(open) => {
-                setInsightsOpen(open);
-                if (!insightsHintSeen) {
-                  setInsightsHintSeen(true);
-                  localStorage.setItem('sihuni:insightsHintDismissed', JSON.stringify(true));
-                }
-              }}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Operational Insights</h3>
-                    {!insightsHintSeen && (
-                      <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4 animate-pulse">Baru</Badge>
-                    )}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Best Performer */}
+                <div className="rounded-2xl bg-success/5 border border-success/20 p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="h-7 w-7 rounded-lg bg-success/15 flex items-center justify-center">
+                      <ArrowUp className="h-4 w-4 text-success" />
+                    </div>
+                    <span className="text-xs font-semibold text-success uppercase tracking-wider">Terbaik</span>
                   </div>
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded-full">
-                      {insightsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                      <span className="sr-only">{insightsOpen ? 'Tutup' : 'Buka'} Operational Insights</span>
-                    </Button>
-                  </CollapsibleTrigger>
+                  <p className="font-semibold text-sm truncate">{insights.best.name}</p>
+                  <p className="text-xs text-muted-foreground">{Math.round(insights.best.rate)}% hunian • {insights.best.occupied_units}/{insights.best.total_units} unit</p>
                 </div>
-                <CollapsibleContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {/* Best Performer */}
-                    <div className="rounded-2xl bg-success/5 border border-success/20 p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="h-7 w-7 rounded-lg bg-success/15 flex items-center justify-center">
-                          <ArrowUp className="h-4 w-4 text-success" />
-                        </div>
-                        <span className="text-xs font-semibold text-success uppercase tracking-wider">Terbaik</span>
-                      </div>
-                      <p className="font-semibold text-sm truncate">{insights.best.name}</p>
-                      <p className="text-xs text-muted-foreground">{Math.round(insights.best.rate)}% hunian • {insights.best.occupied_units}/{insights.best.total_units} unit</p>
-                    </div>
 
-                    {/* Worst Performer */}
-                    <div className="rounded-2xl bg-warning/5 border border-warning/20 p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="h-7 w-7 rounded-lg bg-warning/15 flex items-center justify-center">
-                          <ArrowDown className="h-4 w-4 text-warning" />
-                        </div>
-                        <span className="text-xs font-semibold text-warning uppercase tracking-wider">Perlu Perhatian</span>
-                      </div>
-                      <p className="font-semibold text-sm truncate">{insights.worst.name}</p>
-                      <p className="text-xs text-muted-foreground">{Math.round(insights.worst.rate)}% hunian • {insights.worst.occupied_units}/{insights.worst.total_units} unit</p>
+                {/* Worst Performer */}
+                <div className="rounded-2xl bg-warning/5 border border-warning/20 p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="h-7 w-7 rounded-lg bg-warning/15 flex items-center justify-center">
+                      <ArrowDown className="h-4 w-4 text-warning" />
                     </div>
-
-                    {/* Vacancy Alerts */}
-                    {insights.vacantProperties.length > 0 && (
-                      <div className="rounded-2xl bg-destructive/5 border border-destructive/20 p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="h-7 w-7 rounded-lg bg-destructive/15 flex items-center justify-center">
-                            <AlertTriangle className="h-4 w-4 text-destructive" />
-                          </div>
-                          <span className="text-xs font-semibold text-destructive uppercase tracking-wider">Kekosongan Tinggi</span>
-                        </div>
-                        <p className="font-semibold text-sm">{insights.vacantProperties.length} properti</p>
-                        <p className="text-xs text-muted-foreground">dibawah 50% tingkat hunian</p>
-                      </div>
-                    )}
+                    <span className="text-xs font-semibold text-warning uppercase tracking-wider">Perlu Perhatian</span>
                   </div>
-                </CollapsibleContent>
-              </Collapsible>
-            )}
+                  <p className="font-semibold text-sm truncate">{insights.worst.name}</p>
+                  <p className="text-xs text-muted-foreground">{Math.round(insights.worst.rate)}% hunian • {insights.worst.occupied_units}/{insights.worst.total_units} unit</p>
+                </div>
 
-            {/* Recently Viewed */}
-            {recentProperties.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" />Terakhir dilihat:</span>
-                {recentProperties.map(rp => (
-                  <button
-                    key={rp.id}
-                    onClick={() => { addRecentProperty(rp); navigate(`/merchant/properties/${rp.id}`); }}
-                    className="text-xs px-2.5 py-1 rounded-full bg-muted/50 hover:bg-muted border border-border/30 text-foreground transition-colors truncate max-w-[150px]"
-                  >
-                    {rp.name}
-                  </button>
-                ))}
-                <button onClick={() => { setRecentProperties([]); localStorage.removeItem('sihuni:recentProperties'); }} className="text-xs text-muted-foreground hover:text-foreground">
-                  <X className="h-3 w-3" />
-                </button>
+                {/* Vacancy Alerts */}
+                {insights.vacantProperties.length > 0 && (
+                  <div className="rounded-2xl bg-destructive/5 border border-destructive/20 p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-7 w-7 rounded-lg bg-destructive/15 flex items-center justify-center">
+                        <AlertTriangle className="h-4 w-4 text-destructive" />
+                      </div>
+                      <span className="text-xs font-semibold text-destructive uppercase tracking-wider">Kekosongan Tinggi</span>
+                    </div>
+                    <p className="font-semibold text-sm">{insights.vacantProperties.length} properti</p>
+                    <p className="text-xs text-muted-foreground">dibawah 50% tingkat hunian</p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -661,7 +374,6 @@ export default function MerchantProperties() {
               searchTerm={searchQuery} onSearchChange={setSearchQuery} typeFilter={typeFilter} onTypeFilterChange={setTypeFilter}
               statusFilter={statusFilter} onStatusFilterChange={setStatusFilter} sortBy={sortBy} onSortByChange={setSortBy}
               viewMode={viewMode} onViewModeChange={setViewMode} onResetFilters={handleResetFilters} activeFilterCount={activeFilterCount}
-              isSearching={searchQuery !== debouncedSearch}
             />
 
             {/* Error State */}
@@ -677,37 +389,27 @@ export default function MerchantProperties() {
             )}
 
             {/* Properties Content */}
-            {paginatedProperties.length === 0 ? (
+            {filteredProperties.length === 0 ? (
               <div className="glass-stat-card">
                 <div className="flex flex-col items-center justify-center py-16 bg-gradient-to-br from-primary/5 via-muted/30 to-accent/5 rounded-2xl">
                   <div className="gradient-icon-box w-24 h-24 mb-6"><Building2 className="h-12 w-12 text-muted-foreground/50" /></div>
+                  <h3 className="text-lg font-medium mb-2">{properties.length === 0 ? 'Mulai Bangun Portofolio Anda' : 'Tidak ada properti ditemukan'}</h3>
+                  <p className="text-muted-foreground text-center mb-6 max-w-md">
+                    {properties.length === 0 ? "Tambahkan properti pertama Anda untuk mulai mengelola unit, melacak hunian, dan mengembangkan bisnis." : "Coba ubah filter atau kata pencarian."}
+                  </p>
                   {properties.length === 0 ? (
-                    <>
-                      <h3 className="text-lg font-medium mb-2">Mulai Bangun Portofolio Anda</h3>
-                      <p className="text-muted-foreground text-center mb-6 max-w-md">
-                        Tambahkan properti pertama Anda untuk mulai mengelola unit, melacak hunian, dan mengembangkan bisnis.
-                      </p>
-                      <div className="space-y-4">
-                        <Button onClick={() => setShowAddDialog(true)} size="lg" className="gradient-cta text-primary-foreground"><Plus className="h-4 w-4 mr-2" />Tambah Properti Pertama</Button>
-                        <div className="flex items-center gap-6 text-xs text-muted-foreground">
-                          {['Tambah properti', 'Buat unit', 'Undang tenant'].map((step, i) => (
-                            <div key={i} className="flex items-center gap-1.5">
-                              <span className="gradient-icon-box w-6 h-6 text-[10px] font-bold text-primary">{i + 1}</span>{step}
-                            </div>
-                          ))}
-                        </div>
+                    <div className="space-y-4">
+                      <Button onClick={() => setShowAddDialog(true)} size="lg" className="gradient-cta text-primary-foreground"><Plus className="h-4 w-4 mr-2" />Tambah Properti Pertama</Button>
+                      <div className="flex items-center gap-6 text-xs text-muted-foreground">
+                        {['Tambah properti', 'Buat unit', 'Undang tenant'].map((step, i) => (
+                          <div key={i} className="flex items-center gap-1.5">
+                            <span className="gradient-icon-box w-6 h-6 text-[10px] font-bold text-primary">{i + 1}</span>{step}
+                          </div>
+                        ))}
                       </div>
-                    </>
+                    </div>
                   ) : (
-                    <>
-                      <h3 className="text-lg font-medium mb-2">Tidak ada properti cocok dengan filter ini</h3>
-                      <p className="text-muted-foreground text-center mb-4 max-w-md">
-                        {activeFilterCount} filter aktif. Coba ubah atau hapus filter untuk melihat properti Anda.
-                      </p>
-                      <Button onClick={handleResetFilters} className="rounded-xl gap-2">
-                        <RotateCcw className="h-4 w-4" />Reset Semua Filter
-                      </Button>
-                    </>
+                    <Button variant="outline" onClick={handleResetFilters} className="rounded-xl">Reset Filter</Button>
                   )}
                 </div>
               </div>
@@ -715,28 +417,34 @@ export default function MerchantProperties() {
               <>
                 {viewMode === 'grid' ? (
                   <>
-                    <div className="flex items-center gap-2 mb-3">
-                      <Checkbox
-                        checked={paginatedProperties.length > 0 && paginatedProperties.every(p => selectedIds.has(p.id))}
-                        onCheckedChange={handleSelectAllPage}
-                        aria-label="Pilih semua di halaman ini"
-                      />
-                      <span className="text-sm text-muted-foreground">Pilih semua halaman ini</span>
-                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {paginatedProperties.map((property, index) => (
                         <div key={property.id} className="animate-in fade-in-0 slide-in-from-bottom-4" style={{ animationDelay: `${index * 60}ms`, animationFillMode: 'both' }}>
-                          <PropertyCard property={property} onEdit={handleEdit} onDelete={handleDeleteClick} onManageUnits={setUnitsProperty} onManagePhotos={handleOpenImages} onDuplicate={handleDuplicate} onNavigate={(p) => { addRecentProperty(p); setRecentProperties(readLocalStorage('sihuni:recentProperties', [])); }} isDeleting={deleteLoading === property.id} selected={selectedIds.has(property.id)} onSelect={handleSelectId} />
+                          <PropertyCard property={property} onEdit={handleEdit} onDelete={handleDeleteClick} onManageUnits={setUnitsProperty} onManagePhotos={handleOpenImages} onDuplicate={handleDuplicate} isDeleting={deleteLoading === property.id} />
                         </div>
                       ))}
                     </div>
-                    {renderPagination()}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between mt-6">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm text-muted-foreground">Menampilkan {((page - 1) * itemsPerPage) + 1} - {Math.min(page * itemsPerPage, filteredProperties.length)} dari {filteredProperties.length}</span>
+                          <Select value={String(itemsPerPage)} onValueChange={(v) => setItemsPerPage(Number(v))}>
+                            <SelectTrigger className="h-8 w-[70px] rounded-lg"><SelectValue /></SelectTrigger>
+                            <SelectContent><SelectItem value="9">9</SelectItem><SelectItem value="18">18</SelectItem><SelectItem value="27">27</SelectItem></SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => setPage(page - 1)} disabled={page <= 1} className="h-8 rounded-full"><ChevronLeft className="h-4 w-4" /></Button>
+                          {pageNumbers.map((p, i) => p === 'ellipsis' ? <span key={`e${i}`} className="px-2 text-muted-foreground">…</span> : (
+                            <Button key={p} variant={p === page ? 'default' : 'ghost'} size="sm" className={`h-8 w-8 p-0 rounded-full ${p === page ? 'gradient-cta text-primary-foreground' : ''}`} onClick={() => setPage(p)}>{p}</Button>
+                          ))}
+                          <Button variant="ghost" size="sm" onClick={() => setPage(page + 1)} disabled={page >= totalPages} className="h-8 rounded-full"><ChevronRight className="h-4 w-4" /></Button>
+                        </div>
+                      </div>
+                    )}
                   </>
                 ) : (
-                  <>
-                    <PropertyTable properties={paginatedProperties} onEdit={handleEdit} onDelete={handleDeleteClick} onManageUnits={setUnitsProperty} onManagePhotos={handleOpenImages} onDuplicate={handleDuplicate} deleteLoadingId={deleteLoading} page={page} totalPages={totalPages} totalProperties={totalFilteredCount} onPageChange={setPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} selectedIds={selectedIds} onSelectId={handleSelectId} onSelectAll={handleSelectAllPage} />
-                    {renderPagination()}
-                  </>
+                  <PropertyTable properties={paginatedProperties} onEdit={handleEdit} onDelete={handleDeleteClick} onManageUnits={setUnitsProperty} onManagePhotos={handleOpenImages} onDuplicate={handleDuplicate} deleteLoadingId={deleteLoading} page={page} totalPages={totalPages} totalProperties={filteredProperties.length} onPageChange={setPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} />
                 )}
               </>
             )}
@@ -762,51 +470,7 @@ export default function MerchantProperties() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-
-        {/* Bulk Delete Confirm Dialog */}
-        <ConfirmDialog
-          open={bulkDeleteOpen}
-          onOpenChange={setBulkDeleteOpen}
-          title="Hapus Properti Terpilih"
-          description={`Anda akan menghapus ${selectedIds.size} properti. Tindakan ini tidak dapat dibatalkan.`}
-          confirmLabel="Hapus Semua"
-          cancelLabel="Batal"
-          variant="destructive"
-          isLoading={bulkLoading}
-          onConfirm={handleBulkDelete}
-        />
       </div>
-
-      {/* Floating Bulk Actions Bar */}
-      {selectedIds.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 fade-in-0">
-          <div className="flex items-center gap-3 bg-card border border-border shadow-2xl rounded-2xl px-5 py-3">
-            <div className="flex items-center gap-2">
-              <Checkbox checked={true} className="h-4 w-4" />
-              <span className="text-sm font-medium">{selectedIds.size} properti dipilih</span>
-            </div>
-            <div className="h-5 w-px bg-border" />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="rounded-xl gap-1.5" disabled={bulkLoading}>
-                  Ubah Status <ChevronDownIcon className="h-3.5 w-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="center">
-                <DropdownMenuItem onClick={() => handleBulkStatusChange('active')}>Aktif</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleBulkStatusChange('inactive')}>Nonaktif</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleBulkStatusChange('maintenance')}>Pemeliharaan</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button variant="destructive" size="sm" className="rounded-xl gap-1.5" onClick={() => setBulkDeleteOpen(true)} disabled={bulkLoading}>
-              <Trash2 className="h-3.5 w-3.5" /> Hapus
-            </Button>
-            <Button variant="ghost" size="sm" className="rounded-xl text-muted-foreground" onClick={() => setSelectedIds(new Set())} disabled={bulkLoading}>
-              Batal
-            </Button>
-          </div>
-        </div>
-      )}
     </>
   );
 }

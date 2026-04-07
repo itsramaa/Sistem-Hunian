@@ -12,6 +12,7 @@ import { z } from "zod";
 
 const feesSchema = z.object({
   transactionFeePercent: z.coerce.number().min(0, "Must be positive").max(100, "Cannot exceed 100%"),
+  escrowFeePercent: z.coerce.number().min(0, "Must be positive").max(100, "Cannot exceed 100%"),
   disbursementFeeFlat: z.coerce.number().min(0, "Must be positive"),
   marketplaceCommission: z.coerce.number().min(0, "Must be positive").max(100, "Cannot exceed 100%"),
   subscriptionRenewalGraceDays: z.coerce.number().min(0, "Must be positive").max(30, "Cannot exceed 30 days"),
@@ -21,6 +22,7 @@ type FeeFormData = z.infer<typeof feesSchema>;
 
 const defaultFees: FeeFormData = {
   transactionFeePercent: 2.5,
+  escrowFeePercent: 1.0,
   disbursementFeeFlat: 5000,
   marketplaceCommission: 5.0,
   subscriptionRenewalGraceDays: 3,
@@ -42,6 +44,7 @@ export const FeesConfig = () => {
     if (fees) {
       form.reset({
         transactionFeePercent: fees.transactionFeePercent ?? defaultFees.transactionFeePercent,
+        escrowFeePercent: fees.escrowFeePercent ?? defaultFees.escrowFeePercent,
         disbursementFeeFlat: fees.disbursementFeeFlat ?? defaultFees.disbursementFeeFlat,
         marketplaceCommission: fees.marketplaceCommission ?? defaultFees.marketplaceCommission,
         subscriptionRenewalGraceDays: fees.subscriptionRenewalGraceDays ?? defaultFees.subscriptionRenewalGraceDays,
@@ -97,6 +100,21 @@ export const FeesConfig = () => {
                         <Input type="number" step="0.1" {...field} />
                       </FormControl>
                       <FormDescription>Applied to all successful transactions</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="escrowFeePercent"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Escrow Fee (%)</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.1" {...field} />
+                      </FormControl>
+                      <FormDescription>Additional fee for escrow services</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

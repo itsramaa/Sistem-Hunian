@@ -1,8 +1,6 @@
-import { useState } from "react";
+import { Fragment } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ChevronDown } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/shared/components/ui/sheet";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/shared/components/ui/collapsible";
 import { UserRole, navigationConfig, isPathActive } from "./navigation-config";
 import { cn } from "@/shared/utils/utils";
 
@@ -16,7 +14,6 @@ export function MobileSidebarSheet({ open, onOpenChange, role }: MobileSidebarSh
   const location = useLocation();
   const config = navigationConfig[role];
   const basePath = `/${role}`;
-  const [lainnyaOpen, setLainnyaOpen] = useState(false);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -34,9 +31,11 @@ export function MobileSidebarSheet({ open, onOpenChange, role }: MobileSidebarSh
         </SheetHeader>
 
         <nav className="p-3 space-y-4 overflow-y-auto max-h-[calc(100vh-80px)]">
-          {config.mainNav.map((group) => {
-            const isCollapsible = group.label === "Lainnya";
-            const items = (
+          {config.mainNav.map((group) => (
+            <div key={group.label}>
+              <p className="text-[10px] uppercase tracking-widest text-sidebar-foreground/40 font-semibold px-3 mb-1.5">
+                {group.label}
+              </p>
               <div className="space-y-0.5">
                 {group.items.map((item) => {
                   const active = isPathActive(item.path, location.pathname, basePath, item.activePatterns);
@@ -58,31 +57,8 @@ export function MobileSidebarSheet({ open, onOpenChange, role }: MobileSidebarSh
                   );
                 })}
               </div>
-            );
-
-            if (isCollapsible) {
-              return (
-                <Collapsible key={group.label} open={lainnyaOpen} onOpenChange={setLainnyaOpen}>
-                  <CollapsibleTrigger className="w-full flex items-center justify-between px-3 mb-1.5">
-                    <p className="text-[10px] uppercase tracking-widest text-sidebar-foreground/40 font-semibold">
-                      {group.label}
-                    </p>
-                    <ChevronDown className={cn("h-3.5 w-3.5 text-sidebar-foreground/40 transition-transform", lainnyaOpen && "rotate-180")} />
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>{items}</CollapsibleContent>
-                </Collapsible>
-              );
-            }
-
-            return (
-              <div key={group.label}>
-                <p className="text-[10px] uppercase tracking-widest text-sidebar-foreground/40 font-semibold px-3 mb-1.5">
-                  {group.label}
-                </p>
-                {items}
-              </div>
-            );
-          })}
+            </div>
+          ))}
         </nav>
       </SheetContent>
     </Sheet>

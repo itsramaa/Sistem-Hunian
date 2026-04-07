@@ -40,12 +40,17 @@ import { useFacilityTypeNames } from '@/features/inventory/hooks/useFacilityType
 import { RulesSection } from '@/features/rules/components/RulesSection';
 
 const LazyGuardians = lazy(() => import('@/pages/merchant/Guardians'));
+const LazyCompliance = lazy(() => import('@/pages/merchant/PropertyCompliance'));
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/integrations/supabase/client';
+import { PropertyFinancialForm, FinancialFormData } from '@/features/properties/components/PropertyFinancialForm';
+import { PropertyFinancialMetrics } from '@/features/properties/components/PropertyFinancialMetrics';
 import { PropertyFormDialog, PropertyFormData } from '@/features/properties/components/PropertyFormDialog';
 import { propertyService } from '@/features/properties/services/propertyService';
 import { toast } from 'sonner';
+import { useDssReadiness } from '@/features/dss/hooks/useDssReadiness';
+import { DssReadinessCard } from '@/features/dss/components/DssReadinessCard';
 import { RenovationHistoryCard } from '@/features/properties/components/RenovationHistoryCard';
 
 const statusColors: Record<string, string> = {
@@ -123,9 +128,6 @@ export default function PropertyDetail() {
   // Fasilitas edit dialog
   const [showFacilitiesDialog, setShowFacilitiesDialog] = useState(false);
   const [editingAmenities, setEditingAmenities] = useState<string[]>([]);
-
-  // Facility type names — must be before early returns (Rules of Hooks)
-  const { data: facilityNameMap = {} } = useFacilityTypeNames(property?.amenities || []);
 
   // Tenant creation mutation
   const addTenantMutation = useMutation({
@@ -295,6 +297,7 @@ export default function PropertyDetail() {
     );
   }
 
+  const { data: facilityNameMap = {} } = useFacilityTypeNames(property.amenities || []);
   const units = (property as any).units || [];
   const occupiedUnits = units.filter((u: any) => u.status === 'occupied').length;
   const totalUnits = units.length;
@@ -305,7 +308,7 @@ export default function PropertyDetail() {
   const filteredUnits = unitFilter === 'all' ? units : units.filter((u: any) => u.status === unitFilter);
   const maintenanceUnits = units.filter((u: any) => u.status === 'maintenance').length;
   const activeContracts = propertyContracts.filter((c: any) => c.status === 'active');
-  const pendingMaintenance = propertyMaintenance.filter((r: any) => r.status !== 'completed' && r.status !== 'cancelled');
+  const pendingMaintenance = propertyMaintenance.filter((r: any) => r.status !== 'resolved' && r.status !== 'closed');
 
   // Paginated data
   const unitTotalPages = Math.ceil(filteredUnits.length / ITEMS_PER_PAGE);
@@ -433,7 +436,7 @@ export default function PropertyDetail() {
         initialStep={editInitialStep}
       />
 
-      <div>
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="pill-tab-list w-full sm:w-auto flex-wrap" aria-label="Navigasi detail properti">
             <TabsTrigger value="overview" className="pill-tab-trigger">Ringkasan</TabsTrigger>
@@ -442,99 +445,84 @@ export default function PropertyDetail() {
               <UserCheck className="h-3.5 w-3.5 mr-1" aria-hidden="true" />Staf
             </TabsTrigger>
             <TabsTrigger value="tenants" className="pill-tab-trigger">Penyewa ({activeContracts.length})</TabsTrigger>
+            <TabsTrigger value="financial" className="pill-tab-trigger">Keuangan</TabsTrigger>
             <TabsTrigger value="maintenance" className="pill-tab-trigger">
               Pemeliharaan
               {pendingMaintenance.length > 0 && <Badge variant="secondary" className="ml-1.5 rounded-full text-xs">{pendingMaintenance.length}</Badge>}
             </TabsTrigger>
+            <TabsTrigger value="risk" className="pill-tab-trigger">
+              <Shield className="h-3.5 w-3.5 mr-1" aria-hidden="true" />Risiko
+            </TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
-          <TabsContent value="overview" className="mt-4 animate-fade-in">
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
-              <div className="space-y-4">
-                <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-muted-foreground" aria-hidden="true" />Alamat
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm">{property.address}</p>
-                    <p className="text-sm text-muted-foreground">{property.city}, {property.province} {property.postal_code}</p>
-                  </CardContent>
-                </Card>
-                {property.description && (
-                  <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
-                    <CardHeader><CardTitle className="text-base">Deskripsi</CardTitle></CardHeader>
-                    <CardContent><p className="text-sm text-muted-foreground">{property.description}</p></CardContent>
-                  </Card>
+          <TabsContent value="overview" className="space-y-4 mt-4 animate-fade-in">
+            <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-muted-foreground" aria-hidden="true" />Alamat
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm">{property.address}</p>
+                <p className="text-sm text-muted-foreground">{property.city}, {property.province} {property.postal_code}</p>
+              </CardContent>
+            </Card>
+            {property.description && (
+              <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
+                <CardHeader><CardTitle className="text-base">Deskripsi</CardTitle></CardHeader>
+                <CardContent><p className="text-sm text-muted-foreground">{property.description}</p></CardContent>
+              </Card>
+            )}
+            {/* Fasilitas Card - Editable */}
+            <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-base">Fasilitas</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="rounded-xl gap-1 text-xs h-7" onClick={() => { setEditingAmenities(property.amenities || []); setShowFacilitiesDialog(true); }}>
+                    <Settings2 className="h-3.5 w-3.5" /> Edit Fasilitas
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {property.amenities && property.amenities.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {property.amenities.map((a: string) => (
+                      <Badge
+                        key={a}
+                        variant="secondary"
+                        className="rounded-full cursor-pointer hover:bg-primary/10 transition-colors"
+                        onClick={() => navigate('/merchant/inventory')}
+                      >
+                        {facilityNameMap[a] || a.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                        <ExternalLink className="h-2.5 w-2.5 ml-1 opacity-50" />
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Belum ada fasilitas ditambahkan.</p>
                 )}
-                {/* Fasilitas Card - Editable */}
-                <Card className="rounded-2xl bg-card/90 backdrop-blur-sm border border-border/40">
-                  <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="text-base">Fasilitas</CardTitle>
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" className="rounded-xl gap-1 text-xs h-7" onClick={() => { setEditingAmenities(property.amenities || []); setShowFacilitiesDialog(true); }}>
-                        <Settings2 className="h-3.5 w-3.5" /> Edit Fasilitas
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {property.amenities && property.amenities.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {property.amenities.map((a: string) => (
-                          <Badge
-                            key={a}
-                            variant="secondary"
-                            className="rounded-full cursor-pointer hover:bg-primary/10 transition-colors"
-                            onClick={() => navigate('/merchant/inventory')}
-                          >
-                            {facilityNameMap[a] || a.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
-                            <ExternalLink className="h-2.5 w-2.5 ml-1 opacity-50" />
-                          </Badge>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">Belum ada fasilitas ditambahkan.</p>
-                    )}
-                  </CardContent>
-                </Card>
+              </CardContent>
+            </Card>
 
-                {/* Peraturan Section */}
-                {merchant?.id && <RulesSection propertyId={id!} merchantId={merchant.id} />}
-              </div>
+            {/* Peraturan Section */}
+            {merchant?.id && <RulesSection propertyId={id!} merchantId={merchant.id} />}
 
-              {/* Info Properti - Right Sidebar (only in overview tab) */}
-              <div className="space-y-4">
-                <section className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40" aria-labelledby="property-info-title">
-                  <CardHeader><CardTitle id="property-info-title" className="text-base">Info Properti</CardTitle></CardHeader>
-                  <CardContent className="space-y-3 text-sm">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Hash className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span className="truncate font-mono text-xs" aria-label={`ID Properti: ${property.id}`}>{property.id}</span>
-                    </div>
-                    <Separator />
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>Dibuat {format(new Date(property.created_at), 'dd MMM yyyy')}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>Update {format(new Date(property.updated_at), 'dd MMM yyyy')}</span>
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between"><span className="text-muted-foreground">Total Unit</span><span className="font-medium">{totalUnits}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">Terisi</span><span className="font-medium text-success">{occupiedUnits}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">Tersedia</span><span className="font-medium">{units.filter((u: any) => u.status === 'available').length}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">Perbaikan</span><span className="font-medium text-warning">{maintenanceUnits}</span></div>
-                    <Separator />
-                    <div className="flex justify-between"><span className="text-muted-foreground">Pendapatan</span><span className="font-medium text-success">{formatCurrency(revenuePotential)}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">Rata-rata Sewa</span><span className="font-medium">{formatCurrency(avgRent)}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">Fasilitas</span><span className="font-medium">{property.amenities?.length || 0}</span></div>
-                  </CardContent>
-                </section>
-              </div>
-            </div>
+            {/* DSS Readiness & Financial Metrics in Overview */}
+            <OverviewDssMetrics property={property} revenuePotential={revenuePotential} occupancyRate={occupancyRate} />
+          </TabsContent>
+
+          {/* Risk Tab */}
+          <TabsContent value="risk" className="space-y-4 mt-4 animate-fade-in">
+            <Suspense fallback={<ContentSkeleton />}>
+              <LazyCompliance propertyId={id} />
+            </Suspense>
+          </TabsContent>
+
+          {/* Financial Tab */}
+          <TabsContent value="financial" className="space-y-4 mt-4 animate-fade-in">
+            <FinancialTabContent property={property} revenuePotential={revenuePotential} occupancyRate={occupancyRate / 100} />
+            <RenovationHistoryCard propertyId={property.id} merchantId={property.merchant_id} />
           </TabsContent>
 
           {/* Units Tab */}
@@ -837,6 +825,40 @@ export default function PropertyDetail() {
 
         </Tabs>
 
+        {/* Sidebar */}
+        <div className="space-y-4">
+          <section className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40" aria-labelledby="property-info-title">
+            <CardHeader><CardTitle id="property-info-title" className="text-base">Info Properti</CardTitle></CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Hash className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="truncate font-mono text-xs" aria-label={`ID Properti: ${property.id}`}>{property.id}</span>
+              </div>
+              <Separator />
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Dibuat {format(new Date(property.created_at), 'dd MMM yyyy')}</span>
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Update {format(new Date(property.updated_at), 'dd MMM yyyy')}</span>
+              </div>
+            </CardContent>
+          </section>
+          <section className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40" aria-labelledby="summary-title">
+            <CardHeader><CardTitle id="summary-title" className="text-base">Ringkasan</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div className="flex justify-between"><span className="text-muted-foreground">Total Unit</span><span className="font-medium">{totalUnits}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Terisi</span><span className="font-medium text-success">{occupiedUnits}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Tersedia</span><span className="font-medium">{units.filter((u: any) => u.status === 'available').length}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Perbaikan</span><span className="font-medium text-warning">{maintenanceUnits}</span></div>
+              <Separator />
+              <div className="flex justify-between"><span className="text-muted-foreground">Pendapatan</span><span className="font-medium text-success">{formatCurrency(revenuePotential)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Rata-rata Sewa</span><span className="font-medium">{formatCurrency(avgRent)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Fasilitas</span><span className="font-medium">{property.amenities?.length || 0}</span></div>
+            </CardContent>
+          </section>
+        </div>
       </div>
 
       {/* Tenant Details Dialog */}
@@ -940,5 +962,47 @@ export default function PropertyDetail() {
       </Dialog>
 
     </div>
+  );
+}
+
+function OverviewDssMetrics({ property, revenuePotential, occupancyRate }: { property: any; revenuePotential: number; occupancyRate: number }) {
+  const readiness = useDssReadiness(property.id, property.merchant_id);
+  return (
+    <>
+      <DssReadinessCard readiness={readiness} />
+      <PropertyFinancialMetrics
+        property={property}
+        monthlyRevenue={revenuePotential}
+        occupancyRate={occupancyRate / 100}
+      />
+    </>
+  );
+}
+
+function FinancialTabContent({ property, revenuePotential, occupancyRate }: { property: any; revenuePotential: number; occupancyRate: number }) {
+  const queryClient = useQueryClient();
+  const updateMutation = useMutation({
+    mutationFn: (data: FinancialFormData) => propertyService.updateProperty(property.id, data as any),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['property-detail', property.id] });
+      toast.success('Data keuangan berhasil disimpan');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <PropertyFinancialForm
+      initialData={{
+        construction_cost: property.construction_cost || 0,
+        renovation_cost: property.renovation_cost || 0,
+        funding_source: property.funding_source || 'modal_sendiri',
+        monthly_amortization: property.monthly_amortization || 0,
+        monthly_maintenance_cost: property.monthly_maintenance_cost || 0,
+        avg_annual_unexpected_cost: property.avg_annual_unexpected_cost || 0,
+        marketing_cost: property.marketing_cost || 0,
+      }}
+      onSubmit={async (data) => { await updateMutation.mutateAsync(data); }}
+      isLoading={updateMutation.isPending}
+    />
   );
 }

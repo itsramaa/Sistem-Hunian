@@ -16,17 +16,16 @@ import useEmblaCarousel from 'embla-carousel-react';
 import {
   AlertCircle,
   AlertTriangle,
-  Calendar,
   ChevronRight,
   ClipboardList,
   DollarSign,
   FileText,
+  Gift,
   Home,
   RefreshCw,
   Store,
   Wrench
 } from 'lucide-react';
-import { differenceInDays } from 'date-fns';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 
@@ -44,6 +43,12 @@ const bannerSlides = [
     subtitle: "Dapatkan reward poin setiap pembayaran",
     bgColor: "bg-gradient-to-r from-emerald-500 to-emerald-600",
   },
+  {
+    id: 3,
+    title: "Ajak Teman, Dapat Bonus",
+    subtitle: "Referral program dengan hadiah menarik",
+    bgColor: "bg-gradient-to-r from-purple-500 to-purple-600",
+  },
 ];
 
 // Quick action items for homepage - 4 column grid (excludes items in bottom nav)
@@ -52,6 +57,7 @@ const quickActions = [
   { path: "/tenant/invoices", icon: FileText, label: "Tagihan", color: "bg-purple-500/10 text-purple-600" },
   { path: "/tenant/contracts", icon: ClipboardList, label: "Kontrak", color: "bg-blue-500/10 text-blue-600" },
   { path: "/tenant/marketplace", icon: Store, label: "Market", color: "bg-emerald-500/10 text-emerald-600" },
+  { path: "/tenant/referrals", icon: Gift, label: "Referral", color: "bg-pink-500/10 text-pink-600" },
 ];
 
 export default function TenantDashboard() {
@@ -279,45 +285,6 @@ export default function TenantDashboard() {
             </Card>
           </Link>
         </div>
-
-        {/* Lease Renewal / Move-Out Reminder */}
-        {activeContract?.end_date && (() => {
-          const daysLeft = differenceInDays(new Date(activeContract.end_date), new Date());
-          if (daysLeft > 60) return null;
-          const isCritical = daysLeft <= 30;
-          return (
-            <Card className={`border-l-4 ${isCritical ? 'border-l-destructive bg-destructive/5' : 'border-l-warning bg-warning/5'}`}>
-              <CardContent className="p-4 space-y-2">
-                <div className="flex items-center gap-2">
-                  <Calendar className={`h-5 w-5 ${isCritical ? 'text-destructive' : 'text-warning'}`} />
-                  <span className="font-semibold text-sm">
-                    {isCritical ? '⚠️ Kontrak Segera Berakhir!' : 'Pengingat Kontrak'}
-                  </span>
-                  <Badge variant={isCritical ? 'destructive' : 'secondary'} className="text-[10px] rounded-full ml-auto">
-                    {daysLeft <= 0 ? 'Sudah berakhir' : `${daysLeft} hari lagi`}
-                  </Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Kontrak Anda berakhir pada <strong>{format(new Date(activeContract.end_date), 'dd MMMM yyyy')}</strong>.
-                  {isCritical ? ' Segera hubungi pengelola untuk perpanjangan atau persiapan move-out.' : ' Pertimbangkan untuk memulai proses perpanjangan.'}
-                </p>
-                {isCritical && (
-                  <div className="bg-background/80 rounded-lg p-3 space-y-1.5 text-xs text-muted-foreground">
-                    <p className="font-medium text-foreground text-sm">📋 Checklist Move-Out:</p>
-                    <p>☐ Hubungi pengelola tentang perpanjangan/move-out</p>
-                    <p>☐ Periksa kondisi unit dan dokumentasi</p>
-                    <p>☐ Lunasi semua tagihan tertunggak</p>
-                    <p>☐ Kembalikan kunci dan akses card</p>
-                    <p>☐ Atur jadwal inspeksi akhir</p>
-                  </div>
-                )}
-                <Link to="/tenant/contracts" className="text-xs text-primary font-medium hover:underline">
-                  Lihat Detail Kontrak →
-                </Link>
-              </CardContent>
-            </Card>
-          );
-        })()}
 
         {/* Overdue Alert */}
         {overdueInvoices.length > 0 && (

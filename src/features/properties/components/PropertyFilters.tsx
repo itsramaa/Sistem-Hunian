@@ -4,8 +4,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
-import { ArrowUpDown, Grid, List, Loader2, RotateCcw, Search, X } from 'lucide-react';
+import { ArrowUpDown, Grid, List, RotateCcw, Search, X } from 'lucide-react';
 
 export type SortOption = 'name-asc' | 'name-desc' | 'occupancy-high' | 'occupancy-low' | 'newest' | 'oldest';
 
@@ -22,7 +21,6 @@ interface PropertyFiltersProps {
   onViewModeChange: (mode: 'grid' | 'list') => void;
   onResetFilters: () => void;
   activeFilterCount: number;
-  isSearching?: boolean;
   className?: string;
 }
 
@@ -50,17 +48,13 @@ const sortOptions: { value: SortOption; label: string }[] = [
 export function PropertyFilters({
   searchTerm, onSearchChange, typeFilter, onTypeFilterChange,
   statusFilter, onStatusFilterChange, sortBy, onSortByChange,
-  viewMode, onViewModeChange, onResetFilters, activeFilterCount, isSearching = false, className = '',
+  viewMode, onViewModeChange, onResetFilters, activeFilterCount, className = '',
 }: PropertyFiltersProps) {
   return (
     <div className={`glass-filter-bar space-y-3 ${className}`} role="search" aria-label="Filter Properti">
       <div className="flex flex-col md:flex-row gap-3">
         <div className="relative flex-1">
-          {isSearching ? (
-            <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground animate-spin" aria-hidden="true" />
-          ) : (
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          )}
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
           <Input
             placeholder="Cari properti..."
             value={searchTerm}
@@ -102,37 +96,28 @@ export function PropertyFilters({
           </Select>
         </div>
         {/* Pill View Toggle */}
-        <TooltipProvider delayDuration={300}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex gap-0.5 rounded-full p-1 bg-muted/30 shrink-0 border border-border/30" role="group" aria-label="Mode Tampilan">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => onViewModeChange('grid')}
-                  className={`h-8 w-8 rounded-full ${viewMode === 'grid' ? 'bg-primary text-primary-foreground shadow-sm' : ''}`}
-                  aria-label="Tampilan Grid"
-                  aria-pressed={viewMode === 'grid'}
-                >
-                  <Grid className="h-4 w-4" aria-hidden="true" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => onViewModeChange('list')}
-                  className={`h-8 w-8 rounded-full ${viewMode === 'list' ? 'bg-primary text-primary-foreground shadow-sm' : ''}`}
-                  aria-label="Tampilan List"
-                  aria-pressed={viewMode === 'list'}
-                >
-                  <List className="h-4 w-4" aria-hidden="true" />
-                </Button>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              <p>Ubah tampilan preferensi Anda. Pilihan disimpan untuk sesi Anda.</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <div className="flex gap-0.5 rounded-full p-1 bg-muted/30 shrink-0 border border-border/30" role="group" aria-label="Mode Tampilan">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onViewModeChange('grid')}
+            className={`h-8 w-8 rounded-full ${viewMode === 'grid' ? 'bg-primary text-primary-foreground shadow-sm' : ''}`}
+            aria-label="Tampilan Grid"
+            aria-pressed={viewMode === 'grid'}
+          >
+            <Grid className="h-4 w-4" aria-hidden="true" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onViewModeChange('list')}
+            className={`h-8 w-8 rounded-full ${viewMode === 'list' ? 'bg-primary text-primary-foreground shadow-sm' : ''}`}
+            aria-label="Tampilan List"
+            aria-pressed={viewMode === 'list'}
+          >
+            <List className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        </div>
       </div>
 
       {activeFilterCount > 0 && (

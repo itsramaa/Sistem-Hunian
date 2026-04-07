@@ -99,6 +99,6 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({ success: true, inserted: snapshots.length, snapshot_month: snapshotMonth }), { headers });
   } catch (e) {
-    return new Response(JSON.stringify({ error: (e as Error).message }), { status: 500, headers });
+    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers });
   }
 });

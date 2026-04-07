@@ -7,23 +7,23 @@ import { Label } from '@/shared/components/ui/label';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { Checkbox } from '@/shared/components/ui/checkbox';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
 import { 
+  User, 
+  Building2, 
+  MapPin, 
+  Phone, 
+  Mail,
   Star,
   Shield,
   CheckCircle2,
   Clock,
   AlertCircle,
-  Save,
-  Briefcase,
-  TrendingUp,
-  DollarSign,
-  MapPin
+  Save
 } from 'lucide-react';
-import { formatCurrency } from '@/shared/utils/currency';
 
 const SERVICE_CATEGORIES = [
   'plumbing',
@@ -67,38 +67,6 @@ export default function VendorProfile() {
       });
     }
   }, [vendor]);
-
-  // Fetch performance stats from vendor_jobs
-  const { data: perfStats } = useQuery({
-    queryKey: ['vendor-perf-stats', vendor?.id],
-    queryFn: async () => {
-      if (!vendor) return null;
-      const { data: jobs } = await supabase
-        .from('vendor_jobs')
-        .select('status, agreed_price, created_at, started_at, completed_at')
-        .eq('vendor_id', vendor.id);
-
-      if (!jobs || jobs.length === 0) return null;
-
-      const total = jobs.length;
-      const completed = jobs.filter(j => j.status === 'completed');
-      const completionRate = total > 0 ? Math.round((completed.length / total) * 100) : 0;
-      const avgPrice = completed.length > 0
-        ? completed.reduce((s, j) => s + (j.agreed_price || 0), 0) / completed.length
-        : 0;
-
-      // Avg response time (started_at - created_at) in hours
-      const responseTimes = completed
-        .filter(j => j.started_at && j.created_at)
-        .map(j => (new Date(j.started_at!).getTime() - new Date(j.created_at).getTime()) / (1000 * 60 * 60));
-      const avgResponseHrs = responseTimes.length > 0
-        ? Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length)
-        : 0;
-
-      return { total, completed: completed.length, completionRate, avgPrice, avgResponseHrs };
-    },
-    enabled: !!vendor,
-  });
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -216,45 +184,6 @@ export default function VendorProfile() {
           </CardContent>
         </Card>
 
-        {/* Performance Stats Card */}
-        {perfStats && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <TrendingUp className="h-5 w-5 text-primary" />
-                <div>
-                  <CardTitle>Performance Summary</CardTitle>
-                  <CardDescription>Computed from your completed jobs</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="text-center p-3 rounded-xl bg-muted/50">
-                  <Briefcase className="h-5 w-5 mx-auto mb-1 text-primary" />
-                  <p className="text-2xl font-bold">{perfStats.total}</p>
-                  <p className="text-xs text-muted-foreground">Total Jobs</p>
-                </div>
-                <div className="text-center p-3 rounded-xl bg-muted/50">
-                  <CheckCircle2 className="h-5 w-5 mx-auto mb-1 text-success" />
-                  <p className="text-2xl font-bold">{perfStats.completionRate}%</p>
-                  <p className="text-xs text-muted-foreground">Completion Rate</p>
-                </div>
-                <div className="text-center p-3 rounded-xl bg-muted/50">
-                  <Clock className="h-5 w-5 mx-auto mb-1 text-warning" />
-                  <p className="text-2xl font-bold">{perfStats.avgResponseHrs}h</p>
-                  <p className="text-xs text-muted-foreground">Avg Response</p>
-                </div>
-                <div className="text-center p-3 rounded-xl bg-muted/50">
-                  <DollarSign className="h-5 w-5 mx-auto mb-1 text-primary" />
-                  <p className="text-2xl font-bold text-sm">{formatCurrency(perfStats.avgPrice)}</p>
-                  <p className="text-xs text-muted-foreground">Avg Job Price</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Rating Card */}
         {vendor?.rating !== null && vendor?.rating !== undefined && (
           <Card>
@@ -286,26 +215,6 @@ export default function VendorProfile() {
                   ({vendor.total_jobs || 0} jobs completed)
                 </span>
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Service Area Card */}
-        {(vendor?.city || vendor?.province) && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <MapPin className="h-5 w-5 text-primary" />
-                <div>
-                  <CardTitle>Service Area</CardTitle>
-                  <CardDescription>Your coverage area</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm">
-                {[vendor?.address, vendor?.city, vendor?.province].filter(Boolean).join(', ')}
-              </p>
             </CardContent>
           </Card>
         )}

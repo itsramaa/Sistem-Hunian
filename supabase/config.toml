@@ -23,12 +23,3 @@ verify_jwt = true
 
 [functions.gdpr-data-request]
 verify_jwt = true
-
-[functions.ocr-expense-receipt]
-verify_jwt = true
-
-[functions.merchant-api]
-verify_jwt = false
-
-[functions.webhook-dispatcher]
-verify_jwt = false

@@ -2,12 +2,10 @@ import { useNavigate } from 'react-router-dom';
 import { Property } from '@/features/properties/types';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
-import { Checkbox } from '@/shared/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
-import { Building2, Copy, DoorOpen, Edit, Image as ImageIcon, MapPin, MoreHorizontal, RefreshCw, Sparkles, Trash2, Users, TrendingUp } from 'lucide-react';
+import { Building2, Copy, DoorOpen, Edit, Image as ImageIcon, MapPin, MoreHorizontal, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
 import { formatLabel } from '@/shared/utils/utils';
-import { formatCurrencyCompact } from '@/shared/utils/currency';
 
 interface PropertyCardProps {
   property: Property;
@@ -16,10 +14,7 @@ interface PropertyCardProps {
   onManageUnits: (property: Property) => void;
   onManagePhotos: (property: Property) => void;
   onDuplicate?: (property: Property) => void;
-  onNavigate?: (property: Property) => void;
   isDeleting?: boolean;
-  selected?: boolean;
-  onSelect?: (id: string) => void;
   style?: React.CSSProperties;
 }
 
@@ -40,12 +35,6 @@ function getOccupancyColor(rate: number): string {
   return 'bg-destructive';
 }
 
-function getOccupancyBadge(rate: number): { label: string; className: string } {
-  if (rate >= 80) return { label: 'BAIK', className: 'bg-success/15 text-success border-success/30' };
-  if (rate >= 50) return { label: 'PERHATIAN', className: 'bg-warning/15 text-warning border-warning/30' };
-  return { label: 'KRITIS', className: 'bg-destructive/15 text-destructive border-destructive/30' };
-}
-
 function isNewProperty(createdAt: string): boolean {
   const created = new Date(createdAt);
   const sevenDaysAgo = new Date();
@@ -60,22 +49,17 @@ export function PropertyCard({
   onManageUnits, 
   onManagePhotos,
   onDuplicate,
-  onNavigate,
   isDeleting,
-  selected,
-  onSelect,
   style,
 }: PropertyCardProps) {
   const navigate = useNavigate();
   const occupancyRate = property.total_units > 0 ? (property.occupied_units / property.total_units) * 100 : 0;
   const isNew = isNewProperty(property.created_at);
   const segments = getOccupancySegments(occupancyRate);
-  const hasSelection = onSelect !== undefined;
 
   const handleCardClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (target.closest('button') || target.closest('[role="menuitem"]') || target.closest('[data-radix-popper-content-wrapper]') || target.closest('[data-checkbox]')) return;
-    onNavigate?.(property);
+    if (target.closest('button') || target.closest('[role="menuitem"]') || target.closest('[data-radix-popper-content-wrapper]')) return;
     navigate(`/merchant/properties/${property.id}`);
   };
 
@@ -85,21 +69,6 @@ export function PropertyCard({
       style={style}
       onClick={handleCardClick}
     >
-      {/* Selection checkbox */}
-      {hasSelection && (
-        <div
-          data-checkbox
-          className={`absolute top-2 left-2 z-10 transition-opacity ${selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Checkbox
-            checked={selected}
-            onCheckedChange={() => onSelect?.(property.id)}
-            className="h-5 w-5 bg-background/80 backdrop-blur-sm border-2 shadow-sm"
-          />
-        </div>
-      )}
-
       {/* Image section */}
       {property.images && property.images.length > 0 ? (
         <div className="relative h-32 overflow-hidden">
@@ -120,11 +89,6 @@ export function PropertyCard({
               <Sparkles className="h-2.5 w-2.5 mr-0.5" />Baru
             </Badge>
           )}
-          {property.total_units > 0 && (
-            <Badge variant="outline" className={`absolute top-2 right-2 text-[10px] font-bold px-1.5 py-0 h-5 rounded-full ${getOccupancyBadge(occupancyRate).className}`}>
-              {getOccupancyBadge(occupancyRate).label}
-            </Badge>
-          )}
         </div>
       ) : (
         <div className="relative h-32 bg-gradient-to-br from-primary/5 via-primary/10 to-accent/10 flex items-center justify-center">
@@ -132,11 +96,6 @@ export function PropertyCard({
           {isNew && (
             <Badge className="absolute top-2 left-2 bg-accent text-accent-foreground text-[10px] px-1.5 py-0 h-5 rounded-full">
               <Sparkles className="h-2.5 w-2.5 mr-0.5" />Baru
-            </Badge>
-          )}
-          {property.total_units > 0 && (
-            <Badge variant="outline" className={`absolute top-2 right-2 text-[10px] font-bold px-1.5 py-0 h-5 rounded-full ${getOccupancyBadge(occupancyRate).className}`}>
-              {getOccupancyBadge(occupancyRate).label}
             </Badge>
           )}
         </div>
@@ -255,30 +214,6 @@ export function PropertyCard({
               }`}
             />
           ))}
-        </div>
-
-        {/* Tenant count + Revenue */}
-        <div className="flex items-center justify-between">
-          {(property.active_tenant_count ?? 0) > 0 ? (
-            <button
-              className="flex items-center gap-1 text-xs text-primary hover:underline font-medium"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(`/merchant/properties/${property.id}?tab=tenants`);
-              }}
-            >
-              <Users className="h-3 w-3" />
-              +{property.active_tenant_count} Penyewa
-            </button>
-          ) : (
-            <span className="text-xs text-muted-foreground">0 Penyewa</span>
-          )}
-          {(property.monthly_revenue ?? 0) > 0 && (
-            <span className="flex items-center gap-1 text-xs font-medium text-success">
-              <TrendingUp className="h-3 w-3" />
-              {formatCurrencyCompact(property.monthly_revenue!)}/bln
-            </span>
-          )}
         </div>
       </div>
     </div>

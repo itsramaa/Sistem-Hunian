@@ -126,43 +126,47 @@ export const VENDOR_JOB_STATUS_TRANSITIONS: Record<string, string[]> = {
   cancelled: [],   // terminal
 };
 
-// ─── Section 13: Payment Transfer Lifecycle (Direct Payment Model) ─────────
-export const PAYMENT_TRANSFER_TRANSITIONS: Record<string, string[]> = {
-  pending: ['processing'],
+// ─── Section 13: Disbursement Lifecycle ────────────────────────────────────
+export const DISBURSEMENT_STATUS_TRANSITIONS: Record<string, string[]> = {
+  pending: ['approved', 'rejected'],
+  approved: ['processing'],
   processing: ['completed', 'failed'],
   failed: ['pending'],    // retry
   completed: [],   // terminal
+  rejected: [],    // terminal
 };
 
-// ─── Section 13b: Vendor Disbursement Lifecycle ───────────────────────────
-export const DISBURSEMENT_STATUS_TRANSITIONS: Record<string, string[]> = {
-  pending: ['processing'],
-  processing: ['completed', 'failed'],
-  failed: ['pending'],    // retry
+// ─── Section 15: Referral Lifecycle ────────────────────────────────────────
+export const REFERRAL_STATUS_TRANSITIONS: Record<string, string[]> = {
+  pending: ['active', 'expired'],
+  active: ['completed'],
   completed: [],   // terminal
+  expired: [],     // terminal
 };
 
 // ─── Section 15.5: Verification Tier Upgrades ─────────────────────────────
 export const VERIFICATION_TIER_TRANSITIONS: Record<string, string[]> = {
   quick: ['standard'],
   standard: ['premium'],
-  premium: [],  // terminal
+  premium: [],  // terminal — highest tier
 };
 
 // ─── Section 16: Verification Workflows ────────────────────────────────────
 export const VERIFICATION_STATUS_TRANSITIONS: Record<string, string[]> = {
   pending: ['approved', 'rejected'],
-  rejected: ['pending'],
+  rejected: ['pending'],   // resubmission
   approved: [],    // terminal
 };
 
+// Merchant verification uses 'verified' instead of 'approved', plus 'suspended'
 export const MERCHANT_VERIFICATION_TRANSITIONS: Record<string, string[]> = {
   pending: ['verified', 'rejected'],
-  rejected: ['pending'],
+  rejected: ['pending'],   // resubmission
   verified: ['suspended'],
   suspended: ['verified'],
 };
 
+// Vendor document verification
 export const VENDOR_VERIFICATION_TRANSITIONS: Record<string, string[]> = {
   pending: ['verified', 'rejected'],
   rejected: ['pending'],
@@ -186,6 +190,14 @@ export const DEPOSIT_REFUND_TRANSITIONS: Record<string, string[]> = {
   rejected: [],    // terminal
 };
 
+// ─── Section 19: Escrow Transaction Lifecycle ──────────────────────────────
+export const ESCROW_TRANSACTION_TRANSITIONS: Record<string, string[]> = {
+  pending: ['completed', 'failed'],
+  completed: [],   // terminal
+  failed: [],      // terminal
+};
+
+// ─── Section 14: Tenant Invitation (edge function managed) ─────────────────
 export const TENANT_INVITATION_TRANSITIONS: Record<string, string[]> = {
   pending: ['accepted', 'expired'],
   accepted: [],    // terminal
@@ -194,36 +206,9 @@ export const TENANT_INVITATION_TRANSITIONS: Record<string, string[]> = {
 
 // ─── Section 5: Overdue Escalation (collections_cases) ─────────────────────
 export const COLLECTIONS_CASE_TRANSITIONS: Record<string, string[]> = {
-  initiated: ['reminder_sent', 'in_progress'],
-  reminder_sent: ['follow_up', 'in_progress'],
-  follow_up: ['in_progress', 'escalated'],
-  in_progress: ['escalated', 'resolved'],
-  escalated: ['legal', 'resolved'],
-  legal: ['resolved'],
-  resolved: [],    // terminal — resolution_type: paid_in_full | payment_plan | write_off | eviction | bad_debt
-};
-
-// ─── Section 24: Waiting List Lifecycle ────────────────────────────────────
-export const WAITING_LIST_TRANSITIONS: Record<string, string[]> = {
-  interested: ['applied', 'rejected'],
-  applied: ['offered', 'rejected', 'waitlisted'],
-  offered: ['accepted', 'rejected'],
-  waitlisted: ['offered', 'rejected'],
-  accepted: [],    // terminal
-  rejected: [],    // terminal
-};
-
-// ─── Section 25: Contract Amendment Lifecycle ──────────────────────────────
-export const AMENDMENT_STATUS_TRANSITIONS: Record<string, string[]> = {
-  draft: ['sent', 'cancelled'],
-  sent: ['tenant_reviewing', 'rejected', 'cancelled'],
-  tenant_reviewing: ['negotiating', 'agreed', 'rejected'],
-  negotiating: ['agreed', 'rejected', 'cancelled'],
-  agreed: ['signing'],
-  signing: ['signed'],
-  signed: [],      // terminal
-  rejected: [],    // terminal
-  cancelled: [],   // terminal
+  initiated: ['in_progress'],
+  in_progress: ['resolved'],
+  resolved: [],    // terminal — resolution_type: paid_in_full | payment_plan | write_off | eviction
 };
 
 // ─── Section 20: Forum Report Moderation ───────────────────────────────────
@@ -252,23 +237,6 @@ export const PAYMENT_VERIFICATION_TRANSITIONS: Record<string, string[]> = {
 };
 
 // ─── Section 23: DSS Recommendation Lifecycle ─────────────────────────────
-// ─── Section 26: Tenant Screening Lifecycle ───────────────────────────────
-export const SCREENING_STATUS_TRANSITIONS: Record<string, string[]> = {
-  pending: ['scored'],
-  scored: ['approved', 'rejected'],
-  approved: [],   // terminal
-  rejected: ['pending'],  // allow re-screening
-};
-
-// ─── Section 27: Expense Approval Lifecycle ──────────────────────────────
-export const EXPENSE_APPROVAL_TRANSITIONS: Record<string, string[]> = {
-  submitted: ['pending_approval', 'approved'],  // auto-approve if < 500K
-  pending_approval: ['approved', 'rejected'],
-  approved: ['verified'],
-  rejected: ['submitted'],  // allow re-submission
-  verified: [],  // terminal
-};
-
 export const DSS_RECOMMENDATION_TRANSITIONS: Record<string, string[]> = {
   generated: ['viewed', 'accepted', 'rejected'],
   viewed: ['accepted', 'rejected'],

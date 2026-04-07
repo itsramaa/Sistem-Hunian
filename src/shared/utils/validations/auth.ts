@@ -54,6 +54,13 @@ export const merchantCodeSchema = z.string()
     message: 'Kode merchant harus 6 karakter alfanumerik',
   });
 
+// Referral code validation (8 chars alphanumeric uppercase)
+export const referralCodeSchema = z.string()
+  .transform(val => val.toUpperCase().trim())
+  .refine(val => /^[A-Z0-9]{8}$/.test(val), {
+    message: 'Kode referral harus 8 karakter alfanumerik',
+  });
+
 // Full name validation
 export const fullNameSchema = z.string()
   .min(2, 'Nama minimal 2 karakter')

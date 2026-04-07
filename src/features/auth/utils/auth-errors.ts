@@ -76,3 +76,26 @@ export const INVITATION_ERROR_MESSAGES = {
   },
 };
 
+// Referral error messages  
+export const REFERRAL_ERROR_MESSAGES = {
+  NOT_FOUND: {
+    title: 'Kode Referral Tidak Ditemukan',
+    message: 'Kode referral yang Anda masukkan tidak valid.',
+    action: 'Periksa kembali kode atau daftar tanpa referral.',
+  },
+  EXPIRED: {
+    title: 'Kode Referral Kadaluarsa',
+    message: 'Kode referral ini sudah tidak berlaku.',
+    action: 'Minta kode baru dari teman Anda.',
+  },
+  MAX_USES: {
+    title: 'Kode Referral Sudah Penuh',
+    message: 'Kode referral ini sudah mencapai batas penggunaan.',
+    action: 'Daftar tanpa referral atau minta kode lain.',
+  },
+  INACTIVE: {
+    title: 'Kode Referral Tidak Aktif',
+    message: 'Kode referral ini sudah dinonaktifkan.',
+    action: 'Hubungi pemilik kode atau daftar tanpa referral.',
+  },
+};

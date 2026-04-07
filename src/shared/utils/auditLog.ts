@@ -34,6 +34,7 @@ export type AuditEntityType =
   | "dispute"
   | "escrow"
   | "disbursement"
+  | "referral"
   | "subscription_tier"
   | "merchant_subscription"
   | "platform_config"
@@ -159,7 +160,7 @@ export async function logConfigChange(
  * Log a payout/disbursement action
  */
 export async function logPayout(
-  entityType: "disbursement",
+  entityType: "referral" | "disbursement",
   entityId: string,
   amount: number,
   recipientId: string

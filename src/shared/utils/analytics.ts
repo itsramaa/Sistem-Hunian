@@ -22,6 +22,8 @@ export const EventTypes = {
   MAINTENANCE_RESOLVED: 'maintenance_resolved',
   CHATBOT_OPENED: 'chatbot_opened',
   CHATBOT_MESSAGE_SENT: 'chatbot_message_sent',
+  REFERRAL_LINK_COPIED: 'referral_link_copied',
+  REFERRAL_LINK_SHARED: 'referral_link_shared',
   CONTRACT_VIEWED: 'contract_viewed',
   CONTRACT_SIGNED: 'contract_signed',
   FORUM_POST_CREATED: 'forum_post_created',
