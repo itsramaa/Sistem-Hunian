@@ -18,14 +18,15 @@ func NewSubscriptionRepo(pool *pgxpool.Pool) *SubscriptionRepo {
 	return &SubscriptionRepo{pool: pool}
 }
 
-// ListSubscriptions returns all subscriptions. Admin-scoped (no merchant filter).
-func (r *SubscriptionRepo) ListSubscriptions(ctx context.Context) ([]model.Subscription, error) {
+// ListSubscriptions returns all subscriptions scoped to a merchant.
+func (r *SubscriptionRepo) ListSubscriptions(ctx context.Context, merchantID string) ([]model.Subscription, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, merchant_id, tier_id, status,
 		       current_period_start, current_period_end, created_at
 		FROM subscriptions
+		WHERE merchant_id = $1
 		ORDER BY created_at DESC
-	`)
+	`, merchantID)
 	if err != nil {
 		return nil, fmt.Errorf("subscription_repo: list: %w", err)
 	}
@@ -48,20 +49,61 @@ func (r *SubscriptionRepo) ListSubscriptions(ctx context.Context) ([]model.Subsc
 	return subs, nil
 }
 
-// GetSubscription returns a single subscription by ID.
-func (r *SubscriptionRepo) GetSubscription(ctx context.Context, id string) (*model.Subscription, error) {
+// GetSubscription returns a single subscription by ID scoped to a merchant.
+func (r *SubscriptionRepo) GetSubscription(ctx context.Context, id, merchantID string) (*model.Subscription, error) {
 	var s model.Subscription
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, merchant_id, tier_id, status,
 		       current_period_start, current_period_end, created_at
 		FROM subscriptions
-		WHERE id = $1
-	`, id).Scan(
+		WHERE id = $1 AND merchant_id = $2
+	`, id, merchantID).Scan(
 		&s.ID, &s.MerchantID, &s.TierID, &s.Status,
 		&s.CurrentPeriodStart, &s.CurrentPeriodEnd, &s.CreatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("subscription_repo: get: %w", err)
+	}
+	return &s, nil
+}
+
+// CreateSubscription inserts a new subscription for a merchant with the given tier.
+// The subscription starts immediately with an 'active' status.
+func (r *SubscriptionRepo) CreateSubscription(ctx context.Context, merchantID, tierID string) (*model.Subscription, error) {
+	var s model.Subscription
+	err := r.pool.QueryRow(ctx, `
+		INSERT INTO subscriptions (merchant_id, tier_id, status, current_period_start, current_period_end)
+		SELECT $1, $2, 'active', NOW(),
+		       NOW() + (billing_cycle_days || ' days')::interval
+		FROM subscription_tiers
+		WHERE id = $2 AND is_active = true
+		RETURNING id, merchant_id, tier_id, status,
+		          current_period_start, current_period_end, created_at
+	`, merchantID, tierID).Scan(
+		&s.ID, &s.MerchantID, &s.TierID, &s.Status,
+		&s.CurrentPeriodStart, &s.CurrentPeriodEnd, &s.CreatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("subscription_repo: create: %w", err)
+	}
+	return &s, nil
+}
+
+// UpdateSubscriptionStatus updates the status of a subscription scoped to a merchant.
+func (r *SubscriptionRepo) UpdateSubscriptionStatus(ctx context.Context, id, merchantID, status string) (*model.Subscription, error) {
+	var s model.Subscription
+	err := r.pool.QueryRow(ctx, `
+		UPDATE subscriptions
+		SET status = $1, updated_at = NOW()
+		WHERE id = $2 AND merchant_id = $3
+		RETURNING id, merchant_id, tier_id, status,
+		          current_period_start, current_period_end, created_at
+	`, status, id, merchantID).Scan(
+		&s.ID, &s.MerchantID, &s.TierID, &s.Status,
+		&s.CurrentPeriodStart, &s.CurrentPeriodEnd, &s.CreatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("subscription_repo: update status: %w", err)
 	}
 	return &s, nil
 }
@@ -98,8 +140,9 @@ func (r *SubscriptionRepo) ListTiers(ctx context.Context) ([]model.SubscriptionT
 }
 
 // ProcessPayment records a subscription payment and updates the subscription period.
+// The subscription is scoped to the given merchantID for security.
 // TODO: integrate with Xendit invoice creation for real payment flow.
-func (r *SubscriptionRepo) ProcessPayment(ctx context.Context, req model.SubscriptionPaymentRequest) (*model.Subscription, error) {
+func (r *SubscriptionRepo) ProcessPayment(ctx context.Context, id, merchantID string, req model.SubscriptionPaymentRequest) (*model.Subscription, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("subscription_repo: begin tx: %w", err)
@@ -110,12 +153,12 @@ func (r *SubscriptionRepo) ProcessPayment(ctx context.Context, req model.Subscri
 	_, err = tx.Exec(ctx, `
 		INSERT INTO subscription_payments (subscription_id, amount, payment_method, status)
 		VALUES ($1, $2, $3, 'completed')
-	`, req.SubscriptionID, req.Amount, req.PaymentMethod)
+	`, id, req.Amount, req.PaymentMethod)
 	if err != nil {
 		return nil, fmt.Errorf("subscription_repo: insert payment: %w", err)
 	}
 
-	// Extend the subscription period by one billing cycle
+	// Extend the subscription period by one billing cycle, scoped to merchant
 	var s model.Subscription
 	err = tx.QueryRow(ctx, `
 		UPDATE subscriptions s
@@ -128,10 +171,10 @@ func (r *SubscriptionRepo) ProcessPayment(ctx context.Context, req model.Subscri
 				WHERE id = s.tier_id
 			),
 			updated_at = NOW()
-		WHERE s.id = $1
+		WHERE s.id = $1 AND s.merchant_id = $2
 		RETURNING s.id, s.merchant_id, s.tier_id, s.status,
 		          s.current_period_start, s.current_period_end, s.created_at
-	`, req.SubscriptionID).Scan(
+	`, id, merchantID).Scan(
 		&s.ID, &s.MerchantID, &s.TierID, &s.Status,
 		&s.CurrentPeriodStart, &s.CurrentPeriodEnd, &s.CreatedAt,
 	)
