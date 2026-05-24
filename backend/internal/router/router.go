@@ -11,6 +11,8 @@ import (
 	"github.com/itsramaa/sihuni-api/internal/handler"
 	"github.com/itsramaa/sihuni-api/internal/middleware"
 	"github.com/itsramaa/sihuni-api/internal/pkg/xendit"
+	"github.com/itsramaa/sihuni-api/internal/repository"
+	"github.com/itsramaa/sihuni-api/internal/service"
 )
 
 // New creates and returns the configured Chi router with all middleware and routes registered.
@@ -92,6 +94,53 @@ func New(cfg *config.Config, pool *pgxpool.Pool) http.Handler {
 			r.Get("/", handler.ListNotifications(pool))
 			r.Post("/", handler.SendNotification(pool))
 			r.Put("/{id}/read", handler.MarkNotificationRead(pool))
+		})
+
+		// Contracts & MoveOuts endpoints — JWT required, merchant/admin only
+		contractHandler := handler.NewContractHandler(
+			service.NewContractService(
+				repository.NewContractRepo(pool),
+			),
+		)
+		r.Route("/contracts", func(r chi.Router) {
+			r.Use(middleware.Authenticate(cfg.JWTSecret))
+			r.Use(middleware.RequireRole("merchant", "admin"))
+			r.Get("/", contractHandler.ListContracts)
+			r.Route("/move-outs", func(r chi.Router) {
+				r.Get("/", contractHandler.ListMoveOuts)
+				r.Route("/{id}", func(r chi.Router) {
+					r.Get("/", contractHandler.GetMoveOut)
+					r.Put("/status", contractHandler.UpdateMoveOutStatus)
+				})
+			})
+			r.Route("/{id}", func(r chi.Router) {
+				r.Get("/", contractHandler.GetContract)
+				r.Post("/deposit-refund", contractHandler.ProcessDepositRefund)
+			})
+		})
+
+		// Properties endpoints — JWT required, merchant only
+		r.Route("/properties", func(r chi.Router) {
+			r.Use(middleware.Authenticate(cfg.JWTSecret))
+			r.Use(middleware.RequireRole("merchant", "admin"))
+			r.Get("/", handler.ListProperties(pool))
+			r.Post("/", handler.CreateProperty(pool))
+			r.Route("/{id}", func(r chi.Router) {
+				r.Get("/", handler.GetProperty(pool))
+				r.Put("/", handler.UpdateProperty(pool))
+				r.Delete("/", handler.DeleteProperty(pool))
+				r.Get("/units", handler.ListUnits(pool))
+				r.Post("/units", handler.CreateUnit(pool))
+			})
+		})
+
+		// Units endpoints — JWT required, merchant only
+		r.Route("/units/{id}", func(r chi.Router) {
+			r.Use(middleware.Authenticate(cfg.JWTSecret))
+			r.Use(middleware.RequireRole("merchant", "admin"))
+			r.Get("/", handler.GetUnit(pool))
+			r.Put("/", handler.UpdateUnit(pool))
+			r.Delete("/", handler.DeleteUnit(pool))
 		})
 
 		// Cron endpoints — cron secret required (no JWT)

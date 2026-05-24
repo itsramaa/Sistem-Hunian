@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -12,13 +13,27 @@ import (
 	"github.com/itsramaa/sihuni-api/internal/service"
 )
 
+// ContractServicer defines the business-logic operations required by ContractHandler.
+// Using an interface here allows the handler to be unit-tested with a mock.
+type ContractServicer interface {
+	ListContracts(ctx context.Context, merchantID string) ([]model.Contract, error)
+	GetContract(ctx context.Context, id, merchantID string) (*model.Contract, error)
+	ProcessDepositRefund(ctx context.Context, id, merchantID string, req model.DepositRefundRequest) (*model.Contract, error)
+	ListMoveOuts(ctx context.Context, merchantID string) ([]model.MoveOutNotice, error)
+	GetMoveOut(ctx context.Context, id, merchantID string) (*model.MoveOutNotice, error)
+	UpdateMoveOutStatus(ctx context.Context, id, merchantID string, req model.UpdateMoveOutStatusRequest) (*model.MoveOutNotice, error)
+}
+
+// Compile-time check: *service.ContractService must satisfy ContractServicer.
+var _ ContractServicer = (*service.ContractService)(nil)
+
 // ContractHandler handles contract and move-out HTTP requests.
 type ContractHandler struct {
-	svc *service.ContractService
+	svc ContractServicer
 }
 
 // NewContractHandler creates a new ContractHandler.
-func NewContractHandler(svc *service.ContractService) *ContractHandler {
+func NewContractHandler(svc ContractServicer) *ContractHandler {
 	return &ContractHandler{svc: svc}
 }
 
