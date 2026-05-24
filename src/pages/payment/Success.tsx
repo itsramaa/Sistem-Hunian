@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { CheckCircle, FileText, Home, Loader2 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 
 interface TransactionDetails {
   amount: number;
@@ -28,23 +28,12 @@ const PaymentSuccess = () => {
       }
 
       try {
-        const { data, error } = await supabase
-          .from('xendit_transactions')
-          .select(`
-            amount,
-            payment_method,
-            payment_channel,
-            paid_at,
-            invoice:invoices(invoice_number)
-          `)
-          .eq('external_id', externalId)
-          .single();
+        const { data } = await apiClient.get(`/payments/transaction`, { params: { external_id: externalId } });
 
-        if (!error && data) {
-          const invoiceData = data.invoice as unknown as { invoice_number: string } | null;
+        if (data) {
           setTransaction({
             amount: data.amount,
-            invoiceNumber: invoiceData?.invoice_number,
+            invoiceNumber: data.invoice_number,
             paymentMethod: data.payment_channel || data.payment_method || 'Unknown',
             paidAt: data.paid_at,
           });

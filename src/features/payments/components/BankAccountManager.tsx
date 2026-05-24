@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
@@ -34,20 +34,22 @@ export function BankAccountManager() {
     queryKey: ['bank-accounts', merchant?.id],
     queryFn: async () => {
       if (!merchant?.id) return [];
-      const { data, error } = await supabase.from('bank_accounts').select('*').eq('merchant_id', merchant.id).order('is_primary', { ascending: false });
-      if (error) throw error;
-      return data as BankAccount[];
+      try {
+        const r = await apiClient.get('/bank-accounts', { params: { merchant_id: merchant.id, order: 'is_primary.desc' } });
+        return r.data as BankAccount[];
+      } catch (err) {
+        throw err;
+      }
     },
     enabled: !!merchant?.id,
   });
 
   const addAccount = useMutation({
     mutationFn: async (data: typeof formData) => {
-      const { error } = await supabase.from('bank_accounts').insert({
+      await apiClient.post('/bank-accounts', {
         merchant_id: merchant?.id, bank_name: data.bank_name, account_name: data.account_name,
         account_number: data.account_number, branch_code: data.branch_code || null, is_primary: accounts.length === 0,
       });
-      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
@@ -60,8 +62,7 @@ export function BankAccountManager() {
 
   const deleteAccount = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('bank_accounts').delete().eq('id', id);
-      if (error) throw error;
+      await apiClient.delete('/bank-accounts/' + id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
@@ -72,9 +73,8 @@ export function BankAccountManager() {
 
   const setPrimary = useMutation({
     mutationFn: async (id: string) => {
-      await supabase.from('bank_accounts').update({ is_primary: false }).eq('merchant_id', merchant?.id);
-      const { error } = await supabase.from('bank_accounts').update({ is_primary: true }).eq('id', id);
-      if (error) throw error;
+      // TODO: implement Go endpoint for bulk update + set primary — was: supabase bulk update + single update
+      await apiClient.put('/bank-accounts/' + id + '/set-primary', { merchant_id: merchant?.id });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });

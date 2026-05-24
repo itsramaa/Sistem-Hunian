@@ -1,26 +1,25 @@
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { City, Province } from '../types';
 
 export const locationService = {
   async getProvinces(): Promise<Province[]> {
-    const { data, error } = await supabase
-      .from('provinces')
-      .select('*')
-      .order('name');
-    
-    if (error) throw error;
-    return (data as Province[]) || [];
+    try {
+      const r = await apiClient.get('/provinces', { params: { order_by: 'name' } });
+      return (r.data ?? []) as Province[];
+    } catch {
+      // TODO: implement Go endpoint — was: supabase.from('provinces').select('*').order('name')
+      return [];
+    }
   },
 
   async getCities(provinceId: string): Promise<City[]> {
-    const { data, error } = await supabase
-      .from('cities')
-      .select('*')
-      .eq('province_id', provinceId)
-      .order('name');
-    
-    if (error) throw error;
-    return (data as City[]) || [];
+    try {
+      const r = await apiClient.get('/cities', { params: { province_id: provinceId, order_by: 'name' } });
+      return (r.data ?? []) as City[];
+    } catch {
+      // TODO: implement Go endpoint — was: supabase.from('cities').select('*').eq('province_id', provinceId).order('name')
+      return [];
+    }
   },
 
   async searchAddress(query: string): Promise<{ lat: number; lng: number; display_name: string } | null> {
@@ -29,7 +28,7 @@ export const locationService = {
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=id&limit=1`
       );
       const data = await response.json();
-      
+
       if (data && data.length > 0) {
         return {
           lat: parseFloat(data[0].lat),

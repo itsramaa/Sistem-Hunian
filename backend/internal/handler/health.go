@@ -3,21 +3,10 @@ package handler
 import (
 	"net/http"
 
-	"github.com/itsramaa/sistem-hunian/backend/internal/pkg/response"
+	"github.com/itsramaa/sihuni-api/internal/pkg/response"
 )
 
-// HealthHandler handles health check requests.
-type HealthHandler struct{}
-
-// NewHealthHandler creates a new HealthHandler.
-func NewHealthHandler() *HealthHandler {
-	return &HealthHandler{}
-}
-
-// Health handles GET /health
-func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
-	response.JSON(w, http.StatusOK, map[string]string{
-		"status":  "ok",
-		"service": "sistem-hunian-backend",
-	})
+// Health handles GET /health — returns a simple liveness check.
+func Health(w http.ResponseWriter, r *http.Request) {
+	response.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

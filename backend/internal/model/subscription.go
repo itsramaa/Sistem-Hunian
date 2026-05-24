@@ -15,14 +15,15 @@ type Subscription struct {
 
 // SubscriptionTier represents a subscription plan tier.
 type SubscriptionTier struct {
-	ID               string  `json:"id"`
-	Name             string  `json:"name"`
-	Description      string  `json:"description"`
-	Price            float64 `json:"price"`
-	BillingCycleDays int     `json:"billing_cycle_days"`
-	MaxUnits         int     `json:"max_units"`
-	MaxProperties    int     `json:"max_properties"`
-	IsActive         bool    `json:"is_active"`
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	Price       float64 `json:"price"`
+	// BillingCycleDays is the number of days in a billing cycle (e.g. 30 for monthly).
+	BillingCycleDays int  `json:"billing_cycle_days"`
+	MaxUnits         *int `json:"max_units,omitempty"`
+	MaxProperties    *int `json:"max_properties,omitempty"`
+	IsActive         bool `json:"is_active"`
 }
 
 // CreateSubscriptionRequest is the request body for creating a subscription.
@@ -37,6 +38,8 @@ type UpdateSubscriptionStatusRequest struct {
 
 // SubscriptionPaymentRequest is the request body for processing a subscription payment.
 type SubscriptionPaymentRequest struct {
-	Amount        float64 `json:"amount"`
-	PaymentMethod string  `json:"payment_method"`
+	SubscriptionID string  `json:"subscription_id"`
+	Amount         float64 `json:"amount"`
+	// PaymentMethod is the payment method identifier (e.g. xendit invoice ID).
+	PaymentMethod string `json:"payment_method"`
 }

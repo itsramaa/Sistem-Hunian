@@ -5,7 +5,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Badge } from '@/shared/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { cn } from '@/shared/utils/utils';
 import { 
@@ -30,15 +30,21 @@ export function DisbursementCalendar({ className }: DisbursementCalendarProps) {
       if (!merchant?.id) return [];
       const start = startOfMonth(currentMonth);
       const end = endOfMonth(currentMonth);
-      const { data: escrowAccount } = await supabase.from('escrow_accounts').select('id').eq('merchant_id', merchant.id).maybeSingle();
-      if (!escrowAccount) return [];
-      const { data, error } = await supabase.from('disbursements')
-        .select('id, amount, status, scheduled_for, completed_at, type')
-        .eq('escrow_account_id', escrowAccount.id)
-        .gte('scheduled_for', start.toISOString()).lte('scheduled_for', end.toISOString())
-        .order('scheduled_for', { ascending: true });
-      if (error) throw error;
-      return data as Disbursement[];
+      try {
+        // TODO: implement Go endpoint for escrow_accounts lookup + disbursements filter
+        // was: supabase.from('escrow_accounts').select('id').eq('merchant_id', ...) then supabase.from('disbursements').select(...)
+        const r = await apiClient.get('/disbursements', {
+          params: {
+            merchant_id: merchant.id,
+            scheduled_from: start.toISOString(),
+            scheduled_to: end.toISOString(),
+            order: 'scheduled_for.asc',
+          },
+        });
+        return r.data as Disbursement[];
+      } catch (err) {
+        return [];
+      }
     },
     enabled: !!merchant?.id,
   });

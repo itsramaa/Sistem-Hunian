@@ -8,8 +8,13 @@ interface SendNotificationParams {
 }
 
 export async function sendNotification(params: SendNotificationParams) {
-  const response = await apiClient.post('/api/v1/notifications/send', params);
-  return response.data;
+  try {
+    const response = await apiClient.post('/notifications', params);
+    return response.data;
+  } catch (error: any) {
+    console.error("Failed to send notification:", error);
+    throw new Error(error.response?.data?.error?.message || error.message || 'Failed to send notification');
+  }
 }
 
 export async function sendInvoiceNotification(

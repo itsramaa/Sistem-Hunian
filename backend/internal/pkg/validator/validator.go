@@ -6,32 +6,13 @@ import (
 	"net/http"
 )
 
-// DecodeJSON decodes the request body into dst.
-// Returns an error if the body is empty or malformed.
-func DecodeJSON(r *http.Request, dst any) error {
-	if r.Body == nil {
-		return fmt.Errorf("request body is empty")
-	}
-	defer r.Body.Close()
-
+// DecodeJSONLenient decodes the request body into dst.
+// Returns an error if the body is not valid JSON.
+func DecodeJSONLenient(r *http.Request, dst interface{}) error {
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
-
 	if err := dec.Decode(dst); err != nil {
-		return fmt.Errorf("decode json: %w", err)
-	}
-	return nil
-}
-
-// DecodeJSONLenient decodes the request body into dst, allowing unknown fields.
-func DecodeJSONLenient(r *http.Request, dst any) error {
-	if r.Body == nil {
-		return fmt.Errorf("request body is empty")
-	}
-	defer r.Body.Close()
-
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		return fmt.Errorf("decode json: %w", err)
+		return fmt.Errorf("decode: %w", err)
 	}
 	return nil
 }

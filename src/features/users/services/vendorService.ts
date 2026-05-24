@@ -1,35 +1,36 @@
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { logStatusChange } from "@/shared/utils/auditLog";
 import { MERCHANT_VERIFICATION_TRANSITIONS, isValidTransition } from "@/shared/constants/state-machines";
 import { UpdateVendorStatusParams, Vendor, VendorFilters } from "../types/admin-vendor";
 
 export const vendorService = {
   async fetchVendors({ page = 1, pageSize = 20, search = "" }: VendorFilters): Promise<{ vendors: Vendor[]; total: number }> {
-    let query = supabase
-      .from('vendors')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false });
+    try {
+      const params: Record<string, string | number> = {
+        page,
+        page_size: pageSize,
+        order_by: 'created_at',
+        order: 'desc',
+      };
+      if (search) params.search = search;
 
-    if (search) {
-      query = query.or(`business_name.ilike.%${search}%,contact_email.ilike.%${search}%`);
+      const r = await apiClient.get('/vendors', { params });
+      return { vendors: r.data?.data as Vendor[] ?? [], total: r.data?.total ?? 0 };
+    } catch (err) {
+      throw new Error(`Failed to load vendors: ${(err as Error).message}`);
     }
-
-    const { data, error, count } = await query.range((page - 1) * pageSize, page * pageSize - 1);
-
-    if (error) throw new Error(`Failed to load vendors: ${error.message}`);
-    return { vendors: data as Vendor[], total: count || 0 };
   },
 
   async fetchVendorDocuments(vendorId: string) {
     if (!vendorId) return [];
-    const { data, error } = await supabase
-      .from('vendor_verifications')
-      .select('*')
-      .eq('vendor_id', vendorId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
+    try {
+      const r = await apiClient.get('/vendor-verifications', {
+        params: { vendor_id: vendorId, order_by: 'created_at', order: 'desc' },
+      });
+      return r.data ?? [];
+    } catch (err) {
+      throw err;
+    }
   },
 
   async updateVendorStatus({ id, status, reason }: UpdateVendorStatusParams, oldStatus: string): Promise<void> {
@@ -48,26 +49,15 @@ export const vendorService = {
       updateData.rejection_reason = null;
     }
 
-    const { error } = await supabase
-      .from('vendors')
-      .update(updateData)
-      .eq('id', id);
-
-    if (error) throw error;
+    try {
+      await apiClient.put(`/vendors/${id}`, updateData);
+    } catch (err) {
+      throw err;
+    }
 
     // Log status change
     if (status !== oldStatus) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await logStatusChange(
-          'vendor',
-          id,
-          oldStatus,
-          status,
-          reason
-        );
-      }
+      await logStatusChange('vendor', id, oldStatus, status, reason);
     }
   },
 };
-

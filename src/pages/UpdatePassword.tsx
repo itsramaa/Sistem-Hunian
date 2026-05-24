@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { apiClient } from '@/lib/axios';
 import { useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -9,10 +10,8 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { useToast } from '@/shared/hooks/use-toast';
-import { supabase } from '@/lib/integrations/supabase/client';
 import { PasswordStrengthMeter } from '@/features/auth/components/PasswordStrengthMeter';
 import { strongPasswordSchema } from '@/shared/utils/validations/auth';
-import { getAuthErrorMessage } from '@/features/auth/utils/auth-errors';
 
 const updatePasswordSchema = z.object({
   password: strongPasswordSchema,
@@ -42,8 +41,8 @@ export default function UpdatePassword() {
   useEffect(() => {
     // Check if user has a valid session from the reset link
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      const token = localStorage.getItem('sihuni_access_token');
+      if (!token) {
         setIsSessionValid(false);
       } else {
         setIsSessionValid(true);
@@ -55,20 +54,22 @@ export default function UpdatePassword() {
   const handleUpdatePassword = async (data: UpdatePasswordFormData) => {
     setIsLoading(true);
     
-    const { error } = await supabase.auth.updateUser({
-      password: data.password,
-    });
-    
-    setIsLoading(false);
-
-    if (error) {
+    try {
+      await apiClient.post('/auth/change-password', {
+        password: data.password,
+      });
+    } catch (err: unknown) {
+      setIsLoading(false);
+      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Gagal memperbarui password.';
       toast({
         variant: 'destructive',
         title: 'Gagal',
-        description: getAuthErrorMessage(error),
+        description: message,
       });
       return;
     }
+    
+    setIsLoading(false);
 
     setSuccess(true);
     toast({

@@ -1,6 +1,6 @@
 import { MINIMUM_PAYOUT_AMOUNT, PAYOUT_SCHEDULE } from '@/constants/platformFees';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Input } from '@/shared/components/ui/input';
@@ -40,25 +40,16 @@ export function DisbursementScheduleSettings() {
   const updateSchedule = useMutation({
     mutationFn: async () => {
       // 1. Update subscription settings
-      const { error: subError } = await supabase
-        .from('merchant_subscriptions')
-        .update({ 
-          disbursement_schedule: schedule,
-          billing_day: parseInt(billingDay) 
-        } as any)
-        .eq('merchant_id', merchant?.id);
-      
-      if (subError) throw subError;
+      await apiClient.put('/merchant-subscriptions', {
+        merchant_id: merchant?.id,
+        disbursement_schedule: schedule,
+        billing_day: parseInt(billingDay),
+      });
 
       // 2. Update merchant aggregate settings
-      const { error: merchantError } = await supabase
-        .from('merchants')
-        .update({ 
-          min_disbursement_amount: parseInt(minAmount) || MINIMUM_PAYOUT_AMOUNT,
-        })
-        .eq('id', merchant?.id);
-        
-      if (merchantError) throw merchantError;
+      await apiClient.put('/merchants/' + merchant?.id, {
+        min_disbursement_amount: parseInt(minAmount) || MINIMUM_PAYOUT_AMOUNT,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['merchant-settings'] });

@@ -3,7 +3,7 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/itsramaa/sistem-hunian/backend/internal/pkg/response"
+	"github.com/itsramaa/sihuni-api/internal/pkg/response"
 )
 
 // RequireWebhookSecret returns middleware that validates the X-Webhook-Secret header.

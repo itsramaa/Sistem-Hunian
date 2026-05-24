@@ -3,7 +3,6 @@ import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
 import { Send, Loader2, MessageCircle } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { toast } from "sonner";
 import { cn } from "@/shared/utils/utils";
@@ -32,25 +31,8 @@ export function LiveChatTab() {
     const loadConversation = async () => {
       setLoading(true);
       try {
-        // Find existing open conversation
-        const { data: existing } = await (supabase as any)
-          .from("live_chat_conversations")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("status", "open")
-          .order("created_at", { ascending: false })
-          .limit(1);
-
-        if (existing && existing.length > 0) {
-          setConversationId(existing[0].id);
-          // Load messages
-          const { data: msgs } = await (supabase as any)
-            .from("live_chat_messages")
-            .select("*")
-            .eq("conversation_id", existing[0].id)
-            .order("created_at", { ascending: true });
-          setMessages(msgs || []);
-        }
+        // TODO: Go endpoint not yet implemented — was: supabase.from('live_chat_conversations').select(...)
+        // stub: no existing conversation
       } catch (err) {
         console.error("Error loading conversation:", err);
       } finally {
@@ -65,29 +47,8 @@ export function LiveChatTab() {
   useEffect(() => {
     if (!conversationId) return;
 
-    const channel = supabase
-      .channel(`live-chat-${conversationId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "live_chat_messages",
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        (payload) => {
-          const newMsg = payload.new as LiveMessage;
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === newMsg.id)) return prev;
-            return [...prev, newMsg];
-          });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // TODO: Go realtime not yet implemented — was: supabase.channel('live-chat-...').on('postgres_changes', ...)
+    // stub: no realtime subscription
   }, [conversationId]);
 
   // Auto scroll
@@ -101,18 +62,8 @@ export function LiveChatTab() {
     if (!user?.id) return;
     setLoading(true);
     try {
-      const { data, error } = await (supabase as any)
-        .from("live_chat_conversations")
-        .insert({
-          user_id: user.id,
-          user_role: role || "merchant",
-          merchant_id: merchant?.id || null,
-          subject: "Bantuan Live Chat",
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
-      setConversationId(data.id);
+      // TODO: Go endpoint not yet implemented — was: supabase.from('live_chat_conversations').insert(...)
+      throw new Error("Live chat belum tersedia");
       toast.success("Percakapan dimulai. Tim admin akan merespons segera.");
     } catch {
       toast.error("Gagal memulai percakapan.");
@@ -126,15 +77,8 @@ export function LiveChatTab() {
     if (!input.trim() || !conversationId || !user?.id) return;
     setSending(true);
     try {
-      const { error } = await (supabase as any)
-        .from("live_chat_messages")
-        .insert({
-          conversation_id: conversationId,
-          sender_id: user.id,
-          sender_role: role || "merchant",
-          message: input.trim(),
-        });
-      if (error) throw error;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('live_chat_messages').insert(...)
+      throw new Error("Live chat belum tersedia");
       setInput("");
     } catch {
       toast.error("Gagal mengirim pesan.");

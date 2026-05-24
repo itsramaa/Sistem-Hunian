@@ -4,7 +4,7 @@ import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/components/ui/table";
 import { Skeleton } from "@/shared/components/ui/skeleton";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
@@ -30,15 +30,14 @@ export function SubscriptionInvoiceHistory() {
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ["subscription-invoices", merchant?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("subscription_invoices")
-        .select(`*, tier:subscription_tiers(display_name)`)
-        .eq("merchant_id", merchant?.id)
-        .order("created_at", { ascending: false })
-        .limit(10);
-      
-      if (error) throw error;
-      return data as SubscriptionInvoice[];
+      try {
+        const response = await apiClient.get('/subscriptions/invoices', {
+          params: { merchant_id: merchant?.id, limit: 10 },
+        });
+        return (response.data.data || []) as SubscriptionInvoice[];
+      } catch {
+        return [] as SubscriptionInvoice[];
+      }
     },
     enabled: !!merchant?.id,
   });

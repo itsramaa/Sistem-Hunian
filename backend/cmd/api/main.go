@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -10,60 +11,85 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/itsramaa/sistem-hunian/backend/internal/config"
-	"github.com/itsramaa/sistem-hunian/backend/internal/repository"
-	"github.com/itsramaa/sistem-hunian/backend/internal/router"
+	"github.com/itsramaa/sihuni-api/internal/config"
+	"github.com/itsramaa/sihuni-api/internal/pkg/minioclient"
+	"github.com/itsramaa/sihuni-api/internal/pkg/rabbitmq"
+	"github.com/itsramaa/sihuni-api/internal/pkg/redisclient"
+	"github.com/itsramaa/sihuni-api/internal/repository"
+	"github.com/itsramaa/sihuni-api/internal/router"
 )
 
 func main() {
-	cfg := config.Load()
+	cfg, err := config.Load()
+	if err != nil {
+		slog.Error("failed to load config", "error", err)
+		os.Exit(1)
+	}
 
-	// Connect to database
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	pool, err := repository.Connect(ctx, cfg.DatabaseURL)
+	ctx := context.Background()
+	pool, err := repository.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {
 		slog.Error("failed to connect to database", "error", err)
 		os.Exit(1)
 	}
 	defer pool.Close()
 
-	db := repository.New(pool)
+	// Redis (non-fatal in dev)
+	redisClient, err := redisclient.New(cfg.RedisURL)
+	if err != nil {
+		log.Printf("warn: redis unavailable: %v", err)
+	} else {
+		log.Println("redis connected")
+		_ = redisClient
+	}
 
-	// Build router
-	h := router.New(cfg, db)
+	// MinIO (non-fatal in dev)
+	minioClient, err := minioclient.New(cfg.MinioEndpoint, cfg.MinioAccessKey, cfg.MinioSecretKey, cfg.MinioBucket, cfg.MinioUseTLS)
+	if err != nil {
+		log.Printf("warn: minio unavailable: %v", err)
+	} else {
+		log.Println("minio connected")
+		_ = minioClient
+	}
 
-	// Start server
+	// RabbitMQ (non-fatal in dev)
+	rmqConn, rmqCh, err := rabbitmq.New(cfg.RabbitMQURL)
+	if err != nil {
+		log.Printf("warn: rabbitmq unavailable: %v", err)
+	} else {
+		log.Println("rabbitmq connected")
+		defer rmqConn.Close()
+		defer rmqCh.Close()
+		_, _ = rmqConn, rmqCh
+	}
+
+	r := router.New(cfg, pool)
+
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.Port),
-		Handler:      h,
+		Handler:      r,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Graceful shutdown
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-
 	go func() {
-		slog.Info("server starting", "addr", srv.Addr)
+		slog.Info("server starting", "port", cfg.Port, "env", cfg.AppEnv)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("server error", "error", err)
 			os.Exit(1)
 		}
 	}()
 
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
+
 	slog.Info("shutting down server...")
-
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer shutdownCancel()
-
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		slog.Error("server shutdown error", "error", err)
+		slog.Error("graceful shutdown failed", "error", err)
 	}
-
 	slog.Info("server stopped")
 }

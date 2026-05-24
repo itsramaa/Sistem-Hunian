@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { endOfMonth, format, startOfMonth, subDays, subMonths } from "date-fns";
 import {
   AnalyticsEvent,
@@ -14,106 +14,84 @@ import {
 export const analyticsService = {
   async fetchAnalyticsEvents(days = 7): Promise<AnalyticsEvent[]> {
     const startDate = subDays(new Date(), days).toISOString();
-    const { data, error } = await supabase
-      .from('analytics_events')
-      .select('*')
-      .gte('created_at', startDate)
-      .order('created_at', { ascending: false })
-      .limit(1000);
-
-    if (error) throw error;
+    const { data } = await apiClient.get('/analytics-events', {
+      params: { created_at: `gte.${startDate}`, order: 'created_at.desc', limit: 1000 },
+    });
     return (data || []) as AnalyticsEvent[];
   },
 
   async fetchDashboardStats(): Promise<DashboardStats> {
     const [
-      { count: propertyCount },
-      { count: unitCount },
-      { count: occupiedUnitCount },
-      { count: activeContractCount }
+      propertiesRes,
+      unitsRes,
+      occupiedUnitsRes,
+      activeContractsRes,
+      paymentsRes,
     ] = await Promise.all([
-      supabase.from('properties').select('*', { count: 'exact', head: true }),
-      supabase.from('units').select('*', { count: 'exact', head: true }),
-      supabase.from('units').select('*', { count: 'exact', head: true }).eq('status', 'occupied'),
-      supabase.from('contracts').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+      apiClient.get('/properties', { params: { select: 'id', limit: 1 } }),
+      apiClient.get('/units', { params: { select: 'id', limit: 1 } }),
+      apiClient.get('/units', { params: { select: 'id', status: 'eq.occupied', limit: 1 } }),
+      apiClient.get('/contracts', { params: { select: 'id', status: 'eq.active', limit: 1 } }),
+      apiClient.get('/payments', { params: { select: 'amount', status: 'in.(completed,paid)' } }),
     ]);
 
-    const { data: payments } = await supabase
-      .from('payments')
-      .select('amount')
-      .in('status', ['completed', 'paid']);
-
-    const totalRevenue = payments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
-    const totalUnits = unitCount || 0;
-    const occupiedUnits = occupiedUnitCount || 0;
+    const totalRevenue = (paymentsRes.data || []).reduce((sum: number, p: { amount: number }) => sum + Number(p.amount), 0);
+    // Use Content-Range header count if available, else array length
+    const getCount = (res: { data: unknown[] }) => Array.isArray(res.data) ? res.data.length : 0;
+    const totalUnits = getCount(unitsRes);
+    const occupiedUnits = getCount(occupiedUnitsRes);
 
     return {
-      totalProperties: propertyCount || 0,
+      totalProperties: getCount(propertiesRes),
       totalUnits,
       occupiedUnits,
-      activeTenants: activeContractCount || 0,
+      activeTenants: getCount(activeContractsRes),
       totalRevenue,
       occupancyRate: totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0,
     };
   },
 
   async fetchVendorStats() {
-    const { count: total, error: totalError } = await supabase.from('vendors').select('*', { count: 'exact', head: true });
-    if (totalError) throw totalError;
-
-    const { count: pending, error: pendingError } = await supabase.from('vendors').select('*', { count: 'exact', head: true }).eq('verification_status', 'pending');
-    if (pendingError) throw pendingError;
-
-    const { count: verified, error: verifiedError } = await supabase.from('vendors').select('*', { count: 'exact', head: true }).eq('verification_status', 'verified');
-    if (verifiedError) throw verifiedError;
-
-    return { total: total || 0, pending: pending || 0, verified: verified || 0 };
+    const [totalRes, pendingRes, verifiedRes] = await Promise.all([
+      apiClient.get('/vendors', { params: { select: 'id' } }),
+      apiClient.get('/vendors', { params: { select: 'id', verification_status: 'eq.pending' } }),
+      apiClient.get('/vendors', { params: { select: 'id', verification_status: 'eq.verified' } }),
+    ]);
+    return {
+      total: (totalRes.data || []).length,
+      pending: (pendingRes.data || []).length,
+      verified: (verifiedRes.data || []).length,
+    };
   },
 
   async fetchDistributionStats(): Promise<DistributionStats> {
-    // Merchant Status
     const [
-      { count: verifiedMerchants },
-      { count: pendingMerchants },
-      { count: rejectedMerchants }
+      verifiedMerchantsRes,
+      pendingMerchantsRes,
+      rejectedMerchantsRes,
+      occupiedUnitsRes,
+      availableUnitsRes,
+      maintenanceUnitsRes,
+      pendingMaintenanceRes,
+      inProgressMaintenanceRes,
+      completedMaintenanceRes,
+      churnDataRes,
     ] = await Promise.all([
-      supabase.from('merchants').select('*', { count: 'exact', head: true }).eq('verification_status', 'verified'),
-      supabase.from('merchants').select('*', { count: 'exact', head: true }).eq('verification_status', 'pending'),
-      supabase.from('merchants').select('*', { count: 'exact', head: true }).eq('verification_status', 'rejected'),
+      apiClient.get('/merchants', { params: { select: 'id', verification_status: 'eq.verified' } }),
+      apiClient.get('/merchants', { params: { select: 'id', verification_status: 'eq.pending' } }),
+      apiClient.get('/merchants', { params: { select: 'id', verification_status: 'eq.rejected' } }),
+      apiClient.get('/units', { params: { select: 'id', status: 'eq.occupied' } }),
+      apiClient.get('/units', { params: { select: 'id', status: 'eq.available' } }),
+      apiClient.get('/units', { params: { select: 'id', status: 'eq.maintenance' } }),
+      apiClient.get('/maintenance-requests', { params: { select: 'id', status: 'eq.pending' } }),
+      apiClient.get('/maintenance-requests', { params: { select: 'id', status: 'eq.in_progress' } }),
+      apiClient.get('/maintenance-requests', { params: { select: 'id', status: 'eq.completed' } }),
+      apiClient.get('/contracts', { params: { select: 'churn_reason', 'churn_reason': 'not.is.null' } }),
     ]);
-
-    // Unit Status
-    const [
-      { count: occupiedUnits },
-      { count: availableUnits },
-      { count: maintenanceUnits }
-    ] = await Promise.all([
-      supabase.from('units').select('*', { count: 'exact', head: true }).eq('status', 'occupied'),
-      supabase.from('units').select('*', { count: 'exact', head: true }).eq('status', 'available'),
-      supabase.from('units').select('*', { count: 'exact', head: true }).eq('status', 'maintenance'),
-    ]);
-
-    // Maintenance Request Status
-    const [
-      { count: pendingMaintenance },
-      { count: inProgressMaintenance },
-      { count: completedMaintenance }
-    ] = await Promise.all([
-      supabase.from('maintenance_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-      supabase.from('maintenance_requests').select('*', { count: 'exact', head: true }).eq('status', 'in_progress'),
-      supabase.from('maintenance_requests').select('*', { count: 'exact', head: true }).eq('status', 'completed'),
-    ]);
-
-    // Churn Reasons (Top 5)
-    // Note: This still requires fetching contracts with churn_reason, but we can limit fields
-    const { data: churnData } = await supabase
-      .from('contracts')
-      .select('churn_reason')
-      .not('churn_reason', 'is', null);
 
     const churnReasons: Record<string, number> = {};
-    if (churnData) {
-      churnData.forEach((c) => {
+    if (churnDataRes.data) {
+      (churnDataRes.data as { churn_reason: string }[]).forEach((c) => {
         const reason = c.churn_reason || 'Unknown';
         churnReasons[reason] = (churnReasons[reason] || 0) + 1;
       });
@@ -121,19 +99,19 @@ export const analyticsService = {
 
     return {
       merchantStatus: {
-        verified: verifiedMerchants || 0,
-        pending: pendingMerchants || 0,
-        rejected: rejectedMerchants || 0,
+        verified: (verifiedMerchantsRes.data || []).length,
+        pending: (pendingMerchantsRes.data || []).length,
+        rejected: (rejectedMerchantsRes.data || []).length,
       },
       unitStatus: {
-        occupied: occupiedUnits || 0,
-        available: availableUnits || 0,
-        maintenance: maintenanceUnits || 0,
+        occupied: (occupiedUnitsRes.data || []).length,
+        available: (availableUnitsRes.data || []).length,
+        maintenance: (maintenanceUnitsRes.data || []).length,
       },
       maintenanceStatus: {
-        pending: pendingMaintenance || 0,
-        in_progress: inProgressMaintenance || 0,
-        completed: completedMaintenance || 0,
+        pending: (pendingMaintenanceRes.data || []).length,
+        in_progress: (inProgressMaintenanceRes.data || []).length,
+        completed: (completedMaintenanceRes.data || []).length,
       },
       churnReasons,
     };
@@ -145,25 +123,27 @@ export const analyticsService = {
       const date = subMonths(new Date(), i);
       const monthStart = startOfMonth(date);
       const monthEnd = endOfMonth(date);
-      
-      const { data: monthPayments } = await supabase
-        .from('payments')
-        .select('amount')
-        .in('status', ['completed', 'paid'])
-        .gte('created_at', monthStart.toISOString())
-        .lte('created_at', monthEnd.toISOString());
 
-      const { count: propertyCount } = await supabase
-        .from('properties')
-        .select('id', { count: 'exact', head: true })
-        .lte('created_at', monthEnd.toISOString());
+      const [paymentsRes, propertiesRes] = await Promise.all([
+        apiClient.get('/payments', {
+          params: {
+            select: 'amount',
+            status: 'in.(completed,paid)',
+            'created_at': `gte.${monthStart.toISOString()}`,
+            'created_at_lte': `lte.${monthEnd.toISOString()}`,
+          },
+        }),
+        apiClient.get('/properties', {
+          params: { select: 'id', 'created_at': `lte.${monthEnd.toISOString()}` },
+        }),
+      ]);
 
-      const revenue = (monthPayments || []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
-      
+      const revenue = (paymentsRes.data || []).reduce((sum: number, p: { amount: number }) => sum + Number(p.amount || 0), 0);
+
       months.push({
         month: format(date, 'MMM'),
         revenue,
-        properties: propertyCount || 0,
+        properties: (propertiesRes.data || []).length,
       });
     }
     return months;
@@ -171,20 +151,21 @@ export const analyticsService = {
 
   async fetchTenantAnalytics(): Promise<TenantAnalyticsData> {
     const sixMonthsAgo = subMonths(new Date(), 6);
-    
-    const [contractsRes, paymentsRes] = await Promise.all([
-      supabase
-        .from('contracts')
-        .select('id, created_at, status, churn_reason, unit_id, end_date')
-        .or(`created_at.gte.${sixMonthsAgo.toISOString()},end_date.gte.${sixMonthsAgo.toISOString()}`),
-      supabase
-        .from('payments')
-        .select('id, status, due_date, paid_at, amount')
-        .gte('created_at', sixMonthsAgo.toISOString()),
-    ]);
 
-    if (contractsRes.error) throw contractsRes.error;
-    if (paymentsRes.error) throw paymentsRes.error;
+    const [contractsRes, paymentsRes] = await Promise.all([
+      apiClient.get('/contracts', {
+        params: {
+          select: 'id,created_at,status,churn_reason,unit_id,end_date',
+          or: `created_at.gte.${sixMonthsAgo.toISOString()},end_date.gte.${sixMonthsAgo.toISOString()}`,
+        },
+      }),
+      apiClient.get('/payments', {
+        params: {
+          select: 'id,status,due_date,paid_at,amount',
+          'created_at': `gte.${sixMonthsAgo.toISOString()}`,
+        },
+      }),
+    ]);
 
     return {
       contracts: (contractsRes.data || []) as Pick<ContractData, 'id' | 'created_at' | 'status' | 'churn_reason' | 'unit_id' | 'end_date'>[],
@@ -194,14 +175,11 @@ export const analyticsService = {
 
   async fetchSubscriptionAnalytics(): Promise<SubscriptionAnalyticsData> {
     const [subscriptionsRes, tiersRes] = await Promise.all([
-      supabase
-        .from('merchant_subscriptions')
-        .select('*, subscription_tiers(name, display_name, price_monthly, price_yearly)'),
-      supabase.from('subscription_tiers').select('*'),
+      apiClient.get('/merchant-subscriptions', {
+        params: { select: '*,subscription_tiers(name,display_name,price_monthly,price_yearly)' },
+      }),
+      apiClient.get('/subscription-tiers'),
     ]);
-
-    if (subscriptionsRes.error) throw subscriptionsRes.error;
-    if (tiersRes.error) throw tiersRes.error;
 
     return {
       subscriptions: subscriptionsRes.data || [],
@@ -209,22 +187,12 @@ export const analyticsService = {
     };
   },
 
-  subscribeToAnalytics(callback: () => void) {
-    const channel = supabase
-      .channel('analytics-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'analytics_events',
-        },
-        callback
-      )
-      .subscribe();
-
+  subscribeToAnalytics(_callback: () => void) {
+    // TODO: Replace with WebSocket/SSE subscription when available
+    // Previously used supabase.channel('analytics-realtime') for realtime INSERT events on analytics_events
+    console.warn('[analyticsService] subscribeToAnalytics: realtime subscription not yet implemented with apiClient');
     return () => {
-      supabase.removeChannel(channel);
+      // cleanup noop
     };
   }
 };

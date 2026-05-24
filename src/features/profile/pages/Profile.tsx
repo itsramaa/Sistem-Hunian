@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/shared/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { toast } from "sonner";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
+import { apiClient } from "@/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { FileUpload } from "@/shared/components/FileUpload";
 import { Building2, Shield, Lock, Loader2, Save, CheckCircle, Clock, XCircle, Trash2, Copy, AlertTriangle } from "lucide-react";
@@ -40,8 +41,8 @@ const MerchantProfile = () => {
   const { data: merchant, isLoading } = useQuery({
     queryKey: ['merchant-profile', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('v_merchants_with_addresses' as any).select('*').eq('user_id', user?.id).single() as any;
-      if (error) throw error;
+      const response = await apiClient.get('/merchants/profile');
+      const data = response.data.data;
       return { ...data, address: data.resolved_address, city: data.resolved_city, province: data.resolved_province, postal_code: data.resolved_postal_code };
     },
     enabled: !!user?.id,
@@ -50,9 +51,8 @@ const MerchantProfile = () => {
   const { data: profile } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('profiles').select('*').eq('user_id', user?.id).single();
-      if (error) throw error;
-      return data;
+      const response = await apiClient.get('/profiles/me');
+      return response.data.data;
     },
     enabled: !!user?.id,
   });
@@ -61,9 +61,8 @@ const MerchantProfile = () => {
     queryKey: ['merchant-verifications', merchant?.id],
     queryFn: async () => {
       if (!merchant?.id) return [];
-      const { data, error } = await supabase.from('merchant_verifications').select('*').eq('merchant_id', merchant.id).order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
+      const response = await apiClient.get('/merchant-verifications');
+      return response.data.data;
     },
     enabled: !!merchant?.id,
   });
@@ -85,19 +84,7 @@ const MerchantProfile = () => {
 
   const updateMerchant = useMutation({
     mutationFn: async (data: typeof businessForm) => {
-      // Upsert address first
-      const { address, city, province, postal_code, ...rest } = data;
-      const merchantData = merchant as any;
-      if (merchantData?.headquarters_address_id) {
-        await (supabase.from('addresses' as any).update({ street_address: address, city, province, postal_code } as any) as any).eq('id', merchantData.headquarters_address_id);
-      } else {
-        const { data: addr } = await (supabase.from('addresses' as any).insert({ street_address: address, city, province, postal_code: postal_code || '', address_type: 'headquarters' } as any).select('id').single() as any);
-        if (addr) {
-          await supabase.from('merchants').update({ headquarters_address_id: addr.id } as any).eq('user_id', user?.id);
-        }
-      }
-      const { error } = await supabase.from('merchants').update(rest as any).eq('user_id', user?.id);
-      if (error) throw error;
+      await apiClient.put('/merchants/profile', data);
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['merchant-profile'] }); toast.success('Profil bisnis diperbarui'); },
     onError: () => toast.error('Gagal memperbarui profil'),
@@ -105,8 +92,7 @@ const MerchantProfile = () => {
 
   const updateProfile = useMutation({
     mutationFn: async (data: typeof profileForm) => {
-      const { error } = await supabase.from('profiles').update(data).eq('user_id', user?.id);
-      if (error) throw error;
+      await apiClient.put('/profiles/me', data);
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['profile'] }); toast.success('Informasi kontak diperbarui'); },
     onError: () => toast.error('Gagal memperbarui informasi kontak'),
@@ -114,17 +100,23 @@ const MerchantProfile = () => {
 
   const uploadVerificationDocument = async (url: string, documentType: string) => {
     if (!merchant?.id) return;
-    const { error } = await supabase.from('merchant_verifications').insert({ merchant_id: merchant.id, document_type: documentType, document_url: url, status: 'pending' });
-    if (error) { toast.error('Gagal menyimpan dokumen'); return; }
-    toast.success('Dokumen berhasil diunggah');
-    refetchVerifications();
+    try {
+      await apiClient.post('/merchant-verifications', { document_type: documentType, document_url: url });
+      toast.success('Dokumen berhasil diunggah');
+      refetchVerifications();
+    } catch {
+      toast.error('Gagal menyimpan dokumen');
+    }
   };
 
   const deleteVerification = async (id: string) => {
-    const { error } = await supabase.from('merchant_verifications').delete().eq('id', id);
-    if (error) { toast.error('Gagal menghapus dokumen'); return; }
-    toast.success('Dokumen dihapus');
-    refetchVerifications();
+    try {
+      await apiClient.delete(`/merchant-verifications/${id}`);
+      toast.success('Dokumen dihapus');
+      refetchVerifications();
+    } catch {
+      toast.error('Gagal menghapus dokumen');
+    }
   };
 
   const copyMerchantCode = () => {
@@ -146,12 +138,10 @@ const MerchantProfile = () => {
     }
     setIsChangingPassword(true);
     try {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (!currentUser?.email) throw new Error("Email pengguna tidak ditemukan");
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email: currentUser.email, password: passwordForm.currentPassword });
-      if (signInError) { setPasswordErrors({ currentPassword: "Kata sandi saat ini salah" }); return; }
-      const { error: updateError } = await supabase.auth.updateUser({ password: passwordForm.newPassword });
-      if (updateError) throw updateError;
+      await apiClient.post('/auth/change-password', {
+        current_password: passwordForm.currentPassword,
+        new_password: passwordForm.newPassword,
+      });
       setPasswordSuccess(true);
       setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
       toast.success("Kata sandi berhasil diubah");

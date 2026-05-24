@@ -1,10 +1,10 @@
-export async function invokeOcrCompliance(params: {
+// DSS/OCR feature was removed in PR #1. This service is stubbed.
+
+export async function invokeOcrCompliance(_params: {
   document_path: string;
   property_id: string;
   expected_type?: string;
   bucket?: string;
 }) {
-  // OCR compliance endpoint not yet available via REST API — stub
-  console.warn('[ocrComplianceService] ocr-compliance-document not yet migrated to REST API');
-  return null;
+  throw new Error('OCR compliance feature is not available.');
 }

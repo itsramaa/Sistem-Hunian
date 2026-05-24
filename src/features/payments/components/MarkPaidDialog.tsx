@@ -18,7 +18,6 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import { Payment } from "../types";
-import { supabase } from "@/lib/integrations/supabase/client";
 import { ImageIcon, Upload, X } from "lucide-react";
 
 interface MarkPaidDialogProps {
@@ -78,19 +77,8 @@ export function MarkPaidDialog({
     if (proofFile) {
       setUploading(true);
       try {
-        const ext = proofFile.name.split('.').pop();
-        const filePath = `${payment.merchant_id}/${payment.id}.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from('payment-proofs')
-          .upload(filePath, proofFile, { upsert: true });
-
-        if (uploadError) throw uploadError;
-
-        const { data: urlData } = supabase.storage
-          .from('payment-proofs')
-          .getPublicUrl(filePath);
-
-        proofPhotoUrl = urlData.publicUrl;
+        // TODO: implement file storage endpoint — was: supabase.storage.from('payment-proofs').upload(...)
+        console.warn('File upload not yet implemented via Go endpoint');
       } catch (err) {
         console.error('Failed to upload proof photo:', err);
       } finally {

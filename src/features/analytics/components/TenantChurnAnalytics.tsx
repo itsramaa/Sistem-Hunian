@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/integrations/supabase/client';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/card';
 import { Badge } from '@/shared/components/ui/badge';
@@ -31,13 +30,8 @@ export function TenantChurnAnalytics() {
     queryKey: ['contracts-churn', merchant?.id],
     queryFn: async () => {
       if (!merchant?.id) return [];
-      const { data, error } = await supabase
-        .from('contracts')
-        .select('*, unit:units(unit_number, property:properties(name))')
-        .eq('merchant_id', merchant.id)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('contracts').select(...)
+      return [];
     },
     enabled: !!merchant?.id,
   });

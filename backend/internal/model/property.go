@@ -7,92 +7,66 @@ type Property struct {
 	ID          string    `json:"id"`
 	MerchantID  string    `json:"merchant_id"`
 	Name        string    `json:"name"`
-	PropertyType string   `json:"property_type"`
-	AddressID   *string   `json:"address_id,omitempty"`
-	Address     string    `json:"address,omitempty"`
-	City        string    `json:"city,omitempty"`
-	Province    string    `json:"province,omitempty"`
-	PostalCode  *string   `json:"postal_code,omitempty"`
-	Description *string   `json:"description,omitempty"`
-	Status      string    `json:"status"`
-	TotalUnits  int       `json:"total_units"`
-	OccupiedUnits int     `json:"occupied_units"`
+	Address     string    `json:"address"`
+	City        string    `json:"city"`
+	Province    string    `json:"province"`
+	Type        string    `json:"type"`        // kos, apartment, ruko, villa
+	Description string    `json:"description"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 // Unit represents a rentable unit within a property.
 type Unit struct {
-	ID                  string    `json:"id"`
-	PropertyID          string    `json:"property_id"`
-	UnitNumber          string    `json:"unit_number"`
-	UnitType            string    `json:"unit_type"`
-	Floor               *int      `json:"floor,omitempty"`
-	SizeSqm             *float64  `json:"size_sqm,omitempty"`
-	RentAmount          float64   `json:"rent_amount"`
-	DepositAmount       *float64  `json:"deposit_amount,omitempty"`
-	Status              string    `json:"status"`
-	Description         *string   `json:"description,omitempty"`
-	OccupancyType       *string   `json:"occupancy_type,omitempty"`
-	ElectricityIncluded bool      `json:"electricity_included"`
-	WaterIncluded       bool      `json:"water_included"`
-	WifiIncluded        bool      `json:"wifi_included"`
-	CreatedAt           time.Time `json:"created_at"`
-	UpdatedAt           time.Time `json:"updated_at"`
+	ID          string    `json:"id"`
+	PropertyID  string    `json:"property_id"`
+	MerchantID  string    `json:"merchant_id"`
+	Name        string    `json:"name"`
+	Floor       *int      `json:"floor,omitempty"`
+	Type        string    `json:"type"`        // standard, deluxe, suite
+	Status      string    `json:"status"`      // available, occupied, maintenance
+	RentAmount  float64   `json:"rent_amount"`
+	Description string    `json:"description"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-// CreatePropertyRequest is the request body for creating a property.
+// CreatePropertyRequest is the request body for POST /v1/properties.
 type CreatePropertyRequest struct {
-	Name         string  `json:"name"`
-	PropertyType string  `json:"property_type"`
-	Address      string  `json:"address"`
-	City         string  `json:"city"`
-	Province     string  `json:"province"`
-	PostalCode   *string `json:"postal_code,omitempty"`
-	Description  *string `json:"description,omitempty"`
-	Status       string  `json:"status"`
+	Name        string `json:"name"`
+	Address     string `json:"address"`
+	City        string `json:"city"`
+	Province    string `json:"province"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
 }
 
-// UpdatePropertyRequest is the request body for updating a property.
+// UpdatePropertyRequest is the request body for PUT /v1/properties/{id}.
 type UpdatePropertyRequest struct {
-	Name         *string `json:"name,omitempty"`
-	PropertyType *string `json:"property_type,omitempty"`
-	Address      *string `json:"address,omitempty"`
-	City         *string `json:"city,omitempty"`
-	Province     *string `json:"province,omitempty"`
-	PostalCode   *string `json:"postal_code,omitempty"`
-	Description  *string `json:"description,omitempty"`
-	Status       *string `json:"status,omitempty"`
+	Name        string `json:"name"`
+	Address     string `json:"address"`
+	City        string `json:"city"`
+	Province    string `json:"province"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
 }
 
-// CreateUnitRequest is the request body for creating a unit.
+// CreateUnitRequest is the request body for POST /v1/properties/{id}/units.
 type CreateUnitRequest struct {
-	UnitNumber          string   `json:"unit_number"`
-	UnitType            string   `json:"unit_type"`
-	Floor               *int     `json:"floor,omitempty"`
-	SizeSqm             *float64 `json:"size_sqm,omitempty"`
-	RentAmount          float64  `json:"rent_amount"`
-	DepositAmount       *float64 `json:"deposit_amount,omitempty"`
-	Status              string   `json:"status"`
-	Description         *string  `json:"description,omitempty"`
-	OccupancyType       *string  `json:"occupancy_type,omitempty"`
-	ElectricityIncluded bool     `json:"electricity_included"`
-	WaterIncluded       bool     `json:"water_included"`
-	WifiIncluded        bool     `json:"wifi_included"`
+	Name        string  `json:"name"`
+	Floor       *int    `json:"floor,omitempty"`
+	Type        string  `json:"type"`
+	Status      string  `json:"status"`
+	RentAmount  float64 `json:"rent_amount"`
+	Description string  `json:"description"`
 }
 
-// UpdateUnitRequest is the request body for updating a unit.
+// UpdateUnitRequest is the request body for PUT /v1/units/{id}.
 type UpdateUnitRequest struct {
-	UnitNumber          *string  `json:"unit_number,omitempty"`
-	UnitType            *string  `json:"unit_type,omitempty"`
-	Floor               *int     `json:"floor,omitempty"`
-	SizeSqm             *float64 `json:"size_sqm,omitempty"`
-	RentAmount          *float64 `json:"rent_amount,omitempty"`
-	DepositAmount       *float64 `json:"deposit_amount,omitempty"`
-	Status              *string  `json:"status,omitempty"`
-	Description         *string  `json:"description,omitempty"`
-	OccupancyType       *string  `json:"occupancy_type,omitempty"`
-	ElectricityIncluded *bool    `json:"electricity_included,omitempty"`
-	WaterIncluded       *bool    `json:"water_included,omitempty"`
-	WifiIncluded        *bool    `json:"wifi_included,omitempty"`
+	Name        string  `json:"name"`
+	Floor       *int    `json:"floor,omitempty"`
+	Type        string  `json:"type"`
+	Status      string  `json:"status"`
+	RentAmount  float64 `json:"rent_amount"`
+	Description string  `json:"description"`
 }

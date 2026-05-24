@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 
 export interface NearbyFacilityResult {
   type: string;
@@ -81,28 +81,14 @@ export const nearbyFacilitiesService = {
   },
 
   async saveNearbyFacilities(propertyId: string, facilities: NearbyFacilityResult[]): Promise<void> {
-    await (supabase as any).from('property_nearby_facilities').delete().eq('property_id', propertyId);
-    if (facilities.length === 0) return;
-    const rows = facilities.map(f => ({
-      property_id: propertyId,
-      facility_type: f.type,
-      facility_name: f.name,
-      distance_meters: f.distance_meters,
-      latitude: f.latitude,
-      longitude: f.longitude,
-    }));
-    const { error } = await (supabase as any).from('property_nearby_facilities').insert(rows);
-    if (error) throw error;
+    // TODO: migrate to Go API endpoint when property_nearby_facilities endpoint is available
+    await apiClient.put(`/properties/${propertyId}/nearby-facilities`, { facilities });
   },
 
   async getPropertyFacilities(propertyId: string): Promise<NearbyFacilityResult[]> {
-    const { data, error } = await (supabase as any)
-      .from('property_nearby_facilities')
-      .select('*')
-      .eq('property_id', propertyId)
-      .order('distance_meters');
-    if (error) throw error;
-    return (data || []).map((d: any) => ({
+    const response = await apiClient.get(`/properties/${propertyId}/nearby-facilities`);
+    const data = response.data?.data || response.data || [];
+    return data.map((d: any) => ({
       type: d.facility_type,
       name: d.facility_name,
       distance_meters: d.distance_meters || 0,

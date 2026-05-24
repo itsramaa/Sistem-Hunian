@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { useMemo } from 'react';
 import { format, subMonths, differenceInMonths } from 'date-fns';
 
@@ -13,12 +13,10 @@ export function useReportsData(merchantId: string | undefined, effectiveDateRang
     queryKey: ['properties-with-units', merchantId],
     queryFn: async () => {
       if (!merchantId) return [];
-      const { data, error } = await supabase
-        .from('properties')
-        .select('*, units(*)')
-        .eq('merchant_id', merchantId);
-      if (error) throw error;
-      return data;
+      const { data } = await apiClient.get('/properties', {
+        params: { select: '*,units(*)', merchant_id: merchantId },
+      });
+      return data || [];
     },
     enabled: !!merchantId,
   });
@@ -27,15 +25,15 @@ export function useReportsData(merchantId: string | undefined, effectiveDateRang
     queryKey: ['payment-analytics', merchantId, effectiveDateRange.from?.toISOString(), effectiveDateRange.to?.toISOString()],
     queryFn: async () => {
       if (!merchantId) return [];
-      const { data, error } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('merchant_id', merchantId)
-        .gte('created_at', effectiveDateRange.from.toISOString())
-        .lte('created_at', effectiveDateRange.to.toISOString())
-        .order('created_at', { ascending: true });
-      if (error) throw error;
-      return data;
+      const { data } = await apiClient.get('/payments', {
+        params: {
+          merchant_id: merchantId,
+          'created_at': `gte.${effectiveDateRange.from.toISOString()}`,
+          'created_at_lte': `lte.${effectiveDateRange.to.toISOString()}`,
+          order: 'created_at.asc',
+        },
+      });
+      return data || [];
     },
     enabled: !!merchantId && !!effectiveDateRange.from,
   });
@@ -48,15 +46,16 @@ export function useReportsData(merchantId: string | undefined, effectiveDateRang
       const previousFrom = subMonths(effectiveDateRange.from, months);
       const previousTo = subMonths(effectiveDateRange.to, months);
 
-      const { data, error } = await supabase
-        .from('payments')
-        .select('amount, status')
-        .eq('merchant_id', merchantId)
-        .eq('status', 'paid')
-        .gte('created_at', previousFrom.toISOString())
-        .lte('created_at', previousTo.toISOString());
-      if (error) throw error;
-      return data;
+      const { data } = await apiClient.get('/payments', {
+        params: {
+          select: 'amount,status',
+          merchant_id: merchantId,
+          status: 'eq.paid',
+          'created_at': `gte.${previousFrom.toISOString()}`,
+          'created_at_lte': `lte.${previousTo.toISOString()}`,
+        },
+      });
+      return data || [];
     },
     enabled: !!merchantId && !!effectiveDateRange.from,
   });
@@ -65,14 +64,14 @@ export function useReportsData(merchantId: string | undefined, effectiveDateRang
     queryKey: ['maintenance-analytics', merchantId, effectiveDateRange.from?.toISOString(), effectiveDateRange.to?.toISOString()],
     queryFn: async () => {
       if (!merchantId) return [];
-      const { data, error } = await supabase
-        .from('maintenance_requests')
-        .select('*')
-        .eq('merchant_id', merchantId)
-        .gte('created_at', effectiveDateRange.from.toISOString())
-        .lte('created_at', effectiveDateRange.to.toISOString());
-      if (error) throw error;
-      return data;
+      const { data } = await apiClient.get('/maintenance-requests', {
+        params: {
+          merchant_id: merchantId,
+          'created_at': `gte.${effectiveDateRange.from.toISOString()}`,
+          'created_at_lte': `lte.${effectiveDateRange.to.toISOString()}`,
+        },
+      });
+      return data || [];
     },
     enabled: !!merchantId && !!effectiveDateRange.from,
   });

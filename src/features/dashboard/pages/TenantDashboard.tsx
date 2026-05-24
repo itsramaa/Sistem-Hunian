@@ -19,7 +19,6 @@ import {
   ChevronRight,
   DollarSign,
   FileText,
-  Gift,
   Home,
   RefreshCw,
   Store,
@@ -45,7 +44,7 @@ const bannerSlides = [
   {
     id: 3,
     title: "Ajak Teman, Dapat Bonus",
-    subtitle: "Referral program dengan hadiah menarik",
+    subtitle: "Bergabunglah dan nikmati fitur lengkap SiHuni",
     bgColor: "bg-gradient-to-r from-purple-500 to-purple-600",
   },
 ];
@@ -55,7 +54,6 @@ const quickActions = [
   { path: "/tenant/maintenance", icon: Wrench, label: "Lapor", color: "bg-orange-500/10 text-orange-600" },
   { path: "/tenant/invoices", icon: FileText, label: "Tagihan", color: "bg-purple-500/10 text-purple-600" },
   { path: "/tenant/marketplace", icon: Store, label: "Market", color: "bg-emerald-500/10 text-emerald-600" },
-  { path: "/tenant/referrals", icon: Gift, label: "Referral", color: "bg-pink-500/10 text-pink-600" },
 ];
 
 export default function TenantDashboard() {

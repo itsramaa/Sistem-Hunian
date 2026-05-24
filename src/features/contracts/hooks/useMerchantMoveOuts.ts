@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { MoveOutNotice, MoveOutInspection, EarlyTerminationRequest, TenantProfile } from "../types";
 
 export const useMerchantMoveOuts = (merchantId: string | undefined) => {
@@ -11,27 +11,13 @@ export const useMerchantMoveOuts = (merchantId: string | undefined) => {
   } = useQuery({
     queryKey: ["merchant-move-outs", merchantId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("move_out_notices")
-        .select(`
-          *,
-          contract:contracts!inner (
-            id,
-            rent_amount,
-            deposit_amount,
-            merchant_id,
-            tenant_user_id,
-            unit:units (
-              unit_number,
-              property:properties (name, address)
-            )
-          )
-        `)
-        .eq("contract.merchant_id", merchantId)
-        .order("intended_move_out_date", { ascending: true });
-      
-      if (error) throw error;
-      return data as unknown as MoveOutNotice[];
+      // TODO: implement Go endpoint — was: supabase.from('move_out_notices').select(...).eq('contract.merchant_id', merchantId)
+      try {
+        const r = await apiClient.get('/move-out-notices', { params: { merchant_id: merchantId } });
+        return (r.data.data ?? []) as MoveOutNotice[];
+      } catch (err) {
+        throw err as Error;
+      }
     },
     enabled: !!merchantId,
   });
@@ -47,13 +33,13 @@ export const useMerchantMoveOuts = (merchantId: string | undefined) => {
       const noticeIds = moveOutNotices?.map((n) => n.id) || [];
       if (noticeIds.length === 0) return [];
       
-      const { data, error } = await supabase
-        .from("move_out_inspections")
-        .select("*")
-        .in("move_out_notice_id", noticeIds);
-      
-      if (error) throw error;
-      return data as unknown as MoveOutInspection[];
+      // TODO: implement Go endpoint — was: supabase.from('move_out_inspections').select('*').in('move_out_notice_id', noticeIds)
+      try {
+        const r = await apiClient.get('/move-out-inspections', { params: { notice_ids: noticeIds.join(',') } });
+        return (r.data.data ?? []) as MoveOutInspection[];
+      } catch (err) {
+        throw err as Error;
+      }
     },
     enabled: !!moveOutNotices?.length,
   });
@@ -66,25 +52,15 @@ export const useMerchantMoveOuts = (merchantId: string | undefined) => {
   } = useQuery({
     queryKey: ["merchant-early-terminations", merchantId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("early_termination_requests")
-        .select(`
-          *,
-          contract:contracts!inner (
-            id,
-            rent_amount,
-            merchant_id,
-            unit:units (
-              unit_number,
-              property:properties (name)
-            )
-          )
-        `)
-        .eq("contract.merchant_id", merchantId)
-        .eq("status", "pending_approval");
-      
-      if (error) throw error;
-      return data as unknown as EarlyTerminationRequest[];
+      // TODO: implement Go endpoint — was: supabase.from('early_termination_requests').select(...).eq('contract.merchant_id', merchantId).eq('status', 'pending_approval')
+      try {
+        const r = await apiClient.get('/early-termination-requests', {
+          params: { merchant_id: merchantId, status: 'pending_approval' },
+        });
+        return (r.data.data ?? []) as EarlyTerminationRequest[];
+      } catch (err) {
+        throw err as Error;
+      }
     },
     enabled: !!merchantId,
   });
@@ -98,21 +74,19 @@ export const useMerchantMoveOuts = (merchantId: string | undefined) => {
     queryKey: ["tenant-profiles", moveOutNotices?.map(n => n.tenant_user_id)],
     queryFn: async () => {
       const tenantIds = moveOutNotices?.map((n) => n.tenant_user_id) || [];
-      // Also include tenant IDs from early term requests if needed, but for now stick to move out notices as per original code
-      
       if (tenantIds.length === 0) return {};
       
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("user_id, full_name, email")
-        .in("user_id", tenantIds);
-      
-      if (error) throw error;
-      
-      return data?.reduce((acc, p) => {
-        acc[p.user_id] = p as TenantProfile;
-        return acc;
-      }, {} as Record<string, TenantProfile>) || {};
+      // TODO: implement Go endpoint — was: supabase.from('profiles').select('user_id, full_name, email').in('user_id', tenantIds)
+      try {
+        const r = await apiClient.get('/profiles', { params: { user_ids: tenantIds.join(',') } });
+        const data: TenantProfile[] = r.data.data ?? [];
+        return data.reduce((acc, p) => {
+          acc[p.user_id] = p;
+          return acc;
+        }, {} as Record<string, TenantProfile>);
+      } catch (err) {
+        throw err as Error;
+      }
     },
     enabled: !!moveOutNotices?.length,
   });

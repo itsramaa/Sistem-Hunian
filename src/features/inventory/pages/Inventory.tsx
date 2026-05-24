@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
@@ -54,10 +53,8 @@ export default function Inventory() {
   const { data: facilityTypes = [], isLoading: loadingTypes } = useQuery({
     queryKey: ['facility-types', merchantId],
     queryFn: async () => {
-      const { data, error } = await (supabase.from as any)('facility_types')
-        .select('*').eq('merchant_id', merchantId).order('name');
-      if (error) throw error;
-      return data;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('facility_types').select(...)
+      return [];
     },
     enabled: !!merchantId,
   });
@@ -66,12 +63,8 @@ export default function Inventory() {
   const { data: assets = [], isLoading: loadingAssets } = useQuery({
     queryKey: ['assets', merchantId],
     queryFn: async () => {
-      const { data, error } = await (supabase.from as any)('assets')
-        .select('*, facility_type:facility_types(name, asset_type, scope), property:properties(name), unit:units(unit_number)')
-        .eq('merchant_id', merchantId)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('assets').select(...)
+      return [];
     },
     enabled: !!merchantId,
   });
@@ -80,12 +73,8 @@ export default function Inventory() {
   const { data: assignments = [], isLoading: loadingAssignments } = useQuery({
     queryKey: ['facility-assignments', merchantId],
     queryFn: async () => {
-      const { data, error } = await (supabase.from as any)('facility_assignments')
-        .select('*, facility_type:facility_types(name, merchant_id), property:properties(name), unit:units(unit_number)')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      // Filter by merchant through facility_type
-      return (data || []).filter((a: any) => a.facility_type?.merchant_id === merchantId);
+      // TODO: Go endpoint not yet implemented — was: supabase.from('facility_assignments').select(...)
+      return [];
     },
     enabled: !!merchantId,
   });
@@ -93,15 +82,8 @@ export default function Inventory() {
   // Add facility type mutation
   const addTypeMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await (supabase.from as any)('facility_types').insert({
-        merchant_id: merchantId,
-        name: newTypeName.trim(),
-        scope: newTypeScope,
-        nature: newTypeNature,
-        is_trackable: newTypeNature === 'tangible',
-        asset_type: newTypeNature === 'tangible' ? newTypeAssetType : 'lainnya',
-      });
-      if (error) throw error;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('facility_types').insert(...)
+      // No-op stub
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['facility-types'] });
@@ -112,9 +94,9 @@ export default function Inventory() {
   });
 
   const deleteTypeMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await (supabase.from as any)('facility_types').delete().eq('id', id);
-      if (error) throw error;
+    mutationFn: async (_id: string) => {
+      // TODO: Go endpoint not yet implemented — was: supabase.from('facility_types').delete().eq('id', id)
+      // No-op stub
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['facility-types'] });

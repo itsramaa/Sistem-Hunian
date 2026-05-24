@@ -2,7 +2,6 @@ import { usePaymentTracking } from '@/features/analytics/hooks/useAnalytics';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { PaymentHistoryExport } from '@/features/payments/components/PaymentHistoryExport';
 import { XenditPaymentModal } from '@/features/payments/components/XenditPaymentModal';
-import { supabase } from '@/lib/integrations/supabase/client';
 import { TenantLayout } from '@/shared/components/layouts/TenantLayout';
 import { Alert, AlertDescription } from '@/shared/components/ui/alert';
 import { Badge } from '@/shared/components/ui/badge';
@@ -17,6 +16,7 @@ import { useQuery } from '@tanstack/react-query';
 import { format, isPast, parseISO } from 'date-fns';
 import { AlertTriangle, Calendar, CheckCircle, Clock, CreditCard, DollarSign, FileText, Filter, Info, RefreshCw } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { apiClient } from '@/lib/axios';
 
 type Payment = {
   id: string;
@@ -62,13 +62,8 @@ export default function TenantPayments() {
     queryKey: ['tenant-payments-all', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      const { data, error } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('tenant_user_id', user.id)
-        .order('due_date', { ascending: false });
-      if (error) throw error;
-      return data as Payment[];
+      const { data } = await apiClient.get('/payments', { params: { tenant_user_id: user.id } });
+      return (data as Payment[]) || [];
     },
     enabled: !!user?.id,
   });
@@ -77,14 +72,8 @@ export default function TenantPayments() {
     queryKey: ['tenant-invoices', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('*')
-        .eq('tenant_user_id', user.id)
-        .neq('status', 'draft')
-        .order('due_date', { ascending: false });
-      if (error) throw error;
-      return data as Invoice[];
+      // TODO: Go endpoint not yet implemented — was: supabase.from('invoices').select('*').eq('tenant_user_id', user.id).neq('status', 'draft')
+      return [] as Invoice[];
     },
     enabled: !!user?.id,
   });

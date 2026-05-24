@@ -7,8 +7,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/itsramaa/sistem-hunian/backend/internal/pkg/apierror"
-	"github.com/itsramaa/sistem-hunian/backend/internal/pkg/response"
+	"github.com/itsramaa/sihuni-api/internal/pkg/apierror"
+	"github.com/itsramaa/sihuni-api/internal/pkg/response"
 )
 
 // acceptInvitationRequest is the request body for accepting an invitation.

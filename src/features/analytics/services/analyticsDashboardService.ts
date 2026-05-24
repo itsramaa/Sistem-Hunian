@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 
 export interface DashboardFilters {
   propertyType?: string;
@@ -8,71 +8,64 @@ export interface DashboardFilters {
 }
 
 export async function fetchProperties(merchantId: string, filters?: DashboardFilters) {
-  let query = supabase
-    .from("v_properties_with_addresses" as any)
-    .select("id, name, property_type, resolved_city, resolved_latitude, resolved_longitude, disaster_risk_level, construction_cost, renovation_cost, construction_year, total_units, occupied_units")
-    .eq("merchant_id", merchantId);
+  try {
+    const params: Record<string, unknown> = { merchant_id: merchantId };
+    if (filters?.yearMin) params.gte_construction_year = filters.yearMin;
+    if (filters?.yearMax) params.lte_construction_year = filters.yearMax;
 
-  if (filters?.yearMin) {
-    query = query.gte("construction_year", filters.yearMin);
+    const r = await apiClient.get('/properties', { params });
+    return ((r.data || []) as any[]).map((p: any) => ({
+      ...p,
+      city: p.resolved_city ?? p.city,
+      latitude: p.resolved_latitude ?? p.latitude,
+      longitude: p.resolved_longitude ?? p.longitude,
+    }));
+  } catch {
+    // TODO: implement Go endpoint — was: supabase.from('v_properties_with_addresses').select(...)
+    return [];
   }
-  if (filters?.yearMax) {
-    query = query.lte("construction_year", filters.yearMax);
-  }
-
-  const { data, error } = await query as any;
-  if (error) throw error;
-  // Map resolved fields to flat names for backward compat
-  return ((data || []) as any[]).map((p: any) => ({
-    ...p,
-    city: p.resolved_city,
-    latitude: p.resolved_latitude,
-    longitude: p.resolved_longitude,
-  }));
 }
 
 export async function fetchUnits(merchantId: string) {
-  // Use explicit typing to avoid TS2589 deep instantiation on units table
-  const { data, error } = await (supabase
-    .from("units" as any)
-    .select("id, property_id, rent_amount, status")
-    .eq("merchant_id", merchantId) as any);
-  if (error) throw error;
-  return (data || []) as { id: string; property_id: string; rent_amount: number | null; status: string }[];
+  try {
+    const r = await apiClient.get('/units', { params: { merchant_id: merchantId } });
+    return (r.data || []) as { id: string; property_id: string; rent_amount: number | null; status: string }[];
+  } catch {
+    // TODO: implement Go endpoint — was: supabase.from('units').select(...)
+    return [] as { id: string; property_id: string; rent_amount: number | null; status: string }[];
+  }
 }
 
 export async function fetchContracts(merchantId: string, filters?: DashboardFilters) {
-  let query = supabase
-    .from("contracts")
-    .select("id, unit_id, status, start_date, end_date, rent_amount, created_at")
-    .eq("merchant_id", merchantId);
+  try {
+    const params: Record<string, unknown> = { merchant_id: merchantId };
+    if (filters?.yearMin) params.gte_created_at = `${filters.yearMin}-01-01`;
+    if (filters?.yearMax) params.lte_created_at = `${filters.yearMax}-12-31`;
 
-  if (filters?.yearMin) {
-    query = query.gte("created_at", `${filters.yearMin}-01-01`);
+    const r = await apiClient.get('/contracts', { params });
+    return r.data || [];
+  } catch {
+    // TODO: implement Go endpoint — was: supabase.from('contracts').select(...)
+    return [];
   }
-  if (filters?.yearMax) {
-    query = query.lte("created_at", `${filters.yearMax}-12-31`);
-  }
-
-  const { data, error } = await query;
-  if (error) throw error;
-  return data || [];
 }
 
 export async function fetchTenantRiskScores(merchantId: string) {
-  const { data, error } = await supabase
-    .from("tenant_risk_scores")
-    .select("id, risk_score, risk_level")
-    .eq("merchant_id", merchantId);
-  if (error) throw error;
-  return data || [];
+  try {
+    const r = await apiClient.get('/tenant-risk-scores', { params: { merchant_id: merchantId } });
+    return r.data || [];
+  } catch {
+    // TODO: implement Go endpoint — was: supabase.from('tenant_risk_scores').select(...)
+    return [];
+  }
 }
 
 export async function fetchDisasterRiskProfiles(merchantId: string) {
-  const { data, error } = await supabase
-    .from("disaster_risk_profiles")
-    .select("id, property_id, overall_risk_score, flood_risk, earthquake_risk, fire_risk, landslide_risk, risk_zone")
-    .eq("merchant_id", merchantId);
-  if (error) throw error;
-  return data || [];
+  try {
+    const r = await apiClient.get('/disaster-risk-profiles', { params: { merchant_id: merchantId } });
+    return r.data || [];
+  } catch {
+    // TODO: implement Go endpoint — was: supabase.from('disaster_risk_profiles').select(...)
+    return [];
+  }
 }

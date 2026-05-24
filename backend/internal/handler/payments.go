@@ -6,33 +6,25 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/itsramaa/sistem-hunian/backend/internal/middleware"
-	"github.com/itsramaa/sistem-hunian/backend/internal/pkg/apierror"
-	"github.com/itsramaa/sistem-hunian/backend/internal/pkg/response"
+	"github.com/itsramaa/sihuni-api/internal/middleware"
+	"github.com/itsramaa/sihuni-api/internal/pkg/apierror"
+	"github.com/itsramaa/sihuni-api/internal/pkg/response"
 )
 
 // xenditInvoiceRequest is the request body for CreateXenditInvoice.
 type xenditInvoiceRequest struct {
-	InvoiceID  string `json:"invoice_id"`
-	PayerEmail string `json:"payer_email"`
+	InvoiceID  string  `json:"invoice_id"`
+	PayerEmail string  `json:"payer_email"`
 	Amount     float64 `json:"amount"`
 }
 
 // xenditDisbursementRequest is the request body for CreateDisbursement.
 type xenditDisbursementRequest struct {
-	ExternalID          string  `json:"external_id"`
-	BankCode            string  `json:"bank_code"`
-	AccountHolderName   string  `json:"account_holder_name"`
-	AccountNumber       string  `json:"account_number"`
-	Amount              float64 `json:"amount"`
-}
-
-// xenditWebhookPayload is the payload from Xendit payment webhooks.
-type xenditWebhookPayload struct {
-	ID         string  `json:"id"`
-	ExternalID string  `json:"external_id"`
-	Status     string  `json:"status"`
-	Amount     float64 `json:"amount"`
+	ExternalID        string  `json:"external_id"`
+	BankCode          string  `json:"bank_code"`
+	AccountHolderName string  `json:"account_holder_name"`
+	AccountNumber     string  `json:"account_number"`
+	Amount            float64 `json:"amount"`
 }
 
 // requireUserClaims extracts UserClaims from context; returns nil if absent.
@@ -124,69 +116,5 @@ func CreateDisbursement(pool *pgxpool.Pool, _ interface{}) http.Handler {
 			"external_id": req.ExternalID,
 			"status":      "pending",
 		})
-	})
-}
-
-// XenditPaymentWebhook handles POST /v1/webhooks/xendit/payment
-// Processes Xendit payment status callbacks.
-func XenditPaymentWebhook(pool *pgxpool.Pool, callbackToken string) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if callbackToken != "" {
-			token := r.Header.Get("X-CALLBACK-TOKEN")
-			if token != callbackToken {
-				response.APIError(w, apierror.Unauthorized("invalid callback token"))
-				return
-			}
-		}
-
-		var payload xenditWebhookPayload
-		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-			response.APIError(w, apierror.BadRequest("invalid request body: "+err.Error()))
-			return
-		}
-
-		if payload.ExternalID == "" {
-			response.APIError(w, apierror.BadRequest("external_id is required"))
-			return
-		}
-
-		if pool == nil {
-			response.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
-			return
-		}
-
-		response.JSON(w, http.StatusOK, map[string]string{"status": "processed"})
-	})
-}
-
-// XenditDisbursementWebhook handles POST /v1/webhooks/xendit/disbursement
-// Processes Xendit disbursement status callbacks.
-func XenditDisbursementWebhook(pool *pgxpool.Pool, callbackToken string) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if callbackToken != "" {
-			token := r.Header.Get("X-CALLBACK-TOKEN")
-			if token != callbackToken {
-				response.APIError(w, apierror.Unauthorized("invalid callback token"))
-				return
-			}
-		}
-
-		var payload xenditWebhookPayload
-		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-			response.APIError(w, apierror.BadRequest("invalid request body: "+err.Error()))
-			return
-		}
-
-		if payload.ExternalID == "" {
-			response.APIError(w, apierror.BadRequest("external_id is required"))
-			return
-		}
-
-		if pool == nil {
-			response.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
-			return
-		}
-
-		response.JSON(w, http.StatusOK, map[string]string{"status": "processed"})
 	})
 }

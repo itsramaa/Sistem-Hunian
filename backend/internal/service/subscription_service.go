@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/itsramaa/sistem-hunian/backend/internal/model"
-	"github.com/itsramaa/sistem-hunian/backend/internal/repository"
+	"github.com/itsramaa/sihuni-api/internal/model"
+	"github.com/itsramaa/sihuni-api/internal/repository"
 )
 
 // SubscriptionService handles business logic for subscriptions.

@@ -4,22 +4,23 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/itsramaa/sistem-hunian/backend/internal/model"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/itsramaa/sihuni-api/internal/model"
 )
 
 // SubscriptionRepo handles database operations for subscriptions and tiers.
 type SubscriptionRepo struct {
-	db *DB
+	pool *pgxpool.Pool
 }
 
 // NewSubscriptionRepo creates a new SubscriptionRepo.
-func NewSubscriptionRepo(db *DB) *SubscriptionRepo {
-	return &SubscriptionRepo{db: db}
+func NewSubscriptionRepo(pool *pgxpool.Pool) *SubscriptionRepo {
+	return &SubscriptionRepo{pool: pool}
 }
 
 // ListSubscriptions returns all subscriptions scoped to a merchant.
 func (r *SubscriptionRepo) ListSubscriptions(ctx context.Context, merchantID string) ([]model.Subscription, error) {
-	rows, err := r.db.Pool.Query(ctx, `
+	rows, err := r.pool.Query(ctx, `
 		SELECT id, merchant_id, tier_id, status,
 		       current_period_start, current_period_end, created_at
 		FROM subscriptions
@@ -51,7 +52,7 @@ func (r *SubscriptionRepo) ListSubscriptions(ctx context.Context, merchantID str
 // GetSubscription returns a single subscription by ID, scoped to merchantID.
 func (r *SubscriptionRepo) GetSubscription(ctx context.Context, id, merchantID string) (*model.Subscription, error) {
 	var s model.Subscription
-	err := r.db.Pool.QueryRow(ctx, `
+	err := r.pool.QueryRow(ctx, `
 		SELECT id, merchant_id, tier_id, status,
 		       current_period_start, current_period_end, created_at
 		FROM subscriptions
@@ -70,7 +71,7 @@ func (r *SubscriptionRepo) GetSubscription(ctx context.Context, id, merchantID s
 // The subscription starts immediately with an 'active' status.
 func (r *SubscriptionRepo) CreateSubscription(ctx context.Context, merchantID, tierID string) (*model.Subscription, error) {
 	var s model.Subscription
-	err := r.db.Pool.QueryRow(ctx, `
+	err := r.pool.QueryRow(ctx, `
 		INSERT INTO subscriptions (merchant_id, tier_id, status, current_period_start, current_period_end)
 		SELECT $1, $2, 'active', NOW(),
 		       NOW() + (billing_cycle_days || ' days')::interval
@@ -91,7 +92,7 @@ func (r *SubscriptionRepo) CreateSubscription(ctx context.Context, merchantID, t
 // UpdateSubscriptionStatus updates the status of a subscription scoped to a merchant.
 func (r *SubscriptionRepo) UpdateSubscriptionStatus(ctx context.Context, id, merchantID, status string) (*model.Subscription, error) {
 	var s model.Subscription
-	err := r.db.Pool.QueryRow(ctx, `
+	err := r.pool.QueryRow(ctx, `
 		UPDATE subscriptions
 		SET status = $1, updated_at = NOW()
 		WHERE id = $2 AND merchant_id = $3
@@ -109,7 +110,7 @@ func (r *SubscriptionRepo) UpdateSubscriptionStatus(ctx context.Context, id, mer
 
 // ListTiers returns all active subscription tiers.
 func (r *SubscriptionRepo) ListTiers(ctx context.Context) ([]model.SubscriptionTier, error) {
-	rows, err := r.db.Pool.Query(ctx, `
+	rows, err := r.pool.Query(ctx, `
 		SELECT id, name, COALESCE(description, ''), price,
 		       billing_cycle_days, max_units, max_properties, is_active
 		FROM subscription_tiers
@@ -141,7 +142,7 @@ func (r *SubscriptionRepo) ListTiers(ctx context.Context) ([]model.SubscriptionT
 // ProcessPayment records a subscription payment and extends the subscription period.
 // TODO: integrate with Xendit invoice creation for real payment flow.
 func (r *SubscriptionRepo) ProcessPayment(ctx context.Context, id, merchantID string, req model.SubscriptionPaymentRequest) (*model.Subscription, error) {
-	tx, err := r.db.Pool.Begin(ctx)
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("subscription_repo: begin tx: %w", err)
 	}
@@ -190,7 +191,7 @@ func (r *SubscriptionRepo) ProcessPayment(ctx context.Context, id, merchantID st
 // Returns the count of subscriptions processed.
 // TODO: integrate with Xendit to create actual invoices.
 func (r *SubscriptionRepo) RunBillingCycle(ctx context.Context) (int, error) {
-	result, err := r.db.Pool.Exec(ctx, `
+	result, err := r.pool.Exec(ctx, `
 		INSERT INTO subscription_invoices (subscription_id, amount, due_date, status)
 		SELECT s.id, t.price, s.current_period_end, 'pending'
 		FROM subscriptions s
@@ -212,7 +213,7 @@ func (r *SubscriptionRepo) RunBillingCycle(ctx context.Context) (int, error) {
 // RunRenewal processes subscriptions that have been paid and extends their period.
 // Returns the count of subscriptions renewed.
 func (r *SubscriptionRepo) RunRenewal(ctx context.Context) (int, error) {
-	result, err := r.db.Pool.Exec(ctx, `
+	result, err := r.pool.Exec(ctx, `
 		UPDATE subscriptions s
 		SET
 			current_period_start = current_period_end,
@@ -241,7 +242,7 @@ func (r *SubscriptionRepo) RunRenewal(ctx context.Context) (int, error) {
 // Returns the count of subscriptions updated.
 func (r *SubscriptionRepo) RunGraceCheck(ctx context.Context) (int, error) {
 	// Move active → grace_period if period ended and no paid invoice
-	r1, err := r.db.Pool.Exec(ctx, `
+	r1, err := r.pool.Exec(ctx, `
 		UPDATE subscriptions
 		SET status = 'grace_period', updated_at = NOW()
 		WHERE status = 'active'
@@ -258,7 +259,7 @@ func (r *SubscriptionRepo) RunGraceCheck(ctx context.Context) (int, error) {
 	}
 
 	// Move grace_period → expired after 7 days
-	r2, err := r.db.Pool.Exec(ctx, `
+	r2, err := r.pool.Exec(ctx, `
 		UPDATE subscriptions
 		SET status = 'expired', updated_at = NOW()
 		WHERE status = 'grace_period'

@@ -2,36 +2,19 @@ package middleware
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/itsramaa/sistem-hunian/backend/internal/pkg/response"
 )
 
 type contextKey string
 
-const (
-	// ContextKeyUserID is the context key for the authenticated user's ID.
-	ContextKeyUserID contextKey = "user_id"
-	// ContextKeyMerchantID is the context key for the authenticated merchant's ID.
-	ContextKeyMerchantID contextKey = "merchant_id"
-	// ContextKeyRole is the context key for the authenticated user's role.
-	ContextKeyRole contextKey = "role"
-	// ContextKeyClaims is the context key for the full JWT claims.
-	ContextKeyClaims contextKey = "claims"
-)
+// UserClaimsKey is the context key for injected UserClaims.
+const UserClaimsKey contextKey = "user_claims"
 
-// Claims represents the JWT claims from Supabase.
-type Claims struct {
-	jwt.RegisteredClaims
-	Role       string                 `json:"role"`
-	Email      string                 `json:"email"`
-	AppMetadata map[string]any        `json:"app_metadata"`
-	UserMetadata map[string]any       `json:"user_metadata"`
-}
-
-// UserClaims is an alias for Claims used by test helpers.
+// UserClaims holds the parsed claims from a Supabase JWT.
 type UserClaims struct {
 	UserID      string
 	Email       string
@@ -39,78 +22,122 @@ type UserClaims struct {
 	AppMetadata map[string]interface{}
 }
 
-// UserClaimsKey is the context key used by test helpers to inject UserClaims.
-const UserClaimsKey contextKey = "user_claims"
-
-// RequireAuth validates the Bearer JWT token and injects claims into context.
-func RequireAuth(jwtSecret string) func(http.Handler) http.Handler {
+// Authenticate validates a Supabase-issued HS256 JWT and injects UserClaims into the request context.
+// Requests without a valid Bearer token receive a 401 response.
+// When APP_ENV=development and JWT_SECRET is empty, auth is bypassed and a mock user is injected.
+func Authenticate(jwtSecret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Dev bypass: skip JWT validation when secret is not configured
+			if jwtSecret == "" {
+				mockClaims := &UserClaims{
+					UserID: "dev-user-id",
+					Email:  "dev@localhost",
+					Role:   "merchant",
+					AppMetadata: map[string]interface{}{
+						"role":        "merchant",
+						"merchant_id": "dev-merchant-id",
+					},
+				}
+				ctx := context.WithValue(r.Context(), UserClaimsKey, mockClaims)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+
 			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
-				response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing authorization header")
+			if !strings.HasPrefix(authHeader, "Bearer ") {
+				writeUnauthorized(w, "missing bearer token")
 				return
 			}
 
-			parts := strings.SplitN(authHeader, " ", 2)
-			if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") {
-				response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "invalid authorization header format")
-				return
-			}
-
-			tokenStr := parts[1]
-			claims := &Claims{}
-
-			token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (any, error) {
+			tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+			token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
 				if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-					return nil, jwt.ErrSignatureInvalid
+					return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 				}
 				return []byte(jwtSecret), nil
 			})
-
 			if err != nil || !token.Valid {
-				response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "invalid or expired token")
+				writeUnauthorized(w, "invalid token")
 				return
 			}
 
-			// Inject user info into context
-			ctx := context.WithValue(r.Context(), ContextKeyClaims, claims)
-			ctx = context.WithValue(ctx, ContextKeyUserID, claims.Subject)
-
-			// Extract role from app_metadata (Supabase pattern)
-			if role, ok := claims.AppMetadata["role"].(string); ok {
-				ctx = context.WithValue(ctx, ContextKeyRole, role)
+			claims, ok := token.Claims.(jwt.MapClaims)
+			if !ok {
+				writeUnauthorized(w, "invalid claims")
+				return
 			}
 
-			// Extract merchant_id from app_metadata if present
-			if merchantID, ok := claims.AppMetadata["merchant_id"].(string); ok {
-				ctx = context.WithValue(ctx, ContextKeyMerchantID, merchantID)
+			userClaims := &UserClaims{
+				UserID: getString(claims, "sub"),
+				Email:  getString(claims, "email"),
+				Role:   getString(claims, "role"),
 			}
 
+			// app_metadata.role overrides the top-level role claim (Supabase pattern)
+			if meta, ok := claims["app_metadata"].(map[string]interface{}); ok {
+				userClaims.AppMetadata = meta
+				if r, ok := meta["role"].(string); ok && r != "" {
+					userClaims.Role = r
+				}
+			}
+
+			ctx := context.WithValue(r.Context(), UserClaimsKey, userClaims)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
-// GetUserID extracts the user ID from the request context.
-func GetUserID(r *http.Request) string {
-	if v, ok := r.Context().Value(ContextKeyUserID).(string); ok {
-		return v
-	}
-	return ""
+// GetUserClaims retrieves UserClaims from the request context.
+// Returns nil if no claims are present (unauthenticated request).
+func GetUserClaims(ctx context.Context) *UserClaims {
+	claims, _ := ctx.Value(UserClaimsKey).(*UserClaims)
+	return claims
 }
 
-// GetMerchantID extracts the merchant ID from the request context.
+// GetMerchantID is a convenience helper that extracts the merchant_id from app_metadata.
+// Returns empty string if not present.
 func GetMerchantID(r *http.Request) string {
-	if v, ok := r.Context().Value(ContextKeyMerchantID).(string); ok {
-		return v
+	claims := GetUserClaims(r.Context())
+	if claims == nil {
+		return ""
+	}
+	if meta := claims.AppMetadata; meta != nil {
+		if mid, ok := meta["merchant_id"].(string); ok {
+			return mid
+		}
 	}
 	return ""
 }
 
-// GetRole extracts the role from the request context.
+// GetUserID is a convenience helper that extracts the user ID (sub) from the JWT claims.
+// Returns empty string if not present.
+func GetUserID(r *http.Request) string {
+	claims := GetUserClaims(r.Context())
+	if claims == nil {
+		return ""
+	}
+	return claims.UserID
+}
+
+// GetRole is a convenience helper that extracts the role from the JWT claims.
+// Returns empty string if not present.
 func GetRole(r *http.Request) string {
-	if v, ok := r.Context().Value(ContextKeyRole).(string); ok {
+	claims := GetUserClaims(r.Context())
+	if claims == nil {
+		return ""
+	}
+	return claims.Role
+}
+
+func writeUnauthorized(w http.ResponseWriter, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusUnauthorized)
+	fmt.Fprintf(w, `{"data":null,"error":{"code":"UNAUTHORIZED","message":%q,"status":401}}`, message)
+}
+
+func getString(m jwt.MapClaims, key string) string {
+	if v, ok := m[key].(string); ok {
 		return v
 	}
 	return ""

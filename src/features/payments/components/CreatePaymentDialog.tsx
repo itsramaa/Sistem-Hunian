@@ -8,7 +8,7 @@ import { Label } from "@/shared/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/shared/components/ui/select";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { Upload, X, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { formatCurrency } from "@/shared/utils/currency";
@@ -64,22 +64,12 @@ export function CreatePaymentDialog({ open, onOpenChange, merchantId, onSubmit, 
   const { data: contracts = [] } = useQuery({
     queryKey: ['active-contracts-for-payment', merchantId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('contracts')
-        .select('id, tenant_user_id, rent_amount, units(unit_number, properties(name))')
-        .eq('merchant_id', merchantId)
-        .eq('status', 'active');
-      if (error) throw error;
-      
-      // Fetch tenant names separately
-      const tenantIds = [...new Set((data || []).map(c => c.tenant_user_id))];
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, full_name')
-        .in('user_id', tenantIds);
-      
-      const profileMap = Object.fromEntries((profiles || []).map(p => [p.user_id, p.full_name]));
-      return (data || []).map(c => ({ ...c, tenant_name: profileMap[c.tenant_user_id] || 'Tenant' }));
+      try {
+        const r = await apiClient.get('/contracts', { params: { merchant_id: merchantId, status: 'active' } });
+        return r.data as Array<{ id: string; tenant_user_id: string; rent_amount: number; tenant_name: string; units?: { unit_number: string; properties?: { name: string } } }>;
+      } catch (err) {
+        throw err;
+      }
     },
     enabled: !!merchantId && open,
   });
@@ -118,14 +108,8 @@ export function CreatePaymentDialog({ open, onOpenChange, merchantId, onSubmit, 
     if (proofFile) {
       setUploading(true);
       try {
-        const ext = proofFile.name.split('.').pop();
-        const filePath = `${merchantId}/${Date.now()}.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from('payment-proofs')
-          .upload(filePath, proofFile, { upsert: true });
-        if (uploadError) throw uploadError;
-        const { data: urlData } = supabase.storage.from('payment-proofs').getPublicUrl(filePath);
-        proofPhotoUrl = urlData.publicUrl;
+        // TODO: implement file storage endpoint — was: supabase.storage.from('payment-proofs').upload(...)
+        console.warn('File upload not yet implemented via Go endpoint');
       } catch (err) {
         console.error('Upload proof failed:', err);
       } finally {

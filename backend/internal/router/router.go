@@ -4,176 +4,199 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/itsramaa/sistem-hunian/backend/internal/config"
-	"github.com/itsramaa/sistem-hunian/backend/internal/handler"
-	"github.com/itsramaa/sistem-hunian/backend/internal/middleware"
-	"github.com/itsramaa/sistem-hunian/backend/internal/pkg/resend"
-	"github.com/itsramaa/sistem-hunian/backend/internal/repository"
-	"github.com/itsramaa/sistem-hunian/backend/internal/service"
+	"github.com/go-chi/chi/v5"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/itsramaa/sihuni-api/internal/config"
+	"github.com/itsramaa/sihuni-api/internal/handler"
+	"github.com/itsramaa/sihuni-api/internal/middleware"
+	"github.com/itsramaa/sihuni-api/internal/pkg/xendit"
+	"github.com/itsramaa/sihuni-api/internal/repository"
+	"github.com/itsramaa/sihuni-api/internal/service"
 )
 
-// New builds and returns the main HTTP router.
-func New(cfg *config.Config, db *repository.DB) http.Handler {
-	mux := http.NewServeMux()
+// New creates and returns the configured Chi router with all middleware and routes registered.
+func New(cfg *config.Config, pool *pgxpool.Pool) http.Handler {
+	r := chi.NewRouter()
 
-	// --- Dependencies ---
-	resendClient := resend.New(cfg.ResendAPIKey, cfg.ResendFrom)
+	// ── Global middleware ──────────────────────────────────────────────────────
+	r.Use(middleware.CORS(cfg.AllowedOrigins))
+	r.Use(middleware.Logger)
+	r.Use(chimiddleware.Recoverer)
+	r.Use(chimiddleware.RequestID)
+	r.Use(chimiddleware.Timeout(30 * time.Second))
+	r.Use(middleware.RateLimit(200, time.Minute)) // 200 req/min per IP globally
 
-	// Handlers
-	healthH := handler.NewHealthHandler()
-	authH := handler.NewAuthHandler(db.Pool)
-	notifH := handler.NewNotificationHandler(
-		service.NewNotificationService(resendClient, db.Pool),
-	)
-	propRepo := repository.NewPropertyRepo(db)
-	propH := handler.NewPropertyHandler(
-		service.NewPropertyService(propRepo),
-	)
-	contractH := handler.NewContractHandler(
-		service.NewContractService(repository.NewContractRepo(db)),
-	)
-	subH := handler.NewSubscriptionHandler(
-		service.NewSubscriptionService(repository.NewSubscriptionRepo(db)),
-	)
-	referralH := handler.NewReferralHandler(
-		service.NewReferralService(repository.NewReferralRepo(db)),
-	)
+	// ── Xendit client ──────────────────────────────────────────────────────────
+	xClient := xendit.New(cfg.XenditSecretKey)
 
-	// --- Middleware chains ---
-	requireAuth := middleware.RequireAuth(cfg.SupabaseJWTSecret)
-	requireMerchant := middleware.RequireRole("merchant", "admin")
-	requireCron := middleware.RequireCronSecret(cfg.CronSecret)
-	requireWebhook := middleware.RequireWebhookSecret(cfg.WebhookSecret)
+	// ── Public routes (no auth) ────────────────────────────────────────────────
+	r.Get("/health", handler.Health)
+	r.Get("/docs", handler.ScalarDocs)
+	r.Get("/openapi.json", handler.OpenAPISpec(handler.ResolveSpecPath()))
 
-	// --- Routes ---
+	// ── API v1 ─────────────────────────────────────────────────────────────────
+	r.Route("/v1", func(r chi.Router) {
 
-	// Health check (no auth)
-	mux.HandleFunc("GET /health", healthH.Health)
+		// Auth endpoints
+		r.Route("/auth", func(r chi.Router) {
+			// Public auth routes — no JWT required
+			r.Post("/register", handler.Register(pool, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL))
+			r.Post("/login", handler.Login(pool, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL))
+			r.Post("/refresh", handler.Refresh(pool, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL))
 
-	// Auth webhook (webhook secret)
-	mux.Handle("POST /v1/auth/webhook",
-		requireWebhook(http.HandlerFunc(authH.Webhook)),
-	)
+			// Bootstrap and me require a valid JWT
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.Authenticate(cfg.JWTSecret))
+				r.Post("/bootstrap", handler.Bootstrap(pool))
+				r.Get("/me", handler.Me(pool))
+			})
 
-	// Notifications (JWT required)
-	mux.Handle("POST /v1/notifications/send",
-		requireAuth(http.HandlerFunc(notifH.Send)),
-	)
+			// Admin 2FA — requires JWT + admin role
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.Authenticate(cfg.JWTSecret))
+				r.Use(middleware.RequireRole("admin"))
+				r.Post("/admin/2fa/validate", handler.ValidateAdmin2FA(cfg.AdminSecret))
+			})
+		})
 
-	// Cron endpoints (cron secret, no JWT)
-	mux.Handle("POST /v1/cron/payment-reminders",
-		requireCron(http.HandlerFunc(notifH.SendPaymentReminders)),
-	)
+		// Invitation endpoints — public (no auth required)
+		r.Route("/invitations", func(r chi.Router) {
+			r.Handle("/{token}", handler.GetInvitation(pool))
+			r.Handle("/accept", handler.AcceptInvitation(pool))
+		})
 
-	// Properties (JWT + merchant role)
-	mux.Handle("GET /v1/properties",
-		requireAuth(requireMerchant(http.HandlerFunc(propH.ListProperties))),
-	)
-	mux.Handle("POST /v1/properties",
-		requireAuth(requireMerchant(http.HandlerFunc(propH.CreateProperty))),
-	)
-	mux.Handle("GET /v1/properties/{id}",
-		requireAuth(requireMerchant(http.HandlerFunc(propH.GetProperty))),
-	)
-	mux.Handle("PUT /v1/properties/{id}",
-		requireAuth(requireMerchant(http.HandlerFunc(propH.UpdateProperty))),
-	)
-	mux.Handle("DELETE /v1/properties/{id}",
-		requireAuth(requireMerchant(http.HandlerFunc(propH.DeleteProperty))),
-	)
+		// Billing endpoints — JWT required
+		r.Route("/billing", func(r chi.Router) {
+			r.Use(middleware.Authenticate(cfg.JWTSecret))
 
-	// Units (JWT + merchant role)
-	mux.Handle("GET /v1/properties/{id}/units",
-		requireAuth(requireMerchant(http.HandlerFunc(propH.ListUnits))),
-	)
-	mux.Handle("POST /v1/properties/{id}/units",
-		requireAuth(requireMerchant(http.HandlerFunc(propH.CreateUnit))),
-	)
-	mux.Handle("GET /v1/units/{id}",
-		requireAuth(requireMerchant(http.HandlerFunc(propH.GetUnit))),
-	)
-	mux.Handle("PUT /v1/units/{id}",
-		requireAuth(requireMerchant(http.HandlerFunc(propH.UpdateUnit))),
-	)
-	mux.Handle("DELETE /v1/units/{id}",
-		requireAuth(requireMerchant(http.HandlerFunc(propH.DeleteUnit))),
-	)
+			r.Get("/invoices", handler.ListInvoices(pool))
+			r.Post("/invoices", handler.CreateInvoice(pool))
 
-	// Contracts (JWT + merchant/admin)
-	mux.Handle("GET /v1/contracts",
-		requireAuth(requireMerchant(http.HandlerFunc(contractH.ListContracts))),
-	)
-	mux.Handle("GET /v1/contracts/move-outs",
-		requireAuth(requireMerchant(http.HandlerFunc(contractH.ListMoveOuts))),
-	)
-	mux.Handle("GET /v1/contracts/move-outs/{id}",
-		requireAuth(requireMerchant(http.HandlerFunc(contractH.GetMoveOut))),
-	)
-	mux.Handle("PUT /v1/contracts/move-outs/{id}/status",
-		requireAuth(requireMerchant(http.HandlerFunc(contractH.UpdateMoveOutStatus))),
-	)
-	mux.Handle("GET /v1/contracts/{id}",
-		requireAuth(requireMerchant(http.HandlerFunc(contractH.GetContract))),
-	)
-	mux.Handle("POST /v1/contracts/{id}/deposit-refund",
-		requireAuth(requireMerchant(http.HandlerFunc(contractH.ProcessDepositRefund))),
-	)
+			r.Route("/invoices/{id}", func(r chi.Router) {
+				r.Get("/", handler.GetInvoice(pool))
+				r.Get("/pdf", handler.GetInvoicePDF(pool))
+				r.Put("/status", handler.UpdateInvoiceStatus(pool))
+			})
+		})
 
-	// Subscriptions (JWT required; tiers public to any authenticated user)
-	mux.Handle("GET /v1/subscriptions/tiers",
-		requireAuth(http.HandlerFunc(subH.ListTiers)),
-	)
-	mux.Handle("GET /v1/subscriptions",
-		requireAuth(requireMerchant(http.HandlerFunc(subH.ListSubscriptions))),
-	)
-	mux.Handle("POST /v1/subscriptions",
-		requireAuth(requireMerchant(http.HandlerFunc(subH.CreateSubscription))),
-	)
-	mux.Handle("GET /v1/subscriptions/{id}",
-		requireAuth(requireMerchant(http.HandlerFunc(subH.GetSubscription))),
-	)
-	mux.Handle("PUT /v1/subscriptions/{id}/status",
-		requireAuth(requireMerchant(http.HandlerFunc(subH.UpdateSubscriptionStatus))),
-	)
-	mux.Handle("POST /v1/subscriptions/{id}/pay",
-		requireAuth(requireMerchant(http.HandlerFunc(subH.ProcessPayment))),
-	)
+		// Payment endpoints — JWT required
+		r.Route("/payments", func(r chi.Router) {
+			r.Use(middleware.Authenticate(cfg.JWTSecret))
 
-	// Referrals (JWT required)
-	mux.Handle("GET /v1/referrals",
-		requireAuth(http.HandlerFunc(referralH.ListReferrals)),
-	)
-	mux.Handle("GET /v1/referrals/stats",
-		requireAuth(http.HandlerFunc(referralH.GetReferralStats)),
-	)
-	mux.Handle("POST /v1/referrals/reward",
-		requireAuth(http.HandlerFunc(referralH.ProcessReferralReward)),
-	)
-	mux.Handle("POST /v1/referrals/vendor-order",
-		requireAuth(http.HandlerFunc(referralH.ProcessVendorOrderReferral)),
-	)
+			r.Handle("/xendit/invoice", handler.CreateXenditInvoice(pool, xClient))
 
-	// Cron: subscription lifecycle
-	mux.Handle("POST /v1/cron/subscription-billing",
-		requireCron(http.HandlerFunc(subH.CronBilling)),
-	)
-	mux.Handle("POST /v1/cron/subscription-renewal",
-		requireCron(http.HandlerFunc(subH.CronRenewal)),
-	)
-	mux.Handle("POST /v1/cron/subscription-grace-check",
-		requireCron(http.HandlerFunc(subH.CronGraceCheck)),
-	)
+			// Disbursement — merchant only
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RequireRole("merchant", "admin"))
+				r.Handle("/xendit/disbursement", handler.CreateDisbursement(pool, xClient))
+			})
+		})
 
-	// Cron: referral commissions
-	mux.Handle("POST /v1/cron/referral-commissions",
-		requireCron(http.HandlerFunc(referralH.CronReferralCommissions)),
-	)
+		// Notifications endpoints — JWT required
+		r.Route("/notifications", func(r chi.Router) {
+			r.Use(middleware.Authenticate(cfg.JWTSecret))
+			r.Get("/", handler.ListNotifications(pool))
+			r.Post("/", handler.SendNotification(pool))
+			r.Put("/{id}/read", handler.MarkNotificationRead(pool))
+		})
 
-	// --- Global middleware stack ---
-	var h http.Handler = mux
-	h = middleware.Logger(h)
-	h = middleware.CORS(nil)(h)
-	h = middleware.RateLimit(100, time.Minute)(h)
+		// Contracts & MoveOuts endpoints — JWT required, merchant/admin only
+		contractHandler := handler.NewContractHandler(
+			service.NewContractService(
+				repository.NewContractRepo(pool),
+			),
+		)
+		r.Route("/contracts", func(r chi.Router) {
+			r.Use(middleware.Authenticate(cfg.JWTSecret))
+			r.Use(middleware.RequireRole("merchant", "admin"))
+			r.Get("/", contractHandler.ListContracts)
+			r.Route("/move-outs", func(r chi.Router) {
+				r.Get("/", contractHandler.ListMoveOuts)
+				r.Route("/{id}", func(r chi.Router) {
+					r.Get("/", contractHandler.GetMoveOut)
+					r.Put("/status", contractHandler.UpdateMoveOutStatus)
+				})
+			})
+			r.Route("/{id}", func(r chi.Router) {
+				r.Get("/", contractHandler.GetContract)
+				r.Post("/deposit-refund", contractHandler.ProcessDepositRefund)
+			})
+		})
 
-	return h
+		// Properties endpoints — JWT required, merchant only
+		r.Route("/properties", func(r chi.Router) {
+			r.Use(middleware.Authenticate(cfg.JWTSecret))
+			r.Use(middleware.RequireRole("merchant", "admin"))
+			r.Get("/", handler.ListProperties(pool))
+			r.Post("/", handler.CreateProperty(pool))
+			r.Route("/{id}", func(r chi.Router) {
+				r.Get("/", handler.GetProperty(pool))
+				r.Put("/", handler.UpdateProperty(pool))
+				r.Delete("/", handler.DeleteProperty(pool))
+				r.Get("/units", handler.ListUnits(pool))
+				r.Post("/units", handler.CreateUnit(pool))
+			})
+		})
+
+		// Units endpoints — JWT required, merchant only
+		r.Route("/units/{id}", func(r chi.Router) {
+			r.Use(middleware.Authenticate(cfg.JWTSecret))
+			r.Use(middleware.RequireRole("merchant", "admin"))
+			r.Get("/", handler.GetUnit(pool))
+			r.Put("/", handler.UpdateUnit(pool))
+			r.Delete("/", handler.DeleteUnit(pool))
+		})
+
+		// Subscriptions endpoints — JWT required
+		subHandler := handler.NewSubscriptionHandler(
+			service.NewSubscriptionService(
+				repository.NewSubscriptionRepo(pool),
+			),
+		)
+		r.Route("/subscriptions", func(r chi.Router) {
+			r.Use(middleware.Authenticate(cfg.JWTSecret))
+			r.Get("/tiers", subHandler.ListTiers) // any authenticated user
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RequireRole("merchant", "admin"))
+				r.Get("/", subHandler.ListSubscriptions)
+				r.Post("/", subHandler.CreateSubscription)
+				r.Route("/{id}", func(r chi.Router) {
+					r.Get("/", subHandler.GetSubscription)
+					r.Put("/status", subHandler.UpdateSubscriptionStatus)
+					r.Post("/pay", subHandler.ProcessPayment)
+				})
+			})
+		})
+
+		// Waitinglist endpoints — JWT required
+		waitinglistHandler := handler.NewWaitinglistHandler(
+			service.NewWaitinglistService(pool),
+		)
+		r.Route("/waitinglist", func(r chi.Router) {
+			r.Use(middleware.Authenticate(cfg.JWTSecret))
+			r.Post("/", waitinglistHandler.CreateWaitinglist)
+			r.Get("/", waitinglistHandler.ListWaitinglist)
+			r.Delete("/{id}", waitinglistHandler.DeleteWaitinglist)
+		})
+
+		// Cron endpoints — cron secret required (no JWT)
+		r.Route("/cron", func(r chi.Router) {
+			r.Use(middleware.RequireCronSecret(cfg.CronSecret))
+			r.Post("/generate-invoices", handler.GenerateInvoices(pool))
+			r.Post("/overdue-escalation", handler.OverdueEscalation(pool))
+			r.Post("/payment-plan-check", handler.PaymentPlanCheck(pool))
+			r.Post("/payment-reminder", handler.PaymentReminder(pool))
+			r.Post("/subscription-billing", subHandler.CronBilling)
+			r.Post("/subscription-renewal", subHandler.CronRenewal)
+			r.Post("/subscription-grace-check", subHandler.CronGraceCheck)
+		})
+	})
+
+	// ── Webhook endpoints (no auth — validated by token in handler) ────────────
+	r.Post("/v1/webhooks/xendit", handler.XenditPaymentWebhook(pool, cfg.XenditWebhookToken))
+	r.Post("/v1/webhooks/xendit/disbursement", handler.XenditDisbursementWebhook(pool, cfg.XenditWebhookToken))
+	r.Post("/v1/webhooks/auth", handler.AuthWebhook(cfg.WebhookSecret))
+
+	return r
 }

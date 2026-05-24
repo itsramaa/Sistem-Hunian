@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/itsramaa/sistem-hunian/backend/internal/model"
-	"github.com/itsramaa/sistem-hunian/backend/internal/service"
+	"github.com/itsramaa/sihuni-api/internal/model"
+	"github.com/itsramaa/sihuni-api/internal/service"
 )
 
 // --- Stub repo ---

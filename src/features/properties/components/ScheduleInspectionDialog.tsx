@@ -5,7 +5,7 @@ import { Label } from "@/shared/components/ui/label";
 import { Calendar } from "@/shared/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { toast } from "sonner";
 import { format, addDays, setHours, setMinutes } from "date-fns";
@@ -75,30 +75,11 @@ export function ScheduleInspectionDialog({ open, onOpenChange, notice, onSchedul
 
     setIsSubmitting(true);
     try {
-      const { error: inspectionError } = await supabase
-        .from("move_out_inspections")
-        .insert({
-          move_out_notice_id: notice.id,
-          scheduled_date: scheduledDateTime.toISOString(),
-          inspector_id: user?.id,
-          status: "scheduled",
-        });
-      if (inspectionError) throw inspectionError;
-
-      await supabase
-        .from("move_out_timeline")
-        .update({ 
-          completed: true, 
-          completed_at: new Date().toISOString(),
-          notes: `Scheduled for ${format(scheduledDateTime, "MMM dd, yyyy 'at' HH:mm")}`
-        })
-        .eq("move_out_notice_id", notice.id)
-        .eq("step", "inspection_scheduled");
-
-      await supabase
-        .from("move_out_notices")
-        .update({ status: "in_progress" })
-        .eq("id", notice.id);
+      // TODO: migrate to Go API endpoint when move_out_inspections endpoint is available
+      await apiClient.post(`/move-out-notices/${notice.id}/schedule-inspection`, {
+        scheduled_date: scheduledDateTime.toISOString(),
+        inspector_id: user?.id,
+      });
 
       toast.success("Inspection scheduled successfully");
       onScheduled();

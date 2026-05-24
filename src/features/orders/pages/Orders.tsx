@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { TenantLayout } from "@/shared/components/layouts/TenantLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Badge } from "@/shared/components/ui/badge";
@@ -86,17 +86,12 @@ export default function TenantOrders() {
   const { data: orders, isLoading, error, refetch } = useQuery({
     queryKey: ["tenant-orders", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("orders")
-        .select(`
-          *,
-          products:product_id (name, category),
-          vendors:vendor_id (business_name)
-        `)
-        .eq("tenant_user_id", user?.id)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as Order[];
+      try {
+        const r = await apiClient.get('/orders', { params: { tenant_user_id: user?.id } });
+        return r.data as Order[];
+      } catch (err) {
+        throw err;
+      }
     },
     enabled: !!user?.id,
   });
@@ -105,12 +100,12 @@ export default function TenantOrders() {
   const { data: reviews } = useQuery({
     queryKey: ["order-reviews", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("order_reviews")
-        .select("order_id")
-        .eq("tenant_user_id", user?.id);
-      if (error) throw error;
-      return data.map((r) => r.order_id);
+      try {
+        const r = await apiClient.get('/order-reviews', { params: { tenant_user_id: user?.id, fields: 'order_id' } });
+        return (r.data as { order_id: string }[]).map((rv) => rv.order_id);
+      } catch (err) {
+        throw err;
+      }
     },
     enabled: !!user?.id,
   });
@@ -141,14 +136,13 @@ export default function TenantOrders() {
         throw new Error(`Review maksimal ${MAX_REVIEW_LENGTH} karakter`);
       }
 
-      const { error } = await supabase.from("order_reviews").insert({
+      await apiClient.post('/order-reviews', {
         order_id: selectedOrder.id,
         tenant_user_id: user.id,
         vendor_id: selectedOrder.vendor_id,
         rating: reviewData.rating,
         review_text: reviewData.review_text.trim() || null,
       });
-      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["order-reviews"] });
@@ -172,18 +166,11 @@ export default function TenantOrders() {
         throw new Error("Pesanan tidak dapat dibatalkan karena sudah diproses");
       }
 
-      const { error } = await supabase
-        .from("orders")
-        .update({ 
-          status: "canceled", 
-          canceled_at: new Date().toISOString(),
-          notes: cancelReason ? `Alasan pembatalan: ${cancelReason}` : selectedOrder.notes
-        })
-        .eq("id", selectedOrder.id)
-        .eq("tenant_user_id", user?.id) // Ensure tenant owns the order
-        .eq("status", "pending"); // Double-check status
-
-      if (error) throw error;
+      await apiClient.put('/orders/' + selectedOrder.id, { 
+        status: "canceled", 
+        canceled_at: new Date().toISOString(),
+        notes: cancelReason ? `Alasan pembatalan: ${cancelReason}` : selectedOrder.notes
+      });
       return selectedOrder.id;
     },
     onSuccess: (orderId) => {

@@ -4,23 +4,24 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/itsramaa/sistem-hunian/backend/internal/model"
+	"github.com/itsramaa/sihuni-api/internal/model"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // ReferralRepo handles database operations for referrals.
 type ReferralRepo struct {
-	db *DB
+	db *pgxpool.Pool
 }
 
 // NewReferralRepo creates a new ReferralRepo.
-func NewReferralRepo(db *DB) *ReferralRepo {
+func NewReferralRepo(db *pgxpool.Pool) *ReferralRepo {
 	return &ReferralRepo{db: db}
 }
 
 // ListReferrals returns referrals. If merchantID is provided, scopes to that merchant's users.
 // If userID is provided, scopes to that specific referrer.
 func (r *ReferralRepo) ListReferrals(ctx context.Context, userID string) ([]model.Referral, error) {
-	rows, err := r.db.Pool.Query(ctx, `
+	rows, err := r.db.Query(ctx, `
 		SELECT id, referrer_id, referred_id, type, status,
 		       commission, reward_paid, created_at
 		FROM referrals
@@ -51,7 +52,7 @@ func (r *ReferralRepo) ListReferrals(ctx context.Context, userID string) ([]mode
 
 // ListAllReferrals returns all referrals (admin use).
 func (r *ReferralRepo) ListAllReferrals(ctx context.Context) ([]model.Referral, error) {
-	rows, err := r.db.Pool.Query(ctx, `
+	rows, err := r.db.Query(ctx, `
 		SELECT id, referrer_id, referred_id, type, status,
 		       commission, reward_paid, created_at
 		FROM referrals
@@ -84,7 +85,7 @@ func (r *ReferralRepo) GetStats(ctx context.Context, userID string) (*model.Refe
 	var stats model.ReferralStats
 	var paid int // scanned but not in model; used to derive unpaid
 	var totalCommission float64
-	err := r.db.Pool.QueryRow(ctx, `
+	err := r.db.QueryRow(ctx, `
 		SELECT
 			COUNT(*) AS total,
 			COUNT(*) FILTER (WHERE status = 'pending') AS pending,
@@ -112,7 +113,7 @@ func (r *ReferralRepo) GetStats(ctx context.Context, userID string) (*model.Refe
 // ProcessReward marks a referral as paid and records the payout.
 // TODO: integrate with Xendit disbursement for actual payout.
 func (r *ReferralRepo) ProcessReward(ctx context.Context, req model.ProcessRewardRequest) (*model.Referral, error) {
-	tx, err := r.db.Pool.Begin(ctx)
+	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("referral_repo: begin tx: %w", err)
 	}
@@ -155,7 +156,7 @@ func (r *ReferralRepo) ProcessVendorOrderReferral(ctx context.Context, referrerI
 	commission := req.Commission
 
 	var ref model.Referral
-	err := r.db.Pool.QueryRow(ctx, `
+	err := r.db.QueryRow(ctx, `
 		INSERT INTO referrals (referrer_id, referred_id, type, status, commission, reward_paid)
 		VALUES ($1, $2, 'vendor', 'pending', $3, false)
 		ON CONFLICT (referrer_id, referred_id, type) DO UPDATE
@@ -176,7 +177,7 @@ func (r *ReferralRepo) ProcessVendorOrderReferral(ctx context.Context, referrerI
 // ProcessPendingCommissions marks pending referrals as completed and calculates commissions.
 // Returns the count of referrals processed.
 func (r *ReferralRepo) ProcessPendingCommissions(ctx context.Context) (int, error) {
-	result, err := r.db.Pool.Exec(ctx, `
+	result, err := r.db.Exec(ctx, `
 		UPDATE referrals
 		SET status = 'completed', updated_at = NOW()
 		WHERE status = 'pending'

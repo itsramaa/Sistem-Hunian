@@ -13,9 +13,6 @@ import { Label } from "@/shared/components/ui/label";
 import { Badge } from "@/shared/components/ui/badge";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/integrations/supabase/client";
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = supabase as any;
 import { useMerchantProperties } from "@/features/properties/hooks/useMerchantProperties";
 import {
   useExecutiveSummary,
@@ -75,8 +72,8 @@ export default function ReportTemplates() {
   const { data: merchant } = useQuery({
     queryKey: ["merchant-for-reports", user?.id],
     queryFn: async () => {
-      const { data } = await supabase.from("merchants").select("id").eq("user_id", user!.id).single();
-      return data;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('merchants').select(...)
+      return null;
     },
     enabled: !!user?.id,
   });
@@ -220,15 +217,10 @@ export default function ReportTemplates() {
     setBuildingCustom(true);
 
     try {
-      const [propertiesRes, unitsRes, maintenanceRes] = await Promise.all([
-        db.from("properties").select("id, name, property_type, total_units, occupied_units, construction_cost, renovation_cost").eq("merchant_id", merchantId),
-        db.from("units").select("id, property_id, rent_amount, status, unit_type").eq("merchant_id", merchantId),
-        db.from("maintenance_requests").select("id, status, created_at").eq("merchant_id", merchantId),
-      ]);
-
-      const props = (propertiesRes.data || []) as any[];
-      const units = (unitsRes.data || []) as any[];
-      const maintenance = (maintenanceRes.data || []) as any[];
+      // TODO: Go endpoint not yet implemented — was: db.from('properties'/'units'/'maintenance_requests').select(...)
+      const props: any[] = [];
+      const units: any[] = [];
+      const maintenance: any[] = [];
 
       const rows: Record<string, unknown>[] = props.map((p: any) => {
         const propUnits = units.filter((u: any) => u.property_id === p.id);

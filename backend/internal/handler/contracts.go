@@ -4,12 +4,12 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/itsramaa/sistem-hunian/backend/internal/middleware"
-	"github.com/itsramaa/sistem-hunian/backend/internal/model"
-	"github.com/itsramaa/sistem-hunian/backend/internal/pkg/apierror"
-	"github.com/itsramaa/sistem-hunian/backend/internal/pkg/response"
-	"github.com/itsramaa/sistem-hunian/backend/internal/pkg/validator"
-	"github.com/itsramaa/sistem-hunian/backend/internal/service"
+	"github.com/itsramaa/sihuni-api/internal/middleware"
+	"github.com/itsramaa/sihuni-api/internal/model"
+	"github.com/itsramaa/sihuni-api/internal/pkg/apierror"
+	"github.com/itsramaa/sihuni-api/internal/pkg/response"
+	"github.com/itsramaa/sihuni-api/internal/pkg/validator"
+	"github.com/itsramaa/sihuni-api/internal/service"
 )
 
 // ContractHandler handles contract and move-out HTTP requests.

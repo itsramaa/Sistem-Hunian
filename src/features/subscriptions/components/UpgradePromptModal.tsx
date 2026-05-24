@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Crown, Building2, Home, Users, Check, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -19,15 +19,11 @@ export function UpgradePromptModal({ open, onOpenChange, limitType }: UpgradePro
   const { data: currentTier } = useQuery({
     queryKey: ["current-tier", merchant?.id],
     queryFn: async () => {
-      const { data: subscription } = await supabase
-        .from("merchant_subscriptions")
-        .select("tier:subscription_tiers(*)")
-        .eq("merchant_id", merchant?.id)
-        .maybeSingle();
-      
+      const response = await apiClient.get('/subscriptions/current', {
+        params: { merchant_id: merchant?.id },
+      });
+      const subscription = response.data.data;
       if (subscription?.tier) return subscription.tier;
-      
-      // Default free tier
       return {
         name: "free",
         display_name: "Free",
@@ -43,13 +39,8 @@ export function UpgradePromptModal({ open, onOpenChange, limitType }: UpgradePro
   const { data: upgradeTiers = [] } = useQuery({
     queryKey: ["upgrade-tiers"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("subscription_tiers")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true });
-      if (error) throw error;
-      return data;
+      const response = await apiClient.get('/subscriptions/tiers');
+      return response.data.data || [];
     },
   });
 

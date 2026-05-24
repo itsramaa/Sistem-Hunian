@@ -1,5 +1,4 @@
-import { apiClient } from '@/lib/axios';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from "@/lib/axios";
 import { AuditLog, HistoryEntry, Merchant, Verification } from "../types/admin-merchant";
 import { MERCHANT_VERIFICATION_TRANSITIONS, isValidTransition } from "@/shared/constants/state-machines";
 import { createAuditLog, logStatusChange } from "@/shared/utils/auditLog";
@@ -10,115 +9,67 @@ export const merchantService = {
     tier?: string;
     dateRange?: { from?: Date; to?: Date };
   }): Promise<Merchant[]> {
-    let query = supabase
-      .from('v_merchants_with_addresses' as any)
-      .select(`
-        *,
-        profiles:user_id (
-          email,
-          full_name,
-          phone
-        ),
-        merchant_subscriptions(
-          tier_id,
-          status,
-          subscription_tiers(name)
-        )
-      `)
-      .order('created_at', { ascending: false }) as any;
+    try {
+      const params: Record<string, string> = {};
+      if (filters?.status && filters.status !== 'all') params.verification_status = filters.status;
+      if (filters?.tier && filters.tier !== 'all') params.tier_id = filters.tier;
+      if (filters?.dateRange?.from) params.created_from = filters.dateRange.from.toISOString();
+      if (filters?.dateRange?.to) params.created_to = filters.dateRange.to.toISOString();
 
-    if (filters?.status && filters.status !== 'all') {
-      query = query.eq('verification_status', filters.status);
+      const r = await apiClient.get('/merchants', { params });
+      return ((r.data ?? []) as any[]).map((m: any) => ({
+        ...m,
+        address: m.resolved_address ?? m.address,
+        city: m.resolved_city ?? m.city,
+        province: m.resolved_province ?? m.province,
+      })) as unknown as Merchant[];
+    } catch (err) {
+      throw err;
     }
-    if (filters?.tier && filters.tier !== 'all') {
-      query = query.eq('merchant_subscriptions.tier_id', filters.tier);
-    }
-    if (filters?.dateRange?.from) {
-      query = query.gte('created_at', filters.dateRange.from.toISOString());
-    }
-    if (filters?.dateRange?.to) {
-      query = query.lte('created_at', filters.dateRange.to.toISOString());
-    }
-
-    const { data, error } = await query;
-
-    if (error) throw error;
-    // Map resolved address fields to flat fields for backward compat
-    return ((data || []) as any[]).map((m: any) => ({
-      ...m,
-      address: m.resolved_address,
-      city: m.resolved_city,
-      province: m.resolved_province,
-    })) as unknown as Merchant[];
   },
 
   async fetchMerchantHistory(merchantId: string): Promise<HistoryEntry[]> {
-    const { data, error } = await supabase
-      .from('merchant_verification_history')
-      .select('*')
-      .eq('merchant_id', merchantId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-
-    // Fetch performer details for each entry
-    const historyWithPerformers = await Promise.all(
-      (data || []).map(async (entry) => {
-        if (entry.performed_by) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('email, full_name')
-            .eq('user_id', entry.performed_by)
-            .single();
-          return { ...entry, performer: profile };
-        }
-        return entry;
-      })
-    );
-
-    return historyWithPerformers as HistoryEntry[];
+    try {
+      const r = await apiClient.get('/merchant-verification-history', {
+        params: { merchant_id: merchantId, order_by: 'created_at', order: 'desc' },
+      });
+      return (r.data ?? []) as HistoryEntry[];
+    } catch (err) {
+      throw err;
+    }
   },
 
   async fetchActivePaidCount(): Promise<number> {
-    const { count, error } = await supabase
-      .from('merchant_subscriptions')
-      .select('*, subscription_tiers!inner(name)', { count: 'exact', head: true })
-      .eq('status', 'active')
-      .neq('subscription_tiers.name', 'free');
-
-    if (error) throw error;
-    return count || 0;
+    try {
+      const r = await apiClient.get('/merchant-subscriptions/active-paid-count');
+      return r.data?.count ?? 0;
+    } catch {
+      // TODO: implement Go endpoint — was: supabase.from('merchant_subscriptions').select(...).eq('status','active').neq('subscription_tiers.name','free')
+      return 0;
+    }
   },
 
   async fetchVerifications(merchantId: string): Promise<Verification[]> {
-    const { data, error } = await supabase
-      .from('merchant_verifications')
-      .select('*')
-      .eq('merchant_id', merchantId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return (data || []) as Verification[];
+    try {
+      const r = await apiClient.get('/merchant-verifications', {
+        params: { merchant_id: merchantId, order_by: 'created_at', order: 'desc' },
+      });
+      return (r.data ?? []) as Verification[];
+    } catch (err) {
+      throw err;
+    }
   },
 
   async fetchMerchantActivity(merchantId: string): Promise<AuditLog[]> {
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('user_id')
-      .eq('id', merchantId)
-      .single();
-
-    if (!merchant) return [];
-
-    const { data, error } = await supabase
-      .from('audit_logs')
-      .select('*')
-      .or(`entity_id.eq.${merchantId},user_id.eq.${merchant.user_id}`)
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    if (error) throw error;
-    return (data || []) as AuditLog[];
+    try {
+      const r = await apiClient.get('/audit-logs', {
+        params: { merchant_id: merchantId, limit: 50, order_by: 'created_at', order: 'desc' },
+      });
+      return (r.data ?? []) as AuditLog[];
+    } catch {
+      // TODO: implement Go endpoint — was: supabase.from('audit_logs').select('*').or(...)
+      return [];
+    }
   },
 
   async verifyMerchant(
@@ -138,42 +89,44 @@ export const merchantService = {
       throw new Error(`Invalid verification transition: ${currentStatus} → ${status}`);
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    const adminId = user?.id;
-
     // Single write to history -- trigger auto-syncs merchants.verification_status
-    const { error } = await supabase.from('merchant_verification_history').insert({
-      merchant_id: merchant.id,
-      action: status === 'verified' ? 'approved' : 'rejected',
-      performed_by: adminId,
-      approval_notes: status === 'verified' ? approvalNotes : null,
-      rejection_reason: rejectionData?.reasonLabel,
-      rejection_details: rejectionData?.details,
-      resubmission_instructions: rejectionData?.resubmissionInstructions,
-      old_status: currentStatus,
-      new_status: status,
-    });
-
-    if (error) throw error;
+    try {
+      await apiClient.post('/merchant-verification-history', {
+        merchant_id: merchant.id,
+        action: status === 'verified' ? 'approved' : 'rejected',
+        approval_notes: status === 'verified' ? approvalNotes : null,
+        rejection_reason: rejectionData?.reasonLabel,
+        rejection_details: rejectionData?.details,
+        resubmission_instructions: rejectionData?.resubmissionInstructions,
+        old_status: currentStatus,
+        new_status: status,
+      });
+    } catch (err) {
+      throw err;
+    }
 
     // Audit log via centralized utility
-    await logStatusChange('merchant', merchant.id, currentStatus, status, 
+    await logStatusChange('merchant', merchant.id, currentStatus, status,
       status === 'rejected' ? rejectionData?.reasonLabel : approvalNotes);
 
     // Create notification for merchant
-    await supabase.from('notifications').insert({
-      user_id: merchant.user_id,
-      type: status === 'verified' ? 'verification_approved' : 'verification_rejected',
-      title: status === 'verified' ? 'Akun Terverifikasi!' : 'Verifikasi Ditolak',
-      message: status === 'verified' 
-        ? 'Selamat! Akun bisnis Anda telah terverifikasi. Semua fitur telah dibuka.'
-        : `Pengajuan verifikasi Anda ditolak: ${rejectionData?.reasonLabel}. Silakan perbaiki dan ajukan kembali.`,
-      link: '/merchant',
-    });
+    try {
+      await apiClient.post('/notifications', {
+        user_id: merchant.user_id,
+        type: status === 'verified' ? 'verification_approved' : 'verification_rejected',
+        title: status === 'verified' ? 'Akun Terverifikasi!' : 'Verifikasi Ditolak',
+        message: status === 'verified'
+          ? 'Selamat! Akun bisnis Anda telah terverifikasi. Semua fitur telah dibuka.'
+          : `Pengajuan verifikasi Anda ditolak: ${rejectionData?.reasonLabel}. Silakan perbaiki dan ajukan kembali.`,
+        link: '/merchant',
+      });
+    } catch (notifErr) {
+      console.error('Failed to create notification:', notifErr);
+    }
 
     // Send email notification
     try {
-      await apiClient.post('/api/v1/notifications/send', {
+      await apiClient.post('/notifications/email', {
         type: status === 'verified' ? 'verification_approved' : 'verification_rejected',
         recipientEmail: merchant.profiles?.email,
         recipientName: merchant.profiles?.full_name || 'Merchant',
@@ -200,50 +153,47 @@ export const merchantService = {
       throw new Error(`Invalid verification transition: ${currentStatus} → ${newStatus}`);
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    const adminId = user?.id;
-
     // Single write to history -- trigger auto-syncs merchants.verification_status
-    const { error } = await supabase.from('merchant_verification_history').insert({
-      merchant_id: merchant.id,
-      action: newStatus === 'suspended' ? 'suspended' : 'reactivated',
-      performed_by: adminId,
-      old_status: currentStatus,
-      new_status: newStatus,
-    });
+    try {
+      await apiClient.post('/merchant-verification-history', {
+        merchant_id: merchant.id,
+        action: newStatus === 'suspended' ? 'suspended' : 'reactivated',
+        old_status: currentStatus,
+        new_status: newStatus,
+      });
+    } catch (err) {
+      throw err;
+    }
 
-    if (error) throw error;
-    
     // Audit log via centralized utility
     await logStatusChange('merchant', merchant.id, currentStatus, newStatus);
-    
+
     return newStatus;
   },
 
   async bulkApprove(
-    merchants: Merchant[], 
-    merchantIds: string[], 
+    merchants: Merchant[],
+    merchantIds: string[],
     notes: string
   ): Promise<void> {
-    const { data: { user } } = await supabase.auth.getUser();
-    const adminId = user?.id;
-    
     const targetMerchants = merchants.filter(m => merchantIds.includes(m.id));
-    
+
     // Single write to history -- trigger auto-syncs merchants.verification_status per row
     const historyEntries = targetMerchants.map(m => ({
       merchant_id: m.id,
       action: 'approved',
-      performed_by: adminId,
       approval_notes: notes,
       old_status: m.verification_status,
       new_status: 'verified'
     }));
-    
-    const { error } = await supabase.from('merchant_verification_history').insert(historyEntries);
-    if (error) throw error;
-    
-    // 3. Audit logs via centralized utility
+
+    try {
+      await apiClient.post('/merchant-verification-history/bulk', historyEntries);
+    } catch (err) {
+      throw err;
+    }
+
+    // Audit logs via centralized utility
     for (const m of targetMerchants) {
       await createAuditLog({
         action: 'bulk_approve',
@@ -253,8 +203,8 @@ export const merchantService = {
         newData: { verification_status: 'verified', notes },
       });
     }
-    
-    // 4. Create notifications
+
+    // Create notifications
     const notifications = targetMerchants.map(m => ({
       user_id: m.user_id,
       type: 'verification_approved',
@@ -262,7 +212,11 @@ export const merchantService = {
       message: 'Selamat! Akun bisnis Anda telah terverifikasi secara massal.',
       link: '/merchant'
     }));
-    
-    await supabase.from('notifications').insert(notifications);
+
+    try {
+      await apiClient.post('/notifications/bulk', notifications);
+    } catch (notifErr) {
+      console.error('Failed to create bulk notifications:', notifErr);
+    }
   }
 };

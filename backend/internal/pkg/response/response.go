@@ -4,48 +4,51 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/itsramaa/sistem-hunian/backend/internal/pkg/apierror"
+	"github.com/itsramaa/sihuni-api/internal/pkg/apierror"
 )
 
-// envelope is the standard JSON response wrapper.
-type envelope struct {
-	Data  any          `json:"data"`
-	Error *errorDetail `json:"error"`
+// Envelope is the standard API response wrapper for all endpoints.
+type Envelope struct {
+	Data  interface{} `json:"data"`
+	Error *errorBody  `json:"error"`
+	Meta  *Meta       `json:"meta,omitempty"`
 }
 
-type errorDetail struct {
+// errorBody represents a structured error response payload.
+type errorBody struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 	Status  int    `json:"status"`
 }
 
-// JSON writes a successful JSON response.
-func JSON(w http.ResponseWriter, status int, data any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(envelope{Data: data, Error: nil})
+// Meta holds optional response metadata such as request IDs.
+type Meta struct {
+	RequestID string `json:"request_id,omitempty"`
 }
 
-// Error writes an error JSON response.
+// JSON writes a successful JSON response with the given status code and data payload.
+func JSON(w http.ResponseWriter, status int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(Envelope{Data: data, Error: nil})
+}
+
+// Error writes a structured error JSON response.
 func Error(w http.ResponseWriter, status int, code, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(envelope{
-		Data: nil,
-		Error: &errorDetail{
-			Code:    code,
-			Message: message,
-			Status:  status,
-		},
+	json.NewEncoder(w).Encode(Envelope{
+		Data:  nil,
+		Error: &errorBody{Code: code, Message: message, Status: status},
 	})
-}
-
-// APIError writes an *apierror.APIError response.
-func APIError(w http.ResponseWriter, err *apierror.APIError) {
-	Error(w, err.Status, err.Code, err.Message)
 }
 
 // NoContent writes a 204 No Content response.
 func NoContent(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// APIError writes a structured error response from an *apierror.APIError.
+func APIError(w http.ResponseWriter, err *apierror.APIError) {
+	Error(w, err.Status, err.Code, err.Message)
 }

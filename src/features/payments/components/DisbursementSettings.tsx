@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -37,14 +37,9 @@ export const DisbursementSettings = ({ vendorId }: DisbursementSettingsProps) =>
   const { data: vendor } = useQuery({
     queryKey: ["vendor-disbursement-settings", vendorId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("vendors")
-        .select("disbursement_schedule, min_payout_threshold")
-        .eq("id", vendorId)
-        .single();
-
-      if (error) throw error;
-      return data;
+      // TODO: Migrate to Go endpoint — GET /v1/vendors/:id/disbursement-settings
+      const response = await apiClient.get(`/vendors/${vendorId}/disbursement-settings`);
+      return response.data.data as { disbursement_schedule: string; min_payout_threshold: number } | null;
     },
     enabled: !!vendorId,
   });
@@ -53,15 +48,9 @@ export const DisbursementSettings = ({ vendorId }: DisbursementSettingsProps) =>
   const { data: disbursements = [] } = useQuery({
     queryKey: ["vendor-disbursement-history", vendorId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("disbursements")
-        .select("*")
-        .eq("vendor_id", vendorId)
-        .order("created_at", { ascending: false })
-        .limit(10);
-
-      if (error) throw error;
-      return data;
+      // TODO: Migrate to Go endpoint — GET /v1/vendors/:id/disbursements
+      const response = await apiClient.get(`/vendors/${vendorId}/disbursements`, { params: { limit: 10 } });
+      return response.data.data as any[];
     },
     enabled: !!vendorId,
   });
@@ -75,15 +64,11 @@ export const DisbursementSettings = ({ vendorId }: DisbursementSettingsProps) =>
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
-        .from("vendors")
-        .update({
-          disbursement_schedule: schedule,
-          min_payout_threshold: parseFloat(minThreshold),
-        })
-        .eq("id", vendorId);
-
-      if (error) throw error;
+      // TODO: Migrate to Go endpoint — PATCH /v1/vendors/:id/disbursement-settings
+      await apiClient.patch(`/vendors/${vendorId}/disbursement-settings`, {
+        disbursement_schedule: schedule,
+        min_payout_threshold: parseFloat(minThreshold),
+      });
     },
     onSuccess: () => {
       toast.success("Disbursement settings saved");

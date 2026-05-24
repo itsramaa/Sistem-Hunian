@@ -1,5 +1,4 @@
 import { apiClient } from "@/lib/axios";
-import { supabase } from "@/lib/integrations/supabase/client";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
@@ -52,9 +51,8 @@ export function TenantProfileForm({ userId, onComplete }: TenantProfileFormProps
     setIsSubmitting(true);
 
     try {
-      // First, call the bootstrap function to ensure profiles/user_roles/tenants exist
-      // This runs with service role so it bypasses RLS
-      await apiClient.post('/api/v1/auth/bootstrap', { role: 'tenant' });
+      // First, call the bootstrap endpoint to ensure profiles/user_roles/tenants exist
+      await apiClient.post('/auth/bootstrap', { role: 'tenant' });
 
       let ktpPhotoUrl = null;
 
@@ -64,24 +62,23 @@ export function TenantProfileForm({ userId, onComplete }: TenantProfileFormProps
         const fileName = `${userId}-ktp-${Date.now()}.${fileExt}`;
         const filePath = `ktp/${fileName}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from('verification-documents')
-          .upload(filePath, ktpFile);
+        const formDataUpload = new FormData();
+        formDataUpload.append('file', ktpFile, fileName);
+        formDataUpload.append('bucket', 'verification-documents');
+        formDataUpload.append('path', filePath);
 
-        if (uploadError) {
-          console.error('Upload error:', uploadError);
+        try {
+          const uploadResponse = await apiClient.post('/storage/upload', formDataUpload, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          ktpPhotoUrl = uploadResponse.data.data?.public_url || null;
+        } catch (uploadErr) {
+          console.error('Upload error:', uploadErr);
           throw new Error('Failed to upload KTP photo. Please try again.');
         }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('verification-documents')
-          .getPublicUrl(filePath);
-
-        ktpPhotoUrl = publicUrl;
       }
 
-      // Now update the tenant record with additional data
-      // RLS will allow this because the tenant record was created by bootstrap
+      // Now update the tenant record with additional data via REST API
       const tenantData = {
         ktp_number: formData.ktp_number || null,
         ktp_photo_url: ktpPhotoUrl,
@@ -96,15 +93,7 @@ export function TenantProfileForm({ userId, onComplete }: TenantProfileFormProps
         verification_status: 'pending' as const,
       };
 
-      const { error: updateError } = await supabase
-        .from('tenants')
-        .update(tenantData)
-        .eq('user_id', userId);
-
-      if (updateError) {
-        console.error('Tenant update error:', updateError);
-        throw new Error('Failed to save profile. Please try again.');
-      }
+      await apiClient.put(`/tenants/${userId}`, tenantData);
 
       toast.success("Profile completed successfully!");
       onComplete();

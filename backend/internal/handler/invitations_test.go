@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/itsramaa/sistem-hunian/backend/internal/handler"
+	"github.com/itsramaa/sihuni-api/internal/handler"
 )
 
 // ── GET /v1/invitations/:token ────────────────────────────────────────────────

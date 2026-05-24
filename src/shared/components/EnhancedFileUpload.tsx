@@ -1,14 +1,14 @@
 import { useState, useCallback, useRef } from "react";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Button } from "@/shared/components/ui/button";
 import { Progress } from "@/shared/components/ui/progress";
 import { WebcamCaptureDialog } from "@/shared/components/WebcamCaptureDialog";
 import { useIsMobile } from "@/shared/hooks/use-mobile";
 import { toast } from "sonner";
-import { 
-  Upload, X, Loader2, FileText, Image as ImageIcon, 
-  Pause, Play, RotateCcw, CheckCircle2, AlertCircle, Video 
+import {
+  Upload, X, Loader2, FileText, Image as ImageIcon,
+  Pause, Play, RotateCcw, CheckCircle2, AlertCircle, Video
 } from "lucide-react";
 import { compressImage, shouldCompress, getOptimalOptions } from "@/shared/utils/imageCompression";
 
@@ -53,7 +53,7 @@ export const EnhancedFileUpload = ({
     error: null,
     compressionInfo: null,
   });
-  
+
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentFileRef = useRef<File | Blob | null>(null);
   const filePathRef = useRef<string | null>(null);
@@ -72,7 +72,7 @@ export const EnhancedFileUpload = ({
       currentStep++;
       const newProgress = startProgress + (increment * currentStep);
       updateProgress(Math.min(newProgress, endProgress));
-      
+
       if (currentStep >= steps) {
         clearInterval(interval);
       }
@@ -117,77 +117,79 @@ export const EnhancedFileUpload = ({
       // Compress if enabled and needed
       if (enableCompression && shouldCompress(file)) {
         setState(prev => ({ ...prev, status: 'compressing', progress: 0 }));
-        
+
         const clearProgress = simulateProgress(0, 30, 1000);
-        
+
         const options = getOptimalOptions(file);
         const result = await compressImage(file, options);
-        
+
         clearProgress();
-        
+
         fileToUpload = result.blob;
         compressionInfo = {
           original: result.originalSize,
           compressed: result.compressedSize,
         };
-        
-        setState(prev => ({ 
-          ...prev, 
-          status: 'uploading', 
+
+        setState(prev => ({
+          ...prev,
+          status: 'uploading',
           progress: 30,
           compressionInfo,
         }));
-        
+
         currentFileRef.current = fileToUpload;
       }
 
       // Start upload progress simulation
       const clearUploadProgress = simulateProgress(
-        compressionInfo ? 30 : 0, 
-        90, 
+        compressionInfo ? 30 : 0,
+        90,
         2000
       );
 
       const fileExt = file.name.split(".").pop();
-      const filePath = folder 
+      const filePath = folder
         ? `${user.id}/${folder}/${Date.now()}.${fileExt}`
         : `${user.id}/${Date.now()}.${fileExt}`;
-      
+
       filePathRef.current = filePath;
 
-      const { error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(filePath, fileToUpload);
+      // TODO: implement file storage endpoint — was: supabase.storage.from(bucket).upload(filePath, fileToUpload)
+      const formData = new FormData();
+      formData.append('file', fileToUpload, file.name);
+      formData.append('bucket', bucket);
+      formData.append('path', filePath);
+
+      const r = await apiClient.post('/storage/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
 
       clearUploadProgress();
-
-      if (uploadError) throw uploadError;
 
       // Complete progress
       updateProgress(100);
 
-      const { data: urlData } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(filePath);
+      const publicUrl: string = r.data?.url ?? '';
 
       setState(prev => ({ ...prev, status: 'completed' }));
-      onUploadComplete(urlData.publicUrl, filePath);
-      
-      const savedKB = compressionInfo 
+      onUploadComplete(publicUrl, filePath);
+
+      const savedKB = compressionInfo
         ? Math.round((compressionInfo.original - compressionInfo.compressed) / 1024)
         : 0;
-      
+
       toast.success(
-        savedKB > 0 
-          ? `File uploaded (saved ${savedKB}KB with compression)` 
+        savedKB > 0
+          ? `File uploaded (saved ${savedKB}KB with compression)`
           : "File uploaded successfully"
       );
     } catch (error) {
       const err = error as Error;
       console.error("Upload error:", err);
-      setState(prev => ({ 
-        ...prev, 
-        status: 'error', 
+      setState(prev => ({
+        ...prev,
+        status: 'error',
         error: err.message || "Failed to upload file",
       }));
       toast.error(err.message || "Failed to upload file");
@@ -258,8 +260,8 @@ export const EnhancedFileUpload = ({
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
         />
         <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-          state.status === 'error' 
-            ? 'border-destructive/50' 
+          state.status === 'error'
+            ? 'border-destructive/50'
             : state.status === 'completed'
             ? 'border-green-500/50'
             : 'border-border hover:border-primary/50'
@@ -345,10 +347,16 @@ export const EnhancedFileUpload = ({
         if (!user) return;
         try {
           const filePath = folder ? `${user.id}/${folder}/${Date.now()}.jpg` : `${user.id}/${Date.now()}.jpg`;
-          const { error } = await supabase.storage.from(bucket).upload(filePath, blob);
-          if (error) throw error;
-          const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
-          onUploadComplete(urlData.publicUrl, filePath);
+          // TODO: implement file storage endpoint — was: supabase.storage.from(bucket).upload(filePath, blob)
+          const formData = new FormData();
+          formData.append('file', blob, 'webcam.jpg');
+          formData.append('bucket', bucket);
+          formData.append('path', filePath);
+
+          const r = await apiClient.post('/storage/upload', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          onUploadComplete(r.data?.url ?? '', filePath);
           toast.success('Foto webcam berhasil diupload');
         } catch (err) {
           toast.error('Gagal mengupload foto webcam');

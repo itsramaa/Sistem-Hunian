@@ -24,16 +24,19 @@ type MoveOutNotice struct {
 	TenantUserID string    `json:"tenant_user_id"`
 	MoveOutDate  time.Time `json:"move_out_date"`
 	Status       string    `json:"status"` // pending, approved, rejected, completed
-	Notes        string    `json:"notes"`
+	Notes        string    `json:"notes,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`
 }
 
-// DepositRefundRequest is the request body for processing a deposit refund.
+// DepositRefundRequest is the request body for processing a deposit refund or forfeiture.
 type DepositRefundRequest struct {
-	RefundAmount float64 `json:"refund_amount"`
-	Reason       string  `json:"reason"`
-	// BankAccountID is the Xendit disbursement target (optional — stubbed for now).
-	BankAccountID string `json:"bank_account_id,omitempty"`
+	// RefundAmount is the amount to refund. If zero, full deposit is refunded.
+	RefundAmount *float64 `json:"refund_amount,omitempty"`
+	// Reason describes why the deposit is being refunded or forfeited.
+	Reason string `json:"reason,omitempty"`
+	// Action is either "refund" or "forfeit".
+	Action string `json:"action"`
+	Notes  string `json:"notes,omitempty"`
 }
 
 // UpdateMoveOutStatusRequest is the request body for updating a move-out notice status.

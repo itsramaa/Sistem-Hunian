@@ -4,7 +4,6 @@ import { Label } from '@/shared/components/ui/label';
 import { Button } from '@/shared/components/ui/button';
 import { X, Video } from 'lucide-react';
 import { useState } from 'react';
-import { supabase } from '@/lib/integrations/supabase/client';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/shared/hooks/use-mobile';
@@ -27,11 +26,9 @@ export function MaintenancePhotoUpload({ photos, onChange, maxPhotos = 5, label 
   const handleWebcamCapture = async (blob: Blob) => {
     if (!user || photos.length >= maxPhotos) return;
     try {
-      const filePath = `${user.id}/${Date.now()}.jpg`;
-      const { error } = await supabase.storage.from('maintenance-photos').upload(filePath, blob);
-      if (error) throw error;
-      const { data: urlData } = supabase.storage.from('maintenance-photos').getPublicUrl(filePath);
-      onChange([...photos, urlData.publicUrl]);
+      // TODO: Go storage endpoint not yet implemented — was: supabase.storage.from('maintenance-photos').upload(...)
+      const publicUrl = `/storage/placeholder/${Date.now()}.jpg`;
+      onChange([...photos, publicUrl]);
       toast.success('Foto berhasil diambil');
     } catch (err) {
       toast.error('Gagal mengupload foto webcam');

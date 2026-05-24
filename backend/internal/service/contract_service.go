@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/itsramaa/sistem-hunian/backend/internal/model"
-	"github.com/itsramaa/sistem-hunian/backend/internal/repository"
+	"github.com/itsramaa/sihuni-api/internal/model"
+	"github.com/itsramaa/sihuni-api/internal/repository"
 )
 
 // ContractService handles business logic for contracts and move-out notices.
@@ -61,7 +61,7 @@ func (s *ContractService) ProcessDepositRefund(ctx context.Context, id, merchant
 	if merchantID == "" {
 		return nil, errors.New("contract_service: merchant_id is required")
 	}
-	if req.RefundAmount <= 0 {
+	if req.RefundAmount != nil && *req.RefundAmount <= 0 {
 		return nil, errors.New("contract_service: refund_amount must be positive")
 	}
 

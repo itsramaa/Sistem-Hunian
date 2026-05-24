@@ -7,7 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/shared/utils/utils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 
 interface FacilityType {
@@ -48,28 +47,16 @@ export function FacilityTypePicker({ selectedTypeIds, onSelectionChange, scope =
   const { data: facilityTypes = [], isLoading } = useQuery({
     queryKey: ['facility-types', merchant?.id, scope],
     queryFn: async () => {
-      const { data, error } = await (supabase.from as any)('facility_types')
-        .select('id, name, scope, nature, is_trackable, asset_type')
-        .eq('merchant_id', merchant!.id)
-        .eq('scope', scope)
-        .order('name');
-      if (error) throw error;
-      return data as FacilityType[];
+      // TODO: Go endpoint not yet implemented — was: supabase.from('facility_types').select(...)
+      return [] as FacilityType[];
     },
     enabled: !!merchant?.id,
   });
 
   const addMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await (supabase.from as any)('facility_types').insert({
-        merchant_id: merchant!.id,
-        name: newName.trim(),
-        scope,
-        nature: newNature,
-        is_trackable: newNature === 'tangible',
-        asset_type: newNature === 'tangible' ? newAssetType : 'lainnya',
-      });
-      if (error) throw error;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('facility_types').insert(...)
+      // No-op stub
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['facility-types'] });

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { Button } from "@/shared/components/ui/button";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Clock, AlertTriangle, ArrowRight } from "lucide-react";
 import { differenceInDays, differenceInHours } from "date-fns";
@@ -13,13 +13,10 @@ export function TrialCountdownWidget() {
   const { data: subscription } = useQuery({
     queryKey: ["merchant-subscription-trial", merchant?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("merchant_subscriptions")
-        .select("*, tier:subscription_tiers(*)")
-        .eq("merchant_id", merchant?.id)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
+      const response = await apiClient.get('/subscriptions/current', {
+        params: { merchant_id: merchant?.id },
+      });
+      return response.data.data;
     },
     enabled: !!merchant?.id,
   });

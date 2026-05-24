@@ -3,39 +3,38 @@ package middleware
 import (
 	"net/http"
 	"strings"
+
+	"github.com/rs/cors"
 )
 
-// CORS returns middleware that sets CORS headers.
-// If allowedOrigins is nil or empty, it defaults to allowing all origins (development mode).
+// CORS returns a CORS middleware configured for the given allowed origins.
+// In development, credentials are allowed so the frontend can send cookies/auth headers.
 func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
+	c := cors.New(cors.Options{
+		AllowedOrigins:   allowedOrigins,
+		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodOptions},
+		AllowedHeaders:   []string{"Authorization", "Content-Type", "X-Cron-Secret", "X-Request-ID"},
+		ExposedHeaders:   []string{"Content-Length", "Content-Disposition"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	})
+	return func(next http.Handler) http.Handler {
+		return c.Handler(next)
+	}
+}
+
+// CronAuth validates the X-Cron-Secret header for internal cron endpoints.
+// Returns 401 if the secret is missing or does not match.
+func CronAuth(cronSecret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			origin := r.Header.Get("Origin")
-
-			if len(allowedOrigins) == 0 {
-				// Allow all origins in development
-				w.Header().Set("Access-Control-Allow-Origin", "*")
-			} else {
-				for _, allowed := range allowedOrigins {
-					if strings.EqualFold(origin, allowed) {
-						w.Header().Set("Access-Control-Allow-Origin", origin)
-						w.Header().Set("Vary", "Origin")
-						break
-					}
-				}
-			}
-
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Cron-Secret, X-Webhook-Secret")
-			w.Header().Set("Access-Control-Allow-Credentials", "true")
-			w.Header().Set("Access-Control-Max-Age", "86400")
-
-			// Handle preflight
-			if r.Method == http.MethodOptions {
-				w.WriteHeader(http.StatusNoContent)
+			secret := r.Header.Get("X-Cron-Secret")
+			if cronSecret == "" || !strings.EqualFold(secret, cronSecret) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				w.Write([]byte(`{"data":null,"error":{"code":"UNAUTHORIZED","message":"invalid cron secret","status":401}}`))
 				return
 			}
-
 			next.ServeHTTP(w, r)
 		})
 	}

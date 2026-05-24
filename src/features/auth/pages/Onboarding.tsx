@@ -10,7 +10,6 @@ import { Label } from '@/shared/components/ui/label';
 import { useToast } from '@/shared/hooks/use-toast';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { apiClient } from '@/lib/axios';
-import { supabase } from '@/lib/integrations/supabase/client';
 import { cn } from '@/shared/utils/utils';
 import { businessNameSchema } from '@/shared/utils/validations/auth';
 import { getAuthErrorMessage } from '@/features/auth/utils/auth-errors';
@@ -132,7 +131,7 @@ function BrandPanel() {
 export default function Onboarding() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user, role, isLoading, refreshProfile } = useAuth();
+  const { user, role, profile, isLoading, refreshProfile } = useAuth();
   const { toast } = useToast();
   
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
@@ -152,17 +151,12 @@ export default function Onboarding() {
 
   const [fullName, setFullName] = useState('');
   useEffect(() => {
-    if (user) {
-      supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('user_id', user.id)
-        .single()
-        .then(({ data }) => {
-          if (data?.full_name) setFullName(data.full_name);
-        });
+    if (user?.full_name) {
+      setFullName(user.full_name);
+    } else if (profile?.full_name) {
+      setFullName(profile.full_name);
     }
-  }, [user]);
+  }, [user, profile]);
 
   // Redirect if already has role (but only after initial load)
   useEffect(() => {
@@ -188,19 +182,9 @@ export default function Onboarding() {
   }, [user, isLoading, navigate]);
 
   useEffect(() => {
-    const checkExistingRole = async () => {
-      if (!user || role) return;
-      const { data: existingRole } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .single();
-      if (existingRole) {
-        await refreshProfile();
-      }
-    };
+    // After profile is loaded, if role is still missing, refresh once more
     if (hasCheckedRole && user && !role) {
-      checkExistingRole();
+      refreshProfile();
     }
   }, [hasCheckedRole, user, role, refreshProfile]);
 
@@ -240,13 +224,7 @@ export default function Onboarding() {
     setIsSubmitting(true);
 
     try {
-      const { data: existingRole } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .single();
-      
-      if (existingRole) {
+      if (role) {
         toast({
           title: 'Akun sudah terdaftar',
           description: 'Anda sudah memiliki akun. Mengarahkan ke dashboard...',
@@ -256,25 +234,15 @@ export default function Onboarding() {
         return;
       }
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name, email, phone')
-        .eq('user_id', user.id)
-        .single();
-
-      const { error: webhookError } = await apiClient.post('/api/v1/auth/webhook', {
+      await apiClient.post('/webhooks/auth', {
         user_id: user.id,
         email: profile?.email || user.email,
-        full_name: profile?.full_name || '',
+        full_name: profile?.full_name || user.full_name || '',
         phone: profile?.phone || null,
         role: selectedRole,
         business_name: data.businessName,
         referral_code: referralCode?.toUpperCase() || undefined,
-      }).then(() => ({ error: null })).catch((err) => ({ error: err }));
-
-      if (webhookError) {
-        throw webhookError;
-      }
+      });
 
       sessionStorage.removeItem('referral_code');
       await refreshProfile();

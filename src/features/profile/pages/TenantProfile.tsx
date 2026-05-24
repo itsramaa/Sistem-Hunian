@@ -1,6 +1,6 @@
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useProfile, useTenantProfile, useUpdateProfile, useUpdateTenantProfile, useUploadKtp } from "@/features/profile/hooks/useProfile";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { TenantLayout } from "@/shared/components/layouts/TenantLayout";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { Button } from "@/shared/components/ui/button";
@@ -193,10 +193,9 @@ const TenantProfile = () => {
         throw new Error(result.error.errors[0].message);
       }
 
-      const { error } = await supabase.auth.updateUser({
-        password: passwordForm.newPassword,
+      await apiClient.post('/auth/change-password', {
+        new_password: passwordForm.newPassword,
       });
-      if (error) throw error;
       
       toast.success('Password berhasil diubah');
       setPasswordForm({ newPassword: '', confirmPassword: '' });
@@ -692,26 +691,17 @@ function SavedPaymentMethodsSection({ userId }: { userId?: string }) {
   const { data: paymentMethods, isLoading } = useQuery({
     queryKey: ["saved-payment-methods", userId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("xendit_transactions")
-        .select("payment_method, payment_channel, created_at")
-        .eq("user_id", userId)
-        .eq("status", "paid")
-        .not("payment_method", "is", null)
-        .order("created_at", { ascending: false })
-        .limit(10);
-      
-      if (error) throw error;
-      
+      const response = await apiClient.get('/xendit-transactions', {
+        params: { status: 'paid', limit: 10 },
+      });
+      const data = response.data.data || [];
       const seen = new Set<string>();
-      const unique = data?.filter(pm => {
+      return data.filter((pm: any) => {
         const key = `${pm.payment_method}-${pm.payment_channel}`;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
-      }) || [];
-      
-      return unique;
+      });
     },
     enabled: !!userId,
   });

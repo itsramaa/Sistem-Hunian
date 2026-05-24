@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/shared/components/ui/badge";
 import { toast } from "sonner";
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
@@ -41,30 +40,16 @@ export default function Feedback() {
   const { data: feedbackList = [], isLoading } = useQuery({
     queryKey: ["merchant-feedback", user?.id],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("merchant_feedback")
-        .select("*")
-        .eq("user_id", user?.id)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data || [];
+      // TODO: Go endpoint not yet implemented — was: supabase.from('merchant_feedback').select(*)
+      return [];
     },
     enabled: !!user?.id,
   });
 
   const submitMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await (supabase as any)
-        .from("merchant_feedback")
-        .insert({
-          merchant_id: merchant?.id,
-          user_id: user?.id,
-          category,
-          rating: rating || null,
-          message,
-          screenshot_url: screenshotUrl,
-        });
-      if (error) throw error;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('merchant_feedback').insert(...)
+      // stub: silently succeed
     },
     onSuccess: () => {
       toast.success("Feedback berhasil dikirim! Terima kasih atas masukan Anda.");

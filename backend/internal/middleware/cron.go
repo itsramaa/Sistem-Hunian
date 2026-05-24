@@ -1,9 +1,8 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
-
-	"github.com/itsramaa/sistem-hunian/backend/internal/pkg/response"
 )
 
 // RequireCronSecret returns middleware that validates the X-Cron-Secret header.
@@ -12,12 +11,15 @@ func RequireCronSecret(secret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if secret == "" {
-				// If no secret configured, reject all requests for safety
-				response.Error(w, http.StatusServiceUnavailable, "MISCONFIGURED", "cron secret not configured")
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusServiceUnavailable)
+				fmt.Fprint(w, `{"data":null,"error":{"code":"MISCONFIGURED","message":"cron secret not configured","status":503}}`)
 				return
 			}
 			if r.Header.Get("X-Cron-Secret") != secret {
-				response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "invalid cron secret")
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				fmt.Fprint(w, `{"data":null,"error":{"code":"UNAUTHORIZED","message":"invalid cron secret","status":401}}`)
 				return
 			}
 			next.ServeHTTP(w, r)

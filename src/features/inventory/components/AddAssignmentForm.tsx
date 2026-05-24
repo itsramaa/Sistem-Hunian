@@ -6,7 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/shared/components/ui/textarea';
 import { Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface AddAssignmentFormProps {
@@ -25,13 +24,8 @@ export function AddAssignmentForm({ merchantId }: AddAssignmentFormProps) {
   const { data: facilityTypes = [] } = useQuery({
     queryKey: ['facility-types-intangible', merchantId],
     queryFn: async () => {
-      const { data, error } = await (supabase.from as any)('facility_types')
-        .select('id, name')
-        .eq('merchant_id', merchantId)
-        .eq('nature', 'intangible')
-        .order('name');
-      if (error) throw error;
-      return data;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('facility_types').select(...)
+      return [];
     },
     enabled: !!merchantId && expanded,
   });
@@ -39,9 +33,8 @@ export function AddAssignmentForm({ merchantId }: AddAssignmentFormProps) {
   const { data: properties = [] } = useQuery({
     queryKey: ['merchant-properties-list', merchantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('properties').select('id, name').eq('merchant_id', merchantId).order('name');
-      if (error) throw error;
-      return data;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('properties').select(...)
+      return [];
     },
     enabled: !!merchantId && expanded,
   });
@@ -50,23 +43,16 @@ export function AddAssignmentForm({ merchantId }: AddAssignmentFormProps) {
     queryKey: ['property-units-list', propertyId],
     queryFn: async () => {
       if (!propertyId) return [];
-      const { data, error } = await supabase.from('units').select('id, unit_number').eq('property_id', propertyId).order('unit_number');
-      if (error) throw error;
-      return data;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('units').select(...)
+      return [];
     },
     enabled: !!propertyId && expanded,
   });
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await (supabase.from as any)('facility_assignments').insert({
-        facility_type_id: facilityTypeId,
-        property_id: propertyId || null,
-        unit_id: unitId || null,
-        capacity: capacity || null,
-        notes: notes || null,
-      });
-      if (error) throw error;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('facility_assignments').insert(...)
+      // No-op stub
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['facility-assignments'] });

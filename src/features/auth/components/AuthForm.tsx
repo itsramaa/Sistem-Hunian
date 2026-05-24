@@ -1,9 +1,7 @@
 import { PasswordStrengthMeter } from '@/features/auth/components/PasswordStrengthMeter';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { getAuthErrorMessage } from '@/features/auth/utils/auth-errors';
-import { referralService } from '@/features/referrals/services/referralService';
 import { apiClient } from '@/lib/axios';
-import { supabase } from '@/lib/integrations/supabase/client';
 import { Button } from '@/shared/components/ui/button';
 import { Checkbox } from '@/shared/components/ui/checkbox';
 import { Input } from '@/shared/components/ui/input';
@@ -107,7 +105,6 @@ export function AuthForm() {
   const [searchParams] = useSearchParams();
   const initialMode = searchParams.get('mode') as 'login' | 'signup' | null;
   const initialMerchantCode = searchParams.get('merchantCode') || searchParams.get('code') || '';
-  const initialReferralCode = searchParams.get('ref') || sessionStorage.getItem('referral_code') || '';
   
   const isTenantSignup = !!initialMerchantCode;
   
@@ -118,7 +115,6 @@ export function AuthForm() {
     return localStorage.getItem('sihuni_remember_me') === 'true';
   });
   const [merchantCodeError, setMerchantCodeError] = useState<string | null>(null);
-  const [referrerInfo, setReferrerInfo] = useState<{ name: string; role: string } | null>(null);
   const [supportsBiometric, setSupportsBiometric] = useState(false);
   const [errorAnnouncement, setErrorAnnouncement] = useState('');
   const [failedAttempts, setFailedAttempts] = useState(0);
@@ -149,27 +145,6 @@ export function AuthForm() {
       setActiveTab(initialMode);
     }
   }, [initialMode, isTenantSignup]);
-
-  // Store referral code in session storage
-  useEffect(() => {
-    if (initialReferralCode) {
-      sessionStorage.setItem('referral_code', initialReferralCode);
-    }
-  }, [initialReferralCode]);
-
-  // Validate referral code and get referrer info
-  useEffect(() => {
-    const validateReferral = async () => {
-      if (!initialReferralCode) return;
-      
-      const info = await referralService.validateReferralCode(initialReferralCode);
-      if (info) {
-        setReferrerInfo(info);
-      }
-    };
-
-    validateReferral();
-  }, [initialReferralCode]);
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -302,16 +277,12 @@ export function AuthForm() {
       return null;
     }
     
-    const { data, error } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('merchant_code', normalizedCode)
-      .single();
-    
-    if (error || !data) {
+    try {
+      const { data } = await apiClient.get<{ id: string }>(`/merchants/by-code/${normalizedCode}`);
+      return data?.id ?? null;
+    } catch {
       return null;
     }
-    return data.id;
   };
 
   const handleSignup = async (data: SignupFormData) => {
@@ -351,16 +322,15 @@ export function AuthForm() {
     // If tenant signup (with merchantCode), call auth-webhook to complete setup
     if (!error && signUpData?.user && isTenantSignup) {
       try {
-        await apiClient.post('/api/v1/auth/webhook', {
+        await apiClient.post('/webhooks/auth', {
           user_id: signUpData.user.id,
           email: data.email,
           full_name: data.fullName,
           phone: data.phone || null,
           role: 'tenant',
           merchant_code: data.merchantCode?.toUpperCase(),
-          referral_code: initialReferralCode?.toUpperCase() || undefined,
+          referral_code: undefined,
         });
-        sessionStorage.removeItem('referral_code');
       } catch {
         // Auth webhook invocation error - silently handle
       }
@@ -368,22 +338,13 @@ export function AuthForm() {
       // Send notification to merchant
       if (linkedMerchantId) {
         try {
-          const { data: merchantData } = await supabase
-            .from('merchants')
-            .select('user_id, business_name')
-            .eq('id', linkedMerchantId)
-            .single();
+          const { data: merchantData } = await apiClient.get<{ user_id: string; business_name: string }>(`/merchants/${linkedMerchantId}`);
           
           if (merchantData) {
-            const { data: merchantProfile } = await supabase
-              .from('profiles')
-              .select('email, full_name')
-              .eq('user_id', merchantData.user_id)
-              .single();
+            const { data: merchantProfile } = await apiClient.get<{ email: string; full_name: string | null }>(`/users/${merchantData.user_id}/profile`);
             
             if (merchantProfile?.email) {
-              try {
-                await apiClient.post('/api/v1/notifications/send', {
+              await apiClient.post('/notifications', {
                   type: 'tenant_registration',
                   recipientEmail: merchantProfile.email,
                   recipientName: merchantProfile.full_name || merchantData.business_name,
@@ -398,14 +359,12 @@ export function AuthForm() {
                     dashboardLink: `${window.location.origin}/merchant/tenants`,
                   },
                 });
-              } catch {
-                // Failed to send tenant registration notification - silently handle
-              }
             }
           }
         } catch {
           // Failed to send tenant registration notification - silently handle
         }
+
       }
     }
     
@@ -510,17 +469,6 @@ export function AuthForm() {
                   : 'Platform Manajemen Properti Indonesia'}
               </p>
             </div>
-
-            {/* Referral Banner */}
-            {referrerInfo && activeTab === 'signup' && (
-              <div className="mb-4 p-3 rounded-xl border border-primary/20 bg-primary/5">
-                <p className="text-sm text-center">
-                  <span className="font-medium text-primary">Diundang oleh {referrerInfo.name}</span>
-                  <br />
-                  <span className="text-muted-foreground">Anda akan mendapat bonus spesial!</span>
-                </p>
-              </div>
-            )}
 
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'login' | 'signup')}>
               {/* Pill-style tabs */}

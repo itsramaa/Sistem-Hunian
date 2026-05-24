@@ -4,22 +4,23 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/itsramaa/sistem-hunian/backend/internal/model"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/itsramaa/sihuni-api/internal/model"
 )
 
 // ContractRepo handles database operations for contracts and move-out notices.
 type ContractRepo struct {
-	db *DB
+	pool *pgxpool.Pool
 }
 
 // NewContractRepo creates a new ContractRepo.
-func NewContractRepo(db *DB) *ContractRepo {
-	return &ContractRepo{db: db}
+func NewContractRepo(pool *pgxpool.Pool) *ContractRepo {
+	return &ContractRepo{pool: pool}
 }
 
 // ListContracts returns all contracts scoped to a merchant.
 func (r *ContractRepo) ListContracts(ctx context.Context, merchantID string) ([]model.Contract, error) {
-	rows, err := r.db.Pool.Query(ctx, `
+	rows, err := r.pool.Query(ctx, `
 		SELECT id, merchant_id, tenant_user_id, unit_id,
 		       start_date, end_date, status,
 		       deposit_amount, deposit_status, created_at
@@ -53,7 +54,7 @@ func (r *ContractRepo) ListContracts(ctx context.Context, merchantID string) ([]
 // GetContract returns a single contract by ID, scoped to merchantID.
 func (r *ContractRepo) GetContract(ctx context.Context, id, merchantID string) (*model.Contract, error) {
 	var c model.Contract
-	err := r.db.Pool.QueryRow(ctx, `
+	err := r.pool.QueryRow(ctx, `
 		SELECT id, merchant_id, tenant_user_id, unit_id,
 		       start_date, end_date, status,
 		       deposit_amount, deposit_status, created_at
@@ -73,7 +74,7 @@ func (r *ContractRepo) GetContract(ctx context.Context, id, merchantID string) (
 // ProcessDepositRefund marks the deposit as refunded and records the refund amount.
 // Uses a transaction to update both the contract and insert a refund record.
 func (r *ContractRepo) ProcessDepositRefund(ctx context.Context, id, merchantID string, req model.DepositRefundRequest) (*model.Contract, error) {
-	tx, err := r.db.Pool.Begin(ctx)
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("contract_repo: begin tx: %w", err)
 	}
@@ -116,7 +117,7 @@ func (r *ContractRepo) ProcessDepositRefund(ctx context.Context, id, merchantID 
 
 // ListMoveOuts returns all move-out notices scoped to a merchant.
 func (r *ContractRepo) ListMoveOuts(ctx context.Context, merchantID string) ([]model.MoveOutNotice, error) {
-	rows, err := r.db.Pool.Query(ctx, `
+	rows, err := r.pool.Query(ctx, `
 		SELECT id, contract_id, merchant_id, tenant_user_id,
 		       move_out_date, status, COALESCE(notes, ''), created_at
 		FROM move_out_notices
@@ -148,7 +149,7 @@ func (r *ContractRepo) ListMoveOuts(ctx context.Context, merchantID string) ([]m
 // GetMoveOut returns a single move-out notice by ID, scoped to merchantID.
 func (r *ContractRepo) GetMoveOut(ctx context.Context, id, merchantID string) (*model.MoveOutNotice, error) {
 	var m model.MoveOutNotice
-	err := r.db.Pool.QueryRow(ctx, `
+	err := r.pool.QueryRow(ctx, `
 		SELECT id, contract_id, merchant_id, tenant_user_id,
 		       move_out_date, status, COALESCE(notes, ''), created_at
 		FROM move_out_notices
@@ -166,7 +167,7 @@ func (r *ContractRepo) GetMoveOut(ctx context.Context, id, merchantID string) (*
 // UpdateMoveOutStatus updates the status of a move-out notice, scoped to merchantID.
 func (r *ContractRepo) UpdateMoveOutStatus(ctx context.Context, id, merchantID string, req model.UpdateMoveOutStatusRequest) (*model.MoveOutNotice, error) {
 	var m model.MoveOutNotice
-	err := r.db.Pool.QueryRow(ctx, `
+	err := r.pool.QueryRow(ctx, `
 		UPDATE move_out_notices
 		SET status = $1,
 		    notes = CASE WHEN $2 != '' THEN $2 ELSE notes END,

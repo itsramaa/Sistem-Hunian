@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
@@ -68,24 +68,20 @@ export function UnitAssetInventory({ unitId, merchantId }: UnitAssetInventoryPro
   const { data: assets = [], isLoading } = useQuery({
     queryKey: ['unit-assets', unitId],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('unit_assets')
-        .select('*')
-        .eq('unit_id', unitId)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return (data || []) as UnitAsset[];
+      const response = await apiClient.get('/unit-assets', {
+        params: { unit_id: unitId, order: 'created_at', ascending: false },
+      });
+      return (response.data?.data || response.data || []) as UnitAsset[];
     },
   });
 
   const addMutation = useMutation({
     mutationFn: async (payload: Partial<UnitAsset>) => {
-      const { error } = await (supabase as any).from('unit_assets').insert({
+      await apiClient.post('/unit-assets', {
         ...payload,
         unit_id: unitId,
         merchant_id: merchantId,
       });
-      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['unit-assets', unitId] });
@@ -98,8 +94,7 @@ export function UnitAssetInventory({ unitId, merchantId }: UnitAssetInventoryPro
 
   const deleteMutation = useMutation({
     mutationFn: async (assetId: string) => {
-      const { error } = await (supabase as any).from('unit_assets').delete().eq('id', assetId);
-      if (error) throw error;
+      await apiClient.delete(`/unit-assets/${assetId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['unit-assets', unitId] });
