@@ -3,6 +3,7 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import { INVITATION_ERROR_MESSAGES } from "@/features/auth/utils/auth-errors";
 import { TenantProfileForm } from "@/features/users/components/TenantProfileForm";
 import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
@@ -127,28 +128,17 @@ const Invite = () => {
       
       while (!webhookSuccess && retryCount <= maxRetries) {
         try {
-          const { data: webhookData, error: webhookError } = await supabase.functions.invoke('auth-webhook', {
-            body: {
-              user_id: authData.user.id,
-              email: formData.email,
-              full_name: formData.fullName,
-              phone: null,
-              role: 'tenant',
-              merchant_code: null,
-            },
+          await apiClient.post('/auth/webhook', {
+            user_id: authData.user.id,
+            email: formData.email,
+            full_name: formData.fullName,
+            phone: null,
+            role: 'tenant',
+            merchant_code: null,
           });
-
-          if (webhookError) {
-            console.error(`[Invite] Auth-webhook error (attempt ${retryCount + 1}):`, webhookError);
-            retryCount++;
-            if (retryCount <= maxRetries) {
-              await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before retry
-            }
-          } else {
-            webhookSuccess = true;
-          }
+          webhookSuccess = true;
         } catch (err) {
-          console.error(`[Invite] Auth-webhook exception (attempt ${retryCount + 1}):`, err);
+          console.error(`[Invite] Auth-webhook error (attempt ${retryCount + 1}):`, err);
           retryCount++;
           if (retryCount <= maxRetries) {
             await new Promise(resolve => setTimeout(resolve, 500));

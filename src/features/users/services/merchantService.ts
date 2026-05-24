@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/integrations/supabase/client";
+import { sendNotification } from "@/features/notifications/utils/notifications";
 import { AuditLog, HistoryEntry, Merchant, Verification } from "../types/admin-merchant";
 import { MERCHANT_VERIFICATION_TRANSITIONS, isValidTransition } from "@/shared/constants/state-machines";
 import { createAuditLog, logStatusChange } from "@/shared/utils/auditLog";
@@ -172,19 +173,17 @@ export const merchantService = {
 
     // Send email notification
     try {
-      await supabase.functions.invoke('send-notification', {
-        body: {
-          type: status === 'verified' ? 'verification_approved' : 'verification_rejected',
-          recipientEmail: merchant.profiles?.email,
-          recipientName: merchant.profiles?.full_name || 'Merchant',
-          data: {
-            businessName: merchant.business_name,
-            dashboardLink: `${window.location.origin}/merchant`,
-            approvalNotes: status === 'verified' ? approvalNotes : null,
-            rejectionReason: rejectionData?.reasonLabel,
-            rejectionDetails: rejectionData?.details,
-            resubmissionInstructions: rejectionData?.resubmissionInstructions,
-          }
+      await sendNotification({
+        type: status === 'verified' ? 'verification_approved' : 'verification_rejected',
+        recipientEmail: merchant.profiles?.email,
+        recipientName: merchant.profiles?.full_name || 'Merchant',
+        data: {
+          businessName: merchant.business_name,
+          dashboardLink: `${window.location.origin}/merchant`,
+          approvalNotes: status === 'verified' ? approvalNotes : null,
+          rejectionReason: rejectionData?.reasonLabel,
+          rejectionDetails: rejectionData?.details,
+          resubmissionInstructions: rejectionData?.resubmissionInstructions,
         }
       });
     } catch (emailError) {

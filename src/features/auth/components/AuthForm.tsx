@@ -2,7 +2,9 @@ import { PasswordStrengthMeter } from '@/features/auth/components/PasswordStreng
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { getAuthErrorMessage } from '@/features/auth/utils/auth-errors';
 import { referralService } from '@/features/referrals/services/referralService';
+import { sendNotification } from '@/features/notifications/utils/notifications';
 import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { Button } from '@/shared/components/ui/button';
 import { Checkbox } from '@/shared/components/ui/checkbox';
 import { Input } from '@/shared/components/ui/input';
@@ -350,22 +352,18 @@ export function AuthForm() {
     // If tenant signup (with merchantCode), call auth-webhook to complete setup
     if (!error && signUpData?.user && isTenantSignup) {
       try {
-        const { error: webhookError } = await supabase.functions.invoke('auth-webhook', {
-          body: {
-            user_id: signUpData.user.id,
-            email: data.email,
-            full_name: data.fullName,
-            phone: data.phone || null,
-            role: 'tenant',
-            merchant_code: data.merchantCode?.toUpperCase(),
-            referral_code: initialReferralCode?.toUpperCase() || undefined,
-          },
+        await apiClient.post('/auth/webhook', {
+          user_id: signUpData.user.id,
+          email: data.email,
+          full_name: data.fullName,
+          phone: data.phone || null,
+          role: 'tenant',
+          merchant_code: data.merchantCode?.toUpperCase(),
+          referral_code: initialReferralCode?.toUpperCase() || undefined,
         });
-        if (!webhookError) {
-          sessionStorage.removeItem('referral_code');
-        }
+        sessionStorage.removeItem('referral_code');
       } catch {
-        // Auth webhook invocation error - silently handle
+        // Auth webhook error - silently handle
       }
       
       // Send notification to merchant
@@ -385,21 +383,19 @@ export function AuthForm() {
               .single();
             
             if (merchantProfile?.email) {
-              await supabase.functions.invoke('send-notification', {
-                body: {
-                  type: 'tenant_registration',
-                  recipientEmail: merchantProfile.email,
-                  recipientName: merchantProfile.full_name || merchantData.business_name,
-                  data: {
-                    tenantName: data.fullName,
-                    tenantEmail: data.email,
-                    tenantPhone: data.phone || null,
-                    registeredAt: new Date().toLocaleString('id-ID', { 
-                      dateStyle: 'full', 
-                      timeStyle: 'short' 
-                    }),
-                    dashboardLink: `${window.location.origin}/merchant/tenants`,
-                  },
+              await sendNotification({
+                type: 'tenant_registration',
+                recipientEmail: merchantProfile.email,
+                recipientName: merchantProfile.full_name || merchantData.business_name,
+                data: {
+                  tenantName: data.fullName,
+                  tenantEmail: data.email,
+                  tenantPhone: data.phone || null,
+                  registeredAt: new Date().toLocaleString('id-ID', { 
+                    dateStyle: 'full', 
+                    timeStyle: 'short' 
+                  }),
+                  dashboardLink: `${window.location.origin}/merchant/tenants`,
                 },
               });
             }
