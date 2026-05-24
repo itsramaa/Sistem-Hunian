@@ -26,6 +26,19 @@ type Config struct {
 	WebhookSecret      string
 	AllowedOrigins     []string
 	AppEnv             string
+
+	// Redis
+	RedisURL string
+
+	// MinIO
+	MinioEndpoint  string
+	MinioAccessKey string
+	MinioSecretKey string
+	MinioUseTLS    bool
+	MinioBucket    string
+
+	// RabbitMQ
+	RabbitMQURL string
 }
 
 // Load reads configuration from environment variables.
@@ -49,6 +62,19 @@ func Load() (*Config, error) {
 		WebhookSecret:      getEnv("WEBHOOK_SECRET", ""),
 		AllowedOrigins:     splitComma(getEnv("ALLOWED_ORIGINS", "http://localhost:5173")),
 		AppEnv:             getEnv("APP_ENV", "development"),
+
+		// Redis
+		RedisURL: getEnv("REDIS_URL", "redis://localhost:6379"),
+
+		// MinIO
+		MinioEndpoint:  getEnv("MINIO_ENDPOINT", "localhost:9000"),
+		MinioAccessKey: getEnv("MINIO_ACCESS_KEY", "minioadmin"),
+		MinioSecretKey: getEnv("MINIO_SECRET_KEY", "minioadmin123"),
+		MinioUseTLS:    getEnv("MINIO_USE_TLS", "false") == "true",
+		MinioBucket:    getEnv("MINIO_BUCKET", "sihuni"),
+
+		// RabbitMQ
+		RabbitMQURL: getEnv("RABBITMQ_URL", "amqp://sihuni:sihuni123@localhost:5672/"),
 	}
 	return cfg, nil
 }

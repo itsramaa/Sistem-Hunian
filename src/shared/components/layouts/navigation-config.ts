@@ -5,7 +5,6 @@ import {
     Command,
     CreditCard,
     FileText,
-    Gift,
     Home,
     LayoutDashboard,
     LogOut,
@@ -76,7 +75,6 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
         items: [
           { path: "/tenant/maintenance", icon: Wrench, label: "Pemeliharaan" },
           { path: "/tenant/orders", icon: ShoppingBag, label: "Pesanan" },
-          { path: "/tenant/referrals", icon: Gift, label: "Referral" },
         ],
       },
     ],
@@ -114,7 +112,6 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/merchant/guardians", icon: UserCheck, label: "Penjaga" },
           { path: "/merchant/tenants", icon: Users, label: "Penyewa", activePatterns: ["/merchant/move-outs", "/merchant/tenant-analytics"] },
           { path: "/merchant/maintenance", icon: Wrench, label: "Maintenance" },
-          { path: "/merchant/referrals", icon: Gift, label: "Referral" },
         ],
       },
       {
@@ -175,7 +172,6 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/admin/disputes", icon: AlertTriangle, label: "Sengketa" },
           { path: "/admin/analytics", icon: BarChart3, label: "Analitik" },
           { path: "/admin/platform-config", icon: CreditCard, label: "Konfigurasi" },
-          { path: "/admin/referrals", icon: Users, label: "Referral" },
           { path: "/admin/chatbot", icon: Menu, label: "Chatbot KB" },
           { path: "/admin/orders", icon: ShoppingCart, label: "Pesanan" },
           { path: "/admin/audit-logs", icon: FileText, label: "Log Audit" },
