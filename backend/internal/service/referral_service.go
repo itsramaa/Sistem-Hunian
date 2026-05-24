@@ -32,6 +32,42 @@ func (s *ReferralService) ListReferrals(ctx context.Context, merchantID string) 
 	return refs, nil
 }
 
+// GetReferral returns a single referral by ID, scoped to the authenticated user.
+func (s *ReferralService) GetReferral(ctx context.Context, id, userID string) (*model.Referral, error) {
+	if id == "" {
+		return nil, errors.New("referral_service: id is required")
+	}
+	if userID == "" {
+		return nil, errors.New("referral_service: user_id is required")
+	}
+	ref, err := s.repo.GetReferral(ctx, id, userID)
+	if err != nil {
+		if isReferralNotFound(err) {
+			return nil, fmt.Errorf("referral_service: referral not found")
+		}
+		return nil, fmt.Errorf("referral_service: get referral: %w", err)
+	}
+	return ref, nil
+}
+
+// CreateReferral creates a new referral record.
+func (s *ReferralService) CreateReferral(ctx context.Context, referrerID, referredID, referralType string) (*model.Referral, error) {
+	if referrerID == "" {
+		return nil, errors.New("referral_service: referrer_id is required")
+	}
+	if referredID == "" {
+		return nil, errors.New("referral_service: referred_id is required")
+	}
+	if referralType == "" {
+		return nil, errors.New("referral_service: type is required")
+	}
+	ref, err := s.repo.CreateReferral(ctx, referrerID, referredID, referralType)
+	if err != nil {
+		return nil, fmt.Errorf("referral_service: create referral: %w", err)
+	}
+	return ref, nil
+}
+
 // GetStats returns aggregated referral statistics for a referrer.
 func (s *ReferralService) GetStats(ctx context.Context, referrerID string) (*model.ReferralStats, error) {
 	if referrerID == "" {

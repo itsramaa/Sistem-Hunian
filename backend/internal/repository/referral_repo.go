@@ -135,6 +135,42 @@ func (r *ReferralRepo) ProcessVendorOrderReferral(ctx context.Context, req model
 	return &ref, nil
 }
 
+// GetReferral returns a single referral by ID, scoped to the given userID.
+func (r *ReferralRepo) GetReferral(ctx context.Context, id, userID string) (*model.Referral, error) {
+	var ref model.Referral
+	err := r.pool.QueryRow(ctx, `
+		SELECT id, referrer_id, referred_id, type, status,
+		       commission, reward_paid, created_at
+		FROM referrals
+		WHERE id = $1 AND (referrer_id = $2 OR referred_id = $2)
+	`, id, userID).Scan(
+		&ref.ID, &ref.ReferrerID, &ref.ReferredID, &ref.Type, &ref.Status,
+		&ref.Commission, &ref.RewardPaid, &ref.CreatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("referral_repo: get referral: %w", err)
+	}
+	return &ref, nil
+}
+
+// CreateReferral inserts a new referral record.
+func (r *ReferralRepo) CreateReferral(ctx context.Context, referrerID, referredID, referralType string) (*model.Referral, error) {
+	var ref model.Referral
+	err := r.pool.QueryRow(ctx, `
+		INSERT INTO referrals (referrer_id, referred_id, type, status, commission, reward_paid)
+		VALUES ($1, $2, $3, 'pending', 0, false)
+		RETURNING id, referrer_id, referred_id, type, status,
+		          commission, reward_paid, created_at
+	`, referrerID, referredID, referralType).Scan(
+		&ref.ID, &ref.ReferrerID, &ref.ReferredID, &ref.Type, &ref.Status,
+		&ref.Commission, &ref.RewardPaid, &ref.CreatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("referral_repo: create referral: %w", err)
+	}
+	return &ref, nil
+}
+
 // ProcessCommissions marks all pending completed referrals as paid.
 // Returns the count of referrals processed.
 // TODO: trigger actual payout via Xendit disbursement API.

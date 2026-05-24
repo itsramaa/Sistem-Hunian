@@ -7,7 +7,7 @@ type Referral struct {
 	ID         string    `json:"id"`
 	ReferrerID string    `json:"referrer_id"`
 	ReferredID string    `json:"referred_id"`
-	Type       string    `json:"type"`       // merchant, vendor
+	Type       string    `json:"type"`       // merchant, vendor, tenant
 	Status     string    `json:"status"`     // pending, completed, paid
 	Commission float64   `json:"commission"` // commission amount in IDR
 	RewardPaid bool      `json:"reward_paid"`
@@ -25,7 +25,8 @@ type ReferralStats struct {
 
 // ReferralRewardRequest is the request body for processing a referral reward payout.
 type ReferralRewardRequest struct {
-	ReferralID   string `json:"referral_id"`
+	ReferralID string `json:"referral_id"`
+	// PayoutMethod is the payout channel (e.g. bank_transfer, wallet).
 	PayoutMethod string `json:"payout_method,omitempty"`
 }
 
