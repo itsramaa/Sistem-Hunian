@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Building2, Wrench, Loader2, ArrowLeft, Check, Clock } from 'lucide-react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
-import { apiClient } from '@/lib/axios';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
@@ -262,15 +261,21 @@ export default function Onboarding() {
         .eq('user_id', user.id)
         .single();
 
-      await apiClient.post('/auth/webhook', {
-        user_id: user.id,
-        email: profile?.email || user.email,
-        full_name: profile?.full_name || '',
-        phone: profile?.phone || null,
-        role: selectedRole,
-        business_name: data.businessName,
-        referral_code: referralCode?.toUpperCase() || undefined,
+      const { error: webhookError } = await supabase.functions.invoke('auth-webhook', {
+        body: {
+          user_id: user.id,
+          email: profile?.email || user.email,
+          full_name: profile?.full_name || '',
+          phone: profile?.phone || null,
+          role: selectedRole,
+          business_name: data.businessName,
+          referral_code: referralCode?.toUpperCase() || undefined,
+        },
       });
+
+      if (webhookError) {
+        throw webhookError;
+      }
 
       sessionStorage.removeItem('referral_code');
       await refreshProfile();

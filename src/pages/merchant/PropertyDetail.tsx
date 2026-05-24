@@ -44,7 +44,6 @@ const LazyCompliance = lazy(() => import('@/pages/merchant/PropertyCompliance'))
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/integrations/supabase/client';
-import { apiClient } from '@/lib/axios';
 import { PropertyFinancialForm, FinancialFormData } from '@/features/properties/components/PropertyFinancialForm';
 import { PropertyFinancialMetrics } from '@/features/properties/components/PropertyFinancialMetrics';
 import { PropertyFormDialog, PropertyFormData } from '@/features/properties/components/PropertyFormDialog';
@@ -132,13 +131,9 @@ export default function PropertyDetail() {
   // Tenant creation mutation
   const addTenantMutation = useMutation({
     mutationFn: async (data: any) => {
-      try {
-        const response = await apiClient.post('/auth/bootstrap', { ...data, role: 'tenant' });
-        return response.data.data;
-      } catch (error: any) {
-        const apiError = error.response?.data?.error;
-        throw new Error(apiError?.message || error.message || 'Gagal membuat akun tenant');
-      }
+      const { data: result, error } = await supabase.functions.invoke('create-tenant', { body: data });
+      if (error) throw error;
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['property-contracts', id] });

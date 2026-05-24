@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { supabase } from '@/lib/integrations/supabase/client';
 
 export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/v1',
@@ -10,11 +9,9 @@ export const apiClient = axios.create({
 });
 
 // Request interceptor: inject Supabase JWT when available
-apiClient.interceptors.request.use(async (config) => {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session?.access_token) {
-    config.headers.Authorization = `Bearer ${session.access_token}`;
-  }
+apiClient.interceptors.request.use((config) => {
+  // Token injection is handled by individual feature services
+  // via apiClient.defaults.headers.common['Authorization']
   return config;
 });
 
