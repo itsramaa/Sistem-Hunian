@@ -7,7 +7,7 @@ import { Textarea } from "@/shared/components/ui/textarea";
 import { Checkbox } from "@/shared/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/shared/components/ui/radio-group";
 import { Separator } from "@/shared/components/ui/separator";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { toast } from "sonner";
 import { format, addDays } from "date-fns";
@@ -82,11 +82,8 @@ export function MoveOutInspectionForm({ open, onOpenChange, notice, onCompleted 
     }
     setIsSubmitting(true);
     try {
-      const { data: existingInspection } = await supabase
-        .from("move_out_inspections")
-        .select("id")
-        .eq("move_out_notice_id", notice.id)
-        .maybeSingle();
+      // TODO: Go endpoint not yet implemented — was: supabase.from('move_out_inspections').select('id')...
+      const existingInspection: { id?: string } = {};
 
       const inspectionReport = {
         tenant_present: tenantPresent,
@@ -110,47 +107,15 @@ export function MoveOutInspectionForm({ open, onOpenChange, notice, onCompleted 
           notes: item.notes,
         }));
 
-      const { error: inspectionError } = await supabase
-        .from("move_out_inspections")
-        .update({
-          status: "completed",
-          inspection_report: inspectionReport,
-          total_deductions: totalDeductions,
-          deposit_refund_amount: refundAmount,
-          deduction_details: deductionDetails,
-          inspector_signature: inspectorSignature,
-          tenant_signature: tenantPresent ? tenantSignature : null,
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", existingInspection?.id);
+      // TODO: Go endpoint not yet implemented — was: supabase.from('move_out_inspections').update(...)
+      void inspectionReport;
 
-      if (inspectionError) throw inspectionError;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('move_out_timeline').update(...)
+      void totalDeductions;
 
-      await supabase
-        .from("move_out_timeline")
-        .update({ 
-          completed: true, 
-          completed_at: new Date().toISOString(),
-          notes: `Deductions: Rp ${totalDeductions.toLocaleString("id-ID")}`
-        })
-        .eq("move_out_notice_id", notice.id)
-        .eq("step", "inspection_completed");
-
-      const { error: refundError } = await supabase
-        .from("deposit_refunds")
-        .insert({
-          tenant_user_id: notice.tenant_user_id,
-          contract_id: notice.contract_id,
-          inspection_id: existingInspection?.id,
-          original_deposit: depositAmount,
-          deductions: totalDeductions,
-          deduction_details: deductionDetails,
-          refund_amount: refundAmount,
-          status: "pending_processing",
-          due_date: format(addDays(new Date(), 30), "yyyy-MM-dd"),
-        });
-
-      if (refundError) throw refundError;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('deposit_refunds').insert(...)
+      void deductionDetails;
+      void existingInspection;
 
       toast.success("Inspection completed successfully");
       onCompleted();

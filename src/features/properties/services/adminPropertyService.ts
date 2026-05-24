@@ -1,51 +1,13 @@
-
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { AdminProperty } from '../types/admin';
 
 export const adminPropertyService = {
   async getAllProperties(): Promise<AdminProperty[]> {
-    const { data, error } = await supabase
-      .from('v_properties_with_addresses' as any)
-      .select(`
-        id,
-        name,
-        merchant_id,
-        property_type,
-        resolved_address,
-        resolved_city,
-        total_units,
-        occupied_units,
-        status,
-        created_at,
-        merchants (
-          business_name
-        )
-      `)
-      .order('name') as any;
-
-    if (error) throw error;
-
-    return (data || []).map((property: any) => ({
-      id: property.id,
-      name: property.name,
-      merchantName: property.merchants?.business_name || 'Unknown',
-      type: property.property_type as AdminProperty['type'],
-      address: property.resolved_address,
-      city: property.resolved_city,
-      totalUnits: property.total_units || 0,
-      occupiedUnits: property.occupied_units || 0,
-      status: (property.status || 'active') as AdminProperty['status'],
-      rating: 0, // Placeholder as rating is not in properties table
-      joinedDate: property.created_at,
-    }));
+    const response = await apiClient.get('/admin/properties');
+    return (response.data.data || []) as AdminProperty[];
   },
 
   async updatePropertyStatus(id: string, status: AdminProperty['status']): Promise<void> {
-    const { error } = await supabase
-      .from('properties')
-      .update({ status })
-      .eq('id', id);
-    
-    if (error) throw error;
+    await apiClient.patch(`/admin/properties/${id}/status`, { status });
   },
 };

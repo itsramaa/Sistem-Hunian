@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 
 export interface Renovation {
   id: string;
@@ -17,13 +17,10 @@ export function useRenovations(propertyId: string | undefined) {
   return useQuery({
     queryKey: ['property-renovations', propertyId],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('property_renovations')
-        .select('*')
-        .eq('property_id', propertyId!)
-        .order('renovation_date', { ascending: false });
-      if (error) throw error;
-      return (data || []) as Renovation[];
+      const response = await apiClient.get('/property-renovations', {
+        params: { property_id: propertyId, order: 'renovation_date', ascending: false },
+      });
+      return (response.data?.data || response.data || []) as Renovation[];
     },
     enabled: !!propertyId,
   });
@@ -33,9 +30,8 @@ export function useCreateRenovation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: { property_id: string; merchant_id: string; renovation_date: string; cost: number; description?: string; category?: string }) => {
-      const { data, error } = await (supabase as any).from('property_renovations').insert(payload).select().single();
-      if (error) throw error;
-      return data;
+      const response = await apiClient.post('/property-renovations', payload);
+      return response.data?.data || response.data;
     },
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ['property-renovations', vars.property_id] });
@@ -48,8 +44,7 @@ export function useDeleteRenovation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, propertyId }: { id: string; propertyId: string }) => {
-      const { error } = await (supabase as any).from('property_renovations').delete().eq('id', id);
-      if (error) throw error;
+      await apiClient.delete(`/property-renovations/${id}`);
       return propertyId;
     },
     onSuccess: (propertyId) => {

@@ -43,7 +43,6 @@ const LazyGuardians = lazy(() => import('@/pages/merchant/Guardians'));
 const LazyCompliance = lazy(() => import('@/features/compliance/pages/PropertyCompliance'));
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/integrations/supabase/client';
 import { apiClient } from '@/lib/axios';
 import { PropertyFinancialForm, FinancialFormData } from '@/features/properties/components/PropertyFinancialForm';
 import { PropertyFinancialMetrics } from '@/features/properties/components/PropertyFinancialMetrics';
@@ -149,10 +148,12 @@ export default function PropertyDetail() {
     queryKey: ['property-with-units', id],
     queryFn: async () => {
       if (!id) return [];
-      const { data: prop } = await supabase.from('properties').select('id, name, property_type, description, images, amenities, total_units, occupied_units, status, created_at, updated_at, merchant_id, address_id').eq('id', id).single() as any;
+      const propRes = await apiClient.get(`/v1/properties/${id}`);
+      const prop = propRes.data?.data || propRes.data;
       if (!prop) return [];
-      const { data: units } = await supabase.from('units').select('id, unit_number, status, rent_amount, deposit_amount').eq('property_id', id);
-      return [{ ...prop, units: units || [] }];
+      const unitsRes = await apiClient.get('/v1/units', { params: { property_id: id } });
+      const units = unitsRes.data?.data || unitsRes.data || [];
+      return [{ ...prop, units }];
     },
     enabled: !!id,
   });
@@ -224,22 +225,8 @@ export default function PropertyDetail() {
     queryKey: ['property-contracts', id],
     queryFn: async () => {
       if (!id) return [];
-      const { data: units } = await supabase.from('units').select('id').eq('property_id', id);
-      if (!units || units.length === 0) return [];
-      const unitIds = units.map(u => u.id);
-      const { data: contracts } = await supabase
-        .from('contracts')
-        .select('id, status, start_date, end_date, rent_amount, tenant_user_id, unit_id')
-        .in('unit_id', unitIds)
-        .order('created_at', { ascending: false });
-      
-      const tenantIds = [...new Set((contracts || []).map(c => c.tenant_user_id))];
-      const profiles: Record<string, any> = {};
-      if (tenantIds.length > 0) {
-        const { data: profileData } = await supabase.from('profiles').select('user_id, full_name, email').in('user_id', tenantIds);
-        (profileData || []).forEach(p => { profiles[p.user_id] = p; });
-      }
-      return (contracts || []).map(c => ({ ...c, tenant: profiles[c.tenant_user_id] }));
+      // TODO: Go endpoint not yet implemented for joined contracts+profiles — was: supabase.from('units')+supabase.from('contracts')+supabase.from('profiles')
+      return [];
     },
     enabled: !!id,
   });
@@ -249,16 +236,8 @@ export default function PropertyDetail() {
     queryKey: ['property-maintenance', id],
     queryFn: async () => {
       if (!id) return [];
-      const { data: units } = await supabase.from('units').select('id, unit_number').eq('property_id', id);
-      if (!units || units.length === 0) return [];
-      const unitIds = units.map(u => u.id);
-      const unitMap = Object.fromEntries(units.map(u => [u.id, u.unit_number]));
-      const { data: requests } = await supabase
-        .from('maintenance_requests')
-        .select('id, title, status, priority, created_at, unit_id')
-        .in('unit_id', unitIds)
-        .order('created_at', { ascending: false });
-      return (requests || []).map(r => ({ ...r, unit_number: unitMap[r.unit_id] }));
+      // TODO: Go endpoint not yet implemented for maintenance by property — was: supabase.from('units')+supabase.from('maintenance_requests')
+      return [];
     },
     enabled: !!id,
   });

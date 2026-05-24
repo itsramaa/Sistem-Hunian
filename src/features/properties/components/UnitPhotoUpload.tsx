@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ImagePlus, X, Loader2 } from 'lucide-react';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { toast } from 'sonner';
 
@@ -54,21 +54,25 @@ export const UnitPhotoUpload = ({
         const fileName = `unit-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = `${user.id}/units/${fileName}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from('property-images')
-          .upload(filePath, file);
+        // TODO: migrate to Go API file upload endpoint when available
+        // For now, use FormData upload via apiClient
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('path', filePath);
+        formData.append('bucket', 'property-images');
 
-        if (uploadError) {
-          console.error('Upload error:', uploadError);
+        try {
+          const uploadRes = await apiClient.post('/storage/upload', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          const publicUrl = uploadRes.data?.url || uploadRes.data?.public_url;
+          if (!publicUrl) throw new Error('No URL returned');
+          uploadedUrls.push(publicUrl);
+        } catch (uploadErr) {
+          console.error('Upload error:', uploadErr);
           toast.error(`Failed to upload ${file.name}`);
           continue;
         }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('property-images')
-          .getPublicUrl(filePath);
-
-        uploadedUrls.push(publicUrl);
       }
 
       if (uploadedUrls.length > 0) {

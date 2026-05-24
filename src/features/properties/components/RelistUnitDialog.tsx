@@ -5,7 +5,7 @@ import { Label } from "@/shared/components/ui/label";
 import { Input } from "@/shared/components/ui/input";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { Checkbox } from "@/shared/components/ui/checkbox";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { toast } from "sonner";
 import { Home, TrendingUp, Camera } from "lucide-react";
@@ -65,46 +65,15 @@ export function RelistUnitDialog({ open, onOpenChange, unit, onListed }: RelistU
     }
     setIsSubmitting(true);
     try {
-      const { data: existingListing } = await supabase
-        .from("unit_listings")
-        .select("id")
-        .eq("unit_id", unit.id)
-        .maybeSingle();
-
-      if (existingListing) {
-        await supabase
-          .from("unit_listings")
-          .update({
-            monthly_rent: monthlyRent,
-            description,
-            status: "active",
-            promoted: promoteUnit,
-            listed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", existingListing.id);
-      } else {
-        await supabase
-          .from("unit_listings")
-          .insert({
-            unit_id: unit.id,
-            merchant_id: merchant?.id,
-            monthly_rent: monthlyRent,
-            description,
-            photos: useExistingPhotos ? unit.photos : [],
-            status: "active",
-            promoted: promoteUnit,
-          });
-      }
-
-      await supabase
-        .from("units")
-        .update({
-          is_listed: true,
-          monthly_rent: monthlyRent,
-          available_from: new Date().toISOString(),
-        })
-        .eq("id", unit.id);
+      // TODO: migrate to Go API endpoint when unit_listings endpoint is available
+      // Upsert listing via API
+      await apiClient.post(`/units/${unit.id}/relist`, {
+        monthly_rent: monthlyRent,
+        description,
+        photos: useExistingPhotos ? unit.photos : [],
+        promoted: promoteUnit,
+        merchant_id: merchant?.id,
+      });
 
       toast.success("Unit listed successfully");
       onListed();
