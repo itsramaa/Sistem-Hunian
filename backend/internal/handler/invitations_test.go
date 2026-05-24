@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/itsramaa/sihuni-api/internal/handler"
+	"github.com/itsramaa/sistem-hunian/backend/internal/handler"
 )
 
 // ── GET /v1/invitations/:token ────────────────────────────────────────────────
@@ -37,17 +37,17 @@ func TestGetInvitation_WithToken_ProceedsToDBLayer(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/v1/invitations/some-token", nil)
 	rctx := chi.NewRouteContext()
 	rctx.URLParams.Add("token", "some-token")
-	req = req.WithContext(chi.NewRouteContext().WithContext(req.Context()))
+	_ = req // req is superseded by req2 below; kept for documentation
 
 	// Re-inject chi context properly.
 	req2 := httptest.NewRequest(http.MethodGet, "/v1/invitations/some-token", nil)
 	chiCtx := chi.NewRouteContext()
 	chiCtx.URLParams.Add("token", "some-token")
-	req2 = req2.WithContext(chi.RouteContext(req2.Context()))
+	_ = req2 // req2 superseded by fresh request below; kept for documentation
 
 	// Use chi router to properly inject URL params.
 	r := chi.NewRouter()
-	r.Get("/v1/invitations/{token}", h)
+	r.Get("/v1/invitations/{token}", h.ServeHTTP)
 
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/v1/invitations/test-token-abc", nil))

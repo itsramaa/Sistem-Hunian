@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/itsramaa/sihuni-api/internal/handler"
-	"github.com/itsramaa/sihuni-api/internal/middleware"
+	"github.com/itsramaa/sistem-hunian/backend/internal/handler"
+	"github.com/itsramaa/sistem-hunian/backend/internal/middleware"
 )
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

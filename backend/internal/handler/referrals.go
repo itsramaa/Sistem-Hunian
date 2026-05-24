@@ -9,7 +9,6 @@ import (
 	"github.com/itsramaa/sistem-hunian/backend/internal/pkg/apierror"
 	"github.com/itsramaa/sistem-hunian/backend/internal/pkg/response"
 	"github.com/itsramaa/sistem-hunian/backend/internal/pkg/validator"
-	"github.com/itsramaa/sistem-hunian/backend/internal/repository"
 	"github.com/itsramaa/sistem-hunian/backend/internal/service"
 )
 
@@ -19,22 +18,22 @@ type ReferralHandler struct {
 }
 
 // NewReferralHandler creates a new ReferralHandler.
-func NewReferralHandler(db *repository.DB) *ReferralHandler {
-	repo := repository.NewReferralRepo(db)
-	svc := service.NewReferralService(repo)
+func NewReferralHandler(svc *service.ReferralService) *ReferralHandler {
 	return &ReferralHandler{svc: svc}
 }
 
 // ListReferrals handles GET /v1/referrals
 // Returns all referrals for the authenticated user (as referrer).
+// Admins receive all referrals.
 func (h *ReferralHandler) ListReferrals(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r)
 	if userID == "" {
 		response.APIError(w, apierror.Forbidden("user_id not found in token"))
 		return
 	}
+	role := middleware.GetRole(r)
 
-	refs, err := h.svc.ListReferrals(r.Context(), userID)
+	refs, err := h.svc.ListReferrals(r.Context(), userID, role)
 	if err != nil {
 		response.APIError(w, apierror.Internal(err.Error()))
 		return
@@ -67,6 +66,7 @@ func (h *ReferralHandler) ProcessReferralReward(w http.ResponseWriter, r *http.R
 		response.APIError(w, apierror.Forbidden("user_id not found in token"))
 		return
 	}
+	_ = userID // userID available for audit logging if needed
 
 	var req model.ProcessRewardRequest
 	if err := validator.DecodeJSONLenient(r, &req); err != nil {
@@ -74,7 +74,7 @@ func (h *ReferralHandler) ProcessReferralReward(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	ref, err := h.svc.ProcessReward(r.Context(), userID, req)
+	ref, err := h.svc.ProcessReward(r.Context(), req)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "no rows") {
 			response.APIError(w, apierror.NotFound("referral not found or already paid"))
@@ -120,7 +120,8 @@ func (h *ReferralHandler) ProcessVendorOrderReferral(w http.ResponseWriter, r *h
 // CronReferralCommissions handles POST /v1/cron/referral-commissions
 // Processes pending commission payouts for completed referrals.
 func (h *ReferralHandler) CronReferralCommissions(w http.ResponseWriter, r *http.Request) {
-	if err := h.svc.CronCommissions(r.Context()); err != nil {
+	_, err := h.svc.ProcessPendingCommissions(r.Context())
+	if err != nil {
 		response.APIError(w, apierror.Internal(err.Error()))
 		return
 	}

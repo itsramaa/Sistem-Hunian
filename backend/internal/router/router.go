@@ -32,11 +32,6 @@ func New(cfg *config.Config, db *repository.DB) http.Handler {
 	contractH := handler.NewContractHandler(
 		service.NewContractService(repository.NewContractRepo(db)),
 	)
-	subH := handler.NewSubscriptionHandler(db)
-	referralH := handler.NewReferralHandler(db)
-	contractH := handler.NewContractHandler(
-		service.NewContractService(repository.NewContractRepo(db)),
-	)
 	subH := handler.NewSubscriptionHandler(
 		service.NewSubscriptionService(repository.NewSubscriptionRepo(db)),
 	)
@@ -104,74 +99,6 @@ func New(cfg *config.Config, db *repository.DB) http.Handler {
 		requireAuth(requireMerchant(http.HandlerFunc(propH.DeleteUnit))),
 	)
 
-	// Contracts (JWT + merchant role)
-	mux.Handle("GET /v1/contracts",
-		requireAuth(requireMerchant(http.HandlerFunc(contractH.ListContracts))),
-	)
-	mux.Handle("GET /v1/contracts/move-outs",
-		requireAuth(requireMerchant(http.HandlerFunc(contractH.ListMoveOuts))),
-	)
-	mux.Handle("GET /v1/contracts/move-outs/{id}",
-		requireAuth(requireMerchant(http.HandlerFunc(contractH.GetMoveOut))),
-	)
-	mux.Handle("PUT /v1/contracts/move-outs/{id}/status",
-		requireAuth(requireMerchant(http.HandlerFunc(contractH.UpdateMoveOutStatus))),
-	)
-	mux.Handle("GET /v1/contracts/{id}",
-		requireAuth(requireMerchant(http.HandlerFunc(contractH.GetContract))),
-	)
-	mux.Handle("POST /v1/contracts/{id}/deposit-refund",
-		requireAuth(requireMerchant(http.HandlerFunc(contractH.ProcessDepositRefund))),
-	)
-
-	// Subscriptions (JWT required; tiers public to any authenticated user)
-	mux.Handle("GET /v1/subscriptions/tiers",
-		requireAuth(http.HandlerFunc(subH.ListTiers)),
-	)
-	mux.Handle("GET /v1/subscriptions",
-		requireAuth(requireMerchant(http.HandlerFunc(subH.ListSubscriptions))),
-	)
-	mux.Handle("POST /v1/subscriptions",
-		requireAuth(requireMerchant(http.HandlerFunc(subH.CreateSubscription))),
-	)
-	mux.Handle("GET /v1/subscriptions/{id}",
-		requireAuth(requireMerchant(http.HandlerFunc(subH.GetSubscription))),
-	)
-	mux.Handle("PUT /v1/subscriptions/{id}/status",
-		requireAuth(requireMerchant(http.HandlerFunc(subH.UpdateSubscriptionStatus))),
-	)
-	mux.Handle("POST /v1/subscriptions/{id}/pay",
-		requireAuth(requireMerchant(http.HandlerFunc(subH.ProcessPayment))),
-	)
-
-	// Referrals (JWT required)
-	mux.Handle("GET /v1/referrals",
-		requireAuth(http.HandlerFunc(referralH.ListReferrals)),
-	)
-	mux.Handle("GET /v1/referrals/stats",
-		requireAuth(http.HandlerFunc(referralH.GetReferralStats)),
-	)
-	mux.Handle("POST /v1/referrals/reward",
-		requireAuth(http.HandlerFunc(referralH.ProcessReferralReward)),
-	)
-	mux.Handle("POST /v1/referrals/vendor-order",
-		requireAuth(http.HandlerFunc(referralH.ProcessVendorOrderReferral)),
-	)
-
-	// Cron additions
-	mux.Handle("POST /v1/cron/subscription-billing",
-		requireCron(http.HandlerFunc(subH.CronBilling)),
-	)
-	mux.Handle("POST /v1/cron/subscription-renewal",
-		requireCron(http.HandlerFunc(subH.CronRenewal)),
-	)
-	mux.Handle("POST /v1/cron/subscription-grace-check",
-		requireCron(http.HandlerFunc(subH.CronGraceCheck)),
-	)
-	mux.Handle("POST /v1/cron/referral-commissions",
-		requireCron(http.HandlerFunc(referralH.CronReferralCommissions)),
-	)
-
 	// Contracts (JWT + merchant/admin)
 	mux.Handle("GET /v1/contracts",
 		requireAuth(requireMerchant(http.HandlerFunc(contractH.ListContracts))),
@@ -192,7 +119,7 @@ func New(cfg *config.Config, db *repository.DB) http.Handler {
 		requireAuth(requireMerchant(http.HandlerFunc(contractH.ProcessDepositRefund))),
 	)
 
-	// Subscriptions
+	// Subscriptions (JWT required; tiers public to any authenticated user)
 	mux.Handle("GET /v1/subscriptions/tiers",
 		requireAuth(http.HandlerFunc(subH.ListTiers)),
 	)

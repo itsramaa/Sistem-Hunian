@@ -3,6 +3,7 @@ module github.com/itsramaa/sistem-hunian/backend
 go 1.22
 
 require (
+	github.com/go-chi/chi/v5 v5.0.14
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/jackc/pgx/v5 v5.6.0
 )

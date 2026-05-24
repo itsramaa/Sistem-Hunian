@@ -82,6 +82,8 @@ func (r *ReferralRepo) ListAllReferrals(ctx context.Context) ([]model.Referral, 
 // GetStats returns referral statistics for a user.
 func (r *ReferralRepo) GetStats(ctx context.Context, userID string) (*model.ReferralStats, error) {
 	var stats model.ReferralStats
+	var paid int // scanned but not in model; used to derive unpaid
+	var totalCommission float64
 	err := r.db.Pool.QueryRow(ctx, `
 		SELECT
 			COUNT(*) AS total,
@@ -93,22 +95,23 @@ func (r *ReferralRepo) GetStats(ctx context.Context, userID string) (*model.Refe
 		FROM referrals
 		WHERE referrer_id = $1
 	`, userID).Scan(
-		&stats.TotalReferrals,
-		&stats.PendingReferrals,
-		&stats.CompletedReferrals,
-		&stats.PaidReferrals,
-		&stats.TotalCommission,
-		&stats.UnpaidCommission,
+		&stats.Total,
+		&stats.Pending,
+		&stats.Completed,
+		&paid,
+		&totalCommission,
+		&stats.TotalEarned,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("referral_repo: get stats: %w", err)
 	}
+	stats.Unpaid = stats.Total - paid
 	return &stats, nil
 }
 
 // ProcessReward marks a referral as paid and records the payout.
 // TODO: integrate with Xendit disbursement for actual payout.
-func (r *ReferralRepo) ProcessReward(ctx context.Context, req model.ReferralRewardRequest) (*model.Referral, error) {
+func (r *ReferralRepo) ProcessReward(ctx context.Context, req model.ProcessRewardRequest) (*model.Referral, error) {
 	tx, err := r.db.Pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("referral_repo: begin tx: %w", err)
@@ -135,7 +138,7 @@ func (r *ReferralRepo) ProcessReward(ctx context.Context, req model.ReferralRewa
 	_, err = tx.Exec(ctx, `
 		INSERT INTO referral_payouts (referral_id, amount, status)
 		VALUES ($1, $2, 'pending')
-	`, req.ReferralID, req.PayoutAmount)
+	`, req.ReferralID, req.Amount)
 	if err != nil {
 		return nil, fmt.Errorf("referral_repo: insert payout: %w", err)
 	}
@@ -147,9 +150,9 @@ func (r *ReferralRepo) ProcessReward(ctx context.Context, req model.ReferralRewa
 }
 
 // ProcessVendorOrderReferral creates a referral record for a vendor order.
-// Commission is calculated as 2% of the order amount.
-func (r *ReferralRepo) ProcessVendorOrderReferral(ctx context.Context, req model.VendorOrderReferralRequest) (*model.Referral, error) {
-	commission := req.OrderAmount * 0.02 // 2% commission rate
+// Commission is taken directly from the request.
+func (r *ReferralRepo) ProcessVendorOrderReferral(ctx context.Context, referrerID string, req model.VendorOrderReferralRequest) (*model.Referral, error) {
+	commission := req.Commission
 
 	var ref model.Referral
 	err := r.db.Pool.QueryRow(ctx, `
@@ -160,7 +163,7 @@ func (r *ReferralRepo) ProcessVendorOrderReferral(ctx context.Context, req model
 		    updated_at = NOW()
 		RETURNING id, referrer_id, referred_id, type, status,
 		          commission, reward_paid, created_at
-	`, req.ReferrerID, req.VendorID, commission).Scan(
+	`, referrerID, req.ReferredID, commission).Scan(
 		&ref.ID, &ref.ReferrerID, &ref.ReferredID, &ref.Type, &ref.Status,
 		&ref.Commission, &ref.RewardPaid, &ref.CreatedAt,
 	)

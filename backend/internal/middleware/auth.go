@@ -31,6 +31,17 @@ type Claims struct {
 	UserMetadata map[string]any       `json:"user_metadata"`
 }
 
+// UserClaims is an alias for Claims used by test helpers.
+type UserClaims struct {
+	UserID      string
+	Email       string
+	Role        string
+	AppMetadata map[string]interface{}
+}
+
+// UserClaimsKey is the context key used by test helpers to inject UserClaims.
+const UserClaimsKey contextKey = "user_claims"
+
 // RequireAuth validates the Bearer JWT token and injects claims into context.
 func RequireAuth(jwtSecret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {

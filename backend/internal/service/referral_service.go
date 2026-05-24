@@ -58,12 +58,12 @@ func (s *ReferralService) GetStats(ctx context.Context, userID string) (*model.R
 }
 
 // ProcessReward validates and processes a referral reward payout.
-func (s *ReferralService) ProcessReward(ctx context.Context, req model.ReferralRewardRequest) (*model.Referral, error) {
+func (s *ReferralService) ProcessReward(ctx context.Context, req model.ProcessRewardRequest) (*model.Referral, error) {
 	if req.ReferralID == "" {
 		return nil, errors.New("referral_service: referral_id is required")
 	}
-	if req.PayoutAmount <= 0 {
-		return nil, errors.New("referral_service: payout_amount must be positive")
+	if req.Amount <= 0 {
+		return nil, errors.New("referral_service: amount must be positive")
 	}
 
 	ref, err := s.repo.ProcessReward(ctx, req)
@@ -77,21 +77,21 @@ func (s *ReferralService) ProcessReward(ctx context.Context, req model.ReferralR
 }
 
 // ProcessVendorOrderReferral creates a referral record for a vendor order.
-func (s *ReferralService) ProcessVendorOrderReferral(ctx context.Context, req model.VendorOrderReferralRequest) (*model.Referral, error) {
-	if req.ReferrerID == "" {
+func (s *ReferralService) ProcessVendorOrderReferral(ctx context.Context, referrerID string, req model.VendorOrderReferralRequest) (*model.Referral, error) {
+	if referrerID == "" {
 		return nil, errors.New("referral_service: referrer_id is required")
 	}
-	if req.VendorID == "" {
-		return nil, errors.New("referral_service: vendor_id is required")
+	if req.ReferredID == "" {
+		return nil, errors.New("referral_service: referred_id is required")
 	}
 	if req.OrderID == "" {
 		return nil, errors.New("referral_service: order_id is required")
 	}
-	if req.OrderAmount <= 0 {
-		return nil, errors.New("referral_service: order_amount must be positive")
+	if req.Commission < 0 {
+		return nil, errors.New("referral_service: commission must be non-negative")
 	}
 
-	ref, err := s.repo.ProcessVendorOrderReferral(ctx, req)
+	ref, err := s.repo.ProcessVendorOrderReferral(ctx, referrerID, req)
 	if err != nil {
 		return nil, fmt.Errorf("referral_service: process vendor order referral: %w", err)
 	}

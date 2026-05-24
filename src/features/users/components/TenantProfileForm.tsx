@@ -1,3 +1,4 @@
+import apiClient from "@/lib/axios";
 import { supabase } from "@/lib/integrations/supabase/client";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
@@ -53,15 +54,7 @@ export function TenantProfileForm({ userId, onComplete }: TenantProfileFormProps
     try {
       // First, call the bootstrap function to ensure profiles/user_roles/tenants exist
       // This runs with service role so it bypasses RLS
-      const { data: bootstrapData, error: bootstrapError } = await supabase.functions.invoke(
-        'ensure-user-bootstrap',
-        { body: { role: 'tenant' } }
-      );
-
-      if (bootstrapError) {
-        console.error('Bootstrap error:', bootstrapError);
-        throw new Error('Failed to initialize user profile. Please try again.');
-      }
+      await apiClient.post('/api/v1/auth/bootstrap', { role: 'tenant' });
 
       let ktpPhotoUrl = null;
 
