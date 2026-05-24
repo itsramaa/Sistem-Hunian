@@ -17,7 +17,6 @@ import {
   AlertCircle,
   AlertTriangle,
   ChevronRight,
-  ClipboardList,
   DollarSign,
   FileText,
   Gift,
@@ -55,7 +54,6 @@ const bannerSlides = [
 const quickActions = [
   { path: "/tenant/maintenance", icon: Wrench, label: "Lapor", color: "bg-orange-500/10 text-orange-600" },
   { path: "/tenant/invoices", icon: FileText, label: "Tagihan", color: "bg-purple-500/10 text-purple-600" },
-  { path: "/tenant/contracts", icon: ClipboardList, label: "Kontrak", color: "bg-blue-500/10 text-blue-600" },
   { path: "/tenant/marketplace", icon: Store, label: "Market", color: "bg-emerald-500/10 text-emerald-600" },
   { path: "/tenant/referrals", icon: Gift, label: "Referral", color: "bg-pink-500/10 text-pink-600" },
 ];

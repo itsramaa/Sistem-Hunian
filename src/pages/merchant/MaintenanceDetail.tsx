@@ -387,16 +387,15 @@ export default function MerchantMaintenanceDetail() {
                 <p className="text-sm text-muted-foreground">{request.unit?.property?.address}</p>
               </div>
               {contract && (
-                <Link 
-                  to={`/merchant/contracts/${contract.id || ''}`}
-                  className={`p-3 rounded-xl text-sm flex items-center gap-2 hover:opacity-80 transition-opacity ${
+                <div 
+                  className={`p-3 rounded-xl text-sm flex items-center gap-2 ${
                     contract.status === 'active' ? 'bg-success/10 text-success border border-success/20' : 'bg-warning/10 text-warning border border-warning/20'
                   }`}
                   aria-label={`Lihat kontrak status ${contract.status}`}
                 >
                   <FileText className="h-4 w-4" aria-hidden="true" />
                   <span className="capitalize font-medium">Kontrak: {contract.status === 'active' ? 'Aktif' : contract.status === 'notice' ? 'Pemberitahuan' : contract.status}</span>
-                </Link>
+                </div>
               )}
             </div>
 
