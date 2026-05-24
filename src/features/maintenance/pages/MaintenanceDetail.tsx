@@ -26,7 +26,6 @@ import {
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/integrations/supabase/client';
 
 function PhotoGallery({ images, title }: { images: string[]; title: string }) {
   const [selectedImg, setSelectedImg] = useState<string | null>(null);
@@ -119,12 +118,8 @@ export default function MerchantMaintenanceDetail() {
     queryKey: ['maintenance-expenses', id],
     queryFn: async () => {
       try {
-        const { data } = await (supabase as any)
-          .from('maintenance_expenses')
-          .select('*')
-          .eq('maintenance_request_id', id!)
-          .order('created_at', { ascending: false });
-        return (data || []) as any[];
+        // TODO: Go endpoint not yet implemented — was: supabase.from('maintenance_expenses').select(...)
+        return [] as any[];
       } catch {
         return [] as any[];
       }
@@ -135,12 +130,8 @@ export default function MerchantMaintenanceDetail() {
   const { data: vendorJob } = useQuery({
     queryKey: ['vendor-job-for-maintenance', id],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('vendor_jobs')
-        .select('agreed_price, status, completed_at')
-        .eq('maintenance_request_id', id!)
-        .maybeSingle();
-      return data;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('vendor_jobs').select(...)
+      return null;
     },
     enabled: !!id,
   });

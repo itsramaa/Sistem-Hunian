@@ -9,7 +9,6 @@ import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useMerchantProperties } from '@/features/properties/hooks/useMerchantProperties';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/integrations/supabase/client';
 import { CreateMerchantMaintenancePayload } from '../types';
 import { MaintenancePhotoUpload } from './MaintenancePhotoUpload';
 
@@ -61,8 +60,8 @@ export function CreateMaintenanceDialog({ open, onOpenChange, onSubmit, loading,
   const { data: units = [] } = useQuery({
     queryKey: ['units-for-property', propertyId],
     queryFn: async () => {
-      const { data } = await supabase.from('units').select('id, unit_number').eq('property_id', propertyId).order('unit_number');
-      return data || [];
+      // TODO: Go endpoint not yet implemented — was: supabase.from('units').select(...)
+      return [];
     },
     enabled: !!propertyId,
   });
