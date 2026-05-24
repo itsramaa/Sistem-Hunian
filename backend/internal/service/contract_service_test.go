@@ -98,8 +98,9 @@ func TestContractService_GetContract_EmptyID(t *testing.T) {
 
 func TestContractService_ProcessDepositRefund_InvalidAmount(t *testing.T) {
 	svc := service.NewContractService(nil)
+	negAmt := float64(-100)
 	_, err := svc.ProcessDepositRefund(context.Background(), "c-1", "m-1", model.DepositRefundRequest{
-		RefundAmount: -100,
+		RefundAmount: &negAmt,
 	})
 	if err == nil {
 		t.Fatal("expected error for negative refund amount")

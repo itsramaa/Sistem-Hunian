@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -9,16 +10,25 @@ import (
 	"github.com/itsramaa/sihuni-api/internal/pkg/apierror"
 	"github.com/itsramaa/sihuni-api/internal/pkg/response"
 	"github.com/itsramaa/sihuni-api/internal/pkg/validator"
-	"github.com/itsramaa/sihuni-api/internal/service"
 )
+
+// ContractServicer defines the contract service interface used by ContractHandler.
+type ContractServicer interface {
+	ListContracts(ctx context.Context, merchantID string) ([]model.Contract, error)
+	GetContract(ctx context.Context, id, merchantID string) (*model.Contract, error)
+	ProcessDepositRefund(ctx context.Context, id, merchantID string, req model.DepositRefundRequest) (*model.Contract, error)
+	ListMoveOuts(ctx context.Context, merchantID string) ([]model.MoveOutNotice, error)
+	GetMoveOut(ctx context.Context, id, merchantID string) (*model.MoveOutNotice, error)
+	UpdateMoveOutStatus(ctx context.Context, id, merchantID string, req model.UpdateMoveOutStatusRequest) (*model.MoveOutNotice, error)
+}
 
 // ContractHandler handles contract and move-out HTTP requests.
 type ContractHandler struct {
-	svc *service.ContractService
+	svc ContractServicer
 }
 
 // NewContractHandler creates a new ContractHandler.
-func NewContractHandler(svc *service.ContractService) *ContractHandler {
+func NewContractHandler(svc ContractServicer) *ContractHandler {
 	return &ContractHandler{svc: svc}
 }
 
@@ -95,7 +105,7 @@ func (h *ContractHandler) ProcessDepositRefund(w http.ResponseWriter, r *http.Re
 			response.APIError(w, apierror.NotFound("contract not found or deposit already processed"))
 			return
 		}
-		if strings.Contains(err.Error(), "positive") {
+		if strings.Contains(err.Error(), "positive") || strings.Contains(err.Error(), "action") || strings.Contains(err.Error(), "must be") {
 			response.APIError(w, apierror.BadRequest(err.Error()))
 			return
 		}
@@ -179,7 +189,7 @@ func (h *ContractHandler) UpdateMoveOutStatus(w http.ResponseWriter, r *http.Req
 			response.APIError(w, apierror.NotFound("move-out notice not found"))
 			return
 		}
-		if strings.Contains(err.Error(), "invalid status") {
+		if strings.Contains(err.Error(), "invalid status") || strings.Contains(err.Error(), "status must be") || strings.Contains(err.Error(), "must be") {
 			response.APIError(w, apierror.BadRequest(err.Error()))
 			return
 		}
