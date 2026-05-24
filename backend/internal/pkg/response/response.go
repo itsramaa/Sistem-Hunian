@@ -3,17 +3,19 @@ package response
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/itsramaa/sihuni-api/internal/pkg/apierror"
 )
 
 // Envelope is the standard API response wrapper for all endpoints.
 type Envelope struct {
 	Data  interface{} `json:"data"`
-	Error *APIError   `json:"error"`
+	Error *errorBody  `json:"error"`
 	Meta  *Meta       `json:"meta,omitempty"`
 }
 
-// APIError represents a structured error response.
-type APIError struct {
+// errorBody represents a structured error response payload.
+type errorBody struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 	Status  int    `json:"status"`
@@ -37,11 +39,16 @@ func Error(w http.ResponseWriter, status int, code, message string) {
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(Envelope{
 		Data:  nil,
-		Error: &APIError{Code: code, Message: message, Status: status},
+		Error: &errorBody{Code: code, Message: message, Status: status},
 	})
 }
 
 // NoContent writes a 204 No Content response.
 func NoContent(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// APIError writes a structured error response from an *apierror.APIError.
+func APIError(w http.ResponseWriter, err *apierror.APIError) {
+	Error(w, err.Status, err.Code, err.Message)
 }

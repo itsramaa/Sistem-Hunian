@@ -78,6 +78,31 @@ func GetUserClaims(ctx context.Context) *UserClaims {
 	return claims
 }
 
+// GetMerchantID is a convenience helper that extracts the merchant_id from app_metadata.
+// Returns empty string if not present.
+func GetMerchantID(r *http.Request) string {
+	claims := GetUserClaims(r.Context())
+	if claims == nil {
+		return ""
+	}
+	if meta := claims.AppMetadata; meta != nil {
+		if mid, ok := meta["merchant_id"].(string); ok {
+			return mid
+		}
+	}
+	return ""
+}
+
+// GetUserID is a convenience helper that extracts the user ID (sub) from the JWT claims.
+// Returns empty string if not present.
+func GetUserID(r *http.Request) string {
+	claims := GetUserClaims(r.Context())
+	if claims == nil {
+		return ""
+	}
+	return claims.UserID
+}
+
 func writeUnauthorized(w http.ResponseWriter, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusUnauthorized)

@@ -20,6 +20,7 @@ type Config struct {
 	ResendAPIKey       string
 	CronSecret         string
 	AdminSecret        string
+	WebhookSecret      string
 	AllowedOrigins     []string
 	AppEnv             string
 }
@@ -40,6 +41,7 @@ func Load() (*Config, error) {
 		ResendAPIKey:       getEnv("RESEND_API_KEY", ""),
 		CronSecret:         getEnv("CRON_SECRET", ""),
 		AdminSecret:        getEnv("ADMIN_SECRET", ""),
+		WebhookSecret:      getEnv("WEBHOOK_SECRET", ""),
 		AllowedOrigins:     splitComma(getEnv("ALLOWED_ORIGINS", "http://localhost:5173")),
 		AppEnv:             getEnv("APP_ENV", "development"),
 	}

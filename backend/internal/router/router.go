@@ -86,18 +86,28 @@ func New(cfg *config.Config, pool *pgxpool.Pool) http.Handler {
 			})
 		})
 
+		// Notifications endpoints — JWT required
+		r.Route("/notifications", func(r chi.Router) {
+			r.Use(middleware.Authenticate(cfg.JWTSecret))
+			r.Get("/", handler.ListNotifications(pool))
+			r.Post("/", handler.SendNotification(pool))
+			r.Put("/{id}/read", handler.MarkNotificationRead(pool))
+		})
+
 		// Cron endpoints — cron secret required (no JWT)
 		r.Route("/cron", func(r chi.Router) {
 			r.Use(middleware.RequireCronSecret(cfg.CronSecret))
 			r.Post("/generate-invoices", handler.GenerateInvoices(pool))
 			r.Post("/overdue-escalation", handler.OverdueEscalation(pool))
 			r.Post("/payment-plan-check", handler.PaymentPlanCheck(pool))
+			r.Post("/payment-reminder", handler.PaymentReminder(pool))
 		})
 	})
 
 	// ── Webhook endpoints (no auth — validated by token in handler) ────────────
 	r.Post("/v1/webhooks/xendit", handler.XenditPaymentWebhook(pool, cfg.XenditWebhookToken))
 	r.Post("/v1/webhooks/xendit/disbursement", handler.XenditDisbursementWebhook(pool, cfg.XenditWebhookToken))
+	r.Post("/v1/webhooks/auth", handler.AuthWebhook(cfg.WebhookSecret))
 
 	return r
 }
