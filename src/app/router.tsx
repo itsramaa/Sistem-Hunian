@@ -8,7 +8,6 @@ import { ProtectedRoute } from "@/features/auth/components/ProtectedRoute";
 const Index = lazy(() => import("@/app/pages/Index"));
 const NotFound = lazy(() => import("@/app/pages/NotFound"));
 const Unauthorized = lazy(() => import("@/app/pages/Unauthorized"));
-const ReferralInvite = lazy(() => import("@/features/referrals/pages/ReferralInvite"));
 
 // Auth pages
 const AdminSetup = lazy(() => import("@/features/auth/pages/AdminSetup"));
@@ -29,7 +28,6 @@ const AdminMerchants = lazy(() => import("@/features/dashboard/pages/admin/Merch
 const AdminProperties = lazy(() => import("@/features/dashboard/pages/admin/Properties"));
 const AdminOrders = lazy(() => import("@/features/dashboard/pages/admin/Orders"));
 const AdminPlatformConfig = lazy(() => import("@/features/dashboard/pages/admin/PlatformConfig"));
-const AdminReferrals = lazy(() => import("@/features/dashboard/pages/admin/Referrals"));
 const AdminSettings = lazy(() => import("@/features/dashboard/pages/admin/Settings"));
 const AdminSubscriptionTiers = lazy(() => import("@/features/dashboard/pages/admin/SubscriptionTiers"));
 const AdminSubscriptions = lazy(() => import("@/features/dashboard/pages/admin/Subscriptions"));
@@ -51,7 +49,6 @@ const MerchantPayments = lazy(() => import("@/features/payments/pages/Payments")
 const MerchantProfile = lazy(() => import("@/features/profile/pages/Profile"));
 const MerchantProperties = lazy(() => import("@/features/properties/pages/Properties"));
 const MerchantPropertyDetail = lazy(() => import("@/features/properties/pages/PropertyDetail"));
-const MerchantReferrals = lazy(() => import("@/features/referrals/pages/Referrals"));
 const MerchantReports = lazy(() => import("@/features/analytics/pages/Reports"));
 const MerchantSettings = lazy(() => import("@/features/profile/pages/Settings"));
 const MerchantTenants = lazy(() => import("@/features/users/pages/Tenants"));
@@ -81,7 +78,6 @@ const TenantMarketplace = lazy(() => import("@/features/orders/pages/Marketplace
 const TenantOrders = lazy(() => import("@/features/orders/pages/Orders"));
 const TenantPayments = lazy(() => import("@/features/payments/pages/TenantPayments"));
 const TenantProfile = lazy(() => import("@/features/profile/pages/TenantProfile"));
-const TenantReferrals = lazy(() => import("@/features/referrals/pages/TenantReferrals"));
 const TenantSettings = lazy(() => import("@/features/profile/pages/TenantSettings"));
 const TenantNotificationHistory = lazy(() => import("@/features/notifications/pages/NotificationHistory"));
 
@@ -106,7 +102,6 @@ export function AppRouter() {
       <Route path="/update-password" element={<Suspense fallback={<PageLoader />}><UpdatePassword /></Suspense>} />
       <Route path="/admin-setup" element={<Suspense fallback={<PageLoader />}><AdminSetup /></Suspense>} />
       <Route path="/invite/:token" element={<Suspense fallback={<PageLoader />}><Invite /></Suspense>} />
-      <Route path="/referral" element={<Suspense fallback={<PageLoader />}><ReferralInvite /></Suspense>} />
       <Route path="/admin/login" element={<Suspense fallback={<PageLoader />}><AdminLogin /></Suspense>} />
 
       {/* Admin Routes */}
@@ -121,7 +116,6 @@ export function AppRouter() {
       <Route path="/admin/analytics" element={<ProtectedRoute allowedRoles={['admin']}><AdminAnalytics /></ProtectedRoute>} />
       <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']}><AdminSettings /></ProtectedRoute>} />
       <Route path="/admin/platform-config" element={<ProtectedRoute allowedRoles={['admin']}><AdminPlatformConfig /></ProtectedRoute>} />
-      <Route path="/admin/referrals" element={<ProtectedRoute allowedRoles={['admin']}><AdminReferrals /></ProtectedRoute>} />
       <Route path="/admin/chatbot" element={<ProtectedRoute allowedRoles={['admin']}><AdminChatbot /></ProtectedRoute>} />
       <Route path="/admin/orders" element={<ProtectedRoute allowedRoles={['admin']}><AdminOrders /></ProtectedRoute>} />
       <Route path="/admin/audit-logs" element={<ProtectedRoute allowedRoles={['admin']}><AdminAuditLogs /></ProtectedRoute>} />
@@ -146,7 +140,6 @@ export function AppRouter() {
         <Route path="units" element={<Navigate to="/merchant/properties" replace />} />
         <Route path="units/:id" element={<MerchantUnitDetail />} />
         <Route path="guardians" element={<MerchantGuardians />} />
-        <Route path="referrals" element={<MerchantReferrals />} />
         <Route path="billing" element={<MerchantBilling />} />
         <Route path="move-outs" element={<MerchantMoveOuts />} />
         <Route path="move-outs/:noticeId" element={<MerchantMoveOutDetail />} />
@@ -185,7 +178,6 @@ export function AppRouter() {
       <Route path="/tenant/invoices/:invoiceId" element={<ProtectedRoute allowedRoles={['tenant']}><TenantInvoiceDetail /></ProtectedRoute>} />
       <Route path="/tenant/marketplace" element={<ProtectedRoute allowedRoles={['tenant']}><TenantMarketplace /></ProtectedRoute>} />
       <Route path="/tenant/orders" element={<ProtectedRoute allowedRoles={['tenant']}><TenantOrders /></ProtectedRoute>} />
-      <Route path="/tenant/referrals" element={<ProtectedRoute allowedRoles={['tenant']}><TenantReferrals /></ProtectedRoute>} />
       <Route path="/tenant/notifications" element={<ProtectedRoute allowedRoles={['tenant']}><TenantNotificationHistory /></ProtectedRoute>} />
 
       {/* Payment Redirect Pages (no auth required - redirect from Xendit) */}
