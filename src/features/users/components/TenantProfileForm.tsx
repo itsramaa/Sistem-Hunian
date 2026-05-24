@@ -1,4 +1,4 @@
-import apiClient from "@/lib/axios";
+import { apiClient } from "@/lib/axios";
 import { supabase } from "@/lib/integrations/supabase/client";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";

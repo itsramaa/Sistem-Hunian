@@ -44,7 +44,7 @@ const LazyCompliance = lazy(() => import('@/features/compliance/pages/PropertyCo
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/integrations/supabase/client';
-import apiClient from '@/lib/axios';
+import { apiClient } from '@/lib/axios';
 import { PropertyFinancialForm, FinancialFormData } from '@/features/properties/components/PropertyFinancialForm';
 import { PropertyFinancialMetrics } from '@/features/properties/components/PropertyFinancialMetrics';
 import { PropertyFormDialog, PropertyFormData } from '@/features/properties/components/PropertyFormDialog';
