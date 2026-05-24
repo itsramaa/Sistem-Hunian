@@ -20,7 +20,7 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { AlertTriangle, CheckCircle, ChevronRight, Clock, Filter, Loader2, Plus, RefreshCw, Search, Wrench, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { apiClient } from '@/lib/axios';
 
 // Constants for validation
 const MAX_TITLE_LENGTH = 100;
@@ -131,9 +131,7 @@ export default function TenantMaintenance() {
       const sanitizedTitle = sanitizeInput(title.trim());
       const sanitizedDescription = sanitizeInput(description.trim());
       
-      const { data: newRequest, error } = await supabase
-        .from('maintenance_requests')
-        .insert({
+      const { data: newRequest } = await apiClient.post('/maintenance', {
           title: sanitizedTitle,
           description: sanitizedDescription,
           category,
@@ -143,10 +141,8 @@ export default function TenantMaintenance() {
           merchant_id: unitData.properties.merchant_id,
           images: photos.length > 0 ? photos : null,
           preferred_schedule: preferredSchedule ? new Date(preferredSchedule).toISOString() : null,
-        })
-        .select()
-        .single();
-      if (error) throw error;
+        });
+      const error = null;
 
       // TODO: Go endpoint not yet implemented — was: supabase.from('maintenance_timeline').insert({...})
       // TODO: Go endpoint not yet implemented — was: supabase.from('notifications').insert({...})
