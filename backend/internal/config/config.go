@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -13,6 +14,8 @@ type Config struct {
 	Port               string
 	DatabaseURL        string
 	JWTSecret          string
+	JWTAccessTTL       time.Duration
+	JWTRefreshTTL      time.Duration
 	SupabaseURL        string
 	ServiceRoleKey     string
 	XenditSecretKey    string
@@ -33,7 +36,9 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		Port:               getEnv("PORT", "8080"),
 		DatabaseURL:        requireEnv("DATABASE_URL"),
-		JWTSecret:          requireEnv("SUPABASE_JWT_SECRET"),
+		JWTSecret:          getEnv("JWT_SECRET", getEnv("SUPABASE_JWT_SECRET", "")), // empty = dev bypass
+		JWTAccessTTL:       parseDuration(getEnv("JWT_ACCESS_TTL", "15m")),
+		JWTRefreshTTL:      parseDuration(getEnv("JWT_REFRESH_TTL", "168h")),
 		SupabaseURL:        getEnv("SUPABASE_URL", ""),
 		ServiceRoleKey:     getEnv("SUPABASE_SERVICE_ROLE_KEY", ""),
 		XenditSecretKey:    getEnv("XENDIT_SECRET_KEY", ""),
@@ -66,6 +71,14 @@ func requireEnv(key string) string {
 		panic(fmt.Sprintf("required env var %s is not set", key))
 	}
 	return v
+}
+
+func parseDuration(s string) time.Duration {
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return 15 * time.Minute // safe default
+	}
+	return d
 }
 
 func splitComma(s string) []string {
