@@ -48,13 +48,9 @@ export interface DataVersion {
 }
 
 export const dataQualityService = {
-  async invokeDataQualityCheck(propertyId: string): Promise<QualityCheckResult> {
-    const { data, error } = await supabase.functions.invoke('ml-data-quality-check', {
-      body: { property_id: propertyId, include_suggestions: true },
-    });
-    if (error) throw new Error(error.message || 'Gagal menjalankan validasi');
-    if (!data?.success) throw new Error(data?.error || 'Validasi gagal');
-    return data as QualityCheckResult;
+  async invokeDataQualityCheck(_propertyId: string): Promise<QualityCheckResult> {
+    // DSS/ML data quality check was removed in PR #1.
+    throw new Error('ML data quality check feature is not available.');
   },
 
   async fetchQualityChecks(merchantId: string): Promise<DataQualityCheck[]> {

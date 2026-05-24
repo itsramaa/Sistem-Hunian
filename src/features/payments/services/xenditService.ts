@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 
 export interface CreateXenditInvoicePayload {
   payment_id?: string;
@@ -55,12 +55,12 @@ export interface XenditInvoiceResponse {
 
 export const xenditService = {
   async createInvoice(payload: CreateXenditInvoicePayload): Promise<XenditInvoiceResponse> {
-    const { data, error } = await supabase.functions.invoke('xendit-create-invoice', {
-      body: payload,
-    });
-
-    if (error) throw error;
-    if (!data.success) throw new Error(data.error || 'Failed to create invoice');
-    return data;
+    try {
+      const response = await apiClient.post('/payments/xendit/invoice', payload);
+      return response.data.data;
+    } catch (error: any) {
+      const apiError = error.response?.data?.error;
+      throw new Error(apiError?.message || error.message || 'Failed to create Xendit invoice');
+    }
   }
 };

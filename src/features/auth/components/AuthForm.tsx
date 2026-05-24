@@ -3,6 +3,7 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { getAuthErrorMessage } from '@/features/auth/utils/auth-errors';
 import { referralService } from '@/features/referrals/services/referralService';
 import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { Button } from '@/shared/components/ui/button';
 import { Checkbox } from '@/shared/components/ui/checkbox';
 import { Input } from '@/shared/components/ui/input';
@@ -350,8 +351,7 @@ export function AuthForm() {
     // If tenant signup (with merchantCode), call auth-webhook to complete setup
     if (!error && signUpData?.user && isTenantSignup) {
       try {
-        const { error: webhookError } = await supabase.functions.invoke('auth-webhook', {
-          body: {
+        const { error: webhookError } = await apiClient.post('/webhooks/auth', {
             user_id: signUpData.user.id,
             email: data.email,
             full_name: data.fullName,
@@ -359,8 +359,7 @@ export function AuthForm() {
             role: 'tenant',
             merchant_code: data.merchantCode?.toUpperCase(),
             referral_code: initialReferralCode?.toUpperCase() || undefined,
-          },
-        });
+          }).then(() => ({ error: null })).catch((err: any) => ({ error: err }));
         if (!webhookError) {
           sessionStorage.removeItem('referral_code');
         }
@@ -385,8 +384,7 @@ export function AuthForm() {
               .single();
             
             if (merchantProfile?.email) {
-              await supabase.functions.invoke('send-notification', {
-                body: {
+              await apiClient.post('/notifications', {
                   type: 'tenant_registration',
                   recipientEmail: merchantProfile.email,
                   recipientName: merchantProfile.full_name || merchantData.business_name,
@@ -400,8 +398,7 @@ export function AuthForm() {
                     }),
                     dashboardLink: `${window.location.origin}/merchant/tenants`,
                   },
-                },
-              });
+                });
             }
           }
         } catch {

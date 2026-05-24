@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/shared/components/ui/radio-group";
 import { Label } from "@/shared/components/ui/label";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from '@/lib/axios';
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useToast } from "@/shared/hooks/use-toast";
 import { useSubscriptionLimits } from "@/features/subscriptions/hooks/useSubscriptionLimits";
@@ -204,19 +205,16 @@ export function SubscriptionPayment() {
         return;
       }
 
-      // Call subscription payment edge function
-      const { data, error } = await supabase.functions.invoke('subscription-payment', {
-        body: {
-          merchant_id: merchant.id,
-          tier_id: selectedTier.id,
-          billing_cycle: billingPeriod,
-          user_id: user.id,
-          payer_email: profile?.email || user.email,
-          payer_name: profile?.full_name || merchant.business_name,
-        },
+      // Call subscription payment API
+      const response = await apiClient.post('/subscriptions/payment', {
+        merchant_id: merchant.id,
+        tier_id: selectedTier.id,
+        billing_cycle: billingPeriod,
+        user_id: user.id,
+        payer_email: profile?.email || user.email,
+        payer_name: profile?.full_name || merchant.business_name,
       });
-
-      if (error) throw error;
+      const data = response.data.data;
 
       if (data.payment_url) {
         // Redirect to Xendit payment page

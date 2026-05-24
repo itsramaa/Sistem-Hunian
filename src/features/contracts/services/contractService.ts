@@ -1,145 +1,82 @@
 import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { Contract, CreateContractPayload } from '../types';
 import { CONTRACT_STATUS_TRANSITIONS, isValidTransition } from '@/shared/constants/state-machines';
-import { logStatusChange, createAuditLog } from '@/shared/utils/auditLog';
+import { logStatusChange } from '@/shared/utils/auditLog';
 
 export const contractService = {
   async getTenantActiveContract(tenantId: string): Promise<Contract | null> {
-    const { data, error } = await supabase
-      .from('contracts')
-      .select(`
-        *,
-        unit:units (
-          unit_number,
-          property:properties (
-            name,
-            address,
-            city
-          )
-        )
-      `)
-      .eq('tenant_user_id', tenantId)
-      .eq('status', 'active')
-      .maybeSingle();
-
-    if (error) throw error;
-    return data as unknown as Contract;
+    try {
+      const response = await apiClient.get('/contracts', {
+        params: { tenant_user_id: tenantId, status: 'active' },
+      });
+      const items: Contract[] = response.data.data;
+      return items?.[0] ?? null;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error?.message || error.message || 'Failed to fetch active contract');
+    }
   },
 
   async getTenantContracts(tenantId: string): Promise<Contract[]> {
-    const { data, error } = await supabase
-      .from('contracts')
-      .select(`
-        *,
-        unit:units (
-          unit_number,
-          property:properties (
-            name,
-            address,
-            city
-          )
-        )
-      `)
-      .eq('tenant_user_id', tenantId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data as unknown as Contract[];
+    try {
+      const response = await apiClient.get('/contracts', {
+        params: { tenant_user_id: tenantId },
+      });
+      return response.data.data as Contract[];
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error?.message || error.message || 'Failed to fetch tenant contracts');
+    }
   },
 
   async getMerchantContracts(merchantId: string): Promise<Contract[]> {
-    const { data, error } = await supabase
-      .from('contracts')
-      .select(`
-        *,
-        unit:units (
-          id,
-          unit_number,
-          property:properties (
-            id,
-            name,
-            address,
-            city
-          )
-        )
-      `)
-      .eq('merchant_id', merchantId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data as unknown as Contract[];
+    try {
+      const response = await apiClient.get('/contracts', {
+        params: { merchant_id: merchantId },
+      });
+      return response.data.data as Contract[];
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error?.message || error.message || 'Failed to fetch merchant contracts');
+    }
   },
 
   async getContractByUnit(unitId: string): Promise<Contract | null> {
-    const { data, error } = await supabase
-      .from('contracts')
-      .select(`
-        *,
-        unit:units (
-          unit_number,
-          property:properties (
-            name,
-            address,
-            city
-          )
-        )
-      `)
-      .eq('unit_id', unitId)
-      .in('status', ['active', 'notice', 'pending'])
-      .maybeSingle();
-
-    if (error) throw error;
-    return data as unknown as Contract;
+    try {
+      const response = await apiClient.get('/contracts', {
+        params: { unit_id: unitId },
+      });
+      const items: Contract[] = response.data.data;
+      return items?.[0] ?? null;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error?.message || error.message || 'Failed to fetch contract by unit');
+    }
   },
 
   async validateContractCreation(unitId: string, tenantId: string, merchantId: string): Promise<string | null> {
-    // Check for existing active contract on unit
-    const { data: existingUnitContract, error: unitCheckError } = await supabase
-      .from('contracts')
-      .select('id, status')
-      .eq('unit_id', unitId)
-      .in('status', ['active', 'draft', 'pending_signature', 'notice'])
-      .limit(1);
-
-    if (unitCheckError) throw unitCheckError;
-    if (existingUnitContract && existingUnitContract.length > 0) {
-      return 'This unit already has an active or pending contract';
+    try {
+      const response = await apiClient.get('/contracts/validate', {
+        params: { unit_id: unitId, tenant_user_id: tenantId, merchant_id: merchantId },
+      });
+      return response.data.data?.message ?? null;
+    } catch (error: any) {
+      // 409 Conflict means validation failed with a message
+      if (error.response?.status === 409) {
+        return error.response.data?.error?.message || 'Contract validation failed';
+      }
+      throw new Error(error.response?.data?.error?.message || error.message || 'Failed to validate contract creation');
     }
-
-    // Check for existing active contract for tenant with this merchant
-    const { data: existingTenantContract, error: tenantCheckError } = await supabase
-      .from('contracts')
-      .select('id, status')
-      .eq('tenant_user_id', tenantId)
-      .eq('merchant_id', merchantId)
-      .in('status', ['active', 'draft', 'pending_signature', 'notice'])
-      .limit(1);
-
-    if (tenantCheckError) throw tenantCheckError;
-    if (existingTenantContract && existingTenantContract.length > 0) {
-      return 'This tenant already has an active or pending contract with you';
-    }
-
-    return null;
   },
 
   async createContract(payload: CreateContractPayload): Promise<void> {
-    const { error } = await supabase
-      .from('contracts')
-      .insert(payload);
-    
-    if (error) throw error;
-
-    await createAuditLog({
-      action: 'create',
-      entityType: 'contract',
-      newData: payload as unknown as object,
-    });
+    try {
+      await apiClient.post('/contracts', payload);
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error?.message || error.message || 'Failed to create contract');
+    }
   },
 
   async merchantSignContract(contractId: string, signatureUrl: string, userId: string): Promise<void> {
     try {
-      // Upload signature
+      // Upload signature — keep Supabase Storage as-is
       const base64Data = signatureUrl.split(',')[1];
       if (!base64Data) throw new Error('Invalid signature data');
 
@@ -155,9 +92,9 @@ export const contractService = {
 
       const { error: uploadError } = await supabase.storage
         .from('verification-documents')
-        .upload(fileName, blob, { 
+        .upload(fileName, blob, {
           contentType: 'image/png',
-          upsert: true
+          upsert: true,
         });
 
       if (uploadError) throw uploadError;
@@ -166,119 +103,60 @@ export const contractService = {
         .from('verification-documents')
         .getPublicUrl(fileName);
 
-      // Get current contract to check tenant signature
-      const { data: contract, error: fetchError } = await supabase
-        .from('contracts')
-        .select('tenant_signature_url, status')
-        .eq('id', contractId)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      const oldStatus = contract?.status || 'draft';
-      const newSignatureStatus = contract?.tenant_signature_url ? 'fully_signed' : 'merchant_signed';
-      const newContractStatus = contract?.tenant_signature_url ? 'active' : oldStatus;
-
-      // Update contract
-      const updateData: Record<string, unknown> = {
-        merchant_signature_url: publicUrl,
-        merchant_signed_at: new Date().toISOString(),
-        signature_status: newSignatureStatus,
-      };
-      
-      if (newContractStatus === 'active') {
-        updateData.status = 'active';
-      }
-
-      const { error: updateError } = await supabase
-        .from('contracts')
-        .update(updateData)
-        .eq('id', contractId);
-
-      if (updateError) throw updateError;
-
-      // Audit log for signing
-      await createAuditLog({
-        action: 'sign',
-        entityType: 'contract',
-        entityId: contractId,
-        oldData: { signature_status: 'pending', status: oldStatus },
-        newData: { signature_status: newSignatureStatus, status: newContractStatus },
-        userId,
+      // Persist signature via API
+      await apiClient.post(`/contracts/${contractId}/sign`, {
+        role: 'merchant',
+        signature_url: publicUrl,
+        user_id: userId,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error signing contract:', error);
-      throw error;
+      throw new Error(error.response?.data?.error?.message || error.message || 'Failed to sign contract');
     }
   },
 
   async updateContractTerms(contractId: string, terms: string): Promise<void> {
-    const { error } = await supabase
-      .from('contracts')
-      .update({ terms })
-      .eq('id', contractId);
-    
-    if (error) throw error;
+    try {
+      await apiClient.put(`/contracts/${contractId}`, { terms });
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error?.message || error.message || 'Failed to update contract terms');
+    }
   },
 
   async updateContractStatus(contractId: string, newStatus: string): Promise<void> {
-    // Fetch current status for validation
-    const { data: contract, error: fetchError } = await supabase
-      .from('contracts')
-      .select('status')
-      .eq('id', contractId)
-      .single();
+    try {
+      // Fetch current status for local validation
+      const contractResponse = await apiClient.get(`/contracts/${contractId}`);
+      const currentStatus: string = contractResponse.data.data?.status || '';
 
-    if (fetchError) throw fetchError;
-    const currentStatus = contract?.status || '';
+      if (!isValidTransition(CONTRACT_STATUS_TRANSITIONS, currentStatus, newStatus)) {
+        throw new Error(
+          `Invalid contract status transition: "${currentStatus}" → "${newStatus}". ` +
+          `Allowed: [${(CONTRACT_STATUS_TRANSITIONS[currentStatus] || []).join(', ')}]`
+        );
+      }
 
-    // Validate transition
-    if (!isValidTransition(CONTRACT_STATUS_TRANSITIONS, currentStatus, newStatus)) {
-      throw new Error(
-        `Invalid contract status transition: "${currentStatus}" → "${newStatus}". ` +
-        `Allowed: [${(CONTRACT_STATUS_TRANSITIONS[currentStatus] || []).join(', ')}]`
-      );
+      await apiClient.put(`/contracts/${contractId}/status`, { status: newStatus });
+
+      await logStatusChange('contract', contractId, currentStatus, newStatus);
+    } catch (error: any) {
+      if (error.message?.startsWith('Invalid contract status transition')) throw error;
+      throw new Error(error.response?.data?.error?.message || error.message || 'Failed to update contract status');
     }
-
-    const { error } = await supabase
-      .from('contracts')
-      .update({ status: newStatus })
-      .eq('id', contractId);
-    
-    if (error) throw error;
-
-    // Audit log
-    await logStatusChange('contract', contractId, currentStatus, newStatus);
   },
 
   async deleteContract(contractId: string): Promise<void> {
-    // Fetch contract data before deletion for audit
-    const { data: contract, error: fetchError } = await supabase
-      .from('contracts')
-      .select('status, unit_id, tenant_user_id, merchant_id')
-      .eq('id', contractId)
-      .single();
-
-    if (fetchError) throw fetchError;
-
-    const { error } = await supabase
-      .from('contracts')
-      .delete()
-      .eq('id', contractId);
-    
-    if (error) throw error;
-
-    await createAuditLog({
-      action: 'delete',
-      entityType: 'contract',
-      entityId: contractId,
-      oldData: contract as unknown as object,
-    });
+    try {
+      await apiClient.delete(`/contracts/${contractId}`);
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error?.message || error.message || 'Failed to delete contract');
+    }
   },
 
   async uploadContractDocument(contractId: string, file: File): Promise<string> {
     const fileName = `${contractId}/${Date.now()}_${file.name}`;
-    
+
+    // Keep Supabase Storage for file uploads
     const { error: uploadError } = await supabase.storage
       .from('contract-documents')
       .upload(fileName, file, {
@@ -292,13 +170,38 @@ export const contractService = {
       .from('contract-documents')
       .getPublicUrl(fileName);
 
-    const { error: updateError } = await supabase
-      .from('contracts')
-      .update({ contract_document_url: publicUrl })
-      .eq('id', contractId);
+    try {
+      await apiClient.put(`/contracts/${contractId}`, { contract_document_url: publicUrl });
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error?.message || error.message || 'Failed to update contract document URL');
+    }
 
-    if (updateError) throw updateError;
-    
     return publicUrl;
-  }
+  },
+
+  async getMoveOuts(): Promise<any[]> {
+    try {
+      const response = await apiClient.get('/contracts/move-outs');
+      return response.data.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error?.message || error.message || 'Failed to fetch move-out notices');
+    }
+  },
+
+  async updateMoveOutStatus(id: string, status: string): Promise<void> {
+    try {
+      await apiClient.put(`/contracts/move-outs/${id}/status`, { status });
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error?.message || error.message || 'Failed to update move-out status');
+    }
+  },
+
+  async processDepositRefund(contractId: string, refundData: { amount: number; reason: string }) {
+    try {
+      const response = await apiClient.post(`/contracts/${contractId}/deposit-refund`, refundData);
+      return response.data.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error?.message || error.message || 'Failed to process deposit refund');
+    }
+  },
 };
