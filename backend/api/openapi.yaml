@@ -1,0 +1,461 @@
+openapi: "3.0.3"
+info:
+  title: SiHuni API
+  description: |
+    Go REST API for the SiHuni property management platform.
+    Replaces Supabase Edge Functions with a locally-hosted Go service.
+
+    **Auth**: All protected endpoints require a Supabase-issued JWT passed as a Bearer token.
+    Paste your JWT in the Authorize dialog to test endpoints directly.
+  version: "1.0.0"
+  contact:
+    name: SiHuni Backend
+    url: https://github.com/itsramaa/sihuni-api
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+tags:
+  - name: health
+    description: Server health check
+  - name: auth
+    description: Authentication and user bootstrap
+  - name: invitations
+    description: Tenant invitation flow
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Supabase-issued JWT. Obtain from Supabase Auth after sign-in.
+
+  schemas:
+    SuccessEnvelope:
+      type: object
+      properties:
+        data:
+          description: Response payload
+        error:
+          type: "null"
+        meta:
+          $ref: "#/components/schemas/Meta"
+
+    ErrorEnvelope:
+      type: object
+      properties:
+        data:
+          type: "null"
+        error:
+          $ref: "#/components/schemas/APIError"
+
+    APIError:
+      type: object
+      required: [code, message, status]
+      properties:
+        code:
+          type: string
+          example: UNAUTHORIZED
+        message:
+          type: string
+          example: missing bearer token
+        status:
+          type: integer
+          example: 401
+
+    Meta:
+      type: object
+      properties:
+        request_id:
+          type: string
+          format: uuid
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+
+    BootstrapRequest:
+      type: object
+      properties:
+        full_name:
+          type: string
+          example: Budi Santoso
+        phone_number:
+          type: string
+          example: "+6281234567890"
+        role:
+          type: string
+          enum: [merchant, tenant, vendor, admin]
+          example: merchant
+
+    BootstrapResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          example: merchant
+        status:
+          type: string
+          example: bootstrapped
+
+    ProfileResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        full_name:
+          type: string
+          nullable: true
+        phone_number:
+          type: string
+          nullable: true
+        role:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Admin2FARequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          description: TOTP or admin secret code
+          example: "123456"
+
+    Admin2FAResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          example: true
+
+    InvitationResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        property_id:
+          type: string
+          format: uuid
+        unit_id:
+          type: string
+          format: uuid
+          nullable: true
+        merchant_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, accepted, expired]
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    AcceptInvitationRequest:
+      type: object
+      required: [token, user_id]
+      properties:
+        token:
+          type: string
+          format: uuid
+          description: Invitation token from the invitation email link
+        user_id:
+          type: string
+          format: uuid
+          description: Supabase Auth user ID of the accepting user
+        full_name:
+          type: string
+          example: Siti Rahayu
+
+    AcceptInvitationResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: accepted
+        user_id:
+          type: string
+          format: uuid
+        token:
+          type: string
+          format: uuid
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Health check
+      description: Returns server liveness status. No auth required.
+      operationId: getHealth
+      responses:
+        "200":
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/HealthResponse"
+
+  /v1/auth/bootstrap:
+    post:
+      tags: [auth]
+      summary: Bootstrap user profile
+      description: |
+        Creates or updates the authenticated user's profile and provisions the
+        role-specific record (merchant, tenant, or vendor) if it does not exist.
+        Replaces the `ensure-user-bootstrap` Supabase Edge Function.
+      operationId: bootstrapUser
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BootstrapRequest"
+      responses:
+        "200":
+          description: User bootstrapped successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/BootstrapResponse"
+        "401":
+          description: Missing or invalid JWT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Database error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /v1/auth/me:
+    get:
+      tags: [auth]
+      summary: Get current user profile
+      description: Returns the authenticated user's profile from the database.
+      operationId: getMe
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ProfileResponse"
+        "401":
+          description: Missing or invalid JWT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /v1/auth/admin/2fa/validate:
+    post:
+      tags: [auth]
+      summary: Validate admin 2FA code
+      description: |
+        Validates a TOTP or admin secret code for admin users.
+        Replaces the `validate-admin-secret` Supabase Edge Function.
+        Requires admin role.
+      operationId: validateAdmin2FA
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Admin2FARequest"
+      responses:
+        "200":
+          description: Code is valid
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Admin2FAResponse"
+        "400":
+          description: Missing or invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Invalid 2FA code or missing JWT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Admin role required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /v1/invitations/{token}:
+    get:
+      tags: [invitations]
+      summary: Get invitation by token
+      description: |
+        Returns invitation details for the given token. Public endpoint — no auth required.
+        Replaces the `get-tenant-invitation` Supabase Edge Function.
+      operationId: getInvitation
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Invitation token from the invitation email link
+      responses:
+        "200":
+          description: Invitation details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/InvitationResponse"
+        "400":
+          description: Missing token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Invitation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Invitation already used
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "410":
+          description: Invitation expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /v1/invitations/accept:
+    post:
+      tags: [invitations]
+      summary: Accept tenant invitation
+      description: |
+        Accepts a tenant invitation: creates the tenant profile, tenant record,
+        and marks the invitation as accepted. Public endpoint — no auth required.
+        Replaces the `accept-tenant-invitation` Supabase Edge Function.
+      operationId: acceptInvitation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptInvitationRequest"
+      responses:
+        "200":
+          description: Invitation accepted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AcceptInvitationResponse"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Invitation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Invitation already used
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "410":
+          description: Invitation expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Database error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
