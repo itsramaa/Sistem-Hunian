@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -11,6 +12,9 @@ import (
 	"time"
 
 	"github.com/itsramaa/sihuni-api/internal/config"
+	"github.com/itsramaa/sihuni-api/internal/pkg/minioclient"
+	"github.com/itsramaa/sihuni-api/internal/pkg/rabbitmq"
+	"github.com/itsramaa/sihuni-api/internal/pkg/redisclient"
 	"github.com/itsramaa/sihuni-api/internal/repository"
 	"github.com/itsramaa/sihuni-api/internal/router"
 )
@@ -29,6 +33,35 @@ func main() {
 		os.Exit(1)
 	}
 	defer pool.Close()
+
+	// Redis (non-fatal in dev)
+	redisClient, err := redisclient.New(cfg.RedisURL)
+	if err != nil {
+		log.Printf("warn: redis unavailable: %v", err)
+	} else {
+		log.Println("redis connected")
+		_ = redisClient
+	}
+
+	// MinIO (non-fatal in dev)
+	minioClient, err := minioclient.New(cfg.MinioEndpoint, cfg.MinioAccessKey, cfg.MinioSecretKey, cfg.MinioBucket, cfg.MinioUseTLS)
+	if err != nil {
+		log.Printf("warn: minio unavailable: %v", err)
+	} else {
+		log.Println("minio connected")
+		_ = minioClient
+	}
+
+	// RabbitMQ (non-fatal in dev)
+	rmqConn, rmqCh, err := rabbitmq.New(cfg.RabbitMQURL)
+	if err != nil {
+		log.Printf("warn: rabbitmq unavailable: %v", err)
+	} else {
+		log.Println("rabbitmq connected")
+		defer rmqConn.Close()
+		defer rmqCh.Close()
+		_, _ = rmqConn, rmqCh
+	}
 
 	r := router.New(cfg, pool)
 
