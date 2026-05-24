@@ -124,6 +124,10 @@ func (s *ContractService) UpdateMoveOutStatus(ctx context.Context, id, merchantI
 		return nil, fmt.Errorf("contract_service: invalid status %q — must be approved, rejected, or completed", req.Status)
 	}
 
+	if s.repo == nil {
+		return nil, errors.New("contract_service: repository not initialized")
+	}
+
 	m, err := s.repo.UpdateMoveOutStatus(ctx, id, merchantID, req)
 	if err != nil {
 		if contractIsNotFound(err) {
