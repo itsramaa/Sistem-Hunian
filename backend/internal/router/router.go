@@ -10,6 +10,7 @@ import (
 	"github.com/itsramaa/sihuni-api/internal/config"
 	"github.com/itsramaa/sihuni-api/internal/handler"
 	"github.com/itsramaa/sihuni-api/internal/middleware"
+	"github.com/itsramaa/sihuni-api/internal/pkg/xendit"
 )
 
 // New creates and returns the configured Chi router with all middleware and routes registered.
@@ -23,6 +24,9 @@ func New(cfg *config.Config, pool *pgxpool.Pool) http.Handler {
 	r.Use(chimiddleware.RequestID)
 	r.Use(chimiddleware.Timeout(30 * time.Second))
 	r.Use(middleware.RateLimit(200, time.Minute)) // 200 req/min per IP globally
+
+	// ── Xendit client ──────────────────────────────────────────────────────────
+	xClient := xendit.New(cfg.XenditSecretKey)
 
 	// ── Public routes (no auth) ────────────────────────────────────────────────
 	r.Get("/health", handler.Health)
@@ -54,7 +58,46 @@ func New(cfg *config.Config, pool *pgxpool.Pool) http.Handler {
 			r.Get("/{token}", handler.GetInvitation(pool))
 			r.Post("/accept", handler.AcceptInvitation(pool))
 		})
+
+		// Billing endpoints — JWT required
+		r.Route("/billing", func(r chi.Router) {
+			r.Use(middleware.Authenticate(cfg.JWTSecret))
+
+			r.Get("/invoices", handler.ListInvoices(pool))
+			r.Post("/invoices", handler.CreateInvoice(pool))
+
+			r.Route("/invoices/{id}", func(r chi.Router) {
+				r.Get("/", handler.GetInvoice(pool))
+				r.Get("/pdf", handler.GetInvoicePDF(pool))
+				r.Put("/status", handler.UpdateInvoiceStatus(pool))
+			})
+		})
+
+		// Payment endpoints — JWT required
+		r.Route("/payments", func(r chi.Router) {
+			r.Use(middleware.Authenticate(cfg.JWTSecret))
+
+			r.Post("/xendit/invoice", handler.CreateXenditInvoice(pool, xClient))
+
+			// Disbursement — merchant only
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RequireRole("merchant", "admin"))
+				r.Post("/xendit/disbursement", handler.CreateDisbursement(pool, xClient))
+			})
+		})
+
+		// Cron endpoints — cron secret required (no JWT)
+		r.Route("/cron", func(r chi.Router) {
+			r.Use(middleware.RequireCronSecret(cfg.CronSecret))
+			r.Post("/generate-invoices", handler.GenerateInvoices(pool))
+			r.Post("/overdue-escalation", handler.OverdueEscalation(pool))
+			r.Post("/payment-plan-check", handler.PaymentPlanCheck(pool))
+		})
 	})
+
+	// ── Webhook endpoints (no auth — validated by token in handler) ────────────
+	r.Post("/v1/webhooks/xendit", handler.XenditPaymentWebhook(pool, cfg.XenditWebhookToken))
+	r.Post("/v1/webhooks/xendit/disbursement", handler.XenditDisbursementWebhook(pool, cfg.XenditWebhookToken))
 
 	return r
 }
