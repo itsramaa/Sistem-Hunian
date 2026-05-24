@@ -49,6 +49,11 @@ func XenditPaymentWebhook(pool *pgxpool.Pool, webhookToken string) http.HandlerF
 		ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 		defer cancel()
 
+		if pool == nil {
+			response.Error(w, http.StatusInternalServerError, "DB_UNAVAILABLE", "database not available")
+			return
+		}
+
 		internalStatus := mapXenditStatus(payload.Status)
 
 		// Update payment status

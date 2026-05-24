@@ -109,6 +109,11 @@ func Me(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
+		if pool == nil {
+			response.Error(w, http.StatusInternalServerError, "DB_UNAVAILABLE", "database not available")
+			return
+		}
+
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 
