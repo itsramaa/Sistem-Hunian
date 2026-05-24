@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { getCurrentMonthDateRange, getPreviousMonthDateRange } from "@/shared/utils/dateUtils";
 
 export interface MerchantDashboardStats {
@@ -33,76 +33,83 @@ export const merchantDashboardService = {
     const currentMonth = getCurrentMonthDateRange();
     const lastMonth = getPreviousMonthDateRange();
 
-    // Parallelize queries for performance
     const [
       propertiesRes,
       escrowRes,
       activeTenantsRes,
       monthlyPaymentsRes,
       lastMonthPaymentsRes,
-      lastMonthTenantsRes
+      lastMonthTenantsRes,
     ] = await Promise.all([
       // 1. Fetch properties
-      supabase
-        .from('properties')
-        .select('id, name, total_units, occupied_units')
-        .eq('merchant_id', merchantId),
+      apiClient.get('/properties', {
+        params: { merchant_id: merchantId, select: 'id,name,total_units,occupied_units' },
+      }),
 
       // 2. Fetch escrow balance
-      supabase
-        .from('escrow_accounts')
-        .select('balance, pending_balance')
-        .eq('merchant_id', merchantId)
-        .maybeSingle(),
+      apiClient.get('/escrow-accounts', {
+        params: { merchant_id: merchantId, select: 'balance,pending_balance', limit: 1 },
+      }),
 
       // 3. Fetch active tenants count
-      supabase
-        .from('contracts')
-        .select('id', { count: 'exact', head: true })
-        .eq('merchant_id', merchantId)
-        .eq('status', 'active'),
+      apiClient.get('/contracts', {
+        params: { merchant_id: merchantId, status: 'active', count: 'exact', select: 'id' },
+      }),
 
       // 4. Fetch this month's payments
-      supabase
-        .from('payments')
-        .select('amount')
-        .eq('merchant_id', merchantId)
-        .eq('status', 'paid')
-        .gte('created_at', currentMonth.start.toISOString()),
+      apiClient.get('/payments', {
+        params: {
+          merchant_id: merchantId,
+          status: 'paid',
+          created_at_gte: currentMonth.start.toISOString(),
+          select: 'amount',
+        },
+      }),
 
       // 5. Fetch last month's payments
-      supabase
-        .from('payments')
-        .select('amount')
-        .eq('merchant_id', merchantId)
-        .eq('status', 'paid')
-        .gte('created_at', lastMonth.start.toISOString())
-        .lte('created_at', lastMonth.end.toISOString()),
+      apiClient.get('/payments', {
+        params: {
+          merchant_id: merchantId,
+          status: 'paid',
+          created_at_gte: lastMonth.start.toISOString(),
+          created_at_lte: lastMonth.end.toISOString(),
+          select: 'amount',
+        },
+      }),
 
       // 6. Fetch last month's active tenants
-      supabase
-        .from('contracts')
-        .select('id', { count: 'exact', head: true })
-        .eq('merchant_id', merchantId)
-        .eq('status', 'active')
-        .lte('created_at', lastMonth.end.toISOString())
+      apiClient.get('/contracts', {
+        params: {
+          merchant_id: merchantId,
+          status: 'active',
+          created_at_lte: lastMonth.end.toISOString(),
+          count: 'exact',
+          select: 'id',
+        },
+      }),
     ]);
 
-    // Error handling could be more robust, but we'll throw for now to let React Query handle it
-    if (propertiesRes.error) throw propertiesRes.error;
-    
     // Process Properties
-    const properties = propertiesRes.data || [];
+    const properties: Array<{ id: string; name: string; total_units: number; occupied_units: number }> =
+      propertiesRes.data?.data || propertiesRes.data || [];
     const totalProperties = properties.length;
     const totalUnits = properties.reduce((sum, p) => sum + (p.total_units || 0), 0);
     const occupiedUnits = properties.reduce((sum, p) => sum + (p.occupied_units || 0), 0);
     const occupancyRate = totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0;
 
     // Process Financials
-    const escrow = escrowRes.data || { balance: 0, pending_balance: 0 };
-    const monthlyRevenue = monthlyPaymentsRes.data?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
-    const lastMonthRevenue = lastMonthPaymentsRes.data?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
-    
+    const escrowList: Array<{ balance: number; pending_balance: number }> =
+      escrowRes.data?.data || escrowRes.data || [];
+    const escrow = escrowList[0] || { balance: 0, pending_balance: 0 };
+
+    const monthlyPayments: Array<{ amount: number }> =
+      monthlyPaymentsRes.data?.data || monthlyPaymentsRes.data || [];
+    const lastMonthPayments: Array<{ amount: number }> =
+      lastMonthPaymentsRes.data?.data || lastMonthPaymentsRes.data || [];
+
+    const monthlyRevenue = monthlyPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const lastMonthRevenue = lastMonthPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+
     let revenueGrowth = 0;
     if (lastMonthRevenue > 0) {
       revenueGrowth = ((monthlyRevenue - lastMonthRevenue) / lastMonthRevenue) * 100;
@@ -111,9 +118,11 @@ export const merchantDashboardService = {
     }
 
     // Process Tenants
-    const activeTenants = activeTenantsRes.count || 0;
-    const lastMonthActive = lastMonthTenantsRes.count || 0;
-    
+    const activeTenants: number =
+      activeTenantsRes.data?.count ?? (activeTenantsRes.data?.data?.length || 0);
+    const lastMonthActive: number =
+      lastMonthTenantsRes.data?.count ?? (lastMonthTenantsRes.data?.data?.length || 0);
+
     let tenantGrowth = 0;
     if (lastMonthActive > 0) {
       tenantGrowth = ((activeTenants - lastMonthActive) / lastMonthActive) * 100;
@@ -127,20 +136,20 @@ export const merchantDashboardService = {
         totalUnits,
         occupiedUnits,
         occupancyRate,
-        list: properties
+        list: properties,
       },
       financials: {
         balance: Number(escrow.balance) || 0,
         pendingBalance: Number(escrow.pending_balance) || 0,
         monthlyRevenue,
         lastMonthRevenue,
-        revenueGrowth
+        revenueGrowth,
       },
       tenants: {
         active: activeTenants,
         lastMonthActive,
-        growth: tenantGrowth
-      }
+        growth: tenantGrowth,
+      },
     };
-  }
+  },
 };

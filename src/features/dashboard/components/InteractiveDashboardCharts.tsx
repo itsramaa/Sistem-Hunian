@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { TrendingUp, TrendingDown, DollarSign, Home, Users, ArrowUpRight } from 'lucide-react';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { format, subMonths, startOfMonth, endOfMonth, eachMonthOfInterval } from 'date-fns';
 import { cn, formatLabel } from '@/shared/utils/utils';
@@ -36,16 +36,17 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
     queryKey: ['revenue-chart', merchant?.id, timeRange],
     queryFn: async () => {
       if (!merchant?.id) return [];
-      const { data: payments } = await supabase
-        .from('payments').select('amount, paid_at, status')
-        .eq('merchant_id', merchant.id).eq('status', 'paid')
-        .gte('paid_at', dateRange.start.toISOString()).lte('paid_at', dateRange.end.toISOString());
+      // TODO: Migrate to Go endpoint — GET /v1/dashboard/revenue-chart
+      const response = await apiClient.get('/v1/dashboard/revenue-chart', {
+        params: { merchant_id: merchant.id, from: dateRange.start.toISOString(), to: dateRange.end.toISOString() },
+      });
+      const payments: Array<{ amount: number; paid_at: string; status: string }> = response.data.data || [];
       const months = eachMonthOfInterval({ start: dateRange.start, end: dateRange.end });
       return months.map(month => {
-        const monthPayments = payments?.filter(p => {
+        const monthPayments = payments.filter(p => {
           const paidDate = new Date(p.paid_at!);
           return paidDate.getMonth() === month.getMonth() && paidDate.getFullYear() === month.getFullYear();
-        }) || [];
+        });
         return { month: format(month, 'MMM yyyy'), revenue: monthPayments.reduce((sum, p) => sum + Number(p.amount), 0), count: monthPayments.length };
       });
     },
@@ -56,13 +57,15 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
     queryKey: ['occupancy-chart', merchant?.id],
     queryFn: async () => {
       if (!merchant?.id) return [];
-      const { data: properties } = await supabase.from('properties').select('id, name, total_units, occupied_units').eq('merchant_id', merchant.id);
-      return properties?.map(p => ({
+      // TODO: Migrate to Go endpoint — GET /v1/dashboard/occupancy-chart
+      const response = await apiClient.get('/v1/dashboard/occupancy-chart', { params: { merchant_id: merchant.id } });
+      const properties: Array<{ id: string; name: string; total_units: number; occupied_units: number }> = response.data.data || [];
+      return properties.map(p => ({
         name: p.name.length > 15 ? p.name.substring(0, 15) + '...' : p.name,
         fullName: p.name, occupied: p.occupied_units || 0,
         vacant: (p.total_units || 0) - (p.occupied_units || 0), total: p.total_units || 0,
         rate: p.total_units > 0 ? Math.round(((p.occupied_units || 0) / p.total_units) * 100) : 0,
-      })) || [];
+      }));
     },
     enabled: !!merchant?.id,
   });
@@ -71,9 +74,13 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
     queryKey: ['payment-status-chart', merchant?.id],
     queryFn: async () => {
       if (!merchant?.id) return [];
-      const { data: payments } = await supabase.from('payments').select('status, amount').eq('merchant_id', merchant.id).gte('created_at', dateRange.start.toISOString());
+      // TODO: Migrate to Go endpoint — GET /v1/dashboard/payment-status-chart
+      const response = await apiClient.get('/v1/dashboard/payment-status-chart', {
+        params: { merchant_id: merchant.id, from: dateRange.start.toISOString() },
+      });
+      const payments: Array<{ status: string; amount: number }> = response.data.data || [];
       const statusMap = new Map<string, { count: number; amount: number }>();
-      payments?.forEach(p => {
+      payments.forEach(p => {
         const existing = statusMap.get(p.status) || { count: 0, amount: 0 };
         statusMap.set(p.status, { count: existing.count + 1, amount: existing.amount + Number(p.amount) });
       });

@@ -10,7 +10,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Badge } from '@/shared/components/ui/badge';
 import { Progress } from '@/shared/components/ui/progress';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useToast } from '@/shared/hooks/use-toast';
 import { format, addMonths } from 'date-fns';
@@ -39,14 +39,12 @@ export function BulkInvoiceGenerator({ open, onOpenChange }: BulkInvoiceGenerato
     queryKey: ['active-contracts-bulk', merchant?.id],
     queryFn: async () => {
       if (!merchant?.id) return [];
-      const { data: contractsData, error } = await supabase.from('contracts')
-        .select(`id, tenant_user_id, rent_amount, billing_day, unit:units (unit_number, property:properties (name))`)
-        .eq('merchant_id', merchant.id).eq('status', 'active');
-      if (error) throw error;
-      const tenantIds = contractsData?.map(c => c.tenant_user_id) || [];
-      const { data: profiles } = await supabase.from('profiles').select('user_id, full_name, email').in('user_id', tenantIds);
-      const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
-      return contractsData?.map(c => ({ ...c, tenant: profileMap.get(c.tenant_user_id) })) as ActiveContract[];
+      try {
+        const r = await apiClient.get('/contracts', { params: { merchant_id: merchant.id, status: 'active' } });
+        return r.data as ActiveContract[];
+      } catch (err) {
+        throw err;
+      }
     },
     enabled: !!merchant?.id && open,
   });
@@ -72,16 +70,17 @@ export function BulkInvoiceGenerator({ open, onOpenChange }: BulkInvoiceGenerato
       if (!contract) { failed++; continue; }
       try {
         const dueDateMonth = format(new Date(dueDate), 'yyyy-MM');
-        const { data: existing } = await supabase.from('invoices').select('id').eq('contract_id', selectedList[i])
-          .neq('status', 'cancelled').gte('due_date', `${dueDateMonth}-01`).lte('due_date', `${dueDateMonth}-31`).limit(1);
-        if (existing && existing.length > 0) { failed++; continue; }
-        const { error } = await supabase.from('invoices').insert({
+        // Check for existing invoice
+        try {
+          const existingR = await apiClient.get('/invoices', { params: { contract_id: selectedList[i], due_date_month: dueDateMonth, exclude_status: 'cancelled', limit: 1 } });
+          if (existingR.data?.length > 0) { failed++; continue; }
+        } catch (_) { /* proceed */ }
+        await apiClient.post('/invoices', {
           invoice_number: '', contract_id: selectedList[i], merchant_id: merchant.id,
           tenant_user_id: contract.tenant_user_id, amount: contract.rent_amount,
           tax_amount: 0, total_amount: contract.rent_amount,
           description: `Monthly rent - ${format(new Date(dueDate), 'MMMM yyyy')}`, due_date: dueDate, status: 'draft',
         });
-        if (error) throw error;
         success++;
       } catch (err) { console.error(err); failed++; }
       setProgress(Math.round(((i + 1) / selectedList.length) * 100));

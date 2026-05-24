@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { Button } from "@/shared/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 import { Input } from "@/shared/components/ui/input";
@@ -40,9 +40,9 @@ export function EarlyTerminationReviewDialog({ open, onOpenChange, request, onRe
       if (decision === "approve") {
         updateData.status = "approved";
         updateData.approved_at = new Date().toISOString();
-        await supabase.from("contracts").update({ status: "terminated_early", actual_end_date: request.requested_date, termination_penalty: request.penalty_amount, churn_reason: request.reason }).eq("id", request.contract_id);
+        await apiClient.put(`/contracts/${request.contract_id}`, { status: "terminated_early", actual_end_date: request.requested_date, termination_penalty: request.penalty_amount, churn_reason: request.reason });
         const invoiceNumber = `INV-TERM-${Date.now()}`;
-        await supabase.from("invoices").insert({ contract_id: request.contract_id, merchant_id: request.contract?.merchant_id, tenant_user_id: request.tenant_user_id, invoice_number: invoiceNumber, amount: request.penalty_amount, total_amount: request.penalty_amount, description: "Penalti pemutusan awal", due_date: request.requested_date, status: "pending" });
+        await apiClient.post('/invoices', { contract_id: request.contract_id, merchant_id: request.contract?.merchant_id, tenant_user_id: request.tenant_user_id, invoice_number: invoiceNumber, amount: request.penalty_amount, total_amount: request.penalty_amount, description: "Penalti pemutusan awal", due_date: request.requested_date, status: "pending" });
       } else if (decision === "negotiate") {
         updateData.status = "negotiating";
         updateData.counter_offer_amount = counterOfferAmount;
@@ -51,7 +51,7 @@ export function EarlyTerminationReviewDialog({ open, onOpenChange, request, onRe
         updateData.denied_at = new Date().toISOString();
       }
 
-      await supabase.from("early_termination_requests").update(updateData).eq("id", request.id);
+      await apiClient.put(`/early-termination-requests/${request.id}`, updateData);
       toast.success(decision === "approve" ? "Permintaan disetujui" : decision === "negotiate" ? "Penawaran balik dikirim" : "Permintaan ditolak");
       onReviewed();
     } catch (error) {

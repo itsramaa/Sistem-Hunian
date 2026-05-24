@@ -6,7 +6,7 @@ import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { formatCurrency } from '@/shared/utils/currency';
 import { getInvoiceStatusColor } from '@/shared/utils/statusColors';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { useQuery } from '@tanstack/react-query';
 import { format, differenceInDays } from 'date-fns';
 import { ArrowLeft, Bell, Calendar, CheckCircle, Clock, Download, FileText, Loader2, Mail, MapPin, Phone, Send, User, AlertTriangle } from 'lucide-react';
@@ -27,19 +27,8 @@ export default function MerchantInvoiceDetail() {
     queryKey: ['invoice-detail', invoiceId],
     queryFn: async () => {
       if (!invoiceId) return null;
-      const { data, error } = await supabase
-        .from('invoices')
-        .select(`
-          *,
-          contracts(
-            id, start_date, end_date, rent_amount,
-            units(id, unit_number, properties(id, name))
-          )
-        `)
-        .eq('id', invoiceId)
-        .maybeSingle();
-      if (error) throw error;
-      return data as any;
+      const response = await apiClient.get(`/v1/billing/invoices/${invoiceId}`);
+      return response.data.data as any;
     },
     enabled: !!invoiceId,
   });
@@ -47,13 +36,9 @@ export default function MerchantInvoiceDetail() {
   const { data: tenant } = useQuery({
     queryKey: ['invoice-tenant', invoice?.tenant_user_id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('full_name, email, phone')
-        .eq('user_id', invoice!.tenant_user_id)
-        .maybeSingle();
-      if (error) throw error;
-      return data as { full_name: string; email: string; phone: string | null } | null;
+      const response = await apiClient.get(`/profiles/${invoice!.tenant_user_id}`);
+      const d = response.data.data;
+      return d ? { full_name: d.full_name, email: d.email, phone: d.phone } as { full_name: string; email: string; phone: string | null } : null;
     },
     enabled: !!invoice?.tenant_user_id,
   });

@@ -8,7 +8,7 @@ import { RadioGroup, RadioGroupItem } from "@/shared/components/ui/radio-group";
 import { Checkbox } from "@/shared/components/ui/checkbox";
 import { Calendar } from "@/shared/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { toast } from "sonner";
 import { format, addDays, differenceInDays, isBefore } from "date-fns";
@@ -70,9 +70,7 @@ export function MoveOutNoticeDialog({ open, onOpenChange, contract, isEarlyTermi
 
     setIsSubmitting(true);
     try {
-      const { data: notice, error: noticeError } = await supabase
-        .from("move_out_notices")
-        .insert({
+      const noticeResponse = await apiClient.post('/move-out-notices', {
           tenant_user_id: user.id,
           contract_id: contract.id,
           intended_move_out_date: format(moveOutDate, "yyyy-MM-dd"),
@@ -80,20 +78,14 @@ export function MoveOutNoticeDialog({ open, onOpenChange, contract, isEarlyTermi
           reason,
           notes,
           status: "submitted",
-        })
-        .select()
-        .single();
+        });
+      const notice = noticeResponse.data.data;
 
-      if (noticeError) throw noticeError;
-
-      await supabase
-        .from("contracts")
-        .update({
+      await apiClient.put(`/contracts/${contract.id}`, {
           move_out_notice_given: true,
           move_out_notice_date: new Date().toISOString(),
           expected_move_out_date: format(moveOutDate, "yyyy-MM-dd"),
-        })
-        .eq("id", contract.id);
+        });
 
       const timelineSteps = [
         { step: "notice_submitted", completed: true, completed_at: new Date().toISOString() },
@@ -103,12 +95,8 @@ export function MoveOutNoticeDialog({ open, onOpenChange, contract, isEarlyTermi
         { step: "deposit_returned", completed: false },
       ];
 
-      await supabase.from("move_out_timeline").insert(
-        timelineSteps.map((s) => ({
-          move_out_notice_id: notice.id,
-          ...s,
-        }))
-      );
+      // TODO: implement Go endpoint — was: supabase.from('move_out_timeline').insert(...)
+      await apiClient.post('/move-out-timeline', timelineSteps.map((s) => ({ move_out_notice_id: notice.id, ...s })));
 
       const defaultTasks = [
         { task_name: "Schedule final inspection", description: "Coordinate with landlord for inspection", order_index: 1 },
@@ -120,16 +108,11 @@ export function MoveOutNoticeDialog({ open, onOpenChange, contract, isEarlyTermi
         { task_name: "Attend walk-through", description: "Be present during final inspection", order_index: 7 },
       ];
 
-      await supabase.from("move_out_tasks").insert(
-        defaultTasks.map((t) => ({
-          move_out_notice_id: notice.id,
-          ...t,
-          due_date: format(addDays(moveOutDate, -7), "yyyy-MM-dd"),
-        }))
-      );
+      // TODO: implement Go endpoint — was: supabase.from('move_out_tasks').insert(...)
+      await apiClient.post('/move-out-tasks', defaultTasks.map((t) => ({ move_out_notice_id: notice.id, ...t, due_date: format(addDays(moveOutDate, -7), "yyyy-MM-dd") })));
 
       if (isEarly && penaltyAmount > 0) {
-        await supabase.from("early_termination_requests").insert({
+        await apiClient.post('/early-termination-requests', {
           tenant_user_id: user.id,
           contract_id: contract.id,
           requested_date: format(moveOutDate, "yyyy-MM-dd"),
