@@ -73,12 +73,12 @@ export function WaitinglistTable({
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/30">
-              <TableHead>Tenant ID</TableHead>
-              <TableHead>Property ID</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Catatan</TableHead>
-              <TableHead>Dibuat</TableHead>
-              <TableHead className="w-16" />
+              <TableHead scope="col">Tenant ID</TableHead>
+              <TableHead scope="col">Property ID</TableHead>
+              <TableHead scope="col">Status</TableHead>
+              <TableHead scope="col">Catatan</TableHead>
+              <TableHead scope="col">Dibuat</TableHead>
+              <TableHead scope="col" className="w-16" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -117,12 +117,12 @@ export function WaitinglistTable({
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/30 hover:bg-muted/30">
-              <TableHead className="font-semibold text-foreground/80">Tenant ID</TableHead>
-              <TableHead className="font-semibold text-foreground/80">Property ID</TableHead>
-              <TableHead className="font-semibold text-foreground/80">Status</TableHead>
-              <TableHead className="font-semibold text-foreground/80">Catatan</TableHead>
-              <TableHead className="font-semibold text-foreground/80">Dibuat</TableHead>
-              <TableHead className="w-16" />
+              <TableHead scope="col" className="font-semibold text-foreground/80">Tenant ID</TableHead>
+              <TableHead scope="col" className="font-semibold text-foreground/80">Property ID</TableHead>
+              <TableHead scope="col" className="font-semibold text-foreground/80">Status</TableHead>
+              <TableHead scope="col" className="font-semibold text-foreground/80">Catatan</TableHead>
+              <TableHead scope="col" className="font-semibold text-foreground/80">Dibuat</TableHead>
+              <TableHead scope="col" className="w-16" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -162,7 +162,7 @@ export function WaitinglistTable({
                       className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
                       onClick={() => setConfirmId(item.id)}
                       disabled={isDeleting}
-                      aria-label="Hapus dari waiting list"
+                      aria-label={`Remove ${item.property_id} from waitinglist`}
                     >
                       {isDeleting ? (
                         <Loader2 className="h-4 w-4 animate-spin" />

@@ -17,9 +17,20 @@ import { Textarea } from '@/shared/components/ui/textarea';
 import { cn } from '@/shared/utils/utils';
 import { CreateWaitinglistRequest } from '@/features/waitinglist/types/waitinglist';
 
+const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 const addWaitinglistSchema = z.object({
-  property_id: z.string().min(1, 'Property ID wajib diisi'),
-  unit_id: z.string().optional(),
+  property_id: z
+    .string()
+    .min(1, 'Property ID wajib diisi')
+    .regex(UUID_V4_REGEX, 'Property ID harus berformat UUID v4 yang valid'),
+  unit_id: z
+    .string()
+    .optional()
+    .refine(
+      (val) => !val || UUID_V4_REGEX.test(val),
+      { message: 'Unit ID harus berformat UUID v4 yang valid' }
+    ),
   notes: z.string().optional(),
 });
 
@@ -126,8 +137,15 @@ export function AddToWaitinglistModal({
               id="unit_id"
               placeholder="Masukkan ID unit (jika ada)"
               {...register('unit_id')}
-              className={inputCls}
+              className={cn(inputCls, errors.unit_id && 'border-destructive')}
+              aria-invalid={!!errors.unit_id}
+              aria-describedby={errors.unit_id ? 'unit_id_error' : undefined}
             />
+            {errors.unit_id && (
+              <p id="unit_id_error" className="text-sm text-destructive mt-1">
+                {errors.unit_id.message}
+              </p>
+            )}
           </div>
 
           {/* Notes (optional) */}

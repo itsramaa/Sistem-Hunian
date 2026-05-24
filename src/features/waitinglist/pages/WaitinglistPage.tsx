@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ClipboardList, Plus, RefreshCw } from 'lucide-react';
+import { AlertCircle, ClipboardList, Plus, RefreshCw } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
+import { Alert, AlertDescription } from '@/shared/components/ui/alert';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { useToast } from '@/shared/hooks/use-toast';
 import { useAuth } from '@/features/auth/hooks/useAuth';
@@ -15,25 +16,23 @@ export default function WaitinglistPage() {
 
   const [items, setItems] = useState<Waitinglist[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showModal, setShowModal] = useState(false);
 
   const fetchList = useCallback(async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const response = await waitinglistApi.listWaitinglist();
-      setItems(response.data ?? []);
+      setItems(response.items ?? []);
     } catch (err) {
       console.error('Failed to fetch waiting list:', err);
-      toast({
-        title: 'Gagal memuat data',
-        description: 'Tidak dapat mengambil data waiting list. Coba lagi.',
-        variant: 'destructive',
-      });
+      setError('Failed to load waiting list. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     fetchList();
@@ -109,6 +108,24 @@ export default function WaitinglistPage() {
           Tambah ke Waiting List
         </Button>
       </PageHeader>
+
+      {error && (
+        <Alert variant="destructive" className="rounded-xl">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between gap-4">
+            <span>{error}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchList}
+              className="rounded-lg shrink-0 border-destructive/50 text-destructive hover:bg-destructive/10"
+            >
+              <RefreshCw className="h-3 w-3 mr-1" />
+              Coba Lagi
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <WaitinglistTable
         items={items}

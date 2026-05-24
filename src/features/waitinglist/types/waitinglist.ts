@@ -16,11 +16,11 @@ export interface CreateWaitinglistRequest {
   notes?: string;
 }
 
-export interface WaitinglistResponse {
-  data: Waitinglist;
-}
+// Backend returns a flat Waitinglist object for create/get single
+export type WaitinglistResponse = Waitinglist;
 
+// Backend returns { items: Waitinglist[], total: number } for list
 export interface ListWaitinglistResponse {
-  data: Waitinglist[];
+  items: Waitinglist[];
   total: number;
 }

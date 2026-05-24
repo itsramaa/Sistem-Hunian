@@ -2,12 +2,12 @@ import { apiClient } from '@/lib/axios';
 import {
   CreateWaitinglistRequest,
   ListWaitinglistResponse,
-  WaitinglistResponse,
+  Waitinglist,
 } from '@/features/waitinglist/types/waitinglist';
 
 export const waitinglistApi = {
-  async createWaitinglist(data: CreateWaitinglistRequest): Promise<WaitinglistResponse> {
-    const response = await apiClient.post<WaitinglistResponse>('/waitinglist', data);
+  async createWaitinglist(data: CreateWaitinglistRequest): Promise<Waitinglist> {
+    const response = await apiClient.post<Waitinglist>('/waitinglist', data);
     return response.data;
   },
 
