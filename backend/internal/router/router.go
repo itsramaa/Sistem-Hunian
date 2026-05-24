@@ -177,6 +177,14 @@ func New(cfg *config.Config, pool *pgxpool.Pool) http.Handler {
 		})
 
 
+		// Waitinglist endpoints — JWT required
+		r.Route("/waitinglist", func(r chi.Router) {
+			r.Use(middleware.Authenticate(cfg.JWTSecret))
+			r.Post("/", handler.CreateWaitinglist(pool))
+			r.Get("/", handler.ListWaitinglist(pool))
+			r.Delete("/{id}", handler.DeleteWaitinglist(pool))
+		})
+
 		// Cron endpoints — cron secret required (no JWT)
 		r.Route("/cron", func(r chi.Router) {
 			r.Use(middleware.RequireCronSecret(cfg.CronSecret))

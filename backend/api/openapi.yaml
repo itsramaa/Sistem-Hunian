@@ -127,6 +127,27 @@ components:
         commission_amount: { type: number }
         created_at: { type: string, format: date-time }
 
+    Waitinglist:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        property_id: { type: string, format: uuid }
+        unit_id: { type: string, format: uuid, nullable: true }
+        notes: { type: string }
+        status: { type: string, enum: [waiting, notified, cancelled] }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ListWaitinglistResponse:
+      type: object
+      properties:
+        total: { type: integer }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Waitinglist'
+
 security:
   - bearerAuth: []
 
@@ -710,6 +731,111 @@ paths:
       responses:
         '200':
           description: Referral detail
+
+  # ── Waitinglist ──────────────────────────────────────────────────────────────
+  /v1/waitinglist:
+    post:
+      tags: [Waitinglist]
+      summary: Add to waiting list
+      description: Adds the authenticated tenant to a property waiting list.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [property_id]
+              properties:
+                tenant_id: { type: string, format: uuid, description: Defaults to authenticated user ID }
+                property_id: { type: string, format: uuid }
+                unit_id: { type: string, format: uuid, nullable: true }
+                notes: { type: string }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Waitinglist'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Already on waiting list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      tags: [Waitinglist]
+      summary: List waiting list entries
+      description: Returns all waiting list entries. Optionally filter by property_id.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: property_id
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+          description: Filter by property ID
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListWaitinglistResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/waitinglist/{id}:
+    delete:
+      tags: [Waitinglist]
+      summary: Remove from waiting list
+      description: Deletes a waiting list entry by ID.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   # ── Webhooks ──────────────────────────────────────────────────────────────
   /v1/webhooks/xendit:
