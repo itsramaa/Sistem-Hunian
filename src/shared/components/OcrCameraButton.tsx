@@ -3,7 +3,6 @@ import { Button } from '@/shared/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
 import { Camera, ImageIcon, Loader2, ScanLine, CheckCircle, AlertTriangle, Video } from 'lucide-react';
-import { supabase } from '@/lib/integrations/supabase/client';
 import { WebcamCaptureDialog } from '@/shared/components/WebcamCaptureDialog';
 import { useIsMobile } from '@/shared/hooks/use-mobile';
 import { useAuth } from '@/features/auth/hooks/useAuth';
@@ -53,72 +52,15 @@ export function OcrCameraButton({
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('File terlalu besar (maks 10MB)');
-      return;
-    }
-
-    setIsProcessing(true);
-
-    try {
-      const ext = file.name.split('.').pop();
-      const filePath = `${user.id}/${Date.now()}.${ext}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data, error } = await supabase.functions.invoke(edgeFunction, {
-        body: { document_path: filePath, ...extraPayload },
-      });
-
-      if (error) throw error;
-
-      const extractedData = data?.extracted_data || data;
-      const score = data?.confidence_score || extractedData?.confidence || 0;
-
-      setResults(extractedData);
-      setConfidence(score);
-      setShowResults(true);
-
-      toast.success(`OCR selesai (${score}% akurasi)`);
-    } catch (err) {
-      console.error('OCR error:', err);
-      toast.error(err instanceof Error ? err.message : 'OCR gagal memproses dokumen');
-    } finally {
-      setIsProcessing(false);
-      if (cameraInputRef.current) cameraInputRef.current.value = '';
-      if (galleryInputRef.current) galleryInputRef.current.value = '';
-    }
+    // DSS/OCR feature was removed. Notify user.
+    toast.error('Fitur OCR tidak tersedia.');
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+    if (galleryInputRef.current) galleryInputRef.current.value = '';
   };
 
-  const handleWebcamCapture = async (blob: Blob) => {
-    if (!user) return;
-    setIsProcessing(true);
-    try {
-      const filePath = `${user.id}/${Date.now()}.jpg`;
-      const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, blob);
-      if (uploadError) throw uploadError;
-
-      const { data, error } = await supabase.functions.invoke(edgeFunction, {
-        body: { document_path: filePath, ...extraPayload },
-      });
-      if (error) throw error;
-
-      const extractedData = data?.extracted_data || data;
-      const score = data?.confidence_score || extractedData?.confidence || 0;
-      setResults(extractedData);
-      setConfidence(score);
-      setShowResults(true);
-      toast.success(`OCR selesai (${score}% akurasi)`);
-    } catch (err) {
-      console.error('OCR webcam error:', err);
-      toast.error(err instanceof Error ? err.message : 'OCR gagal memproses');
-    } finally {
-      setIsProcessing(false);
-    }
+  const handleWebcamCapture = async (_blob: Blob) => {
+    // DSS/OCR feature was removed.
+    toast.error('Fitur OCR tidak tersedia.');
   };
 
   const handleApply = () => {

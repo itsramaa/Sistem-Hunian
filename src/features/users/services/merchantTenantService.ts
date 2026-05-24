@@ -2,6 +2,7 @@ import { Property } from '@/features/properties/types';
 import { ActiveTenant, TenantInvitation } from '@/features/users/types/tenant';
 import { AddTenantFormData } from '@/features/users/types/addTenantSchema';
 import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { CONTRACT_STATUS_TRANSITIONS, UNIT_STATUS_TRANSITIONS, isValidTransition } from '@/shared/constants/state-machines';
 import { logStatusChange, createAuditLog } from '@/shared/utils/auditLog';
 
@@ -265,18 +266,16 @@ export const merchantTenantService = {
       // Existing tenant selected - use their user_id directly
       userId = tenantUserId;
     } else if ((data as any).password) {
-      // Create new tenant account via edge function
-      const { data: result, error } = await supabase.functions.invoke('create-tenant-account', {
-        body: {
+      // Create new tenant account via Go API
+      const response = await apiClient.post('/users/tenants', {
           email: data.email.toLowerCase().trim(),
           password: (data as any).password,
           full_name: data.full_name,
           phone: data.phone || null,
           merchant_id: merchantId,
-        },
-      });
+        });
+      const result = response.data;
 
-      if (error) throw new Error(error.message || 'Gagal membuat akun tenant');
       if (result?.error) throw new Error(result.error);
       if (!result?.user_id) throw new Error('Gagal mendapatkan ID tenant');
 

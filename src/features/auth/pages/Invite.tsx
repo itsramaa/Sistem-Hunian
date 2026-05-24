@@ -3,6 +3,7 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 import { INVITATION_ERROR_MESSAGES } from "@/features/auth/utils/auth-errors";
 import { TenantProfileForm } from "@/features/users/components/TenantProfileForm";
 import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
@@ -36,25 +37,19 @@ const Invite = () => {
     queryFn: async () => {
       if (!token) throw new Error('Token tidak ditemukan');
 
-      // Use edge function to bypass RLS for unauthenticated users
-      const { data: response, error: fnError } = await supabase.functions.invoke('get-tenant-invitation', {
-        body: { token }
-      });
+      // Use Go API to bypass RLS for unauthenticated users
+      const response = await apiClient.get(`/invitations/${token}`);
+      const responseData = response.data;
 
-      if (fnError) {
-        console.error('Edge function error:', fnError);
+      if (responseData?.error) {
+        throw new Error(responseData.error);
+      }
+
+      if (!responseData?.data) {
         throw new Error('INVITATION_INVALID');
       }
 
-      if (response?.error) {
-        throw new Error(response.error);
-      }
-
-      if (!response?.data) {
-        throw new Error('INVITATION_INVALID');
-      }
-
-      return response.data;
+      return responseData.data;
     },
     enabled: !!token && isValidTokenFormat,
     retry: false,
@@ -127,19 +122,17 @@ const Invite = () => {
       
       while (!webhookSuccess && retryCount <= maxRetries) {
         try {
-          const { data: webhookData, error: webhookError } = await supabase.functions.invoke('auth-webhook', {
-            body: {
+          const webhookResult = await apiClient.post('/webhooks/auth', {
               user_id: authData.user.id,
               email: formData.email,
               full_name: formData.fullName,
               phone: null,
               role: 'tenant',
               merchant_code: null,
-            },
-          });
+            }).then(() => ({ error: null })).catch((err: any) => ({ error: err }));
 
-          if (webhookError) {
-            console.error(`[Invite] Auth-webhook error (attempt ${retryCount + 1}):`, webhookError);
+          if (webhookResult.error) {
+            console.error(`[Invite] Auth-webhook error (attempt ${retryCount + 1}):`, webhookResult.error);
             retryCount++;
             if (retryCount <= maxRetries) {
               await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before retry
@@ -177,21 +170,15 @@ const Invite = () => {
     if (!invitation || !createdUserId) return;
 
     try {
-      // Use edge function to bypass RLS and handle all updates atomically
-      const { data: response, error: fnError } = await supabase.functions.invoke('accept-tenant-invitation', {
-        body: {
-          token,
-          user_id: createdUserId,
-          contract_duration_months: 12
-        }
+      // Use Go API to handle all updates atomically
+      const response = await apiClient.post('/invitations/accept', {
+        token,
+        user_id: createdUserId,
+        contract_duration_months: 12
       });
+      const responseData = response.data;
 
-      if (fnError) {
-        console.error('Edge function error:', fnError);
-        throw new Error('Gagal memproses undangan. Silakan coba lagi.');
-      }
-
-      if (response?.error) {
+      if (responseData?.error) {
         // Map error codes to user-friendly messages
         const errorMessages: Record<string, string> = {
           'INVITATION_NOT_FOUND': 'Undangan tidak ditemukan',
@@ -201,7 +188,7 @@ const Invite = () => {
           'UNIT_NOT_AVAILABLE': 'Unit tidak tersedia',
           'CONTRACT_FAILED': 'Gagal membuat kontrak',
         };
-        throw new Error(errorMessages[response.error] || response.message || 'Gagal memproses undangan');
+        throw new Error(errorMessages[responseData.error] || responseData.message || 'Gagal memproses undangan');
       }
 
       toast.success('Selamat datang di rumah baru Anda!');

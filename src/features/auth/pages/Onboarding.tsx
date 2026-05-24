@@ -10,6 +10,7 @@ import { Label } from '@/shared/components/ui/label';
 import { useToast } from '@/shared/hooks/use-toast';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { cn } from '@/shared/utils/utils';
 import { businessNameSchema } from '@/shared/utils/validations/auth';
 import { getAuthErrorMessage } from '@/features/auth/utils/auth-errors';
@@ -261,8 +262,7 @@ export default function Onboarding() {
         .eq('user_id', user.id)
         .single();
 
-      const { error: webhookError } = await supabase.functions.invoke('auth-webhook', {
-        body: {
+      await apiClient.post('/webhooks/auth', {
           user_id: user.id,
           email: profile?.email || user.email,
           full_name: profile?.full_name || '',
@@ -270,12 +270,7 @@ export default function Onboarding() {
           role: selectedRole,
           business_name: data.businessName,
           referral_code: referralCode?.toUpperCase() || undefined,
-        },
-      });
-
-      if (webhookError) {
-        throw webhookError;
-      }
+        });
 
       sessionStorage.removeItem('referral_code');
       await refreshProfile();

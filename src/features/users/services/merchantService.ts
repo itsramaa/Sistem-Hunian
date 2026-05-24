@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { AuditLog, HistoryEntry, Merchant, Verification } from "../types/admin-merchant";
 import { MERCHANT_VERIFICATION_TRANSITIONS, isValidTransition } from "@/shared/constants/state-machines";
 import { createAuditLog, logStatusChange } from "@/shared/utils/auditLog";
@@ -172,8 +173,7 @@ export const merchantService = {
 
     // Send email notification
     try {
-      await supabase.functions.invoke('send-notification', {
-        body: {
+      await apiClient.post('/notifications', {
           type: status === 'verified' ? 'verification_approved' : 'verification_rejected',
           recipientEmail: merchant.profiles?.email,
           recipientName: merchant.profiles?.full_name || 'Merchant',
@@ -185,8 +185,7 @@ export const merchantService = {
             rejectionDetails: rejectionData?.details,
             resubmissionInstructions: rejectionData?.resubmissionInstructions,
           }
-        }
-      });
+        });
     } catch (emailError) {
       console.error('Failed to send verification email:', emailError);
     }
