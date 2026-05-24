@@ -2,7 +2,7 @@ import { usePaymentTracking } from '@/features/analytics/hooks/useAnalytics';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { PaymentHistoryExport } from '@/features/payments/components/PaymentHistoryExport';
 import { XenditPaymentModal } from '@/features/payments/components/XenditPaymentModal';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { TenantLayout } from '@/shared/components/layouts/TenantLayout';
 import { Alert, AlertDescription } from '@/shared/components/ui/alert';
 import { Badge } from '@/shared/components/ui/badge';
@@ -62,13 +62,8 @@ export default function TenantPayments() {
     queryKey: ['tenant-payments-all', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      const { data, error } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('tenant_user_id', user.id)
-        .order('due_date', { ascending: false });
-      if (error) throw error;
-      return data as Payment[];
+      const response = await apiClient.get('/v1/payments', { params: { tenant_user_id: user.id, sort: 'due_date:desc' } });
+      return (response.data.data || []) as Payment[];
     },
     enabled: !!user?.id,
   });
@@ -77,14 +72,8 @@ export default function TenantPayments() {
     queryKey: ['tenant-invoices', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('*')
-        .eq('tenant_user_id', user.id)
-        .neq('status', 'draft')
-        .order('due_date', { ascending: false });
-      if (error) throw error;
-      return data as Invoice[];
+      const response = await apiClient.get('/v1/billing/invoices', { params: { tenant_user_id: user.id, exclude_status: 'draft', sort: 'due_date:desc' } });
+      return (response.data.data || []) as Invoice[];
     },
     enabled: !!user?.id,
   });

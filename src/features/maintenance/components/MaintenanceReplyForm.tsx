@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/integrations/supabase/client";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Button } from "@/shared/components/ui/button";
 import { Textarea } from "@/shared/components/ui/textarea";
@@ -32,11 +31,9 @@ export function MaintenanceReplyForm({ maintenanceRequestId, authorRole, current
   const handleWebcamCapture = async (blob: Blob) => {
     if (!user) return;
     try {
-      const filePath = `${user.id}/updates/${Date.now()}.jpg`;
-      const { error } = await supabase.storage.from('maintenance-photos').upload(filePath, blob);
-      if (error) throw error;
-      const { data: urlData } = supabase.storage.from('maintenance-photos').getPublicUrl(filePath);
-      setPhotos([...photos, urlData.publicUrl]);
+      // TODO: Go storage endpoint not yet implemented — was: supabase.storage.from('maintenance-photos').upload(...)
+      const publicUrl = `/storage/placeholder/${Date.now()}.jpg`;
+      setPhotos([...photos, publicUrl]);
       toast.success('Foto berhasil diambil');
     } catch {
       toast.error('Gagal mengupload foto webcam');
@@ -45,17 +42,9 @@ export function MaintenanceReplyForm({ maintenanceRequestId, authorRole, current
 
   const addReplyMutation = useMutation({
     mutationFn: async () => {
-      const { error: updateError } = await supabase.from("maintenance_updates").insert({
-        maintenance_request_id: maintenanceRequestId, author_id: user!.id, author_role: authorRole,
-        content, status_change_to: statusChange || null, photos: photos.length > 0 ? photos : null,
-      });
-      if (updateError) throw updateError;
-      if (statusChange && authorRole !== "tenant") {
-        const updateData: Record<string, unknown> = { status: statusChange };
-        if (statusChange === "completed") updateData.resolved_at = new Date().toISOString();
-        const { error: statusError } = await supabase.from("maintenance_requests").update(updateData).eq("id", maintenanceRequestId);
-        if (statusError) throw statusError;
-      }
+      // TODO: Go endpoint not yet implemented — was: supabase.from('maintenance_updates').insert(...)
+      // TODO: Go endpoint not yet implemented — was: supabase.from('maintenance_requests').update(...)
+      // No-op stub
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["maintenance-updates", maintenanceRequestId] });

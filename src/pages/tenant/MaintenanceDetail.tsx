@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/integrations/supabase/client';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { apiClient } from '@/lib/axios';
 import { TenantLayout } from '@/shared/components/layouts/TenantLayout';
 import { UpdateTimeline } from '@/features/maintenance/components/UpdateTimeline';
 import { MaintenanceReviewForm } from '@/features/maintenance/components/MaintenanceReviewForm';
@@ -21,14 +21,8 @@ export default function MaintenanceDetail() {
     queryKey: ['maintenance-request', requestId],
     queryFn: async () => {
       if (!requestId) return null;
-      const { data, error } = await supabase
-        .from('maintenance_requests')
-        .select(`*, unit:units (unit_number, property:properties (name, address))`)
-        .eq('id', requestId)
-        .eq('tenant_user_id', user?.id)
-        .single();
-      if (error) throw error;
-      return data;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('maintenance_requests').select('*, unit:units(...)').eq('id', requestId).eq('tenant_user_id', user.id)
+      return null;
     },
     enabled: !!requestId && !!user?.id,
   });
@@ -37,12 +31,8 @@ export default function MaintenanceDetail() {
     queryKey: ['maintenance-review', requestId],
     queryFn: async () => {
       if (!requestId) return null;
-      const { data } = await supabase
-        .from('maintenance_reviews')
-        .select('*, vendors(business_name)')
-        .eq('maintenance_request_id', requestId)
-        .maybeSingle();
-      return data;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('maintenance_reviews').select('*, vendors(business_name)').eq('maintenance_request_id', requestId)
+      return null;
     },
     enabled: !!requestId && request?.status === 'completed',
   });

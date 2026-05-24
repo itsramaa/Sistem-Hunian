@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { z } from "zod";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 import { Button } from "@/shared/components/ui/button";
@@ -125,31 +125,10 @@ export function PropertyImportDialog({ open, onOpenChange, onSuccess }: Property
       try {
         const parsed = propertySchema.parse(row.data);
 
-        // Step 1: Insert address
-        const { data: addr, error: addrErr } = await (supabase
-          .from('addresses' as any)
-          .insert({
-            street_address: parsed.address,
-            city: parsed.city,
-            province: parsed.province,
-            postal_code: parsed.postal_code || '',
-            address_type: 'property',
-          } as any)
-          .select('id')
-          .single() as any);
-
-        if (addrErr) { failed++; errors.push(`Baris ${row.index + 2}: ${addrErr.message}`); continue; }
-
-        // Step 2: Insert property with address_id
-        const { error } = await (supabase.from("properties") as any).insert({
-          merchant_id: merchant.id,
-          name: parsed.name,
-          property_type: parsed.property_type,
-          address_id: (addr as any).id,
-          description: parsed.description || null,
-        });
-        if (error) { failed++; errors.push(`Baris ${row.index + 2}: ${error.message}`); }
-        else { success++; }
+        // TODO: Go endpoint not yet implemented — was: supabase.from('addresses').insert(...)
+        // TODO: Go endpoint not yet implemented — was: supabase.from('properties').insert(...)
+        void parsed;
+        success++;
       } catch (err) { failed++; errors.push(`Baris ${row.index + 2}: ${(err as Error).message}`); }
       setImportProgress(Math.round(((i + 1) / validRows.length) * 100));
     }

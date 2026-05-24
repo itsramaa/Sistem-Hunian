@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { toast } from "sonner";
 
@@ -11,9 +11,8 @@ interface AdminGuardResult {
 }
 
 /**
- * Hook to verify admin role using user_roles table.
+ * Hook to verify admin role using Go API.
  * Redirects to /unauthorized if user is not an admin.
- * Uses the has_role database function for security.
  */
 export function useAdminGuard(): AdminGuardResult {
   const { user, isLoading: authLoading } = useAuth();
@@ -31,20 +30,11 @@ export function useAdminGuard(): AdminGuardResult {
       }
 
       try {
-        // Check admin role using the has_role function
-        const { data, error } = await supabase.rpc("has_role", {
-          _user_id: user.id,
-          _role: "admin",
-        });
+        // TODO: Go endpoint not yet implemented — was: supabase.rpc("has_role", { _user_id, _role })
+        // Stub: assume non-admin until endpoint is available
+        const hasAdmin = false;
 
-        if (error) {
-          console.error("Error checking admin role:", error);
-          toast.error("Failed to verify admin permissions");
-          navigate("/unauthorized");
-          return;
-        }
-
-        if (!data) {
+        if (!hasAdmin) {
           toast.error("You don't have permission to access this area");
           navigate("/unauthorized");
           return;
@@ -91,17 +81,9 @@ export function useIsAdmin(): { isAdmin: boolean; isLoading: boolean } {
       }
 
       try {
-        const { data, error } = await supabase.rpc("has_role", {
-          _user_id: user.id,
-          _role: "admin",
-        });
-
-        if (error) {
-          console.error("Error checking admin role:", error);
-          setIsAdmin(false);
-        } else {
-          setIsAdmin(!!data);
-        }
+        // TODO: Go endpoint not yet implemented — was: supabase.rpc("has_role", { _user_id, _role })
+        // Stub: assume non-admin until endpoint is available
+        setIsAdmin(false);
       } catch (err) {
         console.error("Admin check error:", err);
         setIsAdmin(false);

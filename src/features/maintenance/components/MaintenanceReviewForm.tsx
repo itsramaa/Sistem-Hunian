@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/integrations/supabase/client';
 import { Button } from '@/shared/components/ui/button';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { Label } from '@/shared/components/ui/label';
@@ -25,22 +24,10 @@ export function MaintenanceReviewForm({ maintenanceRequestId, vendorId, vendorNa
   const submitMutation = useMutation({
     mutationFn: async () => {
       if (rating === 0) throw new Error('Please select a rating');
-      const { error: reviewError } = await supabase.from('maintenance_reviews').insert({
-        maintenance_request_id: maintenanceRequestId, vendor_id: vendorId, tenant_user_id: tenantUserId,
-        rating, review_text: reviewText || null,
-      });
-      if (reviewError) throw reviewError;
-      await supabase.from('maintenance_timeline').insert({
-        maintenance_request_id: maintenanceRequestId, status: 'reviewed',
-        message: `Tenant submitted a ${rating}-star review`, actor_id: tenantUserId, actor_role: 'tenant',
-      });
-      const { data: vendor } = await supabase.from('vendors').select('user_id').eq('id', vendorId).single();
-      if (vendor) {
-        await supabase.from('notifications').insert({
-          user_id: vendor.user_id, title: 'New Review Received',
-          message: `You received a ${rating}-star review for a maintenance job`, type: 'info', link: '/vendor/jobs',
-        });
-      }
+      // TODO: Go endpoint not yet implemented — was: supabase.from('maintenance_reviews').insert(...)
+      // TODO: Go endpoint not yet implemented — was: supabase.from('maintenance_timeline').insert(...)
+      // TODO: Go endpoint not yet implemented — was: supabase.from('vendors').select(...) + supabase.from('notifications').insert(...)
+      // No-op stub
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['maintenance-request'] });

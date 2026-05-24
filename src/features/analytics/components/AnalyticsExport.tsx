@@ -21,7 +21,7 @@ import { Checkbox } from '@/shared/components/ui/checkbox';
 import { Download, FileSpreadsheet, FileText, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, subDays, subMonths } from 'date-fns';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 
 interface AnalyticsExportProps {
   vendorId: string;
@@ -66,44 +66,31 @@ export function AnalyticsExport({ vendorId }: AnalyticsExportProps) {
     const data: Record<string, unknown[]> = {};
 
     if (options.includeOrders) {
-      const query = supabase
-        .from('orders')
-        .select('order_number, status, total_price, created_at, completed_at')
-        .eq('vendor_id', vendorId)
-        .order('created_at', { ascending: false });
-
-      if (start) {
-        query.gte('created_at', start.toISOString());
-      }
-
-      const { data: orders, error } = await query;
-      if (error) throw error;
+      const params: Record<string, unknown> = {
+        select: 'order_number,status,total_price,created_at,completed_at',
+        vendor_id: vendorId,
+        order: 'created_at.desc',
+      };
+      if (start) params['created_at'] = `gte.${start.toISOString()}`;
+      const { data: orders } = await apiClient.get('/orders', { params });
       data.orders = orders || [];
     }
 
     if (options.includeProducts) {
-      const { data: products, error } = await supabase
-        .from('products')
-        .select('name, category, price, is_available, created_at')
-        .eq('vendor_id', vendorId);
-
-      if (error) throw error;
+      const { data: products } = await apiClient.get('/products', {
+        params: { select: 'name,category,price,is_available,created_at', vendor_id: vendorId },
+      });
       data.products = products || [];
     }
 
     if (options.includeEarnings) {
-      const query = supabase
-        .from('vendor_earnings')
-        .select('amount, fee_amount, net_amount, status, created_at')
-        .eq('vendor_id', vendorId)
-        .order('created_at', { ascending: false });
-
-      if (start) {
-        query.gte('created_at', start.toISOString());
-      }
-
-      const { data: earnings, error } = await query;
-      if (error) throw error;
+      const params: Record<string, unknown> = {
+        select: 'amount,fee_amount,net_amount,status,created_at',
+        vendor_id: vendorId,
+        order: 'created_at.desc',
+      };
+      if (start) params['created_at'] = `gte.${start.toISOString()}`;
+      const { data: earnings } = await apiClient.get('/vendor-earnings', { params });
       data.earnings = earnings || [];
     }
 

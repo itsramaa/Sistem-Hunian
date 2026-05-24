@@ -1,5 +1,5 @@
 import { adminSecurityService } from '@/features/auth/services/adminSecurityService';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Input } from '@/shared/components/ui/input';
@@ -55,34 +55,14 @@ export default function AdminSetup() {
         return;
       }
 
-      // Sign up the admin user
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+      // Register admin user via Go API
+      await apiClient.post('/v1/auth/register', {
         email: data.email,
         password: data.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/admin`,
-          data: {
-            full_name: data.fullName,
-            role: 'admin',
-          },
-        },
+        full_name: data.fullName,
+        role: 'admin',
+        email_redirect_to: `${window.location.origin}/admin`,
       });
-
-      if (signUpError) {
-        if (signUpError.message.includes('already registered')) {
-          toast({
-            variant: 'destructive',
-            title: 'Pengguna Sudah Ada',
-            description: 'Email ini sudah terdaftar. Silakan masuk dan hubungi dukungan untuk dijadikan admin.',
-          });
-          return;
-        }
-        throw signUpError;
-      }
-
-      if (!authData.user) {
-        throw new Error('Gagal membuat pengguna');
-      }
 
       setIsComplete(true);
       toast({

@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/sha
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Progress } from "@/shared/components/ui/progress";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { differenceInDays, format } from "date-fns";
 import { Home, AlertTriangle, TrendingDown, DollarSign, RefreshCw, Eye, ListPlus, BarChart } from "lucide-react";
@@ -23,22 +23,11 @@ export function VacancyDashboard() {
   const { data: vacantUnits, isLoading } = useQuery({
     queryKey: ["vacant-units", merchant?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("units")
-        .select(`
-          *,
-          property:properties!inner (
-            id,
-            name,
-            address,
-            merchant_id
-          )
-        `)
-        .eq("property.merchant_id", merchant?.id)
-        .eq("status", "vacant")
-        .order("vacant_since", { ascending: true });
-      if (error) throw error;
-      return data;
+      // TODO: Migrate to Go endpoint — GET /v1/units?status=vacant&merchant_id=:id
+      const response = await apiClient.get('/v1/units', {
+        params: { merchant_id: merchant?.id, status: 'vacant', sort: 'vacant_since:asc', include: 'property' },
+      });
+      return response.data.data as any[];
     },
     enabled: !!merchant?.id,
   });
@@ -47,13 +36,11 @@ export function VacancyDashboard() {
   const { data: activeListings } = useQuery({
     queryKey: ["active-listings", merchant?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("unit_listings")
-        .select("*")
-        .eq("merchant_id", merchant?.id)
-        .eq("status", "active");
-      if (error) throw error;
-      return data;
+      // TODO: Migrate to Go endpoint — GET /v1/unit-listings?status=active&merchant_id=:id
+      const response = await apiClient.get('/v1/unit-listings', {
+        params: { merchant_id: merchant?.id, status: 'active' },
+      });
+      return response.data.data as any[];
     },
     enabled: !!merchant?.id,
   });

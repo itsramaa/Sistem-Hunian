@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
@@ -38,47 +38,23 @@ export function VerificationUpload({ vendorId }: VerificationUploadProps) {
 
   const { data: verifications = [], isLoading } = useQuery({
     queryKey: ['vendor-verifications', vendorId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('vendor_verifications')
-        .select('*')
-        .eq('vendor_id', vendorId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data as Verification[];
+    queryFn: async (): Promise<Verification[]> => {
+      // TODO: Go endpoint not yet implemented — was: supabase.from('vendor_verifications').select(*).eq('vendor_id', vendorId)
+      return [];
     },
   });
 
   const uploadMutation = useMutation({
     mutationFn: async ({ file, docType }: { file: File; docType: string }) => {
       setUploading(true);
-      
-      // Upload to storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${vendorId}/${docType}_${Date.now()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('verification-documents')
-        .upload(fileName, file);
 
-      if (uploadError) throw uploadError;
+      // TODO: Go storage not yet implemented — was: supabase.storage.from('verification-documents').upload(...)
+      const publicUrl = `/storage/placeholder/${Date.now()}.${file.name.split('.').pop()}`;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('verification-documents')
-        .getPublicUrl(fileName);
-
-      // Create verification record
-      const { error: insertError } = await supabase
-        .from('vendor_verifications')
-        .insert({
-          vendor_id: vendorId,
-          document_type: docType,
-          document_url: publicUrl,
-          status: 'pending',
-        });
-
-      if (insertError) throw insertError;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('vendor_verifications').insert(...)
+      // No-op stub — document_type: docType, document_url: publicUrl, vendor_id: vendorId
+      void docType;
+      void publicUrl;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vendor-verifications', vendorId] });

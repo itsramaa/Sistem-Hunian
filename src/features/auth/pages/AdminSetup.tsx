@@ -1,5 +1,5 @@
 import { adminSecurityService } from '@/features/auth/services/adminSecurityService';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Input } from '@/shared/components/ui/input';
@@ -12,8 +12,6 @@ import { useForm } from 'react-hook-form';
 import { Link } from 'react-router-dom';
 import { z } from 'zod';
 import { strongPasswordSchema } from '@/shared/utils/validations/auth';
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 const adminSchema = z.object({
   email: z.string().email('Mohon masukkan email yang valid'),
@@ -28,6 +26,7 @@ export default function AdminSetup() {
   const [isLoading, setIsLoading] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const { toast } = useToast();
+  const { signUp } = useAuth();
 
   const form = useForm<AdminFormData>({
     resolver: zodResolver(adminSchema),
@@ -55,21 +54,14 @@ export default function AdminSetup() {
         return;
       }
 
-      // Sign up the admin user
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/admin`,
-          data: {
-            full_name: data.fullName,
-            role: 'admin',
-          },
-        },
+      // Sign up the admin user via Go backend
+      const { data: authData, error: signUpError } = await signUp(data.email, data.password, {
+        full_name: data.fullName,
+        role: 'admin',
       });
 
       if (signUpError) {
-        if (signUpError.message.includes('already registered')) {
+        if (signUpError.message.includes('already registered') || signUpError.message.includes('already exists')) {
           toast({
             variant: 'destructive',
             title: 'Pengguna Sudah Ada',
@@ -80,7 +72,7 @@ export default function AdminSetup() {
         throw signUpError;
       }
 
-      if (!authData.user) {
+      if (!authData?.user) {
         throw new Error('Gagal membuat pengguna');
       }
 

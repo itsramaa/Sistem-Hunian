@@ -40,6 +40,11 @@ func New(cfg *config.Config, pool *pgxpool.Pool) http.Handler {
 
 		// Auth endpoints
 		r.Route("/auth", func(r chi.Router) {
+			// Public auth routes — no JWT required
+			r.Post("/register", handler.Register(pool, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL))
+			r.Post("/login", handler.Login(pool, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL))
+			r.Post("/refresh", handler.Refresh(pool, cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL))
+
 			// Bootstrap and me require a valid JWT
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.Authenticate(cfg.JWTSecret))

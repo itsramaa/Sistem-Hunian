@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
-import { supabase } from '@/lib/integrations/supabase/client';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { format, addMonths } from 'date-fns';
 import {
@@ -22,13 +21,8 @@ export function RevenueForecast() {
     queryKey: ['active-contracts-forecast', merchant?.id],
     queryFn: async () => {
       if (!merchant?.id) return [];
-      const { data, error } = await supabase
-        .from('contracts')
-        .select('rent_amount, start_date, end_date, status')
-        .eq('merchant_id', merchant.id)
-        .eq('status', 'active');
-      if (error) throw error;
-      return data;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('contracts').select(...)
+      return [];
     },
     enabled: !!merchant?.id,
   });
@@ -37,14 +31,8 @@ export function RevenueForecast() {
     queryKey: ['historical-payments-forecast', merchant?.id],
     queryFn: async () => {
       if (!merchant?.id) return [];
-      const { data, error } = await supabase
-        .from('payments')
-        .select('amount, paid_at, status')
-        .eq('merchant_id', merchant.id)
-        .eq('status', 'paid')
-        .order('paid_at', { ascending: true });
-      if (error) throw error;
-      return data;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('payments').select(...)
+      return [];
     },
     enabled: !!merchant?.id,
   });

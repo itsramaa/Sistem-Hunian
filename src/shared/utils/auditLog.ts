@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 
 export type AuditAction =
   | "create"
@@ -82,35 +82,19 @@ export async function createAuditLog({
   userId = null,
 }: AuditLogParams): Promise<{ success: boolean; error?: string }> {
   try {
-    // Get current user if not provided
-    let adminId = userId;
-    if (!adminId) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      adminId = user?.id || null;
-    }
-
-    const { error } = await supabase.from("audit_logs").insert([
-      {
-        user_id: adminId,
-        action,
-        entity_type: entityType,
-        entity_id: entityId,
-        old_data: oldData as never,
-        new_data: newData as never,
-        metadata: {
-          ...(metadata as Record<string, unknown>),
-          timestamp: new Date().toISOString(),
-        } as never,
-        user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+    await apiClient.post("/audit-logs", {
+      user_id: userId,
+      action,
+      entity_type: entityType,
+      entity_id: entityId,
+      old_data: oldData,
+      new_data: newData,
+      metadata: {
+        ...(metadata as Record<string, unknown>),
+        timestamp: new Date().toISOString(),
       },
-    ]);
-
-    if (error) {
-      console.error("Failed to create audit log:", error);
-      return { success: false, error: error.message };
-    }
+      user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+    });
 
     return { success: true };
   } catch (err) {

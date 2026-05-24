@@ -5,7 +5,7 @@ import { Button } from "@/shared/components/ui/button";
 import { Checkbox } from "@/shared/components/ui/checkbox";
 import { Progress } from "@/shared/components/ui/progress";
 import { Separator } from "@/shared/components/ui/separator";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { format, differenceInDays } from "date-fns";
 import { CheckCircle2, Circle, Clock, Calendar, AlertTriangle, FileText, ClipboardCheck, Home, Wallet, MapPin } from "lucide-react";
@@ -31,9 +31,11 @@ export function MoveOutDashboard({ contractId }: MoveOutDashboardProps) {
   const { data: notice, isLoading: noticeLoading } = useQuery({
     queryKey: ["move-out-notice", contractId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("move_out_notices").select("*").eq("contract_id", contractId).eq("tenant_user_id", user?.id).maybeSingle();
-      if (error) throw error;
-      return data;
+      // TODO: implement Go endpoint — was: supabase.from('move_out_notices').select('*').eq('contract_id', contractId).eq('tenant_user_id', user?.id).maybeSingle()
+      try {
+        const r = await apiClient.get('/move-out-notices', { params: { contract_id: contractId, tenant_user_id: user?.id } });
+        return (r.data.data?.[0] ?? null);
+      } catch (err) { throw err as Error; }
     },
     enabled: !!contractId && !!user?.id,
   });
@@ -42,9 +44,11 @@ export function MoveOutDashboard({ contractId }: MoveOutDashboardProps) {
   const { data: timeline } = useQuery({
     queryKey: ["move-out-timeline", notice?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("move_out_timeline").select("*").eq("move_out_notice_id", notice?.id).order("created_at");
-      if (error) throw error;
-      return data;
+      // TODO: implement Go endpoint — was: supabase.from('move_out_timeline').select('*').eq('move_out_notice_id', notice?.id).order('created_at')
+      try {
+        const r = await apiClient.get('/move-out-timeline', { params: { move_out_notice_id: notice?.id } });
+        return r.data.data ?? [];
+      } catch (err) { throw err as Error; }
     },
     enabled: !!notice?.id,
   });
@@ -53,9 +57,11 @@ export function MoveOutDashboard({ contractId }: MoveOutDashboardProps) {
   const { data: tasks } = useQuery({
     queryKey: ["move-out-tasks", notice?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("move_out_tasks").select("*").eq("move_out_notice_id", notice?.id).order("order_index");
-      if (error) throw error;
-      return data;
+      // TODO: implement Go endpoint — was: supabase.from('move_out_tasks').select('*').eq('move_out_notice_id', notice?.id).order('order_index')
+      try {
+        const r = await apiClient.get('/move-out-tasks', { params: { move_out_notice_id: notice?.id } });
+        return r.data.data ?? [];
+      } catch (err) { throw err as Error; }
     },
     enabled: !!notice?.id,
   });
@@ -64,9 +70,11 @@ export function MoveOutDashboard({ contractId }: MoveOutDashboardProps) {
   const { data: inspection } = useQuery({
     queryKey: ["move-out-inspection", notice?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("move_out_inspections").select("*").eq("move_out_notice_id", notice?.id).maybeSingle();
-      if (error) throw error;
-      return data;
+      // TODO: implement Go endpoint — was: supabase.from('move_out_inspections').select('*').eq('move_out_notice_id', notice?.id).maybeSingle()
+      try {
+        const r = await apiClient.get('/move-out-inspections', { params: { move_out_notice_id: notice?.id } });
+        return r.data.data?.[0] ?? null;
+      } catch (err) { throw err as Error; }
     },
     enabled: !!notice?.id,
   });
@@ -75,9 +83,11 @@ export function MoveOutDashboard({ contractId }: MoveOutDashboardProps) {
   const { data: depositRefund } = useQuery({
     queryKey: ["deposit-refund", contractId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("deposit_refunds").select("*").eq("contract_id", contractId).maybeSingle();
-      if (error) throw error;
-      return data;
+      // TODO: implement Go endpoint — was: supabase.from('deposit_refunds').select('*').eq('contract_id', contractId).maybeSingle()
+      try {
+        const r = await apiClient.get('/deposit-refunds', { params: { contract_id: contractId } });
+        return r.data.data?.[0] ?? null;
+      } catch (err) { throw err as Error; }
     },
     enabled: !!contractId,
   });
@@ -86,16 +96,18 @@ export function MoveOutDashboard({ contractId }: MoveOutDashboardProps) {
   const { data: earlyTermRequest } = useQuery({
     queryKey: ["early-termination-request", contractId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("early_termination_requests").select("*").eq("contract_id", contractId).eq("tenant_user_id", user?.id).maybeSingle();
-      if (error) throw error;
-      return data;
+      // TODO: implement Go endpoint — was: supabase.from('early_termination_requests').select('*').eq('contract_id', contractId).eq('tenant_user_id', user?.id).maybeSingle()
+      try {
+        const r = await apiClient.get('/early-termination-requests', { params: { contract_id: contractId, tenant_user_id: user?.id } });
+        return r.data.data?.[0] ?? null;
+      } catch (err) { throw err as Error; }
     },
     enabled: !!contractId && !!user?.id,
   });
 
   const toggleTask = async (taskId: string, completed: boolean) => {
     try {
-      await supabase.from("move_out_tasks").update({ completed, completed_at: completed ? new Date().toISOString() : null }).eq("id", taskId);
+      await apiClient.put(`/move-out-tasks/${taskId}`, { completed, completed_at: completed ? new Date().toISOString() : null });
       queryClient.invalidateQueries({ queryKey: ["move-out-tasks"] });
       toast.success(completed ? "Task completed!" : "Task marked incomplete");
     } catch (error) { toast.error("Failed to update task"); }
@@ -104,7 +116,7 @@ export function MoveOutDashboard({ contractId }: MoveOutDashboardProps) {
   const confirmInspection = async () => {
     if (!inspection?.id) return;
     try {
-      await supabase.from("move_out_inspections").update({ tenant_confirmed: true }).eq("id", inspection.id);
+      await apiClient.put(`/move-out-inspections/${inspection.id}`, { tenant_confirmed: true });
       queryClient.invalidateQueries({ queryKey: ["move-out-inspection"] });
       toast.success("Inspection time confirmed!");
     } catch (error) { toast.error("Failed to confirm inspection"); }

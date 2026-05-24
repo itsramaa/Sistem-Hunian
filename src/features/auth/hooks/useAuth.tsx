@@ -1,11 +1,28 @@
-import { AppRole, AuthState, MerchantProfile, UserProfile, VendorProfile } from '@/features/auth/types/auth';
-import { supabase } from '@/lib/integrations/supabase/client';
-import { Session, User } from '@supabase/supabase-js';
+import { apiClient } from '@/lib/axios';
+import {
+  AppRole,
+  AuthState,
+  AuthTokens,
+  AuthUser,
+  MerchantProfile,
+  UserProfile,
+  VendorProfile,
+} from '@/features/auth/types/auth';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
 interface AuthContextType extends AuthState {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, metadata?: { full_name?: string; phone?: string; role?: AppRole; business_name?: string; merchant_code?: string }) => Promise<{ data: { user: User | null } | null; error: Error | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    metadata?: {
+      full_name?: string;
+      phone?: string;
+      role?: AppRole;
+      business_name?: string;
+      merchant_code?: string;
+    }
+  ) => Promise<{ data: { user: AuthUser | null } | null; error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   switchRole: (role: AppRole) => void;
@@ -14,9 +31,18 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function storeTokens(tokens: AuthTokens) {
+  localStorage.setItem('sihuni_access_token', tokens.access_token);
+  localStorage.setItem('sihuni_refresh_token', tokens.refresh_token);
+}
+
+function clearTokens() {
+  localStorage.removeItem('sihuni_access_token');
+  localStorage.removeItem('sihuni_refresh_token');
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
@@ -27,155 +53,135 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const fetchUserData = useCallback(async (userId: string) => {
+  const refreshProfile = useCallback(async () => {
     setIsProfileLoading(true);
     setError(null);
     try {
-      // Fetch profile
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-      
-      if (profileError) {
-        console.error('Error fetching profile:', profileError);
-      } else if (profileData) {
-        setProfile(profileData as UserProfile);
-      }
+      const { data } = await apiClient.get<{
+        user: AuthUser;
+        profile: UserProfile;
+        roles: AppRole[];
+        merchant?: MerchantProfile;
+        vendor?: VendorProfile;
+      }>('/users/me');
 
-      // Fetch ALL roles (multi-role support)
-      const { data: rolesData, error: roleError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId);
-      
-      if (roleError) {
-        console.error('Error fetching roles:', roleError);
-      } else if (rolesData && rolesData.length > 0) {
-        const userRoles = rolesData.map(r => r.role as AppRole);
-        setRoles(userRoles);
-        
-        // Primary role is the first one (or previously active)
-        const primaryRole = userRoles[0];
-        setRole(primaryRole);
-        setActiveRole(prev => prev && userRoles.includes(prev) ? prev : primaryRole);
-        
-        // Fetch merchant data if user has merchant role
-        if (userRoles.includes('merchant')) {
-          const { data: merchantData } = await supabase
-            .from('merchants')
-            .select(`
-              *,
-              merchant_subscriptions(
-                tier_id,
-                status,
-                subscription_tiers(name)
-              )
-            `)
-            .eq('user_id', userId)
-            .maybeSingle();
-          if (merchantData) setMerchant(merchantData as unknown as MerchantProfile);
-        }
-        
-        // Fetch vendor data if user has vendor role
-        if (userRoles.includes('vendor')) {
-          const { data: vendorData } = await supabase
-            .from('vendors')
-            .select('*')
-            .eq('user_id', userId)
-            .maybeSingle();
-          if (vendorData) setVendor(vendorData as VendorProfile);
-        }
-      }
+      setUser(data.user);
+      setProfile(data.profile ?? null);
+
+      const userRoles: AppRole[] = data.roles ?? (data.user.role ? [data.user.role] : []);
+      setRoles(userRoles);
+
+      const primaryRole = userRoles[0] ?? null;
+      setRole(primaryRole);
+      setActiveRole((prev) => (prev && userRoles.includes(prev) ? prev : primaryRole));
+
+      setMerchant(data.merchant ?? null);
+      setVendor(data.vendor ?? null);
     } catch (err) {
-      console.error('Error fetching user data:', err);
-      setError(err instanceof Error ? err : new Error('Failed to fetch user data'));
+      console.error('Error fetching user profile:', err);
+      setError(err instanceof Error ? err : new Error('Failed to fetch user profile'));
+      // If 401, tokens are already cleared by the axios interceptor
+      setUser(null);
+      setProfile(null);
+      setRole(null);
+      setRoles([]);
+      setActiveRole(null);
+      setMerchant(null);
+      setVendor(null);
     } finally {
       setIsProfileLoading(false);
     }
   }, []);
 
+  // On mount: restore session from localStorage if token exists
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          setIsProfileLoading(true);
-          setTimeout(() => {
-            fetchUserData(session.user.id);
-          }, 0);
-        } else {
-          setProfile(null);
-          setRole(null);
-          setRoles([]);
-          setActiveRole(null);
-          setMerchant(null);
-          setVendor(null);
-        }
-        
-        setIsLoading(false);
-      }
-    );
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchUserData(session.user.id);
-      }
-      
+    const token = localStorage.getItem('sihuni_access_token');
+    if (token) {
+      refreshProfile().finally(() => setIsLoading(false));
+    } else {
       setIsLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, [fetchUserData]);
+    }
+  }, [refreshProfile]);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error as Error | null };
+    try {
+      const { data } = await apiClient.post<AuthTokens & { user: AuthUser }>(
+        '/auth/login',
+        { email, password }
+      );
+
+      storeTokens(data);
+      setUser(data.user);
+
+      const userRole = data.user.role ?? null;
+      if (userRole) {
+        setRole(userRole);
+        setRoles([userRole]);
+        setActiveRole(userRole);
+      }
+
+      // Fetch full profile after login
+      await refreshProfile();
+
+      return { error: null };
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Login failed');
+      return { error };
+    }
   };
 
   const signUp = async (
-    email: string, 
-    password: string, 
-    metadata?: { full_name?: string; phone?: string; role?: AppRole; business_name?: string; merchant_code?: string }
+    email: string,
+    password: string,
+    metadata?: {
+      full_name?: string;
+      phone?: string;
+      role?: AppRole;
+      business_name?: string;
+      merchant_code?: string;
+    }
   ) => {
-    const redirectUrl = `${window.location.origin}/`;
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          full_name: metadata?.full_name || '',
-          phone: metadata?.phone || '',
-          role: metadata?.role || 'merchant',
-          business_name: metadata?.business_name || '',
-          merchant_code: metadata?.merchant_code || '',
-        },
-      },
-    });
-    return { data, error: error as Error | null };
+    try {
+      const { data } = await apiClient.post<AuthTokens & { user: AuthUser }>(
+        '/auth/register',
+        {
+          email,
+          password,
+          full_name: metadata?.full_name,
+          phone: metadata?.phone,
+          role: metadata?.role,
+          business_name: metadata?.business_name,
+          merchant_code: metadata?.merchant_code,
+        }
+      );
+
+      storeTokens(data);
+      setUser(data.user);
+
+      const userRole = data.user.role ?? null;
+      if (userRole) {
+        setRole(userRole);
+        setRoles([userRole]);
+        setActiveRole(userRole);
+      }
+
+      return { data: { user: data.user }, error: null };
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Registration failed');
+      return { data: null, error };
+    }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    clearTokens();
     setUser(null);
-    setSession(null);
     setProfile(null);
     setRole(null);
     setRoles([]);
     setActiveRole(null);
     setMerchant(null);
     setVendor(null);
-  };
-
-  const refreshProfile = async () => {
-    if (user) await fetchUserData(user.id);
+    setError(null);
   };
 
   const switchRole = (newRole: AppRole) => {
@@ -189,25 +195,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) throw new Error('Not authenticated');
     if (roles.includes(newRole)) throw new Error('Role already exists');
 
-    // Insert new role
-    const { error: roleErr } = await supabase.from('user_roles').insert({ user_id: user.id, role: newRole });
-    if (roleErr) throw roleErr;
+    // TODO: implement Go endpoint for adding roles
+    await apiClient.post('/users/roles', { role: newRole, ...extra });
 
-    // Create corresponding profile
-    if (newRole === 'merchant') {
-      await supabase.from('merchants').insert({
-        user_id: user.id,
-        business_name: extra?.business_name || 'My Business',
-      });
-    } else if (newRole === 'vendor') {
-      await supabase.from('vendors').insert({
-        user_id: user.id,
-        business_name: extra?.business_name || 'My Vendor',
-        contact_email: profile?.email || user.email || '',
-      });
-    }
-
-    await fetchUserData(user.id);
+    await refreshProfile();
   };
 
   const contextIsLoading = isLoading || isProfileLoading;
@@ -216,7 +207,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
-        session,
         profile,
         role,
         roles,
@@ -224,6 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         merchant,
         vendor,
         isLoading: contextIsLoading,
+        isProfileLoading,
         error,
         signIn,
         signUp,

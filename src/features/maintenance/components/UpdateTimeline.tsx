@@ -1,5 +1,4 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/integrations/supabase/client';
 import { Avatar, AvatarFallback } from '@/shared/components/ui/avatar';
 import { Badge } from '@/shared/components/ui/badge';
 import { MessageSquare, Clock, CheckCircle, Wrench, Loader2 } from 'lucide-react';
@@ -28,13 +27,8 @@ export function UpdateTimeline({ maintenanceRequestId, canAddUpdate = true, auth
   const { data: updates = [], isLoading } = useQuery({
     queryKey: ['maintenance-updates', maintenanceRequestId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('maintenance_updates')
-        .select('*')
-        .eq('maintenance_request_id', maintenanceRequestId)
-        .order('created_at', { ascending: true });
-      if (error) throw error;
-      return data as MaintenanceUpdate[];
+      // TODO: Go endpoint not yet implemented — was: supabase.from('maintenance_updates').select(...)
+      return [] as MaintenanceUpdate[];
     },
   });
 

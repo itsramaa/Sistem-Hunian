@@ -1,6 +1,6 @@
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { MoveOutStatusBadge } from '@/features/contracts/components/MoveOutStatusBadge';
 import { Button } from '@/shared/components/ui/button';
 import { Skeleton } from '@/shared/components/ui/skeleton';
@@ -19,13 +19,11 @@ export default function MerchantMoveOutDetail() {
     queryKey: ['move-out-notice', noticeId],
     queryFn: async () => {
       if (!noticeId) return null;
-      const { data, error } = await supabase
-        .from('move_out_notices')
-        .select(`*, contract:contracts(*, unit:units(*, property:properties(*)))`)
-        .eq('id', noticeId)
-        .single();
-      if (error) throw error;
-      return data;
+      // TODO: implement Go endpoint — was: supabase.from('move_out_notices').select('*, contract:contracts(*, unit:units(*, property:properties(*)))').eq('id', noticeId).single()
+      try {
+        const r = await apiClient.get(`/move-out-notices/${noticeId}`);
+        return r.data.data ?? null;
+      } catch (err) { throw err as Error; }
     },
     enabled: !!noticeId,
   });
@@ -34,8 +32,11 @@ export default function MerchantMoveOutDetail() {
     queryKey: ['move-out-inspection', noticeId],
     queryFn: async () => {
       if (!noticeId) return null;
-      const { data } = await supabase.from('move_out_inspections').select('*').eq('move_out_notice_id', noticeId).maybeSingle();
-      return data;
+      // TODO: implement Go endpoint — was: supabase.from('move_out_inspections').select('*').eq('move_out_notice_id', noticeId).maybeSingle()
+      try {
+        const r = await apiClient.get('/move-out-inspections', { params: { move_out_notice_id: noticeId } });
+        return r.data.data?.[0] ?? null;
+      } catch { return null; }
     },
     enabled: !!noticeId,
   });
@@ -44,8 +45,11 @@ export default function MerchantMoveOutDetail() {
     queryKey: ['tenant-profile', notice?.tenant_user_id],
     queryFn: async () => {
       if (!notice?.tenant_user_id) return null;
-      const { data } = await supabase.from('profiles').select('full_name, email, phone').eq('user_id', notice.tenant_user_id).single();
-      return data;
+      // TODO: implement Go endpoint — was: supabase.from('profiles').select('full_name, email, phone').eq('user_id', notice.tenant_user_id).single()
+      try {
+        const r = await apiClient.get(`/profiles/${notice.tenant_user_id}`);
+        return r.data.data ?? null;
+      } catch { return null; }
     },
     enabled: !!notice?.tenant_user_id,
   });

@@ -20,7 +20,6 @@ import { AlertTriangle, FileText, Loader2, Plus, Shield, ShieldAlert, Umbrella }
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 
 interface PropertyComplianceProps {
   propertyId?: string;
@@ -442,8 +441,8 @@ function SecurityTab({ propertyId, merchantId, incidents }: { propertyId: string
   const { data: guardians = [] } = useQuery({
     queryKey: ['property-guardians-list', propertyId],
     queryFn: async () => {
-      const { data } = await (supabase.from as any)('property_guardians').select('id, name').eq('property_id', propertyId).eq('status', 'active');
-      return data || [];
+      // TODO: Go endpoint not yet implemented — was: supabase.from('property_guardians').select('id, name').eq('property_id', propertyId)
+      return [];
     },
     enabled: !!propertyId,
   });
@@ -451,14 +450,8 @@ function SecurityTab({ propertyId, merchantId, incidents }: { propertyId: string
   const { data: tenants = [] } = useQuery({
     queryKey: ['property-tenants-list', propertyId],
     queryFn: async () => {
-      const { data: units } = await supabase.from('units').select('id').eq('property_id', propertyId);
-      if (!units || units.length === 0) return [];
-      const unitIds = units.map(u => u.id);
-      const { data: contracts } = await supabase.from('contracts').select('tenant_user_id').in('unit_id', unitIds).eq('status', 'active');
-      if (!contracts || contracts.length === 0) return [];
-      const tenantIds = [...new Set(contracts.map(c => c.tenant_user_id))];
-      const { data: profiles } = await supabase.from('profiles').select('user_id, full_name').in('user_id', tenantIds);
-      return profiles || [];
+      // TODO: Go endpoint not yet implemented — was: supabase.from('units').select('id').eq('property_id', propertyId) + contracts + profiles
+      return [];
     },
     enabled: !!propertyId,
   });

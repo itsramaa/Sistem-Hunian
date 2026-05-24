@@ -7,7 +7,7 @@ import { Label } from '@/shared/components/ui/label';
 import { Input } from '@/shared/components/ui/input';
 import { Badge } from '@/shared/components/ui/badge';
 import { toast } from 'sonner';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { MessageCircle, Mail, Save, Loader2, Phone, CheckCircle, AlertCircle } from 'lucide-react';
 
@@ -40,9 +40,12 @@ export function MerchantNotificationSettings() {
   const { data: profile } = useQuery({
     queryKey: ['profile', merchant?.user_id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('profiles').select('phone').eq('user_id', merchant?.user_id).single();
-      if (error) throw error;
-      return data;
+      try {
+        const r = await apiClient.get('/profiles', { params: { user_id: merchant?.user_id } });
+        return r.data as { phone: string | null };
+      } catch (err) {
+        return null;
+      }
     },
     enabled: !!merchant?.user_id,
   });

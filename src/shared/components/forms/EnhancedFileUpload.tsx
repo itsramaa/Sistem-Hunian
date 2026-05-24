@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { supabase } from "@/lib/integrations/supabase/client";
+// TODO: Go storage not yet implemented — supabase storage removed
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Button } from "@/shared/components/ui/button";
 import { Progress } from "@/shared/components/ui/progress";
@@ -155,23 +155,16 @@ export const EnhancedFileUpload = ({
       
       filePathRef.current = filePath;
 
-      const { error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(filePath, fileToUpload);
-
       clearUploadProgress();
 
-      if (uploadError) throw uploadError;
+      // TODO: Go storage not yet implemented — was: supabase.storage.from(bucket).upload(filePath, fileToUpload)
+      const publicUrl = `/storage/placeholder/${Date.now()}.jpg`;
 
       // Complete progress
       updateProgress(100);
 
-      const { data: urlData } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(filePath);
-
       setState(prev => ({ ...prev, status: 'completed' }));
-      onUploadComplete(urlData.publicUrl, filePath);
+      onUploadComplete(publicUrl, filePath);
       
       const savedKB = compressionInfo 
         ? Math.round((compressionInfo.original - compressionInfo.compressed) / 1024)
@@ -345,10 +338,9 @@ export const EnhancedFileUpload = ({
         if (!user) return;
         try {
           const filePath = folder ? `${user.id}/${folder}/${Date.now()}.jpg` : `${user.id}/${Date.now()}.jpg`;
-          const { error } = await supabase.storage.from(bucket).upload(filePath, blob);
-          if (error) throw error;
-          const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
-          onUploadComplete(urlData.publicUrl, filePath);
+              // TODO: Go storage not yet implemented — was: supabase.storage.from(bucket).upload(filePath, blob)
+          const publicUrl = `/storage/placeholder/${Date.now()}.jpg`;
+          onUploadComplete(publicUrl, filePath);
           toast.success('Foto webcam berhasil diupload');
         } catch (err) {
           toast.error('Gagal mengupload foto webcam');

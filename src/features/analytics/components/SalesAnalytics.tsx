@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { Skeleton } from "@/shared/components/ui/skeleton";
@@ -53,28 +52,8 @@ export const SalesAnalytics = ({ vendorId, dateRange = '30d' }: SalesAnalyticsPr
   const { data: orders = [], isLoading: ordersLoading, error: ordersError } = useQuery({
     queryKey: ["vendor-analytics-orders", vendorId, dateRange],
     queryFn: async () => {
-      let query = supabase
-        .from("orders")
-        .select(`
-          id,
-          total_price,
-          status,
-          created_at,
-          product_id,
-          products (
-            name
-          )
-        `)
-        .eq("vendor_id", vendorId)
-        .order("created_at", { ascending: false });
-
-      if (dateFilter) {
-        query = query.gte("created_at", dateFilter.toISOString());
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('orders').select(...).eq('vendor_id', vendorId)
+      return [];
     },
     enabled: !!vendorId,
   });
@@ -83,19 +62,8 @@ export const SalesAnalytics = ({ vendorId, dateRange = '30d' }: SalesAnalyticsPr
   const { data: reviews = [], isLoading: reviewsLoading, error: reviewsError } = useQuery({
     queryKey: ["vendor-analytics-reviews", vendorId, dateRange],
     queryFn: async () => {
-      let query = supabase
-        .from("order_reviews")
-        .select("rating, created_at")
-        .eq("vendor_id", vendorId)
-        .order("created_at", { ascending: false });
-
-      if (dateFilter) {
-        query = query.gte("created_at", dateFilter.toISOString());
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('order_reviews').select(...).eq('vendor_id', vendorId)
+      return [];
     },
     enabled: !!vendorId,
   });

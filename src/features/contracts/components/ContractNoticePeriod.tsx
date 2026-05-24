@@ -5,7 +5,7 @@ import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/shared/components/ui/dialog';
 import { Textarea } from '@/shared/components/ui/textarea';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { AlertTriangle, Calendar, Home, User, Clock, Loader2 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
@@ -41,16 +41,16 @@ export function ContractNoticePeriod() {
       const sixtyDaysLater = new Date();
       sixtyDaysLater.setDate(today.getDate() + 60);
 
-      const { data, error } = await supabase
-        .from('contracts')
-        .select(`*, unit:units (unit_number, property:properties (name))`)
-        .eq('merchant_id', merchant.id)
-        .eq('status', 'active')
-        .lte('end_date', sixtyDaysLater.toISOString().split('T')[0])
-        .gte('end_date', today.toISOString().split('T')[0])
-        .order('end_date', { ascending: true });
-      if (error) throw error;
-      return data as Contract[];
+      const r = await apiClient.get('/contracts', {
+        params: {
+          merchant_id: merchant.id,
+          status: 'active',
+          end_date_lte: sixtyDaysLater.toISOString().split('T')[0],
+          end_date_gte: today.toISOString().split('T')[0],
+          order_by: 'end_date',
+        },
+      });
+      return (r.data.data ?? []) as Contract[];
     },
     enabled: !!merchant?.id,
   });
@@ -60,9 +60,9 @@ export function ContractNoticePeriod() {
     queryKey: ['tenant-profiles-notice', tenantIds],
     queryFn: async () => {
       if (tenantIds.length === 0) return [];
-      const { data, error } = await supabase.from('profiles').select('user_id, full_name, email').in('user_id', tenantIds);
-      if (error) throw error;
-      return data;
+      // TODO: implement Go endpoint — was: supabase.from('profiles').select('user_id, full_name, email').in('user_id', tenantIds)
+      const r = await apiClient.get('/profiles', { params: { user_ids: tenantIds.join(',') } });
+      return r.data.data ?? [];
     },
     enabled: tenantIds.length > 0,
   });
@@ -71,8 +71,7 @@ export function ContractNoticePeriod() {
 
   const updateContractMutation = useMutation({
     mutationFn: async ({ contractId, churnReason }: { contractId: string; churnReason: string }) => {
-      const { error } = await supabase.from('contracts').update({ churn_reason: churnReason }).eq('id', contractId);
-      if (error) throw error;
+      await apiClient.put(`/contracts/${contractId}`, { churn_reason: churnReason });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expiring-contracts'] });

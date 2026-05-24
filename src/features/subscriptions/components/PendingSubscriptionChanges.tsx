@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useToast } from "@/shared/hooks/use-toast";
 import { format } from "date-fns";
@@ -32,35 +32,16 @@ export function PendingSubscriptionChanges() {
   const { data: pendingChanges = [], isLoading } = useQuery({
     queryKey: ["pending-subscription-changes", merchant?.id],
     queryFn: async () => {
-      const { data, error } = await (supabase
-        .from("subscription_changes" as any)
-        .select(`
-          *,
-          from_tier:subscription_tiers!subscription_changes_from_tier_id_fkey(display_name),
-          to_tier:subscription_tiers!subscription_changes_to_tier_id_fkey(display_name)
-        `) as any)
-        .eq("merchant_id", merchant?.id)
-        .eq("status", "pending")
-        .order("created_at", { ascending: false });
-      
-      if (error) throw error;
-      return data as PendingChange[];
+      // TODO: Go endpoint not yet implemented — was: supabase.from('subscription_changes').select(...)
+      return [] as PendingChange[];
     },
     enabled: !!merchant?.id,
   });
 
   const cancelMutation = useMutation({
     mutationFn: async (changeId: string) => {
-      const { error } = await (supabase
-        .from("subscription_changes" as any)
-        .update({ 
-          status: "cancelled",
-          cancelled_at: new Date().toISOString(),
-          cancellation_reason: "Cancelled by merchant"
-        } as any)
-        .eq("id", changeId) as any);
-      
-      if (error) throw error;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('subscription_changes').update({ status: 'cancelled' })
+      throw new Error('Cancel subscription change not yet available');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pending-subscription-changes"] });

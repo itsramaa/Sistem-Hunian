@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Skeleton } from '@/shared/components/ui/skeleton';
@@ -88,18 +88,20 @@ export function ConversionFunnels({ funnelType }: ConversionFunnelProps) {
       for (let i = 0; i < config.steps.length; i++) {
         const step = config.steps[i];
         
-        let query = supabase
-          .from('analytics_events')
-          .select('id', { count: 'exact' })
-          .eq('event_type', step.eventType)
-          .gte('created_at', startDate.toISOString());
+        let params: Record<string, unknown> = {
+          select: 'id',
+          event_type: `eq.${step.eventType}`,
+          'created_at': `gte.${startDate.toISOString()}`,
+        };
 
         // Apply path filter if exists
         if ('filter' in step && step.filter?.path) {
-          query = query.ilike('page', `%${step.filter.path}%`);
+          params['page'] = `ilike.%${step.filter.path}%`;
         }
 
-        const { count, error } = await query;
+        const { data: stepData } = await apiClient.get('/analytics-events', { params });
+        const count = (stepData || []).length;
+        const error = null;
         
         if (error) {
           console.error(`Error fetching step ${step.name}:`, error);

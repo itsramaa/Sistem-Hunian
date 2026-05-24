@@ -1,4 +1,3 @@
-import { supabase } from '@/lib/integrations/supabase/client';
 import type {
   ComplianceDocument,
   DisasterRiskProfile,
@@ -7,110 +6,82 @@ import type {
   SecurityIncident,
 } from '../types';
 
-// Helper for tables not yet in generated types
-const from = (table: string) => supabase.from(table as any);
-const cast = <T>(data: unknown): T => data as T;
-
 export const complianceService = {
-  async fetchDisasterProfile(propertyId: string): Promise<DisasterRiskProfile | null> {
-    const { data, error } = await from('disaster_risk_profiles').select('*').eq('property_id', propertyId).maybeSingle();
-    if (error) throw error;
-    return cast<DisasterRiskProfile | null>(data);
+  async fetchDisasterProfile(_propertyId: string): Promise<DisasterRiskProfile | null> {
+    // TODO: Go endpoint not yet implemented — was: supabase.from('disaster_risk_profiles').select(*)
+    return null;
   },
 
-  async upsertDisasterProfile(payload: Partial<DisasterRiskProfile> & { property_id: string; merchant_id: string }): Promise<DisasterRiskProfile> {
-    const { data, error } = await from('disaster_risk_profiles').upsert(payload as any, { onConflict: 'property_id' }).select().single();
-    if (error) throw error;
-    return cast<DisasterRiskProfile>(data);
+  async upsertDisasterProfile(_payload: Partial<DisasterRiskProfile> & { property_id: string; merchant_id: string }): Promise<DisasterRiskProfile> {
+    // TODO: Go endpoint not yet implemented — was: supabase.from('disaster_risk_profiles').upsert(...)
+    return _payload as DisasterRiskProfile;
   },
 
-  async fetchInsurancePolicies(merchantId: string, propertyId?: string): Promise<InsurancePolicy[]> {
-    let q = from('insurance_policies').select('*').eq('merchant_id', merchantId).order('end_date', { ascending: false });
-    if (propertyId) q = q.eq('property_id', propertyId);
-    const { data, error } = await q;
-    if (error) throw error;
-    return cast<InsurancePolicy[]>(data) || [];
+  async fetchInsurancePolicies(_merchantId: string, _propertyId?: string): Promise<InsurancePolicy[]> {
+    // TODO: Go endpoint not yet implemented — was: supabase.from('insurance_policies').select(*)
+    return [];
   },
 
-  async createInsurancePolicy(payload: Omit<InsurancePolicy, 'id' | 'created_at' | 'updated_at'>): Promise<InsurancePolicy> {
-    const { data, error } = await from('insurance_policies').insert(payload as any).select().single();
-    if (error) throw error;
-    return cast<InsurancePolicy>(data);
+  async createInsurancePolicy(_payload: Omit<InsurancePolicy, 'id' | 'created_at' | 'updated_at'>): Promise<InsurancePolicy> {
+    // TODO: Go endpoint not yet implemented — was: supabase.from('insurance_policies').insert(...)
+    return _payload as InsurancePolicy;
   },
 
-  async updateInsurancePolicy(id: string, payload: Partial<InsurancePolicy>): Promise<InsurancePolicy> {
-    const { data, error } = await from('insurance_policies').update(payload as any).eq('id', id).select().single();
-    if (error) throw error;
-    return cast<InsurancePolicy>(data);
+  async updateInsurancePolicy(_id: string, _payload: Partial<InsurancePolicy>): Promise<InsurancePolicy> {
+    // TODO: Go endpoint not yet implemented — was: supabase.from('insurance_policies').update(...)
+    return _payload as InsurancePolicy;
   },
 
-  async deleteInsurancePolicy(id: string): Promise<void> {
-    const { error } = await from('insurance_policies').delete().eq('id', id);
-    if (error) throw error;
+  async deleteInsurancePolicy(_id: string): Promise<void> {
+    // TODO: Go endpoint not yet implemented — was: supabase.from('insurance_policies').delete(...)
   },
 
-  async fetchClaims(merchantId: string, policyId?: string): Promise<InsuranceClaim[]> {
-    let q = from('insurance_claims').select('*').eq('merchant_id', merchantId).order('claim_date', { ascending: false });
-    if (policyId) q = q.eq('policy_id', policyId);
-    const { data, error } = await q;
-    if (error) throw error;
-    return cast<InsuranceClaim[]>(data) || [];
+  async fetchClaims(_merchantId: string, _policyId?: string): Promise<InsuranceClaim[]> {
+    // TODO: Go endpoint not yet implemented — was: supabase.from('insurance_claims').select(*)
+    return [];
   },
 
-  async createClaim(payload: Omit<InsuranceClaim, 'id' | 'created_at' | 'updated_at'>): Promise<InsuranceClaim> {
-    const { data, error } = await from('insurance_claims').insert(payload as any).select().single();
-    if (error) throw error;
-    return cast<InsuranceClaim>(data);
+  async createClaim(_payload: Omit<InsuranceClaim, 'id' | 'created_at' | 'updated_at'>): Promise<InsuranceClaim> {
+    // TODO: Go endpoint not yet implemented — was: supabase.from('insurance_claims').insert(...)
+    return _payload as InsuranceClaim;
   },
 
-  async fetchComplianceDocs(merchantId: string, propertyId?: string): Promise<ComplianceDocument[]> {
-    let q = from('compliance_documents').select('*').eq('merchant_id', merchantId).order('expiry_date', { ascending: true });
-    if (propertyId) q = q.eq('property_id', propertyId);
-    const { data, error } = await q;
-    if (error) throw error;
-    return cast<ComplianceDocument[]>(data) || [];
+  async fetchComplianceDocs(_merchantId: string, _propertyId?: string): Promise<ComplianceDocument[]> {
+    // TODO: Go endpoint not yet implemented — was: supabase.from('compliance_documents').select(*)
+    return [];
   },
 
-  async createComplianceDoc(payload: Omit<ComplianceDocument, 'id' | 'created_at' | 'updated_at'>): Promise<ComplianceDocument> {
-    const { data, error } = await from('compliance_documents').insert(payload as any).select().single();
-    if (error) throw error;
-    return cast<ComplianceDocument>(data);
+  async createComplianceDoc(_payload: Omit<ComplianceDocument, 'id' | 'created_at' | 'updated_at'>): Promise<ComplianceDocument> {
+    // TODO: Go endpoint not yet implemented — was: supabase.from('compliance_documents').insert(...)
+    return _payload as ComplianceDocument;
   },
 
-  async updateComplianceDoc(id: string, payload: Partial<ComplianceDocument>): Promise<ComplianceDocument> {
-    const { data, error } = await from('compliance_documents').update(payload as any).eq('id', id).select().single();
-    if (error) throw error;
-    return cast<ComplianceDocument>(data);
+  async updateComplianceDoc(_id: string, _payload: Partial<ComplianceDocument>): Promise<ComplianceDocument> {
+    // TODO: Go endpoint not yet implemented — was: supabase.from('compliance_documents').update(...)
+    return _payload as ComplianceDocument;
   },
 
-  async deleteComplianceDoc(id: string): Promise<void> {
-    const { error } = await from('compliance_documents').delete().eq('id', id);
-    if (error) throw error;
+  async deleteComplianceDoc(_id: string): Promise<void> {
+    // TODO: Go endpoint not yet implemented — was: supabase.from('compliance_documents').delete(...)
   },
 
-  async fetchSecurityIncidents(merchantId: string, propertyId?: string): Promise<SecurityIncident[]> {
-    let q = from('security_incidents').select('*').eq('merchant_id', merchantId).order('incident_date', { ascending: false });
-    if (propertyId) q = q.eq('property_id', propertyId);
-    const { data, error } = await q;
-    if (error) throw error;
-    return cast<SecurityIncident[]>(data) || [];
+  async fetchSecurityIncidents(_merchantId: string, _propertyId?: string): Promise<SecurityIncident[]> {
+    // TODO: Go endpoint not yet implemented — was: supabase.from('security_incidents').select(*)
+    return [];
   },
 
-  async createSecurityIncident(payload: Omit<SecurityIncident, 'id' | 'created_at' | 'updated_at'>): Promise<SecurityIncident> {
-    const { data, error } = await from('security_incidents').insert(payload as any).select().single();
-    if (error) throw error;
-    return cast<SecurityIncident>(data);
+  async createSecurityIncident(_payload: Omit<SecurityIncident, 'id' | 'created_at' | 'updated_at'>): Promise<SecurityIncident> {
+    // TODO: Go endpoint not yet implemented — was: supabase.from('security_incidents').insert(...)
+    return _payload as SecurityIncident;
   },
 
-  async updateSecurityIncident(id: string, payload: Partial<SecurityIncident>): Promise<SecurityIncident> {
-    const { data, error } = await from('security_incidents').update(payload as any).eq('id', id).select().single();
-    if (error) throw error;
-    return cast<SecurityIncident>(data);
+  async updateSecurityIncident(_id: string, _payload: Partial<SecurityIncident>): Promise<SecurityIncident> {
+    // TODO: Go endpoint not yet implemented — was: supabase.from('security_incidents').update(...)
+    return _payload as SecurityIncident;
   },
 
-  async deleteSecurityIncident(id: string): Promise<void> {
-    const { error } = await from('security_incidents').delete().eq('id', id);
-    if (error) throw error;
+  async deleteSecurityIncident(_id: string): Promise<void> {
+    // TODO: Go endpoint not yet implemented — was: supabase.from('security_incidents').delete(...)
   },
 
   async fetchPropertyComplianceSummary(propertyId: string, merchantId: string) {

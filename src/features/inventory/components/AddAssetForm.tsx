@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/shared/components/ui/textarea';
 import { Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/shared/utils/currency';
 
@@ -38,13 +38,10 @@ export function AddAssetForm({ merchantId }: AddAssetFormProps) {
   const { data: facilityTypes = [] } = useQuery({
     queryKey: ['facility-types-tangible', merchantId],
     queryFn: async () => {
-      const { data, error } = await (supabase.from as any)('facility_types')
-        .select('id, name, asset_type, default_useful_life_months')
-        .eq('merchant_id', merchantId)
-        .eq('nature', 'tangible')
-        .order('name');
-      if (error) throw error;
-      return data;
+      const response = await apiClient.get('/facility-types', {
+        params: { merchant_id: merchantId, nature: 'tangible', order: 'name', select: 'id,name,asset_type,default_useful_life_months' },
+      });
+      return response.data?.data || response.data || [];
     },
     enabled: !!merchantId && expanded,
   });
@@ -52,9 +49,10 @@ export function AddAssetForm({ merchantId }: AddAssetFormProps) {
   const { data: properties = [] } = useQuery({
     queryKey: ['merchant-properties-list', merchantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('properties').select('id, name').eq('merchant_id', merchantId).order('name');
-      if (error) throw error;
-      return data;
+      const response = await apiClient.get('/properties', {
+        params: { merchant_id: merchantId, order: 'name', select: 'id,name' },
+      });
+      return response.data?.data || response.data || [];
     },
     enabled: !!merchantId && expanded,
   });
@@ -63,9 +61,10 @@ export function AddAssetForm({ merchantId }: AddAssetFormProps) {
     queryKey: ['property-units-list', propertyId],
     queryFn: async () => {
       if (!propertyId) return [];
-      const { data, error } = await supabase.from('units').select('id, unit_number').eq('property_id', propertyId).order('unit_number');
-      if (error) throw error;
-      return data;
+      const response = await apiClient.get('/units', {
+        params: { property_id: propertyId, order: 'unit_number', select: 'id,unit_number' },
+      });
+      return response.data?.data || response.data || [];
     },
     enabled: !!propertyId && expanded,
   });
@@ -76,22 +75,8 @@ export function AddAssetForm({ merchantId }: AddAssetFormProps) {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const rows = Array.from({ length: quantity }, () => ({
-        facility_type_id: facilityTypeId,
-        merchant_id: merchantId,
-        property_id: propertyId || null,
-        unit_id: unitId || null,
-        serial_number: serialNumber || null,
-        brand: brand || null,
-        purchase_price: purchasePrice,
-        purchase_date: purchaseDate || null,
-        useful_life_months: usefulLifeMonths,
-        salvage_value: salvageValue,
-        status: propertyId || unitId ? 'in_use' : 'available',
-        notes: notes || null,
-      }));
-      const { error } = await (supabase.from as any)('assets').insert(rows);
-      if (error) throw error;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('assets').insert(rows)
+      // No-op stub
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['assets'] });

@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { z } from "zod";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 import { Button } from "@/shared/components/ui/button";
@@ -129,7 +129,7 @@ export function UnitImportDialog({ open, onOpenChange, onSuccess, properties }: 
       const row = validRows[i];
       try {
         const parsed = unitImportSchema.parse(row.data);
-        const { error } = await supabase.from("units").insert({
+        await apiClient.post('/units', {
           property_id: parsed.property_id,
           unit_number: parsed.unit_number,
           unit_type: parsed.unit_type,
@@ -140,8 +140,7 @@ export function UnitImportDialog({ open, onOpenChange, onSuccess, properties }: 
           status: parsed.status,
           description: parsed.description || null,
         });
-        if (error) { failed++; errors.push(`Baris ${row.index + 2}: ${error.message}`); }
-        else { success++; }
+        success++;
       } catch (err) { failed++; errors.push(`Baris ${row.index + 2}: ${(err as Error).message}`); }
       setImportProgress(Math.round(((i + 1) / validRows.length) * 100));
     }

@@ -1,47 +1,23 @@
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { PlatformSetting } from "../types/platform-settings";
 
 export const platformSettingsService = {
   fetchSettings: async (): Promise<PlatformSetting[]> => {
-    const { data, error } = await supabase
-      .from('platform_settings')
-      .select('*');
-    if (error) throw error;
-    return (data || []) as PlatformSetting[];
+    // TODO: Migrate to Go endpoint — GET /v1/platform-settings
+    const response = await apiClient.get('/platform-settings');
+    return (response.data.data || []) as PlatformSetting[];
   },
 
   updateSetting: async (key: string, value: Record<string, any>): Promise<void> => {
-    const { error } = await supabase
-      .from('platform_settings')
-      .update({ setting_value: value })
-      .eq('setting_key', key);
-    if (error) throw error;
+    // TODO: Migrate to Go endpoint — PATCH /v1/platform-settings/:key
+    await apiClient.patch(`/platform-settings/${key}`, { setting_value: value });
   },
 
   upsertSetting: async (key: string, value: Record<string, any>, description?: string): Promise<void> => {
-    const { data: existing, error: fetchError } = await supabase
-      .from('platform_settings')
-      .select('id')
-      .eq('setting_key', key)
-      .maybeSingle();
-
-    if (fetchError) throw fetchError;
-
-    if (existing) {
-      const { error } = await supabase
-        .from('platform_settings')
-        .update({ setting_value: value })
-        .eq('setting_key', key);
-      if (error) throw error;
-    } else {
-      const { error } = await supabase
-        .from('platform_settings')
-        .insert({ 
-          setting_key: key, 
-          setting_value: value, 
-          description: description || 'System configuration' 
-        });
-      if (error) throw error;
-    }
-  }
+    // TODO: Migrate to Go endpoint — PUT /v1/platform-settings/:key
+    await apiClient.put(`/platform-settings/${key}`, {
+      setting_value: value,
+      description: description || 'System configuration',
+    });
+  },
 };

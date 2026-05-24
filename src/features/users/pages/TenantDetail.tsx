@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { Button } from "@/shared/components/ui/button";
 import {
   Card,
@@ -99,54 +99,27 @@ export default function TenantDetail() {
       if (!tenantId) return null;
 
       // Try as contract ID first
-      const { data: contract } = await supabase
-        .from("contracts")
-        .select("*, unit:units(id, unit_number, property:properties(id, name))")
-        .eq("id", tenantId)
-        .maybeSingle();
+      // TODO: Migrate to Go endpoint — GET /v1/contracts/:id?include=unit,property
+      const contractRes = await apiClient.get(`/v1/contracts/${tenantId}`).catch(() => null);
+      const contract = contractRes?.data?.data;
 
       if (contract) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("full_name, email, phone")
-          .eq("user_id", contract.tenant_user_id)
-          .maybeSingle();
-
-        // Get all contracts for this tenant
-        const { data: allContracts } = await supabase
-          .from("contracts")
-          .select(
-            "id, status, start_date, end_date, rent_amount, deposit_amount, unit:units(unit_number, property:properties(name))",
-          )
-          .eq("tenant_user_id", contract.tenant_user_id)
-          .order("created_at", { ascending: false });
-
-        // Get payments
-        const { data: payments } = await supabase
-          .from("invoices")
-          .select(
-            "id, invoice_number, status, amount, total_amount, due_date, paid_at",
-          )
-          .eq("tenant_user_id", contract.tenant_user_id)
-          .order("due_date", { ascending: false })
-          .limit(20);
-
-        // Get maintenance
-        const { data: maintenance } = await supabase
-          .from("maintenance_requests")
-          .select(
-            "id, title, status, priority, created_at, unit:units(unit_number)",
-          )
-          .eq("tenant_user_id", contract.tenant_user_id)
-          .order("created_at", { ascending: false })
-          .limit(20);
+        const [profileRes, allContractsRes, paymentsRes, maintenanceRes] = await Promise.all([
+          apiClient.get(`/profiles/${contract.tenant_user_id}`).catch(() => null),
+          // TODO: Migrate to Go endpoint — GET /v1/contracts?tenant_user_id=:id
+          apiClient.get('/v1/contracts', { params: { tenant_user_id: contract.tenant_user_id, sort: 'created_at:desc' } }).catch(() => null),
+          // TODO: Migrate to Go endpoint — GET /v1/billing/invoices?tenant_user_id=:id
+          apiClient.get('/v1/billing/invoices', { params: { tenant_user_id: contract.tenant_user_id, sort: 'due_date:desc', limit: 20 } }).catch(() => null),
+          // TODO: Migrate to Go endpoint — GET /v1/maintenance?tenant_user_id=:id
+          apiClient.get('/v1/maintenance', { params: { tenant_user_id: contract.tenant_user_id, sort: 'created_at:desc', limit: 20 } }).catch(() => null),
+        ]);
 
         return {
           contract,
-          profile,
-          allContracts: allContracts || [],
-          payments: payments || [],
-          maintenance: maintenance || [],
+          profile: profileRes?.data?.data || null,
+          allContracts: allContractsRes?.data?.data || [],
+          payments: paymentsRes?.data?.data || [],
+          maintenance: maintenanceRes?.data?.data || [],
         };
       }
       return null;

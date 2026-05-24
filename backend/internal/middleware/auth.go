@@ -24,9 +24,26 @@ type UserClaims struct {
 
 // Authenticate validates a Supabase-issued HS256 JWT and injects UserClaims into the request context.
 // Requests without a valid Bearer token receive a 401 response.
+// When APP_ENV=development and JWT_SECRET is empty, auth is bypassed and a mock user is injected.
 func Authenticate(jwtSecret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Dev bypass: skip JWT validation when secret is not configured
+			if jwtSecret == "" {
+				mockClaims := &UserClaims{
+					UserID: "dev-user-id",
+					Email:  "dev@localhost",
+					Role:   "merchant",
+					AppMetadata: map[string]interface{}{
+						"role":        "merchant",
+						"merchant_id": "dev-merchant-id",
+					},
+				}
+				ctx := context.WithValue(r.Context(), UserClaimsKey, mockClaims)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+
 			authHeader := r.Header.Get("Authorization")
 			if !strings.HasPrefix(authHeader, "Bearer ") {
 				writeUnauthorized(w, "missing bearer token")

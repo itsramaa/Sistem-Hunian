@@ -2,7 +2,6 @@ import { PasswordStrengthMeter } from '@/features/auth/components/PasswordStreng
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { getAuthErrorMessage } from '@/features/auth/utils/auth-errors';
 import { referralService } from '@/features/referrals/services/referralService';
-import { supabase } from '@/lib/integrations/supabase/client';
 import { apiClient } from '@/lib/axios';
 import { Button } from '@/shared/components/ui/button';
 import { Checkbox } from '@/shared/components/ui/checkbox';
@@ -302,16 +301,12 @@ export function AuthForm() {
       return null;
     }
     
-    const { data, error } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('merchant_code', normalizedCode)
-      .single();
-    
-    if (error || !data) {
+    try {
+      const { data } = await apiClient.get<{ id: string }>(`/merchants/by-code/${normalizedCode}`);
+      return data?.id ?? null;
+    } catch {
       return null;
     }
-    return data.id;
   };
 
   const handleSignup = async (data: SignupFormData) => {
@@ -370,18 +365,10 @@ export function AuthForm() {
       // Send notification to merchant
       if (linkedMerchantId) {
         try {
-          const { data: merchantData } = await supabase
-            .from('merchants')
-            .select('user_id, business_name')
-            .eq('id', linkedMerchantId)
-            .single();
+          const { data: merchantData } = await apiClient.get<{ user_id: string; business_name: string }>(`/merchants/${linkedMerchantId}`);
           
           if (merchantData) {
-            const { data: merchantProfile } = await supabase
-              .from('profiles')
-              .select('email, full_name')
-              .eq('user_id', merchantData.user_id)
-              .single();
+            const { data: merchantProfile } = await apiClient.get<{ email: string; full_name: string | null }>(`/users/${merchantData.user_id}/profile`);
             
             if (merchantProfile?.email) {
               await apiClient.post('/notifications', {
@@ -404,6 +391,7 @@ export function AuthForm() {
         } catch {
           // Failed to send tenant registration notification - silently handle
         }
+
       }
     }
     

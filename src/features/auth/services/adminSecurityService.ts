@@ -1,5 +1,4 @@
 import { apiClient } from '@/lib/axios';
-import { supabase } from '@/lib/integrations/supabase/client';
 import { createAuditLog } from '@/shared/utils/auditLog';
 import * as OTPAuth from 'otpauth';
 
@@ -15,17 +14,16 @@ export const adminSecurityService = {
   },
 
   async get2FAStatus(userId: string) {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('admin_2fa_enabled')
-      .eq('user_id', userId)
-      .single();
-    
-    if (error) throw error;
-    return data?.admin_2fa_enabled || false;
+    try {
+      const { data } = await apiClient.get<{ admin_2fa_enabled: boolean }>(`/users/${userId}/2fa-status`);
+      return data?.admin_2fa_enabled || false;
+    } catch (error) {
+      throw error;
+    }
   },
 
   async enable2FA(userId: string, secret: string, token: string) {
+    // TODO: implement Go endpoint for 2FA enable
     // Verify the TOTP code before enabling
     const totp = new OTPAuth.TOTP({
       issuer: 'Sistem Hunian',
@@ -42,15 +40,7 @@ export const adminSecurityService = {
       throw new Error('Kode verifikasi tidak valid. Silakan coba lagi.');
     }
     
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        admin_2fa_enabled: true,
-        admin_2fa_secret: secret,
-      })
-      .eq('user_id', userId);
-    
-    if (error) throw error;
+    await apiClient.post(`/users/${userId}/2fa/enable`, { secret });
     
     await createAuditLog({
       action: 'enable_2fa',
@@ -62,15 +52,8 @@ export const adminSecurityService = {
   },
 
   async disable2FA(userId: string) {
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        admin_2fa_enabled: false,
-        admin_2fa_secret: null,
-      })
-      .eq('user_id', userId);
-    
-    if (error) throw error;
+    // TODO: implement Go endpoint for 2FA disable
+    await apiClient.post(`/users/${userId}/2fa/disable`);
     
     await createAuditLog({
       action: 'disable_2fa',

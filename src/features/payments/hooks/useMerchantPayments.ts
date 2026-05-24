@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { useToast } from '@/shared/hooks/use-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Invoice, Payment } from '../types';
@@ -6,21 +6,15 @@ import { Invoice, Payment } from '../types';
 export function useMerchantPayments(merchantId: string | undefined) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
   // Fetch payments
   const { data: payments = [], isLoading: paymentsLoading } = useQuery({
     queryKey: ['payments', merchantId],
     queryFn: async () => {
       if (!merchantId) return [];
-      const { data, error } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('merchant_id', merchantId)
-        .order('due_date', { ascending: false });
-      
-      if (error) throw error;
-      return data as Payment[];
+      const response = await apiClient.get('/v1/payments', { params: { merchant_id: merchantId, sort: 'due_date:desc' } });
+      return (response.data.data || []) as Payment[];
     },
     enabled: !!merchantId,
   });
@@ -31,31 +25,10 @@ export function useMerchantPayments(merchantId: string | undefined) {
     queryFn: async () => {
       if (!merchantId) return [];
       const today = new Date().toISOString().split('T')[0];
-      
-      // Step 1: Fetch overdue invoices
-      const { data: invoices, error: invoicesError } = await supabase
-        .from('invoices')
-        .select('id, invoice_number, amount, total_amount, late_fee, due_date, tenant_user_id, overdue_since, grace_period_active')
-        .eq('merchant_id', merchantId)
-        .eq('status', 'pending')
-        .lt('due_date', today)
-        .order('due_date', { ascending: true });
-      
-      if (invoicesError) throw invoicesError;
-      if (!invoices?.length) return [];
-
-      // Step 2: Fetch invoice_ids that have active payment plans
-      const { data: activePlans, error: plansError } = await supabase
-        .from('payment_plans')
-        .select('invoice_id')
-        .eq('merchant_id', merchantId)
-        .in('status', ['pending_acceptance', 'active', 'accepted']);
-      
-      if (plansError) throw plansError;
-
-      // Step 3: Filter out invoices with active plans
-      const planInvoiceIds = new Set((activePlans || []).map(p => p.invoice_id));
-      return invoices.filter(inv => !planInvoiceIds.has(inv.id)) as Invoice[];
+      const response = await apiClient.get('/v1/billing/invoices', {
+        params: { merchant_id: merchantId, status: 'pending', due_before: today, exclude_with_active_plans: true, sort: 'due_date:asc' },
+      });
+      return (response.data.data || []) as Invoice[];
     },
     enabled: !!merchantId,
   });
@@ -64,23 +37,14 @@ export function useMerchantPayments(merchantId: string | undefined) {
     mutationFn: async ({ id, payment_method, reference, proof_photo_url }: { id: string; payment_method: string; reference: string; proof_photo_url?: string }) => {
       const payment = payments.find(p => p.id === id);
       if (!payment) throw new Error('Payment not found');
-      
-      if (payment.status === 'paid') {
-        throw new Error('This payment is already marked as paid');
-      }
+      if (payment.status === 'paid') throw new Error('This payment is already marked as paid');
 
-      const { error } = await supabase
-        .from('payments')
-        .update({
-          status: 'paid',
-          payment_method,
-          reference: reference || null,
-          paid_at: new Date().toISOString(),
-          proof_photo_url: proof_photo_url || null,
-        })
-        .eq('id', id);
-      
-      if (error) throw error;
+      await apiClient.patch(`/v1/payments/${id}/mark-paid`, {
+        payment_method,
+        reference: reference || null,
+        paid_at: new Date().toISOString(),
+        proof_photo_url: proof_photo_url || null,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
@@ -95,22 +59,11 @@ export function useMerchantPayments(merchantId: string | undefined) {
     mutationFn: async (paymentId: string) => {
       const payment = payments.find(p => p.id === paymentId);
       if (!payment) throw new Error('Payment not found');
-
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/send-payment-reminder`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          paymentId,
-          tenantUserId: payment.tenant_user_id,
-          type: 'manual'
-        }),
+      const response = await apiClient.post(`/v1/payments/${paymentId}/send-reminder`, {
+        tenantUserId: payment.tenant_user_id,
+        type: 'manual',
       });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to send reminder');
-      }
-      return response.json();
+      return response.data;
     },
     onSuccess: () => {
       toast({ title: 'Reminder sent', description: 'Payment reminder sent to tenant' });
@@ -122,16 +75,8 @@ export function useMerchantPayments(merchantId: string | undefined) {
 
   const sendBulkReminderMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/check-overdue-escalation`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source: 'manual', merchantId }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to send reminders');
-      }
-      return response.json();
+      const response = await apiClient.post('/v1/payments/bulk-remind', { source: 'manual', merchantId });
+      return response.data;
     },
     onSuccess: (data) => {
       const processed = data.processed || 0;
@@ -160,13 +105,10 @@ export function useMerchantPayments(merchantId: string | undefined) {
       status: string;
       proof_photo_url?: string | null;
     }) => {
-      const { error } = await supabase
-        .from('payments')
-        .insert({
-          ...payload,
-          paid_at: payload.status === 'paid' ? new Date().toISOString() : null,
-        });
-      if (error) throw error;
+      await apiClient.post('/v1/payments', {
+        ...payload,
+        paid_at: payload.status === 'paid' ? new Date().toISOString() : null,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });

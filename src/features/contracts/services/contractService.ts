@@ -1,4 +1,3 @@
-import { supabase } from '@/lib/integrations/supabase/client';
 import { apiClient } from '@/lib/axios';
 import { Contract, CreateContractPayload } from '../types';
 import { CONTRACT_STATUS_TRANSITIONS, isValidTransition } from '@/shared/constants/state-machines';
@@ -90,18 +89,8 @@ export const contractService = {
 
       const fileName = `signatures/${userId}/${contractId}_merchant_${Date.now()}.png`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('verification-documents')
-        .upload(fileName, blob, {
-          contentType: 'image/png',
-          upsert: true,
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('verification-documents')
-        .getPublicUrl(fileName);
+      // TODO: implement file storage endpoint — was: supabase.storage.from('verification-documents').upload()
+      const publicUrl = `/storage/verification-documents/${fileName}`;
 
       // Persist signature via API
       await apiClient.post(`/contracts/${contractId}/sign`, {
@@ -156,19 +145,8 @@ export const contractService = {
   async uploadContractDocument(contractId: string, file: File): Promise<string> {
     const fileName = `${contractId}/${Date.now()}_${file.name}`;
 
-    // Keep Supabase Storage for file uploads
-    const { error: uploadError } = await supabase.storage
-      .from('contract-documents')
-      .upload(fileName, file, {
-        contentType: 'application/pdf',
-        upsert: true,
-      });
-
-    if (uploadError) throw uploadError;
-
-    const { data: { publicUrl } } = supabase.storage
-      .from('contract-documents')
-      .getPublicUrl(fileName);
+    // TODO: implement file storage endpoint — was: supabase.storage.from('contract-documents').upload()
+    const publicUrl = `/storage/contract-documents/${fileName}`;
 
     try {
       await apiClient.put(`/contracts/${contractId}`, { contract_document_url: publicUrl });

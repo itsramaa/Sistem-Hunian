@@ -1,5 +1,5 @@
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { Button } from "@/shared/components/ui/button";
 import { WebcamCaptureDialog } from "@/shared/components/WebcamCaptureDialog";
 import { useIsMobile } from "@/shared/hooks/use-mobile";
@@ -45,11 +45,18 @@ export const FileUpload = ({
         ? `${user.id}/${folder}/${Date.now()}.${ext}`
         : `${user.id}/${Date.now()}.${ext}`;
 
-      const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, blob);
-      if (uploadError) throw uploadError;
+      // TODO: implement file storage endpoint — was: supabase.storage.from(bucket).upload(filePath, blob)
+      const formData = new FormData();
+      formData.append('file', blob, `upload.${ext}`);
+      formData.append('bucket', bucket);
+      formData.append('path', filePath);
 
-      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
-      onUploadComplete(urlData.publicUrl, filePath);
+      const r = await apiClient.post('/storage/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const publicUrl: string = r.data?.url ?? '';
+
+      onUploadComplete(publicUrl, filePath);
       toast.success("File uploaded successfully");
     } catch (error) {
       const err = error as Error;
@@ -89,21 +96,22 @@ export const FileUpload = ({
 
     try {
       const fileExt = file.name.split(".").pop();
-      const filePath = folder 
+      const filePath = folder
         ? `${user.id}/${folder}/${Date.now()}.${fileExt}`
         : `${user.id}/${Date.now()}.${fileExt}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(filePath, file);
+      // TODO: implement file storage endpoint — was: supabase.storage.from(bucket).upload(filePath, file)
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('bucket', bucket);
+      formData.append('path', filePath);
 
-      if (uploadError) throw uploadError;
+      const r = await apiClient.post('/storage/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const publicUrl: string = r.data?.url ?? '';
 
-      const { data: urlData } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(filePath);
-
-      onUploadComplete(urlData.publicUrl, filePath);
+      onUploadComplete(publicUrl, filePath);
       toast.success("File uploaded successfully");
     } catch (error) {
       const err = error as Error;
@@ -259,11 +267,16 @@ export const ImageGalleryUpload = ({
         const fileExt = file.name.split(".").pop();
         const filePath = `${user.id}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
 
-        const { error } = await supabase.storage.from(bucket).upload(filePath, file);
-        if (error) throw error;
+        // TODO: implement file storage endpoint — was: supabase.storage.from(bucket).upload(filePath, file)
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('bucket', bucket);
+        formData.append('path', filePath);
 
-        const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
-        newImages.push(urlData.publicUrl);
+        const r = await apiClient.post('/storage/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        newImages.push(r.data?.url ?? '');
       }
 
       onImagesChange([...images, ...newImages]);
@@ -281,10 +294,16 @@ export const ImageGalleryUpload = ({
     setIsUploading(true);
     try {
       const filePath = `${user.id}/${folder}/${Date.now()}.jpg`;
-      const { error } = await supabase.storage.from(bucket).upload(filePath, blob);
-      if (error) throw error;
-      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
-      onImagesChange([...images, urlData.publicUrl]);
+      // TODO: implement file storage endpoint — was: supabase.storage.from(bucket).upload(filePath, blob)
+      const formData = new FormData();
+      formData.append('file', blob, 'webcam.jpg');
+      formData.append('bucket', bucket);
+      formData.append('path', filePath);
+
+      const r = await apiClient.post('/storage/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      onImagesChange([...images, r.data?.url ?? '']);
       toast.success('Photo captured and uploaded');
     } catch (error) {
       const err = error as Error;
@@ -316,7 +335,7 @@ export const ImageGalleryUpload = ({
             </Button>
           </div>
         ))}
-        
+
         {images.length < maxImages && (
           <div className="relative aspect-square rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors">
             <input

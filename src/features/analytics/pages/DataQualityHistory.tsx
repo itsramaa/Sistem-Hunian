@@ -14,7 +14,6 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useDataQualityCheck, useLatestQualityCheck, useOverrideValidation, useMarkFinalValidated, useDataVersions, useRestoreVersion } from '@/features/properties/hooks/useDataQuality';
 import { propertyService } from '@/features/properties/services/propertyService';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/integrations/supabase/client';
 import type { ValidationResult, QualityCheckResult } from '@/features/properties/services/dataQualityService';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
@@ -63,8 +62,8 @@ export default function DataQualityHistory({ propertyId: propPropertyId }: DataQ
   const { data: units } = useQuery({
     queryKey: ['units-for-property', selectedPropertyId],
     queryFn: async () => {
-      const { data } = await supabase.from('units').select('id, unit_number').eq('property_id', selectedPropertyId).order('unit_number');
-      return data || [];
+      // TODO: Go endpoint not yet implemented — was: supabase.from('units').select(...)
+      return [];
     },
     enabled: !!selectedPropertyId,
   });
@@ -76,15 +75,8 @@ export default function DataQualityHistory({ propertyId: propPropertyId }: DataQ
   const { data: auditLogs } = useQuery({
     queryKey: ['audit-logs-property', selectedPropertyId],
     queryFn: async () => {
-      const entityIds = [selectedPropertyId, ...(units?.map(u => u.id) || [])];
-      const { data } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .in('entity_id', entityIds)
-        .in('entity_type', ['property', 'unit'])
-        .order('created_at', { ascending: false })
-        .limit(50);
-      return data || [];
+      // TODO: Go endpoint not yet implemented — was: supabase.from('audit_logs').select(...)
+      return [];
     },
     enabled: !!selectedPropertyId && !!units,
   });

@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { TenantLayout } from "@/shared/components/layouts/TenantLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
@@ -41,20 +41,16 @@ export default function TenantMarketplace() {
   const { data: serviceCategories } = useQuery({
     queryKey: ["vendor-service-categories"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("vendors")
-        .select("service_categories")
-        .eq("verification_status", "verified");
-      
-      if (error) throw error;
-      
-      // Extract unique categories
-      const categories = new Set<string>();
-      data?.forEach((v) => {
-        v.service_categories?.forEach((cat: string) => categories.add(cat));
-      });
-      
-      return ["All", ...Array.from(categories).sort()];
+      try {
+        const r = await apiClient.get('/vendors', { params: { verification_status: 'verified', fields: 'service_categories' } });
+        const categories = new Set<string>();
+        (r.data as { service_categories: string[] | null }[])?.forEach((v) => {
+          v.service_categories?.forEach((cat: string) => categories.add(cat));
+        });
+        return ["All", ...Array.from(categories).sort()];
+      } catch (err) {
+        throw err;
+      }
     },
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
@@ -63,28 +59,17 @@ export default function TenantMarketplace() {
   const { data: tenantLocation } = useQuery({
     queryKey: ["tenant-location", user?.id],
     queryFn: async () => {
-      const { data: contract } = await supabase
-        .from("contracts")
-        .select(`
-          units:unit_id (
-            properties:property_id (
-              city,
-              province
-            )
-          )
-        `)
-        .eq("tenant_user_id", user?.id)
-        .eq("status", "active")
-        .maybeSingle();
-      
-      if (contract?.units?.properties) {
-        const props = contract.units.properties as { city?: string; province?: string };
-        return {
-          city: props.city || null,
-          province: props.province || null,
-        };
+      try {
+        const r = await apiClient.get('/contracts', { params: { tenant_user_id: user?.id, status: 'active', limit: 1 } });
+        const contract = r.data?.[0];
+        if (contract?.units?.properties) {
+          const props = contract.units.properties as { city?: string; province?: string };
+          return { city: props.city || null, province: props.province || null };
+        }
+        return null;
+      } catch (err) {
+        return null;
       }
-      return null;
     },
     enabled: !!user?.id,
   });
@@ -93,13 +78,12 @@ export default function TenantMarketplace() {
   const { data: vendors, isLoading, error, refetch } = useQuery({
     queryKey: ["marketplace-vendors"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("vendors")
-        .select("id, business_name, description, service_categories, rating, total_jobs, city, province")
-        .eq("verification_status", "verified")
-        .order("rating", { ascending: false, nullsFirst: false });
-      if (error) throw error;
-      return data as Vendor[];
+      try {
+        const r = await apiClient.get('/vendors', { params: { verification_status: 'verified', order: 'rating.desc' } });
+        return r.data as Vendor[];
+      } catch (err) {
+        throw err;
+      }
     },
   });
 
