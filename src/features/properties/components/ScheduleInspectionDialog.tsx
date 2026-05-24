@@ -11,7 +11,21 @@ import { toast } from "sonner";
 import { format, addDays, setHours, setMinutes } from "date-fns";
 import { CalendarIcon, Clock } from "lucide-react";
 import { cn } from "@/shared/utils/utils";
-import { MoveOutNotice } from "@/features/contracts/types";
+
+interface MoveOutNotice {
+  id: string;
+  contract_id: string;
+  tenant_user_id: string;
+  intended_move_out_date: string;
+  reason: string;
+  status: string;
+  contract?: {
+    unit?: {
+      unit_number: string;
+      property?: { name: string } | null;
+    } | null;
+  };
+}
 
 interface ScheduleInspectionDialogProps {
   open: boolean;

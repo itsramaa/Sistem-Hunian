@@ -10,7 +10,7 @@ type Contract struct {
 	UnitID        string     `json:"unit_id"`
 	StartDate     time.Time  `json:"start_date"`
 	EndDate       *time.Time `json:"end_date,omitempty"`
-	Status        string     `json:"status"`         // active, terminated, expired
+	Status        string     `json:"status"`        // active, terminated, expired
 	DepositAmount float64    `json:"deposit_amount"`
 	DepositStatus string     `json:"deposit_status"` // held, refunded, forfeited
 	CreatedAt     time.Time  `json:"created_at"`

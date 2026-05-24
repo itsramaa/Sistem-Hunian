@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/itsramaa/sihuni-api/internal/model"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/itsramaa/sihuni-api/internal/model"
 )
 
 // SubscriptionRepo handles database operations for subscriptions and tiers.
@@ -49,7 +49,7 @@ func (r *SubscriptionRepo) ListSubscriptions(ctx context.Context, merchantID str
 	return subs, nil
 }
 
-// GetSubscription returns a single subscription by ID scoped to a merchant.
+// GetSubscription returns a single subscription by ID, scoped to merchantID.
 func (r *SubscriptionRepo) GetSubscription(ctx context.Context, id, merchantID string) (*model.Subscription, error) {
 	var s model.Subscription
 	err := r.pool.QueryRow(ctx, `
@@ -139,8 +139,7 @@ func (r *SubscriptionRepo) ListTiers(ctx context.Context) ([]model.SubscriptionT
 	return tiers, nil
 }
 
-// ProcessPayment records a subscription payment and updates the subscription period.
-// The subscription is scoped to the given merchantID for security.
+// ProcessPayment records a subscription payment and extends the subscription period.
 // TODO: integrate with Xendit invoice creation for real payment flow.
 func (r *SubscriptionRepo) ProcessPayment(ctx context.Context, id, merchantID string, req model.SubscriptionPaymentRequest) (*model.Subscription, error) {
 	tx, err := r.pool.Begin(ctx)

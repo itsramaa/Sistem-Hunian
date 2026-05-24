@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/itsramaa/sihuni-api/internal/model"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/itsramaa/sihuni-api/internal/model"
 )
 
 // ContractRepo handles database operations for contracts and move-out notices.
@@ -18,7 +18,7 @@ func NewContractRepo(pool *pgxpool.Pool) *ContractRepo {
 	return &ContractRepo{pool: pool}
 }
 
-// ListContracts returns all contracts for a given merchant.
+// ListContracts returns all contracts scoped to a merchant.
 func (r *ContractRepo) ListContracts(ctx context.Context, merchantID string) ([]model.Contract, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, merchant_id, tenant_user_id, unit_id,
@@ -71,34 +71,51 @@ func (r *ContractRepo) GetContract(ctx context.Context, id, merchantID string) (
 	return &c, nil
 }
 
-// ProcessDepositRefund updates the deposit status for a contract.
-// It sets deposit_status to "refunded" or "forfeited" and records the action.
-func (r *ContractRepo) ProcessDepositRefund(ctx context.Context, contractID, merchantID string, req model.DepositRefundRequest) (*model.Contract, error) {
-	depositStatus := "refunded"
-	if req.Action == "forfeit" {
-		depositStatus = "forfeited"
+// ProcessDepositRefund marks the deposit as refunded and records the refund amount.
+// Uses a transaction to update both the contract and insert a refund record.
+func (r *ContractRepo) ProcessDepositRefund(ctx context.Context, id, merchantID string, req model.DepositRefundRequest) (*model.Contract, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("contract_repo: begin tx: %w", err)
 	}
+	defer tx.Rollback(ctx) //nolint:errcheck
 
+	// Update deposit status on the contract
 	var c model.Contract
-	err := r.pool.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		UPDATE contracts
-		SET deposit_status = $1, updated_at = NOW()
-		WHERE id = $2 AND merchant_id = $3
+		SET deposit_status = 'refunded', updated_at = NOW()
+		WHERE id = $1 AND merchant_id = $2
+		  AND deposit_status = 'held'
 		RETURNING id, merchant_id, tenant_user_id, unit_id,
 		          start_date, end_date, status,
 		          deposit_amount, deposit_status, created_at
-	`, depositStatus, contractID, merchantID).Scan(
+	`, id, merchantID).Scan(
 		&c.ID, &c.MerchantID, &c.TenantUserID, &c.UnitID,
 		&c.StartDate, &c.EndDate, &c.Status,
 		&c.DepositAmount, &c.DepositStatus, &c.CreatedAt,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("contract_repo: process deposit refund: %w", err)
+		return nil, fmt.Errorf("contract_repo: update deposit: %w", err)
+	}
+
+	// Record the refund transaction
+	// TODO: integrate with Xendit disbursement for actual payout
+	_, err = tx.Exec(ctx, `
+		INSERT INTO deposit_refunds (contract_id, refund_amount, reason, status)
+		VALUES ($1, $2, $3, 'pending')
+	`, id, req.RefundAmount, req.Reason)
+	if err != nil {
+		return nil, fmt.Errorf("contract_repo: insert refund record: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("contract_repo: commit: %w", err)
 	}
 	return &c, nil
 }
 
-// ListMoveOuts returns all move-out notices for a given merchant.
+// ListMoveOuts returns all move-out notices scoped to a merchant.
 func (r *ContractRepo) ListMoveOuts(ctx context.Context, merchantID string) ([]model.MoveOutNotice, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, contract_id, merchant_id, tenant_user_id,
@@ -152,7 +169,9 @@ func (r *ContractRepo) UpdateMoveOutStatus(ctx context.Context, id, merchantID s
 	var m model.MoveOutNotice
 	err := r.pool.QueryRow(ctx, `
 		UPDATE move_out_notices
-		SET status = $1, notes = COALESCE(NULLIF($2, ''), notes), updated_at = NOW()
+		SET status = $1,
+		    notes = CASE WHEN $2 != '' THEN $2 ELSE notes END,
+		    updated_at = NOW()
 		WHERE id = $3 AND merchant_id = $4
 		RETURNING id, contract_id, merchant_id, tenant_user_id,
 		          move_out_date, status, COALESCE(notes, ''), created_at

@@ -1,9 +1,10 @@
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { useMerchantContracts } from '@/features/contracts/hooks/useMerchantContracts';
 import { useMerchantInvoices } from '@/features/payments/hooks/useMerchantInvoices';
 import { Invoice } from '@/features/payments/types';
 import { useToast } from '@/shared/hooks/use-toast';
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/integrations/supabase/client';
 
 export function useInvoiceActions() {
   const { merchant } = useAuth();
@@ -21,8 +22,20 @@ export function useInvoiceActions() {
     generatePdfMutation,
   } = useMerchantInvoices(merchant?.id);
 
-  const { contracts: allContracts = [] } = useMerchantContracts(merchant?.id);
-  const activeContracts = allContracts.filter(c => c.status === 'active');
+  const { data: allContracts = [] } = useQuery({
+    queryKey: ['merchant-contracts', merchant?.id],
+    queryFn: async () => {
+      if (!merchant?.id) return [];
+      const { data, error } = await supabase
+        .from('contracts')
+        .select('id, tenant_user_id, rent_amount, status, unit:units(unit_number, property:properties(name))')
+        .eq('merchant_id', merchant.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!merchant?.id,
+  });
+  const activeContracts = allContracts.filter((c: any) => c.status === 'active');
 
   const handleCreateInvoice = async (data: {
     contract_id: string;

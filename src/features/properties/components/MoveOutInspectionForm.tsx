@@ -13,7 +13,22 @@ import { toast } from "sonner";
 import { format, addDays } from "date-fns";
 import { Camera, CheckCircle2, AlertTriangle, Wallet } from "lucide-react";
 import { SignaturePad } from "@/features/signature/components/SignaturePad";
-import { MoveOutNotice } from "@/features/contracts/types";
+
+interface MoveOutNotice {
+  id: string;
+  contract_id: string;
+  tenant_user_id: string;
+  intended_move_out_date: string;
+  reason: string;
+  status: string;
+  contract?: {
+    deposit_amount?: number;
+    unit?: {
+      unit_number: string;
+      property?: { name: string } | null;
+    } | null;
+  };
+}
 
 interface MoveOutInspectionFormProps {
   open: boolean;

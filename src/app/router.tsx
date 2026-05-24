@@ -42,8 +42,7 @@ const MerchantInvoiceDetail = lazy(() => import("@/features/billing/pages/Invoic
 const MerchantInvoices = lazy(() => import("@/features/billing/pages/Invoices"));
 const MerchantMaintenance = lazy(() => import("@/features/maintenance/pages/Maintenance"));
 const MerchantMaintenanceDetail = lazy(() => import("@/features/maintenance/pages/MaintenanceDetail"));
-const MerchantMoveOuts = lazy(() => import("@/features/contracts/pages/MoveOuts"));
-const MerchantMoveOutDetail = lazy(() => import("@/features/contracts/pages/MoveOutDetail"));
+
 const MerchantPaymentDetail = lazy(() => import("@/features/payments/pages/PaymentDetail"));
 const MerchantPayments = lazy(() => import("@/features/payments/pages/Payments"));
 const MerchantProfile = lazy(() => import("@/features/profile/pages/Profile"));
@@ -142,8 +141,8 @@ export function AppRouter() {
         <Route path="units/:id" element={<MerchantUnitDetail />} />
         <Route path="guardians" element={<MerchantGuardians />} />
         <Route path="billing" element={<MerchantBilling />} />
-        <Route path="move-outs" element={<MerchantMoveOuts />} />
-        <Route path="move-outs/:noticeId" element={<MerchantMoveOutDetail />} />
+        <Route path="move-outs" element={<Navigate to="/merchant/tenants" replace />} />
+        <Route path="move-outs/:noticeId" element={<Navigate to="/merchant/tenants" replace />} />
         <Route path="reports" element={<MerchantReports />} />
         <Route path="support" element={<MerchantSupport />} />
         <Route path="feedback" element={<MerchantFeedback />} />

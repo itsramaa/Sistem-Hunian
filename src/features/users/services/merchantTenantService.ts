@@ -173,7 +173,6 @@ export const merchantTenantService = {
         merchant_id: merchantId,
       });
       const result = response.data;
-
       if (result?.error) throw new Error(result.error);
       if (!result?.user_id) throw new Error('Gagal mendapatkan ID tenant');
 

@@ -43,36 +43,36 @@ func (s *ContractService) GetContract(ctx context.Context, id, merchantID string
 	if merchantID == "" {
 		return nil, errors.New("contract_service: merchant_id is required")
 	}
-	contract, err := s.repo.GetContract(ctx, id, merchantID)
+	c, err := s.repo.GetContract(ctx, id, merchantID)
 	if err != nil {
-		if isContractNotFound(err) {
+		if contractIsNotFound(err) {
 			return nil, fmt.Errorf("contract_service: not found")
 		}
 		return nil, fmt.Errorf("contract_service: get: %w", err)
 	}
-	return contract, nil
+	return c, nil
 }
 
-// ProcessDepositRefund processes a deposit refund or forfeiture for a contract.
-func (s *ContractService) ProcessDepositRefund(ctx context.Context, contractID, merchantID string, req model.DepositRefundRequest) (*model.Contract, error) {
-	if contractID == "" {
-		return nil, errors.New("contract_service: contract_id is required")
+// ProcessDepositRefund validates and processes a deposit refund for a contract.
+func (s *ContractService) ProcessDepositRefund(ctx context.Context, id, merchantID string, req model.DepositRefundRequest) (*model.Contract, error) {
+	if id == "" {
+		return nil, errors.New("contract_service: id is required")
 	}
 	if merchantID == "" {
 		return nil, errors.New("contract_service: merchant_id is required")
 	}
-	if req.Action != "refund" && req.Action != "forfeit" {
-		return nil, errors.New("contract_service: action must be 'refund' or 'forfeit'")
+	if req.RefundAmount != nil && *req.RefundAmount <= 0 {
+		return nil, errors.New("contract_service: refund_amount must be positive")
 	}
 
-	contract, err := s.repo.ProcessDepositRefund(ctx, contractID, merchantID, req)
+	c, err := s.repo.ProcessDepositRefund(ctx, id, merchantID, req)
 	if err != nil {
-		if isContractNotFound(err) {
-			return nil, fmt.Errorf("contract_service: not found")
+		if contractIsNotFound(err) {
+			return nil, fmt.Errorf("contract_service: not found or deposit already processed")
 		}
-		return nil, fmt.Errorf("contract_service: process deposit refund: %w", err)
+		return nil, fmt.Errorf("contract_service: process refund: %w", err)
 	}
-	return contract, nil
+	return c, nil
 }
 
 // ListMoveOuts returns all move-out notices for a merchant.
@@ -98,14 +98,14 @@ func (s *ContractService) GetMoveOut(ctx context.Context, id, merchantID string)
 	if merchantID == "" {
 		return nil, errors.New("contract_service: merchant_id is required")
 	}
-	notice, err := s.repo.GetMoveOut(ctx, id, merchantID)
+	m, err := s.repo.GetMoveOut(ctx, id, merchantID)
 	if err != nil {
-		if isContractNotFound(err) {
-			return nil, fmt.Errorf("contract_service: move-out not found")
+		if contractIsNotFound(err) {
+			return nil, fmt.Errorf("contract_service: not found")
 		}
 		return nil, fmt.Errorf("contract_service: get move-out: %w", err)
 	}
-	return notice, nil
+	return m, nil
 }
 
 // UpdateMoveOutStatus updates the status of a move-out notice.
@@ -116,23 +116,30 @@ func (s *ContractService) UpdateMoveOutStatus(ctx context.Context, id, merchantI
 	if merchantID == "" {
 		return nil, errors.New("contract_service: merchant_id is required")
 	}
-	validStatuses := map[string]bool{"approved": true, "rejected": true, "completed": true}
+
+	validStatuses := map[string]bool{
+		"approved": true, "rejected": true, "completed": true,
+	}
 	if !validStatuses[req.Status] {
-		return nil, errors.New("contract_service: status must be approved, rejected, or completed")
+		return nil, fmt.Errorf("contract_service: invalid status %q — must be approved, rejected, or completed", req.Status)
 	}
 
-	notice, err := s.repo.UpdateMoveOutStatus(ctx, id, merchantID, req)
+	if s.repo == nil {
+		return nil, errors.New("contract_service: repository not initialized")
+	}
+
+	m, err := s.repo.UpdateMoveOutStatus(ctx, id, merchantID, req)
 	if err != nil {
-		if isContractNotFound(err) {
-			return nil, fmt.Errorf("contract_service: move-out not found")
+		if contractIsNotFound(err) {
+			return nil, fmt.Errorf("contract_service: not found")
 		}
 		return nil, fmt.Errorf("contract_service: update move-out status: %w", err)
 	}
-	return notice, nil
+	return m, nil
 }
 
-// isContractNotFound checks if an error indicates a not-found condition.
-func isContractNotFound(err error) bool {
+// contractIsNotFound checks if an error indicates a not-found condition.
+func contractIsNotFound(err error) bool {
 	if err == nil {
 		return false
 	}

@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"net/http"
 	"strings"
 
@@ -13,27 +12,13 @@ import (
 	"github.com/itsramaa/sihuni-api/internal/service"
 )
 
-// ContractServicer defines the business-logic operations required by ContractHandler.
-// Using an interface here allows the handler to be unit-tested with a mock.
-type ContractServicer interface {
-	ListContracts(ctx context.Context, merchantID string) ([]model.Contract, error)
-	GetContract(ctx context.Context, id, merchantID string) (*model.Contract, error)
-	ProcessDepositRefund(ctx context.Context, id, merchantID string, req model.DepositRefundRequest) (*model.Contract, error)
-	ListMoveOuts(ctx context.Context, merchantID string) ([]model.MoveOutNotice, error)
-	GetMoveOut(ctx context.Context, id, merchantID string) (*model.MoveOutNotice, error)
-	UpdateMoveOutStatus(ctx context.Context, id, merchantID string, req model.UpdateMoveOutStatusRequest) (*model.MoveOutNotice, error)
-}
-
-// Compile-time check: *service.ContractService must satisfy ContractServicer.
-var _ ContractServicer = (*service.ContractService)(nil)
-
 // ContractHandler handles contract and move-out HTTP requests.
 type ContractHandler struct {
-	svc ContractServicer
+	svc *service.ContractService
 }
 
 // NewContractHandler creates a new ContractHandler.
-func NewContractHandler(svc ContractServicer) *ContractHandler {
+func NewContractHandler(svc *service.ContractService) *ContractHandler {
 	return &ContractHandler{svc: svc}
 }
 
@@ -84,8 +69,7 @@ func (h *ContractHandler) GetContract(w http.ResponseWriter, r *http.Request) {
 }
 
 // ProcessDepositRefund handles POST /v1/contracts/{id}/deposit-refund
-// Processes a deposit refund or forfeiture for a contract.
-// Replaces the process-deposit-refund edge function.
+// Processes a deposit refund for a contract (replaces process-deposit-refund edge function).
 func (h *ContractHandler) ProcessDepositRefund(w http.ResponseWriter, r *http.Request) {
 	merchantID := middleware.GetMerchantID(r)
 	if merchantID == "" {
@@ -107,11 +91,11 @@ func (h *ContractHandler) ProcessDepositRefund(w http.ResponseWriter, r *http.Re
 
 	contract, err := h.svc.ProcessDepositRefund(r.Context(), id, merchantID, req)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			response.APIError(w, apierror.NotFound("contract not found"))
+		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "already processed") {
+			response.APIError(w, apierror.NotFound("contract not found or deposit already processed"))
 			return
 		}
-		if strings.Contains(err.Error(), "action must be") {
+		if strings.Contains(err.Error(), "positive") {
 			response.APIError(w, apierror.BadRequest(err.Error()))
 			return
 		}
@@ -195,7 +179,7 @@ func (h *ContractHandler) UpdateMoveOutStatus(w http.ResponseWriter, r *http.Req
 			response.APIError(w, apierror.NotFound("move-out notice not found"))
 			return
 		}
-		if strings.Contains(err.Error(), "status must be") {
+		if strings.Contains(err.Error(), "invalid status") {
 			response.APIError(w, apierror.BadRequest(err.Error()))
 			return
 		}

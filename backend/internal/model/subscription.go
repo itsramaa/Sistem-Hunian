@@ -26,6 +26,16 @@ type SubscriptionTier struct {
 	IsActive         bool `json:"is_active"`
 }
 
+// CreateSubscriptionRequest is the request body for creating a subscription.
+type CreateSubscriptionRequest struct {
+	TierID string `json:"tier_id"`
+}
+
+// UpdateSubscriptionStatusRequest is the request body for updating subscription status.
+type UpdateSubscriptionStatusRequest struct {
+	Status string `json:"status"` // active, grace_period, expired, cancelled
+}
+
 // SubscriptionPaymentRequest is the request body for processing a subscription payment.
 type SubscriptionPaymentRequest struct {
 	SubscriptionID string  `json:"subscription_id"`

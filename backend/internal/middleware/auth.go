@@ -120,6 +120,16 @@ func GetUserID(r *http.Request) string {
 	return claims.UserID
 }
 
+// GetRole is a convenience helper that extracts the role from the JWT claims.
+// Returns empty string if not present.
+func GetRole(r *http.Request) string {
+	claims := GetUserClaims(r.Context())
+	if claims == nil {
+		return ""
+	}
+	return claims.Role
+}
+
 func writeUnauthorized(w http.ResponseWriter, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusUnauthorized)

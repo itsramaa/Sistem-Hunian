@@ -62,8 +62,8 @@ func New(cfg *config.Config, pool *pgxpool.Pool) http.Handler {
 
 		// Invitation endpoints — public (no auth required)
 		r.Route("/invitations", func(r chi.Router) {
-			r.Get("/{token}", handler.GetInvitation(pool))
-			r.Post("/accept", handler.AcceptInvitation(pool))
+			r.Handle("/{token}", handler.GetInvitation(pool))
+			r.Handle("/accept", handler.AcceptInvitation(pool))
 		})
 
 		// Billing endpoints — JWT required
@@ -84,12 +84,12 @@ func New(cfg *config.Config, pool *pgxpool.Pool) http.Handler {
 		r.Route("/payments", func(r chi.Router) {
 			r.Use(middleware.Authenticate(cfg.JWTSecret))
 
-			r.Post("/xendit/invoice", handler.CreateXenditInvoice(pool, xClient))
+			r.Handle("/xendit/invoice", handler.CreateXenditInvoice(pool, xClient))
 
 			// Disbursement — merchant only
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.RequireRole("merchant", "admin"))
-				r.Post("/xendit/disbursement", handler.CreateDisbursement(pool, xClient))
+				r.Handle("/xendit/disbursement", handler.CreateDisbursement(pool, xClient))
 			})
 		})
 
@@ -148,9 +148,12 @@ func New(cfg *config.Config, pool *pgxpool.Pool) http.Handler {
 			r.Delete("/", handler.DeleteUnit(pool))
 		})
 
-
 		// Subscriptions endpoints — JWT required
-		subHandler := handler.NewSubscriptionHandler(pool)
+		subHandler := handler.NewSubscriptionHandler(
+			service.NewSubscriptionService(
+				repository.NewSubscriptionRepo(pool),
+			),
+		)
 		r.Route("/subscriptions", func(r chi.Router) {
 			r.Use(middleware.Authenticate(cfg.JWTSecret))
 			r.Get("/tiers", subHandler.ListTiers) // any authenticated user
@@ -165,7 +168,6 @@ func New(cfg *config.Config, pool *pgxpool.Pool) http.Handler {
 				})
 			})
 		})
-
 
 		// Waitinglist endpoints — JWT required
 		waitinglistHandler := handler.NewWaitinglistHandler(

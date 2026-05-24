@@ -132,7 +132,7 @@ export function ChatMessageRenderer({
           ) : (
             <div 
               className="prose prose-sm dark:prose-invert max-w-none break-words"
-              dangerouslySetInnerHTML={{ __html: formattedText }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(formattedText) }}
             />
           )}
         </div>

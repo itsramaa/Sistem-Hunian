@@ -322,18 +322,15 @@ export function AuthForm() {
     // If tenant signup (with merchantCode), call auth-webhook to complete setup
     if (!error && signUpData?.user && isTenantSignup) {
       try {
-        const { error: webhookError } = await apiClient.post('/webhooks/auth', {
-            user_id: signUpData.user.id,
-            email: data.email,
-            full_name: data.fullName,
-            phone: data.phone || null,
-            role: 'tenant',
-            merchant_code: data.merchantCode?.toUpperCase(),
-            referral_code: undefined,
-          }).then(() => ({ error: null })).catch((err: any) => ({ error: err }));
-        if (!webhookError) {
-
-        }
+        await apiClient.post('/webhooks/auth', {
+          user_id: signUpData.user.id,
+          email: data.email,
+          full_name: data.fullName,
+          phone: data.phone || null,
+          role: 'tenant',
+          merchant_code: data.merchantCode?.toUpperCase(),
+          referral_code: undefined,
+        });
       } catch {
         // Auth webhook invocation error - silently handle
       }

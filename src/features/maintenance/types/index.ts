@@ -1,5 +1,3 @@
-import { Contract } from '@/features/contracts/types';
-
 export interface MaintenanceRequest {
   id: string;
   title: string;
@@ -29,7 +27,7 @@ export interface MaintenanceRequest {
       address: string;
       merchant_id?: string;
     };
-    contracts?: Pick<Contract, 'status' | 'start_date' | 'end_date' | 'tenant_user_id'>[];
+    contracts?: { status: string; start_date: string; end_date: string; tenant_user_id: string }[];
   };
   assigned_vendor?: {
     business_name: string;
