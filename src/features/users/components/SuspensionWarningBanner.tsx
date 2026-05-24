@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Alert, AlertDescription, AlertTitle } from "@/shared/components/ui/alert";
 import { Button } from "@/shared/components/ui/button";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { differenceInDays } from "date-fns";
 import { AlertTriangle, ExternalLink, Clock } from "lucide-react";
@@ -12,14 +12,9 @@ export function SuspensionWarningBanner() {
   const { data: subscription } = useQuery({
     queryKey: ["merchant-subscription-status", merchant?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("merchant_subscriptions")
-        .select("status, grace_period_end")
-        .eq("merchant_id", merchant?.id)
-        .maybeSingle();
-      
-      if (error) throw error;
-      return data;
+      // TODO: Migrate to Go endpoint — GET /v1/merchants/:id/subscription-status
+      const response = await apiClient.get(`/merchants/${merchant?.id}/subscription-status`);
+      return response.data.data as { status: string; grace_period_end: string | null } | null;
     },
     enabled: !!merchant?.id,
   });
@@ -27,17 +22,12 @@ export function SuspensionWarningBanner() {
   const { data: pendingInvoice } = useQuery({
     queryKey: ["pending-subscription-invoice", merchant?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("subscription_invoices")
-        .select("id, xendit_payment_url, amount")
-        .eq("merchant_id", merchant?.id)
-        .eq("status", "pending")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      if (error) throw error;
-      return data;
+      // TODO: Migrate to Go endpoint — GET /v1/merchants/:id/subscription-invoices?status=pending
+      const response = await apiClient.get(`/merchants/${merchant?.id}/subscription-invoices`, {
+        params: { status: 'pending', limit: 1, sort: 'created_at:desc' },
+      });
+      const data = response.data.data?.[0];
+      return data ? { id: data.id, xendit_payment_url: data.xendit_payment_url, amount: data.amount } : null;
     },
     enabled: !!merchant?.id && subscription?.status === "suspended",
   });

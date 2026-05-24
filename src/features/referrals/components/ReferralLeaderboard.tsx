@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/card';
 import { Badge } from '@/shared/components/ui/badge';
@@ -36,50 +36,15 @@ export function ReferralLeaderboard({ userRole }: ReferralLeaderboardProps) {
 
   const { data: leaderboard, isLoading } = useQuery({
     queryKey: ['referral-leaderboard', userRole],
-    queryFn: async () => {
-      // Get top referrers for this role
-      const { data: referrals, error } = await supabase
-        .from('referrals')
-        .select(`
-          referrer_user_id,
-          profiles!referrals_referrer_user_id_fkey (
-            full_name
-          )
-        `)
-        .eq('referrer_role', userRole)
-        .eq('status', 'completed')
-        .not('referee_user_id', 'is', null);
-
-      if (error) throw error;
-
-      // Count referrals per user
-      const countMap = new Map<string, { count: number; name: string | null }>();
-      
-      referrals?.forEach((r: any) => {
-        const userId = r.referrer_user_id;
-        const name = r.profiles?.full_name || null;
-        const existing = countMap.get(userId);
-        
-        if (existing) {
-          existing.count++;
-        } else {
-          countMap.set(userId, { count: 1, name });
-        }
-      });
-
-      // Convert to array and sort
-      const entries: LeaderboardEntry[] = Array.from(countMap.entries())
-        .map(([user_id, { count, name }]) => ({
-          user_id,
-          full_name: name,
-          referral_count: count,
-          rank: 0,
-        }))
-        .sort((a, b) => b.referral_count - a.referral_count)
-        .slice(0, 10)
-        .map((entry, index) => ({ ...entry, rank: index + 1 }));
-
-      return entries;
+    queryFn: async (): Promise<LeaderboardEntry[]> => {
+      try {
+        const response = await apiClient.get('/referrals/leaderboard', {
+          params: { role: userRole },
+        });
+        return (response.data.data || []) as LeaderboardEntry[];
+      } catch {
+        return [];
+      }
     },
     enabled: !!user?.id,
   });
@@ -89,15 +54,12 @@ export function ReferralLeaderboard({ userRole }: ReferralLeaderboardProps) {
     queryFn: async () => {
       if (!user?.id) return null;
 
-      const { data, error } = await supabase
-        .from('referrals')
-        .select('id')
-        .eq('referrer_user_id', user.id)
-        .eq('status', 'completed')
-        .not('referee_user_id', 'is', null);
-
-      if (error) throw error;
-      return data?.length || 0;
+      try {
+        const response = await apiClient.get('/referrals/stats');
+        return (response.data.data?.completed as number) || 0;
+      } catch {
+        return 0;
+      }
     },
     enabled: !!user?.id,
   });

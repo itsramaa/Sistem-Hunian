@@ -8,7 +8,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { RadioGroup, RadioGroupItem } from "@/shared/components/ui/radio-group";
 import { Label } from "@/shared/components/ui/label";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
-import { supabase } from "@/lib/integrations/supabase/client";
 import { apiClient } from '@/lib/axios';
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useToast } from "@/shared/hooks/use-toast";
@@ -54,26 +53,18 @@ export function SubscriptionPayment() {
   const { data: tiers = [], isLoading: tiersLoading } = useQuery({
     queryKey: ["subscription-tiers"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("subscription_tiers")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true });
-      if (error) throw error;
-      return data as SubscriptionTier[];
+      const response = await apiClient.get('/subscriptions/tiers');
+      return (response.data.data || []) as SubscriptionTier[];
     },
   });
 
   const { data: currentSubscription } = useQuery({
     queryKey: ["merchant-subscription", merchant?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("merchant_subscriptions")
-        .select(`*, tier:subscription_tiers (*)`)
-        .eq("merchant_id", merchant?.id)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
+      const response = await apiClient.get('/subscriptions/current', {
+        params: { merchant_id: merchant?.id },
+      });
+      return response.data.data;
     },
     enabled: !!merchant?.id,
   });
@@ -142,19 +133,13 @@ export function SubscriptionPayment() {
     
     setIsProcessing(true);
     try {
-      const { error } = await (supabase
-        .from("subscription_changes" as any)
-        .insert({
-          merchant_id: merchant.id,
-          from_tier_id: currentSubscription.tier_id,
-          to_tier_id: downgradeTarget.id,
-          change_type: "downgrade",
-          effective_date: currentSubscription.current_period_end,
-          reason: "Usage exceeds target tier limits - scheduled for end of period",
-          status: "pending",
-        } as any) as any);
-
-      if (error) throw error;
+      await apiClient.post('/subscriptions/schedule-downgrade', {
+        merchant_id: merchant.id,
+        from_tier_id: currentSubscription.tier_id,
+        to_tier_id: downgradeTarget.id,
+        effective_date: currentSubscription.current_period_end,
+        reason: "Usage exceeds target tier limits - scheduled for end of period",
+      });
 
       toast({
         title: "Downgrade scheduled",
@@ -183,21 +168,10 @@ export function SubscriptionPayment() {
     try {
       // For free tier, just update directly
       if (selectedTier.price_monthly === 0) {
-        const periodEnd = new Date();
-        periodEnd.setMonth(periodEnd.getMonth() + 1);
-
-        await supabase
-          .from("merchant_subscriptions")
-          .upsert({
-            merchant_id: merchant.id,
-            tier_id: selectedTier.id,
-            status: "active",
-            payment_status: "paid",
-            current_period_start: new Date().toISOString(),
-            current_period_end: periodEnd.toISOString(),
-          }, { onConflict: "merchant_id" });
-
-        // subscription_tier is now managed via merchant_subscriptions table (normalized)
+        await apiClient.post('/subscriptions/activate-free', {
+          merchant_id: merchant.id,
+          tier_id: selectedTier.id,
+        });
 
         queryClient.invalidateQueries({ queryKey: ["merchant-subscription"] });
         toast({ title: "Plan updated!", description: `You are now on the ${selectedTier.display_name} plan.` });

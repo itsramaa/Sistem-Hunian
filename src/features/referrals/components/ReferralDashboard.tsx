@@ -1,6 +1,6 @@
 import { useReferralTracking } from '@/features/analytics/hooks/useAnalytics';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Input } from '@/shared/components/ui/input';
@@ -106,75 +106,32 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
     queryFn: async () => {
       if (!user?.id) return null;
 
-      // Check if user has a referral code
-      const { data: existing, error: fetchError } = await supabase
-        .from('referrals')
-        .select('*')
-        .eq('referrer_user_id', user.id)
-        .is('referee_user_id', null)
-        .maybeSingle();
-
-      if (fetchError) throw fetchError;
-      if (existing) return existing as Referral;
-
-      // Check uniqueness of generated code
-      let code = generateSecureCode();
-      let attempts = 0;
-      const maxAttempts = 5;
-      
-      while (attempts < maxAttempts) {
-        const { data: existingCode } = await supabase
-          .from('referrals')
-          .select('id')
-          .eq('referral_code', code)
-          .maybeSingle();
-        
-        if (!existingCode) break;
-        code = generateSecureCode();
-        attempts++;
+      try {
+        // Get existing referral code or create one via Go API
+        const response = await apiClient.get('/referrals/my-code', {
+          params: { user_id: user.id, role: userRole },
+        });
+        return response.data.data as Referral;
+      } catch (error: any) {
+        throw new Error(error.response?.data?.error?.message || error.message || 'Gagal memuat kode referral');
       }
-
-      // Create new referral entry with secure code
-      const { data: newReferral, error } = await supabase
-        .from('referrals')
-        .insert({
-          referrer_user_id: user.id,
-          referrer_role: userRole,
-          status: 'pending',
-          referral_code: code,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Failed to create referral:', error);
-        throw new Error('Gagal membuat kode referral. Silakan coba lagi.');
-      }
-      return newReferral as Referral;
     },
     enabled: !!user?.id,
     retry: 1,
   });
 
-  // Get referral stats with optimized query
+  // Get referral stats
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery<ReferralStats>({
     queryKey: ['referral-stats', user?.id],
     queryFn: async () => {
       if (!user?.id) return { total: 0, completed: 0, pending: 0 };
 
-      const { data: referrals, error } = await supabase
-        .from('referrals')
-        .select('status')
-        .eq('referrer_user_id', user.id)
-        .not('referee_user_id', 'is', null);
-
-      if (error) throw error;
-
-      const total = referrals?.length || 0;
-      const completed = referrals?.filter(r => r.status === 'completed').length || 0;
-      const pending = referrals?.filter(r => r.status === 'pending').length || 0;
-
-      return { total, completed, pending };
+      try {
+        const response = await apiClient.get('/referrals/stats');
+        return response.data.data as ReferralStats;
+      } catch {
+        return { total: 0, completed: 0, pending: 0 };
+      }
     },
     enabled: !!user?.id,
   });
@@ -185,33 +142,20 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
     queryFn: async () => {
       if (!user?.id) return { items: [], total: 0 };
 
-      let query = supabase
-        .from('referrals')
-        .select(`
-          id,
-          referee_user_id,
-          referee_role,
-          status,
-          created_at,
-          completed_at,
-          profiles!referrals_referee_user_id_fkey (
-            full_name,
-            email
-          )
-        `, { count: 'exact' })
-        .eq('referrer_user_id', user.id)
-        .not('referee_user_id', 'is', null)
-        .order('created_at', { ascending: false });
-
-      const dateFilter = getDateFilter(dateRange);
-      if (dateFilter) {
-        query = query.gte('created_at', dateFilter.toISOString());
+      try {
+        const dateFilter = getDateFilter(dateRange);
+        const response = await apiClient.get('/referrals', {
+          params: {
+            referrer_user_id: user.id,
+            date_from: dateFilter?.toISOString(),
+          },
+        });
+        const items = response.data.data?.items || [];
+        const total = response.data.data?.total || 0;
+        return { items, total };
+      } catch {
+        return { items: [], total: 0 };
       }
-
-      const { data, error, count } = await query;
-
-      if (error) throw error;
-      return { items: data || [], total: count || 0 };
     },
     enabled: !!user?.id,
   });
@@ -222,21 +166,20 @@ export function ReferralDashboard({ userRole }: ReferralDashboardProps) {
     queryFn: async () => {
       if (!user?.id) return { items: [], total: 0 };
 
-      let query = supabase
-        .from('referral_rewards')
-        .select('*', { count: 'exact' })
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      const dateFilter = getDateFilter(dateRange);
-      if (dateFilter) {
-        query = query.gte('created_at', dateFilter.toISOString());
+      try {
+        const dateFilter = getDateFilter(dateRange);
+        const response = await apiClient.get('/referrals/rewards', {
+          params: {
+            user_id: user.id,
+            date_from: dateFilter?.toISOString(),
+          },
+        });
+        const items = (response.data.data?.items || []) as ReferralReward[];
+        const total = response.data.data?.total || 0;
+        return { items, total };
+      } catch {
+        return { items: [], total: 0 };
       }
-
-      const { data, error, count } = await query;
-
-      if (error) throw error;
-      return { items: (data || []) as ReferralReward[], total: count || 0 };
     },
     enabled: !!user?.id,
   });

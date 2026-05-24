@@ -2,7 +2,6 @@ import { PasswordStrengthMeter } from "@/features/auth/components/PasswordStreng
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { INVITATION_ERROR_MESSAGES } from "@/features/auth/utils/auth-errors";
 import { TenantProfileForm } from "@/features/users/components/TenantProfileForm";
-import { supabase } from "@/lib/integrations/supabase/client";
 import { apiClient } from "@/lib/axios";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";

@@ -14,7 +14,7 @@ import { Label } from "@/shared/components/ui/label";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { Checkbox } from "@/shared/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useToast } from "@/shared/hooks/use-toast";
 import { Loader2, AlertTriangle, ChevronRight, ChevronLeft } from "lucide-react";
@@ -53,31 +53,13 @@ export function CancelSubscriptionDialog({
     mutationFn: async () => {
       if (!merchant?.id) throw new Error("No merchant");
 
-      // Insert cancellation feedback
-      const { error: feedbackError } = await supabase
-        .from("cancellation_feedback")
-        .insert({
-          merchant_id: merchant.id,
-          subscription_id: subscriptionId,
-          reason: selectedReason,
-          feedback: feedback || null,
-          would_return: wouldReturn,
-        });
-
-      if (feedbackError) throw feedbackError;
-
-      // Update subscription to request cancellation
-      const { error: subError } = await supabase
-        .from("merchant_subscriptions")
-        .update({
-          cancellation_requested_at: new Date().toISOString(),
-          cancellation_reason: selectedReason,
-          // Cancel at end of current period
-          cancellation_effective_date: null, // Will be set by backend based on current_period_end
-        })
-        .eq("id", subscriptionId);
-
-      if (subError) throw subError;
+      // Submit cancellation via Go API
+      await apiClient.put(`/subscriptions/${subscriptionId}/cancel`, {
+        merchant_id: merchant.id,
+        reason: selectedReason,
+        feedback: feedback || null,
+        would_return: wouldReturn,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["merchant-subscription"] });

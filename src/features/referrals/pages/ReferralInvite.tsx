@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
@@ -55,50 +55,25 @@ export default function ReferralInvite() {
     queryFn: async () => {
       if (!refCode || !isValidCodeFormat) return null;
 
-      // Find the referral code - check if it exists and hasn't been used
-      const { data: referral, error: refError } = await supabase
-        .from('referrals')
-        .select('referrer_user_id, referrer_role, referral_code, referee_user_id')
-        .eq('referral_code', refCode)
-        .is('referee_user_id', null) // Only codes without assigned referee
-        .maybeSingle();
-
-      if (refError || !referral) {
+      try {
+        const response = await apiClient.get('/referrals/validate', {
+          params: { code: refCode },
+        });
+        const data = response.data.data;
+        if (!data) {
+          setErrorType('NOT_FOUND');
+          throw new Error('Referral code not found');
+        }
+        setErrorType(null);
+        return {
+          referrerName: data.name || 'Pengguna SiHuni',
+          referrerRole: data.role,
+          code: refCode,
+        } as ReferralInfo;
+      } catch (err: any) {
         setErrorType('NOT_FOUND');
         throw new Error('Referral code not found');
       }
-
-      // Get referrer's profile
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('user_id', referral.referrer_user_id)
-        .maybeSingle();
-
-      // Get referrer's business name if merchant/vendor
-      let businessName = null;
-      if (referral.referrer_role === 'merchant') {
-        const { data: merchant } = await supabase
-          .from('merchants')
-          .select('business_name')
-          .eq('user_id', referral.referrer_user_id)
-          .maybeSingle();
-        businessName = merchant?.business_name;
-      } else if (referral.referrer_role === 'vendor') {
-        const { data: vendor } = await supabase
-          .from('vendors')
-          .select('business_name')
-          .eq('user_id', referral.referrer_user_id)
-          .maybeSingle();
-        businessName = vendor?.business_name;
-      }
-
-      setErrorType(null);
-      return {
-        referrerName: profile?.full_name || businessName || 'Pengguna SiHuni',
-        referrerRole: referral.referrer_role,
-        code: refCode,
-      };
     },
     enabled: !!refCode && isValidCodeFormat,
     retry: false,
