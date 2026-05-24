@@ -1,461 +1,731 @@
-openapi: "3.0.3"
+openapi: 3.0.3
 info:
-  title: SiHuni API
-  description: |
-    Go REST API for the SiHuni property management platform.
-    Replaces Supabase Edge Functions with a locally-hosted Go service.
-
-    **Auth**: All protected endpoints require a Supabase-issued JWT passed as a Bearer token.
-    Paste your JWT in the Authorize dialog to test endpoints directly.
-  version: "1.0.0"
-  contact:
-    name: SiHuni Backend
-    url: https://github.com/itsramaa/sihuni-api
+  title: Sihuni API
+  version: 1.0.0
+  description: Sistem Hunian — Property Management API
 
 servers:
-  - url: http://localhost:8080
-    description: Local development server
-
-tags:
-  - name: health
-    description: Server health check
-  - name: auth
-    description: Authentication and user bootstrap
-  - name: invitations
-    description: Tenant invitation flow
+  - url: http://localhost:9090
+    description: Local dev
 
 components:
   securitySchemes:
-    BearerAuth:
+    bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Supabase-issued JWT. Obtain from Supabase Auth after sign-in.
 
   schemas:
-    SuccessEnvelope:
+    Error:
       type: object
       properties:
         data:
-          description: Response payload
+          nullable: true
         error:
-          type: "null"
-        meta:
-          $ref: "#/components/schemas/Meta"
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            status: { type: integer }
 
-    ErrorEnvelope:
+    AuthTokens:
       type: object
       properties:
-        data:
-          type: "null"
-        error:
-          $ref: "#/components/schemas/APIError"
+        access_token: { type: string }
+        refresh_token: { type: string }
+        user:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            email: { type: string }
+            role: { type: string, enum: [admin, merchant, tenant, vendor] }
+            full_name: { type: string }
 
-    APIError:
-      type: object
-      required: [code, message, status]
-      properties:
-        code:
-          type: string
-          example: UNAUTHORIZED
-        message:
-          type: string
-          example: missing bearer token
-        status:
-          type: integer
-          example: 401
-
-    Meta:
+    Property:
       type: object
       properties:
-        request_id:
-          type: string
-          format: uuid
+        id: { type: string, format: uuid }
+        merchant_id: { type: string, format: uuid }
+        name: { type: string }
+        address: { type: string }
+        city: { type: string }
+        province: { type: string }
+        type: { type: string, enum: [kos, apartment, ruko, villa] }
+        description: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
 
-    HealthResponse:
+    Unit:
       type: object
       properties:
-        status:
-          type: string
-          example: ok
+        id: { type: string, format: uuid }
+        property_id: { type: string, format: uuid }
+        merchant_id: { type: string, format: uuid }
+        name: { type: string }
+        floor: { type: string }
+        type: { type: string }
+        status: { type: string, enum: [available, occupied, maintenance] }
+        rent_amount: { type: number }
+        description: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
 
-    BootstrapRequest:
+    Invoice:
       type: object
       properties:
-        full_name:
-          type: string
-          example: Budi Santoso
-        phone_number:
-          type: string
-          example: "+6281234567890"
-        role:
-          type: string
-          enum: [merchant, tenant, vendor, admin]
-          example: merchant
+        id: { type: string, format: uuid }
+        merchant_id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        amount: { type: number }
+        status: { type: string, enum: [draft, sent, paid, overdue, cancelled] }
+        due_date: { type: string, format: date }
+        created_at: { type: string, format: date-time }
 
-    BootstrapResponse:
+    Contract:
       type: object
       properties:
-        user_id:
-          type: string
-          format: uuid
-        role:
-          type: string
-          example: merchant
-        status:
-          type: string
-          example: bootstrapped
+        id: { type: string, format: uuid }
+        merchant_id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        unit_id: { type: string, format: uuid }
+        status: { type: string }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+        rent_amount: { type: number }
+        deposit_amount: { type: number }
+        created_at: { type: string, format: date-time }
 
-    ProfileResponse:
+    Notification:
       type: object
       properties:
-        id:
-          type: string
-          format: uuid
-        email:
-          type: string
-          format: email
-        full_name:
-          type: string
-          nullable: true
-        phone_number:
-          type: string
-          nullable: true
-        role:
-          type: string
-          nullable: true
-        created_at:
-          type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        title: { type: string }
+        body: { type: string }
+        type: { type: string }
+        read: { type: boolean }
+        created_at: { type: string, format: date-time }
 
-    Admin2FARequest:
-      type: object
-      required: [code]
-      properties:
-        code:
-          type: string
-          description: TOTP or admin secret code
-          example: "123456"
-
-    Admin2FAResponse:
+    Subscription:
       type: object
       properties:
-        valid:
-          type: boolean
-          example: true
+        id: { type: string, format: uuid }
+        merchant_id: { type: string, format: uuid }
+        tier_id: { type: string, format: uuid }
+        status: { type: string }
+        started_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
 
-    InvitationResponse:
+    Referral:
       type: object
       properties:
-        token:
-          type: string
-          format: uuid
-        email:
-          type: string
-          format: email
-        property_id:
-          type: string
-          format: uuid
-        unit_id:
-          type: string
-          format: uuid
-          nullable: true
-        merchant_id:
-          type: string
-          format: uuid
-        status:
-          type: string
-          enum: [pending, accepted, expired]
-        expires_at:
-          type: string
-          format: date-time
-          nullable: true
-        created_at:
-          type: string
-          format: date-time
+        id: { type: string, format: uuid }
+        referrer_id: { type: string, format: uuid }
+        referee_id: { type: string, format: uuid }
+        code: { type: string }
+        status: { type: string }
+        commission_amount: { type: number }
+        created_at: { type: string, format: date-time }
 
-    AcceptInvitationRequest:
-      type: object
-      required: [token, user_id]
-      properties:
-        token:
-          type: string
-          format: uuid
-          description: Invitation token from the invitation email link
-        user_id:
-          type: string
-          format: uuid
-          description: Supabase Auth user ID of the accepting user
-        full_name:
-          type: string
-          example: Siti Rahayu
-
-    AcceptInvitationResponse:
-      type: object
-      properties:
-        status:
-          type: string
-          example: accepted
-        user_id:
-          type: string
-          format: uuid
-        token:
-          type: string
-          format: uuid
+security:
+  - bearerAuth: []
 
 paths:
   /health:
     get:
-      tags: [health]
+      tags: [System]
       summary: Health check
-      description: Returns server liveness status. No auth required.
-      operationId: getHealth
+      security: []
       responses:
-        "200":
-          description: Server is healthy
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/SuccessEnvelope"
-                  - type: object
-                    properties:
-                      data:
-                        $ref: "#/components/schemas/HealthResponse"
+        '200':
+          description: OK
 
-  /v1/auth/bootstrap:
+  # ── Auth ──────────────────────────────────────────────────────────────────
+  /v1/auth/register:
     post:
-      tags: [auth]
-      summary: Bootstrap user profile
-      description: |
-        Creates or updates the authenticated user's profile and provisions the
-        role-specific record (merchant, tenant, or vendor) if it does not exist.
-        Replaces the `ensure-user-bootstrap` Supabase Edge Function.
-      operationId: bootstrapUser
-      security:
-        - BearerAuth: []
+      tags: [Auth]
+      summary: Register new user
+      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/BootstrapRequest"
+              type: object
+              required: [email, password, role]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                role: { type: string, enum: [merchant, tenant, vendor] }
+                full_name: { type: string }
+                phone_number: { type: string }
       responses:
-        "200":
-          description: User bootstrapped successfully
+        '201':
+          description: Registered
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: "#/components/schemas/SuccessEnvelope"
-                  - type: object
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/AuthTokens' }
+
+  /v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/AuthTokens' }
+
+  /v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token: { type: string }
+      responses:
+        '200':
+          description: New access token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
                     properties:
-                      data:
-                        $ref: "#/components/schemas/BootstrapResponse"
-        "401":
-          description: Missing or invalid JWT
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "500":
-          description: Database error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
+                      access_token: { type: string }
 
   /v1/auth/me:
     get:
-      tags: [auth]
+      tags: [Auth]
       summary: Get current user profile
-      description: Returns the authenticated user's profile from the database.
-      operationId: getMe
-      security:
-        - BearerAuth: []
       responses:
-        "200":
-          description: User profile
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/SuccessEnvelope"
-                  - type: object
-                    properties:
-                      data:
-                        $ref: "#/components/schemas/ProfileResponse"
-        "401":
-          description: Missing or invalid JWT
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "404":
-          description: Profile not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
+        '200':
+          description: Current user
 
-  /v1/auth/admin/2fa/validate:
+  /v1/auth/bootstrap:
     post:
-      tags: [auth]
-      summary: Validate admin 2FA code
-      description: |
-        Validates a TOTP or admin secret code for admin users.
-        Replaces the `validate-admin-secret` Supabase Edge Function.
-        Requires admin role.
-      operationId: validateAdmin2FA
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/Admin2FARequest"
+      tags: [Auth]
+      summary: Bootstrap user profile after registration
       responses:
-        "200":
-          description: Code is valid
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/SuccessEnvelope"
-                  - type: object
-                    properties:
-                      data:
-                        $ref: "#/components/schemas/Admin2FAResponse"
-        "400":
-          description: Missing or invalid request body
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "401":
-          description: Invalid 2FA code or missing JWT
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "403":
-          description: Admin role required
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
+        '200':
+          description: Bootstrapped
 
+  # ── Invitations ───────────────────────────────────────────────────────────
   /v1/invitations/{token}:
     get:
-      tags: [invitations]
+      tags: [Invitations]
       summary: Get invitation by token
-      description: |
-        Returns invitation details for the given token. Public endpoint — no auth required.
-        Replaces the `get-tenant-invitation` Supabase Edge Function.
-      operationId: getInvitation
+      security: []
       parameters:
         - name: token
           in: path
           required: true
-          schema:
-            type: string
-            format: uuid
-          description: Invitation token from the invitation email link
+          schema: { type: string }
       responses:
-        "200":
+        '200':
           description: Invitation details
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/SuccessEnvelope"
-                  - type: object
-                    properties:
-                      data:
-                        $ref: "#/components/schemas/InvitationResponse"
-        "400":
-          description: Missing token
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "404":
-          description: Invitation not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "409":
-          description: Invitation already used
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "410":
-          description: Invitation expired
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
 
   /v1/invitations/accept:
     post:
-      tags: [invitations]
-      summary: Accept tenant invitation
-      description: |
-        Accepts a tenant invitation: creates the tenant profile, tenant record,
-        and marks the invitation as accepted. Public endpoint — no auth required.
-        Replaces the `accept-tenant-invitation` Supabase Edge Function.
-      operationId: acceptInvitation
+      tags: [Invitations]
+      summary: Accept invitation
+      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AcceptInvitationRequest"
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
       responses:
-        "200":
-          description: Invitation accepted
+        '200':
+          description: Accepted
+
+  # ── Properties ────────────────────────────────────────────────────────────
+  /v1/properties:
+    get:
+      tags: [Properties]
+      summary: List properties
+      responses:
+        '200':
+          description: List of properties
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: "#/components/schemas/SuccessEnvelope"
-                  - type: object
-                    properties:
-                      data:
-                        $ref: "#/components/schemas/AcceptInvitationResponse"
-        "400":
-          description: Invalid request body
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "404":
-          description: Invitation not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "409":
-          description: Invitation already used
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "410":
-          description: Invitation expired
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "500":
-          description: Database error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Property' }
+    post:
+      tags: [Properties]
+      summary: Create property
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                address: { type: string }
+                city: { type: string }
+                province: { type: string }
+                type: { type: string }
+                description: { type: string }
+      responses:
+        '201':
+          description: Created
+
+  /v1/properties/{id}:
+    get:
+      tags: [Properties]
+      summary: Get property
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Property detail
+    put:
+      tags: [Properties]
+      summary: Update property
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Property' }
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Properties]
+      summary: Delete property
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Deleted
+
+  /v1/properties/{id}/units:
+    get:
+      tags: [Units]
+      summary: List units for property
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Units list
+    post:
+      tags: [Units]
+      summary: Create unit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                floor: { type: string }
+                type: { type: string }
+                rent_amount: { type: number }
+                description: { type: string }
+      responses:
+        '201':
+          description: Created
+
+  /v1/units/{id}:
+    get:
+      tags: [Units]
+      summary: Get unit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Unit detail
+    put:
+      tags: [Units]
+      summary: Update unit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Unit' }
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Units]
+      summary: Delete unit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Deleted
+
+  # ── Contracts ─────────────────────────────────────────────────────────────
+  /v1/contracts:
+    get:
+      tags: [Contracts]
+      summary: List contracts
+      responses:
+        '200':
+          description: Contracts list
+
+  /v1/contracts/{id}:
+    get:
+      tags: [Contracts]
+      summary: Get contract
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Contract detail
+
+  /v1/contracts/{id}/deposit-refund:
+    post:
+      tags: [Contracts]
+      summary: Process deposit refund
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Processed
+
+  /v1/contracts/move-outs:
+    get:
+      tags: [Contracts]
+      summary: List move-outs
+      responses:
+        '200':
+          description: Move-outs list
+
+  /v1/contracts/move-outs/{id}:
+    get:
+      tags: [Contracts]
+      summary: Get move-out
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Move-out detail
+
+  /v1/contracts/move-outs/{id}/status:
+    put:
+      tags: [Contracts]
+      summary: Update move-out status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Updated
+
+  # ── Billing ───────────────────────────────────────────────────────────────
+  /v1/billing/invoices:
+    get:
+      tags: [Billing]
+      summary: List invoices
+      responses:
+        '200':
+          description: Invoices list
+    post:
+      tags: [Billing]
+      summary: Create invoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tenant_id: { type: string, format: uuid }
+                amount: { type: number }
+                due_date: { type: string, format: date }
+      responses:
+        '201':
+          description: Created
+
+  /v1/billing/invoices/{id}:
+    get:
+      tags: [Billing]
+      summary: Get invoice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Invoice detail
+
+  /v1/billing/invoices/{id}/pdf:
+    get:
+      tags: [Billing]
+      summary: Get invoice PDF
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: PDF file
+
+  /v1/billing/invoices/{id}/status:
+    put:
+      tags: [Billing]
+      summary: Update invoice status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Updated
+
+  # ── Payments ──────────────────────────────────────────────────────────────
+  /v1/payments/xendit/invoice:
+    post:
+      tags: [Payments]
+      summary: Create Xendit payment invoice
+      responses:
+        '201':
+          description: Created
+
+  /v1/payments/xendit/disbursement:
+    post:
+      tags: [Payments]
+      summary: Create Xendit disbursement (merchant/admin only)
+      responses:
+        '201':
+          description: Created
+
+  # ── Notifications ─────────────────────────────────────────────────────────
+  /v1/notifications:
+    get:
+      tags: [Notifications]
+      summary: List notifications
+      responses:
+        '200':
+          description: Notifications list
+    post:
+      tags: [Notifications]
+      summary: Send notification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id: { type: string, format: uuid }
+                title: { type: string }
+                body: { type: string }
+                type: { type: string }
+      responses:
+        '201':
+          description: Sent
+
+  /v1/notifications/{id}/read:
+    put:
+      tags: [Notifications]
+      summary: Mark notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Marked as read
+
+  # ── Subscriptions ─────────────────────────────────────────────────────────
+  /v1/subscriptions/tiers:
+    get:
+      tags: [Subscriptions]
+      summary: List subscription tiers
+      responses:
+        '200':
+          description: Tiers list
+
+  /v1/subscriptions:
+    get:
+      tags: [Subscriptions]
+      summary: List subscriptions (merchant/admin)
+      responses:
+        '200':
+          description: Subscriptions list
+    post:
+      tags: [Subscriptions]
+      summary: Create subscription
+      responses:
+        '201':
+          description: Created
+
+  /v1/subscriptions/{id}:
+    get:
+      tags: [Subscriptions]
+      summary: Get subscription
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Subscription detail
+
+  /v1/subscriptions/{id}/status:
+    put:
+      tags: [Subscriptions]
+      summary: Update subscription status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Updated
+
+  /v1/subscriptions/{id}/pay:
+    post:
+      tags: [Subscriptions]
+      summary: Process subscription payment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Processed
+
+  # ── Referrals ─────────────────────────────────────────────────────────────
+  /v1/referrals:
+    get:
+      tags: [Referrals]
+      summary: List referrals
+      responses:
+        '200':
+          description: Referrals list
+    post:
+      tags: [Referrals]
+      summary: Create referral
+      responses:
+        '201':
+          description: Created
+
+  /v1/referrals/stats:
+    get:
+      tags: [Referrals]
+      summary: Get referral stats
+      responses:
+        '200':
+          description: Stats
+
+  /v1/referrals/{id}:
+    get:
+      tags: [Referrals]
+      summary: Get referral
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Referral detail
+
+  # ── Webhooks ──────────────────────────────────────────────────────────────
+  /v1/webhooks/xendit:
+    post:
+      tags: [Webhooks]
+      summary: Xendit payment webhook
+      security: []
+      responses:
+        '200':
+          description: OK
+
+  /v1/webhooks/xendit/disbursement:
+    post:
+      tags: [Webhooks]
+      summary: Xendit disbursement webhook
+      security: []
+      responses:
+        '200':
+          description: OK
