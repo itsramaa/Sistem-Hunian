@@ -9,6 +9,9 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// ErrInsecureJWTSecret is returned when JWT_SECRET is missing or too short outside development.
+var ErrInsecureJWTSecret = fmt.Errorf("JWT_SECRET must be at least 32 characters in non-development environments")
+
 // Config holds all application configuration loaded from environment variables.
 type Config struct {
 	Port               string
@@ -46,10 +49,18 @@ type Config struct {
 func Load() (*Config, error) {
 	_ = godotenv.Load() // ignore error — .env is optional in prod
 
+	appEnv := getEnv("APP_ENV", "development")
+	jwtSecret := getEnv("JWT_SECRET", getEnv("SUPABASE_JWT_SECRET", ""))
+
+	// #40: Refuse to start with a weak or missing JWT_SECRET outside development.
+	if appEnv != "development" && len(jwtSecret) < 32 {
+		return nil, fmt.Errorf("config: %w (APP_ENV=%s, JWT_SECRET length=%d)", ErrInsecureJWTSecret, appEnv, len(jwtSecret))
+	}
+
 	cfg := &Config{
 		Port:               getEnv("PORT", "8080"),
 		DatabaseURL:        requireEnv("DATABASE_URL"),
-		JWTSecret:          getEnv("JWT_SECRET", getEnv("SUPABASE_JWT_SECRET", "")), // empty = dev bypass
+		JWTSecret:          jwtSecret,
 		JWTAccessTTL:       parseDuration(getEnv("JWT_ACCESS_TTL", "15m")),
 		JWTRefreshTTL:      parseDuration(getEnv("JWT_REFRESH_TTL", "168h")),
 		SupabaseURL:        getEnv("SUPABASE_URL", ""),
@@ -61,7 +72,7 @@ func Load() (*Config, error) {
 		AdminSecret:        getEnv("ADMIN_SECRET", ""),
 		WebhookSecret:      getEnv("WEBHOOK_SECRET", ""),
 		AllowedOrigins:     splitComma(getEnv("ALLOWED_ORIGINS", "http://localhost:5173")),
-		AppEnv:             getEnv("APP_ENV", "development"),
+		AppEnv: appEnv,
 
 		// Redis
 		RedisURL: getEnv("REDIS_URL", "redis://localhost:6379"),
