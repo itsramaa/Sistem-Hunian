@@ -94,6 +94,33 @@ func New(cfg *config.Config, pool *pgxpool.Pool) http.Handler {
 			r.Put("/{id}/read", handler.MarkNotificationRead(pool))
 		})
 
+		// Subscriptions endpoints — JWT required
+		subHandler := handler.NewSubscriptionHandler(pool)
+		r.Route("/subscriptions", func(r chi.Router) {
+			r.Use(middleware.Authenticate(cfg.JWTSecret))
+			r.Get("/tiers", subHandler.ListTiers) // any authenticated user
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RequireRole("merchant", "admin"))
+				r.Get("/", subHandler.ListSubscriptions)
+				r.Post("/", subHandler.CreateSubscription)
+				r.Route("/{id}", func(r chi.Router) {
+					r.Get("/", subHandler.GetSubscription)
+					r.Put("/status", subHandler.UpdateSubscriptionStatus)
+					r.Post("/pay", subHandler.ProcessPayment)
+				})
+			})
+		})
+
+		// Referrals endpoints — JWT required
+		refHandler := handler.NewReferralHandler(pool)
+		r.Route("/referrals", func(r chi.Router) {
+			r.Use(middleware.Authenticate(cfg.JWTSecret))
+			r.Get("/", refHandler.ListReferrals)
+			r.Post("/", refHandler.CreateReferral)
+			r.Get("/stats", refHandler.GetStats)
+			r.Get("/{id}", refHandler.GetReferral)
+		})
+
 		// Cron endpoints — cron secret required (no JWT)
 		r.Route("/cron", func(r chi.Router) {
 			r.Use(middleware.RequireCronSecret(cfg.CronSecret))
@@ -101,6 +128,12 @@ func New(cfg *config.Config, pool *pgxpool.Pool) http.Handler {
 			r.Post("/overdue-escalation", handler.OverdueEscalation(pool))
 			r.Post("/payment-plan-check", handler.PaymentPlanCheck(pool))
 			r.Post("/payment-reminder", handler.PaymentReminder(pool))
+			r.Post("/referral-commissions", refHandler.CronProcessCommissions)
+			r.Post("/referral-reward", refHandler.CronProcessRewards)
+			r.Post("/vendor-order-referral", refHandler.CronProcessVendorOrderReferrals)
+			r.Post("/subscription-billing", subHandler.CronBilling)
+			r.Post("/subscription-renewal", subHandler.CronRenewal)
+			r.Post("/subscription-grace-check", subHandler.CronGraceCheck)
 		})
 	})
 
