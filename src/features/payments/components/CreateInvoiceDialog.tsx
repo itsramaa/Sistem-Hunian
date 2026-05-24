@@ -6,14 +6,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/shared/components/ui/textarea';
 import { formatCurrency } from '@/shared/utils/currency';
 import { useState, useEffect } from 'react';
-import { Contract } from '@/features/contracts/types';
 import { useToast } from '@/shared/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+
+interface ContractForInvoice {
+  id: string;
+  tenant_user_id: string;
+  rent_amount: number;
+  unit?: {
+    unit_number: string;
+    property?: { name: string } | null;
+  } | null;
+}
 
 interface CreateInvoiceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  contracts: Contract[];
+  contracts: ContractForInvoice[];
   merchantId: string;
   onCreate: (data: {
     contract_id: string;

@@ -1,4 +1,4 @@
-import { DocumentLightbox } from "@/features/contracts/components/DocumentLightbox";
+import { DocumentLightbox } from "@/features/users/components/admin/DocumentLightbox";
 import { STATUS_COLORS } from "@/features/users/constants/merchant";
 import { useMerchantVerifications } from "@/features/verification/hooks/useMerchantVerifications";
 import { Badge } from "@/shared/components/ui/badge";

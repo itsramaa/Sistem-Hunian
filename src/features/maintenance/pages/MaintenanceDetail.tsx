@@ -1,5 +1,4 @@
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { getRelevantContract } from '@/features/contracts/utils/contract-utils';
 import { MaintenancePriorityBadge } from '@/features/maintenance/components/MaintenancePriorityBadge';
 import { MaintenanceStatusBadge } from '@/features/maintenance/components/MaintenanceStatusBadge';
 import { SLABadge, getSLAText } from '@/features/maintenance/components/SLABadge';
@@ -145,7 +144,9 @@ export default function MerchantMaintenanceDetail() {
     enabled: !!id,
   });
 
-  const contract = getRelevantContract(request?.unit?.contracts, request?.tenant_user_id);
+  const contracts = request?.unit?.contracts;
+  const contract = contracts?.find(c => c.tenant_user_id === request?.tenant_user_id && (c.status === 'active' || c.status === 'notice'))
+    ?? contracts?.sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime())[0];
   const isContractActive = contract?.status === 'active' || contract?.status === 'notice';
 
   const totalExpenses = expenses.reduce((sum: number, e: any) => sum + (e.total_amount || 0), 0);
