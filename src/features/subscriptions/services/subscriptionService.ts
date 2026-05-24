@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from '@/lib/axios';
 import { createAuditLog } from "@/shared/utils/auditLog";
 import { SubscriptionTier, SubscriptionTierInput } from "../types/subscription-tier";
 import {
@@ -10,41 +11,32 @@ import {
 
 export const subscriptionService = {
   fetchTiers: async (onlyActive = false): Promise<SubscriptionTier[]> => {
-    let query = supabase
-      .from("subscription_tiers")
-      .select("*")
-      .order("sort_order", { ascending: true });
-    
-    if (onlyActive) {
-      query = query.eq("is_active", true);
+    try {
+      const response = await apiClient.get('/subscriptions/tiers', {
+        params: onlyActive ? { is_active: true } : undefined,
+      });
+      return response.data.data as SubscriptionTier[];
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error?.message || error.message || 'Failed to load tiers');
     }
-
-    const { data, error } = await query;
-    if (error) throw new Error(`Failed to load tiers: ${error.message}`);
-    return data as SubscriptionTier[];
   },
 
   fetchMerchants: async (): Promise<SubscriptionMerchant[]> => {
-    const { data, error } = await supabase
-      .from('merchants')
-      .select(`
-        *,
-        merchant_subscriptions (
-          id,
-          status,
-          tier_id,
-          current_period_end,
-          trial_ends_at,
-          subscription_tiers (
-            name,
-            display_name
-          )
-        )
-      `)
-      .order('created_at', { ascending: false });
-    
-    if (error) throw new Error(`Failed to load merchants: ${error.message}`);
-    return data as any as SubscriptionMerchant[];
+    try {
+      const response = await apiClient.get('/subscriptions');
+      return response.data.data as SubscriptionMerchant[];
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error?.message || error.message || 'Failed to load merchants');
+    }
+  },
+
+  getSubscription: async (id: string): Promise<SubscriptionMerchant> => {
+    try {
+      const response = await apiClient.get(`/subscriptions/${id}`);
+      return response.data.data as SubscriptionMerchant;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error?.message || error.message || 'Failed to fetch subscription');
+    }
   },
 
   fetchInvoices: async (): Promise<SubscriptionInvoice[]> => {
