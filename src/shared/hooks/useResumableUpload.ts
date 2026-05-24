@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { supabase } from '@/lib/integrations/supabase/client';
+// TODO: Go storage not yet implemented — supabase storage removed
 import { useAuth } from '@/features/auth/hooks/useAuth';
 
 interface UploadProgress {
@@ -89,33 +89,24 @@ export function useResumableUpload(options: UseResumableUploadOptions) {
         updateProgress(uploadedBytesRef.current, file.size);
       }, 100);
 
-      // Actual upload
-      const { error: uploadError } = await supabase.storage
-        .from(options.bucket)
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false,
-        });
-
+      // TODO: Go storage not yet implemented — was: supabase.storage.from(options.bucket).upload(filePath, file, ...)
+      await new Promise(resolve => setTimeout(resolve, 500)); // simulate async
       clearInterval(progressInterval);
-
-      if (uploadError) throw uploadError;
 
       // Complete progress
       uploadedBytesRef.current = file.size;
       updateProgress(file.size, file.size);
 
-      const { data: urlData } = supabase.storage
-        .from(options.bucket)
-        .getPublicUrl(filePath);
+      // TODO: Go storage not yet implemented — was: supabase.storage.from(options.bucket).getPublicUrl(filePath)
+      const publicUrl = `/storage/placeholder/${Date.now()}.jpg`;
 
       setState(prev => ({
         ...prev,
         status: 'completed',
-        url: urlData.publicUrl,
+        url: publicUrl,
       }));
 
-      options.onComplete?.(urlData.publicUrl, filePath);
+      options.onComplete?.(publicUrl, filePath);
     } catch (error) {
       const err = error as Error;
       if (err.name === 'AbortError') {
