@@ -166,16 +166,6 @@ func New(cfg *config.Config, pool *pgxpool.Pool) http.Handler {
 			})
 		})
 
-		// Referrals endpoints — JWT required
-		refHandler := handler.NewReferralHandler(pool)
-		r.Route("/referrals", func(r chi.Router) {
-			r.Use(middleware.Authenticate(cfg.JWTSecret))
-			r.Get("/", refHandler.ListReferrals)
-			r.Post("/", refHandler.CreateReferral)
-			r.Get("/stats", refHandler.GetStats)
-			r.Get("/{id}", refHandler.GetReferral)
-		})
-
 
 		// Cron endpoints — cron secret required (no JWT)
 		r.Route("/cron", func(r chi.Router) {
@@ -184,9 +174,6 @@ func New(cfg *config.Config, pool *pgxpool.Pool) http.Handler {
 			r.Post("/overdue-escalation", handler.OverdueEscalation(pool))
 			r.Post("/payment-plan-check", handler.PaymentPlanCheck(pool))
 			r.Post("/payment-reminder", handler.PaymentReminder(pool))
-			r.Post("/referral-commissions", refHandler.CronProcessCommissions)
-			r.Post("/referral-reward", refHandler.CronProcessRewards)
-			r.Post("/vendor-order-referral", refHandler.CronProcessVendorOrderReferrals)
 			r.Post("/subscription-billing", subHandler.CronBilling)
 			r.Post("/subscription-renewal", subHandler.CronRenewal)
 			r.Post("/subscription-grace-check", subHandler.CronGraceCheck)
