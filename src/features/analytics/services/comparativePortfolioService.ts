@@ -1,7 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = supabase as any;
+import { apiClient } from "@/lib/axios";
 
 export interface PropertyBenchmark {
   id: string;
@@ -74,128 +71,140 @@ function getOverallRating(occupancyRate: number, pricePos: string): "excellent" 
 }
 
 export async function fetchComparativePortfolioData(merchantId: string): Promise<ComparativePortfolioData> {
-  const [propertiesRes, unitsRes, paymentsRes, expensesRes] = await Promise.all([
-    db.from("properties").select("id, name, address, property_type, total_units, occupied_units").eq("merchant_id", merchantId),
-    db.from("units").select("id, property_id, rent_amount, status").eq("merchant_id", merchantId),
-    db.from("payments").select("amount, status, created_at").eq("merchant_id", merchantId).eq("status", "paid"),
-    db.from("maintenance_expenses").select("total_amount, maintenance_request_id").eq("merchant_id", merchantId),
-  ]);
+  try {
+    const [propertiesRes, unitsRes, paymentsRes, expensesRes] = await Promise.all([
+      apiClient.get('/properties', { params: { merchant_id: merchantId } }),
+      apiClient.get('/units', { params: { merchant_id: merchantId } }),
+      apiClient.get('/payments', { params: { merchant_id: merchantId, status: 'paid' } }),
+      apiClient.get('/maintenance-expenses', { params: { merchant_id: merchantId } }),
+    ]);
 
-  const properties = propertiesRes.data || [];
-  const units = unitsRes.data || [];
-  const payments = paymentsRes.data || [];
-  const expenses = expensesRes.data || [];
+    const properties = propertiesRes.data || [];
+    const units = unitsRes.data || [];
+    const payments = paymentsRes.data || [];
+    const expenses = expensesRes.data || [];
 
-  const totalRevenue = payments.reduce((s: number, p: any) => s + (p.amount || 0), 0);
-  const totalExpenses = expenses.reduce((s: number, e: any) => s + (e.total_amount || 0), 0);
+    const totalRevenue = payments.reduce((s: number, p: any) => s + (p.amount || 0), 0);
+    const totalExpenses = expenses.reduce((s: number, e: any) => s + (e.total_amount || 0), 0);
 
-  // Build per-property data
-  const propertyData: PropertyBenchmark[] = properties.map((prop: any) => {
-    const propUnits = units.filter((u: any) => u.property_id === prop.id);
-    const totalU = propUnits.length || prop.total_units || 0;
-    const occupiedU = propUnits.filter((u: any) => u.status === "occupied").length;
-    const avgRent = totalU > 0 ? propUnits.reduce((s: number, u: any) => s + (u.rent_amount || 0), 0) / totalU : 0;
-    const annualRevenue = propUnits.reduce((s: number, u: any) => s + ((u.rent_amount || 0) * 12), 0);
-    const occupancyRate = totalU > 0 ? (occupiedU / totalU) * 100 : 0;
+    // Build per-property data
+    const propertyData: PropertyBenchmark[] = properties.map((prop: any) => {
+      const propUnits = units.filter((u: any) => u.property_id === prop.id);
+      const totalU = propUnits.length || prop.total_units || 0;
+      const occupiedU = propUnits.filter((u: any) => u.status === "occupied").length;
+      const avgRent = totalU > 0 ? propUnits.reduce((s: number, u: any) => s + (u.rent_amount || 0), 0) / totalU : 0;
+      const annualRevenue = propUnits.reduce((s: number, u: any) => s + ((u.rent_amount || 0) * 12), 0);
+      const occupancyRate = totalU > 0 ? (occupiedU / totalU) * 100 : 0;
 
-    return {
-      id: prop.id,
-      name: prop.name,
-      address: prop.address || "",
-      propertyType: prop.property_type || "kosan",
-      totalUnits: totalU,
-      occupiedUnits: occupiedU,
-      occupancyRate,
-      avgRent,
-      totalRevenue: annualRevenue,
-      totalExpenses: 0,
-      netIncome: annualRevenue,
-      roi: 0,
-      pricePosition: "at" as const,
-      occupancyPosition: "at" as const,
-      overallRating: "average" as const,
+      return {
+        id: prop.id,
+        name: prop.name,
+        address: prop.address || "",
+        propertyType: prop.property_type || "kosan",
+        totalUnits: totalU,
+        occupiedUnits: occupiedU,
+        occupancyRate,
+        avgRent,
+        totalRevenue: annualRevenue,
+        totalExpenses: 0,
+        netIncome: annualRevenue,
+        roi: 0,
+        pricePosition: "at" as const,
+        occupancyPosition: "at" as const,
+        overallRating: "average" as const,
+      };
+    });
+
+    // Calculate averages
+    const avgRent = propertyData.length > 0 ? propertyData.reduce((s, p) => s + p.avgRent, 0) / propertyData.length : 0;
+    const avgOccupancy = propertyData.length > 0 ? propertyData.reduce((s, p) => s + p.occupancyRate, 0) / propertyData.length : 0;
+
+    // Set positions and ratings
+    propertyData.forEach(p => {
+      p.pricePosition = getPosition(p.avgRent, avgRent);
+      p.occupancyPosition = getPosition(p.occupancyRate, avgOccupancy);
+      p.overallRating = getOverallRating(p.occupancyRate, p.pricePosition);
+    });
+
+    // Portfolio summary
+    const totalUnits = propertyData.reduce((s, p) => s + p.totalUnits, 0);
+    const totalOccupied = propertyData.reduce((s, p) => s + p.occupiedUnits, 0);
+    const totalMonthlyRevenue = propertyData.reduce((s, p) => s + (p.avgRent * p.occupiedUnits), 0);
+
+    const portfolio: PortfolioSummary = {
+      totalProperties: propertyData.length,
+      totalUnits,
+      totalOccupied,
+      avgOccupancy,
+      totalMonthlyRevenue,
+      totalExpenses,
+      portfolioROI: totalExpenses > 0 ? ((totalRevenue - totalExpenses) / totalExpenses) * 100 : 0,
     };
-  });
 
-  // Calculate averages
-  const avgRent = propertyData.length > 0 ? propertyData.reduce((s, p) => s + p.avgRent, 0) / propertyData.length : 0;
-  const avgOccupancy = propertyData.length > 0 ? propertyData.reduce((s, p) => s + p.occupancyRate, 0) / propertyData.length : 0;
+    // Performance rankings
+    const rents = propertyData.map(p => p.avgRent).sort((a, b) => a - b);
+    const rankings: PerformanceRanking[] = propertyData.map(p => {
+      const rentIdx = rents.indexOf(p.avgRent);
+      const avgRentPercentile = rents.length > 1 ? (rentIdx / (rents.length - 1)) * 100 : 50;
+      const compositeScore = p.occupancyRate * 0.4 + (p.roi || 0) * 0.3 + avgRentPercentile * 0.3;
 
-  // Set positions and ratings
-  propertyData.forEach(p => {
-    p.pricePosition = getPosition(p.avgRent, avgRent);
-    p.occupancyPosition = getPosition(p.occupancyRate, avgOccupancy);
-    p.overallRating = getOverallRating(p.occupancyRate, p.pricePosition);
-  });
+      let tier: "top" | "average" | "under" = "average";
+      if (compositeScore >= 60) tier = "top";
+      else if (compositeScore < 35) tier = "under";
 
-  // Portfolio summary
-  const totalUnits = propertyData.reduce((s, p) => s + p.totalUnits, 0);
-  const totalOccupied = propertyData.reduce((s, p) => s + p.occupiedUnits, 0);
-  const totalMonthlyRevenue = propertyData.reduce((s, p) => s + (p.avgRent * p.occupiedUnits), 0);
+      return {
+        propertyId: p.id,
+        propertyName: p.name,
+        occupancyRate: p.occupancyRate,
+        roi: p.roi,
+        avgRentPercentile,
+        compositeScore,
+        tier,
+      };
+    }).sort((a, b) => b.compositeScore - a.compositeScore);
 
-  const portfolio: PortfolioSummary = {
-    totalProperties: propertyData.length,
-    totalUnits,
-    totalOccupied,
-    avgOccupancy,
-    totalMonthlyRevenue,
-    totalExpenses,
-    portfolioROI: totalExpenses > 0 ? ((totalRevenue - totalExpenses) / totalExpenses) * 100 : 0,
-  };
+    // Optimization recommendations
+    const recommendations: OptimizationRecommendation[] = [];
+    propertyData.forEach(p => {
+      if (p.occupancyRate < 50) {
+        recommendations.push({
+          propertyId: p.id, propertyName: p.name,
+          type: "price_decrease",
+          title: "Occupancy Rendah",
+          description: `${p.name} memiliki occupancy ${p.occupancyRate.toFixed(0)}%. Pertimbangkan penurunan harga atau renovasi untuk meningkatkan daya tarik.`,
+          priority: "high",
+        });
+      }
+      if (p.avgRent < avgRent * 0.8 && p.occupancyRate < 90) {
+        recommendations.push({
+          propertyId: p.id, propertyName: p.name,
+          type: "price_increase",
+          title: "Potensi Kenaikan Harga",
+          description: `${p.name} memiliki harga 20%+ di bawah rata-rata. Ada ruang untuk menaikkan harga sewa.`,
+          priority: "medium",
+        });
+      }
+      if (p.occupancyRate > 90 && p.avgRent < avgRent) {
+        recommendations.push({
+          propertyId: p.id, propertyName: p.name,
+          type: "high_demand",
+          title: "Demand Tinggi — Naikkan Harga",
+          description: `${p.name} memiliki occupancy ${p.occupancyRate.toFixed(0)}% dengan harga di bawah rata-rata. Demand tinggi memungkinkan kenaikan harga.`,
+          priority: "high",
+        });
+      }
+    });
 
-  // Performance rankings
-  const rents = propertyData.map(p => p.avgRent).sort((a, b) => a - b);
-  const rankings: PerformanceRanking[] = propertyData.map(p => {
-    const rentIdx = rents.indexOf(p.avgRent);
-    const avgRentPercentile = rents.length > 1 ? (rentIdx / (rents.length - 1)) * 100 : 50;
-    const compositeScore = p.occupancyRate * 0.4 + (p.roi || 0) * 0.3 + avgRentPercentile * 0.3;
-
-    let tier: "top" | "average" | "under" = "average";
-    if (compositeScore >= 60) tier = "top";
-    else if (compositeScore < 35) tier = "under";
-
+    return { benchmarks: propertyData, avgRent, avgOccupancy, portfolio, rankings, recommendations };
+  } catch {
+    // TODO: implement Go endpoint — was: supabase.from('properties/units/payments/maintenance_expenses')
     return {
-      propertyId: p.id,
-      propertyName: p.name,
-      occupancyRate: p.occupancyRate,
-      roi: p.roi,
-      avgRentPercentile,
-      compositeScore,
-      tier,
+      benchmarks: [],
+      avgRent: 0,
+      avgOccupancy: 0,
+      portfolio: { totalProperties: 0, totalUnits: 0, totalOccupied: 0, avgOccupancy: 0, totalMonthlyRevenue: 0, totalExpenses: 0, portfolioROI: 0 },
+      rankings: [],
+      recommendations: [],
     };
-  }).sort((a, b) => b.compositeScore - a.compositeScore);
-
-  // Optimization recommendations
-  const recommendations: OptimizationRecommendation[] = [];
-  propertyData.forEach(p => {
-    if (p.occupancyRate < 50) {
-      recommendations.push({
-        propertyId: p.id, propertyName: p.name,
-        type: "price_decrease",
-        title: "Occupancy Rendah",
-        description: `${p.name} memiliki occupancy ${p.occupancyRate.toFixed(0)}%. Pertimbangkan penurunan harga atau renovasi untuk meningkatkan daya tarik.`,
-        priority: "high",
-      });
-    }
-    if (p.avgRent < avgRent * 0.8 && p.occupancyRate < 90) {
-      recommendations.push({
-        propertyId: p.id, propertyName: p.name,
-        type: "price_increase",
-        title: "Potensi Kenaikan Harga",
-        description: `${p.name} memiliki harga 20%+ di bawah rata-rata. Ada ruang untuk menaikkan harga sewa.`,
-        priority: "medium",
-      });
-    }
-    if (p.occupancyRate > 90 && p.avgRent < avgRent) {
-      recommendations.push({
-        propertyId: p.id, propertyName: p.name,
-        type: "high_demand",
-        title: "Demand Tinggi — Naikkan Harga",
-        description: `${p.name} memiliki occupancy ${p.occupancyRate.toFixed(0)}% dengan harga di bawah rata-rata. Demand tinggi memungkinkan kenaikan harga.`,
-        priority: "high",
-      });
-    }
-  });
-
-  return { benchmarks: propertyData, avgRent, avgOccupancy, portfolio, rankings, recommendations };
+  }
 }

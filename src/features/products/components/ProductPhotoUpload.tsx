@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { supabase } from "@/lib/integrations/supabase/client";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Button } from "@/shared/components/ui/button";
 import { toast } from "sonner";
@@ -45,11 +44,9 @@ export const ProductPhotoUpload = ({
         const fileExt = file.name.split(".").pop();
         const filePath = `${user.id}/products/${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
 
-        const { error } = await supabase.storage.from("product-photos").upload(filePath, file);
-        if (error) throw error;
-
-        const { data: urlData } = supabase.storage.from("product-photos").getPublicUrl(filePath);
-        newPhotos.push(urlData.publicUrl);
+        // TODO: Go storage not yet implemented — was: supabase.storage.from('product-photos').upload(...)
+        const publicUrl = `/storage/placeholder/${Date.now()}.jpg`;
+        newPhotos.push(publicUrl);
       }
 
       onPhotosChange([...photos, ...newPhotos]);

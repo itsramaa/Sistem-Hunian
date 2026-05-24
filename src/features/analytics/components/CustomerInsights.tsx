@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
@@ -37,32 +37,13 @@ export function CustomerInsights({ vendorId, dateRange = '30d' }: CustomerInsigh
   const { data: ordersData, isLoading, error } = useQuery({
     queryKey: ["vendor-customer-insights", vendorId, dateRange],
     queryFn: async () => {
-      let query = supabase
-        .from("orders")
-        .select(`
-          id,
-          tenant_user_id,
-          total_price,
-          created_at,
-          status,
-          scheduled_date,
-          unit_id,
-          units (
-            properties (
-              city
-            )
-          )
-        `)
-        .eq("vendor_id", vendorId)
-        .eq("status", "completed");
-
-      if (dateFilter) {
-        query = query.gte("created_at", dateFilter.toISOString());
-      }
-
-      const { data, error } = await query;
-      
-      if (error) throw error;
+      const params: Record<string, unknown> = {
+        select: 'id,tenant_user_id,total_price,created_at,status,scheduled_date,unit_id,units(properties(city))',
+        vendor_id: vendorId,
+        status: 'eq.completed',
+      };
+      if (dateFilter) params['created_at'] = `gte.${dateFilter.toISOString()}`;
+      const { data } = await apiClient.get('/orders', { params });
       return data || [];
     },
     enabled: !!vendorId,

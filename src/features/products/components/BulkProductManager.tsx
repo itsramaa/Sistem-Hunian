@@ -21,7 +21,7 @@ import {
 } from '@/shared/components/ui/alert-dialog';
 import { ChevronDown, Trash2, Eye, EyeOff, Tag, Loader2 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { toast } from 'sonner';
 
 interface Product {
@@ -63,11 +63,7 @@ export function BulkProductManager({ products, vendorId }: BulkProductManagerPro
 
   const bulkUpdateMutation = useMutation({
     mutationFn: async ({ ids, is_available }: { ids: string[]; is_available: boolean }) => {
-      const { error } = await supabase
-        .from('products')
-        .update({ is_available })
-        .in('id', ids);
-      if (error) throw error;
+      await apiClient.patch('/products/bulk', { ids, is_available });
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['vendor-products', vendorId] });
@@ -83,11 +79,7 @@ export function BulkProductManager({ products, vendorId }: BulkProductManagerPro
 
   const bulkDeleteMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      const { error } = await supabase
-        .from('products')
-        .delete()
-        .in('id', ids);
-      if (error) throw error;
+      await apiClient.delete('/products/bulk', { data: { ids } });
     },
     onSuccess: (_, ids) => {
       queryClient.invalidateQueries({ queryKey: ['vendor-products', vendorId] });

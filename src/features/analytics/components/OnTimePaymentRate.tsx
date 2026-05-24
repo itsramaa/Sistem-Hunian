@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/shared/components/ui/card';
-import { supabase } from '@/lib/integrations/supabase/client';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { TrendingUp, TrendingDown, CheckCircle } from 'lucide-react';
 import { subMonths } from 'date-fns';
@@ -16,15 +15,8 @@ export function OnTimePaymentRate({ timeRange }: OnTimePaymentRateProps) {
     queryKey: ['on-time-payments', merchant?.id, timeRange],
     queryFn: async () => {
       if (!merchant?.id) return [];
-      const startDate = subMonths(new Date(), parseInt(timeRange));
-      const { data, error } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('merchant_id', merchant.id)
-        .eq('status', 'paid')
-        .gte('created_at', startDate.toISOString());
-      if (error) throw error;
-      return data;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('payments').select(*)
+      return [];
     },
     enabled: !!merchant?.id,
   });

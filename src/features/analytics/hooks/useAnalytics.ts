@@ -1,6 +1,5 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { supabase } from '@/lib/integrations/supabase/client';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { trackEvent, EventTypes, resetCachedUser, type EventType } from '@/shared/utils/analytics';
 
