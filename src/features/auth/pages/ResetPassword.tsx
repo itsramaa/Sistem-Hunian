@@ -1,18 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2, Building2, ArrowLeft, Mail, CheckCircle } from 'lucide-react';
+import { Building2, ArrowLeft, Mail, Info } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
-import { useToast } from '@/shared/hooks/use-toast';
-import { supabase } from '@/lib/integrations/supabase/client';
 import { emailSchema } from '@/shared/utils/validations/auth';
-import { getAuthErrorMessage } from '@/features/auth/utils/auth-errors';
-import { triggerHaptic } from '@/shared/utils/haptic';
 
 const resetSchema = z.object({
   email: emailSchema,
@@ -20,14 +16,8 @@ const resetSchema = z.object({
 
 type ResetFormData = z.infer<typeof resetSchema>;
 
-const RESEND_COOLDOWN = 60; // seconds
-
 export default function ResetPassword() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
-  const [submittedEmail, setSubmittedEmail] = useState('');
-  const [resendCountdown, setResendCountdown] = useState(0);
-  const { toast } = useToast();
+  const [submitted, setSubmitted] = useState(false);
   const navigate = useNavigate();
 
   const form = useForm<ResetFormData>({
@@ -35,129 +25,32 @@ export default function ResetPassword() {
     defaultValues: { email: '' },
   });
 
-  // Countdown timer for resend
-  useEffect(() => {
-    if (resendCountdown <= 0) return;
-
-    const timer = setInterval(() => {
-      setResendCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [resendCountdown]);
-
-  const sendResetEmail = useCallback(async (email: string) => {
-    setIsLoading(true);
-    
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/update-password`,
-    });
-    
-    setIsLoading(false);
-
-    if (error) {
-      triggerHaptic('error');
-      toast({
-        variant: 'destructive',
-        title: 'Gagal',
-        description: getAuthErrorMessage(error),
-      });
-      return false;
-    }
-
-    triggerHaptic('success');
-    setResendCountdown(RESEND_COOLDOWN);
-    return true;
-  }, [toast]);
-
-  const handleReset = async (data: ResetFormData) => {
-    const success = await sendResetEmail(data.email);
-    
-    if (success) {
-      setSubmittedEmail(data.email);
-      setEmailSent(true);
-      toast({
-        title: 'Email terkirim',
-        description: 'Silakan cek email Anda untuk link reset password.',
-      });
-    }
+  const handleReset = (_data: ResetFormData) => {
+    setSubmitted(true);
   };
 
-  const handleResend = async () => {
-    if (resendCountdown > 0 || !submittedEmail) return;
-    
-    const success = await sendResetEmail(submittedEmail);
-    
-    if (success) {
-      toast({
-        title: 'Email terkirim ulang',
-        description: 'Silakan cek email Anda untuk link reset password.',
-      });
-    }
-  };
-
-  const maskEmail = (email: string) => {
-    const [local, domain] = email.split('@');
-    if (local.length <= 3) {
-      return `${local[0]}***@${domain}`;
-    }
-    return `${local.slice(0, 3)}***@${domain}`;
-  };
-
-  const canResend = resendCountdown === 0;
-
-  if (emailSent) {
+  if (submitted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4 py-8">
         <Card className="w-full max-w-md shadow-elevated animate-fade-in">
           <CardHeader className="text-center space-y-2">
-            <div className="mx-auto w-12 h-12 rounded-full bg-success/10 flex items-center justify-center mb-2">
-              <CheckCircle className="w-6 h-6 text-success" />
+            <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+              <Info className="w-6 h-6 text-primary" />
             </div>
-            <CardTitle className="text-2xl font-display">Cek Email Anda</CardTitle>
+            <CardTitle className="text-2xl font-display">Fitur Belum Tersedia</CardTitle>
             <CardDescription>
-              Kami telah mengirim link reset password ke{' '}
-              <span className="font-medium text-foreground">{maskEmail(submittedEmail)}</span>.
-              Silakan cek inbox dan folder spam Anda.
+              Password reset is not yet available. Please contact your administrator.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground text-center">
-              Tidak menerima email? Cek folder spam atau kirim ulang.
-            </p>
-            <div className="flex flex-col gap-2">
-              <Button 
-                variant="outline" 
-                onClick={handleResend}
-                disabled={!canResend || isLoading}
-                className="w-full"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    <span>Mengirim...</span>
-                  </>
-                ) : canResend ? (
-                  'Kirim Ulang Email'
-                ) : (
-                  `Kirim ulang dalam ${resendCountdown}s`
-                )}
-              </Button>
-              <Button 
-                variant="ghost" 
-                onClick={() => navigate('/auth')}
-                className="w-full"
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Kembali ke login
-              </Button>
-            </div>
+          <CardContent>
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/auth')}
+              className="w-full"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Kembali ke login
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -173,7 +66,7 @@ export default function ResetPassword() {
           </div>
           <CardTitle className="text-2xl font-display">Reset Password</CardTitle>
           <CardDescription>
-            Masukkan alamat email Anda dan kami akan mengirimkan link untuk reset password.
+            Masukkan alamat email Anda untuk melanjutkan.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -190,7 +83,6 @@ export default function ResetPassword() {
                   placeholder="anda@contoh.com"
                   className="pl-10"
                   autoComplete="email"
-                  disabled={isLoading}
                   aria-describedby={form.formState.errors.email ? 'email-error' : undefined}
                   aria-invalid={!!form.formState.errors.email}
                   {...form.register('email')}
@@ -202,19 +94,12 @@ export default function ResetPassword() {
                 </p>
               )}
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  <span>Mengirim...</span>
-                </>
-              ) : (
-                'Kirim Link Reset'
-              )}
+            <Button type="submit" className="w-full">
+              Kirim
             </Button>
-            <Button 
+            <Button
               type="button"
-              variant="ghost" 
+              variant="ghost"
               onClick={() => navigate('/auth')}
               className="w-full"
             >

@@ -1,5 +1,19 @@
 export type AppRole = 'admin' | 'merchant' | 'tenant' | 'vendor';
 
+export interface AuthUser {
+  id: string;
+  email: string;
+  full_name?: string;
+  phone?: string;
+  role?: AppRole;
+}
+
+export interface AuthTokens {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+}
+
 export interface UserProfile {
   id: string;
   user_id: string;
@@ -61,8 +75,7 @@ export interface VendorProfile {
 }
 
 export interface AuthState {
-  user: import('@supabase/supabase-js').User | null;
-  session: import('@supabase/supabase-js').Session | null;
+  user: AuthUser | null;
   profile: UserProfile | null;
   role: AppRole | null;
   roles: AppRole[];
@@ -70,5 +83,6 @@ export interface AuthState {
   merchant: MerchantProfile | null;
   vendor: VendorProfile | null;
   isLoading: boolean;
+  isProfileLoading: boolean;
   error: Error | null;
 }
