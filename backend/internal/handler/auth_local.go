@@ -42,6 +42,7 @@ type refreshRequest struct {
 // authConfig bundles the dependencies needed by local auth handlers.
 type authConfig struct {
 	repo          *repository.UserRepo
+	pool          *pgxpool.Pool
 	jwtSecret     string
 	accessTTL     time.Duration
 	refreshTTL    time.Duration
@@ -95,7 +96,7 @@ func Register(pool *pgxpool.Pool, jwtSecret string, accessTTL, refreshTTL time.D
 			return
 		}
 
-		ac := authConfig{repo: repo, jwtSecret: jwtSecret, accessTTL: accessTTL, refreshTTL: refreshTTL}
+		ac := authConfig{repo: repo, pool: pool, jwtSecret: jwtSecret, accessTTL: accessTTL, refreshTTL: refreshTTL}
 		tokens, err := issueTokens(ac, user)
 		if err != nil {
 			response.Error(w, http.StatusInternalServerError, "TOKEN_ERROR", "failed to issue tokens")
@@ -141,7 +142,7 @@ func Login(pool *pgxpool.Pool, jwtSecret string, accessTTL, refreshTTL time.Dura
 			return
 		}
 
-		ac := authConfig{repo: repo, jwtSecret: jwtSecret, accessTTL: accessTTL, refreshTTL: refreshTTL}
+		ac := authConfig{repo: repo, pool: pool, jwtSecret: jwtSecret, accessTTL: accessTTL, refreshTTL: refreshTTL}
 		tokens, err := issueTokens(ac, user)
 		if err != nil {
 			response.Error(w, http.StatusInternalServerError, "TOKEN_ERROR", "failed to issue tokens")
@@ -194,7 +195,7 @@ func Refresh(pool *pgxpool.Pool, jwtSecret string, accessTTL, refreshTTL time.Du
 			return
 		}
 
-		ac := authConfig{repo: repo, jwtSecret: jwtSecret, accessTTL: accessTTL, refreshTTL: refreshTTL}
+		ac := authConfig{repo: repo, pool: pool, jwtSecret: jwtSecret, accessTTL: accessTTL, refreshTTL: refreshTTL}
 		tokens, err := issueTokens(ac, user)
 		if err != nil {
 			response.Error(w, http.StatusInternalServerError, "TOKEN_ERROR", "failed to issue tokens")
@@ -231,8 +232,16 @@ func MeLocal(pool *pgxpool.Pool) http.HandlerFunc {
 
 // issueTokens generates access and refresh tokens for the given user.
 func issueTokens(ac authConfig, user *model.User) (*authResponse, error) {
-	// Derive merchant_id from app_metadata if available (not stored in users table directly)
+	// Look up merchant_id from merchants table if user is a merchant
 	merchantID := ""
+	if user.Role == "merchant" {
+		var mid string
+		err := ac.pool.QueryRow(context.Background(),
+			"SELECT id FROM merchants WHERE user_id = $1 LIMIT 1", user.ID).Scan(&mid)
+		if err == nil {
+			merchantID = mid
+		}
+	}
 
 	accessToken, err := jwtutil.GenerateAccessToken(user.ID, user.Email, user.Role, merchantID, ac.jwtSecret, ac.accessTTL)
 	if err != nil {
