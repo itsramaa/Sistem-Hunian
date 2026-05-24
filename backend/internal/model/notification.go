@@ -23,6 +23,21 @@ type SendNotificationRequest struct {
 	Data           map[string]interface{} `json:"data"`
 }
 
+// NotificationType represents the type of notification.
+type NotificationType = string
+
+const (
+	NotificationTypeInvoice     NotificationType = "invoice"
+	NotificationTypeGeneral     NotificationType = "general"
+	NotificationTypeReminder    NotificationType = "payment_reminder"
+	NotificationTypeMaintenance NotificationType = "maintenance_update"
+)
+
+// SendNotificationResponse is the response body for POST /v1/notifications.
+type SendNotificationResponse struct {
+	ID string `json:"id"`
+}
+
 // SendWhatsAppRequest is the request body for sending a WhatsApp notification.
 type SendWhatsAppRequest struct {
 	PhoneNumber string                 `json:"phone_number"`

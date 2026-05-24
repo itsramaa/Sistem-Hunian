@@ -205,3 +205,55 @@ func DeleteUnit(ctx context.Context, pool *pgxpool.Pool, id, merchantID string) 
 	}
 	return nil
 }
+
+// ── PropertyRepo struct (wraps pool for service layer use) ────────────────────
+
+// PropertyRepo is a struct-based wrapper around the property repository functions.
+type PropertyRepo struct {
+	pool *pgxpool.Pool
+}
+
+// NewPropertyRepo creates a new PropertyRepo.
+func NewPropertyRepo(pool *pgxpool.Pool) *PropertyRepo {
+	return &PropertyRepo{pool: pool}
+}
+
+func (r *PropertyRepo) ListProperties(ctx context.Context, merchantID string) ([]model.Property, error) {
+	return ListProperties(ctx, r.pool, merchantID)
+}
+
+func (r *PropertyRepo) GetProperty(ctx context.Context, id, merchantID string) (*model.Property, error) {
+	return GetProperty(ctx, r.pool, id, merchantID)
+}
+
+func (r *PropertyRepo) CreateProperty(ctx context.Context, merchantID string, req model.CreatePropertyRequest) (*model.Property, error) {
+	return CreateProperty(ctx, r.pool, merchantID, req)
+}
+
+func (r *PropertyRepo) UpdateProperty(ctx context.Context, id, merchantID string, req model.UpdatePropertyRequest) (*model.Property, error) {
+	return UpdateProperty(ctx, r.pool, id, merchantID, req)
+}
+
+func (r *PropertyRepo) DeleteProperty(ctx context.Context, id, merchantID string) error {
+	return DeleteProperty(ctx, r.pool, id, merchantID)
+}
+
+func (r *PropertyRepo) ListUnits(ctx context.Context, propertyID, merchantID string) ([]model.Unit, error) {
+	return ListUnits(ctx, r.pool, propertyID, merchantID)
+}
+
+func (r *PropertyRepo) GetUnit(ctx context.Context, id, merchantID string) (*model.Unit, error) {
+	return GetUnit(ctx, r.pool, id, merchantID)
+}
+
+func (r *PropertyRepo) CreateUnit(ctx context.Context, propertyID, merchantID string, req model.CreateUnitRequest) (*model.Unit, error) {
+	return CreateUnit(ctx, r.pool, propertyID, merchantID, req)
+}
+
+func (r *PropertyRepo) UpdateUnit(ctx context.Context, id, merchantID string, req model.UpdateUnitRequest) (*model.Unit, error) {
+	return UpdateUnit(ctx, r.pool, id, merchantID, req)
+}
+
+func (r *PropertyRepo) DeleteUnit(ctx context.Context, id, merchantID string) error {
+	return DeleteUnit(ctx, r.pool, id, merchantID)
+}

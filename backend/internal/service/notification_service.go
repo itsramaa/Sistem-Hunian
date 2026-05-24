@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/itsramaa/sistem-hunian/backend/internal/model"
-	"github.com/itsramaa/sistem-hunian/backend/internal/pkg/resend"
+	"github.com/itsramaa/sihuni-api/internal/model"
+	"github.com/itsramaa/sihuni-api/internal/pkg/resend"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

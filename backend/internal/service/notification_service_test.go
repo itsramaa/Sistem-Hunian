@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/itsramaa/sistem-hunian/backend/internal/model"
-	"github.com/itsramaa/sistem-hunian/backend/internal/service"
+	"github.com/itsramaa/sihuni-api/internal/model"
+	"github.com/itsramaa/sihuni-api/internal/service"
 )
 
 func TestNotificationService_Send_MissingEmail(t *testing.T) {

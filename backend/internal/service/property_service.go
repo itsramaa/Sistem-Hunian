@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/itsramaa/sistem-hunian/backend/internal/model"
-	"github.com/itsramaa/sistem-hunian/backend/internal/repository"
+	"github.com/itsramaa/sihuni-api/internal/model"
+	"github.com/itsramaa/sihuni-api/internal/repository"
 )
 
 // PropertyService handles business logic for properties and units.
@@ -197,16 +197,16 @@ func validateCreateProperty(req model.CreatePropertyRequest) error {
 	if strings.TrimSpace(req.Name) == "" {
 		return errors.New("property_service: name is required")
 	}
-	if strings.TrimSpace(req.PropertyType) == "" {
-		return errors.New("property_service: property_type is required")
+	if strings.TrimSpace(req.Type) == "" {
+		return errors.New("property_service: type is required")
 	}
 	return nil
 }
 
 // validateCreateUnit validates the create unit request.
 func validateCreateUnit(req model.CreateUnitRequest) error {
-	if strings.TrimSpace(req.UnitNumber) == "" {
-		return errors.New("property_service: unit_number is required")
+	if strings.TrimSpace(req.Name) == "" {
+		return errors.New("property_service: unit name is required")
 	}
 	if req.RentAmount <= 0 {
 		return errors.New("property_service: rent_amount must be positive")
