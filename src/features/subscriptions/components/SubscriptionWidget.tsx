@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/sha
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Progress } from "@/shared/components/ui/progress";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Crown, Star, Building2, Users, Home, ArrowRight, Loader2, XCircle } from "lucide-react";
 import { format } from "date-fns";
@@ -37,16 +37,10 @@ export function SubscriptionWidget() {
   const { data: subscription, isLoading } = useQuery({
     queryKey: ["merchant-subscription", merchant?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("merchant_subscriptions")
-        .select(`
-          *,
-          tier:subscription_tiers (*)
-        `)
-        .eq("merchant_id", merchant?.id)
-        .maybeSingle();
-      if (error) throw error;
-      return data as SubscriptionData | null;
+      const response = await apiClient.get('/subscriptions/current', {
+        params: { merchant_id: merchant?.id },
+      });
+      return response.data.data as SubscriptionData | null;
     },
     enabled: !!merchant?.id,
   });
@@ -54,16 +48,10 @@ export function SubscriptionWidget() {
   const { data: usage } = useQuery({
     queryKey: ["merchant-usage", merchant?.id],
     queryFn: async () => {
-      const [propertiesRes, unitsRes, contractsRes] = await Promise.all([
-        supabase.from("properties").select("id", { count: "exact" }).eq("merchant_id", merchant?.id),
-        supabase.from("units").select("id, property:properties!inner(merchant_id)", { count: "exact" }).eq("property.merchant_id", merchant?.id),
-        supabase.from("contracts").select("id", { count: "exact" }).eq("merchant_id", merchant?.id).eq("status", "active"),
-      ]);
-      return {
-        properties: propertiesRes.count || 0,
-        units: unitsRes.count || 0,
-        tenants: contractsRes.count || 0,
-      };
+      const response = await apiClient.get('/subscriptions/usage', {
+        params: { merchant_id: merchant?.id },
+      });
+      return response.data.data as { properties: number; units: number; tenants: number };
     },
     enabled: !!merchant?.id,
   });

@@ -1,4 +1,3 @@
-import { supabase } from "@/lib/integrations/supabase/client";
 import { apiClient } from '@/lib/axios';
 import { Referral, ReferralFilters, ReferralProfile, ReferralStats } from "../types/referrals";
 
@@ -42,76 +41,29 @@ export const referralService = {
   },
 
   async fetchProfiles(): Promise<ReferralProfile[]> {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('user_id, full_name, email');
-
-    if (error) throw error;
-    return (data as unknown as ReferralProfile[]) || [];
+    // TODO: Go endpoint not yet implemented — was: supabase.from('profiles').select('user_id, full_name, email')
+    return [];
   },
 
   async payoutReferral(referralId: string, referral: Referral, rewardAmount: number): Promise<void> {
-    // Check if already paid (idempotency)
-    if (referral.reward_paid) {
-      throw new Error('This referral has already been paid');
-    }
-
-    // Check for existing reward (double payout prevention)
-    const { data: existingReward } = await supabase
-      .from('referral_rewards')
-      .select('id')
-      .eq('referral_id', referralId)
-      .eq('status', 'credited')
-      .single();
-
-    if (existingReward) {
-      throw new Error('A reward has already been credited for this referral');
-    }
-
-    const actualRewardAmount = referral.reward_amount || rewardAmount;
-
-    // Update referral as paid
-    const { error: referralError } = await supabase
-      .from('referrals')
-      .update({ reward_paid: true })
-      .eq('id', referralId);
-    if (referralError) throw referralError;
-
-    // Create reward record
-    const { error: rewardError } = await supabase
-      .from('referral_rewards')
-      .insert({
-        user_id: referral.referrer_user_id,
+    try {
+      await apiClient.post(`/referrals/${referralId}/payout`, {
         referral_id: referralId,
-        amount: actualRewardAmount,
-        type: 'subscription_credit',
-        status: 'credited',
-        credited_at: new Date().toISOString(),
+        reward_amount: referral.reward_amount || rewardAmount,
+        referrer_user_id: referral.referrer_user_id,
       });
-    if (rewardError) throw rewardError;
+    } catch (error: any) {
+      const msg = error.response?.data?.error?.message || error.message || 'Failed to payout referral';
+      throw new Error(msg);
+    }
   },
 
   async validateReferralCode(code: string): Promise<{ name: string; role: string } | null> {
     try {
-      const { data: referral, error } = await supabase
-        .from('referrals')
-        .select('referrer_user_id, referrer_role')
-        .eq('referral_code', code.toUpperCase())
-        .is('referee_user_id', null)
-        .single();
-
-      if (error || !referral) return null;
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('user_id', referral.referrer_user_id)
-        .single();
-
-      return {
-        name: profile?.full_name || 'Pengguna SiHuni',
-        role: referral.referrer_role,
-      };
+      const response = await apiClient.get('/referrals/validate', {
+        params: { code: code.toUpperCase() },
+      });
+      return response.data.data as { name: string; role: string };
     } catch (error) {
       console.error('Error validating referral code:', error);
       return null;

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { toast } from 'sonner';
 
 export interface Rule {
@@ -18,38 +18,26 @@ export interface Rule {
   updated_at: string;
 }
 
+// TODO: Go endpoint not yet implemented for rules domain
+// All methods below are stubbed — was: supabase.from('rules')...
+
 export function useRules(propertyId: string, unitId?: string) {
   const queryClient = useQueryClient();
   const queryKey = ['rules', propertyId, unitId || 'property-level'];
 
   const { data: rules = [], isLoading } = useQuery({
     queryKey,
-    queryFn: async () => {
-      // Get property-level rules
-      let query = (supabase.from as any)('rules')
-        .select('*')
-        .eq('property_id', propertyId)
-        .order('created_at', { ascending: false });
-
-      if (unitId) {
-        // For unit: get both unit-specific AND property-level (inherited)
-        query = query.or(`unit_id.eq.${unitId},unit_id.is.null`);
-      } else {
-        // For property: only property-level
-        query = query.is('unit_id', null);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as Rule[];
+    queryFn: async (): Promise<Rule[]> => {
+      // TODO: Go endpoint not yet implemented — was: supabase.from('rules').select(...)
+      return [];
     },
     enabled: !!propertyId,
   });
 
   const createRule = useMutation({
-    mutationFn: async (rule: Partial<Rule>) => {
-      const { error } = await (supabase.from as any)('rules').insert(rule);
-      if (error) throw error;
+    mutationFn: async (_rule: Partial<Rule>) => {
+      // TODO: Go endpoint not yet implemented — was: supabase.from('rules').insert(rule)
+      throw new Error('Rules creation not yet available');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
@@ -59,9 +47,9 @@ export function useRules(propertyId: string, unitId?: string) {
   });
 
   const updateRule = useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Rule> & { id: string }) => {
-      const { error } = await (supabase.from as any)('rules').update(updates).eq('id', id);
-      if (error) throw error;
+    mutationFn: async (_args: Partial<Rule> & { id: string }) => {
+      // TODO: Go endpoint not yet implemented — was: supabase.from('rules').update(updates).eq('id', id)
+      throw new Error('Rules update not yet available');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
@@ -71,9 +59,9 @@ export function useRules(propertyId: string, unitId?: string) {
   });
 
   const deleteRule = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await (supabase.from as any)('rules').delete().eq('id', id);
-      if (error) throw error;
+    mutationFn: async (_id: string) => {
+      // TODO: Go endpoint not yet implemented — was: supabase.from('rules').delete().eq('id', id)
+      throw new Error('Rules deletion not yet available');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
