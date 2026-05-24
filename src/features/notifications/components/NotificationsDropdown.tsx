@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -42,75 +42,37 @@ export function NotificationsDropdown() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const channelRef = useRef<null>(null);
 
   const { data: notifications = [] } = useQuery({
     queryKey: ['notifications', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(50); // Increased limit for better coverage
-      if (error) throw error;
-      return data as Notification[];
+      try {
+        const r = await apiClient.get('/notifications', { params: { user_id: user.id, order: 'created_at.desc', limit: 50 } });
+        return r.data as Notification[];
+      } catch (err) {
+        throw err;
+      }
     },
     enabled: !!user?.id,
   });
 
-  // Subscribe to real-time notifications - with proper cleanup
+  // TODO: implement real-time notifications via WebSocket/SSE Go endpoint
+  // was: supabase.channel(`notifications-${user.id}`).on('postgres_changes', ...)
   useEffect(() => {
     if (!user?.id) return;
-
-    // Clean up existing channel first
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-    }
-
-    channelRef.current = supabase
-      .channel(`notifications-${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          queryClient.invalidateQueries({ queryKey: ['notifications'] });
-          
-          // Show toast for new notification
-          const newNotif = payload.new as Notification;
-          toast(newNotif.title, {
-            description: newNotif.message,
-            action: newNotif.link && isValidLink(newNotif.link) ? {
-              label: "Lihat",
-              onClick: () => navigate(newNotif.link!),
-            } : undefined,
-          });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
-  }, [user?.id, queryClient, navigate]);
+    // Polling fallback until real-time endpoint is available
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [user?.id, queryClient]);
 
   // Optimistic update for mark as read
   const markAsRead = useMutation({
     mutationFn: async (notificationId: string) => {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('id', notificationId);
-      if (error) throw error;
+      await apiClient.put('/notifications/' + notificationId, { read: true });
     },
     onMutate: async (notificationId) => {
       // Cancel outgoing refetches
@@ -136,12 +98,7 @@ export function NotificationsDropdown() {
   const markAllAsRead = useMutation({
     mutationFn: async () => {
       if (!user?.id) return;
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('user_id', user.id)
-        .eq('read', false);
-      if (error) throw error;
+      await apiClient.put('/notifications/mark-all-read', { user_id: user.id });
     },
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ['notifications'] });

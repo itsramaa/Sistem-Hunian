@@ -6,7 +6,6 @@ import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { useComparativePortfolio } from "@/features/analytics/hooks/useComparativePortfolio";
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { formatRupiah } from "@/shared/utils/utils";
 import { exportToPDF, generateReportHTML } from "@/shared/utils/exportUtils";
@@ -16,15 +15,13 @@ import {
 } from "recharts";
 import type { PropertyBenchmark, PerformanceRanking, OptimizationRecommendation } from "@/features/analytics/services/comparativePortfolioService";
 
-const db = supabase as any;
-
 function useMerchantId() {
-  const { user } = useAuth();
+  const { user, merchant } = useAuth();
   return useQuery({
     queryKey: ["merchant-id", user?.id],
     queryFn: async () => {
-      const { data } = await db.from("merchants").select("id").eq("user_id", user?.id).maybeSingle();
-      return data?.id as string || "";
+      // TODO: Go endpoint not yet implemented — was: supabase.from('merchants').select('id').eq('user_id', user?.id)
+      return merchant?.id as string || "";
     },
     enabled: !!user?.id,
   });

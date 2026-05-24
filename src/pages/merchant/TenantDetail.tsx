@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { Button } from "@/shared/components/ui/button";
 import {
   Card,
@@ -98,55 +98,22 @@ export default function TenantDetail() {
     queryFn: async () => {
       if (!tenantId) return null;
 
-      // Try as contract ID first
-      const { data: contract } = await supabase
-        .from("contracts")
-        .select("*, unit:units(id, unit_number, property:properties(id, name))")
-        .eq("id", tenantId)
-        .maybeSingle();
+      // Fetch tenant detail via Go API
+      const { data: tenantData } = await apiClient.get(`/contracts/${tenantId}/detail`);
+      const contract = tenantData?.contract || null;
 
       if (contract) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("full_name, email, phone")
-          .eq("user_id", contract.tenant_user_id)
-          .maybeSingle();
-
-        // Get all contracts for this tenant
-        const { data: allContracts } = await supabase
-          .from("contracts")
-          .select(
-            "id, status, start_date, end_date, rent_amount, deposit_amount, unit:units(unit_number, property:properties(name))",
-          )
-          .eq("tenant_user_id", contract.tenant_user_id)
-          .order("created_at", { ascending: false });
-
-        // Get payments
-        const { data: payments } = await supabase
-          .from("invoices")
-          .select(
-            "id, invoice_number, status, amount, total_amount, due_date, paid_at",
-          )
-          .eq("tenant_user_id", contract.tenant_user_id)
-          .order("due_date", { ascending: false })
-          .limit(20);
-
-        // Get maintenance
-        const { data: maintenance } = await supabase
-          .from("maintenance_requests")
-          .select(
-            "id, title, status, priority, created_at, unit:units(unit_number)",
-          )
-          .eq("tenant_user_id", contract.tenant_user_id)
-          .order("created_at", { ascending: false })
-          .limit(20);
+        const profile = tenantData?.profile || null;
+        const allContracts = tenantData?.all_contracts || [];
+        const payments = tenantData?.payments || [];
+        const maintenance = tenantData?.maintenance || [];
 
         return {
           contract,
           profile,
-          allContracts: allContracts || [],
-          payments: payments || [],
-          maintenance: maintenance || [],
+          allContracts,
+          payments,
+          maintenance,
         };
       }
       return null;

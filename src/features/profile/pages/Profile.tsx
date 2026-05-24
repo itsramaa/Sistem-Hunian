@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/shared/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { toast } from "sonner";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { apiClient } from "@/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { FileUpload } from "@/shared/components/FileUpload";
@@ -138,12 +138,10 @@ const MerchantProfile = () => {
     }
     setIsChangingPassword(true);
     try {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (!currentUser?.email) throw new Error("Email pengguna tidak ditemukan");
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email: currentUser.email, password: passwordForm.currentPassword });
-      if (signInError) { setPasswordErrors({ currentPassword: "Kata sandi saat ini salah" }); return; }
-      const { error: updateError } = await supabase.auth.updateUser({ password: passwordForm.newPassword });
-      if (updateError) throw updateError;
+      await apiClient.post('/auth/change-password', {
+        current_password: passwordForm.currentPassword,
+        new_password: passwordForm.newPassword,
+      });
       setPasswordSuccess(true);
       setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
       toast.success("Kata sandi berhasil diubah");

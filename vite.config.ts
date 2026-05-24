@@ -59,7 +59,7 @@ export default defineConfig(({ mode }) => ({
             'tailwind-merge',
             'lucide-react'
           ],
-          data: ['@tanstack/react-query', '@supabase/supabase-js', 'zod', 'zustand'],
+          data: ['@tanstack/react-query', 'zod', 'zustand'],
           charts: ['recharts'],
           maps: ['leaflet', 'react-leaflet']
         }

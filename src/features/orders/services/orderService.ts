@@ -1,32 +1,31 @@
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { Order, OrderReview, Vendor } from "../types/orders";
 
 export const orderService = {
   async fetchOrders(): Promise<Order[]> {
-    const { data, error } = await supabase
-      .from("orders")
-      .select("*, products(name, vendor_id), vendors(business_name)")
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-    return (data as unknown as Order[]) || [];
+    try {
+      const r = await apiClient.get('/orders');
+      return (r.data as Order[]) || [];
+    } catch (err) {
+      throw err;
+    }
   },
 
   async fetchVendors(): Promise<Vendor[]> {
-    const { data, error } = await supabase
-      .from("vendors")
-      .select("id, business_name, rating, total_jobs, verification_status");
-
-    if (error) throw error;
-    return (data as unknown as Vendor[]) || [];
+    try {
+      const r = await apiClient.get('/vendors', { params: { fields: 'id,business_name,rating,total_jobs,verification_status' } });
+      return (r.data as Vendor[]) || [];
+    } catch (err) {
+      throw err;
+    }
   },
 
   async fetchReviews(): Promise<OrderReview[]> {
-    const { data, error } = await supabase
-      .from("order_reviews")
-      .select("*");
-
-    if (error) throw error;
-    return (data as unknown as OrderReview[]) || [];
+    try {
+      const r = await apiClient.get('/order-reviews');
+      return (r.data as OrderReview[]) || [];
+    } catch (err) {
+      throw err;
+    }
   },
 };

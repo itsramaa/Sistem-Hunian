@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import {
   ANALYTICS_BATCH_SIZE,
   ANALYTICS_DEBOUNCE_MS,
@@ -54,7 +54,7 @@ const getSessionId = (): string => {
     if (!sessionStorage.getItem('analytics_tab_id')) {
       sessionStorage.setItem('analytics_tab_id', tabId);
     }
-    
+
     let sessionId = sessionStorage.getItem('analytics_session_id');
     if (!sessionId) {
       sessionId = `session_${Date.now()}_${tabId}_${Math.random().toString(36).substring(7)}`;
@@ -92,10 +92,10 @@ export const setAnalyticsOptOut = (optOut: boolean): void => {
 // Filter PII from event data
 const sanitizeEventData = (data: Record<string, unknown>): Record<string, string | number | boolean | null> => {
   const sanitized: Record<string, string | number | boolean | null> = {};
-  
+
   for (const [key, value] of Object.entries(data)) {
     const lowerKey = key.toLowerCase();
-    
+
     // Check if field contains PII
     if (ANALYTICS_PII_FIELDS.some(pii => lowerKey.includes(pii))) {
       sanitized[key] = '[REDACTED]';
@@ -105,7 +105,7 @@ const sanitizeEventData = (data: Record<string, unknown>): Record<string, string
       sanitized[key] = JSON.stringify(value);
     }
   }
-  
+
   return sanitized;
 };
 
@@ -153,32 +153,26 @@ const saveOfflineQueue = () => {
   }
 };
 
-// Flush events to database
+// Flush events to backend
 const flushEvents = async () => {
   if (eventQueue.length === 0) return;
-  
+
   const events = [...eventQueue];
   eventQueue = [];
   saveOfflineQueue();
-  
+
   if (flushTimeout) {
     clearTimeout(flushTimeout);
     flushTimeout = null;
   }
-  
+
   try {
-    const { error } = await supabase.from('analytics_events').insert(events);
-    if (error) {
-      // Re-queue on failure
-      eventQueue = [...events, ...eventQueue];
-      saveOfflineQueue();
-      console.error('Analytics flush failed:', error);
-    }
+    await apiClient.post('/analytics-events/batch', events);
   } catch (error) {
-    // Re-queue on error
+    // Re-queue on failure
     eventQueue = [...events, ...eventQueue];
     saveOfflineQueue();
-    console.error('Analytics flush error:', error);
+    console.error('Analytics flush failed:', error);
   }
 };
 
@@ -201,24 +195,28 @@ const DEBOUNCE_MS = ANALYTICS_DEBOUNCE_MS;
 export const trackEvent = async ({ eventType, eventData = {}, page }: TrackEventParams) => {
   // Check opt-out preference
   if (hasOptedOut()) return;
-  
+
   // Debounce rapid duplicate events
   const debounceKey = `${eventType}_${page || ''}`;
   const lastTime = eventDebounceMap.get(debounceKey);
   const now = Date.now();
-  
+
   if (lastTime && now - lastTime < DEBOUNCE_MS) {
     return; // Skip duplicate event within debounce window
   }
   eventDebounceMap.set(debounceKey, now);
-  
+
   try {
     // Use cached user ID if available
     if (!cachedUserId) {
-      const { data: { user } } = await supabase.auth.getUser();
-      cachedUserId = user?.id || null;
+      try {
+        const r = await apiClient.get('/auth/me');
+        cachedUserId = r.data?.id ?? null;
+      } catch {
+        cachedUserId = null;
+      }
     }
-    
+
     const event = {
       event_type: eventType,
       event_data: sanitizeEventData(eventData),
@@ -227,17 +225,17 @@ export const trackEvent = async ({ eventType, eventData = {}, page }: TrackEvent
       session_id: getSessionId(),
       idempotency_key: `${getSessionId()}_${eventType}_${now}`,
     };
-    
+
     // Check if offline
     if (!navigator.onLine) {
       eventQueue.push(event);
       saveOfflineQueue();
       return;
     }
-    
+
     // Add to batch queue
     eventQueue.push(event);
-    
+
     // Flush if batch size reached
     if (eventQueue.length >= ANALYTICS_BATCH_SIZE) {
       await flushEvents();

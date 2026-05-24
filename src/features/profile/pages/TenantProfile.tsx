@@ -1,6 +1,5 @@
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useProfile, useTenantProfile, useUpdateProfile, useUpdateTenantProfile, useUploadKtp } from "@/features/profile/hooks/useProfile";
-import { supabase } from "@/lib/integrations/supabase/client";
 import { apiClient } from "@/lib/axios";
 import { TenantLayout } from "@/shared/components/layouts/TenantLayout";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
@@ -194,10 +193,9 @@ const TenantProfile = () => {
         throw new Error(result.error.errors[0].message);
       }
 
-      const { error } = await supabase.auth.updateUser({
-        password: passwordForm.newPassword,
+      await apiClient.post('/auth/change-password', {
+        new_password: passwordForm.newPassword,
       });
-      if (error) throw error;
       
       toast.success('Password berhasil diubah');
       setPasswordForm({ newPassword: '', confirmPassword: '' });

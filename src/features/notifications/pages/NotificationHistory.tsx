@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { TenantLayout } from "@/shared/components/layouts/TenantLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/components/ui/card";
@@ -55,34 +55,18 @@ export default function NotificationHistory() {
     queryKey: ['notification-history', user?.id, category, search, readFilter],
     queryFn: async () => {
       if (!user?.id) return { items: [], total: 0 };
-
-      let query = supabase
-        .from('notifications')
-        .select('*', { count: 'exact' })
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      // Category filter
-      if (category !== 'all') {
-        query = query.eq('type', category);
+      try {
+        const params: Record<string, unknown> = { user_id: user.id, order: 'created_at.desc' };
+        if (category !== 'all') params.type = category;
+        if (readFilter === 'unread') params.read = false;
+        else if (readFilter === 'read') params.read = true;
+        if (search) params.search = search;
+        const r = await apiClient.get('/notifications', { params });
+        const items = r.data as Notification[];
+        return { items, total: items.length };
+      } catch (err) {
+        throw err;
       }
-
-      // Read filter
-      if (readFilter === 'unread') {
-        query = query.eq('read', false);
-      } else if (readFilter === 'read') {
-        query = query.eq('read', true);
-      }
-
-      // Search filter
-      if (search) {
-        query = query.or(`title.ilike.%${search}%,message.ilike.%${search}%`);
-      }
-
-      const { data, error, count } = await query;
-
-      if (error) throw error;
-      return { items: data as Notification[], total: count || 0 };
     },
     enabled: !!user?.id,
   });
@@ -97,11 +81,7 @@ export default function NotificationHistory() {
 
   const markAsRead = useMutation({
     mutationFn: async (notificationId: string) => {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('id', notificationId);
-      if (error) throw error;
+      await apiClient.put('/notifications/' + notificationId, { read: true });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notification-history'] });
@@ -112,12 +92,7 @@ export default function NotificationHistory() {
   const markAllAsRead = useMutation({
     mutationFn: async () => {
       if (!user?.id) return;
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('user_id', user.id)
-        .eq('read', false);
-      if (error) throw error;
+      await apiClient.put('/notifications/mark-all-read', { user_id: user.id });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notification-history'] });
@@ -128,11 +103,7 @@ export default function NotificationHistory() {
 
   const deleteNotification = useMutation({
     mutationFn: async (notificationId: string) => {
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', notificationId);
-      if (error) throw error;
+      await apiClient.delete('/notifications/' + notificationId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notification-history'] });
