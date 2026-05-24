@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { apiClient } from '@/lib/axios';
 import { useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -9,9 +10,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { useToast } from '@/shared/hooks/use-toast';
-import { supabase } from '@/lib/integrations/supabase/client';
 import { emailSchema } from '@/shared/utils/validations/auth';
-import { getAuthErrorMessage } from '@/features/auth/utils/auth-errors';
 import { triggerHaptic } from '@/shared/utils/haptic';
 
 const resetSchema = z.object({
@@ -55,21 +54,24 @@ export default function ResetPassword() {
   const sendResetEmail = useCallback(async (email: string) => {
     setIsLoading(true);
     
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/update-password`,
-    });
-    
-    setIsLoading(false);
-
-    if (error) {
+    try {
+      await apiClient.post('/auth/reset-password', {
+        email,
+        redirect_to: `${window.location.origin}/update-password`,
+      });
+    } catch (err: unknown) {
+      setIsLoading(false);
       triggerHaptic('error');
+      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Gagal mengirim email reset password.';
       toast({
         variant: 'destructive',
         title: 'Gagal',
-        description: getAuthErrorMessage(error),
+        description: message,
       });
       return false;
     }
+    
+    setIsLoading(false);
 
     triggerHaptic('success');
     setResendCountdown(RESEND_COOLDOWN);

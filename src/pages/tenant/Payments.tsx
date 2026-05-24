@@ -2,7 +2,6 @@ import { usePaymentTracking } from '@/features/analytics/hooks/useAnalytics';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { PaymentHistoryExport } from '@/features/payments/components/PaymentHistoryExport';
 import { XenditPaymentModal } from '@/features/payments/components/XenditPaymentModal';
-import { supabase } from '@/lib/integrations/supabase/client';
 import { TenantLayout } from '@/shared/components/layouts/TenantLayout';
 import { Alert, AlertDescription } from '@/shared/components/ui/alert';
 import { Badge } from '@/shared/components/ui/badge';

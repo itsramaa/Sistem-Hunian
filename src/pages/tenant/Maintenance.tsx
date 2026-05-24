@@ -2,7 +2,6 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { MaintenancePhotoUpload } from '@/features/maintenance/components/MaintenancePhotoUpload';
 import { SLABadge, getSLAText } from '@/features/maintenance/components/SLABadge';
 import { useCancelMaintenanceRequest, useTenantMaintenanceRequests } from '@/features/maintenance/hooks/useMaintenance';
-import { supabase } from '@/lib/integrations/supabase/client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { TenantLayout } from '@/shared/components/layouts/TenantLayout';
 import { Alert, AlertDescription } from '@/shared/components/ui/alert';
@@ -64,14 +63,8 @@ export default function TenantMaintenance() {
     queryKey: ['tenant-contract', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
-      const { data, error } = await supabase
-        .from('contracts')
-        .select('*, units(*, properties(merchant_id))')
-        .eq('tenant_user_id', user.id)
-        .in('status', ['active', 'notice'])
-        .maybeSingle();
-      if (error) throw error;
-      return data;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('contracts').select('*, units(*, properties(merchant_id))').eq('tenant_user_id', user.id).in('status', ['active', 'notice']).maybeSingle()
+      return null;
     },
     enabled: !!user?.id && role === 'tenant',
   });
@@ -155,36 +148,8 @@ export default function TenantMaintenance() {
         .single();
       if (error) throw error;
 
-      // Insert initial timeline entry
-      await supabase.from('maintenance_timeline').insert({
-        maintenance_request_id: newRequest.id,
-        status: 'submitted',
-        message: `Request submitted: ${sanitizedTitle}`,
-        actor_id: user.id,
-        actor_role: 'tenant',
-      });
-
-      // Create notification for merchant
-      try {
-        const { data: merchantData } = await supabase
-          .from('merchants')
-          .select('user_id')
-          .eq('id', unitData.properties.merchant_id)
-          .single();
-
-        if (merchantData) {
-          await supabase.from('notifications').insert({
-            user_id: merchantData.user_id,
-            title: 'New Maintenance Request',
-            message: `${sanitizedTitle} - Priority: ${priority}`,
-            type: 'warning',
-            link: `/merchant/maintenance/${newRequest.id}`,
-          });
-        }
-      } catch (notifError) {
-        console.error('Failed to send notification:', notifError);
-        // Don't fail the whole request if notification fails
-      }
+      // TODO: Go endpoint not yet implemented — was: supabase.from('maintenance_timeline').insert({...})
+      // TODO: Go endpoint not yet implemented — was: supabase.from('notifications').insert({...})
 
       return newRequest;
     },

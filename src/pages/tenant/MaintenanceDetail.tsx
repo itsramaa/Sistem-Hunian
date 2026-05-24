@@ -1,6 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/integrations/supabase/client';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { TenantLayout } from '@/shared/components/layouts/TenantLayout';
 import { UpdateTimeline } from '@/features/maintenance/components/UpdateTimeline';
