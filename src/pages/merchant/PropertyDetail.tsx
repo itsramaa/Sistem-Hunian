@@ -49,8 +49,7 @@ import { PropertyFinancialMetrics } from '@/features/properties/components/Prope
 import { PropertyFormDialog, PropertyFormData } from '@/features/properties/components/PropertyFormDialog';
 import { propertyService } from '@/features/properties/services/propertyService';
 import { toast } from 'sonner';
-import { useDssReadiness } from '@/features/dss/hooks/useDssReadiness';
-import { DssReadinessCard } from '@/features/dss/components/DssReadinessCard';
+
 import { RenovationHistoryCard } from '@/features/properties/components/RenovationHistoryCard';
 
 const statusColors: Record<string, string> = {
@@ -966,10 +965,8 @@ export default function PropertyDetail() {
 }
 
 function OverviewDssMetrics({ property, revenuePotential, occupancyRate }: { property: any; revenuePotential: number; occupancyRate: number }) {
-  const readiness = useDssReadiness(property.id, property.merchant_id);
   return (
     <>
-      <DssReadinessCard readiness={readiness} />
       <PropertyFinancialMetrics
         property={property}
         monthlyRevenue={revenuePotential}
