@@ -10,6 +10,7 @@ import { Label } from '@/shared/components/ui/label';
 import { useToast } from '@/shared/hooks/use-toast';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { supabase } from '@/lib/integrations/supabase/client';
+import { apiClient } from '@/lib/axios';
 import { cn } from '@/shared/utils/utils';
 import { businessNameSchema } from '@/shared/utils/validations/auth';
 import { getAuthErrorMessage } from '@/features/auth/utils/auth-errors';
@@ -261,17 +262,15 @@ export default function Onboarding() {
         .eq('user_id', user.id)
         .single();
 
-      const { error: webhookError } = await supabase.functions.invoke('auth-webhook', {
-        body: {
-          user_id: user.id,
-          email: profile?.email || user.email,
-          full_name: profile?.full_name || '',
-          phone: profile?.phone || null,
-          role: selectedRole,
-          business_name: data.businessName,
-          referral_code: referralCode?.toUpperCase() || undefined,
-        },
-      });
+      const { error: webhookError } = await apiClient.post('/api/v1/auth/webhook', {
+        user_id: user.id,
+        email: profile?.email || user.email,
+        full_name: profile?.full_name || '',
+        phone: profile?.phone || null,
+        role: selectedRole,
+        business_name: data.businessName,
+        referral_code: referralCode?.toUpperCase() || undefined,
+      }).then(() => ({ error: null })).catch((err) => ({ error: err }));
 
       if (webhookError) {
         throw webhookError;

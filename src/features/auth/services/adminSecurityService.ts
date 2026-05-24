@@ -1,3 +1,4 @@
+import { apiClient } from '@/lib/axios';
 import { supabase } from '@/lib/integrations/supabase/client';
 import { createAuditLog } from '@/shared/utils/auditLog';
 import * as OTPAuth from 'otpauth';
@@ -5,16 +6,8 @@ import * as OTPAuth from 'otpauth';
 export const adminSecurityService = {
   async validateAdminSecret(secretKey: string): Promise<boolean> {
     try {
-      const { data, error } = await supabase.functions.invoke('validate-admin-secret', {
-        body: { secretKey },
-      });
-
-      if (error) {
-        console.error('Error validating secret:', error);
-        return false;
-      }
-      
-      return data.valid === true;
+      const response = await apiClient.post('/api/v1/auth/admin/2fa/validate', { secretKey });
+      return response.data?.valid === true;
     } catch (error) {
       console.error('Error validating secret:', error);
       return false;

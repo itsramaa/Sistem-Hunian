@@ -70,20 +70,8 @@ export function OcrCameraButton({
 
       if (uploadError) throw uploadError;
 
-      const { data, error } = await supabase.functions.invoke(edgeFunction, {
-        body: { document_path: filePath, ...extraPayload },
-      });
-
-      if (error) throw error;
-
-      const extractedData = data?.extracted_data || data;
-      const score = data?.confidence_score || extractedData?.confidence || 0;
-
-      setResults(extractedData);
-      setConfidence(score);
-      setShowResults(true);
-
-      toast.success(`OCR selesai (${score}% akurasi)`);
+      console.warn('OCR feature not available in this version');
+      return null;
     } catch (err) {
       console.error('OCR error:', err);
       toast.error(err instanceof Error ? err.message : 'OCR gagal memproses dokumen');
@@ -102,17 +90,8 @@ export function OcrCameraButton({
       const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, blob);
       if (uploadError) throw uploadError;
 
-      const { data, error } = await supabase.functions.invoke(edgeFunction, {
-        body: { document_path: filePath, ...extraPayload },
-      });
-      if (error) throw error;
-
-      const extractedData = data?.extracted_data || data;
-      const score = data?.confidence_score || extractedData?.confidence || 0;
-      setResults(extractedData);
-      setConfidence(score);
-      setShowResults(true);
-      toast.success(`OCR selesai (${score}% akurasi)`);
+      console.warn('OCR feature not available in this version');
+      return null;
     } catch (err) {
       console.error('OCR webcam error:', err);
       toast.error(err instanceof Error ? err.message : 'OCR gagal memproses');

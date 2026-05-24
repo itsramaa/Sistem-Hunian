@@ -2,6 +2,7 @@ import { PasswordStrengthMeter } from '@/features/auth/components/PasswordStreng
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { getAuthErrorMessage } from '@/features/auth/utils/auth-errors';
 import { referralService } from '@/features/referrals/services/referralService';
+import { apiClient } from '@/lib/axios';
 import { supabase } from '@/lib/integrations/supabase/client';
 import { Button } from '@/shared/components/ui/button';
 import { Checkbox } from '@/shared/components/ui/checkbox';
@@ -350,20 +351,16 @@ export function AuthForm() {
     // If tenant signup (with merchantCode), call auth-webhook to complete setup
     if (!error && signUpData?.user && isTenantSignup) {
       try {
-        const { error: webhookError } = await supabase.functions.invoke('auth-webhook', {
-          body: {
-            user_id: signUpData.user.id,
-            email: data.email,
-            full_name: data.fullName,
-            phone: data.phone || null,
-            role: 'tenant',
-            merchant_code: data.merchantCode?.toUpperCase(),
-            referral_code: initialReferralCode?.toUpperCase() || undefined,
-          },
+        await apiClient.post('/api/v1/auth/webhook', {
+          user_id: signUpData.user.id,
+          email: data.email,
+          full_name: data.fullName,
+          phone: data.phone || null,
+          role: 'tenant',
+          merchant_code: data.merchantCode?.toUpperCase(),
+          referral_code: initialReferralCode?.toUpperCase() || undefined,
         });
-        if (!webhookError) {
-          sessionStorage.removeItem('referral_code');
-        }
+        sessionStorage.removeItem('referral_code');
       } catch {
         // Auth webhook invocation error - silently handle
       }
@@ -385,8 +382,8 @@ export function AuthForm() {
               .single();
             
             if (merchantProfile?.email) {
-              await supabase.functions.invoke('send-notification', {
-                body: {
+              try {
+                await apiClient.post('/api/v1/notifications/send', {
                   type: 'tenant_registration',
                   recipientEmail: merchantProfile.email,
                   recipientName: merchantProfile.full_name || merchantData.business_name,
@@ -400,8 +397,10 @@ export function AuthForm() {
                     }),
                     dashboardLink: `${window.location.origin}/merchant/tenants`,
                   },
-                },
-              });
+                });
+              } catch {
+                // Failed to send tenant registration notification - silently handle
+              }
             }
           }
         } catch {

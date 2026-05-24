@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/integrations/supabase/client";
+import { apiClient } from "@/lib/axios";
 
 interface SendNotificationParams {
   type: "invoice" | "payment_reminder" | "maintenance_update" | "general";
@@ -8,16 +8,8 @@ interface SendNotificationParams {
 }
 
 export async function sendNotification(params: SendNotificationParams) {
-  const { data, error } = await supabase.functions.invoke("send-notification", {
-    body: params,
-  });
-
-  if (error) {
-    console.error("Failed to send notification:", error);
-    throw error;
-  }
-
-  return data;
+  const response = await apiClient.post('/api/v1/notifications/send', params);
+  return response.data;
 }
 
 export async function sendInvoiceNotification(

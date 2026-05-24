@@ -1,6 +1,7 @@
 import { Property } from '@/features/properties/types';
 import { ActiveTenant, TenantInvitation } from '@/features/users/types/tenant';
 import { AddTenantFormData } from '@/features/users/types/addTenantSchema';
+import { apiClient } from '@/lib/axios';
 import { supabase } from '@/lib/integrations/supabase/client';
 import { CONTRACT_STATUS_TRANSITIONS, UNIT_STATUS_TRANSITIONS, isValidTransition } from '@/shared/constants/state-machines';
 import { logStatusChange, createAuditLog } from '@/shared/utils/auditLog';
@@ -265,18 +266,16 @@ export const merchantTenantService = {
       // Existing tenant selected - use their user_id directly
       userId = tenantUserId;
     } else if ((data as any).password) {
-      // Create new tenant account via edge function
-      const { data: result, error } = await supabase.functions.invoke('create-tenant-account', {
-        body: {
-          email: data.email.toLowerCase().trim(),
-          password: (data as any).password,
-          full_name: data.full_name,
-          phone: data.phone || null,
-          merchant_id: merchantId,
-        },
+      // Create new tenant account via REST API
+      const response = await apiClient.post('/api/v1/auth/bootstrap', {
+        email: data.email.toLowerCase().trim(),
+        password: (data as any).password,
+        full_name: data.full_name,
+        phone: data.phone || null,
+        merchant_id: merchantId,
       });
 
-      if (error) throw new Error(error.message || 'Gagal membuat akun tenant');
+      const result = response.data;
       if (result?.error) throw new Error(result.error);
       if (!result?.user_id) throw new Error('Gagal mendapatkan ID tenant');
 

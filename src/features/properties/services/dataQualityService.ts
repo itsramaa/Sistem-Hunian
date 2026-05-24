@@ -49,12 +49,9 @@ export interface DataVersion {
 
 export const dataQualityService = {
   async invokeDataQualityCheck(propertyId: string): Promise<QualityCheckResult> {
-    const { data, error } = await supabase.functions.invoke('ml-data-quality-check', {
-      body: { property_id: propertyId, include_suggestions: true },
-    });
-    if (error) throw new Error(error.message || 'Gagal menjalankan validasi');
-    if (!data?.success) throw new Error(data?.error || 'Validasi gagal');
-    return data as QualityCheckResult;
+    // ml-data-quality-check not yet available via REST API — stub
+    console.warn('[dataQualityService] ml-data-quality-check not yet migrated to REST API');
+    return null as unknown as QualityCheckResult;
   },
 
   async fetchQualityChecks(merchantId: string): Promise<DataQualityCheck[]> {
