@@ -116,17 +116,6 @@ components:
         started_at: { type: string, format: date-time }
         expires_at: { type: string, format: date-time }
 
-    Referral:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        referrer_id: { type: string, format: uuid }
-        referee_id: { type: string, format: uuid }
-        code: { type: string }
-        status: { type: string }
-        commission_amount: { type: number }
-        created_at: { type: string, format: date-time }
-
     Waitinglist:
       type: object
       properties:
@@ -696,42 +685,6 @@ paths:
         '200':
           description: Processed
 
-  # ── Referrals ─────────────────────────────────────────────────────────────
-  /v1/referrals:
-    get:
-      tags: [Referrals]
-      summary: List referrals
-      responses:
-        '200':
-          description: Referrals list
-    post:
-      tags: [Referrals]
-      summary: Create referral
-      responses:
-        '201':
-          description: Created
-
-  /v1/referrals/stats:
-    get:
-      tags: [Referrals]
-      summary: Get referral stats
-      responses:
-        '200':
-          description: Stats
-
-  /v1/referrals/{id}:
-    get:
-      tags: [Referrals]
-      summary: Get referral
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Referral detail
-
   # ── Waitinglist ──────────────────────────────────────────────────────────────
   /v1/waitinglist:
     post:
@@ -836,6 +789,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
 
   # ── Webhooks ──────────────────────────────────────────────────────────────
   /v1/webhooks/xendit:
