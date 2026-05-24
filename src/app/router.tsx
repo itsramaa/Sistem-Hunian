@@ -70,6 +70,7 @@ const MerchantComparativePortfolio = lazy(() => import("@/features/analytics/pag
 const MerchantFeedback = lazy(() => import("@/features/analytics/pages/Feedback"));
 const MerchantInventory = lazy(() => import("@/features/inventory/pages/Inventory"));
 const MerchantInsightsHub = lazy(() => import("@/features/analytics/pages/InsightsHub"));
+const MerchantWaitinglist = lazy(() => import("@/features/waitinglist/pages/WaitinglistPage"));
 
 // Tenant Pages
 const TenantDashboard = lazy(() => import("@/features/dashboard/pages/TenantDashboard"));
@@ -154,6 +155,7 @@ export function AppRouter() {
         <Route path="support" element={<MerchantSupport />} />
         <Route path="feedback" element={<MerchantFeedback />} />
         <Route path="inventory" element={<MerchantInventory />} />
+        <Route path="waitinglist" element={<MerchantWaitinglist />} />
         <Route path="ocr-tutorial" element={<MerchantOcrTutorial />} />
         <Route path="tenant-analytics" element={<MerchantTenantAnalytics />} />
         <Route path="compliance" element={<Navigate to="/merchant/properties" replace />} />

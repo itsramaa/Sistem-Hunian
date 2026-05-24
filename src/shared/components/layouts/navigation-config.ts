@@ -2,6 +2,7 @@ import {
     AlertTriangle,
     BarChart3,
     Building2,
+    ClipboardList,
     Command,
     CreditCard,
     FileText,
@@ -111,6 +112,7 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
         label: "Operasional",
         items: [
           { path: "/merchant/inventory", icon: Package, label: "Inventori" },
+          { path: "/merchant/waitinglist", icon: ClipboardList, label: "Waiting List" },
           { path: "/merchant/guardians", icon: UserCheck, label: "Penjaga" },
           { path: "/merchant/tenants", icon: Users, label: "Penyewa", activePatterns: ["/merchant/move-outs", "/merchant/tenant-analytics"] },
           { path: "/merchant/maintenance", icon: Wrench, label: "Maintenance" },
