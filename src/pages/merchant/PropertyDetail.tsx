@@ -132,7 +132,7 @@ export default function PropertyDetail() {
   // Tenant creation mutation
   const addTenantMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiClient.post('/api/v1/auth/bootstrap', data);
+      const response = await apiClient.post('/auth/bootstrap', data);
       return response.data;
     },
     onSuccess: () => {

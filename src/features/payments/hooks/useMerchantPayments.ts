@@ -13,7 +13,7 @@ export function useMerchantPayments(merchantId: string | undefined) {
     queryKey: ['payments', merchantId],
     queryFn: async () => {
       if (!merchantId) return [];
-      const response = await apiClient.get('/v1/payments', { params: { merchant_id: merchantId, sort: 'due_date:desc' } });
+      const response = await apiClient.get('/payments', { params: { merchant_id: merchantId, sort: 'due_date:desc' } });
       return (response.data.data || []) as Payment[];
     },
     enabled: !!merchantId,
@@ -25,7 +25,7 @@ export function useMerchantPayments(merchantId: string | undefined) {
     queryFn: async () => {
       if (!merchantId) return [];
       const today = new Date().toISOString().split('T')[0];
-      const response = await apiClient.get('/v1/billing/invoices', {
+      const response = await apiClient.get('/billing/invoices', {
         params: { merchant_id: merchantId, status: 'pending', due_before: today, exclude_with_active_plans: true, sort: 'due_date:asc' },
       });
       return (response.data.data || []) as Invoice[];
@@ -39,7 +39,7 @@ export function useMerchantPayments(merchantId: string | undefined) {
       if (!payment) throw new Error('Payment not found');
       if (payment.status === 'paid') throw new Error('This payment is already marked as paid');
 
-      await apiClient.patch(`/v1/payments/${id}/mark-paid`, {
+      await apiClient.patch(`/payments/${id}/mark-paid`, {
         payment_method,
         reference: reference || null,
         paid_at: new Date().toISOString(),
@@ -59,7 +59,7 @@ export function useMerchantPayments(merchantId: string | undefined) {
     mutationFn: async (paymentId: string) => {
       const payment = payments.find(p => p.id === paymentId);
       if (!payment) throw new Error('Payment not found');
-      const response = await apiClient.post(`/v1/payments/${paymentId}/send-reminder`, {
+      const response = await apiClient.post(`/payments/${paymentId}/send-reminder`, {
         tenantUserId: payment.tenant_user_id,
         type: 'manual',
       });
@@ -75,7 +75,7 @@ export function useMerchantPayments(merchantId: string | undefined) {
 
   const sendBulkReminderMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiClient.post('/v1/payments/bulk-remind', { source: 'manual', merchantId });
+      const response = await apiClient.post('/payments/bulk-remind', { source: 'manual', merchantId });
       return response.data;
     },
     onSuccess: (data) => {
@@ -105,7 +105,7 @@ export function useMerchantPayments(merchantId: string | undefined) {
       status: string;
       proof_photo_url?: string | null;
     }) => {
-      await apiClient.post('/v1/payments', {
+      await apiClient.post('/payments', {
         ...payload,
         paid_at: payload.status === 'paid' ? new Date().toISOString() : null,
       });

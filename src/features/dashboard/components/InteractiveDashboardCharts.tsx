@@ -36,19 +36,24 @@ export function InteractiveDashboardCharts({ className }: InteractiveDashboardCh
     queryKey: ['revenue-chart', merchant?.id, timeRange],
     queryFn: async () => {
       if (!merchant?.id) return [];
-      // TODO: Migrate to Go endpoint — GET /v1/dashboard/revenue-chart
-      const response = await apiClient.get('/v1/dashboard/revenue-chart', {
-        params: { merchant_id: merchant.id, from: dateRange.start.toISOString(), to: dateRange.end.toISOString() },
-      });
-      const payments: Array<{ amount: number; paid_at: string; status: string }> = response.data.data || [];
-      const months = eachMonthOfInterval({ start: dateRange.start, end: dateRange.end });
-      return months.map(month => {
-        const monthPayments = payments.filter(p => {
-          const paidDate = new Date(p.paid_at!);
-          return paidDate.getMonth() === month.getMonth() && paidDate.getFullYear() === month.getFullYear();
+      // TODO: /dashboard/revenue-chart endpoint not yet in BE — gracefully return empty
+      // Use /payments as fallback when available
+      try {
+        const response = await apiClient.get('/payments', {
+          params: { merchant_id: merchant.id, status: 'paid', created_at_gte: dateRange.start.toISOString(), created_at_lte: dateRange.end.toISOString() },
         });
-        return { month: format(month, 'MMM yyyy'), revenue: monthPayments.reduce((sum, p) => sum + Number(p.amount), 0), count: monthPayments.length };
-      });
+        const payments: Array<{ amount: number; paid_at: string; status: string }> = response.data.data || response.data || [];
+        const months = eachMonthOfInterval({ start: dateRange.start, end: dateRange.end });
+        return months.map(month => {
+          const monthPayments = payments.filter(p => {
+            const paidDate = new Date(p.paid_at!);
+            return paidDate.getMonth() === month.getMonth() && paidDate.getFullYear() === month.getFullYear();
+          });
+          return { month: format(month, 'MMM yyyy'), revenue: monthPayments.reduce((sum, p) => sum + Number(p.amount), 0), count: monthPayments.length };
+        });
+      } catch {
+        return [];
+      }
     },
     enabled: !!merchant?.id,
   });

@@ -56,7 +56,7 @@ export default function AdminSetup() {
       }
 
       // Register admin user via Go API
-      await apiClient.post('/v1/auth/register', {
+      await apiClient.post('/auth/register', {
         email: data.email,
         password: data.password,
         full_name: data.fullName,

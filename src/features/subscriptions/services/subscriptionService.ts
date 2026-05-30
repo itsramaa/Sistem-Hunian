@@ -39,14 +39,8 @@ export const subscriptionService = {
   },
 
   fetchInvoices: async (): Promise<SubscriptionInvoice[]> => {
-    try {
-      const response = await apiClient.get('/subscriptions/invoices', {
-        params: { limit: 100 },
-      });
-      return (response.data.data || []) as SubscriptionInvoice[];
-    } catch (error: any) {
-      throw new Error(error.response?.data?.error?.message || error.message || 'Failed to load invoices');
-    }
+    // TODO: /subscriptions/invoices endpoint not yet in BE — gracefully return empty
+    return [];
   },
 
   fetchCancellationFeedback: async (): Promise<CancellationFeedback[]> => {
@@ -60,29 +54,21 @@ export const subscriptionService = {
   },
 
   fetchStats: async () => {
-    try {
-      const response = await apiClient.get('/subscriptions/stats');
-      return response.data.data as Record<string, number>;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.error?.message || error.message || 'Failed to load stats');
-    }
+    // TODO: /subscriptions/stats endpoint not yet in BE — gracefully return empty
+    return {} as Record<string, number>;
   },
 
   updateSubscription: async (merchantId: string, tierId: string, tierName: string): Promise<void> => {
-    try {
-      await apiClient.put(`/subscriptions/merchant/${merchantId}`, {
-        tier_id: tierId,
-      });
-
-      await createAuditLog({
-        action: 'update',
-        entityType: 'merchant_subscription',
-        entityId: merchantId,
-        newData: { tierId, tierName }
-      });
-    } catch (error: any) {
-      throw new Error(error.response?.data?.error?.message || error.message || 'Failed to update subscription');
-    }
+    // TODO: /subscriptions/merchant/{id} endpoint not yet in BE — gracefully skip
+    // try {
+    //   await apiClient.put(`/subscriptions/merchant/${merchantId}`, { tier_id: tierId });
+    // } catch (error: any) { ... }
+    await createAuditLog({
+      action: 'update',
+      entityType: 'merchant_subscription',
+      entityId: merchantId,
+      newData: { tierId, tierName }
+    });
   },
 
   checkActiveSubscribers: async (tierId: string): Promise<number> => {

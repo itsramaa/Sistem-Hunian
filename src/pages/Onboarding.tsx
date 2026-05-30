@@ -262,7 +262,7 @@ export default function Onboarding() {
         .eq('user_id', user.id)
         .single();
 
-      const { error: webhookError } = await apiClient.post('/api/v1/auth/webhook', {
+      const { error: webhookError } = await apiClient.post('/webhooks/auth', {
         user_id: user.id,
         email: profile?.email || user.email,
         full_name: profile?.full_name || '',

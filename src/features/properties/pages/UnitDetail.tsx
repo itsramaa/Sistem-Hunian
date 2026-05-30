@@ -53,7 +53,7 @@ function useUnitDetail(unitId: string | undefined) {
     queryKey: ['unit-detail', unitId],
     queryFn: async () => {
       if (!unitId) throw new Error('No unit ID');
-      const unitRes = await apiClient.get(`/v1/units/${unitId}`);
+      const unitRes = await apiClient.get(`/units/${unitId}`);
       const data = unitRes.data?.data || unitRes.data;
       // TODO: Go endpoint not yet implemented for joined contracts+profiles+maintenance+invoices
       // was: supabase.from('contracts'), supabase.from('profiles'), supabase.from('maintenance_requests'), supabase.from('invoices')

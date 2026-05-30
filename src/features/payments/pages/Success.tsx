@@ -28,17 +28,9 @@ const PaymentSuccess = () => {
       }
 
       try {
-        // TODO: Migrate to Go endpoint — GET /v1/payments/transactions/:externalId
-        const response = await apiClient.get(`/v1/payments/transactions`, { params: { external_id: externalId } });
-        const data = response.data.data;
-        if (data) {
-          setTransaction({
-            amount: data.amount,
-            invoiceNumber: data.invoice?.invoice_number,
-            paymentMethod: data.payment_channel || data.payment_method || 'Unknown',
-            paidAt: data.paid_at,
-          });
-        }
+        // TODO: /payments/transactions endpoint not yet in BE — gracefully skip
+        // const response = await apiClient.get(`/payments/transactions`, { params: { external_id: externalId } });
+        // Silently skip until endpoint is available
       } catch (err) {
         console.error('Error fetching transaction:', err);
       } finally {

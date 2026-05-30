@@ -100,18 +100,17 @@ export default function TenantDetail() {
 
       // Try as contract ID first
       // TODO: Migrate to Go endpoint — GET /v1/contracts/:id?include=unit,property
-      const contractRes = await apiClient.get(`/v1/contracts/${tenantId}`).catch(() => null);
+      const contractRes = await apiClient.get(`/contracts/${tenantId}`).catch(() => null);
       const contract = contractRes?.data?.data;
 
       if (contract) {
         const [profileRes, allContractsRes, paymentsRes, maintenanceRes] = await Promise.all([
-          apiClient.get(`/profiles/${contract.tenant_user_id}`).catch(() => null),
-          // TODO: Migrate to Go endpoint — GET /v1/contracts?tenant_user_id=:id
-          apiClient.get('/v1/contracts', { params: { tenant_user_id: contract.tenant_user_id, sort: 'created_at:desc' } }).catch(() => null),
-          // TODO: Migrate to Go endpoint — GET /v1/billing/invoices?tenant_user_id=:id
-          apiClient.get('/v1/billing/invoices', { params: { tenant_user_id: contract.tenant_user_id, sort: 'due_date:desc', limit: 20 } }).catch(() => null),
-          // TODO: Migrate to Go endpoint — GET /v1/maintenance?tenant_user_id=:id
-          apiClient.get('/v1/maintenance', { params: { tenant_user_id: contract.tenant_user_id, sort: 'created_at:desc', limit: 20 } }).catch(() => null),
+          // TODO: /profiles/{userId} endpoint not yet in BE — returns null gracefully
+          Promise.resolve(null),
+          apiClient.get('/contracts', { params: { tenant_user_id: contract.tenant_user_id, sort: 'created_at:desc' } }).catch(() => null),
+          apiClient.get('/billing/invoices', { params: { tenant_user_id: contract.tenant_user_id, sort: 'due_date:desc', limit: 20 } }).catch(() => null),
+          // TODO: /maintenance endpoint not yet in BE — returns null gracefully
+          Promise.resolve(null),
         ]);
 
         return {

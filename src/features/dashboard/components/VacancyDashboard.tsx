@@ -23,11 +23,11 @@ export function VacancyDashboard() {
   const { data: vacantUnits, isLoading } = useQuery({
     queryKey: ["vacant-units", merchant?.id],
     queryFn: async () => {
-      // TODO: Migrate to Go endpoint — GET /v1/units?status=vacant&merchant_id=:id
-      const response = await apiClient.get('/v1/units', {
+      // TODO: Migrate to Go endpoint — GET /units?status=vacant&merchant_id=:id
+      const response = await apiClient.get('/units', {
         params: { merchant_id: merchant?.id, status: 'vacant', sort: 'vacant_since:asc', include: 'property' },
       });
-      return response.data.data as any[];
+      return (response.data.data || response.data || []) as any[];
     },
     enabled: !!merchant?.id,
   });
@@ -36,11 +36,8 @@ export function VacancyDashboard() {
   const { data: activeListings } = useQuery({
     queryKey: ["active-listings", merchant?.id],
     queryFn: async () => {
-      // TODO: Migrate to Go endpoint — GET /v1/unit-listings?status=active&merchant_id=:id
-      const response = await apiClient.get('/v1/unit-listings', {
-        params: { merchant_id: merchant?.id, status: 'active' },
-      });
-      return response.data.data as any[];
+      // TODO: /unit-listings endpoint not yet in BE — gracefully return empty
+      return [] as any[];
     },
     enabled: !!merchant?.id,
   });

@@ -58,17 +58,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const { data } = await apiClient.get<{
-        user: AuthUser;
-        profile: UserProfile;
-        roles: AppRole[];
+        user?: AuthUser;
+        profile?: UserProfile;
+        roles?: AppRole[];
         merchant?: MerchantProfile;
         vendor?: VendorProfile;
-      }>('/users/me');
+        // MeLocal flat shape
+        id?: string;
+        email?: string;
+        role?: AppRole;
+        full_name?: string;
+        phone_number?: string;
+      }>('/auth/me');
 
-      setUser(data.user);
-      setProfile(data.profile ?? null);
+      // Support both nested { user, profile, roles } and flat { id, email, role } shapes
+      const resolvedUser: AuthUser = data.user ?? {
+        id: data.id!,
+        email: data.email!,
+        role: data.role ?? null,
+      };
+      const resolvedProfile: UserProfile | null = data.profile ?? (
+        data.full_name || data.phone_number
+          ? { full_name: data.full_name, phone: data.phone_number } as unknown as UserProfile
+          : null
+      );
+      const userRoles: AppRole[] = data.roles ?? (resolvedUser.role ? [resolvedUser.role] : []);
 
-      const userRoles: AppRole[] = data.roles ?? (data.user.role ? [data.user.role] : []);
+      setUser(resolvedUser);
+      setProfile(resolvedProfile);
       setRoles(userRoles);
 
       const primaryRole = userRoles[0] ?? null;
@@ -195,10 +212,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) throw new Error('Not authenticated');
     if (roles.includes(newRole)) throw new Error('Role already exists');
 
-    // TODO: implement Go endpoint for adding roles
-    await apiClient.post('/users/roles', { role: newRole, ...extra });
-
-    await refreshProfile();
+    // TODO: /users/roles endpoint not yet in BE — gracefully throw informative error
+    throw new Error('Adding roles is not yet supported. Please contact support.');
   };
 
   const contextIsLoading = isLoading || isProfileLoading;

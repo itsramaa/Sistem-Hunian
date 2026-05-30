@@ -27,7 +27,7 @@ export default function MerchantInvoiceDetail() {
     queryKey: ['invoice-detail', invoiceId],
     queryFn: async () => {
       if (!invoiceId) return null;
-      const response = await apiClient.get(`/v1/billing/invoices/${invoiceId}`);
+      const response = await apiClient.get(`/billing/invoices/${invoiceId}`);
       return response.data.data as any;
     },
     enabled: !!invoiceId,
@@ -36,9 +36,9 @@ export default function MerchantInvoiceDetail() {
   const { data: tenant } = useQuery({
     queryKey: ['invoice-tenant', invoice?.tenant_user_id],
     queryFn: async () => {
-      const response = await apiClient.get(`/profiles/${invoice!.tenant_user_id}`);
-      const d = response.data.data;
-      return d ? { full_name: d.full_name, email: d.email, phone: d.phone } as { full_name: string; email: string; phone: string | null } : null;
+      // TODO: /profiles/{userId} endpoint not yet in BE — gracefully return null
+      // const response = await apiClient.get(`/profiles/${invoice!.tenant_user_id}`);
+      return null;
     },
     enabled: !!invoice?.tenant_user_id,
   });

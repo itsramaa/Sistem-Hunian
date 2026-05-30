@@ -148,10 +148,10 @@ export default function PropertyDetail() {
     queryKey: ['property-with-units', id],
     queryFn: async () => {
       if (!id) return [];
-      const propRes = await apiClient.get(`/v1/properties/${id}`);
+      const propRes = await apiClient.get(`/properties/${id}`);
       const prop = propRes.data?.data || propRes.data;
       if (!prop) return [];
-      const unitsRes = await apiClient.get('/v1/units', { params: { property_id: id } });
+      const unitsRes = await apiClient.get('/properties/' + id + '/units', { params: { property_id: id } });
       const units = unitsRes.data?.data || unitsRes.data || [];
       return [{ ...prop, units }];
     },
