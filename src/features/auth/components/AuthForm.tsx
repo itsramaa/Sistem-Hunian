@@ -319,21 +319,8 @@ export function AuthForm() {
       merchant_code: isTenantSignup ? data.merchantCode?.toUpperCase() : undefined,
     });
 
-    // If tenant signup (with merchantCode), call auth-webhook to complete setup
+    // If tenant signup (with merchantCode), complete setup
     if (!error && signUpData?.user && isTenantSignup) {
-      try {
-        await apiClient.post('/webhooks/auth', {
-          user_id: signUpData.user.id,
-          email: data.email,
-          full_name: data.fullName,
-          phone: data.phone || null,
-          role: 'tenant',
-          merchant_code: data.merchantCode?.toUpperCase(),
-          referral_code: undefined,
-        });
-      } catch {
-        // Auth webhook invocation error - silently handle
-      }
       
       // Send notification to merchant
       if (linkedMerchantId) {

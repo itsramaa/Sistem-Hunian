@@ -48,65 +48,6 @@ export interface CreateContractPayload {
   status: 'draft' | 'active' | 'pending' | 'notice' | 'completed' | 'terminated' | 'expired';
 }
 
-export interface MoveOutNotice {
-  id: string;
-  contract_id: string;
-  tenant_user_id: string;
-  intended_move_out_date: string;
-  reason: string;
-  is_early_termination?: boolean;
-  status: string;
-  contract: {
-    id: string;
-    rent_amount: number;
-    deposit_amount: number;
-    merchant_id: string;
-    tenant_user_id: string;
-    unit: {
-      unit_number: string;
-      property: {
-        name: string;
-        address: string;
-      } | null;
-    } | null;
-  };
-}
-
-export interface MoveOutInspection {
-  id: string;
-  move_out_notice_id: string;
-  status: 'scheduled' | 'completed' | 'pending';
-  scheduled_date: string | null;
-  notes: string | null;
-  inspector_name?: string;
-}
-
-export interface EarlyTerminationRequest {
-  id: string;
-  contract_id: string;
-  tenant_user_id: string;
-  requested_date: string;
-  penalty_amount: number;
-  reason: string;
-  status: string;
-  merchant_response?: string;
-  approved_at?: string;
-  denied_at?: string;
-  counter_offer_amount?: number;
-  supporting_docs?: Record<string, unknown>[];
-  contract?: {
-    id: string;
-    rent_amount: number;
-    merchant_id: string;
-    unit?: {
-      unit_number: string;
-      property?: {
-        name: string;
-      } | null;
-    } | null;
-  };
-}
-
 export interface TenantProfile {
   user_id: string;
   full_name: string | null;

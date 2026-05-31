@@ -230,29 +230,19 @@ export default function Onboarding() {
           description: 'Anda sudah memiliki akun. Mengarahkan ke dashboard...',
         });
         await refreshProfile();
-        navigate(selectedRole === 'merchant' ? '/merchant' : '/vendor', { replace: true });
+        navigate('/merchant', { replace: true });
         return;
       }
-
-      await apiClient.post('/webhooks/auth', {
-        user_id: user.id,
-        email: profile?.email || user.email,
-        full_name: profile?.full_name || user.full_name || '',
-        phone: profile?.phone || null,
-        role: selectedRole,
-        business_name: data.businessName,
-        referral_code: referralCode?.toUpperCase() || undefined,
-      });
 
       sessionStorage.removeItem('referral_code');
       await refreshProfile();
 
       toast({
         title: '🎉 Selamat datang!',
-        description: `Akun ${selectedRole === 'merchant' ? 'Pemilik Properti' : 'Vendor'} Anda berhasil dibuat.`,
+        description: `Akun Pemilik Properti Anda berhasil dibuat.`,
       });
 
-      navigate(selectedRole === 'merchant' ? '/merchant' : '/vendor', { replace: true });
+      navigate('/merchant', { replace: true });
 
     } catch (error) {
       toast({

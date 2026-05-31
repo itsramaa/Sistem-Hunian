@@ -1,6 +1,5 @@
 import { apiClient } from '@/lib/axios';
 import { CreatePropertyPayload, Property, UpdatePropertyPayload } from '../types';
-import { dataQualityService } from './dataQualityService';
 
 export const propertyService = {
   async fetchProperties(merchantId: string): Promise<Property[]> {
@@ -24,21 +23,6 @@ export const propertyService = {
   },
 
   async updateProperty(id: string, payload: UpdatePropertyPayload): Promise<Property> {
-    // Auto-versioning: snapshot current data before update
-    try {
-      const current = await apiClient.get(`/properties/${id}`);
-      if (current.data.data) {
-        const currentData = current.data.data;
-        const changedFields = Object.keys(payload).filter(k => (currentData as any)[k] !== (payload as any)[k]);
-        const summary = changedFields.length > 0
-          ? `Updated: ${changedFields.join(', ')}`
-          : 'Update (no field diff detected)';
-        await dataQualityService.createVersion('property', id, currentData as any, summary);
-      }
-    } catch (e) {
-      console.warn('Auto-versioning failed for property:', e);
-    }
-
     const response = await apiClient.put(`/properties/${id}`, payload);
     return response.data.data as Property;
   },

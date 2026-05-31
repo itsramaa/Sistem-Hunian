@@ -157,23 +157,6 @@ export const contractService = {
     return publicUrl;
   },
 
-  async getMoveOuts(): Promise<any[]> {
-    try {
-      const response = await apiClient.get('/contracts/move-outs');
-      return response.data.data;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.error?.message || error.message || 'Failed to fetch move-out notices');
-    }
-  },
-
-  async updateMoveOutStatus(id: string, status: string): Promise<void> {
-    try {
-      await apiClient.put(`/contracts/move-outs/${id}/status`, { status });
-    } catch (error: any) {
-      throw new Error(error.response?.data?.error?.message || error.message || 'Failed to update move-out status');
-    }
-  },
-
   async processDepositRefund(contractId: string, refundData: { amount: number; reason: string }) {
     try {
       const response = await apiClient.post(`/contracts/${contractId}/deposit-refund`, refundData);

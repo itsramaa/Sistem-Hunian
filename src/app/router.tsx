@@ -26,7 +26,6 @@ const AdminDashboard = lazy(() => import("@/features/dashboard/pages/admin/Dashb
 const AdminDisputes = lazy(() => import("@/features/dashboard/pages/admin/Disputes"));
 const AdminMerchants = lazy(() => import("@/features/dashboard/pages/admin/Merchants"));
 const AdminProperties = lazy(() => import("@/features/dashboard/pages/admin/Properties"));
-const AdminOrders = lazy(() => import("@/features/dashboard/pages/admin/Orders"));
 const AdminPlatformConfig = lazy(() => import("@/features/dashboard/pages/admin/PlatformConfig"));
 const AdminSettings = lazy(() => import("@/features/dashboard/pages/admin/Settings"));
 const AdminSubscriptionTiers = lazy(() => import("@/features/dashboard/pages/admin/SubscriptionTiers"));
@@ -59,7 +58,6 @@ const MerchantMarketIntelligence = lazy(() => import("@/features/analytics/pages
 const MerchantSupport = lazy(() => import("@/features/profile/pages/Support"));
 const MerchantGuardians = lazy(() => import("@/features/users/pages/Guardians"));
 const MerchantTenantAnalytics = lazy(() => import("@/features/analytics/pages/TenantAnalytics"));
-const MerchantDataQuality = lazy(() => import("@/features/analytics/pages/DataQualityHistory"));
 const MerchantAnalyticsDashboard = lazy(() => import("@/features/analytics/pages/AnalyticsDashboard"));
 const MerchantReportTemplates = lazy(() => import("@/features/analytics/pages/ReportTemplates"));
 const MerchantComparativePortfolio = lazy(() => import("@/features/analytics/pages/ComparativePortfolio"));
@@ -74,8 +72,6 @@ const TenantInvoiceDetail = lazy(() => import("@/features/billing/pages/TenantIn
 const TenantInvoices = lazy(() => import("@/features/billing/pages/TenantInvoices"));
 const TenantMaintenance = lazy(() => import("@/features/maintenance/pages/TenantMaintenance"));
 const TenantMaintenanceDetail = lazy(() => import("@/features/maintenance/pages/TenantMaintenanceDetail"));
-const TenantMarketplace = lazy(() => import("@/features/orders/pages/Marketplace"));
-const TenantOrders = lazy(() => import("@/features/orders/pages/Orders"));
 const TenantPayments = lazy(() => import("@/features/payments/pages/TenantPayments"));
 const TenantProfile = lazy(() => import("@/features/profile/pages/TenantProfile"));
 const TenantSettings = lazy(() => import("@/features/profile/pages/TenantSettings"));
@@ -117,7 +113,6 @@ export function AppRouter() {
       <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']}><AdminSettings /></ProtectedRoute>} />
       <Route path="/admin/platform-config" element={<ProtectedRoute allowedRoles={['admin']}><AdminPlatformConfig /></ProtectedRoute>} />
       <Route path="/admin/chatbot" element={<ProtectedRoute allowedRoles={['admin']}><AdminChatbot /></ProtectedRoute>} />
-      <Route path="/admin/orders" element={<ProtectedRoute allowedRoles={['admin']}><AdminOrders /></ProtectedRoute>} />
       <Route path="/admin/audit-logs" element={<ProtectedRoute allowedRoles={['admin']}><AdminAuditLogs /></ProtectedRoute>} />
       <Route path="/admin/2fa" element={<ProtectedRoute allowedRoles={['admin']}><Admin2FA /></ProtectedRoute>} />
 
@@ -151,7 +146,6 @@ export function AppRouter() {
         <Route path="ocr-tutorial" element={<MerchantOcrTutorial />} />
         <Route path="tenant-analytics" element={<MerchantTenantAnalytics />} />
         <Route path="compliance" element={<Navigate to="/merchant/properties" replace />} />
-        <Route path="data-quality" element={<MerchantDataQuality />} />
         <Route path="analytics-dashboard" element={<MerchantAnalyticsDashboard />} />
         <Route path="report-templates" element={<MerchantReportTemplates />} />
         <Route path="comparative-portfolio" element={<MerchantComparativePortfolio />} />
@@ -177,8 +171,6 @@ export function AppRouter() {
       <Route path="/tenant/profile" element={<ProtectedRoute allowedRoles={['tenant']}><TenantProfile /></ProtectedRoute>} />
       <Route path="/tenant/invoices" element={<ProtectedRoute allowedRoles={['tenant']}><TenantInvoices /></ProtectedRoute>} />
       <Route path="/tenant/invoices/:invoiceId" element={<ProtectedRoute allowedRoles={['tenant']}><TenantInvoiceDetail /></ProtectedRoute>} />
-      <Route path="/tenant/marketplace" element={<ProtectedRoute allowedRoles={['tenant']}><TenantMarketplace /></ProtectedRoute>} />
-      <Route path="/tenant/orders" element={<ProtectedRoute allowedRoles={['tenant']}><TenantOrders /></ProtectedRoute>} />
       <Route path="/tenant/notifications" element={<ProtectedRoute allowedRoles={['tenant']}><TenantNotificationHistory /></ProtectedRoute>} />
 
       {/* Payment Redirect Pages (no auth required - redirect from Xendit) */}

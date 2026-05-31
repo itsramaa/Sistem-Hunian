@@ -17,9 +17,15 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Response interceptor: handle 401 with token refresh
+// Response interceptor: unwrap envelope + handle 401 with token refresh
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Unwrap { data, error } envelope so callers get the inner payload directly
+    if (response.data && 'data' in response.data && 'error' in response.data) {
+      response.data = response.data.data;
+    }
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
 

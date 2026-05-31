@@ -1,6 +1,5 @@
 import { apiClient } from '@/lib/axios';
 import { CreateUnitPayload, Unit, UpdateUnitPayload } from '../types';
-import { dataQualityService } from './dataQualityService';
 
 export const unitService = {
   async fetchUnits(propertyId: string): Promise<Unit[]> {
@@ -37,21 +36,6 @@ export const unitService = {
   },
 
   async updateUnit(id: string, payload: UpdateUnitPayload): Promise<Unit> {
-    // Auto-versioning: snapshot current data before update
-    try {
-      const current = await apiClient.get(`/units/${id}`);
-      if (current.data.data) {
-        const currentData = current.data.data;
-        const changedFields = Object.keys(payload).filter(k => (currentData as any)[k] !== (payload as any)[k]);
-        const summary = changedFields.length > 0
-          ? `Updated: ${changedFields.join(', ')}`
-          : 'Update (no field diff detected)';
-        await dataQualityService.createVersion('unit', id, currentData as any, summary);
-      }
-    } catch (e) {
-      console.warn('Auto-versioning failed for unit:', e);
-    }
-
     try {
       const response = await apiClient.put(`/units/${id}`, payload);
       return response.data.data as Unit;

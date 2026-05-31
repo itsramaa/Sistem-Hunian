@@ -8,15 +8,11 @@ import {
     FileText,
     Home,
     LayoutDashboard,
-    LogOut,
     LucideIcon,
     Menu,
     Package,
     Settings,
     Shield,
-    ShoppingBag,
-    ShoppingCart,
-    Store,
     User,
     UserCheck,
     Users,
@@ -24,7 +20,7 @@ import {
     Wrench,
 } from "lucide-react";
 
-export type UserRole = "tenant" | "merchant" | "vendor" | "admin";
+export type UserRole = "tenant" | "merchant" | "admin";
 
 export interface NavItem {
   path: string;
@@ -68,28 +64,25 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/tenant", icon: LayoutDashboard, label: "Beranda" },
           { path: "/tenant/payments", icon: Wallet, label: "Pembayaran" },
           { path: "/tenant/invoices", icon: FileText, label: "Tagihan" },
-          { path: "/tenant/marketplace", icon: Store, label: "Marketplace" },
         ],
       },
       {
         label: "Aktivitas",
         items: [
           { path: "/tenant/maintenance", icon: Wrench, label: "Pemeliharaan" },
-          { path: "/tenant/orders", icon: ShoppingBag, label: "Pesanan" },
         ],
       },
     ],
     bottomNav: [
       { path: "/tenant", icon: LayoutDashboard, label: "Beranda" },
       { path: "/tenant/payments", icon: Wallet, label: "Bayar" },
-      { path: "/tenant/orders", icon: ShoppingBag, label: "Pesanan" },
-      { path: "/tenant/marketplace", icon: Store, label: "Marketplace" },
+      { path: "/tenant/maintenance", icon: Wrench, label: "Maintenance" },
       { path: "/tenant/profile", icon: User, label: "Profil" },
     ],
     hasBottomNav: true,
     hasFloatingAI: true,
     globalFloatingAI: true,
-    mainPagesWithAI: ["/tenant", "/tenant/payments", "/tenant/orders"],
+    mainPagesWithAI: ["/tenant", "/tenant/payments"],
   },
   merchant: {
     brand: {
@@ -127,32 +120,13 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
         label: "Wawasan",
         items: [
           { path: "/merchant/reports", icon: FileText, label: "Laporan", activePatterns: ["/merchant/report-templates"] },
-          { path: "/merchant/insights", icon: BarChart3, label: "Alat", activePatterns: ["/merchant/analytics", "/merchant/ai-insights", "/merchant/analytics-dashboard", "/merchant/comparative-portfolio", "/merchant/market-intelligence", "/merchant/data-quality"] },
+          { path: "/merchant/insights", icon: BarChart3, label: "Alat", activePatterns: ["/merchant/analytics", "/merchant/ai-insights", "/merchant/analytics-dashboard", "/merchant/comparative-portfolio", "/merchant/market-intelligence"] },
         ],
       },
     ],
     hasBottomNav: false,
     hasFloatingAI: true,
     globalFloatingAI: true,
-  },
-  vendor: {
-    brand: {
-      name: "SiHuni",
-      subtitle: "Portal Vendor",
-      icon: Wrench,
-      iconBgClass: "bg-success text-success-foreground",
-    },
-    mainNav: [
-      {
-        label: "Menu",
-        items: [
-          { path: "/vendor", icon: LayoutDashboard, label: "Dashboard" },
-        ],
-      },
-    ],
-    hasBottomNav: false,
-    hasFloatingAI: false,
-    globalFloatingAI: false,
   },
   admin: {
     brand: {
@@ -175,7 +149,6 @@ export const navigationConfig: Record<UserRole, RoleConfig> = {
           { path: "/admin/analytics", icon: BarChart3, label: "Analitik" },
           { path: "/admin/platform-config", icon: CreditCard, label: "Konfigurasi" },
           { path: "/admin/chatbot", icon: Menu, label: "Chatbot KB" },
-          { path: "/admin/orders", icon: ShoppingCart, label: "Pesanan" },
           { path: "/admin/audit-logs", icon: FileText, label: "Log Audit" },
           { path: "/admin/2fa", icon: Shield, label: "Admin 2FA" },
           { path: "/admin/settings", icon: Settings, label: "Pengaturan" },
