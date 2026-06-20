@@ -1,9 +1,8 @@
 ﻿import { LucideIcon } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
-import { ReactNode } from 'react';
 
 interface EmptyStateProps {
-  icon: LucideIcon;
+  icon?: LucideIcon;
   title: string;
   description?: string;
   action?: {
@@ -11,26 +10,37 @@ interface EmptyStateProps {
     onClick: () => void;
     icon?: LucideIcon;
   };
-  children?: ReactNode;
 }
 
-export function EmptyState({ icon: Icon, title, description, action, children }: EmptyStateProps) {
+/**
+ * Empty state placeholder shown when a list/table has no data.
+ * Per SRS §5: EmptyState component required for all tables.
+ */
+export function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-12 px-4 text-center animate-fade-in">
-      <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center mb-4">
-        <Icon className="h-8 w-8 text-primary/60" />
-      </div>
-      <h3 className="text-lg font-semibold mb-1">{title}</h3>
-      {description && (
-        <p className="text-sm text-muted-foreground max-w-sm mb-4">{description}</p>
+    <div className="flex flex-col items-center justify-center py-16 px-4 text-center space-y-3">
+      {Icon && (
+        <div className="w-14 h-14 rounded-2xl bg-muted/50 flex items-center justify-center">
+          <Icon className="h-7 w-7 text-muted-foreground/50" />
+        </div>
       )}
+      <div className="space-y-1">
+        <p className="font-semibold text-foreground">{title}</p>
+        {description && (
+          <p className="text-sm text-muted-foreground max-w-xs">{description}</p>
+        )}
+      </div>
       {action && (
-        <Button onClick={action.onClick} size="sm">
-          {action.icon && <action.icon className="h-4 w-4 mr-2" />}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={action.onClick}
+          className="gap-2 rounded-xl mt-1"
+        >
+          {action.icon && <action.icon className="h-4 w-4" />}
           {action.label}
         </Button>
       )}
-      {children}
     </div>
   );
 }

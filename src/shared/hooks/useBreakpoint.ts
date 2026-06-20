@@ -1,42 +1,40 @@
 import { useState, useEffect } from 'react';
 
-type Breakpoint = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
-
 const BREAKPOINTS = {
-  xs: 0,
   sm: 640,
   md: 768,
   lg: 1024,
   xl: 1280,
 } as const;
 
-export function useBreakpoint(): Breakpoint {
-  const [bp, setBp] = useState<Breakpoint>('lg');
+type Breakpoint = keyof typeof BREAKPOINTS;
+
+function getWidth(): number {
+  return typeof window !== 'undefined' ? window.innerWidth : 1024;
+}
+
+/**
+ * Returns true when viewport width is below the given breakpoint.
+ * Defaults to 'md' (768px) — aligns with SRS §8 tablet breakpoint.
+ */
+export function useBreakpoint(breakpoint: Breakpoint = 'md'): boolean {
+  const [isBelow, setIsBelow] = useState(() => getWidth() < BREAKPOINTS[breakpoint]);
 
   useEffect(() => {
-    const get = (): Breakpoint => {
-      const w = window.innerWidth;
-      if (w < 640) return 'xs';
-      if (w < 768) return 'sm';
-      if (w < 1024) return 'md';
-      if (w < 1280) return 'lg';
-      return 'xl';
-    };
-    const handler = () => setBp(get());
-    handler();
-    window.addEventListener('resize', handler);
+    const handler = () => setIsBelow(getWidth() < BREAKPOINTS[breakpoint]);
+    window.addEventListener('resize', handler, { passive: true });
     return () => window.removeEventListener('resize', handler);
-  }, []);
+  }, [breakpoint]);
 
-  return bp;
+  return isBelow;
 }
 
-export function useIsMobile() {
-  const bp = useBreakpoint();
-  return bp === 'xs';
+/** Returns true on mobile (< 640px) per SRS §8 */
+export function useIsMobile(): boolean {
+  return useBreakpoint('sm');
 }
 
-export function useIsTabletOrBelow() {
-  const bp = useBreakpoint();
-  return bp === 'xs' || bp === 'sm' || bp === 'md';
+/** Returns true on tablet or smaller (< 1024px) */
+export function useIsTabletOrMobile(): boolean {
+  return useBreakpoint('lg');
 }

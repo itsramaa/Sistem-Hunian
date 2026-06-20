@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/dialog';
@@ -33,7 +33,7 @@ export function RoomForm({ open, onOpenChange, room, onSubmit, isLoading }: Room
   const { data: propsData } = useProperties('', 1, 100);
   const properties = propsData?.properties ?? [];
 
-  const { register, handleSubmit, setValue, reset, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, control, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(roomSchema),
     defaultValues: { property_id: '', nomor_kamar: '', tipe_kamar: '', harga_sewa: 0 },
   });
@@ -49,7 +49,7 @@ export function RoomForm({ open, onOpenChange, room, onSubmit, isLoading }: Room
     } else {
       reset({ property_id: '', nomor_kamar: '', tipe_kamar: '', harga_sewa: 0 });
     }
-  }, [room, open]);
+  }, [room, open, reset]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -69,22 +69,29 @@ export function RoomForm({ open, onOpenChange, room, onSubmit, isLoading }: Room
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+          {/* Properti — controlled via Controller to fix defaultValue payload mismatch */}
           <div className="space-y-2">
             <Label htmlFor="property_id">Properti</Label>
-            <Select
-              disabled={isLoading || isEdit}
-              defaultValue={room?.property_id || ''}
-              onValueChange={(v) => setValue('property_id', v)}
-            >
-              <SelectTrigger id="property_id" className="rounded-xl h-12">
-                <SelectValue placeholder="Pilih properti" />
-              </SelectTrigger>
-              <SelectContent>
-                {properties.map((p: any) => (
-                  <SelectItem key={p.id} value={p.id}>{p.nama}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Controller
+              name="property_id"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  disabled={isLoading || isEdit}
+                  value={field.value}
+                  onValueChange={field.onChange}
+                >
+                  <SelectTrigger id="property_id" className="rounded-xl h-12">
+                    <SelectValue placeholder="Pilih properti" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {properties.map((p: any) => (
+                      <SelectItem key={p.id} value={p.id}>{p.nama}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
             {errors.property_id && <p className="text-sm text-destructive">{errors.property_id.message}</p>}
           </div>
 
