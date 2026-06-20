@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useRooms, useCreateRoom, useUpdateRoom, useDeleteRoom } from '../hooks/useRooms';
 import { useProperties } from '@/features/properties/hooks/useProperties';
 import { RoomForm } from '../components/RoomForm';
@@ -7,10 +7,8 @@ import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/dialog';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/shared/components/ui/table';
-import { Plus, Loader2, Search, BedDouble, ChevronLeft, ChevronRight, Edit, Trash2, MoreHorizontal, AlertTriangle } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
+import { Plus, Loader2, Search, BedDouble, ChevronLeft, ChevronRight, Edit, Trash2, MoreHorizontal, AlertTriangle, History } from 'lucide-react';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useToast } from '@/shared/hooks/use-toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
@@ -24,6 +22,7 @@ const statusColors: Record<string, { label: string; className: string }> = {
 
 export default function RoomsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [propertyFilter, setPropertyFilter] = useState(searchParams.get('property_id') || '');
@@ -75,9 +74,6 @@ export default function RoomsPage() {
     }
   };
 
-  const openEdit = (room: Room) => { setEditing(room); setFormOpen(true); };
-  const openCreate = () => { setEditing(null); setFormOpen(true); };
-
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -86,7 +82,7 @@ export default function RoomsPage() {
           <h1 className="text-xl font-bold tracking-tight">Kamar</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Kelola kamar di seluruh properti</p>
         </div>
-        <Button onClick={openCreate} className="shrink-0 gap-2 rounded-xl">
+        <Button onClick={() => { setEditing(null); setFormOpen(true); }} className="shrink-0 gap-2 rounded-xl">
           <Plus className="h-4 w-4" /> Tambah Kamar
         </Button>
       </div>
@@ -103,20 +99,14 @@ export default function RoomsPage() {
           />
         </div>
         <Select value={propertyFilter} onValueChange={(v) => { setPropertyFilter(v); setPage(1); setSearchParams(v && v.trim() ? { property_id: v } : {}); }}>
-          <SelectTrigger className="w-[200px] rounded-xl h-10">
-            <SelectValue placeholder="Semua properti" />
-          </SelectTrigger>
+          <SelectTrigger className="w-[200px] rounded-xl h-10"><SelectValue placeholder="Semua properti" /></SelectTrigger>
           <SelectContent>
             <SelectItem value=" ">Semua properti</SelectItem>
-            {properties.map((p: any) => (
-              <SelectItem key={p.id} value={p.id}>{p.nama}</SelectItem>
-            ))}
+            {properties.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nama}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-          <SelectTrigger className="w-[160px] rounded-xl h-10">
-            <SelectValue placeholder="Semua status" />
-          </SelectTrigger>
+          <SelectTrigger className="w-[160px] rounded-xl h-10"><SelectValue placeholder="Semua status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value=" ">Semua status</SelectItem>
             <SelectItem value="available">Tersedia</SelectItem>
@@ -177,7 +167,12 @@ export default function RoomsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="rounded-xl">
-                          <DropdownMenuItem onClick={() => openEdit(room)}><Edit className="h-4 w-4 mr-2" /> Ubah</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate(`/dashboard/payments?room_id=${room.id}`)}>
+                            <History className="h-4 w-4 mr-2" /> Lihat Histori Pembayaran
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { setEditing(room); setFormOpen(true); }}>
+                            <Edit className="h-4 w-4 mr-2" /> Ubah
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setDeleteTarget(room)} className="text-destructive focus:text-destructive">
                             <Trash2 className="h-4 w-4 mr-2" /> Hapus
                           </DropdownMenuItem>
@@ -192,7 +187,6 @@ export default function RoomsPage() {
         </div>
       )}
 
-      {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span>{(page-1)*limit+1}–{Math.min(page*limit, total)} dari {total}</span>
@@ -208,7 +202,6 @@ export default function RoomsPage() {
         </div>
       )}
 
-      {/* Form modal */}
       <RoomForm
         open={formOpen}
         onOpenChange={setFormOpen}
@@ -228,7 +221,7 @@ export default function RoomsPage() {
               <div>
                 <DialogTitle>Hapus Kamar</DialogTitle>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  Kamar <strong>{deleteTarget?.nomor_kamar}</strong> akan dihapus. Kamar tidak dapat dihapus jika masih terisi atau dalam konfirmasi DP.
+                  Kamar <strong>{deleteTarget?.nomor_kamar}</strong> akan dihapus. Tidak bisa dihapus jika masih terisi atau dalam konfirmasi DP.
                 </p>
               </div>
             </div>
@@ -236,8 +229,7 @@ export default function RoomsPage() {
           <DialogFooter className="pt-2">
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>Batal</Button>
             <Button variant="destructive" disabled={deleteMutation.isPending} onClick={handleDelete} className="gap-2 rounded-xl">
-              {deleteMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              Hapus
+              {deleteMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Hapus
             </Button>
           </DialogFooter>
         </DialogContent>

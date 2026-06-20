@@ -1,4 +1,5 @@
 ﻿import React, { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { usePayments, useCreatePayment, useUploadBukti, useMarkPaid } from '../hooks/usePayments';
 import { useProperties } from '@/features/properties/hooks/useProperties';
 import { useActiveTenants } from '@/features/tenants/hooks/useTenants';
@@ -10,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/dialog';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
-import { Plus, Loader2, CreditCard, ChevronLeft, ChevronRight, Upload, CheckCircle2 } from 'lucide-react';
+import { Plus, Loader2, CreditCard, ChevronLeft, ChevronRight, Upload, CheckCircle2, X } from 'lucide-react';
 import { useToast } from '@/shared/hooks/use-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -34,16 +35,28 @@ const paymentSchema = z.object({
 type FormData = z.infer<typeof paymentSchema>;
 
 export default function PaymentsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('');
   const [propertyFilter, setPropertyFilter] = useState('');
+  const [periodeFilter, setPeriodeFilter] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [uploadTarget, setUploadTarget] = useState<Payment | null>(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const { toast } = useToast();
 
+  // room_id can come from URL params (when navigating from Rooms page "Lihat Histori")
+  const roomIdFromUrl = searchParams.get('room_id') || '';
+
   const limit = 20;
-  const { data, isLoading } = usePayments(page, limit, undefined, undefined, statusFilter || undefined, propertyFilter || undefined);
+  const { data, isLoading } = usePayments(
+    page, limit,
+    roomIdFromUrl || undefined,
+    undefined,
+    statusFilter || undefined,
+    propertyFilter || undefined,
+    periodeFilter || undefined
+  );
   const { data: propsData } = useProperties('', 1, 100);
   const { data: roomsData } = useRooms('', 1, 200, propertyFilter || undefined, 'occupied');
   const { data: tenantsData } = useActiveTenants(1, 200, propertyFilter || undefined);
@@ -89,6 +102,11 @@ export default function PaymentsPage() {
     } catch { toast({ variant: 'destructive', title: 'Gagal tandai lunas' }); }
   };
 
+  const clearRoomFilter = () => {
+    setSearchParams({});
+    setPage(1);
+  };
+
   const fmt = (d?: string) => { try { return d ? format(new Date(d), 'dd MMM yyyy', { locale: localeId }) : '—'; } catch { return d ?? '—'; } };
 
   return (
@@ -103,6 +121,17 @@ export default function PaymentsPage() {
         </Button>
       </div>
 
+      {/* Active room filter badge */}
+      {roomIdFromUrl && (
+        <div className="flex items-center gap-2 p-2 bg-primary/5 border border-primary/20 rounded-xl">
+          <span className="text-sm text-primary font-medium">Filter: histori kamar tertentu</span>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full" onClick={clearRoomFilter}>
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+      )}
+
+      {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <Select value={propertyFilter} onValueChange={v => { setPropertyFilter(v); setPage(1); }}>
           <SelectTrigger className="w-[180px] rounded-xl h-10"><SelectValue placeholder="Semua properti" /></SelectTrigger>
@@ -120,6 +149,12 @@ export default function PaymentsPage() {
             <SelectItem value="overdue">Terlambat</SelectItem>
           </SelectContent>
         </Select>
+        <Input
+          placeholder="Periode (YYYY-MM)"
+          value={periodeFilter}
+          onChange={e => { setPeriodeFilter(e.target.value); setPage(1); }}
+          className="w-[160px] rounded-xl h-10"
+        />
       </div>
 
       {isLoading ? (
@@ -157,13 +192,7 @@ export default function PaymentsPage() {
                     <TableCell className="text-right">
                       {canAction && (
                         <div className="flex items-center justify-end gap-1.5">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 gap-1.5 text-xs rounded-lg text-green-600 hover:text-green-700"
-                            disabled={markPaidMutation.isPending}
-                            onClick={() => handleMarkPaid(p)}
-                          >
+                          <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs rounded-lg text-green-600" disabled={markPaidMutation.isPending} onClick={() => handleMarkPaid(p)}>
                             <CheckCircle2 className="h-3.5 w-3.5" /> Tandai Lunas
                           </Button>
                           {!p.bukti_transfer_url && (
@@ -207,9 +236,7 @@ export default function PaymentsPage() {
               <Label>Kamar (terisi)</Label>
               <Select onValueChange={v => { setValue('room_id', v); setValue('tenant_id', ''); }}>
                 <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Pilih kamar" /></SelectTrigger>
-                <SelectContent>
-                  {rooms.map((r: any) => <SelectItem key={r.id} value={r.id}>{r.nomor_kamar} — {r.nama_properti}</SelectItem>)}
-                </SelectContent>
+                <SelectContent>{rooms.map((r: any) => <SelectItem key={r.id} value={r.id}>{r.nomor_kamar} — {r.nama_properti}</SelectItem>)}</SelectContent>
               </Select>
               {errors.room_id && <p className="text-sm text-destructive">{errors.room_id.message}</p>}
             </div>
