@@ -18,6 +18,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
+import { DataCard } from '@/shared/components/DataCard';
+import { useIsMobile } from '@/shared/hooks/useBreakpoint';
+import { EmptyState } from '@/shared/components/ui/EmptyState';
 
 const statusColors: Record<string, { label: string; className: string }> = {
   paid: { label: 'Lunas', className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
@@ -36,6 +39,7 @@ type FormData = z.infer<typeof paymentSchema>;
 
 export default function PaymentsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const isMobile = useIsMobile();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('');
   const [propertyFilter, setPropertyFilter] = useState('');
@@ -45,18 +49,9 @@ export default function PaymentsPage() {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const { toast } = useToast();
 
-  // room_id can come from URL params (when navigating from Rooms page "Lihat Histori")
   const roomIdFromUrl = searchParams.get('room_id') || '';
-
   const limit = 20;
-  const { data, isLoading } = usePayments(
-    page, limit,
-    roomIdFromUrl || undefined,
-    undefined,
-    statusFilter || undefined,
-    propertyFilter || undefined,
-    periodeFilter || undefined
-  );
+  const { data, isLoading } = usePayments(page, limit, roomIdFromUrl || undefined, undefined, statusFilter || undefined, propertyFilter || undefined, periodeFilter || undefined);
   const { data: propsData } = useProperties('', 1, 100);
   const { data: roomsData } = useRooms('', 1, 200, propertyFilter || undefined, 'occupied');
   const { data: tenantsData } = useActiveTenants(1, 200, propertyFilter || undefined);
@@ -79,35 +74,44 @@ export default function PaymentsPage() {
   const selectedRoomId = watch('room_id');
 
   const handleCreate = async (payload: FormData) => {
-    try {
-      await createMutation.mutateAsync(payload);
-      setFormOpen(false); reset();
-      toast({ title: 'Pembayaran berhasil dicatat' });
-    } catch { toast({ variant: 'destructive', title: 'Gagal mencatat pembayaran' }); }
+    try { await createMutation.mutateAsync(payload); setFormOpen(false); reset(); toast({ title: 'Pembayaran berhasil dicatat' }); }
+    catch { toast({ variant: 'destructive', title: 'Gagal mencatat pembayaran' }); }
   };
-
   const handleUpload = async () => {
     if (!uploadTarget || !uploadFile) return;
-    try {
-      await uploadMutation.mutateAsync({ id: uploadTarget.id, file: uploadFile });
-      setUploadTarget(null); setUploadFile(null);
-      toast({ title: 'Bukti transfer berhasil diupload' });
-    } catch { toast({ variant: 'destructive', title: 'Gagal upload bukti transfer' }); }
+    try { await uploadMutation.mutateAsync({ id: uploadTarget.id, file: uploadFile }); setUploadTarget(null); setUploadFile(null); toast({ title: 'Bukti transfer berhasil diupload' }); }
+    catch { toast({ variant: 'destructive', title: 'Gagal upload bukti transfer' }); }
   };
-
   const handleMarkPaid = async (payment: Payment) => {
-    try {
-      await markPaidMutation.mutateAsync(payment.id);
-      toast({ title: `Pembayaran ${payment.periode} ditandai lunas` });
-    } catch { toast({ variant: 'destructive', title: 'Gagal tandai lunas' }); }
-  };
-
-  const clearRoomFilter = () => {
-    setSearchParams({});
-    setPage(1);
+    try { await markPaidMutation.mutateAsync(payment.id); toast({ title: `Pembayaran ${payment.periode} ditandai lunas` }); }
+    catch { toast({ variant: 'destructive', title: 'Gagal tandai lunas' }); }
   };
 
   const fmt = (d?: string) => { try { return d ? format(new Date(d), 'dd MMM yyyy', { locale: localeId }) : '—'; } catch { return d ?? '—'; } };
+
+  const PaymentActions = ({ p }: { p: Payment }) => p.status === 'paid' ? null : (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs rounded-lg text-green-600 min-h-[40px]" disabled={markPaidMutation.isPending} onClick={() => handleMarkPaid(p)}>
+        <CheckCircle2 className="h-3.5 w-3.5" /> Lunas
+      </Button>
+      {!p.bukti_transfer_url && (
+        <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs rounded-lg min-h-[40px]" onClick={() => setUploadTarget(p)}>
+          <Upload className="h-3.5 w-3.5" /> Bukti
+        </Button>
+      )}
+    </div>
+  );
+
+  const Pagination = () => totalPages > 1 ? (
+    <div className="flex items-center justify-between text-sm text-muted-foreground">
+      <span>{(page-1)*limit+1}–{Math.min(page*limit, total)} dari {total}</span>
+      <div className="flex items-center gap-1">
+        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full" disabled={page<=1} onClick={() => setPage(p=>p-1)}><ChevronLeft className="h-4 w-4" /></Button>
+        <span className="text-xs">{page}/{totalPages}</span>
+        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full" disabled={page>=totalPages} onClick={() => setPage(p=>p+1)}><ChevronRight className="h-4 w-4" /></Button>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div className="space-y-5">
@@ -116,32 +120,28 @@ export default function PaymentsPage() {
           <h1 className="text-xl font-bold tracking-tight">Pembayaran</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Pencatatan pembayaran sewa</p>
         </div>
-        <Button onClick={() => setFormOpen(true)} className="shrink-0 gap-2 rounded-xl">
+        <Button onClick={() => setFormOpen(true)} className="shrink-0 gap-2 rounded-xl min-h-[44px]">
           <Plus className="h-4 w-4" /> Catat Pembayaran
         </Button>
       </div>
 
-      {/* Active room filter badge */}
       {roomIdFromUrl && (
         <div className="flex items-center gap-2 p-2 bg-primary/5 border border-primary/20 rounded-xl">
           <span className="text-sm text-primary font-medium">Filter: histori kamar tertentu</span>
-          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full" onClick={clearRoomFilter}>
-            <X className="h-3 w-3" />
-          </Button>
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded-full" onClick={() => { setSearchParams({}); setPage(1); }}><X className="h-3 w-3" /></Button>
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3 overflow-x-auto pb-1">
         <Select value={propertyFilter} onValueChange={v => { setPropertyFilter(v); setPage(1); }}>
-          <SelectTrigger className="w-[180px] rounded-xl h-10"><SelectValue placeholder="Semua properti" /></SelectTrigger>
+          <SelectTrigger className="w-[160px] rounded-xl h-10 shrink-0"><SelectValue placeholder="Semua properti" /></SelectTrigger>
           <SelectContent>
             <SelectItem value=" ">Semua properti</SelectItem>
             {properties.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nama}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); setPage(1); }}>
-          <SelectTrigger className="w-[150px] rounded-xl h-10"><SelectValue placeholder="Semua status" /></SelectTrigger>
+          <SelectTrigger className="w-[140px] rounded-xl h-10 shrink-0"><SelectValue placeholder="Semua status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value=" ">Semua status</SelectItem>
             <SelectItem value="paid">Lunas</SelectItem>
@@ -149,77 +149,75 @@ export default function PaymentsPage() {
             <SelectItem value="overdue">Terlambat</SelectItem>
           </SelectContent>
         </Select>
-        <Input
-          placeholder="Periode (YYYY-MM)"
-          value={periodeFilter}
-          onChange={e => { setPeriodeFilter(e.target.value); setPage(1); }}
-          className="w-[160px] rounded-xl h-10"
-        />
+        <Input placeholder="Periode (YYYY-MM)" value={periodeFilter} onChange={e => { setPeriodeFilter(e.target.value); setPage(1); }} className="w-[150px] rounded-xl h-10 shrink-0" />
       </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin" /> <span className="text-sm">Memuat...</span>
+          <Loader2 className="h-5 w-5 animate-spin" /><span className="text-sm">Memuat...</span>
+        </div>
+      ) : payments.length === 0 ? (
+        <EmptyState icon={CreditCard} title="Belum ada pembayaran" description="Catat pembayaran sewa pertama." action={{ label: 'Catat Pembayaran', onClick: () => setFormOpen(true), icon: Plus }} />
+      ) : isMobile ? (
+        <div className="space-y-3">
+          {payments.map(p => {
+            const sc = statusColors[p.status] || { label: p.status, className: '' };
+            return (
+              <DataCard key={p.id}
+                header={
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-sm">{p.nomor_kamar || '—'} · {p.periode}</p>
+                      <p className="text-xs text-muted-foreground">{p.nama_penghuni || '—'}</p>
+                    </div>
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${sc.className}`}>{sc.label}</span>
+                  </div>
+                }
+                fields={[
+                  { label: 'Nominal', value: `Rp${p.nominal.toLocaleString('id-ID')}` },
+                  { label: 'Tgl Bayar', value: fmt(p.tanggal_bayar) },
+                ]}
+                actions={<PaymentActions p={p} />}
+              />
+            );
+          })}
+          <Pagination />
         </div>
       ) : (
-        <div className="glass-table overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b-0">
-                <TableHead className="font-semibold text-xs uppercase">Kamar</TableHead>
-                <TableHead className="font-semibold text-xs uppercase">Penghuni</TableHead>
-                <TableHead className="font-semibold text-xs uppercase">Periode</TableHead>
-                <TableHead className="font-semibold text-xs uppercase text-right">Nominal</TableHead>
-                <TableHead className="font-semibold text-xs uppercase">Tgl Bayar</TableHead>
-                <TableHead className="font-semibold text-xs uppercase">Status</TableHead>
-                <TableHead className="font-semibold text-xs uppercase text-right">Aksi</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {payments.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="h-32 text-center text-muted-foreground">Belum ada data pembayaran.</TableCell></TableRow>
-              ) : payments.map(p => {
-                const sc = statusColors[p.status] || { label: p.status, className: '' };
-                const canAction = p.status !== 'paid';
-                return (
-                  <TableRow key={p.id} className="hover:bg-primary/5 transition-colors">
-                    <TableCell className="text-sm font-medium">{p.nomor_kamar || '—'}</TableCell>
-                    <TableCell className="text-sm">{p.nama_penghuni || '—'}</TableCell>
-                    <TableCell className="text-sm tabular-nums">{p.periode}</TableCell>
-                    <TableCell className="text-sm font-medium tabular-nums text-right">Rp{p.nominal.toLocaleString('id-ID')}</TableCell>
-                    <TableCell className="text-sm">{fmt(p.tanggal_bayar)}</TableCell>
-                    <TableCell><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${sc.className}`}>{sc.label}</span></TableCell>
-                    <TableCell className="text-right">
-                      {canAction && (
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs rounded-lg text-green-600" disabled={markPaidMutation.isPending} onClick={() => handleMarkPaid(p)}>
-                            <CheckCircle2 className="h-3.5 w-3.5" /> Tandai Lunas
-                          </Button>
-                          {!p.bukti_transfer_url && (
-                            <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs rounded-lg" onClick={() => setUploadTarget(p)}>
-                              <Upload className="h-3.5 w-3.5" /> Bukti
-                            </Button>
-                          )}
-                        </div>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>{(page-1)*limit+1}–{Math.min(page*limit, total)} dari {total}</span>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full" disabled={page<=1} onClick={() => setPage(p=>p-1)}><ChevronLeft className="h-4 w-4" /></Button>
-            <span className="text-xs">{page}/{totalPages}</span>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full" disabled={page>=totalPages} onClick={() => setPage(p=>p+1)}><ChevronRight className="h-4 w-4" /></Button>
+        <>
+          <div className="glass-table overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b-0">
+                  <TableHead className="font-semibold text-xs uppercase">Kamar</TableHead>
+                  <TableHead className="font-semibold text-xs uppercase">Penghuni</TableHead>
+                  <TableHead className="font-semibold text-xs uppercase">Periode</TableHead>
+                  <TableHead className="font-semibold text-xs uppercase text-right">Nominal</TableHead>
+                  <TableHead className="font-semibold text-xs uppercase">Tgl Bayar</TableHead>
+                  <TableHead className="font-semibold text-xs uppercase">Status</TableHead>
+                  <TableHead className="font-semibold text-xs uppercase text-right">Aksi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {payments.map(p => {
+                  const sc = statusColors[p.status] || { label: p.status, className: '' };
+                  return (
+                    <TableRow key={p.id} className="hover:bg-primary/5 transition-colors">
+                      <TableCell className="text-sm font-medium">{p.nomor_kamar || '—'}</TableCell>
+                      <TableCell className="text-sm">{p.nama_penghuni || '—'}</TableCell>
+                      <TableCell className="text-sm tabular-nums">{p.periode}</TableCell>
+                      <TableCell className="text-sm font-medium tabular-nums text-right">Rp{p.nominal.toLocaleString('id-ID')}</TableCell>
+                      <TableCell className="text-sm">{fmt(p.tanggal_bayar)}</TableCell>
+                      <TableCell><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${sc.className}`}>{sc.label}</span></TableCell>
+                      <TableCell className="text-right"><PaymentActions p={p} /></TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </div>
-        </div>
+          <Pagination />
+        </>
       )}
 
       {/* Create form */}
@@ -244,30 +242,15 @@ export default function PaymentsPage() {
               <Label>Penghuni</Label>
               <Select disabled={!selectedRoomId} onValueChange={v => setValue('tenant_id', v)}>
                 <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Pilih penghuni" /></SelectTrigger>
-                <SelectContent>
-                  {tenants.filter((t: any) => !selectedRoomId || t.room_id === selectedRoomId).map((t: any) => (
-                    <SelectItem key={t.id} value={t.id}>{t.nama}</SelectItem>
-                  ))}
-                </SelectContent>
+                <SelectContent>{tenants.filter((t: any) => !selectedRoomId || t.room_id === selectedRoomId).map((t: any) => <SelectItem key={t.id} value={t.id}>{t.nama}</SelectItem>)}</SelectContent>
               </Select>
               {errors.tenant_id && <p className="text-sm text-destructive">{errors.tenant_id.message}</p>}
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Periode (YYYY-MM)</Label>
-                <Input placeholder="2024-01" {...register('periode')} />
-                {errors.periode && <p className="text-sm text-destructive">{errors.periode.message}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label>Nominal (Rp)</Label>
-                <Input type="number" min={0} placeholder="1200000" {...register('nominal')} />
-                {errors.nominal && <p className="text-sm text-destructive">{errors.nominal.message}</p>}
-              </div>
+              <div className="space-y-2"><Label>Periode (YYYY-MM)</Label><Input placeholder="2024-01" {...register('periode')} />{errors.periode && <p className="text-sm text-destructive">{errors.periode.message}</p>}</div>
+              <div className="space-y-2"><Label>Nominal (Rp)</Label><Input type="number" min={0} placeholder="1200000" {...register('nominal')} />{errors.nominal && <p className="text-sm text-destructive">{errors.nominal.message}</p>}</div>
             </div>
-            <div className="space-y-2">
-              <Label>Tanggal Bayar (opsional)</Label>
-              <Input type="date" {...register('tanggal_bayar')} />
-            </div>
+            <div className="space-y-2"><Label>Tanggal Bayar (opsional)</Label><Input type="date" {...register('tanggal_bayar')} /></div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => { setFormOpen(false); reset(); }}>Batal</Button>
               <Button type="submit" disabled={createMutation.isPending} className="gap-2 rounded-xl">
