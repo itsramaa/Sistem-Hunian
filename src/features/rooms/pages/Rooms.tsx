@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useRooms, useCreateRoom, useUpdateRoom, useDeleteRoom } from '../hooks/useRooms';
 import { useProperties } from '@/features/properties/hooks/useProperties';
 import { RoomForm } from '../components/RoomForm';
-import { StatusBadge } from '@/shared/components/StatusBadge';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/dialog';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/shared/components/ui/table';
-import { Plus, Loader2, Search, BedDouble, ChevronLeft, ChevronRight, Edit, Trash2, MoreHorizontal } from 'lucide-react';
+import { Plus, Loader2, Search, BedDouble, ChevronLeft, ChevronRight, Edit, Trash2, MoreHorizontal, AlertTriangle } from 'lucide-react';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useToast } from '@/shared/hooks/use-toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
@@ -30,6 +30,7 @@ export default function RoomsPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Room | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Room | null>(null);
   const debouncedSearch = useDebounce(search, 300);
   const { toast } = useToast();
 
@@ -62,13 +63,15 @@ export default function RoomsPage() {
     } catch { toast({ variant: 'destructive', title: 'Gagal mengubah kamar' }); }
   };
 
-  const handleDelete = async (room: Room) => {
-    if (!confirm(`Hapus kamar ${room.nomor_kamar}?`)) return;
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await deleteMutation.mutateAsync(room.id);
+      await deleteMutation.mutateAsync(deleteTarget.id);
+      setDeleteTarget(null);
       toast({ title: 'Kamar berhasil dihapus' });
     } catch (err: any) {
       toast({ variant: 'destructive', title: err?.response?.data?.error?.message || 'Gagal menghapus kamar' });
+      setDeleteTarget(null);
     }
   };
 
@@ -99,7 +102,7 @@ export default function RoomsPage() {
             className="pl-9 rounded-xl h-10"
           />
         </div>
-        <Select value={propertyFilter} onValueChange={(v) => { setPropertyFilter(v); setPage(1); setSearchParams(v ? { property_id: v } : {}); }}>
+        <Select value={propertyFilter} onValueChange={(v) => { setPropertyFilter(v); setPage(1); setSearchParams(v && v.trim() ? { property_id: v } : {}); }}>
           <SelectTrigger className="w-[200px] rounded-xl h-10">
             <SelectValue placeholder="Semua properti" />
           </SelectTrigger>
@@ -175,7 +178,9 @@ export default function RoomsPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="rounded-xl">
                           <DropdownMenuItem onClick={() => openEdit(room)}><Edit className="h-4 w-4 mr-2" /> Ubah</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDelete(room)} className="text-destructive"><Trash2 className="h-4 w-4 mr-2" /> Hapus</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setDeleteTarget(room)} className="text-destructive focus:text-destructive">
+                            <Trash2 className="h-4 w-4 mr-2" /> Hapus
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -211,6 +216,32 @@ export default function RoomsPage() {
         onSubmit={editing ? handleUpdate : handleCreate}
         isLoading={createMutation.isPending || updateMutation.isPending}
       />
+
+      {/* ConfirmDialog hapus kamar */}
+      <Dialog open={!!deleteTarget} onOpenChange={v => !v && setDeleteTarget(null)}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+              </div>
+              <div>
+                <DialogTitle>Hapus Kamar</DialogTitle>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Kamar <strong>{deleteTarget?.nomor_kamar}</strong> akan dihapus. Kamar tidak dapat dihapus jika masih terisi atau dalam konfirmasi DP.
+                </p>
+              </div>
+            </div>
+          </DialogHeader>
+          <DialogFooter className="pt-2">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Batal</Button>
+            <Button variant="destructive" disabled={deleteMutation.isPending} onClick={handleDelete} className="gap-2 rounded-xl">
+              {deleteMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Hapus
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 ﻿import React, { useState } from 'react';
-import { usePayments, useCreatePayment, useUploadBukti } from '../hooks/usePayments';
+import { usePayments, useCreatePayment, useUploadBukti, useMarkPaid } from '../hooks/usePayments';
 import { useProperties } from '@/features/properties/hooks/useProperties';
 import { useActiveTenants } from '@/features/tenants/hooks/useTenants';
 import { useRooms } from '@/features/rooms/hooks/useRooms';
@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/dialog';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
-import { Plus, Loader2, CreditCard, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
+import { Plus, Loader2, CreditCard, ChevronLeft, ChevronRight, Upload, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/shared/hooks/use-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -50,6 +50,7 @@ export default function PaymentsPage() {
 
   const createMutation = useCreatePayment();
   const uploadMutation = useUploadBukti();
+  const markPaidMutation = useMarkPaid();
 
   const payments: Payment[] = data?.payments ?? [];
   const total = data?.pagination?.total ?? 0;
@@ -79,6 +80,13 @@ export default function PaymentsPage() {
       setUploadTarget(null); setUploadFile(null);
       toast({ title: 'Bukti transfer berhasil diupload' });
     } catch { toast({ variant: 'destructive', title: 'Gagal upload bukti transfer' }); }
+  };
+
+  const handleMarkPaid = async (payment: Payment) => {
+    try {
+      await markPaidMutation.mutateAsync(payment.id);
+      toast({ title: `Pembayaran ${payment.periode} ditandai lunas` });
+    } catch { toast({ variant: 'destructive', title: 'Gagal tandai lunas' }); }
   };
 
   const fmt = (d?: string) => { try { return d ? format(new Date(d), 'dd MMM yyyy', { locale: localeId }) : '—'; } catch { return d ?? '—'; } };
@@ -137,6 +145,7 @@ export default function PaymentsPage() {
                 <TableRow><TableCell colSpan={7} className="h-32 text-center text-muted-foreground">Belum ada data pembayaran.</TableCell></TableRow>
               ) : payments.map(p => {
                 const sc = statusColors[p.status] || { label: p.status, className: '' };
+                const canAction = p.status !== 'paid';
                 return (
                   <TableRow key={p.id} className="hover:bg-primary/5 transition-colors">
                     <TableCell className="text-sm font-medium">{p.nomor_kamar || '—'}</TableCell>
@@ -146,10 +155,23 @@ export default function PaymentsPage() {
                     <TableCell className="text-sm">{fmt(p.tanggal_bayar)}</TableCell>
                     <TableCell><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${sc.className}`}>{sc.label}</span></TableCell>
                     <TableCell className="text-right">
-                      {!p.bukti_transfer_url && (
-                        <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs rounded-lg" onClick={() => setUploadTarget(p)}>
-                          <Upload className="h-3.5 w-3.5" /> Bukti
-                        </Button>
+                      {canAction && (
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 gap-1.5 text-xs rounded-lg text-green-600 hover:text-green-700"
+                            disabled={markPaidMutation.isPending}
+                            onClick={() => handleMarkPaid(p)}
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Tandai Lunas
+                          </Button>
+                          {!p.bukti_transfer_url && (
+                            <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs rounded-lg" onClick={() => setUploadTarget(p)}>
+                              <Upload className="h-3.5 w-3.5" /> Bukti
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
@@ -182,7 +204,7 @@ export default function PaymentsPage() {
           </DialogHeader>
           <form onSubmit={handleSubmit(handleCreate)} className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>Kamar</Label>
+              <Label>Kamar (terisi)</Label>
               <Select onValueChange={v => { setValue('room_id', v); setValue('tenant_id', ''); }}>
                 <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Pilih kamar" /></SelectTrigger>
                 <SelectContent>

@@ -37,14 +37,28 @@ const OperatorNotifications = lazy(() => import("@/features/notifications/pages/
 const OperatorProfile = lazy(() => import("@/features/profile/pages/Profile"));
 const OperatorSettingsPage = lazy(() => import("@/features/profile/pages/Settings"));
 
+// Full-page loader — for top-level routes (login, admin, public pages)
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-background">
     <Loader2 className="h-8 w-8 animate-spin text-primary" />
   </div>
 );
 
+// Content-area loader — sidebar stays visible, only content area shows spinner
+const ContentLoader = () => (
+  <div className="flex items-center justify-center py-24">
+    <Loader2 className="h-6 w-6 animate-spin text-primary/60" />
+  </div>
+);
+
+// S = full-page Suspense (login, admin, public)
 const S = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<PageLoader />}>{children}</Suspense>
+);
+
+// DS = content-area Suspense (inside dashboard layout — sidebar stays)
+const DS = ({ children }: { children: React.ReactNode }) => (
+  <Suspense fallback={<ContentLoader />}>{children}</Suspense>
 );
 
 export function AppRouter() {
@@ -67,7 +81,7 @@ export function AppRouter() {
       <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']}><S><AdminUsers /></S></ProtectedRoute>} />
       <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']}><S><AdminSettings /></S></ProtectedRoute>} />
 
-      {/* Operator / Manager / Viewer — all behind /dashboard */}
+      {/* Dashboard — sidebar stays on all child route transitions */}
       <Route
         path="/dashboard"
         element={
@@ -76,25 +90,25 @@ export function AppRouter() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<S><OperatorDashboard /></S>} />
-        {/* §4.3 Properti — operator only */}
-        <Route path="properties" element={<ProtectedRoute allowedRoles={['operator']}><S><OperatorProperties /></S></ProtectedRoute>} />
-        {/* §4.4 Kamar — operator only */}
-        <Route path="rooms" element={<ProtectedRoute allowedRoles={['operator']}><S><OperatorRooms /></S></ProtectedRoute>} />
-        {/* §4.5 Penghuni — operator only */}
-        <Route path="tenants" element={<ProtectedRoute allowedRoles={['operator']}><S><OperatorTenants /></S></ProtectedRoute>} />
-        {/* §4.6 Pembayaran — operator only */}
-        <Route path="payments" element={<ProtectedRoute allowedRoles={['operator']}><S><OperatorPayments /></S></ProtectedRoute>} />
-        {/* §4.7 Konfirmasi DP — operator only */}
-        <Route path="confirmations" element={<ProtectedRoute allowedRoles={['operator']}><S><OperatorConfirmations /></S></ProtectedRoute>} />
-        {/* §4.8 Maintenance — operator + manager */}
-        <Route path="maintenance" element={<ProtectedRoute allowedRoles={['operator', 'manager']}><S><OperatorMaintenance /></S></ProtectedRoute>} />
-        {/* Audit Trail — manager only per backend RBAC */}
-        <Route path="audit" element={<ProtectedRoute allowedRoles={['operator', 'manager']}><S><OperatorAuditTrail /></S></ProtectedRoute>} />
+        <Route index element={<DS><OperatorDashboard /></DS>} />
+        {/* §4.3 Properti */}
+        <Route path="properties" element={<ProtectedRoute allowedRoles={['operator']}><DS><OperatorProperties /></DS></ProtectedRoute>} />
+        {/* §4.4 Kamar */}
+        <Route path="rooms" element={<ProtectedRoute allowedRoles={['operator']}><DS><OperatorRooms /></DS></ProtectedRoute>} />
+        {/* §4.5 Penghuni */}
+        <Route path="tenants" element={<ProtectedRoute allowedRoles={['operator']}><DS><OperatorTenants /></DS></ProtectedRoute>} />
+        {/* §4.6 Pembayaran */}
+        <Route path="payments" element={<ProtectedRoute allowedRoles={['operator']}><DS><OperatorPayments /></DS></ProtectedRoute>} />
+        {/* §4.7 Konfirmasi DP */}
+        <Route path="confirmations" element={<ProtectedRoute allowedRoles={['operator']}><DS><OperatorConfirmations /></DS></ProtectedRoute>} />
+        {/* §4.8 Maintenance */}
+        <Route path="maintenance" element={<ProtectedRoute allowedRoles={['operator', 'manager']}><DS><OperatorMaintenance /></DS></ProtectedRoute>} />
+        {/* Audit Trail */}
+        <Route path="audit" element={<ProtectedRoute allowedRoles={['operator', 'manager']}><DS><OperatorAuditTrail /></DS></ProtectedRoute>} />
         {/* Misc */}
-        <Route path="notifications" element={<S><OperatorNotifications /></S>} />
-        <Route path="profile" element={<S><OperatorProfile /></S>} />
-        <Route path="settings" element={<S><OperatorSettingsPage /></S>} />
+        <Route path="notifications" element={<DS><OperatorNotifications /></DS>} />
+        <Route path="profile" element={<DS><OperatorProfile /></DS>} />
+        <Route path="settings" element={<DS><OperatorSettingsPage /></DS>} />
       </Route>
 
       {/* Legacy redirects */}
