@@ -1,4 +1,4 @@
-import { apiClient } from '@/lib/axios';
+﻿import { apiClient } from '@/shared/lib/axios';
 import { useToast } from '@/shared/hooks/use-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Invoice, Payment } from '../types';

@@ -1,4 +1,4 @@
-import { Badge } from '@/shared/components/ui/badge';
+﻿import { Badge } from '@/shared/components/ui/badge';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { AlertCircle, Building2, Home, MapPin } from 'lucide-react';
 import { useMerchantProperties } from '@/features/properties/hooks/useMerchantProperties';

@@ -1,178 +1,271 @@
-import { useAuth } from '@/features/auth/hooks/useAuth';
-import { MaintenanceFilters } from '@/features/maintenance/components/MaintenanceFilters';
-import { MaintenanceRequestTable } from '@/features/maintenance/components/MaintenanceRequestTable';
-import { MaintenanceStats } from '@/features/maintenance/components/MaintenanceStats';
-import { UpdateMaintenanceDialog } from '@/features/maintenance/components/UpdateMaintenanceDialog';
-import { CreateMaintenanceDialog } from '@/features/maintenance/components/CreateMaintenanceDialog';
-import { useMerchantMaintenanceRequests, useUpdateMaintenanceRequest, useVerifiedVendors, useCreateMerchantMaintenanceRequest } from '@/features/maintenance/hooks/useMaintenance';
-import { MaintenanceRequest, CreateMerchantMaintenancePayload, UpdateMaintenanceStatusPayload } from '@/features/maintenance/types';
-
-import { PageHeader } from '@/shared/components/ui/PageHeader';
-import { TabsPageSkeleton } from '@/shared/components/ui/PageSkeleton';
-import { useToast } from '@/shared/hooks/use-toast';
-import { useDebounce } from '@/shared/hooks/useDebounce';
-import { useEffect, useMemo, useState } from 'react';
+﻿import React, { useState } from 'react';
+import { useMaintenances, useCreateMaintenance, useUpdateMaintenance } from '../hooks/useMaintenance';
+import { useProperties } from '@/features/properties/hooks/useProperties';
+import { useRooms } from '@/features/rooms/hooks/useRooms';
+import { Maintenance } from '../types';
 import { Button } from '@/shared/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
-import { Plus, Wrench } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/dialog';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import { Textarea } from '@/shared/components/ui/textarea';
+import { Plus, Loader2, Wrench, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { useToast } from '@/shared/hooks/use-toast';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { format } from 'date-fns';
+import { id as localeId } from 'date-fns/locale';
 
-const ITEMS_PER_PAGE = 10;
+const statusColors: Record<string, { label: string; className: string }> = {
+  reported: { label: 'Dilaporkan', className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' },
+  in_progress: { label: 'Diproses', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  completed: { label: 'Selesai', className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+};
 
-const STATUS_TABS = [
-  { value: 'all', label: 'Semua' },
-  { value: 'pending', label: 'Tertunda' },
-  { value: 'in_progress', label: 'Dalam Proses' },
-  { value: 'completed', label: 'Selesai' },
-  { value: 'cancelled', label: 'Dibatalkan' },
-];
+const createSchema = z.object({
+  room_id: z.string().min(1, 'Pilih kamar'),
+  tanggal_laporan: z.string().min(1),
+  deskripsi_kerusakan: z.string().min(5, 'Deskripsi minimal 5 karakter'),
+});
 
-export default function MerchantMaintenance() {
-  const { merchant } = useAuth();
-  const { toast } = useToast();
-  const [searchQuery, setSearchQuery] = useState('');
-  const debouncedSearch = useDebounce(searchQuery, 500);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [selectedRequest, setSelectedRequest] = useState<MaintenanceRequest | null>(null);
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
+const updateSchema = z.object({
+  tindakan_penanganan: z.string().optional(),
+  biaya: z.coerce.number().min(0).optional(),
+  status: z.enum(['reported', 'in_progress', 'completed']),
+});
+
+type CreateForm = z.infer<typeof createSchema>;
+type UpdateForm = z.infer<typeof updateSchema>;
+
+export default function MaintenancePage() {
   const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [propertyFilter, setPropertyFilter] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [updateTarget, setUpdateTarget] = useState<Maintenance | null>(null);
+  const { toast } = useToast();
 
-  const { data: requests = [], isLoading } = useMerchantMaintenanceRequests(merchant?.id);
-  const { data: vendors = [] } = useVerifiedVendors();
-  const updateMutation = useUpdateMaintenanceRequest();
-  const createMerchantMutation = useCreateMerchantMaintenanceRequest();
+  const limit = 20;
+  const { data, isLoading } = useMaintenances(page, limit, statusFilter || undefined, propertyFilter || undefined);
+  const { data: propsData } = useProperties('', 1, 100);
+  const { data: roomsData } = useRooms('', 1, 200, propertyFilter || undefined);
 
-  useEffect(() => {
-    setPage(1);
-  }, [debouncedSearch, statusFilter, priorityFilter, categoryFilter]);
+  const createMutation = useCreateMaintenance();
+  const updateMutation = useUpdateMaintenance();
 
-  const filteredRequests = useMemo(() => requests.filter(request => {
-    const matchesSearch = request.title.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      request.description?.toLowerCase().includes(debouncedSearch.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || request.status === statusFilter;
-    const matchesPriority = priorityFilter === 'all' || request.priority === priorityFilter;
-    const matchesCategory = categoryFilter === 'all' || request.category === categoryFilter;
-    return matchesSearch && matchesStatus && matchesPriority && matchesCategory;
-  }), [requests, debouncedSearch, statusFilter, priorityFilter, categoryFilter]);
+  const maintenances: Maintenance[] = data?.maintenances ?? [];
+  const total = data?.pagination?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const properties = propsData?.properties ?? [];
+  const rooms = roomsData?.rooms ?? [];
 
-  const paginatedRequests = useMemo(() => {
-    const start = (page - 1) * ITEMS_PER_PAGE;
-    return filteredRequests.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredRequests, page]);
+  const today = format(new Date(), 'yyyy-MM-dd');
 
-  const activeRequests = useMemo(() => requests.filter(r => r.status !== 'completed' && r.status !== 'cancelled'), [requests]);
+  const createForm = useForm<CreateForm>({
+    resolver: zodResolver(createSchema),
+    defaultValues: { room_id: '', tanggal_laporan: today, deskripsi_kerusakan: '' },
+  });
 
-  const stats = useMemo(() => ({
-    total: requests.length,
-    low: activeRequests.filter(r => r.priority === 'low').length,
-    medium: activeRequests.filter(r => r.priority === 'medium').length,
-    high: activeRequests.filter(r => r.priority === 'high').length,
-    urgent: activeRequests.filter(r => r.priority === 'urgent').length,
-  }), [requests, activeRequests]);
+  const updateForm = useForm<UpdateForm>({
+    resolver: zodResolver(updateSchema),
+    defaultValues: { tindakan_penanganan: '', biaya: 0, status: 'reported' },
+  });
 
-  const handleUpdateStatus = (data: UpdateMaintenanceStatusPayload) => {
-    updateMutation.mutate(data, {
-      onSuccess: () => {
-        toast({ title: 'Permintaan berhasil diperbarui' });
-        setSelectedRequest(null);
-      },
-      onError: (error: Error) => {
-        toast({ title: 'Gagal memperbarui permintaan', description: error.message, variant: 'destructive' });
-      }
+  const handleCreate = async (payload: CreateForm) => {
+    try {
+      await createMutation.mutateAsync(payload);
+      setCreateOpen(false); createForm.reset({ tanggal_laporan: today });
+      toast({ title: 'Laporan maintenance berhasil dicatat' });
+    } catch { toast({ variant: 'destructive', title: 'Gagal mencatat maintenance' }); }
+  };
+
+  const handleUpdate = async (payload: UpdateForm) => {
+    if (!updateTarget) return;
+    try {
+      await updateMutation.mutateAsync({ id: updateTarget.id, payload });
+      setUpdateTarget(null);
+      toast({ title: 'Progress maintenance berhasil diupdate' });
+    } catch { toast({ variant: 'destructive', title: 'Gagal update maintenance' }); }
+  };
+
+  const openUpdate = (m: Maintenance) => {
+    setUpdateTarget(m);
+    updateForm.reset({
+      tindakan_penanganan: m.tindakan_penanganan || '',
+      biaya: m.biaya || 0,
+      status: m.status,
     });
   };
 
-  const handleCreateMerchantMaintenance = (data: CreateMerchantMaintenancePayload) => {
-    createMerchantMutation.mutate(data, {
-      onSuccess: () => {
-        toast({ title: 'Pemeliharaan berhasil dibuat' });
-        setShowCreateDialog(false);
-      },
-      onError: (error: Error) => {
-        toast({ title: 'Gagal membuat pemeliharaan', description: error.message, variant: 'destructive' });
-      }
-    });
-  };
-
-  if (isLoading && requests.length === 0) {
-    return <TabsPageSkeleton statsCount={4} />;
-  }
+  const fmt = (d: string) => { try { return format(new Date(d), 'dd MMM yyyy', { locale: localeId }); } catch { return d; } };
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        icon={Wrench}
-        title="Pemeliharaan"
-        description="Kelola permintaan pemeliharaan properti Anda"
-      >
-        <Button onClick={() => setShowCreateDialog(true)} className="rounded-xl gradient-cta">
-          <Plus className="h-4 w-4 mr-1" />Tambah Pemeliharaan
+    <div className="space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">Maintenance</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Laporan dan histori maintenance kamar</p>
+        </div>
+        <Button onClick={() => setCreateOpen(true)} className="shrink-0 gap-2 rounded-xl">
+          <Plus className="h-4 w-4" /> Buat Laporan
         </Button>
-      </PageHeader>
-
-      <MaintenanceStats
-        total={stats.total}
-        low={stats.low}
-        medium={stats.medium}
-        high={stats.high}
-        urgent={stats.urgent}
-        loading={isLoading}
-      />
-
-      {/* Filters + Table in card */}
-      <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-4 space-y-4">
-        <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-          <TabsList className="pill-tab-list w-full sm:w-auto">
-            {STATUS_TABS.map(tab => (
-              <TabsTrigger key={tab.value} value={tab.value} className="pill-tab-trigger">
-                {tab.label}
-                {tab.value !== 'all' && (
-                  <span className="ml-1.5 text-[10px] bg-muted/60 px-1.5 py-0.5 rounded-full">
-                    {requests.filter(r => r.status === tab.value).length}
-                  </span>
-                )}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-
-        <MaintenanceFilters
-          searchTerm={searchQuery}
-          onSearchChange={setSearchQuery}
-          priorityFilter={priorityFilter}
-          onPriorityFilterChange={setPriorityFilter}
-          categoryFilter={categoryFilter}
-          onCategoryFilterChange={setCategoryFilter}
-        />
       </div>
 
-      <MaintenanceRequestTable 
-        requests={paginatedRequests}
-        loading={isLoading}
-        onEdit={setSelectedRequest}
-        page={page}
-        totalPages={Math.ceil(filteredRequests.length / ITEMS_PER_PAGE)}
-        totalRequests={filteredRequests.length}
-        onPageChange={setPage}
-        itemsPerPage={ITEMS_PER_PAGE}
-      />
+      <div className="flex flex-wrap gap-3">
+        <Select value={propertyFilter} onValueChange={v => { setPropertyFilter(v); setPage(1); }}>
+          <SelectTrigger className="w-[180px] rounded-xl h-10"><SelectValue placeholder="Semua properti" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value=" ">Semua properti</SelectItem>
+            {properties.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nama}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); setPage(1); }}>
+          <SelectTrigger className="w-[160px] rounded-xl h-10"><SelectValue placeholder="Semua status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value=" ">Semua status</SelectItem>
+            <SelectItem value="reported">Dilaporkan</SelectItem>
+            <SelectItem value="in_progress">Diproses</SelectItem>
+            <SelectItem value="completed">Selesai</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-      <CreateMaintenanceDialog
-        open={showCreateDialog}
-        onOpenChange={setShowCreateDialog}
-        onSubmit={handleCreateMerchantMaintenance}
-        loading={createMerchantMutation.isPending}
-      />
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" /><span className="text-sm">Memuat...</span>
+        </div>
+      ) : (
+        <div className="glass-table overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b-0">
+                <TableHead className="font-semibold text-xs uppercase">Kamar</TableHead>
+                <TableHead className="font-semibold text-xs uppercase">Properti</TableHead>
+                <TableHead className="font-semibold text-xs uppercase">Deskripsi</TableHead>
+                <TableHead className="font-semibold text-xs uppercase">Tgl Laporan</TableHead>
+                <TableHead className="font-semibold text-xs uppercase text-right">Biaya</TableHead>
+                <TableHead className="font-semibold text-xs uppercase">Status</TableHead>
+                <TableHead className="font-semibold text-xs uppercase text-right">Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {maintenances.length === 0 ? (
+                <TableRow><TableCell colSpan={7} className="h-32 text-center text-muted-foreground">Belum ada laporan maintenance.</TableCell></TableRow>
+              ) : maintenances.map(m => {
+                const sc = statusColors[m.status] || { label: m.status, className: '' };
+                return (
+                  <TableRow key={m.id} className="hover:bg-primary/5 transition-colors">
+                    <TableCell className="text-sm font-medium">{m.nomor_kamar || '—'}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{m.nama_properti || '—'}</TableCell>
+                    <TableCell className="text-sm max-w-[200px] truncate">{m.deskripsi_kerusakan}</TableCell>
+                    <TableCell className="text-sm">{fmt(m.tanggal_laporan)}</TableCell>
+                    <TableCell className="text-sm tabular-nums text-right">{m.biaya ? `Rp${m.biaya.toLocaleString('id-ID')}` : '—'}</TableCell>
+                    <TableCell><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${sc.className}`}>{sc.label}</span></TableCell>
+                    <TableCell className="text-right">
+                      {m.status !== 'completed' && (
+                        <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs rounded-lg" onClick={() => openUpdate(m)}>
+                          <RefreshCw className="h-3.5 w-3.5" /> Update
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
-      <UpdateMaintenanceDialog
-        open={!!selectedRequest}
-        onOpenChange={(open) => !open && setSelectedRequest(null)}
-        request={selectedRequest}
-        vendors={vendors}
-        onSubmit={handleUpdateStatus}
-        loading={updateMutation.isPending}
-      />
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <span>{(page-1)*limit+1}–{Math.min(page*limit, total)} dari {total}</span>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full" disabled={page<=1} onClick={() => setPage(p=>p-1)}><ChevronLeft className="h-4 w-4" /></Button>
+            <span className="text-xs">{page}/{totalPages}</span>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full" disabled={page>=totalPages} onClick={() => setPage(p=>p+1)}><ChevronRight className="h-4 w-4" /></Button>
+          </div>
+        </div>
+      )}
+
+      {/* Create modal */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="sm:max-w-lg rounded-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><Wrench className="h-5 w-5 text-primary" /></div>
+              <div><DialogTitle>Buat Laporan Maintenance</DialogTitle><p className="text-sm text-muted-foreground">Laporan kerusakan kamar</p></div>
+            </div>
+          </DialogHeader>
+          <form onSubmit={createForm.handleSubmit(handleCreate)} className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Kamar</Label>
+              <Select onValueChange={v => createForm.setValue('room_id', v)}>
+                <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Pilih kamar" /></SelectTrigger>
+                <SelectContent>{rooms.map((r: any) => <SelectItem key={r.id} value={r.id}>{r.nomor_kamar} — {r.nama_properti}</SelectItem>)}</SelectContent>
+              </Select>
+              {createForm.formState.errors.room_id && <p className="text-sm text-destructive">{createForm.formState.errors.room_id.message}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label>Tanggal Laporan</Label>
+              <Input type="date" {...createForm.register('tanggal_laporan')} />
+            </div>
+            <div className="space-y-2">
+              <Label>Deskripsi Kerusakan</Label>
+              <Textarea placeholder="Kebocoran atap lantai 2..." rows={3} {...createForm.register('deskripsi_kerusakan')} />
+              {createForm.formState.errors.deskripsi_kerusakan && <p className="text-sm text-destructive">{createForm.formState.errors.deskripsi_kerusakan.message}</p>}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Batal</Button>
+              <Button type="submit" disabled={createMutation.isPending} className="gap-2 rounded-xl">
+                {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Buat Laporan
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Update progress modal */}
+      <Dialog open={!!updateTarget} onOpenChange={v => !v && setUpdateTarget(null)}>
+        <DialogContent className="sm:max-w-lg rounded-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center"><RefreshCw className="h-5 w-5 text-blue-600" /></div>
+              <div><DialogTitle>Update Progress</DialogTitle>
+                <p className="text-sm text-muted-foreground">{updateTarget?.nomor_kamar} — {updateTarget?.deskripsi_kerusakan?.slice(0, 40)}</p>
+              </div>
+            </div>
+          </DialogHeader>
+          <form onSubmit={updateForm.handleSubmit(handleUpdate)} className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select defaultValue={updateTarget?.status} onValueChange={v => updateForm.setValue('status', v as any)}>
+                <SelectTrigger className="rounded-xl h-12"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="reported">Dilaporkan</SelectItem>
+                  <SelectItem value="in_progress">Diproses</SelectItem>
+                  <SelectItem value="completed">Selesai</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Tindakan Penanganan (opsional)</Label>
+              <Textarea placeholder="Tambal dengan sealant waterproof..." rows={2} {...updateForm.register('tindakan_penanganan')} />
+            </div>
+            <div className="space-y-2">
+              <Label>Biaya (Rp, opsional)</Label>
+              <Input type="number" min={0} placeholder="250000" {...updateForm.register('biaya')} />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setUpdateTarget(null)}>Batal</Button>
+              <Button type="submit" disabled={updateMutation.isPending} className="gap-2 rounded-xl">
+                {updateMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Simpan Update
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

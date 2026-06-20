@@ -1,4 +1,5 @@
-import { useAuth } from '@/features/auth/hooks/useAuth';
+﻿import { useAuth } from '@/features/auth/hooks/useAuth';
+import { apiClient } from '@/shared/lib/axios';
 import { MarkPaidDialog } from '@/features/payments/components/MarkPaidDialog';
 import { Payment } from '@/features/payments/types';
 import { Badge } from '@/shared/components/ui/badge';
@@ -7,7 +8,6 @@ import { Dialog, DialogContent } from '@/shared/components/ui/dialog';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { formatCurrency } from '@/shared/utils/currency';
-import { apiClient } from '@/lib/axios';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { ArrowLeft, Bell, Calendar, CheckCircle, Clock, CreditCard, FileImage, Loader2, Mail, MapPin, Phone, User, XCircle } from 'lucide-react';
@@ -40,22 +40,24 @@ export default function MerchantPaymentDetail() {
   const [isMarkPaidOpen, setIsMarkPaidOpen] = useState(false);
   const [showProofLightbox, setShowProofLightbox] = useState(false);
 
+  // Fetch payment with contract relation
   const { data: payment, isLoading } = useQuery({
     queryKey: ['payment-detail', paymentId],
     queryFn: async () => {
       if (!paymentId) return null;
-      const response = await apiClient.get(`/v1/payments/${paymentId}`);
-      return response.data.data as any;
+      const { data } = await apiClient.get(`/payments/${paymentId}`);
+      return data as any;
     },
     enabled: !!paymentId,
   });
 
+  // Fetch tenant profile separately
   const { data: tenant } = useQuery({
     queryKey: ['payment-tenant', payment?.tenant_user_id],
     queryFn: async () => {
-      const response = await apiClient.get(`/profiles/${payment!.tenant_user_id}`);
-      const d = response.data.data;
-      return d ? { full_name: d.full_name, email: d.email, phone: d.phone } as { full_name: string; email: string; phone: string | null } : null;
+      if (!payment?.tenant_user_id) return null;
+      // TODO: Go endpoint not yet implemented — was: supabase.from('profiles').select('full_name, email, phone').eq('user_id', payment.tenant_user_id)
+      return null;
     },
     enabled: !!payment?.tenant_user_id,
   });
@@ -128,6 +130,7 @@ export default function MerchantPaymentDetail() {
           variant={getStatusVariant(payment.status)} 
           className="text-sm px-4 py-1.5 rounded-full capitalize gap-2"
           role="status"
+          aria-label={`Status pembayaran: ${statusLabels[payment.status] || payment.status}`}
         >
           {getStatusIcon(payment.status)} {statusLabels[payment.status] || payment.status}
         </Badge>
@@ -135,13 +138,15 @@ export default function MerchantPaymentDetail() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-8 text-center">
+          {/* Amount Card */}
+          <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-8 text-center" role="region" aria-label="Jumlah pembayaran">
             <p className="text-sm text-muted-foreground uppercase tracking-wider mb-2">Jumlah</p>
             <p className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
               {formatCurrency(Number(payment.amount))}
             </p>
           </div>
 
+          {/* Tenant Info */}
           {tenant && (
             <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6">
               <h3 className="font-semibold text-lg mb-4 flex items-center gap-2"><User className="h-5 w-5 text-primary" aria-hidden="true" /> Info Penyewa</h3>
@@ -150,7 +155,7 @@ export default function MerchantPaymentDetail() {
                   <User className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   <div>
                     <p className="text-xs text-muted-foreground">Nama</p>
-                    <Link to={`/merchant/tenants/${payment.tenant_user_id}`} className="font-medium hover:underline text-primary">
+                    <Link to={`/merchant/tenants/${payment.tenant_user_id}`} className="font-medium hover:underline text-primary" aria-label={`Lihat profil penyewa ${tenant.full_name}`}>
                       {tenant.full_name || '-'}
                     </Link>
                   </div>
@@ -173,6 +178,7 @@ export default function MerchantPaymentDetail() {
             </div>
           )}
 
+          {/* Contract & Unit Info */}
           {contract && (
             <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6">
               <h3 className="font-semibold text-lg mb-4 flex items-center gap-2"><MapPin className="h-5 w-5 text-primary" aria-hidden="true" /> Info Kontrak & Unit</h3>
@@ -180,7 +186,7 @@ export default function MerchantPaymentDetail() {
                 <div className="p-3 rounded-xl bg-muted/30">
                   <p className="text-xs text-muted-foreground">Properti</p>
                   {property?.id ? (
-                    <Link to={`/merchant/properties/${property.id}`} className="font-medium mt-0.5 text-sm hover:underline text-primary">
+                    <Link to={`/merchant/properties/${property.id}`} className="font-medium mt-0.5 text-sm hover:underline text-primary" aria-label={`Lihat properti ${property.name}`}>
                       {property.name}
                     </Link>
                   ) : (
@@ -190,7 +196,7 @@ export default function MerchantPaymentDetail() {
                 <div className="p-3 rounded-xl bg-muted/30">
                   <p className="text-xs text-muted-foreground">Unit</p>
                   {unit?.id ? (
-                    <Link to={`/merchant/units/${unit.id}`} className="font-medium mt-0.5 text-sm hover:underline text-primary">
+                    <Link to={`/merchant/units/${unit.id}`} className="font-medium mt-0.5 text-sm hover:underline text-primary" aria-label={`Lihat unit ${unit.unit_number}`}>
                       {unit.unit_number}
                     </Link>
                   ) : (
@@ -199,7 +205,7 @@ export default function MerchantPaymentDetail() {
                 </div>
                 <div className="p-3 rounded-xl bg-muted/30">
                   <p className="text-xs text-muted-foreground">Kontrak</p>
-                  <Link to={`/merchant/contracts/${contract.id}`} className="font-medium mt-0.5 text-sm hover:underline text-primary">
+                  <Link to={`/merchant/contracts/${contract.id}`} className="font-medium mt-0.5 text-sm hover:underline text-primary" aria-label="Lihat detail kontrak">
                     Lihat Kontrak
                   </Link>
                 </div>
@@ -211,7 +217,8 @@ export default function MerchantPaymentDetail() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
+          {/* Details Grid */}
+          <div className="grid grid-cols-2 gap-4" role="region" aria-label="Rincian pembayaran">
             {[
               { label: 'Tipe', value: paymentTypeLabels[payment.payment_type] || payment.payment_type, capitalize: true },
               { label: 'Jatuh Tempo', value: format(new Date(payment.due_date), 'dd MMMM yyyy') },
@@ -227,6 +234,7 @@ export default function MerchantPaymentDetail() {
             ))}
           </div>
 
+          {/* Proof Photo */}
           {payment.proof_photo_url && (
             <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6">
               <h3 className="font-semibold text-lg mb-4 flex items-center gap-2"><FileImage className="h-5 w-5 text-primary" aria-hidden="true" /> Bukti Pembayaran</h3>
@@ -242,10 +250,12 @@ export default function MerchantPaymentDetail() {
           )}
         </div>
 
+        {/* Sidebar */}
         <div className="space-y-6">
+          {/* Timeline */}
           <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6">
             <h3 className="font-semibold text-lg mb-4">Timeline</h3>
-            <div className="space-y-4" role="list">
+            <div className="space-y-4" role="list" aria-label="Riwayat status pembayaran">
               {timelineItems.map((item, i) => (
                 <div key={i} className="flex items-start gap-3" role="listitem">
                   <div className="mt-0.5 p-1.5 rounded-full bg-primary/10" aria-hidden="true">
@@ -260,6 +270,7 @@ export default function MerchantPaymentDetail() {
             </div>
           </div>
 
+          {/* Actions */}
           <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-3">
             <h3 className="font-semibold text-lg mb-2">Aksi</h3>
             {(payment.status === 'pending' || payment.status === 'overdue') && (
@@ -267,6 +278,7 @@ export default function MerchantPaymentDetail() {
                 <Button 
                   className="w-full rounded-xl gap-2 gradient-cta text-primary-foreground" 
                   onClick={() => setIsMarkPaidOpen(true)}
+                  aria-label="Tandai pembayaran ini sebagai lunas"
                 >
                   <CheckCircle className="h-4 w-4" aria-hidden="true" /> Tandai Lunas
                 </Button>
@@ -275,6 +287,7 @@ export default function MerchantPaymentDetail() {
                   className="w-full rounded-xl gap-2" 
                   onClick={() => sendReminder(payment.id)} 
                   disabled={isSendingReminder}
+                  aria-label="Kirim pengingat pembayaran ke penyewa"
                 >
                   {isSendingReminder ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" aria-hidden="true" />}
                   Kirim Pengingat
@@ -291,6 +304,7 @@ export default function MerchantPaymentDetail() {
         </div>
       </div>
 
+      {/* Lightbox */}
       <Dialog open={showProofLightbox} onOpenChange={setShowProofLightbox}>
         <DialogContent className="max-w-3xl p-2 rounded-2xl">
           <img src={payment.proof_photo_url || ''} alt="Bukti pembayaran" className="w-full rounded-xl" />

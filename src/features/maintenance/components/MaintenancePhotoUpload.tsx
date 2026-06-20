@@ -1,4 +1,4 @@
-import { FileUpload } from '@/shared/components/FileUpload';
+﻿import { FileUpload } from '@/shared/components/FileUpload';
 import { WebcamCaptureDialog } from '@/shared/components/WebcamCaptureDialog';
 import { Label } from '@/shared/components/ui/label';
 import { Button } from '@/shared/components/ui/button';

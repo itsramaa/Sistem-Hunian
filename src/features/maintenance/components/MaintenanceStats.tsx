@@ -1,4 +1,4 @@
-import { StatCard } from '@/shared/components/ui/StatCard';
+﻿import { StatCard } from '@/shared/components/ui/StatCard';
 import { Wrench, ChevronDown, ChevronUp, AlertTriangle, Flame } from 'lucide-react';
 
 interface MaintenanceStatsProps {

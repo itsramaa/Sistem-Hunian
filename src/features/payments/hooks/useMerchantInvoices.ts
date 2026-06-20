@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { merchantInvoiceService, CreateInvoicePayload } from '../services/merchantInvoiceService';
+import { merchantInvoiceService, CreateInvoicePayload } from '../api/merchantInvoiceService';
 
 export const useMerchantInvoices = (merchantId: string | undefined) => {
   const queryClient = useQueryClient();

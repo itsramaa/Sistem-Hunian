@@ -1,4 +1,16 @@
-import { LucideIcon, LayoutDashboard, Wrench, Bell, User, Settings } from 'lucide-react';
+import {
+  LucideIcon,
+  LayoutDashboard,
+  Building2,
+  BedDouble,
+  Users,
+  CreditCard,
+  Clock,
+  Wrench,
+  Bell,
+  User,
+  Settings,
+} from 'lucide-react';
 
 export type UserRole = 'operator' | 'manager' | 'viewer' | 'admin';
 
@@ -40,44 +52,74 @@ const defaultBrand = {
   iconBgClass: 'bg-primary/10',
 };
 
+// Operator gets all 6 SRS features
+const operatorNav: NavGroup[] = [
+  {
+    label: 'Utama',
+    items: [
+      { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: 'Manajemen',
+    items: [
+      { label: 'Properti', path: '/dashboard/properties', icon: Building2 },
+      { label: 'Kamar', path: '/dashboard/rooms', icon: BedDouble },
+      { label: 'Penghuni', path: '/dashboard/tenants', icon: Users },
+      { label: 'Pembayaran', path: '/dashboard/payments', icon: CreditCard },
+      { label: 'Konfirmasi DP', path: '/dashboard/confirmations', icon: Clock },
+      { label: 'Maintenance', path: '/dashboard/maintenance', icon: Wrench },
+    ],
+  },
+  {
+    label: 'Akun',
+    items: [
+      { label: 'Notifikasi', path: '/dashboard/notifications', icon: Bell },
+      { label: 'Profil', path: '/dashboard/profile', icon: User },
+      { label: 'Pengaturan', path: '/dashboard/settings', icon: Settings },
+    ],
+  },
+];
+
+// Manager: dashboard + maintenance only
+const managerNav: NavGroup[] = [
+  {
+    label: 'Utama',
+    items: [
+      { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+      { label: 'Maintenance', path: '/dashboard/maintenance', icon: Wrench },
+    ],
+  },
+  {
+    label: 'Akun',
+    items: [
+      { label: 'Profil', path: '/dashboard/profile', icon: User },
+    ],
+  },
+];
+
+// Viewer: dashboard only
+const viewerNav: NavGroup[] = [
+  {
+    label: 'Utama',
+    items: [
+      { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+    ],
+  },
+];
+
 export const navigationConfig: Record<UserRole, RoleConfig> = {
   operator: {
     brand: { ...defaultBrand, name: 'SiHuni', subtitle: 'Operator' },
-    mainNav: [
-      {
-        label: 'Menu',
-        items: [
-          { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-          { label: 'Maintenance', path: '/dashboard/maintenance', icon: Wrench },
-          { label: 'Notifikasi', path: '/dashboard/notifications', icon: Bell },
-          { label: 'Profil', path: '/dashboard/profile', icon: User },
-          { label: 'Pengaturan', path: '/dashboard/settings', icon: Settings },
-        ],
-      },
-    ],
+    mainNav: operatorNav,
   },
   manager: {
     brand: { ...defaultBrand, name: 'SiHuni', subtitle: 'Manajer' },
-    mainNav: [
-      {
-        label: 'Menu',
-        items: [
-          { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-          { label: 'Maintenance', path: '/dashboard/maintenance', icon: Wrench },
-        ],
-      },
-    ],
+    mainNav: managerNav,
   },
   viewer: {
     brand: { ...defaultBrand, name: 'SiHuni', subtitle: 'Viewer' },
-    mainNav: [
-      {
-        label: 'Menu',
-        items: [
-          { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-        ],
-      },
-    ],
+    mainNav: viewerNav,
   },
   admin: {
     brand: { ...defaultBrand, name: 'SiHuni Admin', subtitle: 'Administrator' },

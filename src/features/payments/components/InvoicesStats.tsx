@@ -1,4 +1,4 @@
-import { StatCard } from '@/shared/components/ui/StatCard';
+﻿import { StatCard } from '@/shared/components/ui/StatCard';
 import { Invoice } from '../types';
 import { formatCurrency } from '@/shared/utils/currency';
 import { CheckCircle, Clock, FileText } from 'lucide-react';

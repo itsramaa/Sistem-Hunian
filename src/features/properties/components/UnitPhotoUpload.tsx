@@ -1,6 +1,6 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { ImagePlus, X, Loader2 } from 'lucide-react';
-import { apiClient } from '@/lib/axios';
+import { apiClient } from '@/shared/lib/axios';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { toast } from 'sonner';
 

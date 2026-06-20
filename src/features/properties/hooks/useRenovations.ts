@@ -1,5 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/lib/axios';
+﻿import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/shared/lib/axios';
 
 export interface Renovation {
   id: string;

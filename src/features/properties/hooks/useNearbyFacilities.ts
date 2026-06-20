@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { nearbyFacilitiesService, NearbyFacilityResult } from '../services/nearbyFacilitiesService';
+﻿import { useState, useCallback } from 'react';
+import { nearbyFacilitiesService, NearbyFacilityResult } from '../api/nearbyFacilitiesService';
 import { useToast } from '@/shared/hooks/use-toast';
 
 export function useNearbyFacilities() {

@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 import { Button } from "@/shared/components/ui/button";
 import { Label } from "@/shared/components/ui/label";
 import { Input } from "@/shared/components/ui/input";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { Checkbox } from "@/shared/components/ui/checkbox";
-import { apiClient } from "@/lib/axios";
+import { apiClient } from "@/shared/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { toast } from "sonner";
 import { Home, TrendingUp, Camera } from "lucide-react";

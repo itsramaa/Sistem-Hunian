@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { propertyService } from '../services/propertyService';
+import { propertyService } from '../api/propertyService';
 
 export function usePropertyDetail(propertyId: string | undefined) {
   return useQuery({

@@ -1,11 +1,11 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+﻿import { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Input } from '@/shared/components/ui/input';
 import { Button } from '@/shared/components/ui/button';
 import { MapPin, Search, Loader2, Maximize2, Minimize2, X } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { locationService } from '@/shared/services/locationService';
+import { locationService } from '@/shared/lib/services/locationService';
 
 interface LocationPickerProps {
   value: string;

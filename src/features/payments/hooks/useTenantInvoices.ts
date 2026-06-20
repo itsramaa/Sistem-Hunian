@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { invoiceService } from '../services/invoiceService';
+import { invoiceService } from '../api/invoiceService';
 
 export const useTenantInvoices = (tenantId: string | undefined, limit?: number) => {
   return useQuery({

@@ -1,8 +1,8 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { PhotoLightbox } from '@/shared/components/PhotoLightbox';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { apiClient } from '@/lib/axios';
+import { apiClient } from '@/shared/lib/axios';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
@@ -23,19 +23,12 @@ import {
 } from 'lucide-react';
 import { cn } from '@/shared/utils/utils';
 import { CreateMaintenanceDialog } from '@/features/maintenance/components/CreateMaintenanceDialog';
-import { FacilityTypePicker } from '@/features/inventory/components/FacilityTypePicker';
-import { CreateContractDialog } from '@/features/contracts/components/CreateContractDialog';
-import { useFacilityTypeNames } from '@/features/inventory/hooks/useFacilityTypeNames';
-import { RulesSection } from '@/features/rules/components/RulesSection';
 import { CreateInvoiceDialog } from '@/features/payments/components/CreateInvoiceDialog';
 import { useCreateMerchantMaintenanceRequest } from '@/features/maintenance/hooks/useMaintenance';
-import { useMerchantContracts } from '@/features/contracts/hooks/useMerchantContracts';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { UnitFormDialog } from '@/features/properties/components/UnitFormDialog';
 import { useUnits } from '@/features/properties/hooks/useUnits';
 import { UnitFormData } from '@/features/properties/types/schema';
-import { ContractFormData } from '@/features/contracts/types/schema';
-import { CreateContractPayload } from '@/features/contracts/types';
 import { toast } from 'sonner';
 
 const statusColors: Record<string, string> = {

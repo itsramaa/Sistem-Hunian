@@ -1,10 +1,10 @@
-import { useAuth } from '@/features/auth/hooks/useAuth';
+﻿import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useMerchantInvoices } from '@/features/payments/hooks/useMerchantInvoices';
 import { Invoice } from '@/features/payments/types';
 import { useToast } from '@/shared/hooks/use-toast';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/integrations/supabase/client';
+import { supabase } from '@/shared/lib/integrations/supabase/client';
 
 export function useInvoiceActions() {
   const { merchant } = useAuth();

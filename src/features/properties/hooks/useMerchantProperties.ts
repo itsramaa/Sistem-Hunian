@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { propertyService } from '../services/propertyService';
+import { propertyService } from '../api/propertyService';
 import { CreatePropertyPayload, UpdatePropertyPayload } from '../types';
 
 export function useMerchantProperties(merchantId: string) {

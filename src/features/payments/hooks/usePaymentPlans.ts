@@ -1,6 +1,6 @@
-import { useToast } from '@/shared/hooks/use-toast';
+﻿import { useToast } from '@/shared/hooks/use-toast';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { paymentPlanService } from '../services/paymentPlanService';
+import { paymentPlanService } from '../api/paymentPlanService';
 import { CreatePaymentPlanPayload } from '../types';
 
 export function usePaymentPlans() {

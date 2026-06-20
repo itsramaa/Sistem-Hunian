@@ -1,5 +1,5 @@
-import { Button } from '@/shared/components/ui/button';
-import { MAINTENANCE_STATUS_TRANSITIONS } from '@/shared/constants/state-machines';
+﻿import { Button } from '@/shared/components/ui/button';
+import { MAINTENANCE_STATUS_TRANSITIONS } from '@/constants/state-machines';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/shared/components/ui/dialog';

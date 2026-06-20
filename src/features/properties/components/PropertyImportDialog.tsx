@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
+﻿import { useState, useCallback } from "react";
 import { z } from "zod";
-import { apiClient } from "@/lib/axios";
+import { apiClient } from "@/shared/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 import { Button } from "@/shared/components/ui/button";

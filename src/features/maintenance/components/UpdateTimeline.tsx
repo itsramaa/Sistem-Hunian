@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+﻿import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Avatar, AvatarFallback } from '@/shared/components/ui/avatar';
 import { Badge } from '@/shared/components/ui/badge';
 import { MessageSquare, Clock, CheckCircle, Wrench, Loader2 } from 'lucide-react';

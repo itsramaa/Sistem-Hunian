@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { guardianService } from '../services/guardianService';
+import { guardianService } from '../api/guardianService';
 import { PropertyGuardian } from '../types';
 import { toast } from 'sonner';
 

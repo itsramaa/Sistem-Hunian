@@ -1,6 +1,6 @@
-import { MINIMUM_PAYOUT_AMOUNT, PAYOUT_SCHEDULE } from '@/constants/platformFees';
+﻿import { MINIMUM_PAYOUT_AMOUNT, PAYOUT_SCHEDULE } from '@/constants/platformFees';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { apiClient } from '@/lib/axios';
+import { apiClient } from '@/shared/lib/axios';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Input } from '@/shared/components/ui/input';

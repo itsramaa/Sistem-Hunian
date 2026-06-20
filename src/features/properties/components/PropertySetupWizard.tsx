@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Check, Home, MapPin, Image as ImageIcon, Wifi, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Progress } from '@/shared/components/ui/progress';
 import { cn } from '@/shared/utils/utils';
 import { UnitPhotoUpload } from '@/features/properties/components/UnitPhotoUpload';
-import { FacilityTypePicker } from '@/features/inventory/components/FacilityTypePicker';
 import { ProvincesCitiesSelect } from '@/features/properties/components/ProvincesCitiesSelect';
 import { LocationPicker } from '@/features/properties/components/LocationPicker';
 

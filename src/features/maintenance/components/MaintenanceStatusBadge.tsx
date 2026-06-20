@@ -1,4 +1,4 @@
-import { Badge } from '@/shared/components/ui/badge';
+﻿import { Badge } from '@/shared/components/ui/badge';
 import { AlertTriangle, CheckCircle, Clock, Wrench, XCircle } from 'lucide-react';
 
 interface MaintenanceStatusBadgeProps {

@@ -1,4 +1,4 @@
-import { useForm } from "react-hook-form";
+﻿import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, DoorOpen, ImageIcon, Loader2, Wallet, Zap, AlertTriangle } from "lucide-react";
@@ -14,7 +14,6 @@ import { unitSchema, UnitFormData } from "../types/schema";
 import { Unit, Property } from "../types";
 import { getUnitTypesForProperty, MAX_REASONABLE_SIZE } from "../utils/unit-utils";
 import { OCCUPANCY_TYPE_OPTIONS, COST_TYPE_OPTIONS, WIFI_SHARING_OPTIONS } from "../constants";
-import { FacilityTypePicker } from "@/features/inventory/components/FacilityTypePicker";
 import { cn } from "@/shared/utils/utils";
 
 interface UnitFormDialogProps {

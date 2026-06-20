@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { paymentPlanService } from '../services/paymentPlanService';
+import { paymentPlanService } from '../api/paymentPlanService';
 
 export const useTenantPaymentPlans = (tenantId: string | undefined, statuses?: string[]) => {
   return useQuery({

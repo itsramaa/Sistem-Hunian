@@ -1,122 +1,250 @@
-import { useEffect, useMemo, useState } from 'react';
-import { CreditCard, Plus } from 'lucide-react';
+﻿import React, { useState } from 'react';
+import { usePayments, useCreatePayment, useUploadBukti } from '../hooks/usePayments';
+import { useProperties } from '@/features/properties/hooks/useProperties';
+import { useActiveTenants } from '@/features/tenants/hooks/useTenants';
+import { useRooms } from '@/features/rooms/hooks/useRooms';
+import { Payment } from '../types';
 import { Button } from '@/shared/components/ui/button';
-import { PageHeader } from '@/shared/components/ui/PageHeader';
-import { TabsPageSkeleton } from '@/shared/components/ui/PageSkeleton';
-import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
-import { useAuth } from '@/features/auth/hooks/useAuth';
-import { useDebounce } from '@/shared/hooks/useDebounce';
-import { useMerchantPayments } from '@/features/payments/hooks/useMerchantPayments';
-import { PaymentsFilters } from '@/features/payments/components/PaymentsFilters';
-import { PaymentsStats } from '@/features/payments/components/PaymentsStats';
-import { PaymentsTable } from '@/features/payments/components/PaymentsTable';
-import { CreatePaymentDialog } from '@/features/payments/components/CreatePaymentDialog';
-import { MarkPaidDialog } from '@/features/payments/components/MarkPaidDialog';
-import { Payment } from '@/features/payments/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/dialog';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import { Plus, Loader2, CreditCard, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
+import { useToast } from '@/shared/hooks/use-toast';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { format } from 'date-fns';
+import { id as localeId } from 'date-fns/locale';
 
-const ITEMS_PER_PAGE = 10;
+const statusColors: Record<string, { label: string; className: string }> = {
+  paid: { label: 'Lunas', className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  unpaid: { label: 'Belum Bayar', className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' },
+  overdue: { label: 'Terlambat', className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+};
 
-const STATUS_TABS = [
-  { value: 'all', label: 'Semua' },
-  { value: 'pending', label: 'Tertunda' },
-  { value: 'paid', label: 'Lunas' },
-  { value: 'overdue', label: 'Terlambat' },
-];
+const paymentSchema = z.object({
+  room_id: z.string().min(1, 'Pilih kamar'),
+  tenant_id: z.string().min(1, 'Pilih penghuni'),
+  periode: z.string().min(1, 'Periode wajib diisi'),
+  nominal: z.coerce.number().positive('Nominal harus > 0'),
+  tanggal_bayar: z.string().optional(),
+});
+type FormData = z.infer<typeof paymentSchema>;
 
-export default function MerchantPayments() {
-  const { merchant } = useAuth();
-  const [activeTab, setActiveTab] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const debouncedSearch = useDebounce(searchQuery, 500);
+export default function PaymentsPage() {
   const [page, setPage] = useState(1);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [markPaidPayment, setMarkPaidPayment] = useState<Payment | null>(null);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [propertyFilter, setPropertyFilter] = useState('');
+  const [formOpen, setFormOpen] = useState(false);
+  const [uploadTarget, setUploadTarget] = useState<Payment | null>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const { toast } = useToast();
 
-  const { payments, isLoading, createPayment, markPaid, sendReminder, isCreating, isMarkingPaid, isSendingReminder } = useMerchantPayments(merchant?.id);
+  const limit = 20;
+  const { data, isLoading } = usePayments(page, limit, undefined, undefined, statusFilter || undefined, propertyFilter || undefined);
+  const { data: propsData } = useProperties('', 1, 100);
+  const { data: roomsData } = useRooms('', 1, 200, propertyFilter || undefined, 'occupied');
+  const { data: tenantsData } = useActiveTenants(1, 200, propertyFilter || undefined);
 
-  useEffect(() => { setPage(1); }, [debouncedSearch, activeTab]);
+  const createMutation = useCreatePayment();
+  const uploadMutation = useUploadBukti();
 
-  const filteredPayments = useMemo(() => {
-    return payments.filter(p => {
-      const matchesSearch = !debouncedSearch ||
-        p.reference?.toLowerCase().includes(debouncedSearch.toLowerCase());
-      const matchesTab = activeTab === 'all' || p.status === activeTab;
-      return matchesSearch && matchesTab;
-    });
-  }, [payments, debouncedSearch, activeTab]);
+  const payments: Payment[] = data?.payments ?? [];
+  const total = data?.pagination?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const properties = propsData?.properties ?? [];
+  const rooms = roomsData?.rooms ?? [];
+  const tenants = tenantsData?.tenants ?? [];
 
-  const paginatedPayments = useMemo(() => {
-    const start = (page - 1) * ITEMS_PER_PAGE;
-    return filteredPayments.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredPayments, page]);
+  const { register, handleSubmit, setValue, reset, watch, formState: { errors } } = useForm<FormData>({
+    resolver: zodResolver(paymentSchema),
+    defaultValues: { room_id: '', tenant_id: '', periode: '', nominal: 0 },
+  });
+  const selectedRoomId = watch('room_id');
 
-  const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: payments.length, pending: 0, paid: 0, overdue: 0 };
-    payments.forEach(p => { if (p.status in counts) counts[p.status]++; });
-    return counts;
-  }, [payments]);
+  const handleCreate = async (payload: FormData) => {
+    try {
+      await createMutation.mutateAsync(payload);
+      setFormOpen(false); reset();
+      toast({ title: 'Pembayaran berhasil dicatat' });
+    } catch { toast({ variant: 'destructive', title: 'Gagal mencatat pembayaran' }); }
+  };
 
-  if (isLoading) return <TabsPageSkeleton statsCount={3} />;
+  const handleUpload = async () => {
+    if (!uploadTarget || !uploadFile) return;
+    try {
+      await uploadMutation.mutateAsync({ id: uploadTarget.id, file: uploadFile });
+      setUploadTarget(null); setUploadFile(null);
+      toast({ title: 'Bukti transfer berhasil diupload' });
+    } catch { toast({ variant: 'destructive', title: 'Gagal upload bukti transfer' }); }
+  };
+
+  const fmt = (d?: string) => { try { return d ? format(new Date(d), 'dd MMM yyyy', { locale: localeId }) : '—'; } catch { return d ?? '—'; } };
 
   return (
-    <div className="space-y-6">
-      <PageHeader icon={CreditCard} title="Pembayaran" description="Kelola dan lacak pembayaran sewa">
-        <Button onClick={() => setIsCreateOpen(true)} className="gradient-cta rounded-xl" aria-label="Buat pembayaran baru">
-          <Plus className="h-4 w-4 mr-1" aria-hidden="true" /> Buat Pembayaran
+    <div className="space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">Pembayaran</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Pencatatan pembayaran sewa</p>
+        </div>
+        <Button onClick={() => setFormOpen(true)} className="shrink-0 gap-2 rounded-xl">
+          <Plus className="h-4 w-4" /> Catat Pembayaran
         </Button>
-      </PageHeader>
-
-      <PaymentsStats payments={payments} />
-
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="pill-tab-list" aria-label="Filter pembayaran berdasarkan status">
-          {STATUS_TABS.map(tab => (
-            <TabsTrigger key={tab.value} value={tab.value} className="pill-tab-trigger">
-              {tab.label}
-              <span className="ml-1.5 text-[10px] bg-muted/60 px-1.5 py-0.5 rounded-full">
-                {statusCounts[tab.value] || 0}
-              </span>
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-
-      <PaymentsFilters searchTerm={searchQuery} onSearchChange={setSearchQuery} />
-
-      <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-4">
-        <PaymentsTable
-          payments={paginatedPayments}
-          isLoading={isLoading}
-          onMarkPaid={setMarkPaidPayment}
-          onSendReminder={sendReminder}
-          isSendingReminder={isSendingReminder}
-          page={page}
-          totalPages={Math.ceil(filteredPayments.length / ITEMS_PER_PAGE)}
-          totalPayments={filteredPayments.length}
-          onPageChange={setPage}
-          itemsPerPage={ITEMS_PER_PAGE}
-        />
       </div>
 
-      <CreatePaymentDialog
-        open={isCreateOpen}
-        onOpenChange={setIsCreateOpen}
-        merchantId={merchant?.id}
-        onCreate={createPayment}
-        isCreating={isCreating}
-      />
+      <div className="flex flex-wrap gap-3">
+        <Select value={propertyFilter} onValueChange={v => { setPropertyFilter(v); setPage(1); }}>
+          <SelectTrigger className="w-[180px] rounded-xl h-10"><SelectValue placeholder="Semua properti" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value=" ">Semua properti</SelectItem>
+            {properties.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nama}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); setPage(1); }}>
+          <SelectTrigger className="w-[150px] rounded-xl h-10"><SelectValue placeholder="Semua status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value=" ">Semua status</SelectItem>
+            <SelectItem value="paid">Lunas</SelectItem>
+            <SelectItem value="unpaid">Belum Bayar</SelectItem>
+            <SelectItem value="overdue">Terlambat</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-      <MarkPaidDialog
-        open={!!markPaidPayment}
-        onOpenChange={(open) => !open && setMarkPaidPayment(null)}
-        payment={markPaidPayment}
-        onConfirm={({ paymentId, method, reference, proofPhotoUrl }) => {
-          markPaid({ id: paymentId, payment_method: method, reference, proof_photo_url: proofPhotoUrl }, {
-            onSuccess: () => setMarkPaidPayment(null),
-          });
-        }}
-        loading={isMarkingPaid}
-      />
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" /> <span className="text-sm">Memuat...</span>
+        </div>
+      ) : (
+        <div className="glass-table overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-gradient-to-r from-muted/80 to-muted/40 border-b-0">
+                <TableHead className="font-semibold text-xs uppercase">Kamar</TableHead>
+                <TableHead className="font-semibold text-xs uppercase">Penghuni</TableHead>
+                <TableHead className="font-semibold text-xs uppercase">Periode</TableHead>
+                <TableHead className="font-semibold text-xs uppercase text-right">Nominal</TableHead>
+                <TableHead className="font-semibold text-xs uppercase">Tgl Bayar</TableHead>
+                <TableHead className="font-semibold text-xs uppercase">Status</TableHead>
+                <TableHead className="font-semibold text-xs uppercase text-right">Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {payments.length === 0 ? (
+                <TableRow><TableCell colSpan={7} className="h-32 text-center text-muted-foreground">Belum ada data pembayaran.</TableCell></TableRow>
+              ) : payments.map(p => {
+                const sc = statusColors[p.status] || { label: p.status, className: '' };
+                return (
+                  <TableRow key={p.id} className="hover:bg-primary/5 transition-colors">
+                    <TableCell className="text-sm font-medium">{p.nomor_kamar || '—'}</TableCell>
+                    <TableCell className="text-sm">{p.nama_penghuni || '—'}</TableCell>
+                    <TableCell className="text-sm tabular-nums">{p.periode}</TableCell>
+                    <TableCell className="text-sm font-medium tabular-nums text-right">Rp{p.nominal.toLocaleString('id-ID')}</TableCell>
+                    <TableCell className="text-sm">{fmt(p.tanggal_bayar)}</TableCell>
+                    <TableCell><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${sc.className}`}>{sc.label}</span></TableCell>
+                    <TableCell className="text-right">
+                      {!p.bukti_transfer_url && (
+                        <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs rounded-lg" onClick={() => setUploadTarget(p)}>
+                          <Upload className="h-3.5 w-3.5" /> Bukti
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <span>{(page-1)*limit+1}–{Math.min(page*limit, total)} dari {total}</span>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full" disabled={page<=1} onClick={() => setPage(p=>p-1)}><ChevronLeft className="h-4 w-4" /></Button>
+            <span className="text-xs">{page}/{totalPages}</span>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full" disabled={page>=totalPages} onClick={() => setPage(p=>p+1)}><ChevronRight className="h-4 w-4" /></Button>
+          </div>
+        </div>
+      )}
+
+      {/* Create form */}
+      <Dialog open={formOpen} onOpenChange={setFormOpen}>
+        <DialogContent className="sm:max-w-lg rounded-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><CreditCard className="h-5 w-5 text-primary" /></div>
+              <div><DialogTitle>Catat Pembayaran</DialogTitle><p className="text-sm text-muted-foreground">Masukkan data pembayaran sewa</p></div>
+            </div>
+          </DialogHeader>
+          <form onSubmit={handleSubmit(handleCreate)} className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Kamar</Label>
+              <Select onValueChange={v => { setValue('room_id', v); setValue('tenant_id', ''); }}>
+                <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Pilih kamar" /></SelectTrigger>
+                <SelectContent>
+                  {rooms.map((r: any) => <SelectItem key={r.id} value={r.id}>{r.nomor_kamar} — {r.nama_properti}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {errors.room_id && <p className="text-sm text-destructive">{errors.room_id.message}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label>Penghuni</Label>
+              <Select disabled={!selectedRoomId} onValueChange={v => setValue('tenant_id', v)}>
+                <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Pilih penghuni" /></SelectTrigger>
+                <SelectContent>
+                  {tenants.filter((t: any) => !selectedRoomId || t.room_id === selectedRoomId).map((t: any) => (
+                    <SelectItem key={t.id} value={t.id}>{t.nama}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.tenant_id && <p className="text-sm text-destructive">{errors.tenant_id.message}</p>}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Periode (YYYY-MM)</Label>
+                <Input placeholder="2024-01" {...register('periode')} />
+                {errors.periode && <p className="text-sm text-destructive">{errors.periode.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label>Nominal (Rp)</Label>
+                <Input type="number" min={0} placeholder="1200000" {...register('nominal')} />
+                {errors.nominal && <p className="text-sm text-destructive">{errors.nominal.message}</p>}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Tanggal Bayar (opsional)</Label>
+              <Input type="date" {...register('tanggal_bayar')} />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => { setFormOpen(false); reset(); }}>Batal</Button>
+              <Button type="submit" disabled={createMutation.isPending} className="gap-2 rounded-xl">
+                {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Catat
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Upload bukti */}
+      <Dialog open={!!uploadTarget} onOpenChange={v => !v && setUploadTarget(null)}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader><DialogTitle>Upload Bukti Transfer</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">Format: JPG, PNG, PDF. Maks 5MB.</p>
+            <Input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={e => setUploadFile(e.target.files?.[0] ?? null)} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUploadTarget(null)}>Batal</Button>
+            <Button disabled={!uploadFile || uploadMutation.isPending} onClick={handleUpload} className="gap-2 rounded-xl">
+              {uploadMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Upload
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

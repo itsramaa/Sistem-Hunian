@@ -1,4 +1,4 @@
-import { Alert, AlertDescription } from '@/shared/components/ui/alert';
+﻿import { Alert, AlertDescription } from '@/shared/components/ui/alert';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
@@ -7,7 +7,7 @@ import { AlertTriangle, Building2, Check, Clock, CreditCard, ExternalLink, Loade
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useXenditPayment } from '../hooks/useXenditPayment';
-import { CreateXenditInvoicePayload } from '../services/xenditService';
+import { CreateXenditInvoicePayload } from '../api/xenditService';
 
 interface XenditPaymentModalProps {
   open: boolean;

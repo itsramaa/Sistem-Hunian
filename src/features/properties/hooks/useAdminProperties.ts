@@ -1,6 +1,6 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { adminPropertyService } from '../services/adminPropertyService';
+import { adminPropertyService } from '../api/adminPropertyService';
 import { AdminProperty } from '../types/admin';
 
 export function useAdminProperties() {
