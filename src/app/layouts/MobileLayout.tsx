@@ -14,6 +14,18 @@ interface MobileLayoutProps {
   showBack?: boolean;
 }
 
+// Paths that appear in mobile bottom nav (prioritized for operators)
+const MOBILE_NAV_PATHS = [
+  '/dashboard',
+  '/dashboard/properties',
+  '/dashboard/rooms',
+  '/dashboard/tenants',
+  '/dashboard/payments',
+  '/dashboard/confirmations',
+  '/dashboard/maintenance',
+  '/dashboard/profile',
+];
+
 export function MobileLayout({
   role,
   children,
@@ -23,9 +35,14 @@ export function MobileLayout({
   showBack,
 }: MobileLayoutProps) {
   const config = navigationConfig[role];
-  // Bottom nav items — first 4 from mainNav for mobile
-  const bottomNavItems = config.mainNav.flatMap((g) => g.items).slice(0, 4);
-  const hasBottomNav = bottomNavItems.length > 1;
+
+  // Show up to 5 items from the configured nav that match mobile paths
+  const mobileNavItems = config.mainNav
+    .flatMap((g) => g.items)
+    .filter(item => MOBILE_NAV_PATHS.includes(item.path))
+    .slice(0, 5);
+
+  const hasBottomNav = mobileNavItems.length > 1;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -55,7 +72,7 @@ export function MobileLayout({
       </main>
 
       {hasBottomNav && (
-        <MobileBottomNav items={bottomNavItems} basePath="/dashboard" />
+        <MobileBottomNav items={mobileNavItems} basePath="/dashboard" />
       )}
     </div>
   );
