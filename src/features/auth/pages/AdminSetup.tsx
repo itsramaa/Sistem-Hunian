@@ -1,4 +1,4 @@
-import { adminSecurityService } from '@/features/auth/services/adminSecurityService';
+﻿import { adminSecurityService } from '@/features/auth/api/adminSecurityService';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';

@@ -1,7 +1,7 @@
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { adminSecurityService } from '../services/adminSecurityService';
+import { adminSecurityService } from '../api/adminSecurityService';
 
 export function useAdminSecurity() {
   const { user } = useAuth();

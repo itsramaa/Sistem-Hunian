@@ -1,4 +1,4 @@
-import { apiClient } from "@/lib/axios";
+﻿import { apiClient } from "@/shared/lib/axios";
 
 interface SendNotificationParams {
   type: "invoice" | "payment_reminder" | "maintenance_update" | "general";

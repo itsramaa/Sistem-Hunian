@@ -1,4 +1,4 @@
-import { Button } from '@/shared/components/ui/button';
+﻿import { Button } from '@/shared/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface TablePaginationProps {

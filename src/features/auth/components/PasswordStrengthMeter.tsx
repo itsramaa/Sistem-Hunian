@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+﻿import { useMemo } from 'react';
 import { calculatePasswordStrength, PasswordStrength } from '@/shared/utils/validations/auth';
 import { cn } from '@/shared/utils/utils';
 import { Check, X } from 'lucide-react';

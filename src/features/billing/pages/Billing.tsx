@@ -1,7 +1,6 @@
-import { useAuth } from "@/features/auth/hooks/useAuth";
-import { BillingDashboard } from "@/features/billing/components/BillingDashboard";
+﻿import { useAuth } from "@/features/auth/hooks/useAuth";
 import { DisbursementScheduleSettings } from "@/features/payments/components/DisbursementScheduleSettings";
-import { SuspensionWarningBanner } from "@/features/users/components/SuspensionWarningBanner";
+import { SuspensionWarningBanner } from "@/features/user-management/components/SuspensionWarningBanner";
 import { PageHeader } from "@/shared/components/ui/PageHeader";
 import { TabsPageSkeleton } from "@/shared/components/ui/PageSkeleton";
 import { Receipt, Wallet } from "lucide-react";

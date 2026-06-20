@@ -1,8 +1,8 @@
-import { useAuth } from '@/features/auth/hooks/useAuth';
+﻿import { useAuth } from '@/features/auth/hooks/useAuth';
 import { XenditPaymentModal } from '@/features/payments/components/XenditPaymentModal';
 import { useAllTenantInvoices, useDownloadInvoice } from '@/features/payments/hooks/useTenantInvoices';
 import { Invoice } from '@/features/payments/types';
-import { TenantLayout } from '@/shared/components/layouts/TenantLayout';
+import { TenantLayout } from '@/app/layouts/TenantLayout';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Skeleton } from '@/shared/components/ui/skeleton';

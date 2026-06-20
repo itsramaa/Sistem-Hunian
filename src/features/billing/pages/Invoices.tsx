@@ -1,4 +1,4 @@
-import { CreateInvoiceDialog } from '@/features/payments/components/CreateInvoiceDialog';
+﻿import { CreateInvoiceDialog } from '@/features/payments/components/CreateInvoiceDialog';
 import { InvoiceDetailsDialog } from '@/features/payments/components/InvoiceDetailsDialog';
 import { InvoicesFilters } from '@/features/payments/components/InvoicesFilters';
 import { InvoicesStats } from '@/features/payments/components/InvoicesStats';

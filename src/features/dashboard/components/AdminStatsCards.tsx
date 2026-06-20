@@ -1,4 +1,4 @@
-
+﻿
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { cn } from '@/shared/utils/utils';
 import { Activity, DollarSign, Users, Wallet } from 'lucide-react';

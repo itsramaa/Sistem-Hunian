@@ -1,4 +1,4 @@
-import { apiClient } from '@/lib/axios';
+﻿import { apiClient } from '@/shared/lib/axios';
 import {
   ANALYTICS_BATCH_SIZE,
   ANALYTICS_DEBOUNCE_MS,

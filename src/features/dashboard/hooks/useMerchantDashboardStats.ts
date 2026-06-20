@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { merchantDashboardService } from '../services/merchantDashboardService';
+import { merchantDashboardService } from '../api/merchantDashboardService';
 
 export function useMerchantDashboardStats() {
   const { merchant } = useAuth();

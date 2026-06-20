@@ -1,4 +1,4 @@
-import { UserRole, getAllNavItems } from "@/shared/components/layouts/navigation-config";
+﻿import { UserRole, getAllNavItems } from "@/shared/components/sidebar/navigation-config";
 
 // Translations for path segments
 export const SEGMENT_TRANSLATIONS: Record<string, string> = {

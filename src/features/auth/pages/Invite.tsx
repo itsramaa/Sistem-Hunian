@@ -1,8 +1,8 @@
-import { PasswordStrengthMeter } from "@/features/auth/components/PasswordStrengthMeter";
+﻿import { PasswordStrengthMeter } from "@/features/auth/components/PasswordStrengthMeter";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { INVITATION_ERROR_MESSAGES } from "@/features/auth/utils/auth-errors";
-import { TenantProfileForm } from "@/features/users/components/TenantProfileForm";
-import { apiClient } from "@/lib/axios";
+import { TenantProfileForm } from "@/features/user-management/components/TenantProfileForm";
+import { apiClient } from "@/shared/lib/axios";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";

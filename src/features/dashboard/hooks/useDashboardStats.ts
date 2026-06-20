@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { endOfDay, startOfDay, subDays } from "date-fns";
-import { dashboardService } from "../services/dashboardService";
+import { dashboardService } from "../api/dashboardService";
 import { useAdminGuard } from "@/features/auth/hooks/useAdminGuard";
 
 export type DateRange = 'today' | '7d' | '30d' | 'all';

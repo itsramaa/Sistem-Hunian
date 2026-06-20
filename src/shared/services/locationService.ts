@@ -1,4 +1,4 @@
-import { apiClient } from '@/lib/axios';
+﻿import { apiClient } from '@/shared/lib/axios';
 import { City, Province } from '../types';
 
 export const locationService = {

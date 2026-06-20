@@ -1,5 +1,5 @@
-import { useAuth } from "@/features/auth/hooks/useAuth";
-import { apiClient } from "@/lib/axios";
+﻿import { useAuth } from "@/features/auth/hooks/useAuth";
+import { apiClient } from "@/shared/lib/axios";
 import { Button } from "@/shared/components/ui/button";
 import { WebcamCaptureDialog } from "@/shared/components/WebcamCaptureDialog";
 import { useIsMobile } from "@/shared/hooks/use-mobile";

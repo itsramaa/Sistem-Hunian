@@ -1,10 +1,10 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Progress } from "@/shared/components/ui/progress";
-import { apiClient } from "@/lib/axios";
+import { apiClient } from "@/shared/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { differenceInDays, format } from "date-fns";
 import { Home, AlertTriangle, TrendingDown, DollarSign, RefreshCw, Eye, ListPlus, BarChart } from "lucide-react";

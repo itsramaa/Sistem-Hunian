@@ -1,4 +1,4 @@
-import { useAuth } from '@/features/auth/hooks/useAuth';
+﻿import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useMerchantInvoices } from '@/features/payments/hooks/useMerchantInvoices';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
@@ -6,7 +6,7 @@ import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { formatCurrency } from '@/shared/utils/currency';
 import { getInvoiceStatusColor } from '@/shared/utils/statusColors';
-import { apiClient } from '@/lib/axios';
+import { apiClient } from '@/shared/lib/axios';
 import { useQuery } from '@tanstack/react-query';
 import { format, differenceInDays } from 'date-fns';
 import { ArrowLeft, Bell, Calendar, CheckCircle, Clock, Download, FileText, Loader2, Mail, MapPin, Phone, Send, User, AlertTriangle } from 'lucide-react';

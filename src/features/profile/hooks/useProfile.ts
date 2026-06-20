@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { profileService } from '../services/profileService';
+import { profileService } from '../api/profileService';
 import { UpdateProfilePayload, UpdateTenantPayload } from '../types';
 
 export const useProfile = (userId: string | undefined) => {
