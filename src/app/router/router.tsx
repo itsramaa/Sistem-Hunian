@@ -14,21 +14,11 @@ const Auth = lazy(() => import("@/features/auth/pages/Auth"));
 const ResetPassword = lazy(() => import("@/features/auth/pages/ResetPassword"));
 const UpdatePassword = lazy(() => import("@/features/auth/pages/UpdatePassword"));
 
-// Admin stubs
-const AdminLogin = lazy(() => import("@/features/admin/pages/AdminLogin"));
-const Admin2FA = lazy(() => import("@/features/admin/pages/Admin2FA"));
-const AdminDashboard = lazy(() => import("@/features/admin/pages/Dashboard"));
-const AdminMerchants = lazy(() => import("@/features/admin/pages/Merchants"));
-const AdminProperties = lazy(() => import("@/features/admin/pages/Properties"));
-const AdminTenants = lazy(() => import("@/features/admin/pages/Tenants"));
-const AdminUsers = lazy(() => import("@/features/admin/pages/AdminUsers"));
-const AdminSettings = lazy(() => import("@/features/admin/pages/Settings"));
-
 // SRS core features — §4.2–§4.8 + Audit Trail
 const OperatorDashboard = lazy(() => import("@/features/dashboard/pages/Dashboard"));
 const OperatorProperties = lazy(() => import("@/features/properties/pages/Properties"));
 const OperatorRooms = lazy(() => import("@/features/rooms/pages/Rooms"));
-const OperatorTenants = lazy(() => import("@/features/tenants/pages/Tenants"));
+const OperatorCheckouts = lazy(() => import("@/features/checkouts/pages/Tenants"));
 const OperatorPayments = lazy(() => import("@/features/payments/pages/Payments"));
 const OperatorConfirmations = lazy(() => import("@/features/confirmations/pages/ConfirmationsPage"));
 const OperatorMaintenance = lazy(() => import("@/features/maintenance/pages/Maintenance"));
@@ -37,7 +27,7 @@ const OperatorNotifications = lazy(() => import("@/features/notifications/pages/
 const OperatorProfile = lazy(() => import("@/features/profile/pages/Profile"));
 const OperatorSettingsPage = lazy(() => import("@/features/profile/pages/Settings"));
 
-// Full-page loader — for top-level routes (login, admin, public pages)
+// Full-page loader — for top-level routes (login, public pages)
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-background">
     <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -51,7 +41,7 @@ const ContentLoader = () => (
   </div>
 );
 
-// S = full-page Suspense (login, admin, public)
+// S = full-page Suspense (login, public)
 const S = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<PageLoader />}>{children}</Suspense>
 );
@@ -71,16 +61,6 @@ export function AppRouter() {
       <Route path="/update-password" element={<S><UpdatePassword /></S>} />
       <Route path="/unauthorized" element={<S><Unauthorized /></S>} />
 
-      {/* Admin */}
-      <Route path="/admin/login" element={<S><AdminLogin /></S>} />
-      <Route path="/admin/2fa" element={<S><Admin2FA /></S>} />
-      <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><S><AdminDashboard /></S></ProtectedRoute>} />
-      <Route path="/admin/merchants" element={<ProtectedRoute allowedRoles={['admin']}><S><AdminMerchants /></S></ProtectedRoute>} />
-      <Route path="/admin/properties" element={<ProtectedRoute allowedRoles={['admin']}><S><AdminProperties /></S></ProtectedRoute>} />
-      <Route path="/admin/tenants" element={<ProtectedRoute allowedRoles={['admin']}><S><AdminTenants /></S></ProtectedRoute>} />
-      <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']}><S><AdminUsers /></S></ProtectedRoute>} />
-      <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']}><S><AdminSettings /></S></ProtectedRoute>} />
-
       {/* Dashboard — sidebar stays on all child route transitions */}
       <Route
         path="/dashboard"
@@ -95,8 +75,8 @@ export function AppRouter() {
         <Route path="properties" element={<ProtectedRoute allowedRoles={['operator']}><DS><OperatorProperties /></DS></ProtectedRoute>} />
         {/* §4.4 Kamar */}
         <Route path="rooms" element={<ProtectedRoute allowedRoles={['operator']}><DS><OperatorRooms /></DS></ProtectedRoute>} />
-        {/* §4.5 Penghuni */}
-        <Route path="tenants" element={<ProtectedRoute allowedRoles={['operator']}><DS><OperatorTenants /></DS></ProtectedRoute>} />
+        {/* §4.5 Penghuni & Checkout */}
+        <Route path="tenants" element={<ProtectedRoute allowedRoles={['operator']}><DS><OperatorCheckouts /></DS></ProtectedRoute>} />
         {/* §4.6 Pembayaran */}
         <Route path="payments" element={<ProtectedRoute allowedRoles={['operator']}><DS><OperatorPayments /></DS></ProtectedRoute>} />
         {/* §4.7 Konfirmasi DP */}
