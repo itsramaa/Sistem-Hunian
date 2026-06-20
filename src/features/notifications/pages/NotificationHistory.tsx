@@ -39,15 +39,18 @@ export default function NotificationHistory() {
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   const markAllRead = async () => {
-    const unread = notifications.filter((n) => !n.is_read);
-    await Promise.all(unread.map((n) => apiClient.patch(`/notifications/${n.id}/read`)));
-    qc.invalidateQueries({ queryKey: ['notifications'] });
-    toast.success('Semua notifikasi ditandai dibaca');
+    try {
+      // Use bulk endpoint instead of individual patches
+      await apiClient.patch('/notifications/read-all');
+      qc.invalidateQueries({ queryKey: ['notifications'] });
+      toast.success('Semua notifikasi ditandai dibaca');
+    } catch {
+      toast.error('Gagal menandai semua notifikasi');
+    }
   };
 
   return (
     <div className="space-y-5">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight">Notifikasi</h1>
@@ -66,12 +69,9 @@ export default function NotificationHistory() {
         </div>
       </div>
 
-      {/* List */}
       <div className="space-y-2">
         {isLoading && (
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">Memuat...</CardContent>
-          </Card>
+          <Card><CardContent className="py-12 text-center text-muted-foreground">Memuat...</CardContent></Card>
         )}
 
         {!isLoading && notifications.length === 0 && (

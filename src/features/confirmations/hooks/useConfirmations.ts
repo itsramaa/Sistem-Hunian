@@ -23,6 +23,18 @@ export function useCreateConfirmation() {
   });
 }
 
+export function useExpireConfirmation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => confirmationService.expire(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [CONFIRMATIONS_KEY] });
+      qc.invalidateQueries({ queryKey: ['rooms'] });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
 export function useConfirmDP() {
   const qc = useQueryClient();
   return useMutation({

@@ -1,5 +1,5 @@
 ﻿import React, { useState } from 'react';
-import { useConfirmations, useCreateConfirmation, useConfirmDP } from '../hooks/useConfirmations';
+import { useConfirmations, useCreateConfirmation, useConfirmDP, useExpireConfirmation } from '../hooks/useConfirmations';
 import { useProperties } from '@/features/properties/hooks/useProperties';
 import { useRooms } from '@/features/rooms/hooks/useRooms';
 import { Confirmation, ConfirmDPPayload } from '../types';
@@ -40,6 +40,52 @@ const confirmSchema = z.object({
 
 type CreateForm = z.infer<typeof createSchema>;
 type ConfirmForm = z.infer<typeof confirmSchema>;
+
+// ─── Tandai Hangus inline button ──────────────────────────────────────────────
+function ExpireButton({ id, nama }: { id: string; nama: string }) {
+  const expireMutation = useExpireConfirmation();
+  const { toast } = useToast();
+  const [confirm, setConfirm] = useState(false);
+
+  if (confirm) {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="text-xs text-muted-foreground">Hanguskan?</span>
+        <Button
+          variant="destructive"
+          size="sm"
+          className="h-7 text-xs rounded-lg px-2"
+          disabled={expireMutation.isPending}
+          onClick={async () => {
+            try {
+              await expireMutation.mutateAsync(id);
+              toast({ title: `DP ${nama} berhasil ditandai hangus` });
+            } catch {
+              toast({ variant: 'destructive', title: 'Gagal menghanguskan DP' });
+            }
+            setConfirm(false);
+          }}
+        >
+          {expireMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Ya'}
+        </Button>
+        <Button variant="ghost" size="sm" className="h-7 text-xs rounded-lg px-2" onClick={() => setConfirm(false)}>
+          Batal
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className="h-8 gap-1.5 text-xs rounded-lg text-destructive border-destructive/30 hover:bg-destructive/5"
+      onClick={() => setConfirm(true)}
+    >
+      <XCircle className="h-3.5 w-3.5" /> Tandai Hangus
+    </Button>
+  );
+}
 
 export default function ConfirmationsPage() {
   const [page, setPage] = useState(1);
@@ -158,9 +204,17 @@ export default function ConfirmationsPage() {
                     <TableCell><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${sc.className}`}>{sc.label}</span></TableCell>
                     <TableCell className="text-right">
                       {c.status === 'pending' && (
-                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs rounded-lg" onClick={() => { setConfirmTarget(c); confirmForm.reset(); }}>
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Konfirmasi Masuk
-                        </Button>
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1.5 text-xs rounded-lg"
+                            onClick={() => { setConfirmTarget(c); confirmForm.reset(); }}
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5 text-green-600" /> Konfirmasi Masuk
+                          </Button>
+                          <ExpireButton id={c.id} nama={c.nama_calon_penghuni} />
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
@@ -205,14 +259,8 @@ export default function ConfirmationsPage() {
               <Input placeholder="Sari Dewi" {...createForm.register('nama_calon_penghuni')} />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Nominal DP (Rp)</Label>
-                <Input type="number" min={0} placeholder="600000" {...createForm.register('nominal_dp')} />
-              </div>
-              <div className="space-y-2">
-                <Label>Batas Tanggal</Label>
-                <Input type="date" {...createForm.register('batas_tanggal_konfirmasi')} />
-              </div>
+              <div className="space-y-2"><Label>Nominal DP (Rp)</Label><Input type="number" min={0} placeholder="600000" {...createForm.register('nominal_dp')} /></div>
+              <div className="space-y-2"><Label>Batas Tanggal</Label><Input type="date" {...createForm.register('batas_tanggal_konfirmasi')} /></div>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Batal</Button>
@@ -224,7 +272,7 @@ export default function ConfirmationsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirm masuk modal */}
+      {/* Konfirmasi masuk modal */}
       <Dialog open={!!confirmTarget} onOpenChange={v => !v && setConfirmTarget(null)}>
         <DialogContent className="sm:max-w-lg rounded-2xl">
           <DialogHeader>

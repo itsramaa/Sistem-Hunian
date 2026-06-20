@@ -8,12 +8,15 @@ import { Plus, Loader2 } from 'lucide-react';
 import { Input } from '@/shared/components/ui/input';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useToast } from '@/shared/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/dialog';
+import { AlertTriangle } from 'lucide-react';
 
 export default function PropertiesPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Property | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Property | null>(null);
   const debouncedSearch = useDebounce(search, 300);
   const { toast } = useToast();
 
@@ -32,61 +35,43 @@ export default function PropertiesPage() {
       await createMutation.mutateAsync(payload);
       setFormOpen(false);
       toast({ title: 'Properti berhasil ditambahkan' });
-    } catch {
-      toast({ variant: 'destructive', title: 'Gagal menambahkan properti' });
-    }
+    } catch { toast({ variant: 'destructive', title: 'Gagal menambahkan properti' }); }
   };
 
   const handleUpdate = async (payload: any) => {
     if (!editing) return;
     try {
       await updateMutation.mutateAsync({ id: editing.id, payload });
-      setEditing(null);
-      setFormOpen(false);
+      setEditing(null); setFormOpen(false);
       toast({ title: 'Properti berhasil diubah' });
-    } catch {
-      toast({ variant: 'destructive', title: 'Gagal mengubah properti' });
-    }
+    } catch { toast({ variant: 'destructive', title: 'Gagal mengubah properti' }); }
   };
 
-  const handleDelete = async (property: Property) => {
-    if (!confirm(`Hapus properti "${property.nama}"?`)) return;
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await deleteMutation.mutateAsync(property.id);
+      await deleteMutation.mutateAsync(deleteTarget.id);
+      setDeleteTarget(null);
       toast({ title: 'Properti berhasil dihapus' });
     } catch (err: any) {
       const msg = err?.response?.data?.error?.message || 'Gagal menghapus properti';
       toast({ variant: 'destructive', title: msg });
+      setDeleteTarget(null);
     }
-  };
-
-  const openEdit = (property: Property) => {
-    setEditing(property);
-    setFormOpen(true);
-  };
-
-  const openCreate = () => {
-    setEditing(null);
-    setFormOpen(true);
   };
 
   return (
     <div className="space-y-5">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight">Properti</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Kelola data properti kos Anda
-          </p>
+          <p className="text-sm text-muted-foreground mt-0.5">Kelola data properti kos Anda</p>
         </div>
-        <Button onClick={openCreate} className="shrink-0 gap-2 rounded-xl">
-          <Plus className="h-4 w-4" />
-          Tambah Properti
+        <Button onClick={() => { setEditing(null); setFormOpen(true); }} className="shrink-0 gap-2 rounded-xl">
+          <Plus className="h-4 w-4" /> Tambah Properti
         </Button>
       </div>
 
-      {/* Search */}
       <Input
         placeholder="Cari properti..."
         value={search}
@@ -94,7 +79,6 @@ export default function PropertiesPage() {
         className="max-w-sm rounded-xl"
       />
 
-      {/* Table */}
       {isLoading ? (
         <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" />
@@ -107,8 +91,8 @@ export default function PropertiesPage() {
       ) : (
         <PropertyTable
           properties={properties}
-          onEdit={openEdit}
-          onDelete={handleDelete}
+          onEdit={(p) => { setEditing(p); setFormOpen(true); }}
+          onDelete={(p) => setDeleteTarget(p)}
           onManageRooms={(p) => window.open(`/dashboard/rooms?property_id=${p.id}`, '_self')}
           page={page}
           totalPages={totalPages}
@@ -118,7 +102,6 @@ export default function PropertiesPage() {
         />
       )}
 
-      {/* Form Modal */}
       <PropertyForm
         open={formOpen}
         onOpenChange={setFormOpen}
@@ -126,6 +109,32 @@ export default function PropertiesPage() {
         onSubmit={editing ? handleUpdate : handleCreate}
         isLoading={createMutation.isPending || updateMutation.isPending}
       />
+
+      {/* ConfirmDialog untuk hapus properti */}
+      <Dialog open={!!deleteTarget} onOpenChange={v => !v && setDeleteTarget(null)}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+              </div>
+              <div>
+                <DialogTitle>Hapus Properti</DialogTitle>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Properti <strong>{deleteTarget?.nama}</strong> akan dihapus. Properti tidak dapat dihapus jika masih memiliki kamar.
+                </p>
+              </div>
+            </div>
+          </DialogHeader>
+          <DialogFooter className="pt-2">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Batal</Button>
+            <Button variant="destructive" disabled={deleteMutation.isPending} onClick={handleDelete} className="gap-2 rounded-xl">
+              {deleteMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Hapus
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

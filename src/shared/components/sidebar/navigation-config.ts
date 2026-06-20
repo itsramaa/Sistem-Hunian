@@ -10,6 +10,7 @@ import {
   Bell,
   User,
   Settings,
+  History,
 } from 'lucide-react';
 
 export type UserRole = 'operator' | 'manager' | 'viewer' | 'admin';
@@ -52,7 +53,6 @@ const defaultBrand = {
   iconBgClass: 'bg-primary/10',
 };
 
-// Operator gets all 6 SRS features
 const operatorNav: NavGroup[] = [
   {
     label: 'Utama',
@@ -72,22 +72,29 @@ const operatorNav: NavGroup[] = [
     ],
   },
   {
+    label: 'Laporan',
+    items: [
+      { label: 'Audit Trail', path: '/dashboard/audit', icon: History },
+      { label: 'Notifikasi', path: '/dashboard/notifications', icon: Bell },
+    ],
+  },
+  {
     label: 'Akun',
     items: [
-      { label: 'Notifikasi', path: '/dashboard/notifications', icon: Bell },
       { label: 'Profil', path: '/dashboard/profile', icon: User },
       { label: 'Pengaturan', path: '/dashboard/settings', icon: Settings },
     ],
   },
 ];
 
-// Manager: dashboard + maintenance only
+// Manager: dashboard + maintenance + audit trail
 const managerNav: NavGroup[] = [
   {
     label: 'Utama',
     items: [
       { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
       { label: 'Maintenance', path: '/dashboard/maintenance', icon: Wrench },
+      { label: 'Audit Trail', path: '/dashboard/audit', icon: History },
     ],
   },
   {
@@ -98,7 +105,6 @@ const managerNav: NavGroup[] = [
   },
 ];
 
-// Viewer: dashboard only
 const viewerNav: NavGroup[] = [
   {
     label: 'Utama',

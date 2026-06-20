@@ -22,6 +22,17 @@ export function useCreatePayment() {
   });
 }
 
+export function useMarkPaid() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => paymentService.markPaid(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [PAYMENTS_KEY] });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
 export function useUploadBukti() {
   const qc = useQueryClient();
   return useMutation({
