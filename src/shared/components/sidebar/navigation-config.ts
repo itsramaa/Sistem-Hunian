@@ -8,8 +8,6 @@ import {
   Clock,
   Wrench,
   Bell,
-  User,
-  Settings,
   History,
 } from 'lucide-react';
 
@@ -78,13 +76,6 @@ const operatorNav: NavGroup[] = [
       { label: 'Notifikasi', path: '/dashboard/notifications', icon: Bell },
     ],
   },
-  {
-    label: 'Akun',
-    items: [
-      { label: 'Profil', path: '/dashboard/profile', icon: User },
-      { label: 'Pengaturan', path: '/dashboard/settings', icon: Settings },
-    ],
-  },
 ];
 
 // Manager: dashboard + maintenance + audit trail
@@ -95,12 +86,6 @@ const managerNav: NavGroup[] = [
       { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
       { label: 'Maintenance', path: '/dashboard/maintenance', icon: Wrench },
       { label: 'Audit Trail', path: '/dashboard/audit', icon: History },
-    ],
-  },
-  {
-    label: 'Akun',
-    items: [
-      { label: 'Profil', path: '/dashboard/profile', icon: User },
     ],
   },
 ];
