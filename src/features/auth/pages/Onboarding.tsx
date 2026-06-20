@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Building2, Wrench, Loader2, ArrowLeft, Check, Clock } from 'lucide-react';
 import { z } from 'zod';
@@ -9,7 +9,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { useToast } from '@/shared/hooks/use-toast';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { apiClient } from '@/lib/axios';
+import { apiClient } from '@/shared/lib/axios';
 import { cn } from '@/shared/utils/utils';
 import { businessNameSchema } from '@/shared/utils/validations/auth';
 import { getAuthErrorMessage } from '@/features/auth/utils/auth-errors';

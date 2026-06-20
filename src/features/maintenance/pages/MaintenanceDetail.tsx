@@ -1,4 +1,4 @@
-import { useAuth } from '@/features/auth/hooks/useAuth';
+﻿import { useAuth } from '@/features/auth/hooks/useAuth';
 import { MaintenancePriorityBadge } from '@/features/maintenance/components/MaintenancePriorityBadge';
 import { MaintenanceStatusBadge } from '@/features/maintenance/components/MaintenanceStatusBadge';
 import { SLABadge, getSLAText } from '@/features/maintenance/components/SLABadge';
@@ -45,6 +45,7 @@ function PhotoGallery({ images, title }: { images: string[]; title: string }) {
         ))}
       </div>
 
+      {/* Lightbox */}
       {selectedImg && (
         <div
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
@@ -113,31 +114,27 @@ export default function MerchantMaintenanceDetail() {
   const { data: vendors = [] } = useVerifiedVendors();
   const updateStatusMutation = useUpdateMaintenanceRequest();
 
+  // Fetch expenses for cost summary
   const { data: expenses = [] } = useQuery({
     queryKey: ['maintenance-expenses', id],
     queryFn: async () => {
-      try {
-        // TODO: Go endpoint not yet implemented — was: supabase.from('maintenance_expenses').select(...)
-        return [] as any[];
-      } catch {
-        return [] as any[];
-      }
+      // TODO: Go endpoint not yet implemented — was: supabase.from('maintenance_expenses').select('*').eq('maintenance_request_id', id)
+      return [] as any[];
     },
     enabled: !!id,
   });
 
+  // Fetch vendor job for agreed price
   const { data: vendorJob } = useQuery({
     queryKey: ['vendor-job-for-maintenance', id],
     queryFn: async () => {
-      // TODO: Go endpoint not yet implemented — was: supabase.from('vendor_jobs').select(...)
+      // TODO: Go endpoint not yet implemented — was: supabase.from('vendor_jobs').select('agreed_price, status, completed_at').eq('maintenance_request_id', id)
       return null;
     },
     enabled: !!id,
   });
 
-  const contracts = request?.unit?.contracts;
-  const contract = contracts?.find(c => c.tenant_user_id === request?.tenant_user_id && (c.status === 'active' || c.status === 'notice'))
-    ?? contracts?.sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime())[0];
+  const contract = getRelevantContract(request?.unit?.contracts, request?.tenant_user_id);
   const isContractActive = contract?.status === 'active' || contract?.status === 'notice';
 
   const totalExpenses = expenses.reduce((sum: number, e: any) => sum + (e.total_amount || 0), 0);
@@ -198,10 +195,12 @@ export default function MerchantMaintenanceDetail() {
   return (
     <>
       <div className="space-y-6">
+        {/* Header */}
         <Button variant="ghost" asChild className="gap-2 rounded-xl" aria-label="Kembali ke daftar pemeliharaan">
           <Link to="/merchant/maintenance"><ArrowLeft className="h-4 w-4" aria-hidden="true" /> Kembali</Link>
         </Button>
 
+        {/* Title + Quick Actions */}
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
             <div className="gradient-icon-box w-12 h-12" aria-hidden="true"><Wrench className="h-6 w-6 text-primary" /></div>
@@ -224,10 +223,13 @@ export default function MerchantMaintenanceDetail() {
           </div>
         </div>
 
+        {/* SLA Progress */}
         <SLAProgressBar createdAt={request.created_at} slaDeadline={request.sla_deadline} status={request.status} />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Request Details */}
             <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-4">
               <h3 className="font-semibold text-lg">Rincian Permintaan</h3>
               <div>
@@ -246,14 +248,17 @@ export default function MerchantMaintenanceDetail() {
                 </div>
               </div>
 
+              {/* Photo Gallery */}
               {request.images && request.images.length > 0 && (
                 <PhotoGallery images={request.images} title="Foto Masalah" />
               )}
 
+              {/* Completion Photos */}
               {request.completion_photos && request.completion_photos.length > 0 && (
                 <PhotoGallery images={request.completion_photos} title="Foto Penyelesaian" />
               )}
 
+              {/* Completion Notes */}
               {request.completion_notes && (
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Catatan Penyelesaian</p>
@@ -262,6 +267,7 @@ export default function MerchantMaintenanceDetail() {
               )}
             </div>
 
+            {/* Cost Summary */}
             <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-lg flex items-center gap-2">
@@ -307,6 +313,7 @@ export default function MerchantMaintenanceDetail() {
               )}
             </div>
 
+            {/* Activity Timeline */}
             <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-4">
               <h3 className="font-semibold text-lg">Timeline Aktivitas</h3>
               <UpdateTimeline
@@ -317,7 +324,9 @@ export default function MerchantMaintenanceDetail() {
             </div>
           </div>
 
+          {/* Sidebar */}
           <div className="space-y-6">
+            {/* Tenant Info */}
             <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-4">
               <h3 className="font-semibold flex items-center gap-2"><User className="h-4 w-4 text-primary" aria-hidden="true" /> Penyewa</h3>
               <div className="flex items-center gap-3">
@@ -343,6 +352,7 @@ export default function MerchantMaintenanceDetail() {
               )}
             </div>
 
+            {/* Unit Info */}
             <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-4">
               <h3 className="font-semibold flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" aria-hidden="true" /> Unit</h3>
               <div className="space-y-2">
@@ -367,6 +377,7 @@ export default function MerchantMaintenanceDetail() {
                   className={`p-3 rounded-xl text-sm flex items-center gap-2 ${
                     contract.status === 'active' ? 'bg-success/10 text-success border border-success/20' : 'bg-warning/10 text-warning border border-warning/20'
                   }`}
+                  aria-label={`Lihat kontrak status ${contract.status}`}
                 >
                   <FileText className="h-4 w-4" aria-hidden="true" />
                   <span className="capitalize font-medium">Kontrak: {contract.status === 'active' ? 'Aktif' : contract.status === 'notice' ? 'Pemberitahuan' : contract.status}</span>
@@ -374,6 +385,7 @@ export default function MerchantMaintenanceDetail() {
               )}
             </div>
 
+            {/* Vendor Info */}
             {request.assigned_vendor && (
               <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-4">
                 <h3 className="font-semibold flex items-center gap-2"><Wrench className="h-4 w-4 text-primary" aria-hidden="true" /> Vendor</h3>
@@ -412,6 +424,7 @@ export default function MerchantMaintenanceDetail() {
               </div>
             )}
 
+            {/* Status Update */}
             <div className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40 p-6 space-y-4">
               <h3 className="font-semibold">Info Waktu</h3>
               <div className="space-y-2 text-sm">
@@ -442,7 +455,7 @@ export default function MerchantMaintenanceDetail() {
                   <p className="text-success font-medium flex items-center justify-center gap-2" role="status">
                     <CheckCircle className="h-5 w-5" aria-hidden="true" /> Selesai
                   </p>
-                  <Button variant="outline" className="mt-3 w-full rounded-xl" onClick={() => setIsUpdateDialogOpen(true)}>
+                  <Button variant="outline" className="mt-3 w-full rounded-xl" onClick={() => setIsUpdateDialogOpen(true)} aria-label="Perbarui rincian pemeliharaan">
                     Update Detail
                   </Button>
                 </div>
@@ -457,7 +470,7 @@ export default function MerchantMaintenanceDetail() {
               )}
 
               {request.status !== 'completed' && request.status !== 'cancelled' && (
-                <Button className="w-full gradient-cta rounded-xl" onClick={() => setIsUpdateDialogOpen(true)}>
+                <Button className="w-full gradient-cta rounded-xl" onClick={() => setIsUpdateDialogOpen(true)} aria-label="Perbarui status atau tugaskan vendor">
                   Update Status / Assign Vendor
                 </Button>
               )}

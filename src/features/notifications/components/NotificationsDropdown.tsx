@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/axios";
+import { apiClient } from "@/shared/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -13,7 +13,7 @@ import {
 } from "@/shared/components/ui/dropdown-menu";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
 import { Badge } from "@/shared/components/ui/badge";
-import { Bell, Check, CheckCheck, AlertTriangle, Info, FileText, CreditCard, Wrench, Settings, ChevronDown, ChevronUp, ShieldAlert } from "lucide-react";
+import { Bell, CheckCheck, AlertTriangle, Info, FileText, CreditCard, Wrench, Settings, ChevronDown, ChevronUp, ShieldAlert } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { id } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
@@ -29,10 +29,8 @@ interface Notification {
   created_at: string;
 }
 
-// Validate notification link - only allow internal paths
 const isValidLink = (link: string | null): boolean => {
   if (!link) return false;
-  // Only allow internal paths starting with /
   return link.startsWith('/') && !link.includes('//') && !link.includes('javascript:');
 };
 
@@ -42,106 +40,67 @@ export function NotificationsDropdown() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const channelRef = useRef<null>(null);
+  const _channelRef = useRef<null>(null);
 
-  const { data: notifications = [] } = useQuery({
+  const { data: rawNotifications } = useQuery({
     queryKey: ['notifications', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      try {
-        const r = await apiClient.get('/notifications', { params: { user_id: user.id, order: 'created_at.desc', limit: 50 } });
-        return r.data as Notification[];
-      } catch (err) {
-        throw err;
-      }
+      const r = await apiClient.get('/notifications', {
+        params: { is_read: false },
+      });
+      return r.data;
     },
     enabled: !!user?.id,
   });
 
-  // TODO: implement real-time notifications via WebSocket/SSE Go endpoint
-  // was: supabase.channel(`notifications-${user.id}`).on('postgres_changes', ...)
+  // Polling fallback
   useEffect(() => {
     if (!user?.id) return;
-    // Polling fallback until real-time endpoint is available
     const interval = setInterval(() => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     }, 30000);
     return () => clearInterval(interval);
   }, [user?.id, queryClient]);
 
-  // Optimistic update for mark as read
   const markAsRead = useMutation({
     mutationFn: async (notificationId: string) => {
-      await apiClient.put('/notifications/' + notificationId, { read: true });
+      await apiClient.patch(`/notifications/${notificationId}/read`);
     },
-    onMutate: async (notificationId) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['notifications'] });
-      
-      // Snapshot previous value
-      const previousNotifications = queryClient.getQueryData(['notifications', user?.id]);
-      
-      // Optimistically update
-      queryClient.setQueryData(['notifications', user?.id], (old: Notification[] | undefined) =>
-        old?.map(n => n.id === notificationId ? { ...n, read: true } : n)
-      );
-      
-      return { previousNotifications };
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
-    onError: (err, notificationId, context) => {
-      // Rollback on error
-      queryClient.setQueryData(['notifications', user?.id], context?.previousNotifications);
-      toast.error("Gagal menandai notifikasi");
-    },
+    onError: () => toast.error("Gagal menandai notifikasi"),
   });
 
   const markAllAsRead = useMutation({
     mutationFn: async () => {
-      if (!user?.id) return;
-      await apiClient.put('/notifications/mark-all-read', { user_id: user.id });
-    },
-    onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ['notifications'] });
-      const previousNotifications = queryClient.getQueryData(['notifications', user?.id]);
-      
-      queryClient.setQueryData(['notifications', user?.id], (old: Notification[] | undefined) =>
-        old?.map(n => ({ ...n, read: true }))
-      );
-      
-      return { previousNotifications };
-    },
-    onError: (err, variables, context) => {
-      queryClient.setQueryData(['notifications', user?.id], context?.previousNotifications);
-      toast.error("Gagal menandai semua notifikasi");
+      await apiClient.patch('/notifications/read-all');
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
       toast.success("Semua notifikasi telah dibaca");
     },
+    onError: () => toast.error("Gagal menandai semua notifikasi"),
   });
 
+  // Always safe array
+  const notifications: Notification[] = Array.isArray(rawNotifications) ? rawNotifications : [];
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const getNotificationIcon = (type: string | null) => {
     switch (type) {
-      case 'payment':
-        return <CreditCard className="h-4 w-4 text-green-500" />;
-      case 'invoice':
-        return <FileText className="h-4 w-4 text-blue-500" />;
-      case 'maintenance':
-        return <Wrench className="h-4 w-4 text-orange-500" />;
-      case 'warning':
-        return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
-      case 'rls_alert':
-        return <ShieldAlert className="h-4 w-4 text-destructive" />;
-      default:
-        return <Info className="h-4 w-4 text-primary" />;
+      case 'payment': return <CreditCard className="h-4 w-4 text-green-500" />;
+      case 'invoice': return <FileText className="h-4 w-4 text-blue-500" />;
+      case 'maintenance': return <Wrench className="h-4 w-4 text-orange-500" />;
+      case 'warning': return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
+      case 'rls_alert': return <ShieldAlert className="h-4 w-4 text-destructive" />;
+      default: return <Info className="h-4 w-4 text-primary" />;
     }
   };
 
   const handleNotificationClick = (notification: Notification) => {
-    if (!notification.read) {
-      markAsRead.mutate(notification.id);
-    }
+    if (!notification.read) markAsRead.mutate(notification.id);
     if (notification.link && isValidLink(notification.link)) {
       navigate(notification.link);
       setOpen(false);
@@ -159,9 +118,7 @@ export function NotificationsDropdown() {
         <Button variant="ghost" size="icon" className="relative" aria-label="Notifikasi">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <Badge 
-              className="absolute -top-1 -right-1 h-5 min-w-5 p-0 flex items-center justify-center text-xs bg-destructive text-destructive-foreground"
-            >
+            <Badge className="absolute -top-1 -right-1 h-5 min-w-5 p-0 flex items-center justify-center text-xs bg-destructive text-destructive-foreground">
               {unreadCount > 9 ? '9+' : unreadCount}
             </Badge>
           )}
@@ -172,26 +129,12 @@ export function NotificationsDropdown() {
           <span>Notifikasi</span>
           <div className="flex items-center gap-1">
             {unreadCount > 0 && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="h-auto py-1 px-2 text-xs"
-                onClick={() => markAllAsRead.mutate()}
-              >
+              <Button variant="ghost" size="sm" className="h-auto py-1 px-2 text-xs" onClick={() => markAllAsRead.mutate()}>
                 <CheckCheck className="h-3 w-3 mr-1" />
                 Baca semua
               </Button>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() => {
-                navigate('/settings');
-                setOpen(false);
-              }}
-              aria-label="Pengaturan notifikasi"
-            >
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { navigate('/dashboard/settings'); setOpen(false); }} aria-label="Pengaturan notifikasi">
               <Settings className="h-3 w-3" />
             </Button>
           </div>
@@ -206,49 +149,27 @@ export function NotificationsDropdown() {
           ) : (
             notifications.map((notification) => {
               const isExpanded = expandedId === notification.id;
-              const isLongMessage = notification.message.length > 80;
-              
+              const isLongMessage = (notification.message?.length ?? 0) > 80;
               return (
                 <DropdownMenuItem
                   key={notification.id}
-                  className={`flex items-start gap-3 p-3 cursor-pointer ${
-                    !notification.read ? 'bg-muted/50' : ''
-                  }`}
+                  className={`flex items-start gap-3 p-3 cursor-pointer ${!notification.read ? 'bg-muted/50' : ''}`}
                   onClick={() => handleNotificationClick(notification)}
                 >
-                  <div className="flex-shrink-0 mt-0.5">
-                    {getNotificationIcon(notification.type)}
-                  </div>
+                  <div className="flex-shrink-0 mt-0.5">{getNotificationIcon(notification.type)}</div>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm ${!notification.read ? 'font-medium' : ''}`}>
-                      {notification.title}
-                    </p>
-                    <p className={`text-xs text-muted-foreground ${isExpanded ? '' : 'line-clamp-2'}`}>
-                      {notification.message}
-                    </p>
+                    <p className={`text-sm ${!notification.read ? 'font-medium' : ''}`}>{notification.title}</p>
+                    <p className={`text-xs text-muted-foreground ${isExpanded ? '' : 'line-clamp-2'}`}>{notification.message}</p>
                     {isLongMessage && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-5 px-1 mt-1 text-xs text-muted-foreground"
-                        onClick={(e) => toggleExpand(e, notification.id)}
-                      >
-                        {isExpanded ? (
-                          <>Lebih sedikit <ChevronUp className="h-3 w-3 ml-1" /></>
-                        ) : (
-                          <>Selengkapnya <ChevronDown className="h-3 w-3 ml-1" /></>
-                        )}
+                      <Button variant="ghost" size="sm" className="h-5 px-1 mt-1 text-xs text-muted-foreground" onClick={(e) => toggleExpand(e, notification.id)}>
+                        {isExpanded ? (<>Lebih sedikit <ChevronUp className="h-3 w-3 ml-1" /></>) : (<>Selengkapnya <ChevronDown className="h-3 w-3 ml-1" /></>)}
                       </Button>
                     )}
                     <p className="text-xs text-muted-foreground mt-1">
                       {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: id })}
                     </p>
                   </div>
-                  {!notification.read && (
-                    <div className="flex-shrink-0">
-                      <div className="h-2 w-2 rounded-full bg-primary" />
-                    </div>
-                  )}
+                  {!notification.read && <div className="flex-shrink-0"><div className="h-2 w-2 rounded-full bg-primary" /></div>}
                 </DropdownMenuItem>
               );
             })

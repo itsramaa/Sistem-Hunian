@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { xenditService, CreateXenditInvoicePayload } from '../services/xenditService';
+import { xenditService, CreateXenditInvoicePayload } from '../api/xenditService';
 
 export function useXenditPayment() {
   const createInvoiceMutation = useMutation({

@@ -1,446 +1,142 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+﻿import { useAuth } from '@/features/auth/hooks/useAuth';
+import { apiClient } from '@/shared/lib/axios';
+import { Button } from '@/shared/components/ui/button';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Badge } from '@/shared/components/ui/badge';
+import { User, Mail, Shield, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
+import { useState } from 'react';
+import { useToast } from '@/shared/hooks/use-toast';
+import { z } from 'zod';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
-import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
-import { Label } from "@/shared/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
-import { Badge } from "@/shared/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
-import { toast } from "sonner";
-import { apiClient } from "@/lib/axios";
-import { apiClient } from "@/lib/axios";
-import { useAuth } from "@/features/auth/hooks/useAuth";
-import { FileUpload } from "@/shared/components/FileUpload";
-import { Building2, Shield, Lock, Loader2, Save, CheckCircle, Clock, XCircle, Trash2, Copy, AlertTriangle } from "lucide-react";
-import { PageHeader } from "@/shared/components/ui/PageHeader";
-import { ProfileFormSkeleton } from "@/shared/components/ui/skeletons";
-import { z } from "zod";
-import { strongPasswordSchema, loginPasswordSchema } from "@/shared/utils/validations/auth";
-
-const passwordSchema = z.object({
-  currentPassword: loginPasswordSchema,
-  newPassword: strongPasswordSchema,
-  confirmPassword: z.string(),
-}).refine((data) => data.newPassword === data.confirmPassword, {
-  message: "Kata sandi tidak cocok",
-  path: ["confirmPassword"],
-});
-
-const MerchantProfile = () => {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-
-  // Password state
-  const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
-  const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [passwordSuccess, setPasswordSuccess] = useState(false);
-
-  const { data: merchant, isLoading } = useQuery({
-    queryKey: ['merchant-profile', user?.id],
-    queryFn: async () => {
-      const response = await apiClient.get('/merchants/profile');
-      const data = response.data.data;
-      return { ...data, address: data.resolved_address, city: data.resolved_city, province: data.resolved_province, postal_code: data.resolved_postal_code };
-    },
-    enabled: !!user?.id,
-  });
-
-  const { data: profile } = useQuery({
-    queryKey: ['profile', user?.id],
-    queryFn: async () => {
-      const response = await apiClient.get('/profiles/me');
-      return response.data.data;
-    },
-    enabled: !!user?.id,
-  });
-
-  const { data: verifications = [], refetch: refetchVerifications } = useQuery({
-    queryKey: ['merchant-verifications', merchant?.id],
-    queryFn: async () => {
-      if (!merchant?.id) return [];
-      const response = await apiClient.get('/merchant-verifications');
-      return response.data.data;
-    },
-    enabled: !!merchant?.id,
-  });
-
-  const [businessForm, setBusinessForm] = useState({ business_name: '', business_type: '', address: '', city: '', province: '', postal_code: '' });
-  const [profileForm, setProfileForm] = useState({ full_name: '', phone: '' });
-
-  useEffect(() => {
-    if (merchant) {
-      setBusinessForm({
-        business_name: merchant.business_name || '', business_type: merchant.business_type || 'individual',
-        address: merchant.address || '', city: merchant.city || '', province: merchant.province || '', postal_code: merchant.postal_code || '',
-      });
-    }
-    if (profile) {
-      setProfileForm({ full_name: profile.full_name || '', phone: profile.phone || '' });
-    }
-  }, [merchant, profile]);
-
-  const updateMerchant = useMutation({
-    mutationFn: async (data: typeof businessForm) => {
-      await apiClient.put('/merchants/profile', data);
-    },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['merchant-profile'] }); toast.success('Profil bisnis diperbarui'); },
-    onError: () => toast.error('Gagal memperbarui profil'),
-  });
-
-  const updateProfile = useMutation({
-    mutationFn: async (data: typeof profileForm) => {
-      await apiClient.put('/profiles/me', data);
-    },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['profile'] }); toast.success('Informasi kontak diperbarui'); },
-    onError: () => toast.error('Gagal memperbarui informasi kontak'),
-  });
-
-  const uploadVerificationDocument = async (url: string, documentType: string) => {
-    if (!merchant?.id) return;
-    try {
-      await apiClient.post('/merchant-verifications', { document_type: documentType, document_url: url });
-      toast.success('Dokumen berhasil diunggah');
-      refetchVerifications();
-    } catch {
-      toast.error('Gagal menyimpan dokumen');
-    }
-  };
-
-  const deleteVerification = async (id: string) => {
-    try {
-      await apiClient.delete(`/merchant-verifications/${id}`);
-      toast.success('Dokumen dihapus');
-      refetchVerifications();
-    } catch {
-      toast.error('Gagal menghapus dokumen');
-    }
-  };
-
-  const copyMerchantCode = () => {
-    if (merchant?.merchant_code) {
-      navigator.clipboard.writeText(merchant.merchant_code);
-      toast.success('Kode merchant disalin ke papan klip');
-    }
-  };
-
-  const handlePasswordChange = async () => {
-    setPasswordErrors({});
-    setPasswordSuccess(false);
-    const result = passwordSchema.safeParse(passwordForm);
-    if (!result.success) {
-      const errors: Record<string, string> = {};
-      result.error.errors.forEach((err) => { if (err.path[0]) { errors[err.path[0] as string] = err.message; } });
-      setPasswordErrors(errors);
-      return;
-    }
-    setIsChangingPassword(true);
-    try {
-      await apiClient.post('/auth/change-password', {
-        current_password: passwordForm.currentPassword,
-        new_password: passwordForm.newPassword,
-      });
-      setPasswordSuccess(true);
-      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-      toast.success("Kata sandi berhasil diubah");
-    } catch (error) {
-      toast.error((error as Error).message || "Gagal mengubah kata sandi");
-    } finally {
-      setIsChangingPassword(false);
-    }
-  };
-
-  const getVerificationBadge = (status: string) => {
-    switch (status) {
-      case 'verified': return <Badge className="rounded-full bg-success text-success-foreground"><CheckCircle className="h-3 w-3 mr-1" /> Terverifikasi</Badge>;
-      case 'pending': return <Badge variant="secondary" className="rounded-full bg-warning/10 text-warning"><Clock className="h-3 w-3 mr-1" /> Menunggu</Badge>;
-      case 'rejected': return <Badge variant="destructive" className="rounded-full"><XCircle className="h-3 w-3 mr-1" /> Ditolak</Badge>;
-      default: return <Badge variant="outline" className="rounded-full">Belum Diajukan</Badge>;
-    }
-  };
-
-  const documentTypes = [
-    { value: 'ktp', label: 'KTP (Kartu Tanda Penduduk)' },
-    { value: 'npwp', label: 'NPWP (Nomor Pokok Wajib Pajak)' },
-    { value: 'surat_kepemilikan', label: 'Surat Kepemilikan (Sertifikat)' },
-    { value: 'siup', label: 'SIUP (Izin Usaha)' },
-    { value: 'akta_perusahaan', label: 'Akta Perusahaan' },
-    { value: 'proof_of_address', label: 'Bukti Alamat (Tagihan Utilitas)' },
-  ];
-
-  const [selectedDocType, setSelectedDocType] = useState('ktp');
-
-  if (isLoading) return <ProfileFormSkeleton />;
-
-  return (
-    <div className="space-y-6">
-      <PageHeader icon={Building2} title="Profil" description="Kelola detail bisnis dan verifikasi Anda" />
-      <Tabs defaultValue="business" className="space-y-6">
-        <TabsList className="inline-flex rounded-full bg-card/80 backdrop-blur-sm border border-border/40 p-1">
-          <TabsTrigger value="business" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
-            <Building2 className="h-4 w-4" />Bisnis
-          </TabsTrigger>
-          <TabsTrigger value="verification" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
-            <Shield className="h-4 w-4" />Verifikasi
-          </TabsTrigger>
-          <TabsTrigger value="security" className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2">
-            <Lock className="h-4 w-4" />Keamanan
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="business" className="space-y-6">
-          {/* Merchant Code Card */}
-          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
-            <CardHeader>
-              <CardTitle>Kode Merchant</CardTitle>
-              <CardDescription>Bagikan kode ini kepada penyewa untuk menghubungkan mereka dengan properti Anda</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-3">
-                <div className="flex-1 p-4 bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 rounded-xl font-mono text-2xl font-bold tracking-widest text-center">
-                  {merchant?.merchant_code || 'Memuat...'}
-                </div>
-                <Button variant="outline" size="icon" onClick={copyMerchantCode} className="rounded-xl" aria-label="Salin Kode Merchant">
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
-              <p className="text-sm text-muted-foreground mt-2">Penyewa akan menggunakan kode ini saat mendaftar.</p>
-            </CardContent>
-          </Card>
-
-          {/* Business Profile */}
-          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center"><Building2 className="h-4 w-4 text-primary" /></div>
-                <CardTitle>Profil Bisnis</CardTitle>
-              </div>
-              <CardDescription>Perbarui informasi bisnis Anda</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="business_name">Nama Bisnis</Label>
-                  <Input id="business_name" value={businessForm.business_name} onChange={(e) => setBusinessForm({ ...businessForm, business_name: e.target.value })} placeholder="Nama bisnis Anda" className="rounded-xl bg-background/60 border-border/50" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="business_type">Tipe Bisnis</Label>
-                  <Select value={businessForm.business_type} onValueChange={(value) => setBusinessForm({ ...businessForm, business_type: value })}>
-                    <SelectTrigger id="business_type" className="rounded-xl bg-background/60 border-border/50"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="individual">Perorangan</SelectItem>
-                      <SelectItem value="company">Perusahaan</SelectItem>
-                      <SelectItem value="partnership">Kemitraan</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="address">Alamat</Label>
-                  <Input id="address" value={businessForm.address} onChange={(e) => setBusinessForm({ ...businessForm, address: e.target.value })} className="rounded-xl bg-background/60 border-border/50" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="city">Kota</Label>
-                  <Input id="city" value={businessForm.city} onChange={(e) => setBusinessForm({ ...businessForm, city: e.target.value })} className="rounded-xl bg-background/60 border-border/50" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="province">Provinsi</Label>
-                  <Input id="province" value={businessForm.province} onChange={(e) => setBusinessForm({ ...businessForm, province: e.target.value })} className="rounded-xl bg-background/60 border-border/50" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="postal_code">Kode Pos</Label>
-                  <Input id="postal_code" value={businessForm.postal_code} onChange={(e) => setBusinessForm({ ...businessForm, postal_code: e.target.value })} className="rounded-xl bg-background/60 border-border/50" />
-                </div>
-              </div>
-              <Button onClick={() => updateMerchant.mutate(businessForm)} disabled={updateMerchant.isPending} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-md">
-                {updateMerchant.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                Simpan Perubahan
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Contact Information */}
-          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
-            <CardHeader>
-              <CardTitle>Informasi Kontak</CardTitle>
-              <CardDescription>Perbarui detail kontak pribadi Anda</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="full_name">Nama Lengkap</Label>
-                  <Input id="full_name" value={profileForm.full_name} onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} className="rounded-xl bg-background/60 border-border/50" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Telepon</Label>
-                  <Input id="phone" value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} className="rounded-xl bg-background/60 border-border/50" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" value={profile?.email || ''} disabled className="rounded-xl bg-background/60 border-border/50" />
-                </div>
-              </div>
-              <Button onClick={() => updateProfile.mutate(profileForm)} disabled={updateProfile.isPending} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-md">
-                {updateProfile.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                Simpan Info Kontak
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="verification" className="space-y-6">
-          {/* Verification Tier Card */}
-          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
-            <CardHeader>
-              <CardTitle>Tingkat Verifikasi</CardTitle>
-              <CardDescription>Tingkatkan tier verifikasi Anda untuk membangun kepercayaan lebih</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-4">
-                {[
-                  { tier: 'quick', label: 'Quick', desc: 'Email & Telepon', icon: CheckCircle },
-                  { tier: 'standard', label: 'Standard', desc: '+ KTP & SIUP', icon: Shield },
-                  { tier: 'premium', label: 'Premium', desc: '+ Kunjungan Lokasi', icon: Building2 },
-                ].map(({ tier, label, desc, icon: TierIcon }) => {
-                  const currentTier = merchant?.verification_tier || 'quick';
-                  const tierOrder = ['quick', 'standard', 'premium'];
-                  const isActive = tierOrder.indexOf(currentTier) >= tierOrder.indexOf(tier);
-                  return (
-                    <div key={tier} className={`p-4 rounded-xl border text-center space-y-2 ${isActive ? 'border-primary bg-primary/5' : 'border-border/40 opacity-60'}`}>
-                      <TierIcon className={`h-6 w-6 mx-auto ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
-                      <p className="font-medium">{label}</p>
-                      <p className="text-xs text-muted-foreground">{desc}</p>
-                      {currentTier === tier && <Badge className="rounded-full bg-primary text-primary-foreground">Aktif</Badge>}
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center"><Shield className="h-4 w-4 text-primary" /></div>
-                  <CardTitle>Status Verifikasi</CardTitle>
-                </div>
-                {getVerificationBadge(merchant?.verification_status || 'pending')}
-              </div>
-              <CardDescription>Verifikasi membantu membangun kepercayaan dengan penyewa</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="p-4 rounded-xl bg-card/80 backdrop-blur-sm border border-border/40">
-                <h4 className="font-medium mb-2">Dokumen yang Diperlukan</h4>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  {['ktp', 'npwp', 'surat_kepemilikan'].map((docType) => (
-                    <li key={docType} className="flex items-center gap-2">
-                      {verifications.some(v => v.document_type === docType) ? (
-                        <div className="h-5 w-5 rounded-full bg-gradient-to-br from-success/30 to-success/10 flex items-center justify-center"><CheckCircle className="h-3 w-3 text-success" /></div>
-                      ) : (
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                      )}
-                      {documentTypes.find(d => d.value === docType)?.label}
-                    </li>
-                  ))}
-                  {businessForm.business_type !== 'individual' && ['siup', 'akta_perusahaan'].map((docType) => (
-                    <li key={docType} className="flex items-center gap-2">
-                      {verifications.some(v => v.document_type === docType) ? (
-                        <div className="h-5 w-5 rounded-full bg-gradient-to-br from-success/30 to-success/10 flex items-center justify-center"><CheckCircle className="h-3 w-3 text-success" /></div>
-                      ) : (
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                      )}
-                      {documentTypes.find(d => d.value === docType)?.label}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="doc_type">Tipe Dokumen</Label>
-                  <Select value={selectedDocType} onValueChange={setSelectedDocType}>
-                    <SelectTrigger id="doc_type" className="rounded-xl bg-background/60 border-border/50"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {documentTypes.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <FileUpload bucket="verification-documents" folder="verifications" accept="image/*,application/pdf" maxSize={10} onUploadComplete={(url) => uploadVerificationDocument(url, selectedDocType)} />
-              </div>
-
-              {verifications.length > 0 && (
-                <div className="space-y-3">
-                  <h4 className="font-medium">Dokumen yang Diunggah</h4>
-                  {verifications.map((doc) => (
-                    <div key={doc.id} className="flex items-center justify-between p-3 rounded-xl bg-card/80 backdrop-blur-sm border border-border/40">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5"><Shield className="h-4 w-4 text-primary" /></div>
-                        <div>
-                          <p className="text-sm font-medium capitalize">{doc.document_type.replace(/_/g, ' ')}</p>
-                          <p className="text-xs text-muted-foreground">{new Date(doc.created_at).toLocaleDateString('id-ID')}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {getVerificationBadge(doc.status || 'pending')}
-                        {doc.status === 'pending' && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-destructive" onClick={() => deleteVerification(doc.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="security" className="space-y-6">
-          <Card className="bg-card/90 backdrop-blur-sm rounded-2xl border border-border/40">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center"><Lock className="h-4 w-4 text-primary" /></div>
-                Ubah Kata Sandi
-              </CardTitle>
-              <CardDescription>Perbarui kata sandi Anda untuk menjaga keamanan akun</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {passwordSuccess && (
-                <div className="flex items-center gap-2 p-3 rounded-xl bg-success/10 border border-success/20 text-success">
-                  <CheckCircle className="h-4 w-4" /><span className="text-sm">Kata sandi berhasil diubah</span>
-                </div>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="currentPassword">Kata Sandi Saat Ini</Label>
-                <Input id="currentPassword" type="password" value={passwordForm.currentPassword} onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })} placeholder="Masukkan kata sandi saat ini" className="rounded-xl bg-background/60 border-border/50" />
-                {passwordErrors.currentPassword && <p className="text-sm text-destructive flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{passwordErrors.currentPassword}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">Kata Sandi Baru</Label>
-                <Input id="newPassword" type="password" value={passwordForm.newPassword} onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} placeholder="Masukkan kata sandi baru" className="rounded-xl bg-background/60 border-border/50" />
-                {passwordErrors.newPassword && <p className="text-sm text-destructive flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{passwordErrors.newPassword}</p>}
-                <p className="text-xs text-muted-foreground">Minimal 12 karakter dengan huruf besar, huruf kecil, dan angka</p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Konfirmasi Kata Sandi Baru</Label>
-                <Input id="confirmPassword" type="password" value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} placeholder="Konfirmasi kata sandi baru" className="rounded-xl bg-background/60 border-border/50" />
-                {passwordErrors.confirmPassword && <p className="text-sm text-destructive flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{passwordErrors.confirmPassword}</p>}
-              </div>
-              <Button onClick={handlePasswordChange} disabled={isChangingPassword} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-md">
-                {isChangingPassword && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Ubah Kata Sandi
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
+const roleLabels: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
+  operator: { label: 'Operator', variant: 'default' },
+  manager: { label: 'Manajer', variant: 'secondary' },
+  viewer: { label: 'Viewer', variant: 'outline' },
 };
 
-export default MerchantProfile;
+const pwSchema = z.object({
+  new_password: z.string().min(8, 'Minimal 8 karakter'),
+  confirm: z.string(),
+}).refine(d => d.new_password === d.confirm, { message: 'Password tidak cocok', path: ['confirm'] });
+
+export default function ProfilePage() {
+  const { user, profile } = useAuth();
+  const { toast } = useToast();
+  const [showPw, setShowPw] = useState(false);
+  const [pw, setPw] = useState({ new_password: '', confirm: '' });
+  const [pwErrors, setPwErrors] = useState<Record<string, string>>({});
+  const [isChanging, setIsChanging] = useState(false);
+
+  const roleInfo = roleLabels[profile?.role ?? ''] ?? { label: profile?.role ?? '—', variant: 'outline' as const };
+
+  const handleChangePw = async () => {
+    setPwErrors({});
+    const result = pwSchema.safeParse(pw);
+    if (!result.success) {
+      const errs: Record<string, string> = {};
+      result.error.errors.forEach(e => { if (e.path[0]) errs[String(e.path[0])] = e.message; });
+      setPwErrors(errs);
+      return;
+    }
+    setIsChanging(true);
+    try {
+      await apiClient.post('/auth/change-password', { new_password: pw.new_password });
+      setPw({ new_password: '', confirm: '' });
+      toast({ title: 'Password berhasil diubah' });
+    } catch {
+      toast({ variant: 'destructive', title: 'Gagal mengubah password' });
+    } finally {
+      setIsChanging(false);
+    }
+  };
+
+  return (
+    <div className="space-y-5 max-w-2xl">
+      <div>
+        <h1 className="text-xl font-bold tracking-tight">Profil</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Informasi akun Anda</p>
+      </div>
+
+      {/* User info card */}
+      <Card className="rounded-2xl">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+              <User className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-base">{profile?.nama ?? user?.nama ?? '—'}</CardTitle>
+              <div className="flex items-center gap-2 mt-1">
+                <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">{profile?.email ?? user?.email ?? '—'}</span>
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-2">
+            <Shield className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Role:</span>
+            <Badge variant={roleInfo.variant} className="rounded-full">{roleInfo.label}</Badge>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Change password */}
+      <Card className="rounded-2xl">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Lock className="h-5 w-5 text-primary" />
+            <CardTitle className="text-base">Ubah Password</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="new_password">Password Baru</Label>
+            <div className="relative">
+              <Input
+                id="new_password"
+                type={showPw ? 'text' : 'password'}
+                value={pw.new_password}
+                onChange={e => setPw(p => ({ ...p, new_password: e.target.value }))}
+                placeholder="Minimal 8 karakter"
+                className="pr-10 rounded-xl"
+              />
+              <button
+                type="button"
+                tabIndex={-1}
+                onClick={() => setShowPw(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            {pwErrors.new_password && <p className="text-sm text-destructive">{pwErrors.new_password}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirm">Konfirmasi Password</Label>
+            <Input
+              id="confirm"
+              type="password"
+              value={pw.confirm}
+              onChange={e => setPw(p => ({ ...p, confirm: e.target.value }))}
+              placeholder="Ulangi password baru"
+              className="rounded-xl"
+            />
+            {pwErrors.confirm && <p className="text-sm text-destructive">{pwErrors.confirm}</p>}
+          </div>
+          <Button
+            onClick={handleChangePw}
+            disabled={isChanging || !pw.new_password || !pw.confirm}
+            className="gap-2 rounded-xl"
+          >
+            {isChanging && <Loader2 className="h-4 w-4 animate-spin" />}
+            Simpan Password
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

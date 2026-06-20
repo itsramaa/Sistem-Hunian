@@ -1,4 +1,4 @@
-import { useForm } from "react-hook-form";
+﻿import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, Building2, Check, Image as ImageIcon, Loader2, MapPin, Plus, User } from "lucide-react";
@@ -15,7 +15,6 @@ import { PROPERTY_TYPES, BUILDING_CONDITIONS, LAND_OWNERSHIP_OPTIONS } from "../
 import { ProvincesCitiesSelect } from "./ProvincesCitiesSelect";
 import { LocationPicker } from "./LocationPicker";
 import { UnitPhotoUpload } from "./UnitPhotoUpload";
-import { FacilityTypePicker } from "@/features/inventory/components/FacilityTypePicker";
 import { GuardianFormDialog, GuardianFormData } from "./GuardianFormDialog";
 import { useGuardians, useCreateGuardian } from "../hooks/useGuardians";
 import { useAuth } from "@/features/auth/hooks/useAuth";

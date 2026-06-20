@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef } from "react";
-import { apiClient } from "@/lib/axios";
+﻿import { useState, useCallback, useRef } from "react";
+import { apiClient } from "@/shared/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Button } from "@/shared/components/ui/button";
 import { Progress } from "@/shared/components/ui/progress";

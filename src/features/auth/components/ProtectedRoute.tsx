@@ -1,35 +1,35 @@
-import { useRef } from 'react';
+﻿import { useRef } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { AppRole } from '@/features/auth/types/auth';
 import { toast } from 'sonner';
 import { ContentSkeleton } from '@/shared/components/ui/ContentSkeleton';
 
+const TOKEN_KEY = 'sihuni_access_token';
+
 interface ProtectedRouteProps {
   children: React.ReactNode;
   allowedRoles?: AppRole[];
 }
 
-// Helper function to get redirect path based on role
-function getRedirectPath(role: AppRole): string {
-  const rolePathMap: Record<AppRole, string> = {
-    admin: '/admin',
-    merchant: '/merchant',
-    vendor: '/vendor',
-    tenant: '/tenant',
+function getHomePath(role: AppRole): string {
+  const map: Record<AppRole, string> = {
+    admin:    '/admin',
+    operator: '/dashboard',
+    manager:  '/dashboard',
+    viewer:   '/dashboard',
   };
-  return rolePathMap[role] || '/';
+  return map[role] ?? '/';
 }
 
-// Helper function to get role display name
 function getRoleDisplayName(role: AppRole): string {
-  const roleNameMap: Record<AppRole, string> = {
-    admin: 'Admin',
-    merchant: 'Pemilik Properti',
-    vendor: 'Vendor',
-    tenant: 'Tenant',
+  const map: Record<AppRole, string> = {
+    admin:    'Admin',
+    operator: 'Operator',
+    manager:  'Manajer',
+    viewer:   'Viewer',
   };
-  return roleNameMap[role] || role;
+  return map[role] ?? role;
 }
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
@@ -37,43 +37,41 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   const location = useLocation();
   const hasShownToast = useRef(false);
 
-  if (isLoading) {
+  // Only show skeleton when loading AND no token exists (truly first visit).
+  // If token is present, user is already authenticated — skip skeleton so sidebar never disappears.
+  const hasToken = typeof window !== 'undefined' && !!localStorage.getItem(TOKEN_KEY);
+  if (isLoading && !hasToken) {
     return <ContentSkeleton />;
   }
 
-  // Not logged in - redirect to auth
+  // Not authenticated → redirect to login
   if (!user) {
-    return <Navigate to="/auth" state={{ from: location }} replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // No role assigned after loading complete - redirect to unauthorized
+  // Authenticated but no role assigned yet
   if (!role) {
     return <Navigate to="/unauthorized" replace />;
   }
 
-  // Check role access
   if (allowedRoles && allowedRoles.length > 0) {
-    // Admin can access ALL routes (super access)
     if (role === 'admin') {
       hasShownToast.current = false;
       return <>{children}</>;
     }
-    
-    // For non-admin roles, check if their role is in allowedRoles
+
     if (!allowedRoles.includes(role)) {
-      // Show toast notification only once per redirect
       if (!hasShownToast.current) {
         hasShownToast.current = true;
+        const allowed = allowedRoles.map(r => getRoleDisplayName(r)).join(', ');
         toast.error('Akses Ditolak', {
-          description: `Halaman ini hanya dapat diakses oleh ${allowedRoles.map(r => getRoleDisplayName(r as AppRole)).join(', ')}. Anda dialihkan ke dashboard ${getRoleDisplayName(role)}.`,
+          description: `Halaman ini hanya dapat diakses oleh ${allowed}.`,
         });
       }
-      // Redirect to their own dashboard
-      return <Navigate to={getRedirectPath(role)} replace />;
+      return <Navigate to={getHomePath(role)} replace />;
     }
   }
 
-  // Reset toast flag when accessing allowed page
   hasShownToast.current = false;
   return <>{children}</>;
 }

@@ -1,4 +1,4 @@
-import { Building2, Loader2 } from 'lucide-react';
+﻿import { Building2, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 
 interface AuthLoadingSkeletonProps {

@@ -1,0 +1,37 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { propertyService } from '../api/propertyService';
+import { CreatePropertyPayload, UpdatePropertyPayload } from '../types';
+
+export const PROPERTIES_KEY = 'properties';
+
+export function useProperties(search = '', page = 1, limit = 20) {
+  return useQuery({
+    queryKey: [PROPERTIES_KEY, { search, page, limit }],
+    queryFn: () => propertyService.list(search, page, limit),
+  });
+}
+
+export function useCreateProperty() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreatePropertyPayload) => propertyService.create(payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [PROPERTIES_KEY] }),
+  });
+}
+
+export function useUpdateProperty() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: UpdatePropertyPayload }) =>
+      propertyService.update(id, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [PROPERTIES_KEY] }),
+  });
+}
+
+export function useDeleteProperty() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => propertyService.remove(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [PROPERTIES_KEY] }),
+  });
+}
