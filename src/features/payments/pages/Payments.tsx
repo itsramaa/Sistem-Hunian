@@ -2,7 +2,7 @@
 import { useSearchParams } from 'react-router-dom';
 import { usePayments, useCreatePayment, useUploadBukti, useMarkPaid } from '../hooks/usePayments';
 import { useProperties } from '@/features/properties/hooks/useProperties';
-import { useActiveTenants } from '@/features/tenants/hooks/useTenants';
+import { useActiveTenants } from '@/features/tenant/hooks/useTenants';
 import { useRooms } from '@/features/rooms/hooks/useRooms';
 import { Payment, CreatePaymentPayload } from '../types';
 import { Button } from '@/shared/components/ui/button';
@@ -57,8 +57,6 @@ export default function PaymentsPage() {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const { toast } = useToast();
-
-  // Ref for hidden file input — BUG-006 fix
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const roomIdFromUrl = searchParams.get('room_id') || '';
@@ -85,22 +83,15 @@ export default function PaymentsPage() {
   });
   const selectedRoomId = watch('room_id');
 
-  // File select with preview + size validation (BUG-006, BUG-009)
   const handleFileSelect = useCallback((file: File | null) => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
-
     if (file && file.size > MAX_FILE_SIZE) {
-      toast({
-        variant: 'destructive',
-        title: 'File terlalu besar',
-        description: `Ukuran file ${formatFileSize(file.size)} melebihi batas maksimal 5MB.`,
-      });
+      toast({ variant: 'destructive', title: 'File terlalu besar', description: `Ukuran file ${formatFileSize(file.size)} melebihi batas maksimal 5MB.` });
       setUploadFile(null);
       setPreviewUrl(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
-
     setUploadFile(file);
     if (file && file.type.startsWith('image/')) {
       setPreviewUrl(URL.createObjectURL(file));
@@ -212,13 +203,7 @@ export default function PaymentsPage() {
             <SelectItem value="overdue">Terlambat</SelectItem>
           </SelectContent>
         </Select>
-        {/* ENH-001: type=month untuk kemudahan memilih periode */}
-        <Input
-          type="month"
-          value={periodeFilter}
-          onChange={e => { setPeriodeFilter(e.target.value); setPage(1); }}
-          className="w-[160px] rounded-xl h-10 shrink-0"
-        />
+        <Input type="month" value={periodeFilter} onChange={e => { setPeriodeFilter(e.target.value); setPage(1); }} className="w-[160px] rounded-xl h-10 shrink-0" />
       </div>
 
       {isLoading ? (
@@ -233,19 +218,8 @@ export default function PaymentsPage() {
             const sc = statusColors[p.status] || { label: p.status, className: '' };
             return (
               <DataCard key={p.id}
-                header={
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold text-sm">{p.nomor_kamar || '—'} · {p.periode}</p>
-                      <p className="text-xs text-muted-foreground">{p.nama_penghuni || '—'}</p>
-                    </div>
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${sc.className}`}>{sc.label}</span>
-                  </div>
-                }
-                fields={[
-                  { label: 'Nominal', value: `Rp${p.nominal.toLocaleString('id-ID')}` },
-                  { label: 'Tgl Bayar', value: fmt(p.tanggal_bayar) },
-                ]}
+                header={<div className="flex items-center justify-between"><div><p className="font-semibold text-sm">{p.nomor_kamar || '—'} · {p.periode}</p><p className="text-xs text-muted-foreground">{p.nama_penghuni || '—'}</p></div><span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${sc.className}`}>{sc.label}</span></div>}
+                fields={[{ label: 'Nominal', value: `Rp${p.nominal.toLocaleString('id-ID')}` }, { label: 'Tgl Bayar', value: fmt(p.tanggal_bayar) }]}
                 actions={<PaymentActions p={p} />}
               />
             );
@@ -338,29 +312,17 @@ export default function PaymentsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Upload bukti — BUG-006 fix: hidden input + button trigger, BUG-009: size validation */}
+      {/* Upload bukti */}
       <Dialog open={!!uploadTarget} onOpenChange={v => !v && closeUploadModal()}>
         <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader><DialogTitle>Upload Bukti Transfer</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <p className="text-sm text-muted-foreground">Format: JPG, PNG, PDF. Maks 5MB.</p>
-
-            {/* Hidden file input — triggered via button click (BUG-006 fix) */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".jpg,.jpeg,.png,.pdf"
-              className="hidden"
-              onChange={e => handleFileSelect(e.target.files?.[0] ?? null)}
-            />
-
-            {/* Clickable area that triggers the hidden file input */}
-            <div
-              className="border-2 border-dashed border-border/60 rounded-xl p-6 text-center cursor-pointer hover:border-primary/40 hover:bg-muted/30 transition-colors"
+            <input ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png,.pdf" className="hidden" onChange={e => handleFileSelect(e.target.files?.[0] ?? null)} />
+            <div className="border-2 border-dashed border-border/60 rounded-xl p-6 text-center cursor-pointer hover:border-primary/40 hover:bg-muted/30 transition-colors"
               onClick={() => fileInputRef.current?.click()}
               onDragOver={e => e.preventDefault()}
-              onDrop={e => { e.preventDefault(); handleFileSelect(e.dataTransfer.files?.[0] ?? null); }}
-            >
+              onDrop={e => { e.preventDefault(); handleFileSelect(e.dataTransfer.files?.[0] ?? null); }}>
               {uploadFile ? (
                 <p className="text-sm font-medium truncate">{uploadFile.name}</p>
               ) : (
@@ -371,8 +333,6 @@ export default function PaymentsPage() {
                 </>
               )}
             </div>
-
-            {/* Preview */}
             {uploadFile && (
               <div className="rounded-xl border border-border/40 overflow-hidden bg-muted/20">
                 {previewUrl ? (
@@ -385,9 +345,7 @@ export default function PaymentsPage() {
                   </div>
                 ) : (
                   <div className="flex items-center gap-3 px-4 py-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                      <FileText className="h-5 w-5 text-primary" />
-                    </div>
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0"><FileText className="h-5 w-5 text-primary" /></div>
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">{uploadFile.name}</p>
                       <p className="text-xs text-muted-foreground">{formatFileSize(uploadFile.size)}</p>
