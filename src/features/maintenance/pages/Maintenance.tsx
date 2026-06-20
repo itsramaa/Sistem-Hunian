@@ -164,7 +164,7 @@ export default function MaintenancePage() {
 
   const rooms = roomsData?.rooms ?? [];
 
-  const today = format(new Date(), 'yyyy-MM-dd');
+  const getToday = () => format(new Date(), 'yyyy-MM-dd');
 
   const createForm = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
@@ -172,7 +172,7 @@ export default function MaintenancePage() {
     defaultValues: {
       room_id: '',
 
-      tanggal_laporan: today,
+      tanggal_laporan: getToday(),
 
       deskripsi_kerusakan: '',
     },
@@ -190,7 +190,7 @@ export default function MaintenancePage() {
 
       setCreateOpen(false);
 
-      createForm.reset({ tanggal_laporan: today });
+      createForm.reset({ tanggal_laporan: getToday() });
 
       toast({ title: 'Laporan maintenance berhasil dicatat' });
     } catch {
@@ -204,6 +204,7 @@ export default function MaintenancePage() {
     try {
       await updateMutation.mutateAsync({
         id: updateTarget.id,
+
         payload: payload as UpdateMaintenancePayload,
       });
 
