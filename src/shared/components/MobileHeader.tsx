@@ -32,8 +32,7 @@ export function MobileHeader({
   const basePath = `/${role}`;
   const isRootPage = location.pathname === basePath || location.pathname === `${basePath}/`;
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user } = useAuth();
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
 
   // Generate breadcrumbs
   const crumbs = generateBreadcrumbs(role, location.pathname);
