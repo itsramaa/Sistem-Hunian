@@ -40,18 +40,24 @@ apiClient.interceptors.response.use(
   (error: AxiosError) => {
     if (error.response?.status === 401) {
       // Token expired or invalid — clear storage
-      // Only redirect if NOT already on an auth page, to prevent full-page refresh
-      // during failed login attempts (BUG-001 fix)
-      localStorage.removeItem(TOKEN_KEY);
+      // BUG-001 fix: Use startsWith to handle trailing slashes and sub-routes
+      // Also check if the request is a login attempt to prevent any redirect
       const path = window.location.pathname;
+      const requestUrl = error.config?.url || '';
+      const isLoginRequest = requestUrl.includes('/auth/login');
       const isAuthPage =
-        path === '/login' ||
-        path === '/auth' ||
+        path.startsWith('/login') ||
+        path.startsWith('/auth') ||
         path.startsWith('/reset-password') ||
-        path.startsWith('/update-password');
-      if (!isAuthPage) {
+        path.startsWith('/update-password') ||
+        path === '/';
+
+      // Only clear token and redirect if NOT on auth page and NOT a login request
+      if (!isAuthPage && !isLoginRequest) {
+        localStorage.removeItem(TOKEN_KEY);
         window.location.href = '/login';
       }
+      // Don't clear token on auth pages to preserve any existing state
     }
     return Promise.reject(error);
   }

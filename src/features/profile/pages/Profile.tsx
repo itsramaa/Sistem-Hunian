@@ -8,6 +8,8 @@ import { Badge } from '@/shared/components/ui/badge';
 import { User, Mail, Shield, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
 import { useToast } from '@/shared/hooks/use-toast';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
 const roleLabels: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
@@ -17,38 +19,39 @@ const roleLabels: Record<string, { label: string; variant: 'default' | 'secondar
 };
 
 const pwSchema = z.object({
-  new_password: z.string().min(8, 'Minimal 8 karakter'),
+  old_password: z.string().min(1, 'Password lama wajib diisi'),
+  new_password: z.string().min(6, 'Minimal 6 karakter'),
   confirm: z.string(),
-}).refine(d => d.new_password === d.confirm, { message: 'Password tidak cocok', path: ['confirm'] });
+}).refine(d => d.new_password === d.confirm, {
+  message: 'Konfirmasi password tidak cocok',
+  path: ['confirm'],
+});
+type PwForm = z.infer<typeof pwSchema>;
 
 export default function ProfilePage() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
-  const [showPw, setShowPw] = useState(false);
-  const [pw, setPw] = useState({ new_password: '', confirm: '' });
-  const [pwErrors, setPwErrors] = useState<Record<string, string>>({});
-  const [isChanging, setIsChanging] = useState(false);
+  const [showOld, setShowOld] = useState(false);
+  const [showNew, setShowNew] = useState(false);
 
   const roleInfo = roleLabels[profile?.role ?? ''] ?? { label: profile?.role ?? '—', variant: 'outline' as const };
 
-  const handleChangePw = async () => {
-    setPwErrors({});
-    const result = pwSchema.safeParse(pw);
-    if (!result.success) {
-      const errs: Record<string, string> = {};
-      result.error.errors.forEach(e => { if (e.path[0]) errs[String(e.path[0])] = e.message; });
-      setPwErrors(errs);
-      return;
-    }
-    setIsChanging(true);
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<PwForm>({
+    resolver: zodResolver(pwSchema),
+    defaultValues: { old_password: '', new_password: '', confirm: '' },
+  });
+
+  const handleChangePw = async (data: PwForm) => {
     try {
-      await apiClient.post('/auth/change-password', { new_password: pw.new_password });
-      setPw({ new_password: '', confirm: '' });
+      await apiClient.post('/auth/change-password', {
+        old_password: data.old_password,
+        new_password: data.new_password,
+      });
+      reset();
       toast({ title: 'Password berhasil diubah' });
-    } catch {
-      toast({ variant: 'destructive', title: 'Gagal mengubah password' });
-    } finally {
-      setIsChanging(false);
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || 'Gagal mengubah password';
+      toast({ variant: 'destructive', title: msg });
     }
   };
 
@@ -92,49 +95,64 @@ export default function ProfilePage() {
             <CardTitle className="text-base">Ubah Password</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="new_password">Password Baru</Label>
-            <div className="relative">
-              <Input
-                id="new_password"
-                type={showPw ? 'text' : 'password'}
-                value={pw.new_password}
-                onChange={e => setPw(p => ({ ...p, new_password: e.target.value }))}
-                placeholder="Minimal 8 karakter"
-                className="pr-10 rounded-xl"
-              />
-              <button
-                type="button"
-                tabIndex={-1}
-                onClick={() => setShowPw(v => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
+        <CardContent>
+          <form onSubmit={handleSubmit(handleChangePw)} className="space-y-4">
+            {/* Old password */}
+            <div className="space-y-2">
+              <Label htmlFor="old_password">Password Lama</Label>
+              <div className="relative">
+                <Input
+                  id="old_password"
+                  type={showOld ? 'text' : 'password'}
+                  placeholder="Password saat ini"
+                  className="pr-10 rounded-xl"
+                  {...register('old_password')}
+                />
+                <button type="button" tabIndex={-1} onClick={() => setShowOld(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  {showOld ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {errors.old_password && <p className="text-sm text-destructive">{errors.old_password.message}</p>}
             </div>
-            {pwErrors.new_password && <p className="text-sm text-destructive">{pwErrors.new_password}</p>}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirm">Konfirmasi Password</Label>
-            <Input
-              id="confirm"
-              type="password"
-              value={pw.confirm}
-              onChange={e => setPw(p => ({ ...p, confirm: e.target.value }))}
-              placeholder="Ulangi password baru"
-              className="rounded-xl"
-            />
-            {pwErrors.confirm && <p className="text-sm text-destructive">{pwErrors.confirm}</p>}
-          </div>
-          <Button
-            onClick={handleChangePw}
-            disabled={isChanging || !pw.new_password || !pw.confirm}
-            className="gap-2 rounded-xl"
-          >
-            {isChanging && <Loader2 className="h-4 w-4 animate-spin" />}
-            Simpan Password
-          </Button>
+
+            {/* New password */}
+            <div className="space-y-2">
+              <Label htmlFor="new_password">Password Baru</Label>
+              <div className="relative">
+                <Input
+                  id="new_password"
+                  type={showNew ? 'text' : 'password'}
+                  placeholder="Minimal 6 karakter"
+                  className="pr-10 rounded-xl"
+                  {...register('new_password')}
+                />
+                <button type="button" tabIndex={-1} onClick={() => setShowNew(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {errors.new_password && <p className="text-sm text-destructive">{errors.new_password.message}</p>}
+            </div>
+
+            {/* Confirm */}
+            <div className="space-y-2">
+              <Label htmlFor="confirm">Konfirmasi Password Baru</Label>
+              <Input
+                id="confirm"
+                type="password"
+                placeholder="Ulangi password baru"
+                className="rounded-xl"
+                {...register('confirm')}
+              />
+              {errors.confirm && <p className="text-sm text-destructive">{errors.confirm.message}</p>}
+            </div>
+
+            <Button type="submit" disabled={isSubmitting} className="gap-2 rounded-xl min-h-[44px]">
+              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              Simpan Password
+            </Button>
+          </form>
         </CardContent>
       </Card>
     </div>

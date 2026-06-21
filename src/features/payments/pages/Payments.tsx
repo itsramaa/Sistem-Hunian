@@ -1,4 +1,4 @@
-﻿import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { usePayments, useCreatePayment, useUploadBukti, useMarkPaid } from '../hooks/usePayments';
 import { useProperties } from '@/features/properties/hooks/useProperties';
@@ -120,12 +120,23 @@ export default function PaymentsPage() {
 
   const handleUpload = async () => {
     if (!uploadTarget || !uploadFile) return;
+    // BUG-009 fix: Double-check file size before upload
+    if (uploadFile.size > MAX_FILE_SIZE) {
+      toast({ variant: 'destructive', title: 'File terlalu besar', description: `Ukuran file ${formatFileSize(uploadFile.size)} melebihi batas maksimal 5MB. Silakan pilih file yang lebih kecil.` });
+      return;
+    }
     try {
       await uploadMutation.mutateAsync({ id: uploadTarget.id, file: uploadFile });
       closeUploadModal();
       toast({ title: 'Bukti transfer berhasil diupload' });
-    } catch {
-      toast({ variant: 'destructive', title: 'Gagal upload bukti transfer' });
+    } catch (err: any) {
+      const apiMsg = err?.response?.data?.error?.message;
+      const isTooLarge = apiMsg?.includes('5MB') || apiMsg?.includes('terlalu besar') || err?.response?.status === 413;
+      if (isTooLarge) {
+        toast({ variant: 'destructive', title: 'File terlalu besar', description: 'Ukuran file melebihi batas maksimal 5MB. Silakan pilih file yang lebih kecil.' });
+      } else {
+        toast({ variant: 'destructive', title: 'Gagal upload bukti transfer', description: apiMsg || 'Terjadi kesalahan saat mengupload file.' });
+      }
     }
   };
 
@@ -320,7 +331,7 @@ export default function PaymentsPage() {
             <p className="text-sm text-muted-foreground">Format: JPG, PNG, PDF. Maks 5MB.</p>
             <input ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png,.pdf" className="hidden" onChange={e => handleFileSelect(e.target.files?.[0] ?? null)} />
             <div className="border-2 border-dashed border-border/60 rounded-xl p-6 text-center cursor-pointer hover:border-primary/40 hover:bg-muted/30 transition-colors"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
               onDragOver={e => e.preventDefault()}
               onDrop={e => { e.preventDefault(); handleFileSelect(e.dataTransfer.files?.[0] ?? null); }}>
               {uploadFile ? (
