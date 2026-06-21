@@ -1,0 +1,41 @@
+---
+description: Master Entry point for Cursor sessions with PM-first workflow.
+globs:
+alwaysApply: false
+---
+
+# Cursor — Master Agent Configuration
+
+---
+
+## Cold-Start
+
+1. Start [Superpowers](`C:\Users\Holycan\.cursor\rules\superpowers-bootstrap.mdc`) 
+2. Read completed [Configs](`C:\Users\Holycan\.cursor\rules\_shared.mdc`)
+3. List all [Skills](`C:\Users\Holycan\.cursor\skills\`) and use relevant skills 
+4. List all [Subagents](`C:\Users\Holycan\.cursor\agents\`)
+
+---
+
+## Project Initiation Flow
+
+**Phase 1: Scope**  
+Clarify scope (see Project Initiation Flow for [QUESTIONS] template)
+Ask: What problem? Users? Core entities? External APIs? Deployment target?
+
+**Phase 2: PRD**
+Draft with: Priority, User Story, Acceptance Criteria, Out of Scope, Dependencies.  
+Gate: Review missing fields → YES to proceed.
+Init OpenSpec + Github Repo + GitHub Issue using skills
+
+**Phase 3: Specs**  
+Use OpenSpec: `/openspec:proposal <feature>`  
+Gate: Review spec summary → YES to proceed.
+
+**Phase 4: Execution**  
+Delegasi: @backend-orchestrator, @frontend-implementer, @qa-tester, @devops-engineer  
+QA Gate: Test results → YES/NO
+
+---
+
+*Entry point ini di-load tiap session. Workflow detail per domain → load subagent.*
