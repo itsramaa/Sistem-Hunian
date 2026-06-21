@@ -10,6 +10,7 @@ import { MobileSidebarSheet } from "./MobileSidebarSheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/shared/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useLogout } from "@/features/auth/hooks/useLogout";
 
 interface MobileHeaderProps {
   role: UserRole;
@@ -32,7 +33,8 @@ export function MobileHeader({
   const basePath = `/${role}`;
   const isRootPage = location.pathname === basePath || location.pathname === `${basePath}/`;
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
+  const logoutMutation = useLogout();
 
   // Generate breadcrumbs
   const crumbs = generateBreadcrumbs(role, location.pathname);
@@ -121,7 +123,7 @@ export function MobileHeader({
                 <DropdownMenuItem onClick={() => navigate(`/${role}/settings`)}>
                   <Settings className="h-4 w-4 mr-2" /> Pengaturan
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => signOut()} className="text-destructive focus:text-destructive">
+                <DropdownMenuItem onClick={() => logoutMutation.mutate()} className="text-destructive focus:text-destructive">
                   <LogOut className="h-4 w-4 mr-2" /> Keluar
                 </DropdownMenuItem>
               </DropdownMenuContent>
