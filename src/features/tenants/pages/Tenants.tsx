@@ -79,7 +79,7 @@ export default function TenantsPage() {
       </div>
 
       <Select value={propertyFilter} onValueChange={v => { setPropertyFilter(v); setPage(1); }}>
-        <SelectTrigger className="w-[200px] rounded-xl h-10"><SelectValue placeholder="Semua properti" /></SelectTrigger>
+        <SelectTrigger className="w-full sm:w-[200px] rounded-xl h-10"><SelectValue placeholder="Semua properti" /></SelectTrigger>
         <SelectContent>
           <SelectItem value=" ">Semua properti</SelectItem>
           {properties.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nama}</SelectItem>)}

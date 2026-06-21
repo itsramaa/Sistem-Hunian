@@ -24,11 +24,11 @@ export function DataCard({ header, fields, actions, className }: DataCardProps) 
     <div className={cn('glass-card p-4 space-y-3 rounded-2xl border border-border/40', className)}>
       {header && <div>{header}</div>}
       {visibleFields && visibleFields.length > 0 && (
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
           {visibleFields.map((field, i) => (
-            <div key={i}>
-              <p className="text-xs text-muted-foreground">{field.label}</p>
-              <p className="font-medium text-foreground">{field.value}</p>
+            <div key={i} className="min-w-0">
+              <p className="text-xs text-muted-foreground mb-0.5">{field.label}</p>
+              <p className="font-medium text-foreground truncate">{field.value}</p>
             </div>
           ))}
         </div>
