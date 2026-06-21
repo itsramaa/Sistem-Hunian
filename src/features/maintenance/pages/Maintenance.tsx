@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 
 import {
   useMaintenances,
@@ -503,7 +503,7 @@ export default function MaintenancePage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 gap-1.5 text-xs rounded-lg"
+                            className="h-8 gap-1.5 text-xs rounded-lg min-h-[44px] sm:min-h-[32px]"
                             onClick={() => openUpdate(m)}
                           >
                             <RefreshCw className="h-3.5 w-3.5" /> Update
@@ -572,7 +572,7 @@ export default function MaintenancePage() {
             <div className="space-y-2">
               <Label>Tanggal Laporan</Label>
 
-              <Input type="date" {...createForm.register('tanggal_laporan')} />
+              <Input type="date" defaultValue={getToday()} {...createForm.register('tanggal_laporan')} />
             </div>
 
             <div className="space-y-2">

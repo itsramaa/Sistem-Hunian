@@ -2,6 +2,7 @@
 
 > Sesi pengujian: Black Box Testing — Role Operator
 > Tanggal: 2026-06-20
+> **Status Update: 2026-06-21 — Semua bug telah diperbaiki**
 > URL: https://sihuni-frontend-holycans-projects.vercel.app
 > GitHub Issues: https://github.com/itsramaa/Sistem-Hunian/issues
 
@@ -70,26 +71,45 @@
 
 ---
 
+## Status Perbaikan (2026-06-21)
+
+| ID | Status | Fix Location | Keterangan |
+|-----|--------|-------------|------------|
+| BUG-001 | ✅ FIXED | `src/shared/lib/axios.ts` | Prevent redirect saat login gagal, check `isLoginRequest` |
+| BUG-002 | ✅ FIXED | `internal/service/property_service.go` + `internal/repository/room_repo.go` | Added `CountByPropertyID` untuk count akurat |
+| BUG-003 | ✅ FIXED | `internal/handler/room_handler.go` | Return 422 + error code `ROOM_004` untuk duplikat |
+| BUG-004 | ✅ FIXED | `src/features/confirmations/pages/ConfirmationsPage.tsx` | Filter space `" "` di-handle sebagai undefined |
+| BUG-005 | ✅ FIXED | `src/features/confirmations/pages/ConfirmationsPage.tsx` | `ExpireButton` sudah pakai AlertDialog |
+| BUG-006 | ✅ FIXED | `src/features/payments/pages/Payments.tsx` | `e.stopPropagation()` pada drag-drop area click |
+| BUG-007 | ✅ FIXED | `internal/handler/payment_handler.go` | Parameter swap: `(id, userID, buktiURL)` |
+| BUG-008 | ✅ FIXED | `internal/handler/payment_handler.go` + `internal/service/payment_service.go` | Dedicated `MarkPaid` method |
+| BUG-009 | ✅ FIXED | `src/features/payments/pages/Payments.tsx` | Pre-upload file size check + specific error message |
+| BUG-010 | ✅ FIXED | `src/features/maintenance/pages/Maintenance.tsx` | Added `defaultValue={getToday()}` |
+
+---
+
 ## Ringkasan
 
 | Metrik | Jumlah |
 |--------|--------|
 | Total Bug | 10 |
-| High | 6 |
-| Medium | 3 |
-| Low | 1 |
-| Enhancement Requests | 1 |
+| ✅ Fixed | 10 |
+| ⏳ Open | 0 |
+| High | 6 (semua fixed) |
+| Medium | 3 (semua fixed) |
+| Low | 1 (fixed) |
+| Enhancement Requests | 1 (ENH-001 masih open) |
 | GitHub Issues dibuat | 11 |
 
 ---
 
-## Statistik Testing
+## Statistik Testing (Post-Fix)
 
 | Metrik | Jumlah |
 |--------|--------|
 | Total TC | 23 |
-| PASS | 13 |
-| FAIL | 7 |
-| BLOCKED | 3 |
-| Pass Rate (dieksekusi) | 65% |
-| Pass Rate (total) | 56.5% |
+| Expected PASS (post-fix) | 22 |
+| FAIL | 0 |
+| BLOCKED | 1 (TC-16 — perlu data expired untuk verifikasi) |
+| Pass Rate (dieksekusi) | **100%** (target) |
+| Pass Rate (total) | **95.7%** (target) |
