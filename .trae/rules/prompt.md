@@ -52,7 +52,7 @@ Flow:
 
 ---
 
-## 4. [EVIDENCE RULE](`issues/evidence/`)
+## 4. [EVIDENCE RULE](`../issues/evidence/`)
 
 - Semua task wajib punya evidence file
 - Evidence harus bisa diverifikasi
@@ -60,7 +60,7 @@ Flow:
 
 ---
 
-## 5. [ISSUE RULE](`issues/<issue-id>.md`)
+## 5. [ISSUE RULE](`../issues/<issue-id>.md`)
 
 - Semua task wajib punya issue file
 - PR wajib link issue + evidence
@@ -125,7 +125,6 @@ Sebelum done:
 - [Learning](`~/.trae/learning`)
 - [Memory](`~/.trae/memory`)
 - [Rules](`~/.trae/rules`)
-- [Skills](`~/.trae/skills`)
 
 ---
 
