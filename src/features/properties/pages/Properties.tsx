@@ -49,6 +49,13 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
 import { MoreHorizontal, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
 
 export default function PropertiesPage() {
   const navigate = useNavigate();

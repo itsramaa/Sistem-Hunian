@@ -1,4 +1,4 @@
-﻿import { useRef } from "react";
+import { useRef } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { AppRole } from "@/features/auth/types/auth";
@@ -14,7 +14,6 @@ interface ProtectedRouteProps {
 
 function getHomePath(role: AppRole): string {
   const map: Record<AppRole, string> = {
-    admin: "/admin",
     operator: "/dashboard",
     manager: "/dashboard",
     viewer: "/dashboard",
@@ -24,7 +23,6 @@ function getHomePath(role: AppRole): string {
 
 function getRoleDisplayName(role: AppRole): string {
   const map: Record<AppRole, string> = {
-    admin: "Admin",
     operator: "Operator",
     manager: "Manajer",
     viewer: "Viewer",
@@ -59,11 +57,6 @@ export function ProtectedRoute({
   }
 
   if (allowedRoles && allowedRoles.length > 0) {
-    if (role === "admin") {
-      hasShownToast.current = false;
-      return <>{children}</>;
-    }
-
     if (!allowedRoles.includes(role)) {
       if (!hasShownToast.current) {
         hasShownToast.current = true;

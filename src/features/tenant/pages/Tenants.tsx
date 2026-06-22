@@ -1,5 +1,6 @@
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useProperties } from "@/features/properties/hooks/useProperties";
+import { DataCard } from "@/shared/components/DataCard";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { EmptyState } from "@/shared/components/ui/EmptyState";

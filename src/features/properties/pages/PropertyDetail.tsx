@@ -1,5 +1,15 @@
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Button } from "@/shared/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/components/ui/alert-dialog";
 import { useToast } from "@/shared/hooks/use-toast";
 import { apiClient } from "@/shared/lib/axios";
 import { getApiErrorMessage } from "@/shared/utils/api-errors";
@@ -11,6 +21,8 @@ import {
   Home,
   Loader2,
   MapPin,
+  Pencil,
+  Trash2,
   Users,
 } from "lucide-react";
 import { useState } from "react";

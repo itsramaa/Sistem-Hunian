@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -13,10 +13,12 @@ import {
 import { Input } from "@/shared/components/ui/input";
 import { Button } from "@/shared/components/ui/button";
 import { useCreateConfirmation } from "@/features/confirmations/hooks/useConfirmations";
+import { CreateConfirmationPayload } from "@/features/confirmations/types";
 
 const schema = z.object({
   room_id: z.string().uuid("Pilih kamar yang valid"),
   nama_calon_penghuni: z.string().min(2, "Nama minimal 2 karakter"),
+  nomor_telepon: z.string().min(9, "Nomor telepon tidak valid"),
   nominal_dp: z.coerce.number().positive("Nominal harus lebih dari 0"),
   batas_tanggal_konfirmasi: z.string().min(1, "Tanggal wajib diisi"),
 });
@@ -28,7 +30,10 @@ interface ConfirmationFormProps {
   availableRooms: { id: string; nomor_kamar: string; nama_properti: string }[];
 }
 
-export function ConfirmationForm({ onSuccess, availableRooms }: ConfirmationFormProps) {
+export function ConfirmationForm({
+  onSuccess,
+  availableRooms,
+}: ConfirmationFormProps) {
   const { mutate, isPending } = useCreateConfirmation();
 
   const form = useForm<FormValues>({
@@ -36,13 +41,14 @@ export function ConfirmationForm({ onSuccess, availableRooms }: ConfirmationForm
     defaultValues: {
       room_id: "",
       nama_calon_penghuni: "",
+      nomor_telepon: "",
       nominal_dp: 0,
       batas_tanggal_konfirmasi: "",
     },
   });
 
   const onSubmit = (values: FormValues) => {
-    mutate(values, {
+    mutate(values as CreateConfirmationPayload, {
       onSuccess: () => {
         form.reset();
         onSuccess();

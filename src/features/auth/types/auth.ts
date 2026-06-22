@@ -13,13 +13,14 @@ export interface AuthTokens {
   expires_in?: number;
 }
 
-export interface UserProfile {
-  id: string;
-  nama: string;
-  email: string;
-  role: AppRole;
-  created_at: string;
-  updated_at: string;
+export interface UserProfile {
+  id: string;
+  nama: string;
+  email: string;
+  role: AppRole;
+  nomor_telepon?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AuthState {

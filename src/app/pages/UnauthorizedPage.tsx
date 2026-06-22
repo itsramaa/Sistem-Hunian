@@ -14,7 +14,7 @@ export default function UnauthorizedPage() {
   const navigate = useNavigate();
   const { user, role } = useAuth();
 
-  const dashboardPath = role === "admin" ? "/admin" : "/dashboard";
+  const dashboardPath = "/dashboard";
 
   return (
     <>

@@ -1,5 +1,12 @@
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/components/ui/dialog";
 import { useToast } from "@/shared/hooks/use-toast";
 import { apiClient } from "@/shared/lib/axios";
 import { getApiErrorMessage } from "@/shared/utils/api-errors";
@@ -8,12 +15,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import {
-    ArrowLeft,
-    BedDouble,
-    DollarSign,
-    Download,
-    Loader2,
-    User,
+  ArrowLeft,
+  BedDouble,
+  CheckCircle2,
+  DollarSign,
+  Download,
+  FileText,
+  Loader2,
+  Upload,
+  User,
 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";

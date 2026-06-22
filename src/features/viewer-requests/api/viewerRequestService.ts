@@ -1,4 +1,4 @@
-import { api } from "@/shared/utils/api";
+import { apiClient } from "@/shared/lib/axios";
 
 export interface ViewerRequestPayload {
   jenis: "pembayaran" | "kerusakan" | "calon_penghuni";
@@ -34,13 +34,17 @@ export interface ViewerRequestListResponse {
 }
 
 export const viewerRequestService = {
-  create: async (payload: ViewerRequestPayload): Promise<{ success: boolean }> => {
-    const res = await api.post("/viewer-requests", payload);
+  create: async (
+    payload: ViewerRequestPayload,
+  ): Promise<{ success: boolean }> => {
+    const res = await apiClient.post("/viewer-requests", payload);
     return res.data;
   },
 
   list: async (page: number = 1): Promise<ViewerRequestListResponse> => {
-    const res = await api.get("/viewer-requests", { params: { page, limit: 20 } });
+    const res = await apiClient.get("/viewer-requests", {
+      params: { page, limit: 20 },
+    });
     return res.data;
   },
 };
