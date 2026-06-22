@@ -1,4 +1,5 @@
 import { apiClient } from "@/shared/lib/axios";
+import { env } from "@/config/env";
 
 export type WhatsappStatus = "connected" | "waiting_qr_scan" | "disconnected";
 
@@ -13,8 +14,8 @@ export interface WhatsappQRResponse {
   instruction: string;
 }
 
-// -- MOCK flag — set ke false saat backend sudah live --
-const USE_MOCK = true;
+// -- MOCK flag — dibaca dari env (VITE_WA_MOCK) --
+const USE_MOCK = env.WA_MOCK;
 
 let mockStatus: WhatsappStatus = "disconnected";
 let mockHasQR = false;
