@@ -1,4 +1,5 @@
 import axios, { AxiosError } from 'axios';
+import { getApiErrorMessage } from '@/shared/utils/api-errors';
 
 // Base URL from env, fallback to Go/Fiber default
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1';

@@ -1,9 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+
+  <!-- Homepage -->
   <url>
     <loc>https://sihuni.app/</loc>
-    <lastmod>2026-02-22</lastmod>
+    <lastmod>2026-06-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="id" href="https://sihuni.app/" />
+    <image:image>
+      <image:loc>https://sihuni.app/og-image.png</image:loc>
+      <image:title>SiHuni - Platform Manajemen Properti Indonesia</image:title>
+      <image:caption>Kelola properti, penghuni, dan pembayaran dengan mudah</image:caption>
+    </image:image>
   </url>
+
+  <!-- Login -->
+  <url>
+    <loc>https://sihuni.app/login</loc>
+    <lastmod>2026-06-22</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Reset Password -->
+  <url>
+    <loc>https://sihuni.app/reset-password</loc>
+    <lastmod>2026-06-22</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+
 </urlset>

@@ -1,6 +1,5 @@
 ---
-alwaysApply: false
-description: Planning, orchestration, multi-domain sequencing, and human approval workflow for tasks that involve multiple specialists or staged delivery. Use when the task spans multiple domains, requires PRD/spec creation, or needs staged approval gates.
+alwaysApply: true
 ---
 
 # Task Coordinator

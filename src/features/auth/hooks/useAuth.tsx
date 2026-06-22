@@ -1,6 +1,20 @@
-﻿import { apiClient, TOKEN_KEY } from '@/shared/lib/axios';
-import { AppRole, AuthState, AuthTokens, AuthUser, UserProfile } from '@/features/auth/types/auth';
-import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+import { apiClient, TOKEN_KEY } from "@/shared/lib/axios";
+import {
+  AppRole,
+  AuthState,
+  AuthTokens,
+  AuthUser,
+  UserProfile,
+} from "@/features/auth/types/auth";
+import { getApiErrorMessage } from "@/shared/utils/api-errors";
+import {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 
 interface AuthContextType extends AuthState {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
@@ -31,13 +45,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshProfile = useCallback(async () => {
     setError(null);
     try {
-      const { data } = await apiClient.get<UserProfile>('/auth/me');
-      setUser({ id: data.id, email: data.email, nama: data.nama, role: data.role });
+      const { data } = await apiClient.get<UserProfile>("/auth/me");
+      setUser({
+        id: data.id,
+        email: data.email,
+        nama: data.nama,
+        role: data.role,
+      });
       setProfile(data);
       setRole(data.role ?? null);
     } catch (err) {
       clearAuth();
-      setError(err instanceof Error ? err : new Error('Gagal memuat profil'));
+      setError(new Error(getApiErrorMessage(err)));
     }
   }, []);
 
@@ -55,14 +74,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string) => {
     try {
       const { data } = await apiClient.post<AuthTokens & { user: AuthUser }>(
-        '/auth/login',
-        { email, password }
+        "/auth/login",
+        { email, password },
       );
       localStorage.setItem(TOKEN_KEY, data.access_token);
       await refreshProfile();
       return { error: null };
     } catch (err) {
-      return { error: err instanceof Error ? err : new Error('Login gagal') };
+      return { error: new Error(getApiErrorMessage(err)) };
     }
   };
 
@@ -72,12 +91,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // signUp is not supported — users are provisioned by admin only
   const signUp = async (..._args: unknown[]) => {
-    return { data: null, error: new Error('Pendaftaran mandiri tidak diizinkan. Hubungi admin.') };
+    return {
+      data: null,
+      error: new Error("Pendaftaran mandiri tidak diizinkan. Hubungi admin."),
+    };
   };
 
   return (
     <AuthContext.Provider
-      value={{ user, profile, role, isLoading, error, signIn, signUp, signOut, refreshProfile }}
+      value={{
+        user,
+        profile,
+        role,
+        isLoading,
+        error,
+        signIn,
+        signUp,
+        signOut,
+        refreshProfile,
+      }}
     >
       {children}
     </AuthContext.Provider>
@@ -86,6 +118,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }

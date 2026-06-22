@@ -1,5 +1,6 @@
 ---
-alwaysApply: true
+alwaysApply: false
+description:
 ---
 
 # Shared Steering Baseline
@@ -32,7 +33,6 @@ Use these focused files when the task matches their domain:
 | `frontend-implementer.md`  | Frontend/UI implementation guidance               |
 | `qa-tester.md`             | QA, security review, and release-readiness checks |
 | `devops-engineer.md`       | Infra, CI/CD, and deployment guidance             |
-| `search-agent.md`          | Codebase discovery and search workflow            |
 | `task-coordinator.md`      | Planning, orchestration, and HITL enforcement     |
 | `superpowers-bootstrap.md` | Manual reference for structured workflow skills   |
 

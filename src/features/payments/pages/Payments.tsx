@@ -47,6 +47,7 @@ import {
   FileText,
 } from "lucide-react";
 import { useToast } from "@/shared/hooks/use-toast";
+import { getApiErrorMessage } from "@/shared/utils/api-errors";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -192,9 +193,16 @@ export default function PaymentsPage() {
       await createMutation.mutateAsync(payload as CreatePaymentPayload);
       setFormOpen(false);
       reset();
-      toast({ title: "Pembayaran berhasil dicatat" });
-    } catch {
-      toast({ variant: "destructive", title: "Gagal mencatat pembayaran" });
+      toast({
+        title: "Pembayaran berhasil dicatat",
+        description: "Data pembayaran telah tersimpan.",
+      });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Gagal mencatat pembayaran",
+        description: getApiErrorMessage(err),
+      });
     }
   };
 
@@ -206,18 +214,29 @@ export default function PaymentsPage() {
         file: uploadFile,
       });
       closeUploadModal();
-      toast({ title: "Bukti transfer berhasil diupload" });
-    } catch {
-      toast({ variant: "destructive", title: "Gagal upload bukti transfer" });
+      toast({
+        title: "Bukti transfer berhasil diunggah",
+        description: "Bukti pembayaran Anda telah tersimpan.",
+      });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Gagal mengunggah bukti transfer",
+        description: getApiErrorMessage(err),
+      });
     }
   };
 
   const handleMarkPaid = async (payment: Payment) => {
     try {
       await markPaidMutation.mutateAsync(payment.id);
-      toast({ title: `Pembayaran ${payment.periode} ditandai lunas` });
-    } catch {
-      toast({ variant: "destructive", title: "Gagal tandai lunas" });
+      toast({ title: `Pembayaran ${payment.periode} berhasil ditandai lunas` });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Gagal menandai pembayaran lunas",
+        description: getApiErrorMessage(err),
+      });
     }
   };
 

@@ -1,55 +1,58 @@
-// Map Supabase auth error codes to user-friendly Indonesian messages
+import { getApiErrorMessage } from '@/shared/utils/api-errors';
+
+// Map auth-specific error strings to user-friendly Indonesian messages
 export const AUTH_ERROR_MESSAGES: Record<string, string> = {
-  // Login errors
-  'Invalid login credentials': 'Email atau password salah. Silakan coba lagi.',
-  'Email not confirmed': 'Email belum diverifikasi. Silakan cek inbox Anda.',
-  'Invalid email or password': 'Email atau password salah. Silakan coba lagi.',
-  
-  // Signup errors
-  'User already registered': 'Email sudah terdaftar. Silakan login.',
-  'Password should be at least 6 characters': 'Password minimal 6 karakter.',
-  'Signup requires a valid password': 'Masukkan password yang valid.',
-  'Unable to validate email address: invalid format': 'Format email tidak valid.',
-  
-  // Password reset errors
-  'Email not found': 'Jika email terdaftar, Anda akan menerima link reset.',
-  'Rate limit exceeded': 'Terlalu banyak percobaan. Coba lagi dalam beberapa menit.',
-  'Token has expired or is invalid': 'Link sudah kadaluarsa. Silakan request reset password baru.',
-  'Invalid token': 'Link tidak valid. Silakan request reset password baru.',
-  
-  // Session errors
-  'Invalid session': 'Sesi tidak valid. Silakan login ulang.',
-  'Session expired': 'Sesi telah berakhir. Silakan login ulang.',
-  'Refresh token not found': 'Sesi telah berakhir. Silakan login ulang.',
-  
-  // General errors
-  'Network error': 'Koneksi internet bermasalah. Silakan coba lagi.',
-  'Server error': 'Terjadi kesalahan server. Silakan coba lagi.',
+  // Login
+  'Invalid login credentials': 'Email atau password salah. Periksa kembali dan coba lagi.',
+  'Invalid email or password': 'Email atau password salah. Periksa kembali dan coba lagi.',
+  'Email not confirmed': 'Email Anda belum diverifikasi. Silakan cek inbox atau folder spam.',
+  'account locked': 'Akun Anda dikunci sementara karena terlalu banyak percobaan login. Coba lagi dalam 15 menit.',
+  'account disabled': 'Akun ini telah dinonaktifkan. Hubungi administrator untuk bantuan.',
+
+  // Signup
+  'User already registered': 'Email ini sudah terdaftar. Silakan gunakan email lain atau login.',
+  'Password should be at least 6 characters': 'Password terlalu pendek. Gunakan minimal 8 karakter.',
+  'Signup requires a valid password': 'Password tidak valid. Gunakan minimal 8 karakter dengan kombinasi huruf dan angka.',
+  'Unable to validate email address: invalid format': 'Format email tidak valid. Contoh: nama@domain.com',
+
+  // Password reset
+  'Email not found': 'Jika email ini terdaftar, Anda akan menerima instruksi reset password.',
+  'Rate limit exceeded': 'Terlalu banyak percobaan. Tunggu beberapa menit sebelum mencoba lagi.',
+  'Token has expired or is invalid': 'Link reset password sudah kedaluwarsa. Silakan minta link baru.',
+  'Invalid token': 'Link reset password tidak valid. Silakan minta link baru.',
+  'OTP expired': 'Kode verifikasi sudah kedaluwarsa. Silakan minta kode baru.',
+
+  // Session
+  'Invalid session': 'Sesi tidak valid. Silakan login ulang untuk melanjutkan.',
+  'Session expired': 'Sesi Anda telah berakhir. Silakan login ulang.',
+  'Refresh token not found': 'Sesi Anda telah berakhir. Silakan login ulang.',
+  'JWT expired': 'Token kedaluwarsa. Silakan login ulang.',
+
+  // Network & server
+  'Network error': 'Koneksi internet bermasalah. Periksa jaringan Anda dan coba lagi.',
+  'Server error': 'Terjadi kesalahan pada server. Tim kami sedang menangani masalah ini.',
+  'timeout': 'Permintaan habis waktu. Periksa koneksi internet Anda dan coba lagi.',
 };
 
 export function getAuthErrorMessage(error: Error | null | undefined): string {
   if (!error) return 'Terjadi kesalahan. Silakan coba lagi.';
-  
+
   const errorMessage = error.message || '';
-  
-  // Check exact matches first
+
+  // Exact match
   if (AUTH_ERROR_MESSAGES[errorMessage]) {
     return AUTH_ERROR_MESSAGES[errorMessage];
   }
-  
-  // Check partial matches
+
+  // Partial match (case-insensitive)
   for (const [key, value] of Object.entries(AUTH_ERROR_MESSAGES)) {
     if (errorMessage.toLowerCase().includes(key.toLowerCase())) {
       return value;
     }
   }
-  
-  // Return original message if no mapping found, but sanitize it
-  if (errorMessage.length > 0 && errorMessage.length < 200) {
-    return errorMessage;
-  }
-  
-  return 'Terjadi kesalahan. Silakan coba lagi.';
+
+  // Delegate to centralized API error handler (handles AxiosError, HTTP codes, etc.)
+  return getApiErrorMessage(error);
 }
 
 // Invitation error messages

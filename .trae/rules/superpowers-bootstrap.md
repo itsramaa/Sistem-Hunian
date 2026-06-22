@@ -1,6 +1,5 @@
 ---
-alwaysApply: false
-description: Skill-first workflow discipline and process skill index. Use explicitly when the task involves multi-step workflows, TDD, brainstorming, subagent orchestration, or when you want to enforce structured process skills before acting. Reference this rule with #Rule to activate.
+alwaysApply: true
 ---
 
 # Skill-First Workflow Discipline

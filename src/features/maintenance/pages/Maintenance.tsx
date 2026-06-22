@@ -60,6 +60,7 @@ import {
 } from "lucide-react";
 
 import { useToast } from "@/shared/hooks/use-toast";
+import { getApiErrorMessage } from "@/shared/utils/api-errors";
 
 import { useForm } from "react-hook-form";
 
@@ -194,9 +195,16 @@ export default function MaintenancePage() {
 
       createForm.reset({ tanggal_laporan: getToday() });
 
-      toast({ title: "Laporan maintenance berhasil dicatat" });
-    } catch {
-      toast({ variant: "destructive", title: "Gagal mencatat maintenance" });
+      toast({
+        title: "Laporan maintenance berhasil dicatat",
+        description: "Laporan baru telah disimpan ke sistem.",
+      });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Gagal mencatat laporan maintenance",
+        description: getApiErrorMessage(err),
+      });
     }
   };
 
@@ -212,9 +220,13 @@ export default function MaintenancePage() {
 
       setUpdateTarget(null);
 
-      toast({ title: "Progress maintenance berhasil diupdate" });
-    } catch {
-      toast({ variant: "destructive", title: "Gagal update maintenance" });
+      toast({ title: "Progress maintenance berhasil diperbarui" });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Gagal memperbarui maintenance",
+        description: getApiErrorMessage(err),
+      });
     }
   };
 

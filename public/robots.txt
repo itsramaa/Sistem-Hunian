@@ -1,3 +1,6 @@
+# https://sihuni.app/robots.txt
+# SiHuni - Platform Manajemen Properti Indonesia
+
 User-agent: Googlebot
 Allow: /
 Disallow: /merchant/
@@ -6,8 +9,29 @@ Disallow: /vendor/
 Disallow: /admin/
 Disallow: /onboarding/
 Disallow: /auth/
+Disallow: /api/
+Disallow: /_next/
 
 User-agent: Bingbot
+Allow: /
+Disallow: /merchant/
+Disallow: /tenant/
+Disallow: /vendor/
+Disallow: /admin/
+Disallow: /onboarding/
+Disallow: /auth/
+Disallow: /api/
+
+User-agent: YandexBot
+Allow: /
+Disallow: /merchant/
+Disallow: /tenant/
+Disallow: /vendor/
+Disallow: /admin/
+Disallow: /onboarding/
+Disallow: /auth/
+
+User-agent: DuckDuckBot
 Allow: /
 Disallow: /merchant/
 Disallow: /tenant/
@@ -18,10 +42,22 @@ Disallow: /auth/
 
 User-agent: Twitterbot
 Allow: /
+Allow: /*
 
 User-agent: facebookexternalhit
 Allow: /
+Allow: /*
 
+User-agent: LinkedInBot
+Allow: /
+
+User-agent: Slackbot
+Allow: /
+
+User-agent: WhatsApp
+Allow: /
+
+# Block all other bots by default
 User-agent: *
 Allow: /
 Disallow: /merchant/
@@ -30,5 +66,10 @@ Disallow: /vendor/
 Disallow: /admin/
 Disallow: /onboarding/
 Disallow: /auth/
+Disallow: /api/
 
+# Crawl-delay
+Crawl-delay: 1
+
+# Sitemap
 Sitemap: https://sihuni.app/sitemap.xml

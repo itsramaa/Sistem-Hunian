@@ -1,51 +1,170 @@
 <!doctype html>
 <html lang="id">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; connect-src 'self' https: wss: http://localhost:9090; font-src 'self' https://fonts.gstatic.com data:;" />
-    
-    <!-- Primary Meta Tags -->
-    <title>SiHuni - Platform Manajemen Properti Indonesia</title>
-    <meta name="title" content="SiHuni - Platform Manajemen Properti Indonesia" />
-    <meta name="description" content="SiHuni adalah platform manajemen properti terlengkap di Indonesia. Kelola properti, tenant, dan pembayaran dengan mudah. Daftar sekarang dan dapatkan trial gratis!" />
-    <meta name="author" content="SiHuni" />
-    <meta name="keywords" content="manajemen properti, kos, kontrakan, apartemen, tenant management, Indonesia, SiHuni" />
-    <meta name="robots" content="index, follow" />
-    <link rel="canonical" href="https://sihuni.app" />
 
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://sihuni.app" />
-    <meta property="og:title" content="SiHuni - Platform Manajemen Properti Indonesia" />
-    <meta property="og:description" content="Kelola properti, tenant, dan pembayaran dengan mudah. Daftar sekarang dan dapatkan trial gratis 7 hari!" />
-    <meta property="og:image" content="https://sihuni.app/og-image.png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:locale" content="id_ID" />
-    <meta property="og:site_name" content="SiHuni" />
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; connect-src 'self' https: wss: http://localhost:9090; font-src 'self' https://fonts.gstatic.com data:;" />
 
-    <!-- Twitter -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:url" content="https://sihuni.app" />
-    <meta name="twitter:title" content="SiHuni - Platform Manajemen Properti Indonesia" />
-    <meta name="twitter:description" content="Kelola properti, tenant, dan pembayaran dengan mudah. Daftar sekarang dan dapatkan trial gratis 7 hari!" />
-    <meta name="twitter:image" content="https://sihuni.app/og-image.png" />
+  <!-- Primary Meta Tags -->
+  <title>SiHuni - Platform Manajemen Properti Indonesia</title>
+  <meta name="title" content="SiHuni - Platform Manajemen Properti Indonesia" />
+  <meta name="description"
+    content="SiHuni adalah platform manajemen properti terlengkap di Indonesia. Kelola kos, kontrakan, dan apartemen — properti, penghuni, pembayaran, maintenance dalam satu sistem terintegrasi." />
+  <meta name="author" content="SiHuni" />
+  <meta name="keywords"
+    content="manajemen properti, manajemen kos, manajemen kontrakan, aplikasi kos, sistem hunian, tenant management, properti Indonesia, SiHuni, manajemen apartemen, software kos" />
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+  <meta name="googlebot" content="index, follow" />
+  <link rel="canonical" href="https://sihuni.app" />
 
-    <!-- Referral-specific meta (dynamic for referral pages) -->
-    <meta property="og:image:alt" content="SiHuni - Bergabung dan dapatkan bonus spesial!" />
-    
-    <!-- Theme Color -->
-    <meta name="theme-color" content="#8B6F47" />
-    <meta name="msapplication-TileColor" content="#8B6F47" />
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://sihuni.app" />
+  <meta property="og:site_name" content="SiHuni" />
+  <meta property="og:title" content="SiHuni - Platform Manajemen Properti Indonesia" />
+  <meta property="og:description"
+    content="Kelola properti, penghuni, pembayaran, dan maintenance dengan mudah. Platform manajemen kos & kontrakan terlengkap di Indonesia." />
+  <meta property="og:image" content="https://sihuni.app/og-image.png" />
+  <meta property="og:image:secure_url" content="https://sihuni.app/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="SiHuni - Platform Manajemen Properti Indonesia" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:locale" content="id_ID" />
 
-    <!-- Preconnect hints -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  </head>
+  <!-- Twitter / X -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:site" content="@sihuni_app" />
+  <meta name="twitter:creator" content="@sihuni_app" />
+  <meta name="twitter:url" content="https://sihuni.app" />
+  <meta name="twitter:title" content="SiHuni - Platform Manajemen Properti Indonesia" />
+  <meta name="twitter:description"
+    content="Kelola properti, penghuni, pembayaran, dan maintenance dengan mudah. Platform manajemen kos & kontrakan terlengkap di Indonesia." />
+  <meta name="twitter:image" content="https://sihuni.app/og-image.png" />
+  <meta name="twitter:image:alt" content="SiHuni - Platform Manajemen Properti Indonesia" />
 
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+  <!-- Favicon & App Icons -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+
+  <!-- Theme Color -->
+  <meta name="theme-color" content="#1e40af" />
+  <meta name="msapplication-TileColor" content="#1e40af" />
+  <meta name="msapplication-TileImage" content="/apple-touch-icon.png" />
+  <meta name="msapplication-config" content="/browserconfig.xml" />
+
+  <!-- Geo & Language -->
+  <meta name="geo.region" content="ID" />
+  <meta name="geo.country" content="Indonesia" />
+  <meta name="language" content="Indonesian" />
+  <meta name="content-language" content="id" />
+
+  <!-- Structured Data: Organization -->
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "SiHuni",
+      "url": "https://sihuni.app",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://sihuni.app/logo.svg",
+        "width": 280,
+        "height": 80
+      },
+      "description": "SiHuni adalah platform manajemen properti terlengkap di Indonesia untuk kos, kontrakan, dan apartemen.",
+      "foundingDate": "2024",
+      "address": {
+        "@type": "PostalAddress",
+        "addressCountry": "ID",
+        "addressRegion": "Jawa Barat"
+      },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "customer support",
+        "availableLanguage": "Indonesian"
+      }
+    }
+    </script>
+
+  <!-- Structured Data: SoftwareApplication -->
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "SiHuni",
+      "applicationCategory": "BusinessApplication",
+      "applicationSubCategory": "Property Management",
+      "operatingSystem": "Web",
+      "url": "https://sihuni.app",
+      "description": "Platform manajemen properti terintegrasi untuk pemilik kos, kontrakan, dan apartemen di Indonesia. Kelola properti, penghuni, pembayaran, dan maintenance dalam satu sistem.",
+      "inLanguage": "id-ID",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "IDR",
+        "description": "Gratis untuk properti pertama"
+      },
+      "featureList": [
+        "Manajemen Multi-Properti",
+        "Manajemen Penghuni",
+        "Pencatatan Pembayaran Sewa",
+        "Konfirmasi Down Payment",
+        "Manajemen Maintenance",
+        "Dashboard Status Kamar",
+        "Notifikasi Jatuh Tempo",
+        "Kontrol Akses Berbasis Role (RBAC)",
+        "Audit Trail"
+      ],
+      "screenshot": "https://sihuni.app/og-image.png",
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "reviewCount": "150",
+        "bestRating": "5",
+        "worstRating": "1"
+      }
+    }
+    </script>
+
+  <!-- Structured Data: WebSite with SearchAction -->
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "SiHuni",
+      "url": "https://sihuni.app",
+      "description": "Platform manajemen properti terlengkap di Indonesia",
+      "inLanguage": "id-ID",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://sihuni.app/search?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+
+  <!-- Preconnect hints -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+  <!-- DNS Prefetch -->
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+  <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>

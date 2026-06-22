@@ -1,6 +1,5 @@
 ---
-alwaysApply: false
-description: Human approval gates for PRDs, specs, releases, QA sign-off, or any workflow that should pause for explicit user confirmation. Use when staged delivery, approval checkpoints, or human-in-the-loop validation is required.
+alwaysApply: true
 ---
 
 # Human-In-The-Loop Gates
@@ -9,11 +8,11 @@ Use this file for staged delivery where the agent should stop and wait for appro
 
 ## Default Gates
 
-| Gate | Trigger | Required action |
-| ---- | ------- | --------------- |
-| PRD Gate | PRD draft is ready | present the draft and open questions, then pause |
-| Spec Gate | implementation spec is ready | present the spec and wait for explicit approval |
-| QA Gate | QA or release verification is complete | present results and wait for acceptance |
+| Gate      | Trigger                                | Required action                                  |
+| --------- | -------------------------------------- | ------------------------------------------------ |
+| PRD Gate  | PRD draft is ready                     | present the draft and open questions, then pause |
+| Spec Gate | implementation spec is ready           | present the spec and wait for explicit approval  |
+| QA Gate   | QA or release verification is complete | present results and wait for acceptance          |
 
 ## Rules
 

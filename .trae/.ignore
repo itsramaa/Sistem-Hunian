@@ -9,9 +9,42 @@ node_modules/
 vendor/
 .bun/
 
+# Python
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.eggs/
+.eggs/
+site-packages/
+
+# Ruby
+.bundle/
+gems/
+
+# PHP
+composer/cache/
+
+# ============================
+# Virtual Environments
+# ============================
+venv/
+.venv/
+env/
+.env/
+virtualenv/
+.virtualenvs/
+.tox/
+.nox/
+.conda/
+conda-env/
+
 # ============================
 # Build / Output
 # ============================
+# JS/TS
 .next/
 out/
 dist/
@@ -21,12 +54,79 @@ build/
 .netlify/
 *.tsbuildinfo
 next-env.d.ts
+storybook-static/
 
-# Go build artifacts
+# Go
 bin/
 **/*.exe
 **/*.test
 **/*.out
+
+# Rust
+target/
+
+# Java / Kotlin / Scala
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+.gradle/
+.mvn/
+**/target/
+out/
+
+# C / C++
+*.o
+*.obj
+*.so
+*.a
+*.lib
+*.dylib
+*.dll
+CMakeFiles/
+cmake-build-*/
+CMakeCache.txt
+
+# Swift / Xcode
+*.xcworkspace/
+DerivedData/
+*.xcuserstate
+.build/
+
+# Elixir / Erlang
+_build/
+deps/
+*.beam
+
+# Dart / Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+
+# ============================
+# Package Manager Caches
+# ============================
+.cache/
+.eslintcache
+.parcel-cache/
+.swc/
+.go-build-cache/
+.golangci-cache/
+$GOPATH/pkg/mod/
+.npm/
+.pnpm-store/
+.yarn/cache/
+pip-cache/
+.pip/
+__pypackages__/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+.cargo/registry/
+.cargo/git/
 
 # ============================
 # Logs
@@ -49,15 +149,16 @@ pnpm-debug.log*
 *.crt
 
 # ============================
-# Cache
+# Infrastructure as Code State
 # ============================
-.cache/
-.eslintcache
-.parcel-cache/
-.swc/
-.go-build-cache/
-$GOPATH/pkg/mod/
-.golangci-cache/
+**/.terraform/
+*.tfstate
+*.tfstate.*
+.terragrunt-cache/
+.pulumi/
+*.tfplan
+cdk.out/
+.serverless/
 
 # ============================
 # Testing & Coverage
@@ -67,6 +168,19 @@ coverage/
 *.lcov
 test-results/
 playwright-report/
+htmlcov/
+.coverage
+.coverage.*
+junit*.xml
+
+# ============================
+# Jupyter / Data Science
+# ============================
+.ipynb_checkpoints/
+*.ipynb
+**/.ipynb_checkpoints/
+mlruns/
+.dvc/tmp/
 
 # ============================
 # IDE / Editor
@@ -77,9 +191,17 @@ playwright-report/
 *.swo
 .DS_Store
 Thumbs.db
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+nbproject/
+.project
+.classpath
+.settings/
 
 # ============================
-# Database / Migrations data dumps
+# Database / Data Dumps
 # ============================
 *.sql.gz
 *.dump
@@ -87,38 +209,72 @@ Thumbs.db
 *.sqlite3
 db_data/
 postgres_data/
+redis_data/
+mongo_data/
 
 # ============================
-# Generated / Auto-generated files
+# Generated / Auto-generated
 # ============================
 **/*.gen.go
 **/*_gen.go
 **/mocks/
 **/__generated__/
 **/*.pb.go
+**/*.pb.ts
+**/*.pb.js
 **/openapi.generated.*
 graphql/generated/
+**/*.snap
+prisma/migrations/
 
 # ============================
-# Lock files (opsional — biasanya besar & noisy untuk indexing)
+# Lock files
 # ============================
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
 go.sum
+Gemfile.lock
+composer.lock
+poetry.lock
+Pipfile.lock
+Cargo.lock
+pubspec.lock
+mix.lock
 
 # ============================
-# Monorepo / Workspace noise
-# ============================
-**/.turbo/
-storybook-static/
-
-# ============================
-# Misc large/binary assets
+# Large / Binary Assets
 # ============================
 *.zip
 *.tar.gz
+*.tar.bz2
+*.rar
+*.7z
 *.mp4
 *.mov
+*.avi
+*.mkv
+*.mp3
+*.wav
 *.psd
 *.fig
+*.sketch
+*.ai
+*.pdf
+*.docx
+*.xlsx
+*.ttf
+*.otf
+*.woff
+*.woff2
+
+# ============================
+# Mobile
+# ============================
+*.apk
+*.ipa
+*.aab
+android/.gradle/
+android/build/
+ios/Pods/
+ios/build/
