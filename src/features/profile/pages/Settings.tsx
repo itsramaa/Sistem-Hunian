@@ -1,29 +1,65 @@
-import { Settings as SettingsIcon, Bell, Moon, Globe, MessageCircle, Loader2, AlertTriangle, Smartphone, Battery, LogOut, RefreshCw } from 'lucide-react';
+import { Bell, Moon, Globe, MessageCircle, Loader2, AlertTriangle, LogOut, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { ThemeToggle } from '@/shared/components/ui/ThemeToggle';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { useWhatsappStatus, useWhatsappQR, useWhatsappDisconnect } from '@/features/whatsapp/hooks/useWhatsapp';
+import { useWhatsappStatus, useWhatsappQR, useWhatsappLogout } from '@/features/whatsapp/hooks/useWhatsapp';
 import { useToast } from '@/shared/hooks/use-toast';
 import { getApiErrorMessage } from '@/shared/utils/api-errors';
 import { Skeleton } from '@/shared/components/ui/skeleton';
+import { QRCodeSVG } from 'qrcode.react';
 
 // ─── WhatsApp Card — operator only ───────────────────────────────────────────
 function WhatsappCard() {
   const { toast } = useToast();
-  const { data: status, isLoading: statusLoading, isError: statusError, error: statusErr, refetch: refetchStatus } = useWhatsappStatus();
-  const isConnected = status?.connected ?? false;
-  const { data: qrData, isLoading: qrLoading, isError: qrError, refetch: refetchQR } = useWhatsappQR(!isConnected && !statusLoading);
-  const disconnectMutation = useWhatsappDisconnect();
 
-  const handleDisconnect = async () => {
+  const {
+    data: status,
+    isLoading: statusLoading,
+    isError: statusError,
+    error: statusErr,
+  } = useWhatsappStatus();
+
+  const isConnected = status?.connected ?? false;
+  const isWaitingQR = status?.status === 'waiting_qr_scan';
+
+  const {
+    data: qrData,
+    isLoading: qrLoading,
+    isError: qrError,
+    error: qrErr,
+    refetch: refetchQR,
+  } = useWhatsappQR(!statusLoading && isWaitingQR);
+
+  const logoutMutation = useWhatsappLogout();
+
+  const handleLogout = async () => {
     try {
-      await disconnectMutation.mutateAsync();
-      toast({ title: 'WhatsApp berhasil diputus', description: 'Koneksi WhatsMeOn telah dinonaktifkan.' });
+      await logoutMutation.mutateAsync();
+      toast({ title: 'WhatsApp berhasil diputus', description: 'Scan QR code baru untuk menghubungkan kembali.' });
     } catch (err) {
       toast({ variant: 'destructive', title: 'Gagal memutus koneksi', description: getApiErrorMessage(err) });
     }
+  };
+
+  const statusBadge = () => {
+    if (statusLoading) return <Skeleton className="h-6 w-24 rounded-full" />;
+    if (isConnected) return (
+      <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-full gap-1">
+        <CheckCircle2 className="h-3 w-3" /> Terhubung
+      </Badge>
+    );
+    if (isWaitingQR) return (
+      <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 rounded-full">
+        Menunggu Scan
+      </Badge>
+    );
+    return (
+      <Badge variant="outline" className="text-muted-foreground rounded-full">
+        Tidak Terhubung
+      </Badge>
+    );
   };
 
   return (
@@ -34,17 +70,7 @@ function WhatsappCard() {
             <MessageCircle className="h-5 w-5 text-primary" />
             <CardTitle className="text-base">WhatsApp (WhatsMeOn)</CardTitle>
           </div>
-          {statusLoading ? (
-            <Skeleton className="h-6 w-20 rounded-full" />
-          ) : isConnected ? (
-            <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-full">
-              Terhubung
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="text-muted-foreground rounded-full">
-              Tidak Terhubung
-            </Badge>
-          )}
+          {statusBadge()}
         </div>
       </CardHeader>
 
@@ -66,26 +92,19 @@ function WhatsappCard() {
         )}
 
         {/* Connected state */}
-        {!statusLoading && isConnected && status && (
+        {!statusLoading && isConnected && (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Smartphone className="h-4 w-4" />
-              <span>Nomor: <span className="font-medium text-foreground">+{status.phone}</span></span>
-            </div>
-            {status.battery !== undefined && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Battery className="h-4 w-4" />
-                <span>Baterai: <span className="font-medium text-foreground">{status.battery}%</span></span>
-              </div>
-            )}
+            <p className="text-sm text-muted-foreground">
+              WhatsApp terhubung dan siap mengirim notifikasi ke penghuni.
+            </p>
             <Button
               variant="outline"
               size="sm"
               className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/5 rounded-xl"
-              onClick={handleDisconnect}
-              disabled={disconnectMutation.isPending}
+              onClick={handleLogout}
+              disabled={logoutMutation.isPending}
             >
-              {disconnectMutation.isPending
+              {logoutMutation.isPending
                 ? <Loader2 className="h-4 w-4 animate-spin" />
                 : <LogOut className="h-4 w-4" />}
               Putus Koneksi
@@ -93,12 +112,12 @@ function WhatsappCard() {
           </div>
         )}
 
-        {/* Disconnected state — show QR */}
-        {!statusLoading && !isConnected && (
+        {/* Waiting QR scan state */}
+        {!statusLoading && isWaitingQR && (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Scan QR code di bawah menggunakan WhatsApp di HP Anda untuk menghubungkan akun WhatsMeOn.
-            </p>
+            {qrData?.instruction && (
+              <p className="text-sm text-muted-foreground">{qrData.instruction}</p>
+            )}
 
             {qrLoading && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -110,17 +129,18 @@ function WhatsappCard() {
             {qrError && (
               <div className="flex items-start gap-2 text-sm text-destructive">
                 <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-                <span>Gagal memuat QR. <button className="underline" onClick={() => refetchQR()}>Coba lagi</button></span>
+                <span>{getApiErrorMessage(qrErr)}</span>
               </div>
             )}
 
-            {!qrLoading && !qrError && qrData?.qr_code && (
+            {!qrLoading && !qrError && qrData?.qr && (
               <div className="flex flex-col items-start gap-2">
-                <div className="rounded-xl border p-2 bg-white w-fit">
-                  <img
-                    src={`data:image/png;base64,${qrData.qr_code}`}
-                    alt="QR Code WhatsApp"
-                    className="w-40 h-40 object-contain"
+                <div className="rounded-xl border p-3 bg-white w-fit">
+                  <QRCodeSVG
+                    value={qrData.qr}
+                    size={160}
+                    level="M"
+                    includeMargin={false}
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">QR diperbarui otomatis setiap 30 detik.</p>
@@ -130,6 +150,13 @@ function WhatsappCard() {
               </div>
             )}
           </div>
+        )}
+
+        {/* Disconnected — not yet waiting for QR */}
+        {!statusLoading && !isConnected && !isWaitingQR && (
+          <p className="text-sm text-muted-foreground">
+            WhatsApp tidak terhubung. Restart server dengan <code className="text-xs bg-muted px-1 py-0.5 rounded">WA_ENABLED=true</code> untuk memulai pairing.
+          </p>
         )}
       </CardContent>
     </Card>

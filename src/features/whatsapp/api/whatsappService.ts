@@ -1,59 +1,99 @@
-import { apiClient } from '@/shared/lib/axios';
+import { apiClient } from "@/shared/lib/axios";
 
-export interface WhatsappStatus {
+export type WhatsappStatus = "connected" | "waiting_qr_scan" | "disconnected";
+
+export interface WhatsappStatusResponse {
+  status: WhatsappStatus;
   connected: boolean;
-  phone?: string;
-  battery?: number;
+  has_qr: boolean;
 }
 
-export interface WhatsappQR {
-  qr_code: string; // base64 image string
+export interface WhatsappQRResponse {
+  qr: string; // raw QR string untuk di-render jadi image
+  instruction: string;
 }
 
-// -- MOCK responses (swap ke real endpoint saat backend siap) --
+// -- MOCK flag — set ke false saat backend sudah live --
 const USE_MOCK = true;
 
-const MOCK_STATUS_DISCONNECTED: WhatsappStatus = { connected: false };
-const MOCK_STATUS_CONNECTED: WhatsappStatus = {
-  connected: true,
-  phone: '62812345678',
-  battery: 87,
-};
-// Simple QR placeholder (1x1 black pixel base64)
-const MOCK_QR =
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+let mockStatus: WhatsappStatus = "disconnected";
+let mockHasQR = false;
 
-let mockConnected = false;
+// Simulasi QR ready setelah 1.5 detik
+setTimeout(() => {
+  if (mockStatus === "disconnected") mockHasQR = true;
+}, 1500);
+
+// Mock QR string (placeholder teks, nanti real string dari whatsmeow)
+const MOCK_QR_STRING = "2@abc123xyz,mock-qr-data-for-display,SiHuni-WA-Session";
 
 export const whatsappService = {
-  async getStatus(): Promise<WhatsappStatus> {
+  async getStatus(): Promise<WhatsappStatusResponse> {
     if (USE_MOCK) {
       return new Promise((res) =>
-        setTimeout(() => res(mockConnected ? MOCK_STATUS_CONNECTED : MOCK_STATUS_DISCONNECTED), 400),
+        setTimeout(
+          () =>
+            res({
+              status: mockStatus,
+              connected: mockStatus === "connected",
+              has_qr: mockHasQR,
+            }),
+          300,
+        ),
       );
     }
-    const { data } = await apiClient.get<{ data: WhatsappStatus }>('/whatsapp/status');
+    const { data } = await apiClient.get<{ data: WhatsappStatusResponse }>(
+      "/whatsapp/status",
+    );
     return data.data;
   },
 
-  async getQR(): Promise<WhatsappQR> {
+  async getQR(): Promise<WhatsappQRResponse> {
     if (USE_MOCK) {
-      return new Promise((res) => setTimeout(() => res({ qr_code: MOCK_QR }), 600));
+      return new Promise((res, rej) =>
+        setTimeout(() => {
+          if (!mockHasQR)
+            return rej(
+              new Error(
+                "QR code belum tersedia. Pastikan server baru saja dimulai.",
+              ),
+            );
+          res({
+            qr: MOCK_QR_STRING,
+            instruction:
+              "Buka WhatsApp → Linked Devices → Link a Device, lalu scan QR code ini.",
+          });
+        }, 400),
+      );
     }
-    const { data } = await apiClient.get<{ data: WhatsappQR }>('/whatsapp/qr');
+    const { data } = await apiClient.get<{ data: WhatsappQRResponse }>(
+      "/whatsapp/qr",
+    );
     return data.data;
   },
 
-  async disconnect(): Promise<void> {
+  async logout(): Promise<void> {
     if (USE_MOCK) {
-      mockConnected = false;
+      mockStatus = "disconnected";
+      mockHasQR = false;
+      setTimeout(() => {
+        mockHasQR = true;
+      }, 2000);
       return new Promise((res) => setTimeout(res, 400));
     }
-    await apiClient.post('/whatsapp/disconnect');
+    await apiClient.post("/whatsapp/logout");
   },
 
-  // Only used in mock dev to simulate scan
+  async sendTest(phone: string, message?: string): Promise<void> {
+    if (USE_MOCK) {
+      return new Promise((res) => setTimeout(res, 500));
+    }
+    await apiClient.post("/whatsapp/test", { phone, message });
+  },
+
+  // Dev helper: simulasi scan QR berhasil
   __mockConnect() {
-    mockConnected = true;
+    mockStatus = "connected";
+    mockHasQR = false;
   },
 };
