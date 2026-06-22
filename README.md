@@ -81,4 +81,4 @@ Report tersedia di `playwright-report/index.html`.
 
 Build output ada di folder `dist/`. Deploy ke static hosting (Vercel, Nginx, dll).
 
-Backend API: [Sistem-Hunian-Go](https://github.com/your-org/Sistem-Hunian-Go)
+Backend API: [Sistem-Hunian-Go](https://github.com/itsramaa/sihuni-backend)
