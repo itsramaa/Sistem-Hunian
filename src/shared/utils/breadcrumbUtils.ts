@@ -26,7 +26,10 @@ export function generateBreadcrumbs(_role: UserRole, pathname: string): Breadcru
 
   for (const segment of segments) {
     currentPath += '/' + segment;
-    const label = routeLabels[segment] ?? segment.charAt(0).toUpperCase() + segment.slice(1);
+    const label = routeLabels[segment]
+      ?? (/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(segment) || /^\d+$/.test(segment)
+        ? 'Detail'
+        : segment.charAt(0).toUpperCase() + segment.slice(1));
     breadcrumbs.push({ label, path: currentPath });
   }
 

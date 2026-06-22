@@ -1,0 +1,130 @@
+[
+  {
+    "route": "/",
+    "finalUrl": "/login",
+    "title": "Masuk | Sistem Hunian",
+    "h1": "Kelola PropertiLebih Teratur",
+    "errors": []
+  },
+  {
+    "route": "/login",
+    "finalUrl": "/login",
+    "title": "Masuk | Sistem Hunian",
+    "h1": "Kelola PropertiLebih Teratur",
+    "errors": []
+  },
+  {
+    "route": "/reset-password",
+    "finalUrl": "/reset-password",
+    "title": "Sistem Hunian",
+    "h1": "",
+    "errors": []
+  },
+  {
+    "route": "/update-password",
+    "finalUrl": "/update-password",
+    "title": "Sistem Hunian",
+    "h1": "",
+    "errors": []
+  },
+  {
+    "route": "/unauthorized",
+    "finalUrl": "/unauthorized",
+    "title": "Sistem Hunian",
+    "h1": "",
+    "errors": []
+  },
+  {
+    "route": "/dashboard",
+    "finalUrl": "/login",
+    "title": "Masuk | Sistem Hunian",
+    "h1": "Kelola PropertiLebih Teratur",
+    "errors": []
+  },
+  {
+    "route": "/dashboard/properties",
+    "finalUrl": "/login",
+    "title": "Masuk | Sistem Hunian",
+    "h1": "Kelola PropertiLebih Teratur",
+    "errors": []
+  },
+  {
+    "route": "/dashboard/rooms",
+    "finalUrl": "/login",
+    "title": "Masuk | Sistem Hunian",
+    "h1": "Kelola PropertiLebih Teratur",
+    "errors": []
+  },
+  {
+    "route": "/dashboard/tenants",
+    "finalUrl": "/login",
+    "title": "Masuk | Sistem Hunian",
+    "h1": "Kelola PropertiLebih Teratur",
+    "errors": []
+  },
+  {
+    "route": "/dashboard/payments",
+    "finalUrl": "/login",
+    "title": "Masuk | Sistem Hunian",
+    "h1": "Kelola PropertiLebih Teratur",
+    "errors": []
+  },
+  {
+    "route": "/dashboard/confirmations",
+    "finalUrl": "/login",
+    "title": "Masuk | Sistem Hunian",
+    "h1": "Kelola PropertiLebih Teratur",
+    "errors": []
+  },
+  {
+    "route": "/dashboard/maintenance",
+    "finalUrl": "/login",
+    "title": "Masuk | Sistem Hunian",
+    "h1": "Kelola PropertiLebih Teratur",
+    "errors": []
+  },
+  {
+    "route": "/dashboard/audit",
+    "finalUrl": "/login",
+    "title": "Masuk | Sistem Hunian",
+    "h1": "Kelola PropertiLebih Teratur",
+    "errors": []
+  },
+  {
+    "route": "/dashboard/notifications",
+    "finalUrl": "/login",
+    "title": "Masuk | Sistem Hunian",
+    "h1": "Kelola PropertiLebih Teratur",
+    "errors": []
+  },
+  {
+    "route": "/dashboard/profile",
+    "finalUrl": "/login",
+    "title": "Masuk | Sistem Hunian",
+    "h1": "Kelola PropertiLebih Teratur",
+    "errors": []
+  },
+  {
+    "route": "/dashboard/settings",
+    "finalUrl": "/login",
+    "title": "Masuk | Sistem Hunian",
+    "h1": "Kelola PropertiLebih Teratur",
+    "errors": []
+  },
+  {
+    "route": "/merchant",
+    "finalUrl": "/login",
+    "title": "Masuk | Sistem Hunian",
+    "h1": "Kelola PropertiLebih Teratur",
+    "errors": []
+  },
+  {
+    "route": "/does-not-exist",
+    "finalUrl": "/does-not-exist",
+    "title": "Sistem Hunian",
+    "h1": "404",
+    "errors": [
+      "404 Error: User attempted to access non-existent route: /does-not-exist"
+    ]
+  }
+]

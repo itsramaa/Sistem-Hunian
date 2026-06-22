@@ -24,22 +24,22 @@ import { useQueryClient } from '@tanstack/react-query';
 // ─── Summary Card ─────────────────────────────────────────────────────────────
 
 interface SummaryCardProps {
-label: string;
-value: number | undefined;
-icon: React.ReactNode;
-bgClass: string;
-isLoading: boolean;
-accent?: boolean;
+  label: string;
+  value: number | undefined;
+  icon: React.ReactNode;
+  bgClass: string;
+  isLoading: boolean;
+  accent?: boolean;
   onClick?: () => void;
 }
 
 function SummaryCard({ label, value, icon, bgClass, isLoading, accent, onClick }: SummaryCardProps) {
   return (
     <div
-    onClick={onClick}
-    className={cn(
-    'glass-stat-card p-4 flex flex-col gap-3 min-w-0',
-      accent && 'ring-1 ring-primary/20',
+      onClick={onClick}
+      className={cn(
+        'glass-stat-card p-4 flex flex-col gap-3 min-w-0',
+        accent && 'ring-1 ring-primary/20',
         onClick && 'cursor-pointer hover:shadow-md transition-shadow active:scale-[0.98]'
       )}
     >
@@ -68,12 +68,12 @@ function AlertItem({ children, danger }: { children: React.ReactNode; danger?: b
       className={cn(
         'flex items-start gap-3 rounded-xl px-3 py-3 text-sm',
         danger
-          ? 'bg-destructive/8 text-destructive dark:bg-destructive/15'
-          : 'bg-warning/8 text-warning-foreground dark:bg-warning/15'
+          ? 'bg-destructive/10 text-destructive dark:bg-destructive/15'
+          : 'bg-amber-50 text-amber-900 dark:bg-warning/15 dark:text-warning-foreground'
       )}
     >
       <AlertCircle
-        className={cn('mt-0.5 h-4 w-4 shrink-0', danger ? 'text-destructive' : 'text-warning')}
+        className={cn('mt-0.5 h-4 w-4 shrink-0', danger ? 'text-destructive' : 'text-amber-600 dark:text-warning')}
       />
       <span className="leading-snug">{children}</span>
     </li>
@@ -356,6 +356,7 @@ export default function Dashboard() {
               bgClass={card.bgClass}
               isLoading={summaryLoading}
               accent={card.accent}
+              onClick={card.onClick}
             />
           ))}
         </div>

@@ -29,29 +29,45 @@ export function MobileHeader({
   const navigate = useNavigate();
   const location = useLocation();
   const config = navigationConfig[role];
-  const basePath = `/${role}`;
-  const isRootPage = location.pathname === basePath || location.pathname === `${basePath}/`;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, signOut } = useAuth();
 
+  const prefix = location.pathname.startsWith('/admin') ? '/admin' : '/dashboard';
+
   // Generate breadcrumbs
   const crumbs = generateBreadcrumbs(role, location.pathname);
-  
+
   // If title is provided, override the last crumb's label
   if (title && crumbs.length > 0) {
     crumbs[crumbs.length - 1].label = title;
   }
 
-  // For tenant with bottom nav, main pages don't show back button
-  const bottomNavPaths = config.bottomNav?.map((item) => item.path) || [];
-  const isMainPage = bottomNavPaths.includes(location.pathname);
-  const shouldShowBack = showBack ?? (config.hasBottomNav ? !isMainPage : !isRootPage);
+  // Dynamic bottom nav configuration matching MobileLayout.tsx
+  const mobileNavPaths = [
+    '/dashboard',
+    '/dashboard/properties',
+    '/dashboard/rooms',
+    '/dashboard/tenants',
+    '/dashboard/payments',
+    '/dashboard/confirmations',
+    '/dashboard/maintenance',
+    '/dashboard/profile',
+  ];
+
+  const mobileNavItems = config?.mainNav
+    ?.flatMap((g) => g.items)
+    ?.filter(item => mobileNavPaths.includes(item.path))
+    ?.slice(0, 5) || [];
+
+  const hasBottomNav = mobileNavItems.length > 1;
+  const isMainPage = mobileNavPaths.includes(location.pathname);
+  const shouldShowBack = showBack ?? (hasBottomNav ? !isMainPage : location.pathname !== '/dashboard');
 
   // Show hamburger menu for roles without bottom nav
-  const showHamburger = !config.hasBottomNav;
+  const showHamburger = !hasBottomNav;
 
   // Check if we're on the profile page
-  const isProfilePage = location.pathname === `/${role}/profile`;
+  const isProfilePage = location.pathname === `${prefix}/profile`;
 
   return (
     <>
@@ -89,8 +105,8 @@ export function MobileHeader({
                 {crumb.isCurrent ? (
                   <span className="text-sm font-medium whitespace-nowrap">{crumb.label}</span>
                 ) : (
-                  <Link 
-                    to={crumb.path} 
+                  <Link
+                    to={crumb.path}
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
                   >
                     {crumb.label}
@@ -115,10 +131,10 @@ export function MobileHeader({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48 rounded-xl">
-                <DropdownMenuItem onClick={() => navigate(`/${role}/profile`)}>
+                <DropdownMenuItem onClick={() => navigate(`${prefix}/profile`)}>
                   <User className="h-4 w-4 mr-2" /> Profil
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate(`/${role}/settings`)}>
+                <DropdownMenuItem onClick={() => navigate(`${prefix}/settings`)}>
                   <Settings className="h-4 w-4 mr-2" /> Pengaturan
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => signOut()} className="text-destructive focus:text-destructive">

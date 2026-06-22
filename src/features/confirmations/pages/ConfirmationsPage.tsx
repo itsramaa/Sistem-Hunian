@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import {
   useConfirmations,
   useCreateConfirmation,
@@ -217,18 +217,18 @@ export default function ConfirmationsPage() {
       </div>
 
       <div className="flex flex-wrap gap-3">
-        <Select value={propertyFilter} onValueChange={v => { setPropertyFilter(v); setPage(1); }}>
+        <Select value={propertyFilter || '_all'} onValueChange={v => { setPropertyFilter(v === '_all' ? '' : v); setPage(1); }}>
           <SelectTrigger className="w-[180px] rounded-xl h-10"><SelectValue placeholder="Semua properti" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value=" ">Semua properti</SelectItem>
+            <SelectItem value="_all">Semua properti</SelectItem>
             {properties.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nama}</SelectItem>)}
           </SelectContent>
         </Select>
 
-        <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); setPage(1); }}>
+        <Select value={statusFilter || '_all'} onValueChange={v => { setStatusFilter(v === '_all' ? '' : v); setPage(1); }}>
           <SelectTrigger className="w-[150px] rounded-xl h-10"><SelectValue placeholder="Semua status" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value=" ">Semua status</SelectItem>
+            <SelectItem value="_all">Semua status</SelectItem>
             <SelectItem value="pending">Menunggu</SelectItem>
             <SelectItem value="confirmed">Dikonfirmasi</SelectItem>
             <SelectItem value="expired">Expired</SelectItem>

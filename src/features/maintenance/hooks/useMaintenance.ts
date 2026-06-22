@@ -11,6 +11,14 @@ export function useMaintenances(page = 1, limit = 20, status?: string, property_
   });
 }
 
+export function useMaintenanceById(id?: string) {
+  return useQuery({
+    queryKey: [MAINTENANCE_KEY, 'detail', id],
+    queryFn: () => maintenanceService.getById(id!),
+    enabled: !!id,
+  });
+}
+
 export function useCreateMaintenance() {
   const qc = useQueryClient();
   return useMutation({

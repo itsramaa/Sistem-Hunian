@@ -2,7 +2,10 @@
 import { MobileHeader } from "@/shared/components/MobileHeader";
 import { MobileBottomNav } from "@/shared/components/MobileBottomNav";
 import { cn } from "@/shared/utils/utils";
-import { UserRole, navigationConfig } from "@/shared/components/sidebar/navigation-config";
+import {
+  UserRole,
+  navigationConfig,
+} from "@/shared/components/sidebar/navigation-config";
 import { Meta } from "@/shared/components/meta";
 
 interface MobileLayoutProps {
@@ -14,16 +17,13 @@ interface MobileLayoutProps {
   showBack?: boolean;
 }
 
-// Paths that appear in mobile bottom nav (prioritized for operators)
+// Paths that appear in mobile bottom nav — max 5, ordered by priority
 const MOBILE_NAV_PATHS = [
-  '/dashboard',
-  '/dashboard/properties',
-  '/dashboard/rooms',
-  '/dashboard/tenants',
-  '/dashboard/payments',
-  '/dashboard/confirmations',
-  '/dashboard/maintenance',
-  '/dashboard/profile',
+  "/dashboard",
+  "/dashboard/rooms",
+  "/dashboard/payments",
+  "/dashboard/confirmations",
+  "/dashboard/maintenance",
 ];
 
 export function MobileLayout({
@@ -36,10 +36,14 @@ export function MobileLayout({
 }: MobileLayoutProps) {
   const config = navigationConfig[role];
 
-  // Show up to 5 items from the configured nav that match mobile paths
+  // Show up to 5 items, sorted by MOBILE_NAV_PATHS priority order
   const mobileNavItems = config.mainNav
     .flatMap((g) => g.items)
-    .filter(item => MOBILE_NAV_PATHS.includes(item.path))
+    .filter((item) => MOBILE_NAV_PATHS.includes(item.path))
+    .sort(
+      (a, b) =>
+        MOBILE_NAV_PATHS.indexOf(a.path) - MOBILE_NAV_PATHS.indexOf(b.path),
+    )
     .slice(0, 5);
 
   const hasBottomNav = mobileNavItems.length > 1;
@@ -65,7 +69,7 @@ export function MobileLayout({
         id="mobile-main-content"
         className={cn(
           "flex-1 px-4 pt-4 overflow-auto",
-          hasBottomNav ? "pb-24" : "pb-6"
+          hasBottomNav ? "pb-24" : "pb-6",
         )}
       >
         {children}

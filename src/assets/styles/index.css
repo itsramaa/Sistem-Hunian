@@ -30,7 +30,7 @@
     
     /* Muted - Krem muda */
     --muted: 42 40% 93%;
-    --muted-foreground: 37 25% 45%;
+    --muted-foreground: 37 30% 35%;
     
     /* Accent - Kuning Keemasan #F4D03F */
     --accent: 48 89% 60%;
@@ -46,7 +46,7 @@
     
     /* Warning - Amber for warnings */
     --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    --warning-foreground: 35 32% 15%;
     
     /* Info - Blue for informational */
     --info: 217 91% 60%;

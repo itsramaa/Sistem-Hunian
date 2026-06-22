@@ -57,11 +57,11 @@ export default function TenantsPage() {
 
   const Pagination = () => totalPages > 1 ? (
     <div className="flex items-center justify-between text-sm text-muted-foreground pt-2">
-      <span>{(page-1)*limit+1}–{Math.min(page*limit, total)} dari {total}</span>
+      <span>{(page - 1) * limit + 1}–{Math.min(page * limit, total)} dari {total}</span>
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full" disabled={page<=1} onClick={() => setPage(p=>p-1)}><ChevronLeft className="h-4 w-4" /></Button>
+        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full" disabled={page <= 1} onClick={() => setPage(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
         <span className="text-xs">{page}/{totalPages}</span>
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full" disabled={page>=totalPages} onClick={() => setPage(p=>p+1)}><ChevronRight className="h-4 w-4" /></Button>
+        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
       </div>
     </div>
   ) : null;

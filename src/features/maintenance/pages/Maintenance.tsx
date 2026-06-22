@@ -1,22 +1,23 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import {
   useMaintenances,
   useCreateMaintenance,
   useUpdateMaintenance,
-} from '../hooks/useMaintenance';
+} from "../hooks/useMaintenance";
 
-import { useProperties } from '@/features/properties/hooks/useProperties';
+import { useProperties } from "@/features/properties/hooks/useProperties";
 
-import { useRooms } from '@/features/rooms/hooks/useRooms';
+import { useRooms } from "@/features/rooms/hooks/useRooms";
 
 import {
   Maintenance,
   CreateMaintenancePayload,
   UpdateMaintenancePayload,
-} from '../types';
+} from "../types";
 
-import { Button } from '@/shared/components/ui/button';
+import { Button } from "@/shared/components/ui/button";
 
 import {
   Select,
@@ -24,7 +25,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/shared/components/ui/select';
+} from "@/shared/components/ui/select";
 
 import {
   Table,
@@ -33,7 +34,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/shared/components/ui/table';
+} from "@/shared/components/ui/table";
 
 import {
   Dialog,
@@ -41,13 +42,13 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@/shared/components/ui/dialog';
+} from "@/shared/components/ui/dialog";
 
-import { Input } from '@/shared/components/ui/input';
+import { Input } from "@/shared/components/ui/input";
 
-import { Label } from '@/shared/components/ui/label';
+import { Label } from "@/shared/components/ui/label";
 
-import { Textarea } from '@/shared/components/ui/textarea';
+import { Textarea } from "@/shared/components/ui/textarea";
 
 import {
   Plus,
@@ -56,55 +57,55 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
-} from 'lucide-react';
+} from "lucide-react";
 
-import { useToast } from '@/shared/hooks/use-toast';
+import { useToast } from "@/shared/hooks/use-toast";
 
-import { useForm } from 'react-hook-form';
+import { useForm } from "react-hook-form";
 
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from "@hookform/resolvers/zod";
 
-import { z } from 'zod';
+import { z } from "zod";
 
-import { format } from 'date-fns';
+import { format } from "date-fns";
 
-import { id as localeId } from 'date-fns/locale';
+import { id as localeId } from "date-fns/locale";
 
-import { DataCard } from '@/shared/components/DataCard';
+import { DataCard } from "@/shared/components/DataCard";
 
-import { useIsMobile } from '@/shared/hooks/useBreakpoint';
+import { useIsMobile } from "@/shared/hooks/useBreakpoint";
 
-import { EmptyState } from '@/shared/components/ui/EmptyState';
+import { EmptyState } from "@/shared/components/ui/EmptyState";
 
 const statusColors: Record<string, { label: string; className: string }> = {
   reported: {
-    label: 'Dilaporkan',
+    label: "Dilaporkan",
 
     className:
-      'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+      "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
   },
 
   in_progress: {
-    label: 'Diproses',
+    label: "Diproses",
 
     className:
-      'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+      "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   },
 
   completed: {
-    label: 'Selesai',
+    label: "Selesai",
 
     className:
-      'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
   },
 };
 
 const createSchema = z.object({
-  room_id: z.string().min(1, 'Pilih kamar'),
+  room_id: z.string().min(1, "Pilih kamar"),
 
   tanggal_laporan: z.string().min(1),
 
-  deskripsi_kerusakan: z.string().min(5, 'Deskripsi minimal 5 karakter'),
+  deskripsi_kerusakan: z.string().min(5, "Deskripsi minimal 5 karakter"),
 });
 
 const updateSchema = z.object({
@@ -112,7 +113,7 @@ const updateSchema = z.object({
 
   biaya: z.coerce.number().min(0).optional(),
 
-  status: z.enum(['reported', 'in_progress', 'completed']),
+  status: z.enum(["reported", "in_progress", "completed"]),
 });
 
 type CreateForm = z.infer<typeof createSchema>;
@@ -121,10 +122,11 @@ type UpdateForm = z.infer<typeof updateSchema>;
 
 export default function MaintenancePage() {
   const [page, setPage] = useState(1);
+  const navigate = useNavigate();
 
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState("");
 
-  const [propertyFilter, setPropertyFilter] = useState('');
+  const [propertyFilter, setPropertyFilter] = useState("");
 
   const [createOpen, setCreateOpen] = useState(false);
 
@@ -143,12 +145,12 @@ export default function MaintenancePage() {
 
     statusFilter || undefined,
 
-    propertyFilter || undefined
+    propertyFilter || undefined,
   );
 
-  const { data: propsData } = useProperties('', 1, 100);
+  const { data: propsData } = useProperties("", 1, 100);
 
-  const { data: roomsData } = useRooms('', 1, 200, propertyFilter || undefined);
+  const { data: roomsData } = useRooms("", 1, 200, propertyFilter || undefined);
 
   const createMutation = useCreateMaintenance();
 
@@ -164,24 +166,24 @@ export default function MaintenancePage() {
 
   const rooms = roomsData?.rooms ?? [];
 
-  const getToday = () => format(new Date(), 'yyyy-MM-dd');
+  const getToday = () => format(new Date(), "yyyy-MM-dd");
 
   const createForm = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
 
     defaultValues: {
-      room_id: '',
+      room_id: "",
 
       tanggal_laporan: getToday(),
 
-      deskripsi_kerusakan: '',
+      deskripsi_kerusakan: "",
     },
   });
 
   const updateForm = useForm<UpdateForm>({
     resolver: zodResolver(updateSchema),
 
-    defaultValues: { tindakan_penanganan: '', biaya: 0, status: 'reported' },
+    defaultValues: { tindakan_penanganan: "", biaya: 0, status: "reported" },
   });
 
   const handleCreate = async (payload: CreateForm) => {
@@ -192,9 +194,9 @@ export default function MaintenancePage() {
 
       createForm.reset({ tanggal_laporan: getToday() });
 
-      toast({ title: 'Laporan maintenance berhasil dicatat' });
+      toast({ title: "Laporan maintenance berhasil dicatat" });
     } catch {
-      toast({ variant: 'destructive', title: 'Gagal mencatat maintenance' });
+      toast({ variant: "destructive", title: "Gagal mencatat maintenance" });
     }
   };
 
@@ -210,9 +212,9 @@ export default function MaintenancePage() {
 
       setUpdateTarget(null);
 
-      toast({ title: 'Progress maintenance berhasil diupdate' });
+      toast({ title: "Progress maintenance berhasil diupdate" });
     } catch {
-      toast({ variant: 'destructive', title: 'Gagal update maintenance' });
+      toast({ variant: "destructive", title: "Gagal update maintenance" });
     }
   };
 
@@ -220,7 +222,7 @@ export default function MaintenancePage() {
     setUpdateTarget(m);
 
     updateForm.reset({
-      tindakan_penanganan: m.tindakan_penanganan || '',
+      tindakan_penanganan: m.tindakan_penanganan || "",
 
       biaya: m.biaya || 0,
 
@@ -230,7 +232,7 @@ export default function MaintenancePage() {
 
   const fmt = (d: string) => {
     try {
-      return format(new Date(d), 'dd MMM yyyy', { locale: localeId });
+      return format(new Date(d), "dd MMM yyyy", { locale: localeId });
     } catch {
       return d;
     }
@@ -292,10 +294,9 @@ export default function MaintenancePage() {
 
       <div className="flex flex-wrap gap-3 overflow-x-auto pb-1">
         <Select
-          value={propertyFilter}
+          value={propertyFilter || "_all"}
           onValueChange={(v) => {
-            setPropertyFilter(v);
-
+            setPropertyFilter(v === "_all" ? "" : v);
             setPage(1);
           }}
         >
@@ -304,7 +305,7 @@ export default function MaintenancePage() {
           </SelectTrigger>
 
           <SelectContent>
-            <SelectItem value=" ">Semua properti</SelectItem>
+            <SelectItem value="_all">Semua properti</SelectItem>
 
             {properties.map((p: any) => (
               <SelectItem key={p.id} value={p.id}>
@@ -315,10 +316,9 @@ export default function MaintenancePage() {
         </Select>
 
         <Select
-          value={statusFilter}
+          value={statusFilter || "_all"}
           onValueChange={(v) => {
-            setStatusFilter(v);
-
+            setStatusFilter(v === "_all" ? "" : v);
             setPage(1);
           }}
         >
@@ -327,7 +327,7 @@ export default function MaintenancePage() {
           </SelectTrigger>
 
           <SelectContent>
-            <SelectItem value=" ">Semua status</SelectItem>
+            <SelectItem value="_all">Semua status</SelectItem>
 
             <SelectItem value="reported">Dilaporkan</SelectItem>
 
@@ -350,7 +350,7 @@ export default function MaintenancePage() {
           title="Belum ada laporan maintenance"
           description="Buat laporan kerusakan kamar baru."
           action={{
-            label: 'Buat Laporan',
+            label: "Buat Laporan",
 
             onClick: () => setCreateOpen(true),
 
@@ -365,17 +365,18 @@ export default function MaintenancePage() {
             const sc = statusColors[m.status] || {
               label: m.status,
 
-              className: '',
+              className: "",
             };
 
             return (
               <DataCard
                 key={m.id}
+                onClick={() => navigate(`/dashboard/maintenance/${m.id}`)}
                 header={
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-semibold text-sm">
-                        {m.nomor_kamar || '—'} · {m.nama_properti || '—'}
+                        {m.nomor_kamar || "—"} · {m.nama_properti || "—"}
                       </p>
 
                       <p className="text-xs text-muted-foreground truncate max-w-[200px]">
@@ -391,18 +392,18 @@ export default function MaintenancePage() {
                   </div>
                 }
                 fields={[
-                  { label: 'Tgl Laporan', value: fmt(m.tanggal_laporan) },
+                  { label: "Tgl Laporan", value: fmt(m.tanggal_laporan) },
 
                   {
-                    label: 'Biaya',
+                    label: "Biaya",
 
                     value: m.biaya
-                      ? `Rp${m.biaya.toLocaleString('id-ID')}`
+                      ? `Rp${m.biaya.toLocaleString("id-ID")}`
                       : undefined,
                   },
                 ]}
                 actions={
-                  m.status !== 'completed' ? (
+                  m.status !== "completed" ? (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -462,20 +463,21 @@ export default function MaintenancePage() {
                   const sc = statusColors[m.status] || {
                     label: m.status,
 
-                    className: '',
+                    className: "",
                   };
 
                   return (
                     <TableRow
                       key={m.id}
-                      className="hover:bg-primary/5 transition-colors"
+                      className="hover:bg-primary/5 transition-colors cursor-pointer"
+                      onClick={() => navigate(`/dashboard/maintenance/${m.id}`)}
                     >
                       <TableCell className="text-sm font-medium">
-                        {m.nomor_kamar || '—'}
+                        {m.nomor_kamar || "—"}
                       </TableCell>
 
                       <TableCell className="text-sm text-muted-foreground">
-                        {m.nama_properti || '—'}
+                        {m.nama_properti || "—"}
                       </TableCell>
 
                       <TableCell className="text-sm max-w-[200px] truncate">
@@ -487,7 +489,7 @@ export default function MaintenancePage() {
                       </TableCell>
 
                       <TableCell className="text-sm tabular-nums text-right">
-                        {m.biaya ? `Rp${m.biaya.toLocaleString('id-ID')}` : '—'}
+                        {m.biaya ? `Rp${m.biaya.toLocaleString("id-ID")}` : "—"}
                       </TableCell>
 
                       <TableCell>
@@ -499,7 +501,7 @@ export default function MaintenancePage() {
                       </TableCell>
 
                       <TableCell className="text-right">
-                        {m.status !== 'completed' && (
+                        {m.status !== "completed" && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -548,7 +550,7 @@ export default function MaintenancePage() {
             <div className="space-y-2">
               <Label>Kamar</Label>
 
-              <Select onValueChange={(v) => createForm.setValue('room_id', v)}>
+              <Select onValueChange={(v) => createForm.setValue("room_id", v)}>
                 <SelectTrigger className="rounded-xl h-12">
                   <SelectValue placeholder="Pilih kamar" />
                 </SelectTrigger>
@@ -572,7 +574,7 @@ export default function MaintenancePage() {
             <div className="space-y-2">
               <Label>Tanggal Laporan</Label>
 
-              <Input type="date" {...createForm.register('tanggal_laporan')} />
+              <Input type="date" {...createForm.register("tanggal_laporan")} />
             </div>
 
             <div className="space-y-2">
@@ -581,7 +583,7 @@ export default function MaintenancePage() {
               <Textarea
                 placeholder="Kebocoran atap lantai 2..."
                 rows={3}
-                {...createForm.register('deskripsi_kerusakan')}
+                {...createForm.register("deskripsi_kerusakan")}
               />
 
               {createForm.formState.errors.deskripsi_kerusakan && (
@@ -607,7 +609,7 @@ export default function MaintenancePage() {
               >
                 {createMutation.isPending && (
                   <Loader2 className="h-4 w-4 animate-spin" />
-                )}{' '}
+                )}{" "}
                 Buat Laporan
               </Button>
             </DialogFooter>
@@ -632,7 +634,7 @@ export default function MaintenancePage() {
                 <DialogTitle>Update Progress</DialogTitle>
 
                 <p className="text-sm text-muted-foreground">
-                  {updateTarget?.nomor_kamar} —{' '}
+                  {updateTarget?.nomor_kamar} —{" "}
                   {updateTarget?.deskripsi_kerusakan?.slice(0, 40)}
                 </p>
               </div>
@@ -647,8 +649,8 @@ export default function MaintenancePage() {
               <Label>Status</Label>
 
               <Select
-                value={updateForm.watch('status')}
-                onValueChange={(v) => updateForm.setValue('status', v as any)}
+                value={updateForm.watch("status")}
+                onValueChange={(v) => updateForm.setValue("status", v as any)}
               >
                 <SelectTrigger className="rounded-xl h-12">
                   <SelectValue />
@@ -670,7 +672,7 @@ export default function MaintenancePage() {
               <Textarea
                 placeholder="Tambal dengan sealant waterproof..."
                 rows={2}
-                {...updateForm.register('tindakan_penanganan')}
+                {...updateForm.register("tindakan_penanganan")}
               />
             </div>
 
@@ -681,7 +683,7 @@ export default function MaintenancePage() {
                 type="number"
                 min={0}
                 placeholder="250000"
-                {...updateForm.register('biaya')}
+                {...updateForm.register("biaya")}
               />
             </div>
 
@@ -701,7 +703,7 @@ export default function MaintenancePage() {
               >
                 {updateMutation.isPending && (
                   <Loader2 className="h-4 w-4 animate-spin" />
-                )}{' '}
+                )}{" "}
                 Simpan
               </Button>
             </DialogFooter>

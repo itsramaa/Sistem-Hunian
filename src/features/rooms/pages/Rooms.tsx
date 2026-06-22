@@ -8,7 +8,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
-import { Plus, Loader2, Search, BedDouble, ChevronLeft, ChevronRight, Edit, Trash2, MoreHorizontal, AlertTriangle, History } from 'lucide-react';
+import { Plus, Loader2, Search, BedDouble, ChevronLeft, ChevronRight, Edit, Trash2, MoreHorizontal, AlertTriangle, History, Eye } from 'lucide-react';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useToast } from '@/shared/hooks/use-toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
@@ -70,25 +70,39 @@ export default function RoomsPage() {
   const RoomActions = ({ room }: { room: Room }) => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-9 w-9 min-h-[44px] min-w-[44px]"><MoreHorizontal className="h-4 w-4" /></Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 min-h-[44px] min-w-[44px]"
+          onClick={e => e.stopPropagation()}
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="rounded-xl">
-        <DropdownMenuItem onClick={() => navigate(`/dashboard/payments?room_id=${room.id}`)}>
-          <History className="h-4 w-4 mr-2" /> Lihat Histori Pembayaran
+        <DropdownMenuItem onClick={() => navigate(`/dashboard/rooms/${room.id}`)}>
+          <Eye className="h-4 w-4 mr-2" /> Lihat Detail
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => { setEditing(room); setFormOpen(true); }}><Edit className="h-4 w-4 mr-2" /> Ubah</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setDeleteTarget(room)} className="text-destructive focus:text-destructive"><Trash2 className="h-4 w-4 mr-2" /> Hapus</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate(`/dashboard/payments?room_id=${room.id}`)}>
+          <History className="h-4 w-4 mr-2" /> Histori Pembayaran
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={e => { e.stopPropagation(); setEditing(room); setFormOpen(true); }}>
+          <Edit className="h-4 w-4 mr-2" /> Ubah
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={e => { e.stopPropagation(); setDeleteTarget(room); }} className="text-destructive focus:text-destructive">
+          <Trash2 className="h-4 w-4 mr-2" /> Hapus
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
 
   const Pagination = () => totalPages > 1 ? (
     <div className="flex items-center justify-between text-sm text-muted-foreground">
-      <span>{(page-1)*limit+1}–{Math.min(page*limit, total)} dari {total}</span>
+      <span>{(page - 1) * limit + 1}–{Math.min(page * limit, total)} dari {total}</span>
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full" disabled={page<=1} onClick={() => setPage(p=>p-1)}><ChevronLeft className="h-4 w-4" /></Button>
+        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full" disabled={page <= 1} onClick={() => setPage(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
         <span className="text-xs tabular-nums">{page}/{totalPages}</span>
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full" disabled={page>=totalPages} onClick={() => setPage(p=>p+1)}><ChevronRight className="h-4 w-4" /></Button>
+        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
       </div>
     </div>
   ) : null;
@@ -105,28 +119,35 @@ export default function RoomsPage() {
         </Button>
       </div>
 
-      {/* Filters — scrollable on mobile */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-        <div className="relative shrink-0">
+      {/* Filters */}
+      <div className="glass-filter-bar space-y-2.5">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-          <Input placeholder="Cari nomor kamar..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="pl-9 rounded-xl h-10 w-full sm:w-[180px]" />
+          <Input
+            placeholder="Cari nomor kamar..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            className="pl-9 rounded-xl h-11 w-full"
+          />
         </div>
-        <Select value={propertyFilter} onValueChange={v => { setPropertyFilter(v); setPage(1); setSearchParams(v && v.trim() ? { property_id: v } : {}); }}>
-          <SelectTrigger className="w-full sm:w-[160px] rounded-xl h-10"><SelectValue placeholder="Semua properti" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value=" ">Semua properti</SelectItem>
-            {properties.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nama}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); setPage(1); }}>
-          <SelectTrigger className="w-full sm:w-[140px] rounded-xl h-10"><SelectValue placeholder="Semua status" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value=" ">Semua status</SelectItem>
-            <SelectItem value="available">Tersedia</SelectItem>
-            <SelectItem value="dp_confirmation">Konfirmasi DP</SelectItem>
-            <SelectItem value="occupied">Terisi</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="grid grid-cols-2 gap-2">
+          <Select value={propertyFilter} onValueChange={v => { setPropertyFilter(v); setPage(1); setSearchParams(v && v.trim() ? { property_id: v } : {}); }}>
+            <SelectTrigger className="rounded-xl h-10 w-full"><SelectValue placeholder="Semua properti" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value=" ">Semua properti</SelectItem>
+              {properties.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nama}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); setPage(1); }}>
+            <SelectTrigger className="rounded-xl h-10 w-full"><SelectValue placeholder="Semua status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value=" ">Semua status</SelectItem>
+              <SelectItem value="available">Tersedia</SelectItem>
+              <SelectItem value="dp_confirmation">Konfirmasi DP</SelectItem>
+              <SelectItem value="occupied">Terisi</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {isLoading ? (
@@ -136,12 +157,13 @@ export default function RoomsPage() {
       ) : rooms.length === 0 ? (
         <EmptyState icon={BedDouble} title="Belum ada kamar" description="Tambah kamar untuk properti Anda." action={{ label: 'Tambah Kamar', onClick: () => { setEditing(null); setFormOpen(true); }, icon: Plus }} />
       ) : isMobile ? (
-        /* Mobile: Card view */
         <div className="space-y-3">
           {rooms.map((room: Room) => {
             const sc = statusColors[room.status] || { label: room.status, className: '' };
             return (
-              <DataCard key={room.id}
+              <DataCard
+                key={room.id}
+                onClick={() => navigate(`/dashboard/rooms/${room.id}`)}
                 header={
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -166,7 +188,6 @@ export default function RoomsPage() {
           <Pagination />
         </div>
       ) : (
-        /* Desktop: Table view */
         <>
           <div className="glass-table overflow-x-auto">
             <Table>
@@ -185,7 +206,11 @@ export default function RoomsPage() {
                 {rooms.map((room: Room) => {
                   const sc = statusColors[room.status] || { label: room.status, className: '' };
                   return (
-                    <TableRow key={room.id} className="group hover:bg-primary/5 transition-colors">
+                    <TableRow
+                      key={room.id}
+                      className="group hover:bg-primary/5 transition-colors cursor-pointer"
+                      onClick={() => navigate(`/dashboard/rooms/${room.id}`)}
+                    >
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0"><BedDouble className="h-4 w-4 text-primary" /></div>

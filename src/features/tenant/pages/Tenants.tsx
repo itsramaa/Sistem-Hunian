@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTenants, useActiveTenants, useTenantHistory, useCreateTenant, useCheckoutTenant } from '../hooks/useTenants';
 import { useProperties } from '@/features/properties/hooks/useProperties';
 import { TenantForm } from '../components/TenantForm';
@@ -9,7 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
 import { Badge } from '@/shared/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
-import { Plus, Loader2, Users, LogOut, ChevronLeft, ChevronRight, History } from 'lucide-react';
+import { Plus, Loader2, Users, LogOut, ChevronLeft, ChevronRight, History, Search } from 'lucide-react';
+import { Input } from '@/shared/components/ui/input';
+import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useToast } from '@/shared/hooks/use-toast';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
@@ -18,6 +21,8 @@ import { useIsMobile } from '@/shared/hooks/useBreakpoint';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 
 export default function TenantsPage() {
+  const navigate = useNavigate();
+  const [search, setSearch] = useState('');
   const [tab, setTab] = useState('active');
   const [page, setPage] = useState(1);
   const [propertyFilter, setPropertyFilter] = useState('');
@@ -26,6 +31,7 @@ export default function TenantsPage() {
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const debouncedSearch = useDebounce(search, 300);
 
   const limit = 20;
   const { data: activeData, isLoading: activeLoading } = useActiveTenants(page, limit, propertyFilter || undefined);
@@ -38,7 +44,13 @@ export default function TenantsPage() {
   const isActive = tab === 'active';
   const rawData = isActive ? activeData : historyData;
   const isLoading = isActive ? activeLoading : historyLoading;
-  const tenants: Tenant[] = rawData?.tenants ?? [];
+  const allTenants: Tenant[] = rawData?.tenants ?? [];
+  const tenants = debouncedSearch
+    ? allTenants.filter(t =>
+        t.nama.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        t.nomor_kamar?.toLowerCase().includes(debouncedSearch.toLowerCase())
+      )
+    : allTenants;
   const total = rawData?.pagination?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const properties = propsData?.properties ?? [];
@@ -78,13 +90,25 @@ export default function TenantsPage() {
         </Button>
       </div>
 
-      <Select value={propertyFilter} onValueChange={v => { setPropertyFilter(v); setPage(1); }}>
-        <SelectTrigger className="w-[200px] rounded-xl h-10"><SelectValue placeholder="Semua properti" /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value=" ">Semua properti</SelectItem>
-          {properties.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nama}</SelectItem>)}
-        </SelectContent>
-      </Select>
+      {/* Filters */}
+      <div className="glass-filter-bar space-y-2.5">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Cari nama atau kamar..."
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(1); }}
+            className="pl-9 rounded-xl h-11 w-full"
+          />
+        </div>
+        <Select value={propertyFilter} onValueChange={v => { setPropertyFilter(v); setPage(1); }}>
+          <SelectTrigger className="rounded-xl h-10 w-full"><SelectValue placeholder="Semua properti" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value=" ">Semua properti</SelectItem>
+            {properties.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nama}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
 
       <Tabs value={tab} onValueChange={v => { setTab(v); setPage(1); }}>
         <TabsList className="rounded-xl">
@@ -108,23 +132,27 @@ export default function TenantsPage() {
             <div className="space-y-3">
               {tenants.map(t => (
                 <DataCard key={t.id}
+                  onClick={() => navigate(`/dashboard/tenants/${t.id}`)}
                   header={
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-semibold text-sm">{t.nama}</p>
-                        <p className="text-xs text-muted-foreground">{t.nomor_kamar} · {t.nama_properti}</p>
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                        <Users className="h-4 w-4 text-primary" />
                       </div>
-                      {isActive && (
-                        <Button variant="outline" size="sm" className="h-9 gap-1.5 text-xs rounded-lg min-h-[44px]" onClick={() => { setSelectedTenant(t); setCheckoutOpen(true); }}>
-                          <LogOut className="h-3.5 w-3.5" /> Checkout
-                        </Button>
-                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-sm truncate">{t.nama}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          Kamar {t.nomor_kamar} · {t.nama_properti}
+                        </p>
+                      </div>
+                      <Badge
+                        variant={t.status === 'active' ? 'default' : 'secondary'}
+                        className="rounded-full shrink-0 text-xs"
+                      >
+                        {t.status === 'active' ? 'Aktif' : 'Checkout'}
+                      </Badge>
                     </div>
                   }
                   fields={[
-                    { label: 'Tanggal Masuk', value: fmt(t.tanggal_masuk) },
-                    { label: 'Durasi', value: `${t.durasi_sewa} bln` },
-                    { label: 'Status', value: <Badge variant={t.status === 'active' ? 'default' : 'secondary'} className="rounded-full">{t.status === 'active' ? 'Aktif' : 'Checkout'}</Badge> },
                     ...(!isActive && t.tanggal_keluar ? [{ label: 'Tanggal Keluar', value: fmt(t.tanggal_keluar) }] : []),
                   ]}
                 />
@@ -149,7 +177,11 @@ export default function TenantsPage() {
                   </TableHeader>
                   <TableBody>
                     {tenants.map(t => (
-                      <TableRow key={t.id} className="group hover:bg-primary/5 transition-colors">
+                      <TableRow
+                        key={t.id}
+                        className="group hover:bg-primary/5 transition-colors cursor-pointer"
+                        onClick={() => navigate(`/dashboard/tenants/${t.id}`)}
+                      >
                         <TableCell className="text-sm font-medium">{t.nama}</TableCell>
                         <TableCell className="text-sm">{t.nomor_kamar}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{t.nama_properti}</TableCell>
@@ -163,7 +195,12 @@ export default function TenantsPage() {
                         </TableCell>
                         {isActive && (
                           <TableCell className="text-right">
-                            <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs rounded-lg" onClick={() => { setSelectedTenant(t); setCheckoutOpen(true); }}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 gap-1.5 text-xs rounded-lg"
+                              onClick={e => { e.stopPropagation(); setSelectedTenant(t); setCheckoutOpen(true); }}
+                            >
                               <LogOut className="h-3.5 w-3.5" /> Checkout
                             </Button>
                           </TableCell>

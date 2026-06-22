@@ -1,14 +1,14 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useProperties, useCreateProperty, useUpdateProperty, useDeleteProperty } from '../hooks/useProperties';
 import { PropertyForm } from '../components/PropertyForm';
 import { Property } from '../types';
 import { Button } from '@/shared/components/ui/button';
-import { Plus, Loader2, Building2, Edit, Trash2, AlertTriangle, Search } from 'lucide-react';
+import { Plus, Loader2, Building2, Edit, Trash2, AlertTriangle, Search, Eye } from 'lucide-react';
 import { Input } from '@/shared/components/ui/input';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useToast } from '@/shared/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/dialog';
-import { Badge } from '@/shared/components/ui/badge';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { DataCard } from '@/shared/components/DataCard';
 import { useIsMobile } from '@/shared/hooks/useBreakpoint';
@@ -17,6 +17,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { MoreHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function PropertiesPage() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
@@ -105,6 +106,7 @@ export default function PropertiesPage() {
           {properties.map((p: Property) => (
             <DataCard
               key={p.id}
+              onClick={() => navigate(`/dashboard/properties/${p.id}`)}
               header={
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -118,11 +120,25 @@ export default function PropertiesPage() {
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-9 w-9 min-h-[44px] min-w-[44px]"><MoreHorizontal className="h-4 w-4" /></Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 min-h-[44px] min-w-[44px]"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="rounded-xl">
-                      <DropdownMenuItem onClick={() => { setEditing(p); setFormOpen(true); }}><Edit className="h-4 w-4 mr-2" /> Ubah</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setDeleteTarget(p)} className="text-destructive"><Trash2 className="h-4 w-4 mr-2" /> Hapus</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate(`/dashboard/properties/${p.id}`)}>
+                        <Eye className="h-4 w-4 mr-2" /> Lihat Detail
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={e => { e.stopPropagation(); setEditing(p); setFormOpen(true); }}>
+                        <Edit className="h-4 w-4 mr-2" /> Ubah
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={e => { e.stopPropagation(); setDeleteTarget(p); }} className="text-destructive">
+                        <Trash2 className="h-4 w-4 mr-2" /> Hapus
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -150,7 +166,11 @@ export default function PropertiesPage() {
               </TableHeader>
               <TableBody>
                 {properties.map((p: Property) => (
-                  <TableRow key={p.id} className="group hover:bg-primary/5 transition-colors">
+                  <TableRow
+                    key={p.id}
+                    className="group hover:bg-primary/5 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/dashboard/properties/${p.id}`)}
+                  >
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
@@ -167,13 +187,26 @@ export default function PropertiesPage() {
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Menu ${p.nama}`}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            aria-label={`Menu ${p.nama}`}
+                            onClick={e => e.stopPropagation()}
+                          >
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="rounded-xl">
-                          <DropdownMenuItem onClick={() => { setEditing(p); setFormOpen(true); }}><Edit className="h-4 w-4 mr-2" /> Ubah</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setDeleteTarget(p)} className="text-destructive"><Trash2 className="h-4 w-4 mr-2" /> Hapus</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate(`/dashboard/properties/${p.id}`)}>
+                            <Eye className="h-4 w-4 mr-2" /> Lihat Detail
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={e => { e.stopPropagation(); setEditing(p); setFormOpen(true); }}>
+                            <Edit className="h-4 w-4 mr-2" /> Ubah
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={e => { e.stopPropagation(); setDeleteTarget(p); }} className="text-destructive">
+                            <Trash2 className="h-4 w-4 mr-2" /> Hapus
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

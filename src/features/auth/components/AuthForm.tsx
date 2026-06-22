@@ -1,4 +1,4 @@
-﻿import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { getAuthErrorMessage } from '@/features/auth/utils/auth-errors';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
@@ -179,7 +179,7 @@ export function AuthForm() {
         <FloatingOrbs />
 
         {/* ── Top bar: hidden on desktop (brand panel has logo) ─────────────── */}
-        <header className="relative z-10 flex items-center justify-between px-5 pt-10 pb-2 lg:hidden">
+        <header className="relative z-10 flex items-center justify-between px-5 pb-2 lg:hidden" style={{ paddingTop: 'max(2.5rem, env(safe-area-inset-top, 2.5rem))' }}>
           {/* Mobile: centered logo — use absolute */}
           <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center sm:hidden">
             <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
