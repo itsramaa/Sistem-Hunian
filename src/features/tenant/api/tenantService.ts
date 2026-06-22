@@ -12,8 +12,18 @@ export const tenantService = {
     return { tenants: data?.data ?? [], pagination: data?.pagination ?? null };
   },
 
+  async getById(id: string): Promise<Tenant> {
+    const { data } = await apiClient.get<any>(`/tenants/${id}`);
+    return data as Tenant;
+  },
+
   async create(payload: CreateTenantPayload): Promise<Tenant> {
     const { data } = await apiClient.post<Tenant>('/tenants', payload);
+    return data as Tenant;
+  },
+
+  async update(id: string, payload: Partial<CreateTenantPayload>): Promise<Tenant> {
+    const { data } = await apiClient.put<Tenant>(`/tenants/${id}`, payload);
     return data as Tenant;
   },
 

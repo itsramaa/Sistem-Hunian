@@ -8,7 +8,7 @@ import { AxiosError } from "axios";
 
 interface BackendError {
   message?: string;
-  error?: string;
+  error?: string | { code?: string; message?: string };
   code?: string;
 }
 
@@ -123,14 +123,21 @@ export function getApiErrorMessage(error: unknown): string {
     const status = error.response.status;
     const body = error.response.data as BackendError | undefined;
 
+    // Backend envelope: { success, error: { code, message } } atau { code, message }
+    const nestedError = typeof body?.error === "object" ? body.error : null;
+    const code = nestedError?.code ?? body?.code;
+    const backendMsg =
+      nestedError?.message ??
+      body?.message ??
+      (typeof body?.error === "string" ? body.error : "") ??
+      "";
+
     // Check backend error code first
-    const code = body?.code;
     if (code && BACKEND_ERROR_CODES[code]) {
       return BACKEND_ERROR_CODES[code];
     }
 
     // Check backend message for keyword matches
-    const backendMsg = body?.message || body?.error || "";
     if (backendMsg) {
       for (const [keyword, msg] of MESSAGE_KEYWORD_MAP) {
         if (backendMsg.toLowerCase().includes(keyword)) {

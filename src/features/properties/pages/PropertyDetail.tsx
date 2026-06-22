@@ -1,10 +1,21 @@
-import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '@/shared/lib/axios';
-import { Button } from '@/shared/components/ui/button';
-import { Badge } from '@/shared/components/ui/badge';
-import { ArrowLeft, Building2, BedDouble, Users, MapPin, Loader2, Home } from 'lucide-react';
-import { cn } from '@/shared/utils/utils';
+import { Button } from "@/shared/components/ui/button";
+import { useToast } from "@/shared/hooks/use-toast";
+import { apiClient } from "@/shared/lib/axios";
+import { getApiErrorMessage } from "@/shared/utils/api-errors";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  ArrowLeft,
+  BedDouble,
+  Building2,
+  Home,
+  Loader2,
+  MapPin,
+  Users,
+} from "lucide-react";
+import { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { PropertyForm } from "../components/PropertyForm";
+import { useDeleteProperty, useUpdateProperty } from "../hooks/useProperties";
 
 interface PropertyDetail {
   id: string;
@@ -23,9 +34,52 @@ interface PropertyDetail {
 export default function PropertyDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const { data: property, isLoading, error } = useQuery<PropertyDetail>({
-    queryKey: ['property', id],
+  const updateMutation = useUpdateProperty();
+  const deleteMutation = useDeleteProperty();
+
+  const handleUpdate = async (payload: any) => {
+    if (!id) return;
+    try {
+      await updateMutation.mutateAsync({ id, payload });
+      qc.invalidateQueries({ queryKey: ["property", id] });
+      setEditOpen(false);
+      toast({ title: "Properti berhasil diperbarui" });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Gagal memperbarui properti",
+        description: getApiErrorMessage(err),
+      });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!id) return;
+    try {
+      await deleteMutation.mutateAsync(id);
+      toast({ title: "Properti berhasil dihapus" });
+      navigate("/dashboard/properties");
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Gagal menghapus properti",
+        description: getApiErrorMessage(err),
+      });
+      setDeleteOpen(false);
+    }
+  };
+
+  const {
+    data: property,
+    isLoading,
+    error,
+  } = useQuery<PropertyDetail>({
+    queryKey: ["property", id],
     queryFn: async () => {
       const { data } = await apiClient.get(`/properties/${id}`);
       return data;
@@ -47,21 +101,28 @@ export default function PropertyDetail() {
       <div className="flex flex-col items-center justify-center py-16 gap-4">
         <Building2 className="h-12 w-12 text-muted-foreground opacity-30" />
         <div className="text-center">
-          <h3 className="text-lg font-semibold text-foreground">Properti tidak ditemukan</h3>
+          <h3 className="text-lg font-semibold text-foreground">
+            Properti tidak ditemukan
+          </h3>
           <p className="text-sm text-muted-foreground mt-1">
             Properti yang Anda cari tidak tersedia atau telah dihapus.
           </p>
         </div>
-        <Button onClick={() => navigate('/dashboard/properties')} variant="outline" className="gap-2">
+        <Button
+          onClick={() => navigate("/dashboard/properties")}
+          variant="outline"
+          className="gap-2"
+        >
           <ArrowLeft className="h-4 w-4" /> Kembali ke Daftar Properti
         </Button>
       </div>
     );
   }
 
-  const occupancyRate = property.total_kamar > 0
-    ? Math.round((property.kamar_occupied / property.total_kamar) * 100)
-    : 0;
+  const occupancyRate =
+    property.total_kamar > 0
+      ? Math.round((property.kamar_occupied / property.total_kamar) * 100)
+      : 0;
 
   return (
     <div className="space-y-5 pb-2">
@@ -83,14 +144,42 @@ export default function PropertyDetail() {
             </div>
           </div>
         </div>
+        <div className="flex gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 rounded-xl"
+            onClick={() => setEditOpen(true)}
+          >
+            <Pencil className="h-3.5 w-3.5" /> Edit
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="gap-1.5 rounded-xl"
+            onClick={() => setDeleteOpen(true)}
+            disabled={property.total_kamar > 0}
+            title={
+              property.total_kamar > 0
+                ? "Hapus semua kamar terlebih dahulu"
+                : undefined
+            }
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Hapus
+          </Button>
+        </div>
       </div>
 
       {/* Occupancy Banner */}
       <div className="glass-card p-4 flex items-center gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-1.5">
-            <p className="text-xs font-medium text-muted-foreground">Tingkat Hunian</p>
-            <p className="text-sm font-bold text-foreground">{occupancyRate}%</p>
+            <p className="text-xs font-medium text-muted-foreground">
+              Tingkat Hunian
+            </p>
+            <p className="text-sm font-bold text-foreground">
+              {occupancyRate}%
+            </p>
           </div>
           <div className="h-2 bg-muted rounded-full overflow-hidden">
             <div
@@ -107,7 +196,9 @@ export default function PropertyDetail() {
           <p className="text-2xl font-bold text-foreground tabular-nums">
             {property.kamar_occupied}
           </p>
-          <p className="text-xs text-muted-foreground">dari {property.total_kamar}</p>
+          <p className="text-xs text-muted-foreground">
+            dari {property.total_kamar}
+          </p>
         </div>
       </div>
 
@@ -184,28 +275,73 @@ export default function PropertyDetail() {
           <Button
             variant="outline"
             className="justify-start gap-3 h-auto py-3 rounded-xl"
-            onClick={() => navigate(`/dashboard/rooms?property_id=${property.id}`)}
+            onClick={() =>
+              navigate(`/dashboard/rooms?property_id=${property.id}`)
+            }
           >
             <BedDouble className="h-5 w-5 text-muted-foreground" />
             <div className="text-left">
               <p className="text-sm font-medium">Lihat Daftar Kamar</p>
-              <p className="text-xs text-muted-foreground">{property.total_kamar} kamar</p>
+              <p className="text-xs text-muted-foreground">
+                {property.total_kamar} kamar
+              </p>
             </div>
           </Button>
 
           <Button
             variant="outline"
             className="justify-start gap-3 h-auto py-3 rounded-xl"
-            onClick={() => navigate(`/dashboard/tenants?property_id=${property.id}`)}
+            onClick={() =>
+              navigate(`/dashboard/tenants?property_id=${property.id}`)
+            }
           >
             <Users className="h-5 w-5 text-muted-foreground" />
             <div className="text-left">
               <p className="text-sm font-medium">Lihat Penghuni</p>
-              <p className="text-xs text-muted-foreground">{property.jumlah_penghuni_aktif} penghuni aktif</p>
+              <p className="text-xs text-muted-foreground">
+                {property.jumlah_penghuni_aktif} penghuni aktif
+              </p>
             </div>
           </Button>
         </div>
       </div>
+
+      {/* Edit Form */}
+      {editOpen && (
+        <PropertyForm
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          property={property as any}
+          onSubmit={handleUpdate}
+          isLoading={updateMutation.isPending}
+        />
+      )}
+
+      {/* Delete Confirm */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus {property.nama}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tindakan ini tidak dapat dibatalkan. Properti akan dihapus dari
+              sistem.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Hapus"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

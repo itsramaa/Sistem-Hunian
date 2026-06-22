@@ -1,4 +1,4 @@
-﻿import { apiClient } from "@/shared/lib/axios";
+import { apiClient } from "@/shared/lib/axios";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -74,10 +74,11 @@ export function useDashboardSummary() {
   return useQuery({
     queryKey: [DASHBOARD_KEY, "summary"],
     queryFn: async () => {
-      const { data } = await apiClient.get<{ data: DashboardSummary }>(
-        "/dashboard",
-      );
-      return data.data;
+      const { data } = await apiClient.get<any>("/dashboard");
+      // axios interceptor unwraps {success, data} → data langsung
+      // tapi jika response masih punya .data nested, handle keduanya
+      const result: DashboardSummary = data?.total_properti !== undefined ? data : data?.data;
+      return result ?? null;
     },
   });
 }

@@ -16,6 +16,7 @@ export interface Confirmation {
 export interface CreateConfirmationPayload {
   room_id: string;
   nama_calon_penghuni: string;
+  nomor_telepon: string;
   nominal_dp: number;
   batas_tanggal_konfirmasi: string;
 }

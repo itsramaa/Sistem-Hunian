@@ -40,3 +40,14 @@ export function useUploadBukti() {
     onSuccess: () => qc.invalidateQueries({ queryKey: [PAYMENTS_KEY] }),
   });
 }
+
+export function useUpdatePayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: { nominal?: number; tanggal_bayar?: string; periode?: string } }) =>
+      paymentService.update(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [PAYMENTS_KEY] });
+    },
+  });
+}

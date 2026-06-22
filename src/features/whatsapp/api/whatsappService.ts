@@ -1,5 +1,5 @@
-import { apiClient } from "@/shared/lib/axios";
 import { env } from "@/config/env";
+import { apiClient } from "@/shared/lib/axios";
 
 export type WhatsappStatus = "connected" | "waiting_qr_scan" | "disconnected";
 
@@ -43,10 +43,16 @@ export const whatsappService = {
         ),
       );
     }
-    const { data } = await apiClient.get<{ data: WhatsappStatusResponse }>(
-      "/whatsapp/status",
+    const { data } = await apiClient.get<any>("/whatsapp/status");
+    // axios interceptor unwraps {success, data} → object langsung
+    const result = data?.status !== undefined ? data : data?.data;
+    return (
+      result ?? {
+        status: "disconnected" as WhatsappStatus,
+        connected: false,
+        has_qr: false,
+      }
     );
-    return data.data;
   },
 
   async getQR(): Promise<WhatsappQRResponse> {
@@ -67,10 +73,31 @@ export const whatsappService = {
         }, 400),
       );
     }
-    const { data } = await apiClient.get<{ data: WhatsappQRResponse }>(
-      "/whatsapp/qr",
-    );
-    return data.data;
+    const { data } = await apiClient.get<any>("/whatsapp/qr");
+    const result = data?.qr !== undefined ? data : data?.data;
+    if (!result?.qr)
+      throw new Error("QR code belum tersedia. Coba beberapa saat lagi.");
+    return result;
+  },
+
+  async connect(): Promise<void> {
+    if (USE_MOCK) {
+      mockStatus = "disconnected";
+      mockHasQR = false;
+      setTimeout(() => {
+        mockHasQR = true;
+      }, 1500);
+      return new Promise((res) => setTimeout(res, 400));
+    }
+    await apiClient.post("/whatsapp/connect");
+  },
+
+  async cancelConnect(): Promise<void> {
+    if (USE_MOCK) {
+      mockHasQR = false;
+      return new Promise((res) => setTimeout(res, 300));
+    }
+    await apiClient.post("/whatsapp/cancel");
   },
 
   async logout(): Promise<void> {

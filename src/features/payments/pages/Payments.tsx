@@ -1,16 +1,19 @@
-import React, { useState, useCallback, useRef } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
-import {
-  usePayments,
-  useCreatePayment,
-  useUploadBukti,
-  useMarkPaid,
-} from "../hooks/usePayments";
 import { useProperties } from "@/features/properties/hooks/useProperties";
-import { useActiveTenants } from "@/features/tenant/hooks/useTenants";
 import { useRooms } from "@/features/rooms/hooks/useRooms";
-import { Payment, CreatePaymentPayload } from "../types";
+import { useActiveTenants } from "@/features/tenant/hooks/useTenants";
+import { DataCard } from "@/shared/components/DataCard";
 import { Button } from "@/shared/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/components/ui/dialog";
+import { EmptyState } from "@/shared/components/ui/EmptyState";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
+import { MonthPicker } from "@/shared/components/ui/month-picker";
 import {
   Select,
   SelectContent,
@@ -26,37 +29,34 @@ import {
   TableHeader,
   TableRow,
 } from "@/shared/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/shared/components/ui/dialog";
-import { Input } from "@/shared/components/ui/input";
-import { Label } from "@/shared/components/ui/label";
-import {
-  Plus,
-  Loader2,
-  CreditCard,
-  ChevronLeft,
-  ChevronRight,
-  Upload,
-  CheckCircle2,
-  X,
-  FileText,
-} from "lucide-react";
 import { useToast } from "@/shared/hooks/use-toast";
+import { useIsMobile } from "@/shared/hooks/useBreakpoint";
 import { getApiErrorMessage } from "@/shared/utils/api-errors";
-import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
-import { DataCard } from "@/shared/components/DataCard";
-import { useIsMobile } from "@/shared/hooks/useBreakpoint";
-import { EmptyState } from "@/shared/components/ui/EmptyState";
-import { MonthPicker } from "@/shared/components/ui/month-picker";
+import {
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  CreditCard,
+  FileText,
+  Loader2,
+  Plus,
+  Upload,
+  X,
+} from "lucide-react";
+import React, { useCallback, useRef, useState } from "react";
+import { useForm } from "react-hook-form";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { z } from "zod";
+import {
+  useCreatePayment,
+  useMarkPaid,
+  usePayments,
+  useUploadBukti,
+} from "../hooks/usePayments";
+import { CreatePaymentPayload, Payment } from "../types";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -102,6 +102,7 @@ export default function PaymentsPage() {
   const [periodeFilter, setPeriodeFilter] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [uploadTarget, setUploadTarget] = useState<Payment | null>(null);
+  const [editTarget, setEditTarget] = useState<Payment | null>(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const { toast } = useToast();
@@ -134,6 +135,7 @@ export default function PaymentsPage() {
 
   const createMutation = useCreatePayment();
   const uploadMutation = useUploadBukti();
+  const updateMutation = useUpdatePayment();
   const markPaidMutation = useMarkPaid();
 
   const payments: Payment[] = data?.payments ?? [];
@@ -142,6 +144,21 @@ export default function PaymentsPage() {
   const properties = propsData?.properties ?? [];
   const rooms = roomsData?.rooms ?? [];
   const tenants = tenantsData?.tenants ?? [];
+
+  // Calculate summary stats
+  const stats = React.useMemo(() => {
+    const paid = payments.filter((p) => p.status === "paid");
+    const unpaid = payments.filter((p) => p.status === "unpaid");
+    const overdue = payments.filter((p) => p.status === "overdue");
+    const totalPaidAmount = paid.reduce((sum, p) => sum + (p.nominal || 0), 0);
+
+    return {
+      paid: paid.length,
+      unpaid: unpaid.length,
+      overdue: overdue.length,
+      totalPaidAmount,
+    };
+  }, [payments]);
 
   const {
     register,
@@ -227,6 +244,25 @@ export default function PaymentsPage() {
     }
   };
 
+  const handleUpdate = async (payload: {
+    nominal?: number;
+    tanggal_bayar?: string;
+    periode?: string;
+  }) => {
+    if (!editTarget) return;
+    try {
+      await updateMutation.mutateAsync({ id: editTarget.id, payload });
+      setEditTarget(null);
+      toast({ title: "Pembayaran berhasil diperbarui" });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Gagal memperbarui",
+        description: getApiErrorMessage(err),
+      });
+    }
+  };
+
   const handleMarkPaid = async (payment: Payment) => {
     try {
       await markPaidMutation.mutateAsync(payment.id);
@@ -276,6 +312,17 @@ export default function PaymentsPage() {
             <Upload className="h-3.5 w-3.5" /> Bukti
           </Button>
         )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 gap-1 text-xs rounded-lg min-h-[40px]"
+          onClick={(e) => {
+            e.stopPropagation();
+            setEditTarget(p);
+          }}
+        >
+          Edit
+        </Button>
       </div>
     );
 
@@ -402,6 +449,57 @@ export default function PaymentsPage() {
           />
         </div>
       </div>
+
+      {/* Summary Stats */}
+      {!isLoading && payments.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="glass-card p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+              </div>
+              <div className="text-xs text-muted-foreground">Lunas</div>
+            </div>
+            <div className="text-2xl font-bold tabular-nums">{stats.paid}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Rp{stats.totalPaidAmount.toLocaleString("id-ID")}
+            </div>
+          </div>
+          <div className="glass-card p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-8 h-8 rounded-lg bg-yellow-500/10 flex items-center justify-center">
+                <CreditCard className="h-4 w-4 text-yellow-500" />
+              </div>
+              <div className="text-xs text-muted-foreground">Belum Bayar</div>
+            </div>
+            <div className="text-2xl font-bold tabular-nums">
+              {stats.unpaid}
+            </div>
+          </div>
+          <div className="glass-card p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
+                <X className="h-4 w-4 text-red-500" />
+              </div>
+              <div className="text-xs text-muted-foreground">Terlambat</div>
+            </div>
+            <div className="text-2xl font-bold tabular-nums">
+              {stats.overdue}
+            </div>
+          </div>
+          <div className="glass-card p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <FileText className="h-4 w-4 text-primary" />
+              </div>
+              <div className="text-xs text-muted-foreground">Total Record</div>
+            </div>
+            <div className="text-2xl font-bold tabular-nums">
+              {payments.length}
+            </div>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
@@ -760,6 +858,82 @@ export default function PaymentsPage() {
               Upload
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Edit Payment */}
+      <Dialog
+        open={!!editTarget}
+        onOpenChange={(v) => !v && setEditTarget(null)}
+      >
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Pembayaran</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const payload: any = {};
+              const nominal = formData.get("nominal") as string;
+              if (nominal) payload.nominal = parseFloat(nominal);
+              const tanggal_bayar = formData.get("tanggal_bayar") as string;
+              if (tanggal_bayar) payload.tanggal_bayar = tanggal_bayar;
+              const periode = formData.get("periode") as string;
+              if (periode) payload.periode = periode;
+              handleUpdate(payload);
+            }}
+            className="space-y-4 py-2"
+          >
+            <div className="space-y-1.5">
+              <Label>Nominal</Label>
+              <Input
+                type="number"
+                name="nominal"
+                defaultValue={editTarget?.nominal}
+                placeholder="Nominal pembayaran"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Tanggal Bayar</Label>
+              <Input
+                type="date"
+                name="tanggal_bayar"
+                defaultValue={
+                  editTarget?.tanggal_bayar
+                    ? format(new Date(editTarget.tanggal_bayar), "yyyy-MM-dd")
+                    : ""
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Periode (YYYY-MM)</Label>
+              <Input
+                name="periode"
+                defaultValue={editTarget?.periode}
+                placeholder="2026-06"
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditTarget(null)}
+              >
+                Batal
+              </Button>
+              <Button
+                type="submit"
+                disabled={updateMutation.isPending}
+                className="gap-2 rounded-xl"
+              >
+                {updateMutation.isPending && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                )}
+                Simpan
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

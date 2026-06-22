@@ -36,16 +36,27 @@ export function useExpireConfirmation() {
   });
 }
 
-export function useConfirmDP() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: ConfirmDPPayload }) =>
-      confirmationService.confirmDP(id, payload),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [CONFIRMATIONS_KEY] });
-      qc.invalidateQueries({ queryKey: ['rooms'] });
-      qc.invalidateQueries({ queryKey: ['tenants'] });
-      qc.invalidateQueries({ queryKey: ['dashboard'] });
-    },
-  });
+export function useConfirmDP() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: ConfirmDPPayload }) =>
+      confirmationService.confirmDP(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [CONFIRMATIONS_KEY] });
+      qc.invalidateQueries({ queryKey: ['rooms'] });
+      qc.invalidateQueries({ queryKey: ['tenants'] });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
+export function useUpdateBatasTanggal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, batas_tanggal_konfirmasi }: { id: string; batas_tanggal_konfirmasi: string }) =>
+      confirmationService.updateBatasTanggal(id, batas_tanggal_konfirmasi),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [CONFIRMATIONS_KEY] });
+    },
+  });
 }

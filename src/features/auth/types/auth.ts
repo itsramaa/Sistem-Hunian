@@ -1,5 +1,5 @@
-// SRS roles: operator (pemilik kos), manager (maintenance access), viewer (read-only), admin (system)
-export type AppRole = 'admin' | 'operator' | 'manager' | 'viewer';
+// SRS roles: operator (pemilik kos), manager (maintenance access), viewer (read-only)
+export type AppRole = 'operator' | 'manager' | 'viewer';
 
 export interface AuthUser {
   id: string;

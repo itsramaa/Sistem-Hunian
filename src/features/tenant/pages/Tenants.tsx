@@ -1,32 +1,9 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import {
-  useTenants,
-  useActiveTenants,
-  useTenantHistory,
-  useCreateTenant,
-  useCheckoutTenant,
-} from "../hooks/useTenants";
 import { useProperties } from "@/features/properties/hooks/useProperties";
-import { TenantForm } from "../components/TenantForm";
-import { CheckoutForm } from "../components/CheckoutForm";
-import { Tenant } from "../types";
-import { Button } from "@/shared/components/ui/button";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/shared/components/ui/tabs";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/shared/components/ui/table";
+import { DataCard } from "@/shared/components/DataCard";
 import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
+import { EmptyState } from "@/shared/components/ui/EmptyState";
+import { Input } from "@/shared/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -35,24 +12,48 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import {
-  Plus,
-  Loader2,
-  Users,
-  LogOut,
-  ChevronLeft,
-  ChevronRight,
-  History,
-  Search,
-} from "lucide-react";
-import { Input } from "@/shared/components/ui/input";
-import { useDebounce } from "@/shared/hooks/useDebounce";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/shared/components/ui/table";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/shared/components/ui/tabs";
 import { useToast } from "@/shared/hooks/use-toast";
+import { useIsMobile } from "@/shared/hooks/useBreakpoint";
+import { useDebounce } from "@/shared/hooks/useDebounce";
 import { getApiErrorMessage } from "@/shared/utils/api-errors";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
-import { DataCard } from "@/shared/components/DataCard";
-import { useIsMobile } from "@/shared/hooks/useBreakpoint";
-import { EmptyState } from "@/shared/components/ui/EmptyState";
+import {
+  ChevronLeft,
+  ChevronRight,
+  History,
+  Loader2,
+  LogOut,
+  Pencil,
+  Plus,
+  Search,
+  Users,
+} from "lucide-react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { CheckoutForm } from "../components/CheckoutForm";
+import { TenantForm } from "../components/TenantForm";
+import {
+  useActiveTenants,
+  useCheckoutTenant,
+  useCreateTenant,
+  useTenantHistory,
+  useUpdateTenant,
+} from "../hooks/useTenants";
+import { Tenant } from "../types";
 
 export default function TenantsPage() {
   const navigate = useNavigate();
@@ -61,6 +62,7 @@ export default function TenantsPage() {
   const [page, setPage] = useState(1);
   const [propertyFilter, setPropertyFilter] = useState("");
   const [formOpen, setFormOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const { toast } = useToast();
@@ -81,6 +83,7 @@ export default function TenantsPage() {
   const { data: propsData } = useProperties("", 1, 100);
 
   const createMutation = useCreateTenant();
+  const updateMutation = useUpdateTenant();
   const checkoutMutation = useCheckoutTenant();
 
   const isActive = tab === "active";
@@ -136,12 +139,61 @@ export default function TenantsPage() {
     }
   };
 
+  const handleUpdate = async (payload: any) => {
+    if (!selectedTenant) return;
+    try {
+      await updateMutation.mutateAsync({ id: selectedTenant.id, payload });
+      setEditOpen(false);
+      setSelectedTenant(null);
+      toast({ title: "Data penghuni berhasil diperbarui" });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Gagal memperbarui penghuni",
+        description: getApiErrorMessage(err),
+      });
+    }
+  };
+
   const fmt = (d: string) => {
     try {
       return format(new Date(d), "dd MMM yyyy", { locale: localeId });
     } catch {
       return d;
     }
+  };
+
+  const getDaysRemaining = (tanggal_masuk: string, durasi_sewa: number) => {
+    const masuk = new Date(tanggal_masuk);
+    const berakhir = new Date(masuk);
+    berakhir.setMonth(berakhir.getMonth() + durasi_sewa);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    berakhir.setHours(0, 0, 0, 0);
+    const diff = Math.ceil(
+      (berakhir.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    return diff;
+  };
+
+  const getContractBadge = (t: Tenant) => {
+    if (t.status !== "active") return null;
+    const days = getDaysRemaining(t.tanggal_masuk, t.durasi_sewa);
+    if (days <= 0) {
+      return (
+        <Badge variant="destructive" className="rounded-full text-xs ml-1">
+          Kontrak Habis
+        </Badge>
+      );
+    }
+    if (days <= 30) {
+      return (
+        <Badge className="rounded-full text-xs ml-1 bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-400">
+          Habis {days} hari
+        </Badge>
+      );
+    }
+    return null;
   };
 
   const Pagination = () =>
@@ -285,9 +337,12 @@ export default function TenantsPage() {
                         <Users className="h-4 w-4 text-primary" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-sm truncate">
-                          {t.nama}
-                        </p>
+                        <div className="flex items-center flex-wrap gap-1">
+                          <p className="font-semibold text-sm truncate">
+                            {t.nama}
+                          </p>
+                          {getContractBadge(t)}
+                        </div>
                         <p className="text-xs text-muted-foreground truncate">
                           Kamar {t.nomor_kamar} · {t.nama_properti}
                         </p>
@@ -360,7 +415,10 @@ export default function TenantsPage() {
                         onClick={() => navigate(`/dashboard/tenants/${t.id}`)}
                       >
                         <TableCell className="text-sm font-medium">
-                          {t.nama}
+                          <div className="flex items-center flex-wrap gap-1">
+                            {t.nama}
+                            {getContractBadge(t)}
+                          </div>
                         </TableCell>
                         <TableCell className="text-sm">
                           {t.nomor_kamar}
@@ -391,18 +449,32 @@ export default function TenantsPage() {
                         </TableCell>
                         {isActive && (
                           <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 gap-1.5 text-xs rounded-lg"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedTenant(t);
-                                setCheckoutOpen(true);
-                              }}
-                            >
-                              <LogOut className="h-3.5 w-3.5" /> Checkout
-                            </Button>
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 gap-1.5 text-xs rounded-lg"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedTenant(t);
+                                  setEditOpen(true);
+                                }}
+                              >
+                                <Pencil className="h-3.5 w-3.5" /> Edit
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 gap-1.5 text-xs rounded-lg"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedTenant(t);
+                                  setCheckoutOpen(true);
+                                }}
+                              >
+                                <LogOut className="h-3.5 w-3.5" /> Checkout
+                              </Button>
+                            </div>
                           </TableCell>
                         )}
                       </TableRow>
@@ -422,6 +494,21 @@ export default function TenantsPage() {
           onOpenChange={setFormOpen}
           onSubmit={handleCreate}
           isLoading={createMutation.isPending}
+        />
+      )}
+      {editOpen && selectedTenant && (
+        <TenantForm
+          open={editOpen}
+          onOpenChange={(open) => {
+            setEditOpen(open);
+            if (!open) setSelectedTenant(null);
+          }}
+          onSubmit={handleUpdate}
+          isLoading={updateMutation.isPending}
+          initialData={{
+            nomor_identitas: selectedTenant.nomor_identitas,
+            nomor_telepon: selectedTenant.nomor_telepon,
+          }}
         />
       )}
       {checkoutOpen && selectedTenant && (

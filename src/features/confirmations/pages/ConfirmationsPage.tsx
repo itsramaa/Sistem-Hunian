@@ -1,18 +1,26 @@
-import React, { useState } from "react";
-import {
-  useConfirmations,
-  useCreateConfirmation,
-  useConfirmDP,
-  useExpireConfirmation,
-} from "../hooks/useConfirmations";
 import { useProperties } from "@/features/properties/hooks/useProperties";
 import { useRooms } from "@/features/rooms/hooks/useRooms";
+import { DataCard } from "@/shared/components/DataCard";
 import {
-  Confirmation,
-  ConfirmDPPayload,
-  CreateConfirmationPayload,
-} from "../types";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/components/ui/alert-dialog";
 import { Button } from "@/shared/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/components/ui/dialog";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -28,43 +36,35 @@ import {
   TableHeader,
   TableRow,
 } from "@/shared/components/ui/table";
+import { useToast } from "@/shared/hooks/use-toast";
+import { useIsMobile } from "@/shared/hooks/useBreakpoint";
+import { getApiErrorMessage } from "@/shared/utils/api-errors";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { differenceInDays, format } from "date-fns";
+import { id as localeId } from "date-fns/locale";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/shared/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/shared/components/ui/alert-dialog";
-import { Input } from "@/shared/components/ui/input";
-import { Label } from "@/shared/components/ui/label";
-import {
-  Plus,
-  Loader2,
-  Clock,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  CheckCircle2,
+  Clock,
+  Loader2,
+  Plus,
   XCircle,
 } from "lucide-react";
-import { useToast } from "@/shared/hooks/use-toast";
-import { getApiErrorMessage } from "@/shared/utils/api-errors";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { format, differenceInDays } from "date-fns";
-import { id as localeId } from "date-fns/locale";
-import { DataCard } from "@/shared/components/DataCard";
-import { useIsMobile } from "@/shared/hooks/useBreakpoint";
+import {
+  useConfirmations,
+  useConfirmDP,
+  useCreateConfirmation,
+  useExpireConfirmation,
+} from "../hooks/useConfirmations";
+import {
+  Confirmation,
+  ConfirmDPPayload,
+  CreateConfirmationPayload,
+} from "../types";
 
 const statusColors: Record<string, { label: string; className: string }> = {
   pending: {
@@ -98,8 +98,13 @@ const confirmSchema = z.object({
   durasi_sewa: z.coerce.number().int().positive(),
 });
 
+const perpanjangSchema = z.object({
+  batas_tanggal_konfirmasi: z.string().min(1, "Tanggal wajib"),
+});
+
 type CreateForm = z.infer<typeof createSchema>;
 type ConfirmForm = z.infer<typeof confirmSchema>;
+type PerpanjangForm = z.infer<typeof perpanjangSchema>;
 
 // ─── Tandai Hangus — AlertDialog standar (BUG-005 fix) ───────────────────────
 function ExpireButton({ id, nama }: { id: string; nama: string }) {
@@ -172,6 +177,9 @@ export default function ConfirmationsPage() {
   const [propertyFilter, setPropertyFilter] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [confirmTarget, setConfirmTarget] = useState<Confirmation | null>(null);
+  const [perpanjangTarget, setPerpanjangTarget] = useState<Confirmation | null>(
+    null,
+  );
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const limit = 20;
@@ -193,6 +201,7 @@ export default function ConfirmationsPage() {
 
   const createMutation = useCreateConfirmation();
   const confirmMutation = useConfirmDP();
+  const updateBatasMutation = useUpdateBatasTanggal();
 
   const confirmations: Confirmation[] = data?.confirmations ?? [];
   const total = data?.pagination?.total ?? 0;
@@ -206,6 +215,29 @@ export default function ConfirmationsPage() {
   const confirmForm = useForm<ConfirmForm>({
     resolver: zodResolver(confirmSchema),
   });
+  const perpanjangForm = useForm<PerpanjangForm>({
+    resolver: zodResolver(perpanjangSchema),
+    defaultValues: { batas_tanggal_konfirmasi: "" },
+  });
+
+  const handlePerpanjang = async (payload: PerpanjangForm) => {
+    if (!perpanjangTarget) return;
+    try {
+      await updateBatasMutation.mutateAsync({
+        id: perpanjangTarget.id,
+        batas_tanggal_konfirmasi: payload.batas_tanggal_konfirmasi,
+      });
+      setPerpanjangTarget(null);
+      perpanjangForm.reset();
+      toast({ title: "Batas tanggal berhasil diperpanjang" });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Gagal memperpanjang",
+        description: getApiErrorMessage(err),
+      });
+    }
+  };
 
   const handleCreate = async (payload: CreateForm) => {
     try {
@@ -427,6 +459,21 @@ export default function ConfirmationsPage() {
                           <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />{" "}
                           Konfirmasi Masuk
                         </Button>
+                        {c.status === "pending" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 gap-1.5 text-xs rounded-lg"
+                            onClick={() => {
+                              perpanjangForm.reset({
+                                batas_tanggal_konfirmasi: "",
+                              });
+                              setPerpanjangTarget(c);
+                            }}
+                          >
+                            Perpanjang
+                          </Button>
+                        )}
                         <ExpireButton id={c.id} nama={c.nama_calon_penghuni} />
                       </div>
                     ) : undefined
@@ -544,6 +591,19 @@ export default function ConfirmationsPage() {
                                 id={c.id}
                                 nama={c.nama_calon_penghuni}
                               />
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 gap-1.5 text-xs rounded-lg"
+                                onClick={() => {
+                                  perpanjangForm.reset({
+                                    batas_tanggal_konfirmasi: "",
+                                  });
+                                  setPerpanjangTarget(c);
+                                }}
+                              >
+                                Perpanjang
+                              </Button>
                             </div>
                           )}
                         </TableCell>
@@ -725,6 +785,62 @@ export default function ConfirmationsPage() {
                   <Loader2 className="h-4 w-4 animate-spin" />
                 )}{" "}
                 Konfirmasi Masuk
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Perpanjang Batas Tanggal */}
+      <Dialog
+        open={!!perpanjangTarget}
+        onOpenChange={(v) => !v && setPerpanjangTarget(null)}
+      >
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Perpanjang Batas Tanggal Konfirmasi</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={perpanjangForm.handleSubmit(handlePerpanjang)}
+            className="space-y-4 py-2"
+          >
+            <p className="text-sm text-muted-foreground">
+              Perpanjang batas waktu konfirmasi untuk{" "}
+              <strong>{perpanjangTarget?.nama_calon_penghuni}</strong>.
+            </p>
+            <div className="space-y-1.5">
+              <Label>Batas Tanggal Baru</Label>
+              <Input
+                type="date"
+                min={format(new Date(), "yyyy-MM-dd")}
+                {...perpanjangForm.register("batas_tanggal_konfirmasi")}
+              />
+              {perpanjangForm.formState.errors.batas_tanggal_konfirmasi && (
+                <p className="text-xs text-destructive">
+                  {
+                    perpanjangForm.formState.errors.batas_tanggal_konfirmasi
+                      .message
+                  }
+                </p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPerpanjangTarget(null)}
+              >
+                Batal
+              </Button>
+              <Button
+                type="submit"
+                disabled={updateBatasMutation.isPending}
+                className="gap-2 rounded-xl"
+              >
+                {updateBatasMutation.isPending && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                )}
+                Simpan
               </Button>
             </DialogFooter>
           </form>

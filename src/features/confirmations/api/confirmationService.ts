@@ -1,4 +1,4 @@
-﻿import { apiClient } from '@/shared/lib/axios';
+import { apiClient } from '@/shared/lib/axios';
 import { ConfirmDPPayload, Confirmation, CreateConfirmationPayload } from '../types';
 
 export const confirmationService = {
@@ -20,7 +20,11 @@ export const confirmationService = {
     await apiClient.post(`/confirmations/${id}/confirm`, payload);
   },
 
-  async expire(id: string): Promise<void> {
-    await apiClient.post(`/confirmations/${id}/expire`);
-  },
+  async expire(id: string): Promise<void> {
+    await apiClient.post(`/confirmations/${id}/expire`);
+  },
+
+  async updateBatasTanggal(id: string, batas_tanggal_konfirmasi: string): Promise<void> {
+    await apiClient.put(`/confirmations/${id}`, { batas_tanggal_konfirmasi });
+  },
 };

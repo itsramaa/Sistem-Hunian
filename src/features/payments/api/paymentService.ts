@@ -30,4 +30,8 @@ export const paymentService = {
     });
     return data?.bukti_transfer_url ?? '';
   },
+
+  async update(id: string, payload: { nominal?: number; tanggal_bayar?: string; periode?: string }): Promise<void> {
+    await apiClient.put(`/payments/${id}`, payload);
+  },
 };

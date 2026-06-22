@@ -1,19 +1,29 @@
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { apiClient } from "@/shared/lib/axios";
-import { getApiErrorMessage } from "@/shared/utils/api-errors";
+import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
-import { Label } from "@/shared/components/ui/label";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/shared/components/ui/card";
-import { Badge } from "@/shared/components/ui/badge";
-import { User, Mail, Shield, Lock, Loader2, Eye, EyeOff } from "lucide-react";
-import { useState } from "react";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
 import { useToast } from "@/shared/hooks/use-toast";
+import { apiClient } from "@/shared/lib/axios";
+import { getApiErrorMessage } from "@/shared/utils/api-errors";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  Eye,
+  EyeOff,
+  Loader2,
+  Lock,
+  Mail,
+  Phone,
+  Shield,
+  User,
+} from "lucide-react";
+import { useState } from "react";
 import { z } from "zod";
 
 const roleLabels: Record<
@@ -27,7 +37,8 @@ const roleLabels: Record<
 
 const pwSchema = z
   .object({
-    new_password: z.string().min(8, "Minimal 8 karakter"),
+    old_password: z.string().min(1, "Password lama wajib diisi"),
+    new_password: z.string().min(6, "Minimal 6 karakter"),
     confirm: z.string(),
   })
   .refine((d) => d.new_password === d.confirm, {
@@ -38,18 +49,43 @@ const pwSchema = z
 export default function ProfilePage() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
+  const qc = useQueryClient();
   const [showPw, setShowPw] = useState(false);
-  const [pw, setPw] = useState({ new_password: "", confirm: "" });
+  const [pw, setPw] = useState({
+    old_password: "",
+    new_password: "",
+    confirm: "",
+  });
   const [pwErrors, setPwErrors] = useState<Record<string, string>>({});
   const [isChanging, setIsChanging] = useState(false);
+  const [nomorTelepon, setNomorTelepon] = useState(
+    profile?.nomor_telepon ?? "",
+  );
+  const [isSavingPhone, setIsSavingPhone] = useState(false);
 
   const roleInfo = roleLabels[profile?.role ?? ""] ?? {
     label: profile?.role ?? "—",
     variant: "outline" as const,
   };
 
+  const handleUpdatePhone = async () => {
+    setIsSavingPhone(true);
+    try {
+      await apiClient.patch("/auth/me", { nomor_telepon: nomorTelepon });
+      qc.invalidateQueries({ queryKey: ["me"] });
+      toast({ title: "Nomor telepon berhasil diperbarui" });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Gagal memperbarui",
+        description: getApiErrorMessage(err),
+      });
+    } finally {
+      setIsSavingPhone(false);
+    }
+  };
+
   const handleChangePw = async () => {
-    setPwErrors({});
     const result = pwSchema.safeParse(pw);
     if (!result.success) {
       const errs: Record<string, string> = {};
@@ -62,9 +98,10 @@ export default function ProfilePage() {
     setIsChanging(true);
     try {
       await apiClient.post("/auth/change-password", {
+        old_password: pw.old_password,
         new_password: pw.new_password,
       });
-      setPw({ new_password: "", confirm: "" });
+      setPw({ old_password: "", new_password: "", confirm: "" });
       toast({
         title: "Password berhasil diubah",
         description:
@@ -121,6 +158,36 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
+      {/* Nomor Telepon */}
+      <Card className="rounded-2xl">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Phone className="h-5 w-5 text-primary" />
+            <CardTitle className="text-base">Nomor Telepon</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="nomor_telepon">Nomor Telepon</Label>
+            <Input
+              id="nomor_telepon"
+              type="tel"
+              value={nomorTelepon}
+              onChange={(e) => setNomorTelepon(e.target.value)}
+              placeholder="08xx..."
+            />
+          </div>
+          <Button
+            onClick={handleUpdatePhone}
+            disabled={isSavingPhone}
+            className="gap-2 rounded-xl"
+          >
+            {isSavingPhone && <Loader2 className="h-4 w-4 animate-spin" />}
+            Simpan
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* Change password */}
       <Card className="rounded-2xl">
         <CardHeader>
@@ -130,6 +197,24 @@ export default function ProfilePage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="old_password">Password Lama</Label>
+            <Input
+              id="old_password"
+              type="password"
+              value={pw.old_password}
+              onChange={(e) =>
+                setPw((p) => ({ ...p, old_password: e.target.value }))
+              }
+              placeholder="Masukkan password lama"
+              className="rounded-xl"
+            />
+            {pwErrors.old_password && (
+              <p className="text-sm text-destructive">
+                {pwErrors.old_password}
+              </p>
+            )}
+          </div>
           <div className="space-y-2">
             <Label htmlFor="new_password">Password Baru</Label>
             <div className="relative">
@@ -180,7 +265,9 @@ export default function ProfilePage() {
           </div>
           <Button
             onClick={handleChangePw}
-            disabled={isChanging || !pw.new_password || !pw.confirm}
+            disabled={
+              isChanging || !pw.old_password || !pw.new_password || !pw.confirm
+            }
             className="gap-2 rounded-xl"
           >
             {isChanging && <Loader2 className="h-4 w-4 animate-spin" />}

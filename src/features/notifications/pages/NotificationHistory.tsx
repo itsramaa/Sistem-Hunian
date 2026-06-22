@@ -1,19 +1,20 @@
-import { useState } from "react";
-import { Bell, CheckCheck } from "lucide-react";
-import { Button } from "@/shared/components/ui/button";
-import { Badge } from "@/shared/components/ui/badge";
-import { Card, CardContent } from "@/shared/components/ui/card";
 import {
-  useNotifications,
-  useMarkNotificationRead,
-  Notification,
+    Notification,
+    useMarkNotificationRead,
+    useNotifications,
 } from "@/features/dashboard/hooks/useDashboard";
-import { useQueryClient } from "@tanstack/react-query";
+import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
+import { Card, CardContent } from "@/shared/components/ui/card";
 import { apiClient } from "@/shared/lib/axios";
+import { getApiErrorMessage } from "@/shared/utils/api-errors";
+import { cn } from "@/shared/utils/utils";
+import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { id as localeId } from "date-fns/locale";
-import { cn } from "@/shared/utils/utils";
-import { getApiErrorMessage } from "@/shared/utils/api-errors";
+import { Bell, CheckCheck } from "lucide-react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 const tipeLabel: Record<string, string> = {
@@ -30,9 +31,25 @@ const tipeColor: Record<string, string> = {
   payment_overdue: "text-red-600",
 };
 
+const getDeepLinkByTipe = (tipe: string | null): string | null => {
+  switch (tipe) {
+    case "dp_reminder":
+    case "dp_expired":
+      return "/dashboard/confirmations";
+    case "payment_due":
+    case "payment_overdue":
+      return "/dashboard/payments";
+    case "maintenance":
+      return "/dashboard/maintenance";
+    default:
+      return null;
+  }
+};
+
 export default function NotificationHistory() {
   const [showAll, setShowAll] = useState(false);
   const qc = useQueryClient();
+  const navigate = useNavigate();
 
   const { data: rawNotifications, isLoading } = useNotifications(
     showAll ? undefined : false,
@@ -100,57 +117,69 @@ export default function NotificationHistory() {
         )}
 
         {!isLoading &&
-          notifications.map((n: Notification) => (
-            <Card
-              key={n.id}
-              className={cn(
-                "transition-colors glass-card",
-                !n.is_read &&
-                  "border-l-4 border-l-yellow-400 bg-yellow-50/30 dark:bg-yellow-950/10",
-              )}
-            >
-              <CardContent className="py-4 px-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span
-                        className={cn(
-                          "text-xs font-medium",
-                          tipeColor[n.tipe] ?? "text-muted-foreground",
+          notifications.map((n: Notification) => {
+            const deepLink = getDeepLinkByTipe(n.tipe);
+            const isClickable = !!deepLink;
+            return (
+              <Card
+                key={n.id}
+                className={cn(
+                  "transition-colors glass-card",
+                  !n.is_read &&
+                    "border-l-4 border-l-yellow-400 bg-yellow-50/30 dark:bg-yellow-950/10",
+                  isClickable && "cursor-pointer hover:bg-primary/5",
+                )}
+                onClick={() => {
+                  if (!n.is_read) markRead(n.id);
+                  if (deepLink) navigate(deepLink);
+                }}
+              >
+                <CardContent className="py-4 px-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span
+                          className={cn(
+                            "text-xs font-medium",
+                            tipeColor[n.tipe] ?? "text-muted-foreground",
+                          )}
+                        >
+                          {tipeLabel[n.tipe] ?? n.tipe}
+                        </span>
+                        {!n.is_read && (
+                          <Badge className="text-xs h-4 px-1.5 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 rounded-full">
+                            Baru
+                          </Badge>
                         )}
-                      >
-                        {tipeLabel[n.tipe] ?? n.tipe}
-                      </span>
-                      {!n.is_read && (
-                        <Badge className="text-xs h-4 px-1.5 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 rounded-full">
-                          Baru
-                        </Badge>
-                      )}
+                      </div>
+                      <p className={cn("text-sm", !n.is_read && "font-medium")}>
+                        {n.pesan}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {formatDistanceToNow(new Date(n.created_at), {
+                          addSuffix: true,
+                          locale: localeId,
+                        })}
+                      </p>
                     </div>
-                    <p className={cn("text-sm", !n.is_read && "font-medium")}>
-                      {n.pesan}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {formatDistanceToNow(new Date(n.created_at), {
-                        addSuffix: true,
-                        locale: localeId,
-                      })}
-                    </p>
+                    {!n.is_read && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="shrink-0 text-xs h-7 rounded-lg"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          markRead(n.id);
+                        }}
+                      >
+                        Tandai dibaca
+                      </Button>
+                    )}
                   </div>
-                  {!n.is_read && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="shrink-0 text-xs h-7 rounded-lg"
-                      onClick={() => markRead(n.id)}
-                    >
-                      Tandai dibaca
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
       </div>
     </div>
   );

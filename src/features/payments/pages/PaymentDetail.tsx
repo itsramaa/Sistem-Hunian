@@ -1,20 +1,31 @@
-import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { apiClient } from "@/shared/lib/axios";
-import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
-import {
-  ArrowLeft,
-  DollarSign,
-  BedDouble,
-  User,
-  Calendar,
-  Loader2,
-  Download,
-} from "lucide-react";
+import { Button } from "@/shared/components/ui/button";
+import { useToast } from "@/shared/hooks/use-toast";
+import { apiClient } from "@/shared/lib/axios";
+import { getApiErrorMessage } from "@/shared/utils/api-errors";
+import { cn } from "@/shared/utils/utils";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
-import { cn } from "@/shared/utils/utils";
+import {
+    ArrowLeft,
+    BedDouble,
+    DollarSign,
+    Download,
+    Loader2,
+    User,
+} from "lucide-react";
+import { useCallback, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useMarkPaid, useUploadBukti } from "../hooks/usePayments";
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
 
 interface PaymentDetail {
   id: string;
@@ -58,6 +69,76 @@ const statusConfig = {
 export default function PaymentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const uploadMutation = useUploadBukti();
+  const markPaidMutation = useMarkPaid();
+
+  const handleFileSelect = useCallback(
+    (file: File | null) => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      if (file && file.size > MAX_FILE_SIZE) {
+        toast({
+          variant: "destructive",
+          title: "File terlalu besar",
+          description: `Maks 5MB.`,
+        });
+        setUploadFile(null);
+        setPreviewUrl(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+      setUploadFile(file);
+      if (file && file.type.startsWith("image/"))
+        setPreviewUrl(URL.createObjectURL(file));
+      else setPreviewUrl(null);
+    },
+    [previewUrl, toast],
+  );
+
+  const closeUpload = useCallback(() => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setUploadOpen(false);
+    setUploadFile(null);
+    setPreviewUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, [previewUrl]);
+
+  const handleUpload = async () => {
+    if (!id || !uploadFile) return;
+    try {
+      await uploadMutation.mutateAsync({ id, file: uploadFile });
+      qc.invalidateQueries({ queryKey: ["payment", id] });
+      closeUpload();
+      toast({ title: "Bukti transfer berhasil diunggah" });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Gagal upload",
+        description: getApiErrorMessage(err),
+      });
+    }
+  };
+
+  const handleMarkPaid = async () => {
+    if (!id) return;
+    try {
+      await markPaidMutation.mutateAsync(id);
+      qc.invalidateQueries({ queryKey: ["payment", id] });
+      toast({ title: "Pembayaran ditandai lunas" });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Gagal",
+        description: getApiErrorMessage(err),
+      });
+    }
+  };
 
   const {
     data: payment,
@@ -130,6 +211,31 @@ export default function PaymentDetail() {
             </div>
           </div>
         </div>
+        {payment.status !== "paid" && (
+          <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 rounded-xl"
+              onClick={() => setUploadOpen(true)}
+            >
+              <Upload className="h-3.5 w-3.5" /> Upload Bukti
+            </Button>
+            <Button
+              size="sm"
+              className="gap-1.5 rounded-xl"
+              onClick={handleMarkPaid}
+              disabled={markPaidMutation.isPending}
+            >
+              {markPaidMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              )}
+              Tandai Lunas
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Payment Amount Card */}
@@ -304,6 +410,88 @@ export default function PaymentDetail() {
           </Button>
         </div>
       </div>
+
+      {/* Upload Dialog */}
+      <Dialog open={uploadOpen} onOpenChange={(v) => !v && closeUpload()}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Upload Bukti Transfer</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Format: JPG, PNG, PDF. Maks 5MB.
+            </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".jpg,.jpeg,.png,.pdf"
+              className="hidden"
+              onChange={(e) => handleFileSelect(e.target.files?.[0] ?? null)}
+            />
+            <div
+              className="border-2 border-dashed border-border/60 rounded-xl p-6 text-center cursor-pointer hover:border-primary/40 hover:bg-muted/30 transition-colors"
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                handleFileSelect(e.dataTransfer.files?.[0] ?? null);
+              }}
+            >
+              {uploadFile ? (
+                <p className="text-sm font-medium truncate">
+                  {uploadFile.name}
+                </p>
+              ) : (
+                <>
+                  <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">
+                    Klik untuk pilih file atau drag & drop
+                  </p>
+                </>
+              )}
+            </div>
+            {uploadFile && previewUrl && (
+              <div className="rounded-xl border border-border/40 overflow-hidden bg-muted/20">
+                <img
+                  src={previewUrl}
+                  alt="Preview"
+                  className="w-full max-h-48 object-contain bg-muted/30"
+                />
+              </div>
+            )}
+            {uploadFile && !previewUrl && (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border/40">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <FileText className="h-5 w-5 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">
+                    {uploadFile.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatFileSize(uploadFile.size)}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeUpload}>
+              Batal
+            </Button>
+            <Button
+              disabled={!uploadFile || uploadMutation.isPending}
+              onClick={handleUpload}
+              className="gap-2 rounded-xl"
+            >
+              {uploadMutation.isPending && (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              )}
+              Upload
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

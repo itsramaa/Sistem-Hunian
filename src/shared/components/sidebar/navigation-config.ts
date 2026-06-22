@@ -30,16 +30,20 @@ export interface RoleConfig {
   mainNav: NavGroup[];
 }
 
-export function isPathActive(
-  itemPath: string,
-  currentPath: string,
-  _basePath: string,
-  activePatterns?: string[]
-): boolean {
-  if (activePatterns) {
-    return activePatterns.some((p) => currentPath.startsWith(p));
-  }
-  return currentPath === itemPath || currentPath.startsWith(itemPath + '/');
+export function isPathActive(
+  itemPath: string,
+  currentPath: string,
+  _basePath: string,
+  activePatterns?: string[]
+): boolean {
+  if (activePatterns) {
+    return activePatterns.some((p) => currentPath === p || currentPath.startsWith(p + '/'));
+  }
+  // Exact match untuk path tanpa trailing sub-routes
+  if (itemPath === '/dashboard') {
+    return currentPath === '/dashboard';
+  }
+  return currentPath === itemPath || currentPath.startsWith(itemPath + '/');
 }
 
 export function getAllNavItems(role: UserRole): NavItem[] {

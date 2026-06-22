@@ -1,17 +1,29 @@
-import { useAuth } from '@/features/auth/hooks/useAuth';
-import { getAuthErrorMessage } from '@/features/auth/utils/auth-errors';
-import { Button } from '@/shared/components/ui/button';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
-import { Checkbox } from '@/shared/components/ui/checkbox';
-import { useToast } from '@/shared/hooks/use-toast';
-import { triggerHaptic } from '@/shared/utils/haptic';
-import { emailSchema, loginPasswordSchema } from '@/shared/utils/validations/auth';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Building2, Eye, EyeOff, Lock, Loader2, Mail, Home, KeyRound } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { Button } from "@/shared/components/ui/button";
+import { Checkbox } from "@/shared/components/ui/checkbox";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
+import { useToast } from "@/shared/hooks/use-toast";
+import { getApiErrorMessage } from "@/shared/utils/api-errors";
+import { triggerHaptic } from "@/shared/utils/haptic";
+import {
+    emailSchema,
+    loginPasswordSchema,
+} from "@/shared/utils/validations/auth";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+    Building2,
+    Eye,
+    EyeOff,
+    Home,
+    KeyRound,
+    Loader2,
+    Lock,
+    Mail,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
 const loginSchema = z.object({
   email: emailSchema,
@@ -23,7 +35,10 @@ type LoginFormData = z.infer<typeof loginSchema>;
 // ─── Floating orbs background ─────────────────────────────────────────────────
 function FloatingOrbs() {
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+    <div
+      className="absolute inset-0 overflow-hidden pointer-events-none"
+      aria-hidden="true"
+    >
       <div className="gradient-orb gradient-orb-1 -top-20 -left-20" />
       <div className="gradient-orb gradient-orb-2 -bottom-32 -right-20" />
       <div className="gradient-orb gradient-orb-3 top-1/2 left-1/3 -translate-x-1/2 -translate-y-1/2" />
@@ -34,9 +49,21 @@ function FloatingOrbs() {
 // ─── Desktop brand panel (≥1024px only) ──────────────────────────────────────
 function BrandPanel() {
   const features = [
-    { icon: Home, label: 'Multi-Properti', desc: 'Kelola semua kos dalam satu sistem' },
-    { icon: KeyRound, label: 'Kontrol Penuh', desc: 'RBAC per role — operator, manajer, viewer' },
-    { icon: Building2, label: '42 Kamar', desc: 'Dirancang untuk kos kawasan industri MM2100' },
+    {
+      icon: Home,
+      label: "Multi-Properti",
+      desc: "Kelola semua kos dalam satu sistem",
+    },
+    {
+      icon: KeyRound,
+      label: "Kontrol Penuh",
+      desc: "RBAC per role — operator, manajer, viewer",
+    },
+    {
+      icon: Building2,
+      label: "42 Kamar",
+      desc: "Dirancang untuk kos kawasan industri MM2100",
+    },
   ];
 
   return (
@@ -49,12 +76,16 @@ function BrandPanel() {
           </div>
           <div>
             <p className="text-xl font-bold tracking-tight">SiHuni</p>
-            <p className="text-xs text-primary-foreground/60">Sistem Manajemen Kos</p>
+            <p className="text-xs text-primary-foreground/60">
+              Sistem Manajemen Kos
+            </p>
           </div>
         </div>
         <div className="space-y-3">
           <h1 className="text-3xl font-bold tracking-tight leading-snug">
-            Kelola Properti<br />Lebih Teratur
+            Kelola Properti
+            <br />
+            Lebih Teratur
           </h1>
           <p className="text-primary-foreground/70 text-sm leading-relaxed">
             Platform manajemen kos multi-properti untuk pengelola profesional.
@@ -87,12 +118,12 @@ export function AuthForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(
-    () => localStorage.getItem('sihuni_remember_me') === 'true'
+    () => localStorage.getItem("sihuni_remember_me") === "true",
   );
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
   const [lockoutRemaining, setLockoutRemaining] = useState(0);
-  const [errorAnnouncement, setErrorAnnouncement] = useState('');
+  const [errorAnnouncement, setErrorAnnouncement] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
 
   const { toast } = useToast();
@@ -101,8 +132,8 @@ export function AuthForm() {
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: localStorage.getItem('sihuni_last_email') || '',
-      password: '',
+      email: localStorage.getItem("sihuni_last_email") || "",
+      password: "",
     },
   });
 
@@ -123,7 +154,7 @@ export function AuthForm() {
 
   const announceError = (msg: string) => {
     setErrorAnnouncement(msg);
-    setTimeout(() => setErrorAnnouncement(''), 1000);
+    setTimeout(() => setErrorAnnouncement(""), 1000);
   };
 
   const handleLogin = async (data: LoginFormData) => {
@@ -140,23 +171,23 @@ export function AuthForm() {
         setLockoutUntil(lockoutTime);
         setLockoutRemaining(900);
       }
-      const msg = getAuthErrorMessage(error);
+      const msg = getApiErrorMessage(error);
       announceError(msg);
-      triggerHaptic('error');
-      toast({ variant: 'destructive', title: 'Login gagal', description: msg });
+      triggerHaptic("error");
+      toast({ variant: "destructive", title: "Login gagal", description: msg });
       return;
     }
 
     setFailedAttempts(0);
     setLockoutUntil(null);
-    localStorage.setItem('sihuni_remember_me', rememberMe.toString());
+    localStorage.setItem("sihuni_remember_me", rememberMe.toString());
     if (rememberMe) {
-      localStorage.setItem('sihuni_last_email', data.email);
+      localStorage.setItem("sihuni_last_email", data.email);
     } else {
-      localStorage.removeItem('sihuni_last_email');
+      localStorage.removeItem("sihuni_last_email");
     }
-    triggerHaptic('success');
-    toast({ title: 'Selamat datang!', description: 'Anda berhasil masuk.' });
+    triggerHaptic("success");
+    toast({ title: "Selamat datang!", description: "Anda berhasil masuk." });
   };
 
   const isLocked = !!lockoutUntil && Date.now() < lockoutUntil;
@@ -165,11 +196,16 @@ export function AuthForm() {
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-background">
       {/* Skip link */}
       <nav className="sr-only focus-within:not-sr-only focus-within:absolute focus-within:top-4 focus-within:left-4 focus-within:z-50">
-        <a href="#login-form" className="bg-background px-4 py-2 rounded-md shadow-md focus:outline-none focus:ring-2 focus:ring-ring">
+        <a
+          href="#login-form"
+          className="bg-background px-4 py-2 rounded-md shadow-md focus:outline-none focus:ring-2 focus:ring-ring"
+        >
           Langsung ke form login
         </a>
       </nav>
-      <div aria-live="polite" aria-atomic="true" className="sr-only">{errorAnnouncement}</div>
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {errorAnnouncement}
+      </div>
 
       {/* Left: brand panel (desktop only) */}
       <BrandPanel />
@@ -179,7 +215,12 @@ export function AuthForm() {
         <FloatingOrbs />
 
         {/* ── Top bar: hidden on desktop (brand panel has logo) ─────────────── */}
-        <header className="relative z-10 flex items-center justify-between px-5 pb-2 lg:hidden" style={{ paddingTop: 'max(2.5rem, env(safe-area-inset-top, 2.5rem))' }}>
+        <header
+          className="relative z-10 flex items-center justify-between px-5 pb-2 lg:hidden"
+          style={{
+            paddingTop: "max(2.5rem, env(safe-area-inset-top, 2.5rem))",
+          }}
+        >
           {/* Mobile: centered logo — use absolute */}
           <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center sm:hidden">
             <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
@@ -194,8 +235,12 @@ export function AuthForm() {
               <Building2 className="w-4 h-4 text-primary-foreground" />
             </div>
             <div>
-              <p className="text-sm font-bold text-foreground leading-tight">SiHuni</p>
-              <p className="text-xs text-muted-foreground leading-tight">Sistem Manajemen Kos</p>
+              <p className="text-sm font-bold text-foreground leading-tight">
+                SiHuni
+              </p>
+              <p className="text-xs text-muted-foreground leading-tight">
+                Sistem Manajemen Kos
+              </p>
             </div>
           </div>
 
@@ -224,17 +269,29 @@ export function AuthForm() {
 
               {/* Lockout alert */}
               {isLocked && (
-                <div role="alert" className="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                <div
+                  role="alert"
+                  className="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm"
+                >
                   <Lock className="h-4 w-4 shrink-0" />
                   <span>
-                    Terlalu banyak percobaan. Coba lagi dalam{' '}
-                    <strong>{Math.floor(lockoutRemaining / 60)}:{String(lockoutRemaining % 60).padStart(2, '0')}</strong>.
+                    Terlalu banyak percobaan. Coba lagi dalam{" "}
+                    <strong>
+                      {Math.floor(lockoutRemaining / 60)}:
+                      {String(lockoutRemaining % 60).padStart(2, "0")}
+                    </strong>
+                    .
                   </span>
                 </div>
               )}
 
               {/* Form */}
-              <form id="login-form" onSubmit={form.handleSubmit(handleLogin)} className="space-y-4" noValidate>
+              <form
+                id="login-form"
+                onSubmit={form.handleSubmit(handleLogin)}
+                className="space-y-4"
+                noValidate
+              >
                 {/* Email */}
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
@@ -249,13 +306,19 @@ export function AuthForm() {
                       autoComplete="email"
                       disabled={isLoading || isLocked}
                       className="pl-10 rounded-xl h-12 border-border/60 bg-background/60 focus-visible:ring-1 focus-visible:ring-primary/30 focus-visible:border-primary text-base"
-                      aria-describedby={form.formState.errors.email ? 'email-error' : undefined}
+                      aria-describedby={
+                        form.formState.errors.email ? "email-error" : undefined
+                      }
                       aria-invalid={!!form.formState.errors.email}
-                      {...form.register('email')}
+                      {...form.register("email")}
                     />
                   </div>
                   {form.formState.errors.email && (
-                    <p id="email-error" className="text-sm text-destructive" role="alert">
+                    <p
+                      id="email-error"
+                      className="text-sm text-destructive"
+                      role="alert"
+                    >
                       {form.formState.errors.email.message}
                     </p>
                   )}
@@ -268,28 +331,44 @@ export function AuthForm() {
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                     <Input
                       id="password"
-                      type={showPassword ? 'text' : 'password'}
+                      type={showPassword ? "text" : "password"}
                       enterKeyHint="done"
                       placeholder="••••••••"
                       autoComplete="current-password"
                       disabled={isLoading || isLocked}
                       className="pl-10 pr-12 rounded-xl h-12 border-border/60 bg-background/60 focus-visible:ring-1 focus-visible:ring-primary/30 focus-visible:border-primary text-base"
-                      aria-describedby={form.formState.errors.password ? 'password-error' : undefined}
+                      aria-describedby={
+                        form.formState.errors.password
+                          ? "password-error"
+                          : undefined
+                      }
                       aria-invalid={!!form.formState.errors.password}
-                      {...form.register('password')}
+                      {...form.register("password")}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       tabIndex={-1}
-                      aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                      aria-label={
+                        showPassword
+                          ? "Sembunyikan password"
+                          : "Tampilkan password"
+                      }
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
                     </button>
                   </div>
                   {form.formState.errors.password && (
-                    <p id="password-error" className="text-sm text-destructive" role="alert">
+                    <p
+                      id="password-error"
+                      className="text-sm text-destructive"
+                      role="alert"
+                    >
                       {form.formState.errors.password.message}
                     </p>
                   )}
@@ -303,7 +382,10 @@ export function AuthForm() {
                     onCheckedChange={(v) => setRememberMe(v === true)}
                     aria-label="Ingat saya di perangkat ini"
                   />
-                  <Label htmlFor="remember-me" className="text-sm font-normal cursor-pointer text-muted-foreground">
+                  <Label
+                    htmlFor="remember-me"
+                    className="text-sm font-normal cursor-pointer text-muted-foreground"
+                  >
                     Ingat saya di perangkat ini
                   </Label>
                 </div>
@@ -320,13 +402,13 @@ export function AuthForm() {
                       Memproses...
                     </>
                   ) : (
-                    'Masuk'
+                    "Masuk"
                   )}
                 </Button>
               </form>
 
               <p className="text-center text-xs text-muted-foreground pt-1">
-                Belum punya akun?{' '}
+                Belum punya akun?{" "}
                 <span className="text-foreground font-medium">
                   Hubungi pengelola properti Anda.
                 </span>

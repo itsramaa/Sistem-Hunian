@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { whatsappService } from "../api/whatsappService";
 
 const WHATSAPP_KEY = "whatsapp";
@@ -19,6 +19,29 @@ export function useWhatsappQR(enabled: boolean) {
     enabled,
     refetchInterval: 30_000,
     refetchIntervalInBackground: false,
+  });
+}
+
+export function useWhatsappConnect() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => whatsappService.connect(),
+    onSuccess: () => {
+      // Delay refetch supaya backend sempat generate QR
+      setTimeout(() => {
+        qc.invalidateQueries({ queryKey: [WHATSAPP_KEY] });
+      }, 2000);
+    },
+  });
+}
+
+export function useWhatsappCancelConnect() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => whatsappService.cancelConnect(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [WHATSAPP_KEY] });
+    },
   });
 }
 

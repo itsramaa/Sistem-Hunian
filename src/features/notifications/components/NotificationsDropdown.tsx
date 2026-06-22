@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/shared/lib/axios";
 import { useAuth } from "@/features/auth/hooks/useAuth";
@@ -99,10 +99,31 @@ export function NotificationsDropdown() {
     }
   };
 
+  const getDeepLinkByType = (type: string | null): string | null => {
+    switch (type) {
+      case 'dp_reminder':
+      case 'dp_expired':
+        return '/dashboard/confirmations';
+      case 'payment_due':
+      case 'payment_overdue':
+      case 'payment':
+        return '/dashboard/payments';
+      case 'maintenance':
+        return '/dashboard/maintenance';
+      case 'invoice':
+        return '/dashboard/payments';
+      default:
+        return null;
+    }
+  };
+
   const handleNotificationClick = (notification: Notification) => {
     if (!notification.read) markAsRead.mutate(notification.id);
-    if (notification.link && isValidLink(notification.link)) {
-      navigate(notification.link);
+    const target = (notification.link && isValidLink(notification.link))
+      ? notification.link
+      : getDeepLinkByType(notification.type);
+    if (target) {
+      navigate(target);
       setOpen(false);
     }
   };

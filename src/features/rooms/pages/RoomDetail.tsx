@@ -1,27 +1,38 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/shared/lib/axios';
+import { useUpdateRoom, useDeleteRoom } from '../hooks/useRooms';
+import { useCheckoutTenant } from '@/features/tenant/hooks/useTenants';
+import { RoomForm } from '../components/RoomForm';
+import { CheckoutForm } from '@/features/tenant/components/CheckoutForm';
 import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
-import { ArrowLeft, BedDouble, Building2, DollarSign, Users, Loader2, Calendar } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/shared/components/ui/alert-dialog';
+import {
+  ArrowLeft, BedDouble, Building2, DollarSign, Users,
+  Loader2, Calendar, Pencil, Trash2,
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { cn } from '@/shared/utils/utils';
+import { useToast } from '@/shared/hooks/use-toast';
+import { getApiErrorMessage } from '@/shared/utils/api-errors';
+import { Room } from '../types';
 
-interface RoomDetail {
-  id: string;
-  nomor_kamar: string;
-  property_id: string;
-  nama_properti: string;
-  tipe_kamar: string;
-  harga_sewa: number;
-  status: 'available' | 'occupied' | 'dp_confirmation';
-  penghuni_aktif?: string;
+interface RoomDetail extends Room {
   tenant_id?: string;
   tanggal_masuk?: string;
   durasi_sewa?: number;
-  created_at: string;
-  updated_at: string;
 }
 
 const statusConfig = {
@@ -45,6 +56,11 @@ const statusConfig = {
 export default function RoomDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   const { data: room, isLoading, error } = useQuery<RoomDetail>({
     queryKey: ['room', id],
@@ -54,6 +70,46 @@ export default function RoomDetail() {
     },
     enabled: !!id,
   });
+
+  const updateMutation = useUpdateRoom();
+  const deleteMutation = useDeleteRoom();
+  const checkoutMutation = useCheckoutTenant();
+
+  const handleUpdate = async (payload: any) => {
+    if (!id) return;
+    try {
+      await updateMutation.mutateAsync({ id, payload });
+      qc.invalidateQueries({ queryKey: ['room', id] });
+      setEditOpen(false);
+      toast({ title: 'Kamar berhasil diperbarui' });
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Gagal memperbarui kamar', description: getApiErrorMessage(err) });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!id) return;
+    try {
+      await deleteMutation.mutateAsync(id);
+      toast({ title: 'Kamar berhasil dihapus' });
+      navigate('/dashboard/rooms');
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Gagal menghapus kamar', description: getApiErrorMessage(err) });
+      setDeleteOpen(false);
+    }
+  };
+
+  const handleCheckout = async (tanggal_keluar: string) => {
+    if (!room?.tenant_id) return;
+    try {
+      await checkoutMutation.mutateAsync({ id: room.tenant_id, tanggal_keluar });
+      qc.invalidateQueries({ queryKey: ['room', id] });
+      setCheckoutOpen(false);
+      toast({ title: 'Checkout berhasil', description: 'Status kamar kini tersedia.' });
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Gagal checkout', description: getApiErrorMessage(err) });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -106,6 +162,25 @@ export default function RoomDetail() {
               </div>
             </div>
           </div>
+        </div>
+        <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+          <Button variant="outline" size="sm" className="gap-1.5 rounded-xl" onClick={() => setEditOpen(true)}>
+            <Pencil className="h-3.5 w-3.5" /> Edit
+          </Button>
+          {room.status === 'occupied' && (
+            <Button variant="outline" size="sm" className="gap-1.5 rounded-xl" onClick={() => setCheckoutOpen(true)}>
+              Checkout
+            </Button>
+          )}
+          <Button
+            variant="destructive"
+            size="sm"
+            className="gap-1.5 rounded-xl"
+            onClick={() => setDeleteOpen(true)}
+            disabled={room.status === 'occupied' || room.status === 'dp_confirmation'}
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Hapus
+          </Button>
         </div>
       </div>
 
@@ -216,7 +291,6 @@ export default function RoomDetail() {
               <p className="text-xs text-muted-foreground truncate">{room.nama_properti}</p>
             </div>
           </Button>
-
           <Button
             variant="outline"
             className="justify-start gap-3 h-auto py-3 rounded-xl"
@@ -230,6 +304,50 @@ export default function RoomDetail() {
           </Button>
         </div>
       </div>
+
+      {/* Edit Dialog */}
+      {editOpen && (
+        <RoomForm
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          room={room}
+          onSubmit={handleUpdate}
+          isLoading={updateMutation.isPending}
+        />
+      )}
+
+      {/* Delete Confirm */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Kamar {room.nomor_kamar}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tindakan ini tidak dapat dibatalkan. Kamar akan dihapus dari sistem.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Hapus'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Checkout Dialog */}
+      {checkoutOpen && room.tenant_id && (
+        <CheckoutForm
+          open={checkoutOpen}
+          onOpenChange={setCheckoutOpen}
+          tenantName={room.penghuni_aktif ?? ''}
+          roomNumber={room.nomor_kamar}
+          onSubmit={handleCheckout}
+          isLoading={checkoutMutation.isPending}
+        />
+      )}
     </div>
   );
 }

@@ -1,12 +1,31 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/shared/lib/axios';
+import { useUpdateTenant, useCheckoutTenant } from '../hooks/useTenants';
 import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
-import { ArrowLeft, User, BedDouble, Building2, Phone, CreditCard, Calendar, Loader2, DollarSign } from 'lucide-react';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/shared/components/ui/dialog';
+import {
+  ArrowLeft, User, BedDouble, Building2, Phone, CreditCard,
+  Calendar, Loader2, DollarSign, Pencil, LogOut,
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { cn } from '@/shared/utils/utils';
+import { useToast } from '@/shared/hooks/use-toast';
+import { getApiErrorMessage } from '@/shared/utils/api-errors';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 
 interface TenantDetail {
   id: string;
@@ -36,6 +55,17 @@ const statusConfig = {
   },
 };
 
+const editSchema = z.object({
+  nomor_identitas: z.string().min(1, 'Wajib diisi'),
+  nomor_telepon: z.string().min(1, 'Wajib diisi'),
+});
+type EditForm = z.infer<typeof editSchema>;
+
+const checkoutSchema = z.object({
+  tanggal_keluar: z.string().min(1, 'Tanggal keluar wajib diisi'),
+});
+type CheckoutForm = z.infer<typeof checkoutSchema>;
+
 const fmt = (d: string) => {
   try { return format(new Date(d), 'dd MMMM yyyy', { locale: localeId }); }
   catch { return d; }
@@ -44,6 +74,10 @@ const fmt = (d: string) => {
 export default function TenantDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [editOpen, setEditOpen] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   const { data: tenant, isLoading, error } = useQuery<TenantDetail>({
     queryKey: ['tenant', id],
@@ -53,6 +87,52 @@ export default function TenantDetail() {
     },
     enabled: !!id,
   });
+
+  const updateMutation = useUpdateTenant();
+  const checkoutMutation = useCheckoutTenant();
+
+  const editForm = useForm<EditForm>({
+    resolver: zodResolver(editSchema),
+    defaultValues: { nomor_identitas: '', nomor_telepon: '' },
+  });
+
+  const checkoutForm = useForm<CheckoutForm>({
+    resolver: zodResolver(checkoutSchema),
+    defaultValues: { tanggal_keluar: format(new Date(), 'yyyy-MM-dd') },
+  });
+
+  const openEdit = () => {
+    if (!tenant) return;
+    editForm.reset({
+      nomor_identitas: tenant.nomor_identitas,
+      nomor_telepon: tenant.nomor_telepon,
+    });
+    setEditOpen(true);
+  };
+
+  const handleEdit = async (values: EditForm) => {
+    if (!id) return;
+    try {
+      await updateMutation.mutateAsync({ id, payload: values });
+      qc.invalidateQueries({ queryKey: ['tenant', id] });
+      setEditOpen(false);
+      toast({ title: 'Data penghuni berhasil diperbarui' });
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Gagal memperbarui', description: getApiErrorMessage(err) });
+    }
+  };
+
+  const handleCheckout = async (values: CheckoutForm) => {
+    if (!id || !tenant) return;
+    try {
+      await checkoutMutation.mutateAsync({ id, tanggal_keluar: values.tanggal_keluar });
+      qc.invalidateQueries({ queryKey: ['tenant', id] });
+      setCheckoutOpen(false);
+      toast({ title: 'Checkout berhasil', description: `${tenant.nama} telah berhasil di-checkout.` });
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Gagal checkout', description: getApiErrorMessage(err) });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -81,8 +161,6 @@ export default function TenantDetail() {
   }
 
   const statusInfo = statusConfig[tenant.status];
-
-  // Calculate check-out date from tanggal_masuk + durasi_sewa months
   const tanggalMasuk = new Date(tenant.tanggal_masuk);
   const estimatedCheckout = new Date(tanggalMasuk);
   estimatedCheckout.setMonth(estimatedCheckout.getMonth() + tenant.durasi_sewa);
@@ -90,21 +168,33 @@ export default function TenantDetail() {
   return (
     <div className="space-y-5 pb-2">
       {/* Header */}
-      <div className="flex items-start gap-4">
-        <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
-          <User className="h-6 w-6 text-primary" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold tracking-tight text-foreground">{tenant.nama}</h1>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <Badge className={cn('rounded-full', statusInfo.className)}>
-              {statusInfo.label}
-            </Badge>
-            <span className="text-sm text-muted-foreground">
-              Kamar {tenant.nomor_kamar} · {tenant.nama_properti}
-            </span>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-4 min-w-0 flex-1">
+          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+            <User className="h-6 w-6 text-primary" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl font-bold tracking-tight text-foreground">{tenant.nama}</h1>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <Badge className={cn('rounded-full', statusInfo.className)}>
+                {statusInfo.label}
+              </Badge>
+              <span className="text-sm text-muted-foreground">
+                Kamar {tenant.nomor_kamar} · {tenant.nama_properti}
+              </span>
+            </div>
           </div>
         </div>
+        {tenant.status === 'active' && (
+          <div className="flex gap-2 shrink-0">
+            <Button variant="outline" size="sm" className="gap-1.5 rounded-xl" onClick={openEdit}>
+              <Pencil className="h-3.5 w-3.5" /> Edit
+            </Button>
+            <Button variant="destructive" size="sm" className="gap-1.5 rounded-xl" onClick={() => setCheckoutOpen(true)}>
+              <LogOut className="h-3.5 w-3.5" /> Checkout
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Personal Info */}
@@ -181,7 +271,6 @@ export default function TenantDetail() {
               <p className="text-xs text-muted-foreground">Kamar {tenant.nomor_kamar}</p>
             </div>
           </Button>
-
           <Button
             variant="outline"
             className="justify-start gap-3 h-auto py-3 rounded-xl"
@@ -193,7 +282,6 @@ export default function TenantDetail() {
               <p className="text-xs text-muted-foreground truncate">{tenant.nama_properti}</p>
             </div>
           </Button>
-
           <Button
             variant="outline"
             className="justify-start gap-3 h-auto py-3 rounded-xl"
@@ -207,6 +295,66 @@ export default function TenantDetail() {
           </Button>
         </div>
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Data Penghuni</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={editForm.handleSubmit(handleEdit)} className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label>No. Identitas</Label>
+              <Input {...editForm.register('nomor_identitas')} placeholder="Nomor KTP/identitas" />
+              {editForm.formState.errors.nomor_identitas && (
+                <p className="text-xs text-destructive">{editForm.formState.errors.nomor_identitas.message}</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label>No. Telepon</Label>
+              <Input {...editForm.register('nomor_telepon')} placeholder="08xx..." />
+              {editForm.formState.errors.nomor_telepon && (
+                <p className="text-xs text-destructive">{editForm.formState.errors.nomor_telepon.message}</p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>Batal</Button>
+              <Button type="submit" disabled={updateMutation.isPending}>
+                {updateMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Simpan
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Checkout Dialog */}
+      <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Checkout Penghuni</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={checkoutForm.handleSubmit(handleCheckout)} className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground">
+              Konfirmasi checkout untuk <strong>{tenant.nama}</strong>. Status kamar akan berubah menjadi tersedia.
+            </p>
+            <div className="space-y-1.5">
+              <Label>Tanggal Keluar</Label>
+              <Input type="date" {...checkoutForm.register('tanggal_keluar')} />
+              {checkoutForm.formState.errors.tanggal_keluar && (
+                <p className="text-xs text-destructive">{checkoutForm.formState.errors.tanggal_keluar.message}</p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setCheckoutOpen(false)}>Batal</Button>
+              <Button type="submit" variant="destructive" disabled={checkoutMutation.isPending}>
+                {checkoutMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Checkout
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
