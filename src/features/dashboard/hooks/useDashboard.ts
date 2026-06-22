@@ -2,6 +2,20 @@ import { apiClient } from "@/shared/lib/axios";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+export interface PropertiSummaryItem {
+  property_id: string;
+  nama_properti: string;
+  total_kamar: number;
+  occupied: number;
+  available: number;
+  dp_confirmation: number;
+}
+
+export interface MaintenanceSummary {
+  reported: number;
+  in_progress: number;
+}
+
 export interface DashboardSummary {
   total_properti: number;
 
@@ -12,6 +26,10 @@ export interface DashboardSummary {
   kamar_occupied: number;
 
   kamar_dp_confirmation: number;
+
+  properti_summary: PropertiSummaryItem[];
+
+  maintenance_summary: MaintenanceSummary;
 }
 
 export interface DpAlert {
@@ -77,7 +95,8 @@ export function useDashboardSummary() {
       const { data } = await apiClient.get<any>("/dashboard");
       // axios interceptor unwraps {success, data} → data langsung
       // tapi jika response masih punya .data nested, handle keduanya
-      const result: DashboardSummary = data?.total_properti !== undefined ? data : data?.data;
+      const result: DashboardSummary =
+        data?.total_properti !== undefined ? data : data?.data;
       return result ?? null;
     },
   });
@@ -107,6 +126,7 @@ export function useNotifications(isRead?: boolean) {
       );
       return data.data ?? [];
     },
+    refetchInterval: 60000, // auto-refresh badge setiap 60 detik
   });
 }
 

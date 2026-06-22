@@ -88,6 +88,8 @@ export default function RoomsPage() {
     searchParams.get("property_id") || "",
   );
   const [statusFilter, setStatusFilter] = useState("");
+  const [tipeFilter, setTipeFilter] = useState("");
+  const [sortBy, setSortBy] = useState("nomor_asc");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Room | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Room | null>(null);
@@ -107,7 +109,27 @@ export default function RoomsPage() {
   const updateMutation = useUpdateRoom();
   const deleteMutation = useDeleteRoom();
 
-  const rooms = roomsData?.rooms ?? [];
+  const rawRooms = roomsData?.rooms ?? [];
+  const rooms = [...rawRooms]
+    .filter((r: any) => !tipeFilter || r.tipe === tipeFilter)
+    .sort((a: any, b: any) => {
+      switch (sortBy) {
+        case "nomor_asc":
+          return a.nomor_kamar.localeCompare(b.nomor_kamar, undefined, {
+            numeric: true,
+          });
+        case "nomor_desc":
+          return b.nomor_kamar.localeCompare(a.nomor_kamar, undefined, {
+            numeric: true,
+          });
+        case "harga_asc":
+          return (a.harga_sewa ?? 0) - (b.harga_sewa ?? 0);
+        case "harga_desc":
+          return (b.harga_sewa ?? 0) - (a.harga_sewa ?? 0);
+        default:
+          return 0;
+      }
+    });
   const total = roomsData?.pagination?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const properties = propsData?.properties ?? [];
@@ -309,6 +331,36 @@ export default function RoomsPage() {
               <SelectItem value="available">Tersedia</SelectItem>
               <SelectItem value="dp_confirmation">Konfirmasi DP</SelectItem>
               <SelectItem value="occupied">Terisi</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Select
+            value={tipeFilter || "_all"}
+            onValueChange={(v) => {
+              setTipeFilter(v === "_all" ? "" : v);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="rounded-xl h-10 w-full">
+              <SelectValue placeholder="Semua tipe" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">Semua tipe</SelectItem>
+              <SelectItem value="1 petak">1 Petak</SelectItem>
+              <SelectItem value="2 petak">2 Petak</SelectItem>
+              <SelectItem value="3 petak">3 Petak</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="rounded-xl h-10 w-full">
+              <SelectValue placeholder="Urutkan" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="nomor_asc">Nomor A-Z</SelectItem>
+              <SelectItem value="nomor_desc">Nomor Z-A</SelectItem>
+              <SelectItem value="harga_asc">Harga Terendah</SelectItem>
+              <SelectItem value="harga_desc">Harga Tertinggi</SelectItem>
             </SelectContent>
           </Select>
         </div>

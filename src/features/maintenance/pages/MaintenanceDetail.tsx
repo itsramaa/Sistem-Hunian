@@ -1,9 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   useMaintenanceById,
   useUpdateMaintenance,
+  useUploadFotoKerusakan,
+  useUploadFotoPenanganan,
 } from "../hooks/useMaintenance";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { UpdateMaintenancePayload } from "../types";
 import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
@@ -70,10 +73,16 @@ export default function MaintenanceDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { role } = useAuth();
+  const isOperatorOrManager = role === "operator" || role === "manager";
   const [updateOpen, setUpdateOpen] = useState(false);
+  const fotoKerusakanRef = useRef<HTMLInputElement>(null);
+  const fotoPenangananRef = useRef<HTMLInputElement>(null);
 
   const { data: maintenance, isLoading, error } = useMaintenanceById(id);
   const updateMutation = useUpdateMaintenance();
+  const uploadKerusakanMutation = useUploadFotoKerusakan();
+  const uploadPenangananMutation = useUploadFotoPenanganan();
 
   const form = useForm<UpdateForm>({
     resolver: zodResolver(updateSchema),
@@ -302,6 +311,145 @@ export default function MaintenanceDetail() {
           <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
             {maintenance.tindakan_penanganan}
           </p>
+        </div>
+      )}
+
+      {/* Foto Kerusakan */}
+      {(maintenance.foto_kerusakan_url || isOperatorOrManager) && (
+        <div className="glass-card p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Wrench className="h-4 w-4" />
+              <span className="text-xs font-semibold uppercase tracking-wider">
+                Foto Kerusakan
+              </span>
+            </div>
+            {isOperatorOrManager && !maintenance.foto_kerusakan_url && (
+              <>
+                <input
+                  ref={fotoKerusakanRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file || !id) return;
+                    try {
+                      await uploadKerusakanMutation.mutateAsync({ id, file });
+                      toast({ title: "Foto kerusakan berhasil diupload" });
+                    } catch (err) {
+                      toast({
+                        variant: "destructive",
+                        title: "Gagal upload foto",
+                        description: getApiErrorMessage(err),
+                      });
+                    }
+                    e.target.value = "";
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 rounded-xl text-xs"
+                  disabled={uploadKerusakanMutation.isPending}
+                  onClick={() => fotoKerusakanRef.current?.click()}
+                >
+                  {uploadKerusakanMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    "Upload Foto"
+                  )}
+                </Button>
+              </>
+            )}
+          </div>
+          {maintenance.foto_kerusakan_url ? (
+            <a
+              href={maintenance.foto_kerusakan_url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img
+                src={maintenance.foto_kerusakan_url}
+                alt="Foto kerusakan"
+                className="w-full max-h-64 object-cover rounded-xl border border-border cursor-pointer hover:opacity-90 transition-opacity"
+              />
+            </a>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">
+              Belum ada foto kerusakan
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Foto Penanganan */}
+      {(maintenance.foto_penanganan_url ||
+        (isOperatorOrManager && maintenance.status !== "reported")) && (
+        <div className="glass-card p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Wrench className="h-4 w-4" />
+              <span className="text-xs font-semibold uppercase tracking-wider">
+                Foto Penanganan
+              </span>
+            </div>
+            {isOperatorOrManager && !maintenance.foto_penanganan_url && (
+              <>
+                <input
+                  ref={fotoPenangananRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file || !id) return;
+                    try {
+                      await uploadPenangananMutation.mutateAsync({ id, file });
+                      toast({ title: "Foto penanganan berhasil diupload" });
+                    } catch (err) {
+                      toast({
+                        variant: "destructive",
+                        title: "Gagal upload foto",
+                        description: getApiErrorMessage(err),
+                      });
+                    }
+                    e.target.value = "";
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 rounded-xl text-xs"
+                  disabled={uploadPenangananMutation.isPending}
+                  onClick={() => fotoPenangananRef.current?.click()}
+                >
+                  {uploadPenangananMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    "Upload Foto"
+                  )}
+                </Button>
+              </>
+            )}
+          </div>
+          {maintenance.foto_penanganan_url ? (
+            <a
+              href={maintenance.foto_penanganan_url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img
+                src={maintenance.foto_penanganan_url}
+                alt="Foto penanganan"
+                className="w-full max-h-64 object-cover rounded-xl border border-border cursor-pointer hover:opacity-90 transition-opacity"
+              />
+            </a>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">
+              Belum ada foto penanganan
+            </p>
+          )}
         </div>
       )}
 

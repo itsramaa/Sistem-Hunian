@@ -1,4 +1,4 @@
-﻿import { apiClient } from "@/shared/lib/axios";
+import { apiClient } from "@/shared/lib/axios";
 import {
   CreateMaintenancePayload,
   Maintenance,
@@ -46,5 +46,27 @@ export const maintenanceService = {
       payload,
     );
     return data as Maintenance;
+  },
+
+  async uploadFotoKerusakan(id: string, file: File): Promise<{ url: string }> {
+    const form = new FormData();
+    form.append("foto", file);
+    const { data } = await apiClient.patch<any>(
+      `/maintenances/${id}/upload-kerusakan`,
+      form,
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+    return data?.data ?? data;
+  },
+
+  async uploadFotoPenanganan(id: string, file: File): Promise<{ url: string }> {
+    const form = new FormData();
+    form.append("foto", file);
+    const { data } = await apiClient.patch<any>(
+      `/maintenances/${id}/upload-penanganan`,
+      form,
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+    return data?.data ?? data;
   },
 };

@@ -81,16 +81,31 @@ const operatorNav: NavGroup[] = [
   },
 ];
 
-// Manager: dashboard + maintenance + audit trail
-const managerNav: NavGroup[] = [
-  {
-    label: 'Utama',
-    items: [
-      { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-      { label: 'Maintenance', path: '/dashboard/maintenance', icon: Wrench },
-      { label: 'Audit Trail', path: '/dashboard/audit', icon: History },
-    ],
-  },
+// Manager: dashboard + read-only access ke semua halaman operasional + maintenance + audit
+const managerNav: NavGroup[] = [
+  {
+    label: 'Utama',
+    items: [
+      { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: 'Manajemen (Read-only)',
+    items: [
+      { label: 'Properti', path: '/dashboard/properties', icon: Building2 },
+      { label: 'Kamar', path: '/dashboard/rooms', icon: BedDouble },
+      { label: 'Penghuni', path: '/dashboard/tenants', icon: Users },
+      { label: 'Pembayaran', path: '/dashboard/payments', icon: CreditCard },
+      { label: 'Konfirmasi DP', path: '/dashboard/confirmations', icon: Clock },
+      { label: 'Maintenance', path: '/dashboard/maintenance', icon: Wrench },
+    ],
+  },
+  {
+    label: 'Laporan',
+    items: [
+      { label: 'Audit Trail', path: '/dashboard/audit', icon: History },
+    ],
+  },
 ];
 
 const viewerNav: NavGroup[] = [

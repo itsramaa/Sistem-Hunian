@@ -53,16 +53,25 @@ const statusColors: Record<string, string> = {
 export default function AuditTrailPage() {
   const [page, setPage] = useState(1);
   const [propertyFilter, setPropertyFilter] = useState("");
+  const [newStatusFilter, setNewStatusFilter] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const limit = 20;
 
   const { data: propsData } = useProperties("", 1, 100);
   const properties = propsData?.properties ?? [];
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["audit-room-status", { page, limit, propertyFilter }],
+    queryKey: [
+      "audit-room-status",
+      { page, limit, propertyFilter, newStatusFilter, fromDate, toDate },
+    ],
     queryFn: async () => {
       const params: Record<string, any> = { page, limit };
       if (propertyFilter) params.property_id = propertyFilter;
+      if (newStatusFilter) params.new_status = newStatusFilter;
+      if (fromDate) params.from_date = fromDate;
+      if (toDate) params.to_date = toDate;
       const { data } = await apiClient.get<any>("/audit/room-status", {
         params,
       });
@@ -91,25 +100,83 @@ export default function AuditTrailPage() {
         </p>
       </div>
 
-      <Select
-        value={propertyFilter}
-        onValueChange={(v) => {
-          setPropertyFilter(v);
-          setPage(1);
-        }}
-      >
-        <SelectTrigger className="w-[200px] rounded-xl h-10">
-          <SelectValue placeholder="Semua properti" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value=" ">Semua properti</SelectItem>
-          {properties.map((p: any) => (
-            <SelectItem key={p.id} value={p.id}>
-              {p.nama}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="flex flex-wrap gap-3">
+        <Select
+          value={propertyFilter || "_all"}
+          onValueChange={(v) => {
+            setPropertyFilter(v === "_all" ? "" : v);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-[180px] rounded-xl h-10">
+            <SelectValue placeholder="Semua properti" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="_all">Semua properti</SelectItem>
+            {properties.map((p: any) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.nama}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={newStatusFilter || "_all"}
+          onValueChange={(v) => {
+            setNewStatusFilter(v === "_all" ? "" : v);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-[160px] rounded-xl h-10">
+            <SelectValue placeholder="Semua perubahan" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="_all">Semua perubahan</SelectItem>
+            <SelectItem value="occupied">→ Terisi</SelectItem>
+            <SelectItem value="available">→ Tersedia</SelectItem>
+            <SelectItem value="dp_confirmation">→ Konfirmasi DP</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(e) => {
+              setFromDate(e.target.value);
+              setPage(1);
+            }}
+            className="h-10 rounded-xl border border-input bg-background px-3 text-sm"
+            placeholder="Dari tanggal"
+          />
+          <span className="text-muted-foreground text-sm">—</span>
+          <input
+            type="date"
+            value={toDate}
+            onChange={(e) => {
+              setToDate(e.target.value);
+              setPage(1);
+            }}
+            className="h-10 rounded-xl border border-input bg-background px-3 text-sm"
+            placeholder="Sampai tanggal"
+          />
+          {(fromDate || toDate) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setFromDate("");
+                setToDate("");
+                setPage(1);
+              }}
+              className="h-10 px-2 text-xs"
+            >
+              Reset
+            </Button>
+          )}
+        </div>
+      </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">

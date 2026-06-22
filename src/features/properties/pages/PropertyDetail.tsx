@@ -1,3 +1,4 @@
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Button } from "@/shared/components/ui/button";
 import { useToast } from "@/shared/hooks/use-toast";
 import { apiClient } from "@/shared/lib/axios";
@@ -36,6 +37,8 @@ export default function PropertyDetail() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { role } = useAuth();
+  const isOperator = role === "operator";
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
@@ -145,28 +148,32 @@ export default function PropertyDetail() {
           </div>
         </div>
         <div className="flex gap-2 shrink-0">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 rounded-xl"
-            onClick={() => setEditOpen(true)}
-          >
-            <Pencil className="h-3.5 w-3.5" /> Edit
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            className="gap-1.5 rounded-xl"
-            onClick={() => setDeleteOpen(true)}
-            disabled={property.total_kamar > 0}
-            title={
-              property.total_kamar > 0
-                ? "Hapus semua kamar terlebih dahulu"
-                : undefined
-            }
-          >
-            <Trash2 className="h-3.5 w-3.5" /> Hapus
-          </Button>
+          {isOperator && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 rounded-xl"
+                onClick={() => setEditOpen(true)}
+              >
+                <Pencil className="h-3.5 w-3.5" /> Edit
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="gap-1.5 rounded-xl"
+                onClick={() => setDeleteOpen(true)}
+                disabled={property.total_kamar > 0}
+                title={
+                  property.total_kamar > 0
+                    ? "Hapus semua kamar terlebih dahulu"
+                    : undefined
+                }
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Hapus
+              </Button>
+            </>
+          )}
         </div>
       </div>
 

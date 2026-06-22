@@ -8,10 +8,9 @@ import {
   useMarkNotificationRead,
   useNotifications,
 } from "@/features/dashboard/hooks/useDashboard";
-import { useMaintenances } from "@/features/maintenance/hooks/useMaintenance";
 import { usePayments } from "@/features/payments/hooks/usePayments";
-import { useProperties } from "@/features/properties/hooks/useProperties";
 import { useCreateViewerRequest } from "@/features/viewer-requests/hooks/useViewerRequests";
+import { useRooms } from "@/features/rooms/hooks/useRooms";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/utils/utils";
 import { useQueryClient } from "@tanstack/react-query";
@@ -490,10 +489,6 @@ export default function Dashboard() {
   const isManagerOrAbove = role === "operator" || role === "manager";
   const isViewer = role === "viewer";
 
-  // Breakdown per properti
-  const { data: propsData } = useProperties("", 1, 100);
-  const properties = propsData?.properties ?? [];
-
   // Rooms for viewer request panel
   const { data: roomsData } = useRooms("", 1, 200);
   const allRooms = roomsData?.rooms ?? [];
@@ -514,19 +509,14 @@ export default function Dashboard() {
     0,
   );
 
-  // Maintenance aktif (reported + in_progress)
-  const { data: maintReported } = useMaintenances(1, 100, "reported");
-  const { data: maintInProgress } = useMaintenances(1, 100, "in_progress");
   const maintenanceAktif =
-    (maintReported?.maintenances?.length ?? 0) +
-    (maintInProgress?.maintenances?.length ?? 0);
+    (summary?.maintenance_summary?.reported ?? 0) +
+    (summary?.maintenance_summary?.in_progress ?? 0);
 
   const handleRefresh = () => {
     qc.invalidateQueries({ queryKey: ["dashboard"] });
     qc.invalidateQueries({ queryKey: ["notifications"] });
-    qc.invalidateQueries({ queryKey: ["properties"] });
     qc.invalidateQueries({ queryKey: ["payments"] });
-    qc.invalidateQueries({ queryKey: ["maintenances"] });
   };
 
   const summaryCards = [
@@ -696,7 +686,7 @@ export default function Dashboard() {
             </p>
           </div>
 
-          {/* Maintenance aktif */}
+          {/* Maintenance aktif — gunakan data dari dashboard summary */}
           <div
             className="glass-card p-4 cursor-pointer hover:bg-primary/5 transition-colors"
             onClick={() => navigate("/dashboard/maintenance")}
@@ -725,43 +715,89 @@ export default function Dashboard() {
               {maintenanceAktif}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              {maintReported?.maintenances?.length ?? 0} dilaporkan ·{" "}
-              {maintInProgress?.maintenances?.length ?? 0} dalam proses
+              {summary?.maintenance_summary?.reported ?? 0} dilaporkan ·{" "}
+              {summary?.maintenance_summary?.in_progress ?? 0} dalam proses
             </p>
           </div>
         </div>
       )}
 
-      {/* Breakdown per Properti — operator & manager */}
-      {isManagerOrAbove && properties.length > 0 && (
+      {/* Quick Actions — operator only */}
+      {isOperator && (
+        <section>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
+            Aksi Cepat
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              onClick={() => navigate("/dashboard/payments")}
+              className="glass-card p-3 flex flex-col items-center gap-2 text-center hover:bg-primary/5 transition-colors cursor-pointer"
+            >
+              <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
+                <DollarSign className="h-5 w-5 text-green-600" />
+              </div>
+              <span className="text-xs font-medium text-foreground leading-tight">
+                Catat Pembayaran
+              </span>
+            </button>
+            <button
+              onClick={() => navigate("/dashboard/confirmations")}
+              className="glass-card p-3 flex flex-col items-center gap-2 text-center hover:bg-primary/5 transition-colors cursor-pointer"
+            >
+              <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                <CheckCircle2 className="h-5 w-5 text-blue-600" />
+              </div>
+              <span className="text-xs font-medium text-foreground leading-tight">
+                Tambah DP
+              </span>
+            </button>
+            <button
+              onClick={() => navigate("/dashboard/maintenance")}
+              className="glass-card p-3 flex flex-col items-center gap-2 text-center hover:bg-primary/5 transition-colors cursor-pointer"
+            >
+              <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
+                <Wrench className="h-5 w-5 text-orange-600" />
+              </div>
+              <span className="text-xs font-medium text-foreground leading-tight">
+                Catat Maintenance
+              </span>
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* Breakdown per Properti — operator & manager — gunakan properti_summary dari dashboard */}
+      {isManagerOrAbove && (summary?.properti_summary ?? []).length > 0 && (
         <section>
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
             Status per Properti
           </p>
           <div className="space-y-2">
-            {properties.map((p: any) => {
+            {(summary?.properti_summary ?? []).map((p) => {
               const rate =
                 p.total_kamar > 0
-                  ? Math.round((p.kamar_occupied / p.total_kamar) * 100)
+                  ? Math.round((p.occupied / p.total_kamar) * 100)
                   : 0;
               return (
                 <div
-                  key={p.id}
+                  key={p.property_id}
                   className="glass-card p-3 cursor-pointer hover:bg-primary/5 transition-colors"
-                  onClick={() => navigate(`/dashboard/properties/${p.id}`)}
+                  onClick={() =>
+                    navigate(`/dashboard/properties/${p.property_id}`)
+                  }
                 >
                   <div className="flex items-center justify-between gap-3 mb-2">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-foreground truncate">
-                        {p.nama}
+                        {p.nama_properti}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {p.alamat}
+                        {p.total_kamar} kamar total
                       </p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-sm font-bold tabular-nums">
-                        {p.kamar_occupied ?? 0}/{p.total_kamar ?? 0}
+                        {p.occupied}/{p.total_kamar}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {rate}% terisi
@@ -781,9 +817,9 @@ export default function Dashboard() {
                       style={{ width: `${rate}%` }}
                     />
                   </div>
-                  {(p.kamar_available ?? 0) > 0 && (
+                  {p.available > 0 && (
                     <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                      {p.kamar_available} kamar tersedia
+                      {p.available} kamar tersedia
                     </p>
                   )}
                 </div>
@@ -792,36 +828,33 @@ export default function Dashboard() {
           </div>
         </section>
       )}
-
-      {/* Viewer: Room Status per Properti (simplified) */}
-      {isViewer && properties.length > 0 && (
+      {/* Viewer: Room Status per Properti — pakai properti_summary dari dashboard */}
+      {isViewer && (summary?.properti_summary ?? []).length > 0 && (
         <section>
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
             Status Hunian per Properti
           </p>
           <div className="space-y-2">
-            {properties.map((p: any) => {
+            {(summary?.properti_summary ?? []).map((p) => {
               const rate =
                 p.total_kamar > 0
-                  ? Math.round(((p.kamar_occupied ?? 0) / p.total_kamar) * 100)
+                  ? Math.round((p.occupied / p.total_kamar) * 100)
                   : 0;
               return (
-                <div key={p.id} className="glass-card p-3">
+                <div key={p.property_id} className="glass-card p-3">
                   <div className="flex items-center justify-between gap-3 mb-2">
                     <p className="text-sm font-semibold text-foreground truncate">
-                      {p.nama}
+                      {p.nama_properti}
                     </p>
                     <span
                       className={cn(
                         "text-xs font-medium px-2 py-0.5 rounded-full",
-                        (p.kamar_available ?? 0) > 0
+                        p.available > 0
                           ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                           : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
                       )}
                     >
-                      {(p.kamar_available ?? 0) > 0
-                        ? `${p.kamar_available} kosong`
-                        : "Penuh"}
+                      {p.available > 0 ? `${p.available} kosong` : "Penuh"}
                     </span>
                   </div>
                   <div className="h-1.5 bg-muted rounded-full overflow-hidden">
@@ -834,8 +867,7 @@ export default function Dashboard() {
                     />
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {p.kamar_occupied ?? 0} terisi dari {p.total_kamar ?? 0}{" "}
-                    kamar
+                    {p.occupied} terisi dari {p.total_kamar} kamar
                   </p>
                 </div>
               );

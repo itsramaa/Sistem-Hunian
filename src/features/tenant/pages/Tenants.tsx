@@ -1,5 +1,5 @@
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useProperties } from "@/features/properties/hooks/useProperties";
-import { DataCard } from "@/shared/components/DataCard";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
@@ -57,6 +57,8 @@ import { Tenant } from "../types";
 
 export default function TenantsPage() {
   const navigate = useNavigate();
+  const { role } = useAuth();
+  const isOperator = role === "operator";
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("active");
   const [page, setPage] = useState(1);
@@ -237,12 +239,14 @@ export default function TenantsPage() {
             Data penghuni dan histori hunian
           </p>
         </div>
-        <Button
-          onClick={() => setFormOpen(true)}
-          className="shrink-0 gap-2 rounded-xl min-h-[44px]"
-        >
-          <Plus className="h-4 w-4" /> Tambah Penghuni
-        </Button>
+        {isOperator && (
+          <Button
+            onClick={() => setFormOpen(true)}
+            className="shrink-0 gap-2 rounded-xl min-h-[44px]"
+          >
+            <Plus className="h-4 w-4" /> Tambah Penghuni
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -447,7 +451,7 @@ export default function TenantsPage() {
                             {t.status === "active" ? "Aktif" : "Checkout"}
                           </Badge>
                         </TableCell>
-                        {isActive && (
+                        {isActive && isOperator && (
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
                               <Button

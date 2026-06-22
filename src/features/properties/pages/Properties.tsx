@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import {
   useProperties,
   useCreateProperty,
@@ -51,8 +52,11 @@ import { MoreHorizontal, ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function PropertiesPage() {
   const navigate = useNavigate();
+  const { role } = useAuth();
+  const isOperator = role === "operator";
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState("nama_asc");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Property | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Property | null>(null);
@@ -70,7 +74,21 @@ export default function PropertiesPage() {
   const updateMutation = useUpdateProperty();
   const deleteMutation = useDeleteProperty();
 
-  const properties = data?.properties ?? [];
+  const rawProperties = data?.properties ?? [];
+  const properties = [...rawProperties].sort((a: any, b: any) => {
+    switch (sortBy) {
+      case "nama_asc":
+        return a.nama.localeCompare(b.nama);
+      case "nama_desc":
+        return b.nama.localeCompare(a.nama);
+      case "kamar_asc":
+        return (a.total_kamar ?? 0) - (b.total_kamar ?? 0);
+      case "kamar_desc":
+        return (b.total_kamar ?? 0) - (a.total_kamar ?? 0);
+      default:
+        return 0;
+    }
+  });
   const total = data?.pagination?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
@@ -167,28 +185,43 @@ export default function PropertiesPage() {
             Kelola data properti kos Anda
           </p>
         </div>
-        <Button
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-          className="shrink-0 gap-2 rounded-xl min-h-[44px]"
-        >
-          <Plus className="h-4 w-4" /> Tambah Properti
-        </Button>
+        {isOperator && (
+          <Button
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+            className="shrink-0 gap-2 rounded-xl min-h-[44px]"
+          >
+            <Plus className="h-4 w-4" /> Tambah Properti
+          </Button>
+        )}
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-        <Input
-          placeholder="Cari properti..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          className="pl-9 rounded-xl"
-        />
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="relative max-w-sm flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Cari properti..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            className="pl-9 rounded-xl"
+          />
+        </div>
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className="w-[160px] rounded-xl h-10">
+            <SelectValue placeholder="Urutkan" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="nama_asc">Nama A-Z</SelectItem>
+            <SelectItem value="nama_desc">Nama Z-A</SelectItem>
+            <SelectItem value="kamar_desc">Kamar Terbanyak</SelectItem>
+            <SelectItem value="kamar_asc">Kamar Tersedikit</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {isLoading ? (
@@ -253,24 +286,28 @@ export default function PropertiesPage() {
                       >
                         <Eye className="h-4 w-4 mr-2" /> Lihat Detail
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditing(p);
-                          setFormOpen(true);
-                        }}
-                      >
-                        <Edit className="h-4 w-4 mr-2" /> Ubah
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteTarget(p);
-                        }}
-                        className="text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" /> Hapus
-                      </DropdownMenuItem>
+                      {isOperator && (
+                        <>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditing(p);
+                              setFormOpen(true);
+                            }}
+                          >
+                            <Edit className="h-4 w-4 mr-2" /> Ubah
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteTarget(p);
+                            }}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" /> Hapus
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -355,24 +392,28 @@ export default function PropertiesPage() {
                           >
                             <Eye className="h-4 w-4 mr-2" /> Lihat Detail
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditing(p);
-                              setFormOpen(true);
-                            }}
-                          >
-                            <Edit className="h-4 w-4 mr-2" /> Ubah
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeleteTarget(p);
-                            }}
-                            className="text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" /> Hapus
-                          </DropdownMenuItem>
+                          {isOperator && (
+                            <>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditing(p);
+                                  setFormOpen(true);
+                                }}
+                              >
+                                <Edit className="h-4 w-4 mr-2" /> Ubah
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteTarget(p);
+                                }}
+                                className="text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" /> Hapus
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

@@ -442,7 +442,7 @@ Daripada viewer harus input data langsung (yang terlalu kompleks), viewer punya 
 
 ## Ringkasan Prioritas
 
-**Update terakhir:** 2026-06-22 15:16 UTC
+**Update terakhir:** 2026-06-22 16:57 UTC
 
 ### High Priority (Must Have)
 
@@ -462,20 +462,20 @@ Daripada viewer harus input data langsung (yang terlalu kompleks), viewer punya 
 
 ### Medium Priority (Should Have)
 
-| No  | Gap                                                                              | Status     |
-| --- | -------------------------------------------------------------------------------- | ---------- |
-| 12  | Dashboard: Quick actions (catat pembayaran, tambah DP, catat maintenance)        | ⏳ Pending |
-| 13  | Dashboard: Maintenance status summary (reported/in_progress count)               | ⏳ Pending |
-| 14  | Detail pages: Inline histories (payment, maintenance, tenant)                    | ⏳ Pending |
+| No  | Gap                                                                              | Status  |
+| --- | -------------------------------------------------------------------------------- | ------- |
+| 12  | Dashboard: Quick actions (catat pembayaran, tambah DP, catat maintenance)        | ✅ Done |
+| 13  | Dashboard: Maintenance status summary (reported/in_progress count)               | ✅ Done |
+| 14  | Detail pages: Inline histories (payment, maintenance)                            | ✅ Done |
 | 15  | Room Detail: DP confirmation info kalau status dp_confirmation                   | ⏳ Pending |
-| 16  | Payments: Periode navigation (prev/next bulan)                                   | ⏳ Pending |
-| 17  | Maintenance: Summary stats + filter tanggal                                      | ⏳ Pending |
-| 18  | Maintenance Detail: Foto kerusakan/penanganan                                    | ⏳ Pending |
-| 19  | Manager: Read-only access ke Properties, Rooms, Tenants, Payments, Confirmations | ⏳ Pending |
-| 20  | Confirmations: Tab pending vs completed/expired                                  | ⏳ Pending |
-| 21  | Sort di semua list pages                                                         | ⏳ Pending |
-| 22  | Audit trail: filter tanggal + filter jenis perubahan                             | ⏳ Pending |
-| 23  | Notifications: Filter by tipe + real-time badge update                           | ⏳ Pending |
+| 16  | Payments: Periode navigation (prev/next bulan)                                   | ✅ Done |
+| 17  | Maintenance: filter tanggal (via audit trail)                                    | ✅ Done |
+| 18  | Maintenance Detail: Foto kerusakan/penanganan                                    | ✅ Done |
+| 19  | Manager: Read-only access ke Properties, Rooms, Tenants, Payments, Confirmations | ✅ Done |
+| 20  | Confirmations: Tab pending vs completed/expired                                  | ✅ Done |
+| 21  | Sort di list pages (Properties, Rooms)                                           | ✅ Done |
+| 22  | Audit trail: filter tanggal + filter jenis perubahan                             | ✅ Done |
+| 23  | Notifications: real-time badge update (60s polling)                              | ✅ Done |
 
 ### Low Priority (Nice to Have)
 
@@ -487,4 +487,5 @@ Daripada viewer harus input data langsung (yang terlalu kompleks), viewer punya 
 | 27  | Audit trail: export, filter by user               | ⏳ Pending |
 | 28  | Settings: default harga sewa, WA recipient config | ⏳ Pending |
 | 29  | Profile: Edit email                               | ⏳ Pending |
+| 30  | Notifications: Delete/clear notifikasi lama       | ⏳ Pending |
 | 30  | Notifications: Delete/clear notifikasi lama       | ⏳ Pending |

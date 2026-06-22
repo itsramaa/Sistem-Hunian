@@ -1,13 +1,16 @@
-import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/shared/lib/axios';
-import { useUpdateRoom, useDeleteRoom } from '../hooks/useRooms';
-import { useCheckoutTenant } from '@/features/tenant/hooks/useTenants';
-import { RoomForm } from '../components/RoomForm';
-import { CheckoutForm } from '@/features/tenant/components/CheckoutForm';
-import { Button } from '@/shared/components/ui/button';
-import { Badge } from '@/shared/components/ui/badge';
+import { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { apiClient } from "@/shared/lib/axios";
+import { useUpdateRoom, useDeleteRoom } from "../hooks/useRooms";
+import { useCheckoutTenant } from "@/features/tenant/hooks/useTenants";
+import { usePayments } from "@/features/payments/hooks/usePayments";
+import { useMaintenances } from "@/features/maintenance/hooks/useMaintenance";
+import { RoomForm } from "../components/RoomForm";
+import { CheckoutForm } from "@/features/tenant/components/CheckoutForm";
+import { Button } from "@/shared/components/ui/button";
+import { Badge } from "@/shared/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,17 +20,24 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/shared/components/ui/alert-dialog';
+} from "@/shared/components/ui/alert-dialog";
 import {
-  ArrowLeft, BedDouble, Building2, DollarSign, Users,
-  Loader2, Calendar, Pencil, Trash2,
-} from 'lucide-react';
-import { format } from 'date-fns';
-import { id as localeId } from 'date-fns/locale';
-import { cn } from '@/shared/utils/utils';
-import { useToast } from '@/shared/hooks/use-toast';
-import { getApiErrorMessage } from '@/shared/utils/api-errors';
-import { Room } from '../types';
+  ArrowLeft,
+  BedDouble,
+  Building2,
+  DollarSign,
+  Users,
+  Loader2,
+  Calendar,
+  Pencil,
+  Trash2,
+} from "lucide-react";
+import { format } from "date-fns";
+import { id as localeId } from "date-fns/locale";
+import { cn } from "@/shared/utils/utils";
+import { useToast } from "@/shared/hooks/use-toast";
+import { getApiErrorMessage } from "@/shared/utils/api-errors";
+import { Room } from "../types";
 
 interface RoomDetail extends Room {
   tenant_id?: string;
@@ -37,19 +47,22 @@ interface RoomDetail extends Room {
 
 const statusConfig = {
   available: {
-    label: 'Tersedia',
-    variant: 'default' as const,
-    className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    label: "Tersedia",
+    variant: "default" as const,
+    className:
+      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
   },
   dp_confirmation: {
-    label: 'Konfirmasi DP',
-    variant: 'secondary' as const,
-    className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+    label: "Konfirmasi DP",
+    variant: "secondary" as const,
+    className:
+      "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
   },
   occupied: {
-    label: 'Terisi',
-    variant: 'secondary' as const,
-    className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    label: "Terisi",
+    variant: "secondary" as const,
+    className:
+      "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   },
 };
 
@@ -58,18 +71,30 @@ export default function RoomDetail() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { role } = useAuth();
+  const isOperator = role === "operator";
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
 
-  const { data: room, isLoading, error } = useQuery<RoomDetail>({
-    queryKey: ['room', id],
+  const {
+    data: room,
+    isLoading,
+    error,
+  } = useQuery<RoomDetail>({
+    queryKey: ["room", id],
     queryFn: async () => {
       const { data } = await apiClient.get(`/rooms/${id}`);
       return data;
     },
     enabled: !!id,
   });
+
+  // Inline histories — paralel queries
+  const { data: paymentsData } = usePayments(1, 5, id);
+  const { data: maintData } = useMaintenances(1, 5, undefined, undefined, id);
+  const recentPayments = paymentsData?.payments ?? [];
+  const recentMaintenances = maintData?.maintenances ?? [];
 
   const updateMutation = useUpdateRoom();
   const deleteMutation = useDeleteRoom();
@@ -79,11 +104,15 @@ export default function RoomDetail() {
     if (!id) return;
     try {
       await updateMutation.mutateAsync({ id, payload });
-      qc.invalidateQueries({ queryKey: ['room', id] });
+      qc.invalidateQueries({ queryKey: ["room", id] });
       setEditOpen(false);
-      toast({ title: 'Kamar berhasil diperbarui' });
+      toast({ title: "Kamar berhasil diperbarui" });
     } catch (err) {
-      toast({ variant: 'destructive', title: 'Gagal memperbarui kamar', description: getApiErrorMessage(err) });
+      toast({
+        variant: "destructive",
+        title: "Gagal memperbarui kamar",
+        description: getApiErrorMessage(err),
+      });
     }
   };
 
@@ -91,10 +120,14 @@ export default function RoomDetail() {
     if (!id) return;
     try {
       await deleteMutation.mutateAsync(id);
-      toast({ title: 'Kamar berhasil dihapus' });
-      navigate('/dashboard/rooms');
+      toast({ title: "Kamar berhasil dihapus" });
+      navigate("/dashboard/rooms");
     } catch (err) {
-      toast({ variant: 'destructive', title: 'Gagal menghapus kamar', description: getApiErrorMessage(err) });
+      toast({
+        variant: "destructive",
+        title: "Gagal menghapus kamar",
+        description: getApiErrorMessage(err),
+      });
       setDeleteOpen(false);
     }
   };
@@ -102,12 +135,22 @@ export default function RoomDetail() {
   const handleCheckout = async (tanggal_keluar: string) => {
     if (!room?.tenant_id) return;
     try {
-      await checkoutMutation.mutateAsync({ id: room.tenant_id, tanggal_keluar });
-      qc.invalidateQueries({ queryKey: ['room', id] });
+      await checkoutMutation.mutateAsync({
+        id: room.tenant_id,
+        tanggal_keluar,
+      });
+      qc.invalidateQueries({ queryKey: ["room", id] });
       setCheckoutOpen(false);
-      toast({ title: 'Checkout berhasil', description: 'Status kamar kini tersedia.' });
+      toast({
+        title: "Checkout berhasil",
+        description: "Status kamar kini tersedia.",
+      });
     } catch (err) {
-      toast({ variant: 'destructive', title: 'Gagal checkout', description: getApiErrorMessage(err) });
+      toast({
+        variant: "destructive",
+        title: "Gagal checkout",
+        description: getApiErrorMessage(err),
+      });
     }
   };
 
@@ -125,12 +168,18 @@ export default function RoomDetail() {
       <div className="flex flex-col items-center justify-center py-16 gap-4">
         <BedDouble className="h-12 w-12 text-muted-foreground opacity-30" />
         <div className="text-center">
-          <h3 className="text-lg font-semibold text-foreground">Kamar tidak ditemukan</h3>
+          <h3 className="text-lg font-semibold text-foreground">
+            Kamar tidak ditemukan
+          </h3>
           <p className="text-sm text-muted-foreground mt-1">
             Kamar yang Anda cari tidak tersedia atau telah dihapus.
           </p>
         </div>
-        <Button onClick={() => navigate('/dashboard/rooms')} variant="outline" className="gap-2">
+        <Button
+          onClick={() => navigate("/dashboard/rooms")}
+          variant="outline"
+          className="gap-2"
+        >
           <ArrowLeft className="h-4 w-4" /> Kembali ke Daftar Kamar
         </Button>
       </div>
@@ -153,7 +202,7 @@ export default function RoomDetail() {
                 Kamar {room.nomor_kamar}
               </h1>
               <div className="flex items-center gap-2 mt-1">
-                <Badge className={cn('rounded-full', statusInfo.className)}>
+                <Badge className={cn("rounded-full", statusInfo.className)}>
                   {statusInfo.label}
                 </Badge>
                 <span className="text-sm text-muted-foreground">
@@ -164,23 +213,40 @@ export default function RoomDetail() {
           </div>
         </div>
         <div className="flex gap-2 shrink-0 flex-wrap justify-end">
-          <Button variant="outline" size="sm" className="gap-1.5 rounded-xl" onClick={() => setEditOpen(true)}>
-            <Pencil className="h-3.5 w-3.5" /> Edit
-          </Button>
-          {room.status === 'occupied' && (
-            <Button variant="outline" size="sm" className="gap-1.5 rounded-xl" onClick={() => setCheckoutOpen(true)}>
-              Checkout
-            </Button>
+          {isOperator && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 rounded-xl"
+                onClick={() => setEditOpen(true)}
+              >
+                <Pencil className="h-3.5 w-3.5" /> Edit
+              </Button>
+              {room.status === "occupied" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 rounded-xl"
+                  onClick={() => setCheckoutOpen(true)}
+                >
+                  Checkout
+                </Button>
+              )}
+              <Button
+                variant="destructive"
+                size="sm"
+                className="gap-1.5 rounded-xl"
+                onClick={() => setDeleteOpen(true)}
+                disabled={
+                  room.status === "occupied" ||
+                  room.status === "dp_confirmation"
+                }
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Hapus
+              </Button>
+            </>
           )}
-          <Button
-            variant="destructive"
-            size="sm"
-            className="gap-1.5 rounded-xl"
-            onClick={() => setDeleteOpen(true)}
-            disabled={room.status === 'occupied' || room.status === 'dp_confirmation'}
-          >
-            <Trash2 className="h-3.5 w-3.5" /> Hapus
-          </Button>
         </div>
       </div>
 
@@ -189,21 +255,29 @@ export default function RoomDetail() {
         <div className="glass-card p-4 space-y-3">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Building2 className="h-4 w-4" />
-            <span className="text-xs font-semibold uppercase tracking-wider">Informasi Kamar</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">
+              Informasi Kamar
+            </span>
           </div>
           <dl className="space-y-2">
             <div className="flex justify-between items-center">
               <dt className="text-sm text-muted-foreground">Nomor Kamar</dt>
-              <dd className="text-sm font-medium text-foreground">{room.nomor_kamar}</dd>
+              <dd className="text-sm font-medium text-foreground">
+                {room.nomor_kamar}
+              </dd>
             </div>
             <div className="flex justify-between items-center">
               <dt className="text-sm text-muted-foreground">Tipe Kamar</dt>
-              <dd className="text-sm font-medium text-foreground">{room.tipe_kamar}</dd>
+              <dd className="text-sm font-medium text-foreground">
+                {room.tipe_kamar}
+              </dd>
             </div>
             <div className="flex justify-between items-center">
               <dt className="text-sm text-muted-foreground">Status</dt>
               <dd>
-                <Badge className={cn('rounded-full text-xs', statusInfo.className)}>
+                <Badge
+                  className={cn("rounded-full text-xs", statusInfo.className)}
+                >
                   {statusInfo.label}
                 </Badge>
               </dd>
@@ -214,13 +288,15 @@ export default function RoomDetail() {
         <div className="glass-card p-4 space-y-3">
           <div className="flex items-center gap-2 text-muted-foreground">
             <DollarSign className="h-4 w-4" />
-            <span className="text-xs font-semibold uppercase tracking-wider">Harga & Properti</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">
+              Harga & Properti
+            </span>
           </div>
           <dl className="space-y-2">
             <div className="flex justify-between items-center">
               <dt className="text-sm text-muted-foreground">Harga Sewa</dt>
               <dd className="text-sm font-bold text-foreground tabular-nums">
-                Rp{room.harga_sewa.toLocaleString('id-ID')}
+                Rp{room.harga_sewa.toLocaleString("id-ID")}
               </dd>
             </div>
             <div className="flex justify-between items-start">
@@ -234,31 +310,45 @@ export default function RoomDetail() {
       </div>
 
       {/* Current Occupancy Info */}
-      {room.status === 'occupied' && room.penghuni_aktif && (
+      {room.status === "occupied" && room.penghuni_aktif && (
         <div className="glass-card p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Users className="h-4 w-4" />
-              <span className="text-xs font-semibold uppercase tracking-wider">Penghuni Aktif</span>
+              <span className="text-xs font-semibold uppercase tracking-wider">
+                Penghuni Aktif
+              </span>
             </div>
           </div>
           <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <dt className="text-xs text-muted-foreground mb-0.5">Nama Penghuni</dt>
-              <dd className="text-sm font-medium text-foreground">{room.penghuni_aktif}</dd>
+              <dt className="text-xs text-muted-foreground mb-0.5">
+                Nama Penghuni
+              </dt>
+              <dd className="text-sm font-medium text-foreground">
+                {room.penghuni_aktif}
+              </dd>
             </div>
             {room.tanggal_masuk && (
               <div>
-                <dt className="text-xs text-muted-foreground mb-0.5">Tanggal Masuk</dt>
+                <dt className="text-xs text-muted-foreground mb-0.5">
+                  Tanggal Masuk
+                </dt>
                 <dd className="text-sm font-medium text-foreground">
-                  {format(new Date(room.tanggal_masuk), 'dd MMM yyyy', { locale: localeId })}
+                  {format(new Date(room.tanggal_masuk), "dd MMM yyyy", {
+                    locale: localeId,
+                  })}
                 </dd>
               </div>
             )}
             {room.durasi_sewa && (
               <div>
-                <dt className="text-xs text-muted-foreground mb-0.5">Durasi Sewa</dt>
-                <dd className="text-sm font-medium text-foreground">{room.durasi_sewa} bulan</dd>
+                <dt className="text-xs text-muted-foreground mb-0.5">
+                  Durasi Sewa
+                </dt>
+                <dd className="text-sm font-medium text-foreground">
+                  {room.durasi_sewa} bulan
+                </dd>
               </div>
             )}
           </dl>
@@ -276,6 +366,103 @@ export default function RoomDetail() {
         </div>
       )}
 
+      {/* Inline Payment History */}
+      {recentPayments.length > 0 && (
+        <div className="glass-card p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              Pembayaran Terakhir
+            </h2>
+            <button
+              onClick={() => navigate(`/dashboard/payments?room_id=${id}`)}
+              className="text-xs text-primary hover:underline"
+            >
+              Lihat semua
+            </button>
+          </div>
+          <div className="space-y-2">
+            {recentPayments.map((p: any) => (
+              <div
+                key={p.id}
+                className="flex items-center justify-between text-sm py-1.5 border-b border-border/50 last:border-0"
+              >
+                <span className="text-muted-foreground">{p.periode}</span>
+                <span className="font-medium tabular-nums">
+                  Rp{(p.nominal ?? 0).toLocaleString("id-ID")}
+                </span>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                    p.status === "paid"
+                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                      : p.status === "overdue"
+                        ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                        : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                  }`}
+                >
+                  {p.status === "paid"
+                    ? "Lunas"
+                    : p.status === "overdue"
+                      ? "Terlambat"
+                      : "Belum Bayar"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Inline Maintenance History */}
+      {recentMaintenances.length > 0 && (
+        <div className="glass-card p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              Maintenance Terakhir
+            </h2>
+            <button
+              onClick={() => navigate(`/dashboard/maintenance?room_id=${id}`)}
+              className="text-xs text-primary hover:underline"
+            >
+              Lihat semua
+            </button>
+          </div>
+          <div className="space-y-2">
+            {recentMaintenances.map((m: any) => (
+              <div
+                key={m.id}
+                className="flex items-center justify-between text-sm py-1.5 border-b border-border/50 last:border-0"
+              >
+                <span className="text-muted-foreground text-xs">
+                  {format(new Date(m.tanggal_laporan), "dd MMM yyyy", {
+                    locale: localeId,
+                  })}
+                </span>
+                <span className="flex-1 mx-3 truncate">
+                  {m.deskripsi_kerusakan?.slice(0, 40)}
+                  {(m.deskripsi_kerusakan?.length ?? 0) > 40 ? "…" : ""}
+                </span>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
+                    m.status === "completed"
+                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                      : m.status === "in_progress"
+                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                        : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                  }`}
+                >
+                  {m.status === "completed"
+                    ? "Selesai"
+                    : m.status === "in_progress"
+                      ? "Proses"
+                      : "Dilaporkan"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Quick Actions */}
       <div className="glass-card p-4 space-y-3">
         <h2 className="text-sm font-semibold text-foreground">Aksi Cepat</h2>
@@ -283,12 +470,16 @@ export default function RoomDetail() {
           <Button
             variant="outline"
             className="justify-start gap-3 h-auto py-3 rounded-xl"
-            onClick={() => navigate(`/dashboard/properties/${room.property_id}`)}
+            onClick={() =>
+              navigate(`/dashboard/properties/${room.property_id}`)
+            }
           >
             <Building2 className="h-5 w-5 text-muted-foreground" />
             <div className="text-left">
               <p className="text-sm font-medium">Lihat Detail Properti</p>
-              <p className="text-xs text-muted-foreground truncate">{room.nama_properti}</p>
+              <p className="text-xs text-muted-foreground truncate">
+                {room.nama_properti}
+              </p>
             </div>
           </Button>
           <Button
@@ -299,7 +490,9 @@ export default function RoomDetail() {
             <Calendar className="h-5 w-5 text-muted-foreground" />
             <div className="text-left">
               <p className="text-sm font-medium">Histori Pembayaran</p>
-              <p className="text-xs text-muted-foreground">Lihat riwayat pembayaran</p>
+              <p className="text-xs text-muted-foreground">
+                Lihat riwayat pembayaran
+              </p>
             </div>
           </Button>
         </div>
@@ -322,7 +515,8 @@ export default function RoomDetail() {
           <AlertDialogHeader>
             <AlertDialogTitle>Hapus Kamar {room.nomor_kamar}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tindakan ini tidak dapat dibatalkan. Kamar akan dihapus dari sistem.
+              Tindakan ini tidak dapat dibatalkan. Kamar akan dihapus dari
+              sistem.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -331,7 +525,11 @@ export default function RoomDetail() {
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Hapus'}
+              {deleteMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Hapus"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -342,7 +540,7 @@ export default function RoomDetail() {
         <CheckoutForm
           open={checkoutOpen}
           onOpenChange={setCheckoutOpen}
-          tenantName={room.penghuni_aktif ?? ''}
+          tenantName={room.penghuni_aktif ?? ""}
           roomNumber={room.nomor_kamar}
           onSubmit={handleCheckout}
           isLoading={checkoutMutation.isPending}

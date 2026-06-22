@@ -9,6 +9,8 @@ export interface Maintenance {
   tindakan_penanganan?: string;
   biaya?: number;
   status: 'reported' | 'in_progress' | 'completed';
+  foto_kerusakan_url?: string;
+  foto_penanganan_url?: string;
   created_at: string;
   updated_at: string;
 }

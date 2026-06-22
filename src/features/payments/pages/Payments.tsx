@@ -1,3 +1,4 @@
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useProperties } from "@/features/properties/hooks/useProperties";
 import { useRooms } from "@/features/rooms/hooks/useRooms";
 import { useActiveTenants } from "@/features/tenant/hooks/useTenants";
@@ -54,6 +55,7 @@ import {
   useCreatePayment,
   useMarkPaid,
   usePayments,
+  useUpdatePayment,
   useUploadBukti,
 } from "../hooks/usePayments";
 import { CreatePaymentPayload, Payment } from "../types";
@@ -95,6 +97,8 @@ function formatFileSize(bytes: number): string {
 export default function PaymentsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { role } = useAuth();
+  const isOperator = role === "operator";
   const isMobile = useIsMobile();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("");
@@ -285,7 +289,7 @@ export default function PaymentsPage() {
   };
 
   const PaymentActions = ({ p }: { p: Payment }) =>
-    p.status === "paid" ? null : (
+    !isOperator || p.status === "paid" ? null : (
       <div className="flex items-center gap-1.5 flex-wrap">
         <Button
           variant="ghost"
@@ -367,12 +371,14 @@ export default function PaymentsPage() {
             Pencatatan pembayaran sewa
           </p>
         </div>
-        <Button
-          onClick={() => setFormOpen(true)}
-          className="shrink-0 gap-2 rounded-xl min-h-[44px]"
-        >
-          <Plus className="h-4 w-4" /> Catat Pembayaran
-        </Button>
+        {isOperator && (
+          <Button
+            onClick={() => setFormOpen(true)}
+            className="shrink-0 gap-2 rounded-xl min-h-[44px]"
+          >
+            <Plus className="h-4 w-4" /> Catat Pembayaran
+          </Button>
+        )}
       </div>
 
       {roomIdFromUrl && (
@@ -433,20 +439,60 @@ export default function PaymentsPage() {
             </SelectContent>
           </Select>
         </div>
-        <div className="w-full">
-          <MonthPicker
-            value={periodeFilter}
-            onChange={(v) => {
-              setPeriodeFilter(v);
+        <div className="w-full flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-10 w-10 rounded-xl shrink-0"
+            onClick={() => {
+              if (!periodeFilter) {
+                const prev = new Date();
+                prev.setMonth(prev.getMonth() - 1);
+                setPeriodeFilter(prev.toISOString().slice(0, 7));
+              } else {
+                const [y, m] = periodeFilter.split("-").map(Number);
+                const d = new Date(y, m - 2);
+                setPeriodeFilter(
+                  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+                );
+              }
               setPage(1);
             }}
-            onClear={() => {
-              setPeriodeFilter("");
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex-1">
+            <MonthPicker
+              value={periodeFilter}
+              onChange={(v) => {
+                setPeriodeFilter(v);
+                setPage(1);
+              }}
+              onClear={() => {
+                setPeriodeFilter("");
+                setPage(1);
+              }}
+              placeholder="Semua periode"
+              className="w-full"
+            />
+          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-10 w-10 rounded-xl shrink-0"
+            disabled={periodeFilter === new Date().toISOString().slice(0, 7)}
+            onClick={() => {
+              if (!periodeFilter) return;
+              const [y, m] = periodeFilter.split("-").map(Number);
+              const d = new Date(y, m);
+              setPeriodeFilter(
+                `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+              );
               setPage(1);
             }}
-            placeholder="Semua periode"
-            className="w-full"
-          />
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 

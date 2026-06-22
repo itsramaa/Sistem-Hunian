@@ -1,5 +1,5 @@
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useProperties } from "@/features/properties/hooks/useProperties";
-import { useRooms } from "@/features/rooms/hooks/useRooms";
 import { DataCard } from "@/shared/components/DataCard";
 import {
   AlertDialog,
@@ -172,6 +172,8 @@ function ExpireButton({ id, nama }: { id: string; nama: string }) {
 }
 
 export default function ConfirmationsPage() {
+  const { role } = useAuth();
+  const isOperator = role === "operator";
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("pending");
   const [propertyFilter, setPropertyFilter] = useState("");
@@ -336,12 +338,14 @@ export default function ConfirmationsPage() {
             Kelola konfirmasi down payment calon penghuni
           </p>
         </div>
-        <Button
-          onClick={() => setCreateOpen(true)}
-          className="shrink-0 gap-2 rounded-xl"
-        >
-          <Plus className="h-4 w-4" /> Catat Konfirmasi DP
-        </Button>
+        {isOperator && (
+          <Button
+            onClick={() => setCreateOpen(true)}
+            className="shrink-0 gap-2 rounded-xl"
+          >
+            <Plus className="h-4 w-4" /> Catat Konfirmasi DP
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -365,23 +369,35 @@ export default function ConfirmationsPage() {
           </SelectContent>
         </Select>
 
-        <Select
-          value={statusFilter || "_all"}
-          onValueChange={(v) => {
-            setStatusFilter(v === "_all" ? "" : v);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-[150px] rounded-xl h-10">
-            <SelectValue placeholder="Semua status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="_all">Semua status</SelectItem>
-            <SelectItem value="pending">Menunggu</SelectItem>
-            <SelectItem value="confirmed">Dikonfirmasi</SelectItem>
-            <SelectItem value="expired">Expired</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* Tab-style status filter */}
+        <div className="flex rounded-xl border border-border overflow-hidden">
+          {[
+            { value: "pending", label: "Menunggu" },
+            { value: "_selesai", label: "Selesai" },
+            { value: "_all", label: "Semua" },
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => {
+                if (opt.value === "_selesai") setStatusFilter("confirmed");
+                else if (opt.value === "_all") setStatusFilter("");
+                else setStatusFilter(opt.value);
+                setPage(1);
+              }}
+              className={`px-3 py-2 text-xs font-medium transition-colors ${
+                (opt.value === "pending" && statusFilter === "pending") ||
+                (opt.value === "_selesai" &&
+                  (statusFilter === "confirmed" ||
+                    statusFilter === "expired")) ||
+                (opt.value === "_all" && statusFilter === "")
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-background text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {isLoading ? (
@@ -439,7 +455,7 @@ export default function ConfirmationsPage() {
                     },
                   ]}
                   actions={
-                    c.status === "pending" ? (
+                    isOperator && c.status === "pending" ? (
                       <div className="flex gap-1.5 flex-wrap">
                         <Button
                           variant="outline"
@@ -567,7 +583,7 @@ export default function ConfirmationsPage() {
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
-                          {c.status === "pending" && (
+                          {isOperator && c.status === "pending" && (
                             <div className="flex items-center justify-end gap-1.5 flex-wrap">
                               <Button
                                 variant="outline"
