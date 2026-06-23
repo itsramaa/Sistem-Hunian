@@ -17,8 +17,11 @@ import {
 } from "react";
 
 interface AuthContextType extends AuthState {
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  // signUp is not supported — users are provisioned by admin only
+  signIn: (
+    email: string,
+    password: string,
+    rememberMe?: boolean,
+  ) => Promise<{ error: Error | null }>;
   signUp: (...args: unknown[]) => Promise<{ data: null; error: Error }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -35,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const clearAuth = () => {
     localStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
     setUser(null);
     setProfile(null);
     setRole(null);
@@ -60,9 +64,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Restore session on mount
+  // Restore session on mount — cek localStorage dulu, lalu sessionStorage
   useEffect(() => {
-    const token = localStorage.getItem(TOKEN_KEY);
+    const token =
+      localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
     if (token) {
       refreshProfile().finally(() => setIsLoading(false));
     } else {
@@ -70,14 +75,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshProfile]);
 
-  // POST /api/v1/auth/login — response envelope unwrapped by axios interceptor
-  const signIn = async (email: string, password: string) => {
+  // POST /api/v1/auth/login
+  // rememberMe=true  → localStorage (persist antar session)
+  // rememberMe=false → sessionStorage (hapus saat tab/browser tutup)
+  const signIn = async (
+    email: string,
+    password: string,
+    rememberMe = false,
+  ) => {
     try {
       const { data } = await apiClient.post<AuthTokens & { user: AuthUser }>(
         "/auth/login",
         { email, password },
       );
-      localStorage.setItem(TOKEN_KEY, data.access_token);
+      if (rememberMe) {
+        localStorage.setItem(TOKEN_KEY, data.access_token);
+        sessionStorage.removeItem(TOKEN_KEY);
+      } else {
+        sessionStorage.setItem(TOKEN_KEY, data.access_token);
+        localStorage.removeItem(TOKEN_KEY);
+      }
       await refreshProfile();
       return { error: null };
     } catch (err) {

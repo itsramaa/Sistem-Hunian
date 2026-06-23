@@ -160,7 +160,7 @@ export function AuthForm() {
   const handleLogin = async (data: LoginFormData) => {
     if (lockoutUntil && Date.now() < lockoutUntil) return;
     setIsLoading(true);
-    const { error } = await signIn(data.email, data.password);
+    const { error } = await signIn(data.email, data.password, rememberMe);
     setIsLoading(false);
 
     if (error) {

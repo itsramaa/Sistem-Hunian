@@ -41,7 +41,8 @@ export function ProtectedRoute({
   // Only show skeleton when loading AND no token exists (truly first visit).
   // If token is present, user is already authenticated — skip skeleton so sidebar never disappears.
   const hasToken =
-    typeof window !== "undefined" && !!localStorage.getItem(TOKEN_KEY);
+    typeof window !== "undefined" &&
+    !!(localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY));
   if (isLoading || (hasToken && !user)) {
     return <ContentSkeleton />;
   }
