@@ -1,4 +1,5 @@
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
 import {
   useWhatsappCancelConnect,
   useWhatsappConnect,
@@ -544,6 +545,138 @@ function WhatsappCard() {
   );
 }
 
+// ─── WA Config Card ───────────────────────────────────────────────────────────
+function WAConfigCard() {
+  const { toast } = useToast();
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["wa-config"],
+    queryFn: () =>
+      apiClient.get("/settings/wa-config").then(
+        (r) =>
+          r.data?.data ?? {
+            recipient_numbers: [],
+            notification_enabled: true,
+          },
+      ),
+  });
+  const [recipients, setRecipients] = React.useState<string[]>([]);
+  const [newNumber, setNewNumber] = React.useState("");
+  const [notifEnabled, setNotifEnabled] = React.useState(true);
+  const [isSaving, setIsSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    if (data) {
+      setRecipients(data.recipient_numbers ?? []);
+      setNotifEnabled(data.notification_enabled ?? true);
+    }
+  }, [data]);
+
+  const addNumber = () => {
+    const num = newNumber.trim().replace(/\D/g, "");
+    if (!num || recipients.includes(num)) return;
+    setRecipients((prev) => [...prev, num]);
+    setNewNumber("");
+  };
+
+  const removeNumber = (i: number) => {
+    setRecipients((prev) => prev.filter((_, idx) => idx !== i));
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await apiClient.put("/settings/wa-config", {
+        recipient_numbers: recipients,
+        notification_enabled: notifEnabled,
+      });
+      await refetch();
+      toast({ title: "WA config berhasil disimpan" });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Gagal menyimpan",
+        description: getApiErrorMessage(err),
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Card className="rounded-2xl">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MessageCircle className="h-5 w-5 text-primary" />
+            <CardTitle className="text-base">Konfigurasi WhatsApp</CardTitle>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-sm text-muted-foreground">
+              Notifikasi WA
+            </Label>
+            <button
+              onClick={() => setNotifEnabled((v) => !v)}
+              className={`relative w-10 h-5 rounded-full transition-colors ${notifEnabled ? "bg-primary" : "bg-muted"}`}
+            >
+              <span
+                className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${notifEnabled ? "translate-x-5" : "translate-x-0.5"}`}
+              />
+            </button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isLoading ? (
+          <Skeleton className="h-20 w-full" />
+        ) : (
+          <>
+            <div className="space-y-2">
+              <Label className="text-sm">Nomor Penerima Notifikasi</Label>
+              {recipients.map((num, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="flex-1 text-sm font-medium">{num}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => removeNumber(i)}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="628xxxxxxxxxx"
+                  value={newNumber}
+                  onChange={(e) => setNewNumber(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addNumber()}
+                  className="rounded-xl"
+                />
+                <Button
+                  variant="outline"
+                  onClick={addNumber}
+                  className="rounded-xl shrink-0"
+                >
+                  Tambah
+                </Button>
+              </div>
+            </div>
+            <Button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="w-full rounded-xl"
+            >
+              {isSaving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Simpan Konfigurasi
+            </Button>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Settings Page ────────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const { profile } = useAuth();
@@ -643,6 +776,9 @@ export default function SettingsPage() {
 
       {/* User Management — operator only */}
       {isOperator && <UserManagementCard />}
+
+      {/* WA Config — operator only */}
+      {isOperator && <WAConfigCard />}
 
       {/* System info */}
       <Card className="rounded-2xl">
