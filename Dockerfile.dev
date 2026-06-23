@@ -1,0 +1,10 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies dulu (cache layer)
+COPY package.json pnpm-lock.yaml ./
+RUN npm install -g pnpm && pnpm install
+
+# Source code di-mount via volume
+CMD ["pnpm", "dev", "--host", "0.0.0.0"]
