@@ -5,6 +5,7 @@ import {
   useUpdateMaintenance,
   useUploadFotoKerusakan,
   useUploadFotoPenanganan,
+  useMaintenanceLogs,
 } from "../hooks/useMaintenance";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { UpdateMaintenancePayload } from "../types";
@@ -80,6 +81,8 @@ export default function MaintenanceDetail() {
   const fotoPenangananRef = useRef<HTMLInputElement>(null);
 
   const { data: maintenance, isLoading, error } = useMaintenanceById(id);
+  const { data: logs } = useMaintenanceLogs(id);
+  const maintenanceLogs: any[] = Array.isArray(logs) ? logs : [];
   const updateMutation = useUpdateMaintenance();
   const uploadKerusakanMutation = useUploadFotoKerusakan();
   const uploadPenangananMutation = useUploadFotoPenanganan();
@@ -450,6 +453,57 @@ export default function MaintenanceDetail() {
               Belum ada foto penanganan
             </p>
           )}
+        </div>
+      )}
+
+      {/* Progress Timeline */}
+      {maintenanceLogs.length > 0 && (
+        <div className="glass-card p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Wrench className="h-4 w-4 text-muted-foreground" />
+            Riwayat Progress
+          </h2>
+          <div className="space-y-0">
+            {maintenanceLogs.map((log: any, i: number) => (
+              <div key={log.id} className="flex gap-3">
+                <div className="flex flex-col items-center">
+                  <div
+                    className={cn("w-3 h-3 rounded-full shrink-0 mt-0.5", {
+                      "bg-yellow-500": log.status === "reported",
+                      "bg-blue-500": log.status === "in_progress",
+                      "bg-green-500": log.status === "completed",
+                    })}
+                  />
+                  {i < maintenanceLogs.length - 1 && (
+                    <div className="w-0.5 flex-1 bg-border my-1" />
+                  )}
+                </div>
+                <div
+                  className={cn(
+                    "pb-3",
+                    i === maintenanceLogs.length - 1 && "pb-0",
+                  )}
+                >
+                  <p className="text-sm font-medium text-foreground">
+                    {log.status === "reported"
+                      ? "Dilaporkan"
+                      : log.status === "in_progress"
+                        ? "Diproses"
+                        : "Selesai"}
+                  </p>
+                  {log.catatan && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {log.catatan}
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {fmt(log.created_at)}
+                    {log.updated_by_email && ` · ${log.updated_by_email}`}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { maintenanceService } from "../api/maintenanceService";
 import { CreateMaintenancePayload, UpdateMaintenancePayload } from "../types";
+import { apiClient } from "@/shared/lib/axios";
 
 export const MAINTENANCE_KEY = "maintenances";
 
@@ -38,8 +39,13 @@ export function useCreateMaintenance() {
 export function useUpdateMaintenance() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: UpdateMaintenancePayload }) =>
-      maintenanceService.update(id, payload),
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: UpdateMaintenancePayload;
+    }) => maintenanceService.update(id, payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: [MAINTENANCE_KEY] }),
   });
 }
@@ -63,5 +69,14 @@ export function useUploadFotoPenanganan() {
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: [MAINTENANCE_KEY, "detail", id] });
     },
+  });
+}
+
+export function useMaintenanceLogs(id?: string) {
+  return useQuery({
+    queryKey: [MAINTENANCE_KEY, "logs", id],
+    queryFn: () =>
+      apiClient.get(`/maintenances/${id}/logs`).then((r) => r.data?.data ?? []),
+    enabled: !!id,
   });
 }
