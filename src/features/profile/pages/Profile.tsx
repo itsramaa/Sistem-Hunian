@@ -62,6 +62,10 @@ export default function ProfilePage() {
     profile?.nomor_telepon ?? "",
   );
   const [isSavingPhone, setIsSavingPhone] = useState(false);
+  const [emailEdit, setEmailEdit] = useState(false);
+  const [newEmail, setNewEmail] = useState(profile?.email ?? user?.email ?? "");
+  const [emailPassword, setEmailPassword] = useState("");
+  const [isSavingEmail, setIsSavingEmail] = useState(false);
 
   const roleInfo = roleLabels[profile?.role ?? ""] ?? {
     label: profile?.role ?? "—",
@@ -82,6 +86,29 @@ export default function ProfilePage() {
       });
     } finally {
       setIsSavingPhone(false);
+    }
+  };
+
+  const handleUpdateEmail = async () => {
+    if (!newEmail || !emailPassword) return;
+    setIsSavingEmail(true);
+    try {
+      await apiClient.patch("/auth/me", {
+        email: newEmail,
+        current_password: emailPassword,
+      });
+      qc.invalidateQueries({ queryKey: ["me"] });
+      setEmailEdit(false);
+      setEmailPassword("");
+      toast({ title: "Email berhasil diperbarui" });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Gagal memperbarui email",
+        description: getApiErrorMessage(err),
+      });
+    } finally {
+      setIsSavingEmail(false);
     }
   };
 
@@ -140,9 +167,58 @@ export default function ProfilePage() {
               </CardTitle>
               <div className="flex items-center gap-2 mt-1">
                 <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  {profile?.email ?? user?.email ?? "—"}
-                </span>
+                {emailEdit ? (
+                  <div className="flex flex-col gap-2 flex-1">
+                    <input
+                      type="email"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      placeholder="Email baru"
+                      className="h-8 rounded-lg border border-input bg-background px-3 text-sm w-full max-w-xs"
+                    />
+                    <input
+                      type="password"
+                      value={emailPassword}
+                      onChange={(e) => setEmailPassword(e.target.value)}
+                      placeholder="Password saat ini"
+                      className="h-8 rounded-lg border border-input bg-background px-3 text-sm w-full max-w-xs"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs rounded-lg"
+                        onClick={handleUpdateEmail}
+                        disabled={isSavingEmail || !newEmail || !emailPassword}
+                      >
+                        {isSavingEmail ? "Menyimpan..." : "Simpan"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs rounded-lg"
+                        onClick={() => {
+                          setEmailEdit(false);
+                          setEmailPassword("");
+                          setNewEmail(profile?.email ?? user?.email ?? "");
+                        }}
+                      >
+                        Batal
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">
+                      {profile?.email ?? user?.email ?? "—"}
+                    </span>
+                    <button
+                      onClick={() => setEmailEdit(true)}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
