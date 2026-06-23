@@ -785,21 +785,25 @@ export default function SettingsPage() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <Globe className="h-5 w-5 text-primary" />
-            <CardTitle className="text-base">Sistem</CardTitle>
+            <CardTitle className="text-base">Informasi Aplikasi</CardTitle>
           </div>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Aplikasi</span>
-            <span className="font-medium">SiHuni v1.0</span>
+            <span className="text-muted-foreground">Versi</span>
+            <span className="font-medium tabular-nums">1.0.0</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Database</span>
-            <span className="font-medium">Neon PostgreSQL</span>
+            <span className="text-muted-foreground">Platform</span>
+            <span className="font-medium">Web App</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Storage</span>
-            <span className="font-medium">Cloudflare R2</span>
+            <span className="text-muted-foreground">Framework</span>
+            <span className="font-medium">React 18 + Vite</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Backend</span>
+            <span className="font-medium">Go (Fiber)</span>
           </div>
         </CardContent>
       </Card>

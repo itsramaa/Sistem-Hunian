@@ -106,10 +106,10 @@ export function useDashboardAlerts() {
   return useQuery({
     queryKey: [DASHBOARD_KEY, "alerts"],
     queryFn: async () => {
-      const { data } = await apiClient.get<{ data: DashboardAlerts }>(
-        "/dashboard/alerts",
-      );
-      return data.data;
+      const { data } = await apiClient.get<any>("/dashboard/alerts");
+      // axios interceptor sudah unwrap envelope — data bisa langsung atau nested
+      const result = data?.dp_alerts !== undefined ? data : data?.data;
+      return result ?? { dp_alerts: [], payment_alerts: [] };
     },
   });
 }

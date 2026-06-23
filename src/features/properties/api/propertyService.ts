@@ -1,13 +1,16 @@
-﻿import { apiClient } from '@/shared/lib/axios';
+import { apiClient } from '@/shared/lib/axios';
 import { CreatePropertyPayload, Property, UpdatePropertyPayload } from '../types';
 
 export const propertyService = {
   async list(search = '', page = 1, limit = 20) {
-    const { data } = await apiClient.get<{ data: Property[]; pagination?: { page: number; limit: number; total: number } }>('/properties', {
+    const { data } = await apiClient.get<any>('/properties', {
       params: { search, page, limit },
     });
-    // Axios interceptor unwraps { success, data, pagination } → { data, pagination }
-    return { properties: (data as any).data ?? [], pagination: (data as any).pagination ?? null };
+    // Axios interceptor TIDAK unwrap response yang punya pagination field
+    // sehingga response masih: { success, data: [...], pagination: {...} }
+    const items = data?.data ?? data ?? [];
+    const pagination = data?.pagination ?? null;
+    return { properties: Array.isArray(items) ? items : [], pagination };
   },
 
   async getById(id: string): Promise<Property> {

@@ -1,14 +1,10 @@
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/shared/components/ui/card";
+import { Card, CardContent } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
+import { Separator } from "@/shared/components/ui/separator";
 import { useToast } from "@/shared/hooks/use-toast";
 import { apiClient } from "@/shared/lib/axios";
 import { getApiErrorMessage } from "@/shared/utils/api-errors";
@@ -42,14 +38,47 @@ const pwSchema = z
     confirm: z.string(),
   })
   .refine((d) => d.new_password === d.confirm, {
-    message: "Password tidak cocok",
+    message: "Konfirmasi password tidak cocok",
     path: ["confirm"],
   });
+
+// ─── Row helper ───────────────────────────────────────────────────────────────
+function InfoRow({
+  icon,
+  label,
+  children,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-3 py-3">
+      <span className="mt-0.5 text-muted-foreground shrink-0">{icon}</span>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
+        <div className="text-sm font-medium text-foreground">{children}</div>
+      </div>
+    </div>
+  );
+}
 
 export default function ProfilePage() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
+
+  // Phone
+  const [phone, setPhone] = useState(profile?.nomor_telepon ?? "");
+  const [savingPhone, setSavingPhone] = useState(false);
+
+  // Email edit
+  const [emailMode, setEmailMode] = useState(false);
+  const [newEmail, setNewEmail] = useState(profile?.email ?? user?.email ?? "");
+  const [emailPw, setEmailPw] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
+
+  // Password
   const [showPw, setShowPw] = useState(false);
   const [pw, setPw] = useState({
     old_password: "",
@@ -57,50 +86,42 @@ export default function ProfilePage() {
     confirm: "",
   });
   const [pwErrors, setPwErrors] = useState<Record<string, string>>({});
-  const [isChanging, setIsChanging] = useState(false);
-  const [nomorTelepon, setNomorTelepon] = useState(
-    profile?.nomor_telepon ?? "",
-  );
-  const [isSavingPhone, setIsSavingPhone] = useState(false);
-  const [emailEdit, setEmailEdit] = useState(false);
-  const [newEmail, setNewEmail] = useState(profile?.email ?? user?.email ?? "");
-  const [emailPassword, setEmailPassword] = useState("");
-  const [isSavingEmail, setIsSavingEmail] = useState(false);
+  const [savingPw, setSavingPw] = useState(false);
 
   const roleInfo = roleLabels[profile?.role ?? ""] ?? {
     label: profile?.role ?? "—",
     variant: "outline" as const,
   };
 
-  const handleUpdatePhone = async () => {
-    setIsSavingPhone(true);
+  const savePhone = async () => {
+    setSavingPhone(true);
     try {
-      await apiClient.patch("/auth/me", { nomor_telepon: nomorTelepon });
+      await apiClient.patch("/auth/me", { nomor_telepon: phone });
       qc.invalidateQueries({ queryKey: ["me"] });
-      toast({ title: "Nomor telepon berhasil diperbarui" });
+      toast({ title: "Nomor telepon diperbarui" });
     } catch (err) {
       toast({
         variant: "destructive",
-        title: "Gagal memperbarui",
+        title: "Gagal menyimpan",
         description: getApiErrorMessage(err),
       });
     } finally {
-      setIsSavingPhone(false);
+      setSavingPhone(false);
     }
   };
 
-  const handleUpdateEmail = async () => {
-    if (!newEmail || !emailPassword) return;
-    setIsSavingEmail(true);
+  const saveEmail = async () => {
+    if (!newEmail || !emailPw) return;
+    setSavingEmail(true);
     try {
       await apiClient.patch("/auth/me", {
         email: newEmail,
-        current_password: emailPassword,
+        current_password: emailPw,
       });
       qc.invalidateQueries({ queryKey: ["me"] });
-      setEmailEdit(false);
-      setEmailPassword("");
-      toast({ title: "Email berhasil diperbarui" });
+      setEmailMode(false);
+      setEmailPw("");
+      toast({ title: "Email diperbarui" });
     } catch (err) {
       toast({
         variant: "destructive",
@@ -108,11 +129,11 @@ export default function ProfilePage() {
         description: getApiErrorMessage(err),
       });
     } finally {
-      setIsSavingEmail(false);
+      setSavingEmail(false);
     }
   };
 
-  const handleChangePw = async () => {
+  const savePw = async () => {
     const result = pwSchema.safeParse(pw);
     if (!result.success) {
       const errs: Record<string, string> = {};
@@ -122,18 +143,15 @@ export default function ProfilePage() {
       setPwErrors(errs);
       return;
     }
-    setIsChanging(true);
+    setSavingPw(true);
     try {
       await apiClient.post("/auth/change-password", {
         old_password: pw.old_password,
         new_password: pw.new_password,
       });
       setPw({ old_password: "", new_password: "", confirm: "" });
-      toast({
-        title: "Password berhasil diubah",
-        description:
-          "Password Anda telah diperbarui. Gunakan password baru saat login berikutnya.",
-      });
+      setPwErrors({});
+      toast({ title: "Password berhasil diubah" });
     } catch (err) {
       toast({
         variant: "destructive",
@@ -141,167 +159,172 @@ export default function ProfilePage() {
         description: getApiErrorMessage(err),
       });
     } finally {
-      setIsChanging(false);
+      setSavingPw(false);
     }
   };
 
   return (
-    <div className="space-y-5 max-w-2xl">
+    <div className="space-y-6 max-w-lg">
+      {/* Page header */}
       <div>
         <h1 className="text-xl font-bold tracking-tight">Profil</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Informasi akun Anda
+          Kelola informasi akun Anda
         </p>
       </div>
 
-      {/* User info card */}
+      {/* ── Identitas ──────────────────────────────────────────────────────── */}
       <Card className="rounded-2xl">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
-              <User className="h-6 w-6 text-primary" />
+        <CardContent className="pt-5 pb-2 px-5">
+          {/* Avatar + nama */}
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+              <User className="h-7 w-7 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-base">
+              <p className="text-base font-semibold text-foreground">
                 {profile?.nama ?? user?.nama ?? "—"}
-              </CardTitle>
-              <div className="flex items-center gap-2 mt-1">
-                <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                {emailEdit ? (
-                  <div className="flex flex-col gap-2 flex-1">
-                    <input
-                      type="email"
-                      value={newEmail}
-                      onChange={(e) => setNewEmail(e.target.value)}
-                      placeholder="Email baru"
-                      className="h-8 rounded-lg border border-input bg-background px-3 text-sm w-full max-w-xs"
-                    />
-                    <input
-                      type="password"
-                      value={emailPassword}
-                      onChange={(e) => setEmailPassword(e.target.value)}
-                      placeholder="Password saat ini"
-                      className="h-8 rounded-lg border border-input bg-background px-3 text-sm w-full max-w-xs"
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        className="h-7 text-xs rounded-lg"
-                        onClick={handleUpdateEmail}
-                        disabled={isSavingEmail || !newEmail || !emailPassword}
-                      >
-                        {isSavingEmail ? "Menyimpan..." : "Simpan"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 text-xs rounded-lg"
-                        onClick={() => {
-                          setEmailEdit(false);
-                          setEmailPassword("");
-                          setNewEmail(profile?.email ?? user?.email ?? "");
-                        }}
-                      >
-                        Batal
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">
-                      {profile?.email ?? user?.email ?? "—"}
-                    </span>
-                    <button
-                      onClick={() => setEmailEdit(true)}
-                      className="text-xs text-primary hover:underline"
-                    >
-                      Edit
-                    </button>
-                  </div>
-                )}
-              </div>
+              </p>
+              <Badge
+                variant={roleInfo.variant}
+                className="rounded-full mt-1 text-xs"
+              >
+                <Shield className="h-3 w-3 mr-1" />
+                {roleInfo.label}
+              </Badge>
             </div>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Role:</span>
-            <Badge variant={roleInfo.variant} className="rounded-full">
-              {roleInfo.label}
-            </Badge>
-          </div>
+
+          <Separator className="mb-1" />
+
+          {/* Email */}
+          <InfoRow icon={<Mail className="h-4 w-4" />} label="Email">
+            {emailMode ? (
+              <div className="space-y-2 mt-1">
+                <Input
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder="email@baru.com"
+                  className="h-8 rounded-lg text-sm"
+                />
+                <Input
+                  type="password"
+                  value={emailPw}
+                  onChange={(e) => setEmailPw(e.target.value)}
+                  placeholder="Konfirmasi password saat ini"
+                  className="h-8 rounded-lg text-sm"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs rounded-lg"
+                    onClick={saveEmail}
+                    disabled={savingEmail || !newEmail || !emailPw}
+                  >
+                    {savingEmail ? (
+                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                    ) : null}
+                    Simpan
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs rounded-lg"
+                    onClick={() => {
+                      setEmailMode(false);
+                      setEmailPw("");
+                      setNewEmail(profile?.email ?? user?.email ?? "");
+                    }}
+                  >
+                    Batal
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span>{profile?.email ?? user?.email ?? "—"}</span>
+                <button
+                  onClick={() => setEmailMode(true)}
+                  className="text-xs text-primary hover:underline font-normal"
+                >
+                  Ubah
+                </button>
+              </div>
+            )}
+          </InfoRow>
+
+          <Separator className="my-1" />
+
+          {/* Nomor Telepon */}
+          <InfoRow icon={<Phone className="h-4 w-4" />} label="Nomor Telepon">
+            <div className="flex items-center gap-2 mt-1">
+              <Input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="08xx-xxxx-xxxx"
+                className="h-8 rounded-lg text-sm max-w-[200px]"
+              />
+              <Button
+                size="sm"
+                className="h-8 text-xs rounded-lg"
+                onClick={savePhone}
+                disabled={savingPhone}
+              >
+                {savingPhone ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  "Simpan"
+                )}
+              </Button>
+            </div>
+          </InfoRow>
         </CardContent>
       </Card>
 
-      {/* Nomor Telepon */}
+      {/* ── Ubah Password ──────────────────────────────────────────────────── */}
       <Card className="rounded-2xl">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Phone className="h-5 w-5 text-primary" />
-            <CardTitle className="text-base">Nomor Telepon</CardTitle>
+        <CardContent className="pt-5 pb-5 px-5 space-y-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Lock className="h-4 w-4 text-primary" />
+            <p className="text-sm font-semibold">Ubah Password</p>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="nomor_telepon">Nomor Telepon</Label>
-            <Input
-              id="nomor_telepon"
-              type="tel"
-              value={nomorTelepon}
-              onChange={(e) => setNomorTelepon(e.target.value)}
-              placeholder="08xx..."
-            />
-          </div>
-          <Button
-            onClick={handleUpdatePhone}
-            disabled={isSavingPhone}
-            className="gap-2 rounded-xl"
-          >
-            {isSavingPhone && <Loader2 className="h-4 w-4 animate-spin" />}
-            Simpan
-          </Button>
-        </CardContent>
-      </Card>
 
-      {/* Change password */}
-      <Card className="rounded-2xl">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Lock className="h-5 w-5 text-primary" />
-            <CardTitle className="text-base">Ubah Password</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="old_password">Password Lama</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="old_pw" className="text-xs">
+              Password Saat Ini
+            </Label>
             <Input
-              id="old_password"
+              id="old_pw"
               type="password"
               value={pw.old_password}
               onChange={(e) =>
                 setPw((p) => ({ ...p, old_password: e.target.value }))
               }
-              placeholder="Masukkan password lama"
+              placeholder="••••••••"
               className="rounded-xl"
             />
             {pwErrors.old_password && (
-              <p className="text-sm text-destructive">
+              <p className="text-xs text-destructive">
                 {pwErrors.old_password}
               </p>
             )}
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="new_password">Password Baru</Label>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="new_pw" className="text-xs">
+              Password Baru
+            </Label>
             <div className="relative">
               <Input
-                id="new_password"
+                id="new_pw"
                 type={showPw ? "text" : "password"}
                 value={pw.new_password}
                 onChange={(e) =>
                   setPw((p) => ({ ...p, new_password: e.target.value }))
                 }
-                placeholder="Minimal 8 karakter"
+                placeholder="Minimal 6 karakter"
                 className="pr-10 rounded-xl"
               />
               <button
@@ -318,15 +341,18 @@ export default function ProfilePage() {
               </button>
             </div>
             {pwErrors.new_password && (
-              <p className="text-sm text-destructive">
+              <p className="text-xs text-destructive">
                 {pwErrors.new_password}
               </p>
             )}
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirm">Konfirmasi Password</Label>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="confirm_pw" className="text-xs">
+              Konfirmasi Password Baru
+            </Label>
             <Input
-              id="confirm"
+              id="confirm_pw"
               type="password"
               value={pw.confirm}
               onChange={(e) =>
@@ -336,17 +362,18 @@ export default function ProfilePage() {
               className="rounded-xl"
             />
             {pwErrors.confirm && (
-              <p className="text-sm text-destructive">{pwErrors.confirm}</p>
+              <p className="text-xs text-destructive">{pwErrors.confirm}</p>
             )}
           </div>
+
           <Button
-            onClick={handleChangePw}
+            onClick={savePw}
             disabled={
-              isChanging || !pw.old_password || !pw.new_password || !pw.confirm
+              savingPw || !pw.old_password || !pw.new_password || !pw.confirm
             }
-            className="gap-2 rounded-xl"
+            className="w-full rounded-xl gap-2"
           >
-            {isChanging && <Loader2 className="h-4 w-4 animate-spin" />}
+            {savingPw && <Loader2 className="h-4 w-4 animate-spin" />}
             Simpan Password
           </Button>
         </CardContent>
