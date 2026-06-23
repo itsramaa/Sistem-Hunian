@@ -184,7 +184,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 w-full max-w-6xl">
       {/* Page header */}
       <div>
         <h1 className="text-xl font-bold tracking-tight">Profil</h1>

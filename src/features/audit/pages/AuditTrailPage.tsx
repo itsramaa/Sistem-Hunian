@@ -134,7 +134,7 @@ export default function AuditTrailPage() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 w-full max-w-7xl">
       <div>
         <h1 className="text-xl font-bold tracking-tight">Audit Trail</h1>
         <p className="text-sm text-muted-foreground mt-0.5">

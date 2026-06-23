@@ -232,7 +232,7 @@ export default function TenantsPage() {
     ) : null;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 w-full max-w-7xl">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight">Penghuni</h1>

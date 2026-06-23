@@ -11,6 +11,13 @@ import {
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/shared/components/ui/card";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/shared/components/ui/tabs";
+import { cn } from "@/shared/utils/utils";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import {
@@ -70,7 +77,9 @@ function SectionHeader({
         <div className="min-w-0">
           <p className="text-sm font-semibold text-foreground">{title}</p>
           {description && (
-            <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {description}
+            </p>
           )}
         </div>
       </div>
@@ -95,7 +104,10 @@ function NotificationRow({
   return (
     <div className="flex items-center justify-between gap-4 py-3">
       <div className="flex-1 min-w-0">
-        <label htmlFor={id} className="text-sm font-medium text-foreground cursor-pointer">
+        <label
+          htmlFor={id}
+          className="text-sm font-medium text-foreground cursor-pointer"
+        >
           {label}
         </label>
         <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
@@ -128,13 +140,19 @@ function UserManagementCard() {
       const { data } = await apiClient.get("/users");
       setUsers(data?.data ?? data ?? []);
     } catch (err) {
-      toast({ variant: "destructive", title: "Gagal memuat pengguna", description: getApiErrorMessage(err) });
+      toast({
+        variant: "destructive",
+        title: "Gagal memuat pengguna",
+        description: getApiErrorMessage(err),
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,10 +161,17 @@ function UserManagementCard() {
       await apiClient.post("/users", { nama, email, password, role });
       toast({ title: "Pengguna berhasil dibuat" });
       setShowForm(false);
-      setNama(""); setEmail(""); setPassword(""); setRole("operator");
+      setNama("");
+      setEmail("");
+      setPassword("");
+      setRole("operator");
       fetchUsers();
     } catch (err) {
-      toast({ variant: "destructive", title: "Gagal membuat pengguna", description: getApiErrorMessage(err) });
+      toast({
+        variant: "destructive",
+        title: "Gagal membuat pengguna",
+        description: getApiErrorMessage(err),
+      });
     } finally {
       setCreating(false);
     }
@@ -159,7 +184,11 @@ function UserManagementCard() {
       toast({ title: "Pengguna berhasil dinonaktifkan" });
       fetchUsers();
     } catch (err) {
-      toast({ variant: "destructive", title: "Gagal", description: getApiErrorMessage(err) });
+      toast({
+        variant: "destructive",
+        title: "Gagal",
+        description: getApiErrorMessage(err),
+      });
     }
   };
 
@@ -172,7 +201,11 @@ function UserManagementCard() {
           description="Kelola akun operator, manajer, dan viewer"
           action={
             !showForm ? (
-              <Button size="sm" className="h-8 gap-1.5 rounded-lg cursor-pointer" onClick={() => setShowForm(true)}>
+              <Button
+                size="sm"
+                className="h-8 gap-1.5 rounded-lg cursor-pointer"
+                onClick={() => setShowForm(true)}
+              >
                 <Plus className="h-3.5 w-3.5" /> Tambah
               </Button>
             ) : undefined
@@ -186,16 +219,31 @@ function UserManagementCard() {
             onSubmit={handleCreate}
             className="p-4 rounded-xl border border-border/60 bg-muted/30 space-y-3"
           >
-            <p className="text-sm font-semibold text-foreground">Pengguna Baru</p>
+            <p className="text-sm font-semibold text-foreground">
+              Pengguna Baru
+            </p>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="new-nama" className="text-xs">Nama</Label>
-                <Input id="new-nama" value={nama} onChange={e => setNama(e.target.value)} placeholder="Nama lengkap" required className="rounded-lg" />
+                <Label htmlFor="new-nama" className="text-xs">
+                  Nama
+                </Label>
+                <Input
+                  id="new-nama"
+                  value={nama}
+                  onChange={(e) => setNama(e.target.value)}
+                  placeholder="Nama lengkap"
+                  required
+                  className="rounded-lg"
+                />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="new-role" className="text-xs">Role</Label>
+                <Label htmlFor="new-role" className="text-xs">
+                  Role
+                </Label>
                 <Select value={role} onValueChange={setRole}>
-                  <SelectTrigger id="new-role" className="rounded-lg"><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="new-role" className="rounded-lg">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="operator">Operator</SelectItem>
                     <SelectItem value="manager">Manager</SelectItem>
@@ -205,18 +253,53 @@ function UserManagementCard() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="new-email" className="text-xs">Email</Label>
-              <Input id="new-email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="email@example.com" required className="rounded-lg" />
+              <Label htmlFor="new-email" className="text-xs">
+                Email
+              </Label>
+              <Input
+                id="new-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="email@example.com"
+                required
+                className="rounded-lg"
+              />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="new-pw" className="text-xs">Password</Label>
-              <Input id="new-pw" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Minimal 6 karakter" required minLength={6} className="rounded-lg" />
+              <Label htmlFor="new-pw" className="text-xs">
+                Password
+              </Label>
+              <Input
+                id="new-pw"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Minimal 6 karakter"
+                required
+                minLength={6}
+                className="rounded-lg"
+              />
             </div>
             <div className="flex gap-2 pt-1">
-              <Button type="submit" size="sm" className="rounded-lg cursor-pointer" disabled={creating}>
-                {creating && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />} Buat
+              <Button
+                type="submit"
+                size="sm"
+                className="rounded-lg cursor-pointer"
+                disabled={creating}
+              >
+                {creating && (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                )}{" "}
+                Buat
               </Button>
-              <Button type="button" size="sm" variant="ghost" className="rounded-lg cursor-pointer" onClick={() => setShowForm(false)}>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="rounded-lg cursor-pointer"
+                onClick={() => setShowForm(false)}
+              >
                 Batal
               </Button>
             </div>
@@ -226,7 +309,9 @@ function UserManagementCard() {
         {/* Users list */}
         {loading ? (
           <div className="space-y-2">
-            {[1, 2].map(i => <Skeleton key={i} className="h-14 rounded-xl" />)}
+            {[1, 2].map((i) => (
+              <Skeleton key={i} className="h-14 rounded-xl" />
+            ))}
           </div>
         ) : users.length === 0 ? (
           <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
@@ -235,16 +320,28 @@ function UserManagementCard() {
           </div>
         ) : (
           <div className="space-y-2">
-            {users.map(u => (
-              <div key={u.id} className="flex items-center gap-3 p-3 rounded-xl border border-border/50 bg-muted/20 hover:bg-muted/40 transition-colors">
+            {users.map((u) => (
+              <div
+                key={u.id}
+                className="flex items-center gap-3 p-3 rounded-xl border border-border/50 bg-muted/20 hover:bg-muted/40 transition-colors"
+              >
                 <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                   <User className="h-4 w-4 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{u.nama}</p>
-                  <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                  <p className="text-sm font-medium text-foreground truncate">
+                    {u.nama}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {u.email}
+                  </p>
                 </div>
-                <Badge variant="outline" className="text-xs capitalize shrink-0">{u.role}</Badge>
+                <Badge
+                  variant="outline"
+                  className="text-xs capitalize shrink-0"
+                >
+                  {u.role}
+                </Badge>
                 {u.is_active !== false && (
                   <Button
                     variant="ghost"
@@ -268,10 +365,22 @@ function UserManagementCard() {
 // ─── WhatsappCard ─────────────────────────────────────────────────────────────
 function WhatsappCard() {
   const { toast } = useToast();
-  const { data: status, isLoading: statusLoading, isError: statusError, error: statusErr, refetch: refetchStatus } = useWhatsappStatus();
+  const {
+    data: status,
+    isLoading: statusLoading,
+    isError: statusError,
+    error: statusErr,
+    refetch: refetchStatus,
+  } = useWhatsappStatus();
   const isConnected = status?.connected ?? false;
   const isWaitingQR = status?.status === "waiting_qr_scan";
-  const { data: qrData, isLoading: qrLoading, isError: qrError, error: qrErr, refetch: refetchQR } = useWhatsappQR(!statusLoading && isWaitingQR);
+  const {
+    data: qrData,
+    isLoading: qrLoading,
+    isError: qrError,
+    error: qrErr,
+    refetch: refetchQR,
+  } = useWhatsappQR(!statusLoading && isWaitingQR);
   const connectMutation = useWhatsappConnect();
   const cancelMutation = useWhatsappCancelConnect();
   const logoutMutation = useWhatsappLogout();
@@ -279,14 +388,26 @@ function WhatsappCard() {
   const handleConnect = async () => {
     try {
       await connectMutation.mutateAsync();
-      toast({ title: "Proses koneksi dimulai", description: "Scan QR code untuk menghubungkan WhatsApp." });
+      toast({
+        title: "Proses koneksi dimulai",
+        description: "Scan QR code untuk menghubungkan WhatsApp.",
+      });
     } catch (err) {
-      toast({ variant: "destructive", title: "Gagal memulai koneksi", description: getApiErrorMessage(err) });
+      toast({
+        variant: "destructive",
+        title: "Gagal memulai koneksi",
+        description: getApiErrorMessage(err),
+      });
     }
   };
 
   const handleCancelConnect = async () => {
-    try { await cancelMutation.mutateAsync(); toast({ title: "Koneksi dibatalkan" }); } catch {}
+    try {
+      await cancelMutation.mutateAsync();
+      toast({ title: "Koneksi dibatalkan" });
+    } catch {
+      /* empty */
+    }
   };
 
   const handleLogout = async () => {
@@ -294,15 +415,36 @@ function WhatsappCard() {
       await logoutMutation.mutateAsync();
       toast({ title: "WhatsApp berhasil diputus" });
     } catch (err) {
-      toast({ variant: "destructive", title: "Gagal memutus koneksi", description: getApiErrorMessage(err) });
+      toast({
+        variant: "destructive",
+        title: "Gagal memutus koneksi",
+        description: getApiErrorMessage(err),
+      });
     }
   };
 
   const statusBadge = () => {
     if (statusLoading) return <Skeleton className="h-5 w-20 rounded-full" />;
-    if (isConnected) return <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-full gap-1 text-xs"><CheckCircle2 className="h-3 w-3" /> Terhubung</Badge>;
-    if (isWaitingQR) return <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 rounded-full text-xs">Menunggu Scan</Badge>;
-    return <Badge variant="outline" className="text-muted-foreground rounded-full text-xs">Tidak Terhubung</Badge>;
+    if (isConnected)
+      return (
+        <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-full gap-1 text-xs">
+          <CheckCircle2 className="h-3 w-3" /> Terhubung
+        </Badge>
+      );
+    if (isWaitingQR)
+      return (
+        <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 rounded-full text-xs">
+          Menunggu Scan
+        </Badge>
+      );
+    return (
+      <Badge
+        variant="outline"
+        className="text-muted-foreground rounded-full text-xs"
+      >
+        Tidak Terhubung
+      </Badge>
+    );
   };
 
   return (
@@ -334,10 +476,22 @@ function WhatsappCard() {
           <div className="space-y-3">
             <div className="flex items-center gap-2 p-3 rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-200/50 dark:border-green-800/30">
               <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
-              <p className="text-sm text-green-700 dark:text-green-300">WhatsApp terhubung dan siap mengirim notifikasi.</p>
+              <p className="text-sm text-green-700 dark:text-green-300">
+                WhatsApp terhubung dan siap mengirim notifikasi.
+              </p>
             </div>
-            <Button variant="outline" size="sm" className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/5 rounded-lg cursor-pointer" onClick={handleLogout} disabled={logoutMutation.isPending}>
-              {logoutMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/5 rounded-lg cursor-pointer"
+              onClick={handleLogout}
+              disabled={logoutMutation.isPending}
+            >
+              {logoutMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <LogOut className="h-4 w-4" />
+              )}
               Putus Koneksi
             </Button>
           </div>
@@ -345,22 +499,57 @@ function WhatsappCard() {
 
         {!statusLoading && isWaitingQR && (
           <div className="space-y-3">
-            {qrData?.instruction && <p className="text-sm text-muted-foreground">{qrData.instruction}</p>}
-            {qrLoading && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Memuat QR code...</div>}
-            {qrError && <div className="flex items-start gap-2 text-sm text-destructive"><AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />{getApiErrorMessage(qrErr)}</div>}
+            {qrData?.instruction && (
+              <p className="text-sm text-muted-foreground">
+                {qrData.instruction}
+              </p>
+            )}
+            {qrLoading && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Memuat QR code...
+              </div>
+            )}
+            {qrError && (
+              <div className="flex items-start gap-2 text-sm text-destructive">
+                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                {getApiErrorMessage(qrErr)}
+              </div>
+            )}
             {!qrLoading && !qrError && qrData?.qr && (
               <div className="flex flex-col items-start gap-2">
                 <div className="rounded-xl border border-border p-3 bg-white w-fit">
-                  <QRCodeSVG value={qrData.qr} size={160} level="M" includeMargin={false} />
+                  <QRCodeSVG
+                    value={qrData.qr}
+                    size={160}
+                    level="M"
+                    includeMargin={false}
+                  />
                 </div>
-                <p className="text-xs text-muted-foreground">QR diperbarui otomatis setiap 30 detik.</p>
-                <Button variant="ghost" size="sm" className="gap-2 h-8 text-xs cursor-pointer" onClick={() => refetchQR()}>
+                <p className="text-xs text-muted-foreground">
+                  QR diperbarui otomatis setiap 30 detik.
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-2 h-8 text-xs cursor-pointer"
+                  onClick={() => refetchQR()}
+                >
                   <RefreshCw className="h-3.5 w-3.5" /> Refresh QR
                 </Button>
               </div>
             )}
-            <Button variant="outline" size="sm" className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/5 rounded-lg cursor-pointer" onClick={handleCancelConnect} disabled={cancelMutation.isPending}>
-              {cancelMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/5 rounded-lg cursor-pointer"
+              onClick={handleCancelConnect}
+              disabled={cancelMutation.isPending}
+            >
+              {cancelMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <X className="h-4 w-4" />
+              )}
               Batal
             </Button>
           </div>
@@ -368,13 +557,31 @@ function WhatsappCard() {
 
         {!statusLoading && !isConnected && !isWaitingQR && (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">WhatsApp belum terhubung. Klik Hubungkan untuk mulai pairing via QR code.</p>
+            <p className="text-sm text-muted-foreground">
+              WhatsApp belum terhubung. Klik Hubungkan untuk mulai pairing via
+              QR code.
+            </p>
             <div className="flex gap-2">
-              <Button size="sm" className="gap-2 rounded-lg cursor-pointer" onClick={handleConnect} disabled={connectMutation.isPending}>
-                {connectMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link className="h-4 w-4" />}
+              <Button
+                size="sm"
+                className="gap-2 rounded-lg cursor-pointer"
+                onClick={handleConnect}
+                disabled={connectMutation.isPending}
+              >
+                {connectMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Link className="h-4 w-4" />
+                )}
                 Hubungkan
               </Button>
-              <Button variant="ghost" size="sm" className="gap-2 rounded-lg text-muted-foreground cursor-pointer" onClick={() => refetchStatus()} disabled={connectMutation.isPending}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-2 rounded-lg text-muted-foreground cursor-pointer"
+                onClick={() => refetchStatus()}
+                disabled={connectMutation.isPending}
+              >
                 <RefreshCw className="h-3.5 w-3.5" /> Cek Status
               </Button>
             </div>
@@ -390,7 +597,14 @@ function WAConfigCard() {
   const { toast } = useToast();
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["wa-config"],
-    queryFn: () => apiClient.get("/settings/wa-config").then(r => r.data?.data ?? { recipient_numbers: [], notification_enabled: true }),
+    queryFn: () =>
+      apiClient.get("/settings/wa-config").then(
+        (r) =>
+          r.data?.data ?? {
+            recipient_numbers: [],
+            notification_enabled: true,
+          },
+      ),
   });
   const [recipients, setRecipients] = React.useState<string[]>([]);
   const [newNumber, setNewNumber] = React.useState("");
@@ -407,20 +621,28 @@ function WAConfigCard() {
   const addNumber = () => {
     const num = newNumber.trim().replace(/\D/g, "");
     if (!num || recipients.includes(num)) return;
-    setRecipients(prev => [...prev, num]);
+    setRecipients((prev) => [...prev, num]);
     setNewNumber("");
   };
 
-  const removeNumber = (i: number) => setRecipients(prev => prev.filter((_, idx) => idx !== i));
+  const removeNumber = (i: number) =>
+    setRecipients((prev) => prev.filter((_, idx) => idx !== i));
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await apiClient.put("/settings/wa-config", { recipient_numbers: recipients, notification_enabled: notifEnabled });
+      await apiClient.put("/settings/wa-config", {
+        recipient_numbers: recipients,
+        notification_enabled: notifEnabled,
+      });
       await refetch();
       toast({ title: "Konfigurasi WA berhasil disimpan" });
     } catch (err) {
-      toast({ variant: "destructive", title: "Gagal menyimpan", description: getApiErrorMessage(err) });
+      toast({
+        variant: "destructive",
+        title: "Gagal menyimpan",
+        description: getApiErrorMessage(err),
+      });
     } finally {
       setIsSaving(false);
     }
@@ -454,14 +676,29 @@ function WAConfigCard() {
         ) : (
           <>
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Nomor Penerima</Label>
+              <Label className="text-xs text-muted-foreground">
+                Nomor Penerima
+              </Label>
               {recipients.length === 0 && (
-                <p className="text-xs text-muted-foreground">Belum ada nomor terdaftar.</p>
+                <p className="text-xs text-muted-foreground">
+                  Belum ada nomor terdaftar.
+                </p>
               )}
               {recipients.map((num, i) => (
-                <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-muted/40 border border-border/50">
-                  <span className="flex-1 text-sm font-medium tabular-nums">{num}</span>
-                  <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive cursor-pointer" onClick={() => removeNumber(i)} aria-label="Hapus nomor">
+                <div
+                  key={i}
+                  className="flex items-center gap-2 p-2 rounded-lg bg-muted/40 border border-border/50"
+                >
+                  <span className="flex-1 text-sm font-medium tabular-nums">
+                    {num}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-muted-foreground hover:text-destructive cursor-pointer"
+                    onClick={() => removeNumber(i)}
+                    aria-label="Hapus nomor"
+                  >
                     <X className="h-3.5 w-3.5" />
                   </Button>
                 </div>
@@ -470,17 +707,27 @@ function WAConfigCard() {
                 <Input
                   placeholder="628xxxxxxxxxx"
                   value={newNumber}
-                  onChange={e => setNewNumber(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && (e.preventDefault(), addNumber())}
+                  onChange={(e) => setNewNumber(e.target.value)}
+                  onKeyDown={(e) =>
+                    e.key === "Enter" && (e.preventDefault(), addNumber())
+                  }
                   className="rounded-lg"
                   aria-label="Nomor WA baru"
                 />
-                <Button variant="outline" onClick={addNumber} className="rounded-lg shrink-0 cursor-pointer">
+                <Button
+                  variant="outline"
+                  onClick={addNumber}
+                  className="rounded-lg shrink-0 cursor-pointer"
+                >
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
             </div>
-            <Button onClick={handleSave} disabled={isSaving} className="w-full rounded-lg cursor-pointer">
+            <Button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="w-full rounded-lg cursor-pointer"
+            >
               {isSaving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Simpan Konfigurasi
             </Button>
@@ -497,110 +744,163 @@ export default function SettingsPage() {
   const isOperator = profile?.role === "operator";
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-4 w-full max-w-6xl">
       {/* Page header */}
       <div>
         <h1 className="text-xl font-bold tracking-tight">Pengaturan</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Konfigurasi tampilan, notifikasi, dan preferensi akun</p>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Konfigurasi tampilan, notifikasi, dan preferensi akun
+        </p>
       </div>
 
-      {/* ── Tampilan ─────────────────────────────────────────────────────────── */}
-      <Card className="rounded-2xl">
-        <CardHeader className="pb-3">
-          <SectionHeader
-            icon={<Moon className="h-4 w-4 text-primary" />}
-            title="Tampilan"
-            description="Sesuaikan tema aplikasi sesuai preferensi Anda"
-          />
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/50">
-            <div>
-              <p className="text-sm font-medium text-foreground">Mode Gelap / Terang</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Ubah tema tampilan aplikasi</p>
-            </div>
-            <ThemeToggle />
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="tampilan">
+        <TabsList
+          className={cn(
+            "w-full",
+            isOperator ? "grid grid-cols-4" : "grid grid-cols-3",
+          )}
+        >
+          <TabsTrigger value="tampilan" className="gap-1.5">
+            <Moon className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Tampilan</span>
+          </TabsTrigger>
+          <TabsTrigger value="notifikasi" className="gap-1.5">
+            <Bell className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Notifikasi</span>
+          </TabsTrigger>
+          {isOperator && (
+            <TabsTrigger value="whatsapp" className="gap-1.5">
+              <MessageCircle className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">WhatsApp</span>
+            </TabsTrigger>
+          )}
+          {isOperator && (
+            <TabsTrigger value="pengguna" className="gap-1.5">
+              <Users className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Pengguna</span>
+            </TabsTrigger>
+          )}
+        </TabsList>
 
-      {/* ── Preferensi Notifikasi ──────────────────────────────────────────── */}
-      <Card className="rounded-2xl">
-        <CardHeader className="pb-3">
-          <SectionHeader
-            icon={<Bell className="h-4 w-4 text-primary" />}
-            title="Preferensi Notifikasi"
-            description="Pilih jenis notifikasi yang ingin Anda terima"
-          />
-        </CardHeader>
-        <CardContent className="pt-0 divide-y divide-border/50">
-          <NotificationRow
-            id="notif-payment-due"
-            label="Pembayaran Jatuh Tempo"
-            description="Pemberitahuan saat pembayaran mendekati tanggal jatuh tempo"
-            defaultChecked={true}
-          />
-          <NotificationRow
-            id="notif-payment-overdue"
-            label="Pembayaran Terlambat"
-            description="Pemberitahuan saat ada pembayaran yang melewati tanggal jatuh tempo"
-            defaultChecked={true}
-          />
-          <NotificationRow
-            id="notif-dp-expired"
-            label="DP Confirmation Kedaluwarsa"
-            description="Pemberitahuan saat konfirmasi DP sudah melewati batas waktu"
-            defaultChecked={true}
-          />
-          <NotificationRow
-            id="notif-dp-approaching"
-            label="DP Confirmation Mendekati Batas"
-            description="Pemberitahuan saat konfirmasi DP mendekati tanggal kedaluwarsa"
-            defaultChecked={true}
-          />
-          <NotificationRow
-            id="notif-room-status"
-            label="Perubahan Status Kamar"
-            description="Pemberitahuan saat ada perubahan status kamar"
-            defaultChecked={false}
-          />
-        </CardContent>
-      </Card>
-
-      {/* ── WhatsApp — operator only ──────────────────────────────────────── */}
-      {isOperator && <WhatsappCard />}
-
-      {/* ── Manajemen Pengguna — operator only ───────────────────────────── */}
-      {isOperator && <UserManagementCard />}
-
-      {/* ── Konfigurasi WA — operator only ───────────────────────────────── */}
-      {isOperator && <WAConfigCard />}
-
-      {/* ── Informasi Aplikasi ────────────────────────────────────────────── */}
-      <Card className="rounded-2xl">
-        <CardHeader className="pb-3">
-          <SectionHeader
-            icon={<Globe className="h-4 w-4 text-primary" />}
-            title="Informasi Aplikasi"
-            description="Versi dan teknologi yang digunakan"
-          />
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="space-y-0 divide-y divide-border/40">
-            {[
-              { label: "Versi", value: "1.0.0" },
-              { label: "Platform", value: "Web App" },
-              { label: "Framework", value: "React 18 + Vite" },
-              { label: "Backend", value: "Go (Fiber)" },
-            ].map(({ label, value }) => (
-              <div key={label} className="flex items-center justify-between py-2.5">
-                <span className="text-sm text-muted-foreground">{label}</span>
-                <span className="text-sm font-medium text-foreground tabular-nums">{value}</span>
+        {/* ── Tab: Tampilan ──────────────────────────────────────────────── */}
+        <TabsContent value="tampilan" className="mt-4 space-y-4">
+          <Card className="rounded-2xl">
+            <CardHeader className="pb-3">
+              <SectionHeader
+                icon={<Moon className="h-4 w-4 text-primary" />}
+                title="Tampilan"
+                description="Sesuaikan tema aplikasi sesuai preferensi Anda"
+              />
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/50">
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    Mode Gelap / Terang
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Ubah tema tampilan aplikasi
+                  </p>
+                </div>
+                <ThemeToggle />
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+
+          {/* Informasi Aplikasi */}
+          <Card className="rounded-2xl">
+            <CardHeader className="pb-3">
+              <SectionHeader
+                icon={<Globe className="h-4 w-4 text-primary" />}
+                title="Informasi Aplikasi"
+                description="Versi dan teknologi yang digunakan"
+              />
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="space-y-0 divide-y divide-border/40">
+                {[
+                  { label: "Versi", value: "1.0.0" },
+                  { label: "Platform", value: "Web App" },
+                  { label: "Framework", value: "React 18 + Vite" },
+                  { label: "Backend", value: "Go (Fiber)" },
+                ].map(({ label, value }) => (
+                  <div
+                    key={label}
+                    className="flex items-center justify-between py-2.5"
+                  >
+                    <span className="text-sm text-muted-foreground">
+                      {label}
+                    </span>
+                    <span className="text-sm font-medium text-foreground tabular-nums">
+                      {value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Tab: Notifikasi ────────────────────────────────────────────── */}
+        <TabsContent value="notifikasi" className="mt-4">
+          <Card className="rounded-2xl">
+            <CardHeader className="pb-3">
+              <SectionHeader
+                icon={<Bell className="h-4 w-4 text-primary" />}
+                title="Preferensi Notifikasi"
+                description="Pilih jenis notifikasi yang ingin Anda terima"
+              />
+            </CardHeader>
+            <CardContent className="pt-0 divide-y divide-border/50">
+              <NotificationRow
+                id="notif-payment-due"
+                label="Pembayaran Jatuh Tempo"
+                description="Pemberitahuan saat pembayaran mendekati tanggal jatuh tempo"
+                defaultChecked={true}
+              />
+              <NotificationRow
+                id="notif-payment-overdue"
+                label="Pembayaran Terlambat"
+                description="Pemberitahuan saat ada pembayaran yang melewati tanggal jatuh tempo"
+                defaultChecked={true}
+              />
+              <NotificationRow
+                id="notif-dp-expired"
+                label="DP Confirmation Kedaluwarsa"
+                description="Pemberitahuan saat konfirmasi DP sudah melewati batas waktu"
+                defaultChecked={true}
+              />
+              <NotificationRow
+                id="notif-dp-approaching"
+                label="DP Confirmation Mendekati Batas"
+                description="Pemberitahuan saat konfirmasi DP mendekati tanggal kedaluwarsa"
+                defaultChecked={true}
+              />
+              <NotificationRow
+                id="notif-room-status"
+                label="Perubahan Status Kamar"
+                description="Pemberitahuan saat ada perubahan status kamar"
+                defaultChecked={false}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Tab: WhatsApp — operator only ─────────────────────────────── */}
+        {isOperator && (
+          <TabsContent value="whatsapp" className="mt-4 space-y-4">
+            <WhatsappCard />
+            <WAConfigCard />
+          </TabsContent>
+        )}
+
+        {/* ── Tab: Pengguna — operator only ─────────────────────────────── */}
+        {isOperator && (
+          <TabsContent value="pengguna" className="mt-4">
+            <UserManagementCard />
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   );
 }

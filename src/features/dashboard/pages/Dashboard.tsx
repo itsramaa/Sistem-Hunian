@@ -1,13 +1,9 @@
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import {
   DpAlert,
-  Notification,
   PaymentAlert,
   useDashboardAlerts,
   useDashboardSummary,
-  useMarkNotificationRead,
-  useClearReadNotifications,
-  useNotifications,
 } from "@/features/dashboard/hooks/useDashboard";
 import { usePayments } from "@/features/payments/hooks/usePayments";
 import { useCreateViewerRequest } from "@/features/viewer-requests/hooks/useViewerRequests";
@@ -15,16 +11,14 @@ import { useRooms } from "@/features/rooms/hooks/useRooms";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/utils/utils";
 import { useQueryClient } from "@tanstack/react-query";
-import { format, formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import {
   AlertCircle,
   AlertTriangle,
   BedDouble,
-  Bell,
   Building2,
   CheckCircle2,
-  ChevronRight,
   Clock,
   DollarSign,
   RefreshCw,
@@ -184,108 +178,6 @@ function AlertPanel() {
           </AlertItem>
         ))}
       </ul>
-    </section>
-  );
-}
-
-// ─── Notification Panel ───────────────────────────────────────────────────────
-
-function NotificationPanel() {
-  const [showAll, setShowAll] = React.useState(false);
-  const { data: rawNotifications, isLoading } = useNotifications(
-    showAll ? undefined : false,
-  );
-  const { mutate: markRead } = useMarkNotificationRead();
-  const { mutate: clearRead, isPending: isClearing } =
-    useClearReadNotifications();
-  const items: Notification[] = Array.isArray(rawNotifications)
-    ? rawNotifications
-    : [];
-  const hasRead = items.some((n) => n.is_read);
-
-  return (
-    <section aria-label="Notifikasi" className="glass-card p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Bell className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-semibold text-foreground">Notifikasi</h2>
-          {!showAll && items.length > 0 && (
-            <span className="text-xs font-medium bg-primary/15 text-primary rounded-full px-2 py-0.5">
-              {items.length}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {showAll && hasRead && (
-            <button
-              onClick={() => clearRead()}
-              disabled={isClearing}
-              className="text-xs text-destructive hover:underline disabled:opacity-50"
-            >
-              {isClearing ? "Menghapus..." : "Hapus yang sudah dibaca"}
-            </button>
-          )}
-          <button
-            onClick={() => setShowAll((v) => !v)}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {showAll ? "Belum dibaca" : "Lihat semua"}
-            <ChevronRight className="h-3 w-3" />
-          </button>
-        </div>
-      </div>
-
-      {isLoading ? (
-        <div className="space-y-2">
-          <div className="h-14 bg-muted animate-pulse rounded-xl" />
-          <div className="h-14 bg-muted animate-pulse rounded-xl" />
-        </div>
-      ) : items.length === 0 ? (
-        <div className="flex flex-col items-center py-6 gap-2 text-muted-foreground">
-          <Bell className="h-8 w-8 opacity-30" />
-          <p className="text-sm">
-            {showAll ? "Tidak ada notifikasi." : "Tidak ada notifikasi baru."}
-          </p>
-        </div>
-      ) : (
-        <ul className="space-y-1 max-h-64 overflow-y-auto -mx-1 px-1">
-          {items.map((n) => (
-            <li
-              key={n.id}
-              className={cn(
-                "flex items-start justify-between gap-3 rounded-xl px-3 py-3 text-sm transition-colors",
-                !n.is_read ? "bg-muted/60" : "opacity-70",
-              )}
-            >
-              <div className="flex-1 min-w-0">
-                {!n.is_read && (
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary inline-block mr-1.5 mb-0.5" />
-                )}
-                <span
-                  className={cn("leading-snug", !n.is_read && "font-medium")}
-                >
-                  {n.pesan}
-                </span>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {formatDistanceToNow(new Date(n.created_at), {
-                    addSuffix: true,
-                    locale: localeId,
-                  })}
-                </p>
-              </div>
-              {!n.is_read && (
-                <button
-                  onClick={() => markRead(n.id)}
-                  className="text-xs text-primary hover:underline shrink-0 mt-0.5"
-                  aria-label="Tandai sudah dibaca"
-                >
-                  Baca
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
     </section>
   );
 }
@@ -516,8 +408,8 @@ export default function Dashboard() {
     200,
     "",
     "",
-    "",
     "paid",
+    "",
     currentPeriode,
   );
   const pendapatan = (paymentsData?.payments ?? []).reduce(
@@ -583,7 +475,7 @@ export default function Dashboard() {
       : null;
 
   return (
-    <div className="space-y-5 pb-2">
+    <div className="space-y-5 w-full max-w-7xl pb-2">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
@@ -649,30 +541,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Summary Cards — 2-col grid on mobile, 5-col on desktop */}
-      <section aria-label="Ringkasan Status Kamar">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
-          Ringkasan
-        </p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {summaryCards.map((card) => (
-            <SummaryCard
-              key={card.label}
-              label={card.label}
-              value={card.value}
-              icon={card.icon}
-              bgClass={card.bgClass}
-              isLoading={summaryLoading}
-              accent={card.accent}
-              onClick={card.onClick}
-            />
-          ))}
-        </div>
-      </section>
-
-      {/* Alert Panel — operator & manajer */}
-      {isManagerOrAbove && <AlertPanel />}
-
       {/* Stats Tambahan — operator & manager */}
       {isManagerOrAbove && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -737,6 +605,27 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Summary Cards — 2-col grid on mobile, 5-col on desktop */}
+      <section aria-label="Ringkasan Status Kamar">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
+          Ringkasan
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {summaryCards.map((card) => (
+            <SummaryCard
+              key={card.label}
+              label={card.label}
+              value={card.value}
+              icon={card.icon}
+              bgClass={card.bgClass}
+              isLoading={summaryLoading}
+              accent={card.accent}
+              onClick={card.onClick}
+            />
+          ))}
+        </div>
+      </section>
 
       {/* Quick Actions — operator only */}
       {isOperator && (
@@ -897,8 +786,8 @@ export default function Dashboard() {
         <ViewerRequestPanel rooms={allRooms} />
       )}
 
-      {/* Notification Panel — operator only */}
-      {isOperator && <NotificationPanel />}
+      {/* Alert Panel — operator & manajer */}
+      {isManagerOrAbove && <AlertPanel />}
     </div>
   );
 }

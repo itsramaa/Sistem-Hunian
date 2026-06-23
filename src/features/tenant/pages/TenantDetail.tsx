@@ -238,7 +238,7 @@ export default function TenantDetail() {
   estimatedCheckout.setMonth(estimatedCheckout.getMonth() + tenant.durasi_sewa);
 
   return (
-    <div className="space-y-5 pb-2">
+    <div className="space-y-5 w-full max-w-7xl pb-2">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-4 min-w-0 flex-1">

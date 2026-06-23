@@ -166,7 +166,7 @@ export default function MaintenanceDetail() {
   const statusInfo = statusConfig[maintenance.status] ?? statusConfig.reported;
 
   return (
-    <div className="space-y-5 pb-2">
+    <div className="space-y-5 w-full max-w-7xl pb-2">
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">

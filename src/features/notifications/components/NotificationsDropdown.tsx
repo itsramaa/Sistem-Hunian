@@ -34,22 +34,12 @@ import { toast } from "sonner";
 
 interface Notification {
   id: string;
-  title: string;
-  message: string;
-  type: string | null;
-  read: boolean | null;
-  link: string | null;
+  tipe: string | null;
+  pesan: string;
+  is_read: boolean;
   created_at: string;
+  referensi_id?: string | null;
 }
-
-const isValidLink = (link: string | null): boolean => {
-  if (!link) return false;
-  return (
-    link.startsWith("/") &&
-    !link.includes("//") &&
-    !link.includes("javascript:")
-  );
-};
 
 export function NotificationsDropdown() {
   const { user } = useAuth();
@@ -66,7 +56,8 @@ export function NotificationsDropdown() {
       const r = await apiClient.get("/notifications", {
         params: { is_read: false },
       });
-      return r.data;
+      // Backend returns { success, data: [...], pagination }
+      return Array.isArray(r.data?.data) ? r.data.data : [];
     },
     enabled: !!user?.id,
   });
@@ -105,10 +96,37 @@ export function NotificationsDropdown() {
   const notifications: Notification[] = Array.isArray(rawNotifications)
     ? rawNotifications
     : [];
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
 
-  const getNotificationIcon = (type: string | null) => {
-    switch (type) {
+  const getTitleByType = (tipe: string | null): string => {
+    switch (tipe) {
+      case "dp_reminder":
+        return "Pengingat DP";
+      case "dp_expired":
+        return "DP Kedaluwarsa";
+      case "payment_due":
+        return "Tagihan Jatuh Tempo";
+      case "payment_overdue":
+        return "Tagihan Terlambat";
+      case "payment":
+        return "Pembayaran";
+      case "maintenance":
+        return "Laporan Kerusakan";
+      case "invoice":
+        return "Invoice";
+      case "warning":
+        return "Peringatan";
+      case "rls_alert":
+        return "Peringatan Keamanan";
+      case "login_new_device":
+        return "Login Perangkat Baru";
+      default:
+        return "Notifikasi";
+    }
+  };
+
+  const getNotificationIcon = (tipe: string | null) => {
+    switch (tipe) {
       case "payment":
         return <CreditCard className="h-4 w-4 text-green-500" />;
       case "invoice":
@@ -126,8 +144,8 @@ export function NotificationsDropdown() {
     }
   };
 
-  const getDeepLinkByType = (type: string | null): string | null => {
-    switch (type) {
+  const getDeepLinkByType = (tipe: string | null): string | null => {
+    switch (tipe) {
       case "dp_reminder":
       case "dp_expired":
         return "/dashboard/confirmations";
@@ -147,11 +165,8 @@ export function NotificationsDropdown() {
   };
 
   const handleNotificationClick = (notification: Notification) => {
-    if (!notification.read) markAsRead.mutate(notification.id);
-    const target =
-      notification.link && isValidLink(notification.link)
-        ? notification.link
-        : getDeepLinkByType(notification.type);
+    if (!notification.is_read) markAsRead.mutate(notification.id);
+    const target = getDeepLinkByType(notification.tipe);
     if (target) {
       navigate(target);
       setOpen(false);
@@ -219,26 +234,26 @@ export function NotificationsDropdown() {
           ) : (
             notifications.map((notification) => {
               const isExpanded = expandedId === notification.id;
-              const isLongMessage = (notification.message?.length ?? 0) > 80;
+              const isLongMessage = (notification.pesan?.length ?? 0) > 80;
               return (
                 <DropdownMenuItem
                   key={notification.id}
-                  className={`flex items-start gap-3 p-3 cursor-pointer ${!notification.read ? "bg-muted/50" : ""}`}
+                  className={`flex items-start gap-3 p-3 cursor-pointer ${!notification.is_read ? "bg-muted/50" : ""}`}
                   onClick={() => handleNotificationClick(notification)}
                 >
                   <div className="flex-shrink-0 mt-0.5">
-                    {getNotificationIcon(notification.type)}
+                    {getNotificationIcon(notification.tipe)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p
-                      className={`text-sm ${!notification.read ? "font-medium" : ""}`}
+                      className={`text-sm ${!notification.is_read ? "font-medium" : ""}`}
                     >
-                      {notification.title}
+                      {getTitleByType(notification.tipe)}
                     </p>
                     <p
                       className={`text-xs text-muted-foreground ${isExpanded ? "" : "line-clamp-2"}`}
                     >
-                      {notification.message}
+                      {notification.pesan}
                     </p>
                     {isLongMessage && (
                       <Button
@@ -266,7 +281,7 @@ export function NotificationsDropdown() {
                       })}
                     </p>
                   </div>
-                  {!notification.read && (
+                  {!notification.is_read && (
                     <div className="flex-shrink-0">
                       <div className="h-2 w-2 rounded-full bg-primary" />
                     </div>

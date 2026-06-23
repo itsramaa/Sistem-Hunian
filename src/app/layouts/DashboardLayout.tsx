@@ -1,6 +1,10 @@
 ﻿import { ReactNode, Fragment, useEffect, useState } from "react";
 import { useLocation, Link } from "react-router-dom";
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/shared/components/ui/sidebar";
+import {
+  SidebarProvider,
+  SidebarInset,
+  SidebarTrigger,
+} from "@/shared/components/ui/sidebar";
 import { Separator } from "@/shared/components/ui/separator";
 import { NotificationsDropdown } from "@/features/notifications/components/NotificationsDropdown";
 import {
@@ -94,13 +98,18 @@ export function DashboardLayout({
         <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 bg-background/80 backdrop-blur-sm border-b border-border/30 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
           <div className="flex items-center gap-2 px-3 sm:px-4">
             <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mr-2 h-4 hidden sm:block" />
+            <Separator
+              orientation="vertical"
+              className="mr-2 h-4 hidden sm:block"
+            />
             {/* Breadcrumbs — hidden on tablet to save space */}
             <Breadcrumb className="hidden sm:block">
               <BreadcrumbList>
                 {breadcrumbs.map((crumb, index) => (
                   <Fragment key={crumb.path}>
-                    <BreadcrumbItem className={index === 0 ? "hidden lg:block" : ""}>
+                    <BreadcrumbItem
+                      className={index === 0 ? "hidden lg:block" : ""}
+                    >
                       {crumb.isCurrent ? (
                         <BreadcrumbPage className="text-sm font-medium">
                           {crumb.label}
@@ -114,7 +123,9 @@ export function DashboardLayout({
                       )}
                     </BreadcrumbItem>
                     {index < breadcrumbs.length - 1 && (
-                      <BreadcrumbSeparator className={index === 0 ? "hidden lg:block" : ""} />
+                      <BreadcrumbSeparator
+                        className={index === 0 ? "hidden lg:block" : ""}
+                      />
                     )}
                   </Fragment>
                 ))}
@@ -136,7 +147,7 @@ export function DashboardLayout({
         {/* Main content — tighter padding on tablet */}
         <div
           id="main-content"
-          className="flex flex-1 flex-col gap-4 p-3 sm:p-4 lg:p-6"
+          className="flex flex-1 flex-col gap-4 p-3 sm:p-4 lg:p-6 items-center"
         >
           {(description || actions) && (
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -144,7 +155,9 @@ export function DashboardLayout({
                 <p className="text-sm text-muted-foreground">{description}</p>
               )}
               {actions && (
-                <div className="flex items-center gap-2 shrink-0">{actions}</div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {actions}
+                </div>
               )}
             </div>
           )}
