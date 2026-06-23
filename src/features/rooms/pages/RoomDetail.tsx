@@ -7,6 +7,7 @@ import { useUpdateRoom, useDeleteRoom } from "../hooks/useRooms";
 import { useCheckoutTenant } from "@/features/tenant/hooks/useTenants";
 import { usePayments } from "@/features/payments/hooks/usePayments";
 import { useMaintenances } from "@/features/maintenance/hooks/useMaintenance";
+import { useConfirmations } from "@/features/confirmations/hooks/useConfirmations";
 import { RoomForm } from "../components/RoomForm";
 import { CheckoutForm } from "@/features/tenant/components/CheckoutForm";
 import { Button } from "@/shared/components/ui/button";
@@ -25,6 +26,7 @@ import {
   ArrowLeft,
   BedDouble,
   Building2,
+  Clock,
   DollarSign,
   Users,
   Loader2,
@@ -95,6 +97,10 @@ export default function RoomDetail() {
   const { data: maintData } = useMaintenances(1, 5, undefined, undefined, id);
   const recentPayments = paymentsData?.payments ?? [];
   const recentMaintenances = maintData?.maintenances ?? [];
+
+  // DP Confirmation info — fetch saat status dp_confirmation
+  const { data: confirmData } = useConfirmations(1, 1, "pending", id);
+  const activeConfirmation = confirmData?.confirmations?.[0] ?? null;
 
   const updateMutation = useUpdateRoom();
   const deleteMutation = useDeleteRoom();
@@ -363,6 +369,73 @@ export default function RoomDetail() {
               Lihat Detail Penghuni
             </Button>
           )}
+        </div>
+      )}
+
+      {/* DP Confirmation Info — tampil hanya saat status dp_confirmation */}
+      {room.status === "dp_confirmation" && activeConfirmation && (
+        <div className="glass-card p-4 space-y-3 border-l-4 border-yellow-500">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Clock className="h-4 w-4 text-yellow-600" />
+              Info Konfirmasi DP
+            </h2>
+            <button
+              onClick={() => navigate(`/dashboard/confirmations`)}
+              className="text-xs text-primary hover:underline"
+            >
+              Lihat Detail
+            </button>
+          </div>
+          <dl className="space-y-2">
+            <div className="flex justify-between items-center text-sm">
+              <dt className="text-muted-foreground">Calon Penghuni</dt>
+              <dd className="font-medium">
+                {activeConfirmation.nama_calon_penghuni}
+              </dd>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+              <dt className="text-muted-foreground">Nominal DP</dt>
+              <dd className="font-medium tabular-nums">
+                Rp{(activeConfirmation.nominal_dp ?? 0).toLocaleString("id-ID")}
+              </dd>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+              <dt className="text-muted-foreground">Batas Konfirmasi</dt>
+              <dd
+                className={cn(
+                  "font-medium",
+                  (() => {
+                    const sisa = Math.ceil(
+                      (new Date(
+                        activeConfirmation.batas_tanggal_konfirmasi,
+                      ).getTime() -
+                        Date.now()) /
+                        86400000,
+                    );
+                    return sisa <= 3 ? "text-destructive" : "";
+                  })(),
+                )}
+              >
+                {format(
+                  new Date(activeConfirmation.batas_tanggal_konfirmasi),
+                  "dd MMM yyyy",
+                  { locale: localeId },
+                )}{" "}
+                <span className="text-xs">
+                  (
+                  {Math.ceil(
+                    (new Date(
+                      activeConfirmation.batas_tanggal_konfirmasi,
+                    ).getTime() -
+                      Date.now()) /
+                      86400000,
+                  )}{" "}
+                  hari lagi)
+                </span>
+              </dd>
+            </div>
+          </dl>
         </div>
       )}
 

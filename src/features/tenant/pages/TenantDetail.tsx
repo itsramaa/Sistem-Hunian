@@ -28,6 +28,7 @@ import {
   DollarSign,
   Pencil,
   LogOut,
+  PlusCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
@@ -95,6 +96,8 @@ export default function TenantDetail() {
   const isOperator = role === "operator";
   const [editOpen, setEditOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [extendOpen, setExtendOpen] = useState(false);
+  const [tambahBulan, setTambahBulan] = useState(1);
 
   const {
     data: tenant,
@@ -177,6 +180,26 @@ export default function TenantDetail() {
     }
   };
 
+  const handleExtend = async () => {
+    if (!id || !tenant) return;
+    try {
+      await updateMutation.mutateAsync({
+        id,
+        payload: { durasi_sewa: tenant.durasi_sewa + tambahBulan },
+      });
+      qc.invalidateQueries({ queryKey: ["tenant", id] });
+      setExtendOpen(false);
+      setTambahBulan(1);
+      toast({ title: `Kontrak diperpanjang ${tambahBulan} bulan` });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Gagal perpanjang kontrak",
+        description: getApiErrorMessage(err),
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
@@ -237,7 +260,7 @@ export default function TenantDetail() {
           </div>
         </div>
         {tenant.status === "active" && isOperator && (
-          <div className="flex gap-2 shrink-0">
+          <div className="flex gap-2 shrink-0 flex-wrap justify-end">
             <Button
               variant="outline"
               size="sm"
@@ -245,6 +268,17 @@ export default function TenantDetail() {
               onClick={openEdit}
             >
               <Pencil className="h-3.5 w-3.5" /> Edit
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 rounded-xl"
+              onClick={() => {
+                setTambahBulan(1);
+                setExtendOpen(true);
+              }}
+            >
+              <PlusCircle className="h-3.5 w-3.5" /> Perpanjang
             </Button>
             <Button
               variant="destructive"
@@ -543,6 +577,82 @@ export default function TenantDetail() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Extend Contract Dialog */}
+      <Dialog open={extendOpen} onOpenChange={setExtendOpen}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Perpanjang Kontrak</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground">
+              Durasi sewa saat ini:{" "}
+              <span className="font-medium text-foreground">
+                {tenant.durasi_sewa} bulan
+              </span>
+              . Est. berakhir:{" "}
+              <span className="font-medium text-foreground">
+                {format(
+                  new Date(
+                    new Date(tenant.tanggal_masuk).setMonth(
+                      new Date(tenant.tanggal_masuk).getMonth() +
+                        tenant.durasi_sewa,
+                    ),
+                  ),
+                  "dd MMMM yyyy",
+                  { locale: localeId },
+                )}
+              </span>
+            </p>
+            <div className="space-y-1.5">
+              <Label>Tambah berapa bulan?</Label>
+              <Input
+                type="number"
+                min={1}
+                max={24}
+                value={tambahBulan}
+                onChange={(e) =>
+                  setTambahBulan(
+                    Math.max(1, Math.min(24, Number(e.target.value))),
+                  )
+                }
+                className="rounded-xl"
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Setelah perpanjangan:{" "}
+              <span className="font-medium text-foreground">
+                {tenant.durasi_sewa + tambahBulan} bulan total
+              </span>
+              . Est. berakhir baru:{" "}
+              <span className="font-medium text-foreground">
+                {format(
+                  new Date(
+                    new Date(tenant.tanggal_masuk).setMonth(
+                      new Date(tenant.tanggal_masuk).getMonth() +
+                        tenant.durasi_sewa +
+                        tambahBulan,
+                    ),
+                  ),
+                  "dd MMMM yyyy",
+                  { locale: localeId },
+                )}
+              </span>
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExtendOpen(false)}>
+              Batal
+            </Button>
+            <Button onClick={handleExtend} disabled={updateMutation.isPending}>
+              {updateMutation.isPending && (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              )}
+              Perpanjang
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

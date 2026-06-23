@@ -6,6 +6,7 @@ import {
   useDashboardAlerts,
   useDashboardSummary,
   useMarkNotificationRead,
+  useClearReadNotifications,
   useNotifications,
 } from "@/features/dashboard/hooks/useDashboard";
 import { usePayments } from "@/features/payments/hooks/usePayments";
@@ -195,9 +196,12 @@ function NotificationPanel() {
     showAll ? undefined : false,
   );
   const { mutate: markRead } = useMarkNotificationRead();
+  const { mutate: clearRead, isPending: isClearing } =
+    useClearReadNotifications();
   const items: Notification[] = Array.isArray(rawNotifications)
     ? rawNotifications
     : [];
+  const hasRead = items.some((n) => n.is_read);
 
   return (
     <section aria-label="Notifikasi" className="glass-card p-4 space-y-3">
@@ -211,13 +215,24 @@ function NotificationPanel() {
             </span>
           )}
         </div>
-        <button
-          onClick={() => setShowAll((v) => !v)}
-          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          {showAll ? "Belum dibaca" : "Lihat semua"}
-          <ChevronRight className="h-3 w-3" />
-        </button>
+        <div className="flex items-center gap-2">
+          {showAll && hasRead && (
+            <button
+              onClick={() => clearRead()}
+              disabled={isClearing}
+              className="text-xs text-destructive hover:underline disabled:opacity-50"
+            >
+              {isClearing ? "Menghapus..." : "Hapus yang sudah dibaca"}
+            </button>
+          )}
+          <button
+            onClick={() => setShowAll((v) => !v)}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {showAll ? "Belum dibaca" : "Lihat semua"}
+            <ChevronRight className="h-3 w-3" />
+          </button>
+        </div>
       </div>
 
       {isLoading ? (

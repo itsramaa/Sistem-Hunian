@@ -192,6 +192,7 @@ export default function ConfirmationsPage() {
     page,
     limit,
     statusFilter || undefined,
+    undefined,
     propertyFilter || undefined,
   );
   const { data: propsData } = useProperties("", 1, 100);

@@ -4,12 +4,12 @@ import { ConfirmDPPayload, CreateConfirmationPayload } from '../types';
 
 export const CONFIRMATIONS_KEY = 'confirmations';
 
-export function useConfirmations(page = 1, limit = 20, status?: string, property_id?: string) {
-  return useQuery({
-    queryKey: [CONFIRMATIONS_KEY, { page, limit, status, property_id }],
-    queryFn: () => confirmationService.list(page, limit, status, undefined, property_id),
-    staleTime: 0, // Always re-fetch when filter changes (BUG-004 fix)
-  });
+export function useConfirmations(page = 1, limit = 20, status?: string, room_id?: string, property_id?: string) {
+  return useQuery({
+    queryKey: [CONFIRMATIONS_KEY, { page, limit, status, room_id, property_id }],
+    queryFn: () => confirmationService.list(page, limit, status, room_id, property_id),
+    staleTime: 0,
+  });
 }
 
 export function useCreateConfirmation() {

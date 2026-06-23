@@ -132,10 +132,18 @@ export function useNotifications(isRead?: boolean) {
 
 export function useMarkNotificationRead() {
   const qc = useQueryClient();
-
   return useMutation({
     mutationFn: (id: string) => apiClient.patch(`/notifications/${id}/read`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [NOTIFICATIONS_KEY] });
+    },
+  });
+}
 
+export function useClearReadNotifications() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiClient.delete("/notifications/read"),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [NOTIFICATIONS_KEY] });
     },
