@@ -1,39 +1,66 @@
+// @refresh reset
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
-import { Card, CardContent } from "@/shared/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/shared/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/shared/components/ui/form";
 import { Input } from "@/shared/components/ui/input";
-import { Label } from "@/shared/components/ui/label";
 import { Separator } from "@/shared/components/ui/separator";
 import { useToast } from "@/shared/hooks/use-toast";
 import { apiClient } from "@/shared/lib/axios";
 import { getApiErrorMessage } from "@/shared/utils/api-errors";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Eye,
   EyeOff,
+  KeyRound,
   Loader2,
-  Lock,
   Mail,
+  Pencil,
   Phone,
   Shield,
   User,
+  X,
 } from "lucide-react";
 import { useState } from "react";
+import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-const roleLabels: Record<
-  string,
-  { label: string; variant: "default" | "secondary" | "outline" }
-> = {
-  operator: { label: "Operator", variant: "default" },
-  manager: { label: "Manajer", variant: "secondary" },
-  viewer: { label: "Viewer", variant: "outline" },
+// ─── Role config ─────────────────────────────────────────────────────────────
+const roleConfig: Record<string, { label: string; className: string }> = {
+  operator: {
+    label: "Operator",
+    className: "bg-primary/10 text-primary border-primary/20",
+  },
+  manager: {
+    label: "Manajer",
+    className:
+      "bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400",
+  },
+  viewer: {
+    label: "Viewer",
+    className: "bg-muted text-muted-foreground border-border",
+  },
 };
 
+// ─── Password schema ──────────────────────────────────────────────────────────
 const pwSchema = z
   .object({
-    old_password: z.string().min(1, "Password lama wajib diisi"),
+    old_password: z.string().min(1, "Password saat ini wajib diisi"),
     new_password: z.string().min(6, "Minimal 6 karakter"),
     confirm: z.string(),
   })
@@ -42,56 +69,62 @@ const pwSchema = z
     path: ["confirm"],
   });
 
-// ─── Row helper ───────────────────────────────────────────────────────────────
-function InfoRow({
+type PwForm = z.infer<typeof pwSchema>;
+
+// ─── Section header ───────────────────────────────────────────────────────────
+function SectionHeader({
   icon,
-  label,
-  children,
+  title,
+  description,
 }: {
   icon: React.ReactNode;
-  label: string;
-  children: React.ReactNode;
+  title: string;
+  description?: string;
 }) {
   return (
-    <div className="flex items-start gap-3 py-3">
-      <span className="mt-0.5 text-muted-foreground shrink-0">{icon}</span>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
-        <div className="text-sm font-medium text-foreground">{children}</div>
+    <div className="flex items-start gap-3">
+      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-foreground">{title}</p>
+        {description && (
+          <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+        )}
       </div>
     </div>
   );
 }
 
+// ─── Profile Page ─────────────────────────────────────────────────────────────
 export default function ProfilePage() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  // Phone
+  const roleInfo = roleConfig[profile?.role ?? ""] ?? {
+    label: profile?.role ?? "—",
+    className: "bg-muted text-muted-foreground",
+  };
+
+  // ── Phone ──────────────────────────────────────────────────────────────────
   const [phone, setPhone] = useState(profile?.nomor_telepon ?? "");
   const [savingPhone, setSavingPhone] = useState(false);
 
-  // Email edit
+  // ── Email ──────────────────────────────────────────────────────────────────
   const [emailMode, setEmailMode] = useState(false);
   const [newEmail, setNewEmail] = useState(profile?.email ?? user?.email ?? "");
   const [emailPw, setEmailPw] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
 
-  // Password
-  const [showPw, setShowPw] = useState(false);
-  const [pw, setPw] = useState({
-    old_password: "",
-    new_password: "",
-    confirm: "",
-  });
-  const [pwErrors, setPwErrors] = useState<Record<string, string>>({});
-  const [savingPw, setSavingPw] = useState(false);
+  // ── Password (react-hook-form + zod) ───────────────────────────────────────
+  const [showOld, setShowOld] = useState(false);
+  const [showNew, setShowNew] = useState(false);
 
-  const roleInfo = roleLabels[profile?.role ?? ""] ?? {
-    label: profile?.role ?? "—",
-    variant: "outline" as const,
-  };
+  const form = useForm<PwForm>({
+    resolver: zodResolver(pwSchema),
+    defaultValues: { old_password: "", new_password: "", confirm: "" },
+  });
 
   const savePhone = async () => {
     setSavingPhone(true);
@@ -133,24 +166,13 @@ export default function ProfilePage() {
     }
   };
 
-  const savePw = async () => {
-    const result = pwSchema.safeParse(pw);
-    if (!result.success) {
-      const errs: Record<string, string> = {};
-      result.error.errors.forEach((e) => {
-        if (e.path[0]) errs[String(e.path[0])] = e.message;
-      });
-      setPwErrors(errs);
-      return;
-    }
-    setSavingPw(true);
+  const onSubmitPw = async (data: PwForm) => {
     try {
       await apiClient.post("/auth/change-password", {
-        old_password: pw.old_password,
-        new_password: pw.new_password,
+        old_password: data.old_password,
+        new_password: data.new_password,
       });
-      setPw({ old_password: "", new_password: "", confirm: "" });
-      setPwErrors({});
+      form.reset();
       toast({ title: "Password berhasil diubah" });
     } catch (err) {
       toast({
@@ -158,224 +180,304 @@ export default function ProfilePage() {
         title: "Gagal mengubah password",
         description: getApiErrorMessage(err),
       });
-    } finally {
-      setSavingPw(false);
     }
   };
 
   return (
-    <div className="space-y-6 max-w-lg">
+    <div className="space-y-6 max-w-2xl">
       {/* Page header */}
       <div>
         <h1 className="text-xl font-bold tracking-tight">Profil</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Kelola informasi akun Anda
+          Kelola informasi dan keamanan akun Anda
         </p>
       </div>
 
-      {/* ── Identitas ──────────────────────────────────────────────────────── */}
+      {/* ── Identity Card ────────────────────────────────────────────────────── */}
       <Card className="rounded-2xl">
-        <CardContent className="pt-5 pb-2 px-5">
-          {/* Avatar + nama */}
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+        <CardHeader className="pb-3">
+          <SectionHeader
+            icon={<User className="h-4 w-4 text-primary" />}
+            title="Identitas Akun"
+            description="Nama, role, dan status akun Anda"
+          />
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/40 border border-border/50">
+            {/* Avatar */}
+            <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
               <User className="h-7 w-7 text-primary" />
             </div>
-            <div>
-              <p className="text-base font-semibold text-foreground">
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-semibold text-foreground truncate">
                 {profile?.nama ?? user?.nama ?? "—"}
               </p>
-              <Badge
-                variant={roleInfo.variant}
-                className="rounded-full mt-1 text-xs"
-              >
-                <Shield className="h-3 w-3 mr-1" />
-                {roleInfo.label}
-              </Badge>
+              <p className="text-sm text-muted-foreground truncate mt-0.5">
+                {profile?.email ?? user?.email ?? "—"}
+              </p>
             </div>
+            {/* Role badge */}
+            <Badge
+              className={`rounded-full text-xs border shrink-0 ${roleInfo.className}`}
+            >
+              <Shield className="h-3 w-3 mr-1" />
+              {roleInfo.label}
+            </Badge>
           </div>
+        </CardContent>
+      </Card>
 
-          <Separator className="mb-1" />
-
+      {/* ── Contact Info ─────────────────────────────────────────────────────── */}
+      <Card className="rounded-2xl">
+        <CardHeader className="pb-3">
+          <SectionHeader
+            icon={<Phone className="h-4 w-4 text-primary" />}
+            title="Informasi Kontak"
+            description="Email dan nomor telepon yang terhubung ke akun"
+          />
+        </CardHeader>
+        <CardContent className="pt-0 space-y-4">
           {/* Email */}
-          <InfoRow icon={<Mail className="h-4 w-4" />} label="Email">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                Email
+              </label>
+              {!emailMode && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs gap-1 text-primary hover:text-primary cursor-pointer"
+                  onClick={() => setEmailMode(true)}
+                >
+                  <Pencil className="h-3 w-3" /> Ubah
+                </Button>
+              )}
+            </div>
+
             {emailMode ? (
-              <div className="space-y-2 mt-1">
+              <div className="space-y-2 p-3 rounded-xl bg-muted/40 border border-border/50">
                 <Input
+                  id="new-email"
                   type="email"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
                   placeholder="email@baru.com"
-                  className="h-8 rounded-lg text-sm"
+                  className="rounded-lg"
+                  aria-label="Email baru"
                 />
                 <Input
+                  id="email-pw"
                   type="password"
                   value={emailPw}
                   onChange={(e) => setEmailPw(e.target.value)}
                   placeholder="Konfirmasi password saat ini"
-                  className="h-8 rounded-lg text-sm"
+                  className="rounded-lg"
+                  aria-label="Password konfirmasi"
                 />
-                <div className="flex gap-2">
+                <div className="flex gap-2 pt-1">
                   <Button
                     size="sm"
-                    className="h-7 text-xs rounded-lg"
+                    className="rounded-lg cursor-pointer"
                     onClick={saveEmail}
                     disabled={savingEmail || !newEmail || !emailPw}
                   >
-                    {savingEmail ? (
-                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                    ) : null}
+                    {savingEmail && (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                    )}
                     Simpan
                   </Button>
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-7 text-xs rounded-lg"
+                    className="rounded-lg cursor-pointer"
                     onClick={() => {
                       setEmailMode(false);
                       setEmailPw("");
                       setNewEmail(profile?.email ?? user?.email ?? "");
                     }}
                   >
-                    Batal
+                    <X className="h-3.5 w-3.5 mr-1" /> Batal
                   </Button>
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
-                <span>{profile?.email ?? user?.email ?? "—"}</span>
-                <button
-                  onClick={() => setEmailMode(true)}
-                  className="text-xs text-primary hover:underline font-normal"
-                >
-                  Ubah
-                </button>
+              <div className="flex items-center h-9 px-3 rounded-lg bg-muted/40 border border-border/50">
+                <span className="text-sm text-foreground">
+                  {profile?.email ?? user?.email ?? "—"}
+                </span>
               </div>
             )}
-          </InfoRow>
+          </div>
 
-          <Separator className="my-1" />
+          <Separator />
 
-          {/* Nomor Telepon */}
-          <InfoRow icon={<Phone className="h-4 w-4" />} label="Nomor Telepon">
-            <div className="flex items-center gap-2 mt-1">
+          {/* Phone */}
+          <div className="space-y-2">
+            <label
+              htmlFor="phone"
+              className="text-sm font-medium text-foreground flex items-center gap-2"
+            >
+              <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+              Nomor Telepon
+            </label>
+            <div className="flex gap-2">
               <Input
+                id="phone"
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="08xx-xxxx-xxxx"
-                className="h-8 rounded-lg text-sm max-w-[200px]"
+                className="rounded-lg"
               />
               <Button
-                size="sm"
-                className="h-8 text-xs rounded-lg"
+                className="shrink-0 rounded-lg cursor-pointer"
                 onClick={savePhone}
                 disabled={savingPhone}
               >
                 {savingPhone ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   "Simpan"
                 )}
               </Button>
             </div>
-          </InfoRow>
+          </div>
         </CardContent>
       </Card>
 
-      {/* ── Ubah Password ──────────────────────────────────────────────────── */}
+      {/* ── Security ─────────────────────────────────────────────────────────── */}
       <Card className="rounded-2xl">
-        <CardContent className="pt-5 pb-5 px-5 space-y-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Lock className="h-4 w-4 text-primary" />
-            <p className="text-sm font-semibold">Ubah Password</p>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="old_pw" className="text-xs">
-              Password Saat Ini
-            </Label>
-            <Input
-              id="old_pw"
-              type="password"
-              value={pw.old_password}
-              onChange={(e) =>
-                setPw((p) => ({ ...p, old_password: e.target.value }))
-              }
-              placeholder="••••••••"
-              className="rounded-xl"
-            />
-            {pwErrors.old_password && (
-              <p className="text-xs text-destructive">
-                {pwErrors.old_password}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="new_pw" className="text-xs">
-              Password Baru
-            </Label>
-            <div className="relative">
-              <Input
-                id="new_pw"
-                type={showPw ? "text" : "password"}
-                value={pw.new_password}
-                onChange={(e) =>
-                  setPw((p) => ({ ...p, new_password: e.target.value }))
-                }
-                placeholder="Minimal 6 karakter"
-                className="pr-10 rounded-xl"
-              />
-              <button
-                type="button"
-                tabIndex={-1}
-                onClick={() => setShowPw((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                {showPw ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
+        <CardHeader className="pb-3">
+          <SectionHeader
+            icon={<KeyRound className="h-4 w-4 text-primary" />}
+            title="Keamanan"
+            description="Ubah password untuk menjaga keamanan akun"
+          />
+        </CardHeader>
+        <CardContent className="pt-0">
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit(onSubmitPw)}
+              className="space-y-4"
+            >
+              {/* Old password */}
+              <FormField
+                control={form.control}
+                name="old_password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm">Password Saat Ini</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Input
+                          {...field}
+                          type={showOld ? "text" : "password"}
+                          placeholder="••••••••"
+                          className="pr-10 rounded-lg"
+                          aria-label="Password saat ini"
+                        />
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          onClick={() => setShowOld((v) => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                          aria-label={
+                            showOld
+                              ? "Sembunyikan password"
+                              : "Tampilkan password"
+                          }
+                        >
+                          {showOld ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )}
-              </button>
-            </div>
-            {pwErrors.new_password && (
-              <p className="text-xs text-destructive">
-                {pwErrors.new_password}
-              </p>
-            )}
-          </div>
+              />
 
-          <div className="space-y-1.5">
-            <Label htmlFor="confirm_pw" className="text-xs">
-              Konfirmasi Password Baru
-            </Label>
-            <Input
-              id="confirm_pw"
-              type="password"
-              value={pw.confirm}
-              onChange={(e) =>
-                setPw((p) => ({ ...p, confirm: e.target.value }))
-              }
-              placeholder="Ulangi password baru"
-              className="rounded-xl"
-            />
-            {pwErrors.confirm && (
-              <p className="text-xs text-destructive">{pwErrors.confirm}</p>
-            )}
-          </div>
+              {/* New password */}
+              <FormField
+                control={form.control}
+                name="new_password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm">Password Baru</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Input
+                          {...field}
+                          type={showNew ? "text" : "password"}
+                          placeholder="Minimal 6 karakter"
+                          className="pr-10 rounded-lg"
+                          aria-label="Password baru"
+                        />
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          onClick={() => setShowNew((v) => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                          aria-label={
+                            showNew
+                              ? "Sembunyikan password"
+                              : "Tampilkan password"
+                          }
+                        >
+                          {showNew ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          <Button
-            onClick={savePw}
-            disabled={
-              savingPw || !pw.old_password || !pw.new_password || !pw.confirm
-            }
-            className="w-full rounded-xl gap-2"
-          >
-            {savingPw && <Loader2 className="h-4 w-4 animate-spin" />}
-            Simpan Password
-          </Button>
+              {/* Confirm */}
+              <FormField
+                control={form.control}
+                name="confirm"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm">
+                      Konfirmasi Password Baru
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="password"
+                        placeholder="Ulangi password baru"
+                        className="rounded-lg"
+                        aria-label="Konfirmasi password baru"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Button
+                type="submit"
+                className="w-full rounded-lg cursor-pointer"
+                disabled={form.formState.isSubmitting}
+              >
+                {form.formState.isSubmitting && (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                )}
+                Simpan Password
+              </Button>
+            </form>
+          </Form>
         </CardContent>
       </Card>
     </div>
