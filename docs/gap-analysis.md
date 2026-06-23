@@ -442,7 +442,7 @@ Daripada viewer harus input data langsung (yang terlalu kompleks), viewer punya 
 
 ## Ringkasan Prioritas
 
-**Update terakhir:** 2026-06-23 04:26 UTC
+**Update terakhir:** 2026-06-23 04:32 UTC
 
 ### High Priority (Must Have)
 
@@ -484,7 +484,7 @@ Daripada viewer harus input data langsung (yang terlalu kompleks), viewer punya 
 | 24  | Tenant: perpanjang kontrak inline                 | 📋 Proposal: `tenant-extend-contract`       |
 | 25  | Bulk operations (bulk update harga kamar)         | ⏸️ Hold                                     |
 | 26  | Maintenance: multi-progress update history        | 📋 Proposal: `maintenance-progress-history` |
-| 27  | Audit trail: export, filter by user               | ⏳ Pending                                  |
-| 28  | Settings: default harga sewa, WA recipient config | ⏳ Pending                                  |
+| 27  | Audit trail: export, filter by user               | 📋 Proposal: `audit-trail-export`           |
+| 28  | Settings: default harga sewa, WA recipient config | 📋 Proposal: `settings-wa-config`           |
 | 29  | Profile: Edit email                               | 📋 Proposal: `profile-edit-email`           |
 | 30  | Notifications: Delete/clear notifikasi lama       | 📋 Proposal: `notifications-clear`          |
