@@ -19,6 +19,7 @@ import {
 } from "@/shared/components/ui/table";
 import { Button } from "@/shared/components/ui/button";
 import {
+  Download,
   Loader2,
   ChevronLeft,
   ChevronRight,
@@ -56,15 +57,31 @@ export default function AuditTrailPage() {
   const [newStatusFilter, setNewStatusFilter] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [changedByFilter, setChangedByFilter] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
   const limit = 20;
 
   const { data: propsData } = useProperties("", 1, 100);
   const properties = propsData?.properties ?? [];
 
+  const { data: usersData } = useQuery({
+    queryKey: ["users-list"],
+    queryFn: () => apiClient.get("/users").then((r) => r.data?.data ?? []),
+  });
+  const users: any[] = usersData ?? [];
+
   const { data, isLoading, isError, error } = useQuery({
     queryKey: [
       "audit-room-status",
-      { page, limit, propertyFilter, newStatusFilter, fromDate, toDate },
+      {
+        page,
+        limit,
+        propertyFilter,
+        newStatusFilter,
+        fromDate,
+        toDate,
+        changedByFilter,
+      },
     ],
     queryFn: async () => {
       const params: Record<string, any> = { page, limit };
@@ -72,12 +89,37 @@ export default function AuditTrailPage() {
       if (newStatusFilter) params.new_status = newStatusFilter;
       if (fromDate) params.from_date = fromDate;
       if (toDate) params.to_date = toDate;
+      if (changedByFilter) params.changed_by = changedByFilter;
       const { data } = await apiClient.get<any>("/audit/room-status", {
         params,
       });
       return { logs: data?.data ?? [], pagination: data?.pagination ?? null };
     },
   });
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const params = new URLSearchParams();
+      if (propertyFilter) params.set("property_id", propertyFilter);
+      if (newStatusFilter) params.set("new_status", newStatusFilter);
+      if (fromDate) params.set("from_date", fromDate);
+      if (toDate) params.set("to_date", toDate);
+      if (changedByFilter) params.set("changed_by", changedByFilter);
+      const response = await apiClient.get(
+        `/audit/room-status/export?${params}`,
+        { responseType: "blob" },
+      );
+      const url = URL.createObjectURL(response.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `audit-trail-${format(new Date(), "yyyy-MM-dd")}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const logs: RoomStatusLog[] = data?.logs ?? [];
   const total = data?.pagination?.total ?? 0;
@@ -176,6 +218,44 @@ export default function AuditTrailPage() {
             </Button>
           )}
         </div>
+
+        {/* Filter by user */}
+        {users.length > 0 && (
+          <Select
+            value={changedByFilter || "_all"}
+            onValueChange={(v) => {
+              setChangedByFilter(v === "_all" ? "" : v);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-[180px] rounded-xl h-10">
+              <SelectValue placeholder="Semua user" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">Semua user</SelectItem>
+              {users.map((u: any) => (
+                <SelectItem key={u.id} value={u.id}>
+                  {u.nama}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {/* Export CSV */}
+        <Button
+          variant="outline"
+          onClick={handleExport}
+          disabled={isExporting}
+          className="gap-2 rounded-xl h-10 ml-auto"
+        >
+          {isExporting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="h-4 w-4" />
+          )}
+          Export CSV
+        </Button>
       </div>
 
       {isLoading ? (
