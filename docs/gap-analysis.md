@@ -442,7 +442,7 @@ Daripada viewer harus input data langsung (yang terlalu kompleks), viewer punya 
 
 ## Ringkasan Prioritas
 
-**Update terakhir:** 2026-06-23 04:32 UTC
+**Update terakhir:** 2026-06-23 05:56 UTC
 
 ### High Priority (Must Have)
 
@@ -462,29 +462,29 @@ Daripada viewer harus input data langsung (yang terlalu kompleks), viewer punya 
 
 ### Medium Priority (Should Have)
 
-| No  | Gap                                                                              | Status                                   |
-| --- | -------------------------------------------------------------------------------- | ---------------------------------------- |
-| 12  | Dashboard: Quick actions (catat pembayaran, tambah DP, catat maintenance)        | ✅ Done                                  |
-| 13  | Dashboard: Maintenance status summary (reported/in_progress count)               | ✅ Done                                  |
-| 14  | Detail pages: Inline histories (payment, maintenance)                            | ✅ Done                                  |
-| 15  | Room Detail: DP confirmation info kalau status dp_confirmation                   | 📋 Proposal: `room-dp-confirmation-info` |
-| 16  | Payments: Periode navigation (prev/next bulan)                                   | ✅ Done                                  |
-| 17  | Maintenance: filter tanggal (via audit trail)                                    | ✅ Done                                  |
-| 18  | Maintenance Detail: Foto kerusakan/penanganan                                    | ✅ Done                                  |
-| 19  | Manager: Read-only access ke Properties, Rooms, Tenants, Payments, Confirmations | ✅ Done                                  |
-| 20  | Confirmations: Tab pending vs completed/expired                                  | ✅ Done                                  |
-| 21  | Sort di list pages (Properties, Rooms)                                           | ✅ Done                                  |
-| 22  | Audit trail: filter tanggal + filter jenis perubahan                             | ✅ Done                                  |
-| 23  | Notifications: real-time badge update (60s polling)                              | ✅ Done                                  |
+| No  | Gap                                                                              | Status  |
+| --- | -------------------------------------------------------------------------------- | ------- |
+| 12  | Dashboard: Quick actions (catat pembayaran, tambah DP, catat maintenance)        | ✅ Done |
+| 13  | Dashboard: Maintenance status summary (reported/in_progress count)               | ✅ Done |
+| 14  | Detail pages: Inline histories (payment, maintenance)                            | ✅ Done |
+| 15  | Room Detail: DP confirmation info kalau status dp_confirmation                   | ✅ Done |
+| 16  | Payments: Periode navigation (prev/next bulan)                                   | ✅ Done |
+| 17  | Maintenance: filter tanggal (via audit trail)                                    | ✅ Done |
+| 18  | Maintenance Detail: Foto kerusakan/penanganan                                    | ✅ Done |
+| 19  | Manager: Read-only access ke Properties, Rooms, Tenants, Payments, Confirmations | ✅ Done |
+| 20  | Confirmations: Tab pending vs completed/expired                                  | ✅ Done |
+| 21  | Sort di list pages (Properties, Rooms)                                           | ✅ Done |
+| 22  | Audit trail: filter tanggal + filter jenis perubahan                             | ✅ Done |
+| 23  | Notifications: real-time badge update (60s polling)                              | ✅ Done |
 
 ### Low Priority (Nice to Have)
 
-| No  | Gap                                               | Status                                      |
-| --- | ------------------------------------------------- | ------------------------------------------- |
-| 24  | Tenant: perpanjang kontrak inline                 | 📋 Proposal: `tenant-extend-contract`       |
-| 25  | Bulk operations (bulk update harga kamar)         | ⏸️ Hold                                     |
-| 26  | Maintenance: multi-progress update history        | 📋 Proposal: `maintenance-progress-history` |
-| 27  | Audit trail: export, filter by user               | 📋 Proposal: `audit-trail-export`           |
-| 28  | Settings: default harga sewa, WA recipient config | 📋 Proposal: `settings-wa-config`           |
-| 29  | Profile: Edit email                               | 📋 Proposal: `profile-edit-email`           |
-| 30  | Notifications: Delete/clear notifikasi lama       | 📋 Proposal: `notifications-clear`          |
+| No  | Gap                                         | Status  |
+| --- | ------------------------------------------- | ------- |
+| 24  | Tenant: perpanjang kontrak inline           | ✅ Done |
+| 25  | Bulk operations (bulk update harga kamar)   | ⏸️ Hold |
+| 26  | Maintenance: multi-progress update history  | ✅ Done |
+| 27  | Audit trail: export, filter by user         | ✅ Done |
+| 28  | Settings: WA recipient config               | ✅ Done |
+| 29  | Profile: Edit email                         | ✅ Done |
+| 30  | Notifications: Delete/clear notifikasi lama | ✅ Done |
