@@ -8,6 +8,9 @@ export interface Room {
   harga_sewa: number;
   status: 'available' | 'dp_confirmation' | 'occupied';
   penghuni_aktif?: string;
+  tenant_id?: string;
+  tanggal_masuk?: string;
+  durasi_sewa?: number;
   created_at: string;
   updated_at: string;
 }

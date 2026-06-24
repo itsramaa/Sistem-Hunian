@@ -1,6 +1,6 @@
 ---
 alwaysApply: false
-description: Spec-first workflow for planning features, writing requirements, refining design, and getting approval before implementation begins. Use when the project follows proposal-spec-apply flow or when requirements need review before coding.
+description: OpenSpec spec-first workflow. Use when starting any new feature, change, or requirement — before writing code. Covers proposal → review → refine → apply → verify → archive flow.
 ---
 
 # OpenSpec Workflow

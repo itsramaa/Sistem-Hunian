@@ -2,6 +2,7 @@
 export interface Tenant {
   id: string;
   room_id: string;
+  property_id?: string;
   nomor_kamar: string;
   nama_properti: string;
   nama: string;

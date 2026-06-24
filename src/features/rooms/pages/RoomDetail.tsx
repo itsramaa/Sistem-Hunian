@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { apiClient } from "@/shared/lib/axios";
-// REDESIGN_MARKER
-import { useUpdateRoom, useDeleteRoom } from "../hooks/useRooms";
+import { formatCurrency } from "@/shared/utils/currency";
+import { getApiErrorMessage } from "@/shared/utils/api-errors";
+import { getSiHuniStatus } from "@/shared/utils/statusColors";
+import { useUpdateRoom, useDeleteRoom, useRoomById } from "../hooks/useRooms";
 import { useCheckoutTenant } from "@/features/tenant/hooks/useTenants";
 import { usePayments } from "@/features/payments/hooks/usePayments";
 import { useMaintenances } from "@/features/maintenance/hooks/useMaintenance";
@@ -39,7 +40,6 @@ import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { cn } from "@/shared/utils/utils";
 import { useToast } from "@/shared/hooks/use-toast";
-import { getApiErrorMessage } from "@/shared/utils/api-errors";
 import { Room } from "../types";
 
 interface RoomDetail extends Room {
@@ -50,22 +50,19 @@ interface RoomDetail extends Room {
 
 const statusConfig = {
   available: {
-    label: "Tersedia",
+    label: getSiHuniStatus("available").label,
     variant: "default" as const,
-    className:
-      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+    className: getSiHuniStatus("available").className,
   },
   dp_confirmation: {
-    label: "Konfirmasi DP",
+    label: getSiHuniStatus("dp_confirmation").label,
     variant: "secondary" as const,
-    className:
-      "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+    className: getSiHuniStatus("dp_confirmation").className,
   },
   occupied: {
-    label: "Terisi",
+    label: getSiHuniStatus("occupied").label,
     variant: "secondary" as const,
-    className:
-      "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    className: getSiHuniStatus("occupied").className,
   },
 };
 
@@ -80,18 +77,7 @@ export default function RoomDetail() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
 
-  const {
-    data: room,
-    isLoading,
-    error,
-  } = useQuery<RoomDetail>({
-    queryKey: ["room", id],
-    queryFn: async () => {
-      const { data } = await apiClient.get(`/rooms/${id}`);
-      return data;
-    },
-    enabled: !!id,
-  });
+  const { data: room, isLoading, error } = useRoomById(id);
 
   // Inline histories — paralel queries
   const { data: paymentsData } = usePayments(1, 5, id);
@@ -303,7 +289,7 @@ export default function RoomDetail() {
             <div className="flex justify-between items-center">
               <dt className="text-sm text-muted-foreground">Harga Sewa</dt>
               <dd className="text-sm font-bold text-foreground tabular-nums">
-                Rp{room.harga_sewa.toLocaleString("id-ID")}
+                {formatCurrency(room.harga_sewa)}
               </dd>
             </div>
             <div className="flex justify-between items-start">
@@ -398,7 +384,7 @@ export default function RoomDetail() {
             <div className="flex justify-between items-center text-sm">
               <dt className="text-muted-foreground">Nominal DP</dt>
               <dd className="font-medium tabular-nums">
-                Rp{(activeConfirmation.nominal_dp ?? 0).toLocaleString("id-ID")}
+                {formatCurrency(activeConfirmation.nominal_dp ?? 0)}
               </dd>
             </div>
             <div className="flex justify-between items-center text-sm">
@@ -466,19 +452,9 @@ export default function RoomDetail() {
                   Rp{(p.nominal ?? 0).toLocaleString("id-ID")}
                 </span>
                 <span
-                  className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                    p.status === "paid"
-                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                      : p.status === "overdue"
-                        ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                        : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-                  }`}
+                  className={`text-xs px-2 py-0.5 rounded-full font-medium ${getSiHuniStatus(p.status).className}`}
                 >
-                  {p.status === "paid"
-                    ? "Lunas"
-                    : p.status === "overdue"
-                      ? "Terlambat"
-                      : "Belum Bayar"}
+                  {getSiHuniStatus(p.status).label}
                 </span>
               </div>
             ))}

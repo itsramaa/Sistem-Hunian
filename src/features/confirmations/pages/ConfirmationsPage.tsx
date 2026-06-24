@@ -40,6 +40,7 @@ import {
 import { useToast } from "@/shared/hooks/use-toast";
 import { useIsMobile } from "@/shared/hooks/useBreakpoint";
 import { getApiErrorMessage } from "@/shared/utils/api-errors";
+import { getSiHuniStatus } from "@/shared/utils/statusColors";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { differenceInDays, format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
@@ -69,20 +70,9 @@ import {
 } from "../types";
 
 const statusColors: Record<string, { label: string; className: string }> = {
-  pending: {
-    label: "Menunggu",
-    className:
-      "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
-  },
-  confirmed: {
-    label: "Dikonfirmasi",
-    className:
-      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  },
-  expired: {
-    label: "Expired",
-    className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-  },
+  pending:   getSiHuniStatus("pending"),
+  confirmed: getSiHuniStatus("confirmed"),
+  expired:   getSiHuniStatus("expired"),
 };
 
 const createSchema = z.object({

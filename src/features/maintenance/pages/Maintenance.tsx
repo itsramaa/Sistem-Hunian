@@ -61,6 +61,7 @@ import {
 
 import { useToast } from "@/shared/hooks/use-toast";
 import { getApiErrorMessage } from "@/shared/utils/api-errors";
+import { getSiHuniStatus } from "@/shared/utils/statusColors";
 
 import { useForm } from "react-hook-form";
 
@@ -79,26 +80,9 @@ import { useIsMobile } from "@/shared/hooks/useBreakpoint";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 
 const statusColors: Record<string, { label: string; className: string }> = {
-  reported: {
-    label: "Dilaporkan",
-
-    className:
-      "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
-  },
-
-  in_progress: {
-    label: "Diproses",
-
-    className:
-      "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  },
-
-  completed: {
-    label: "Selesai",
-
-    className:
-      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  },
+  reported: getSiHuniStatus("reported"),
+  in_progress: getSiHuniStatus("in_progress"),
+  completed: getSiHuniStatus("completed"),
 };
 
 const createSchema = z.object({

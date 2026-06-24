@@ -1,46 +1,29 @@
 ---
 alwaysApply: false
-description: Final verification checklist for shipping work, reporting completion, or confirming that implementation satisfies acceptance criteria. Use before declaring any task complete, during release preparation, or when validating deliverables.
+description: Verification checklist before declaring work done. Use before saying "complete", "fixed", "done", or "passing" — must run verification commands and confirm output first.
 ---
 
 # Verification Protocol
 
-Use this file before saying a task is done.
+Use the `verification-before-completion` skill for the full gate process.
+
+## Iron Law
+
+No completion claims without fresh verification evidence. Run the command, confirm the output, then claim done.
 
 ## Universal Checks
 
-- [ ] the change behaves as intended
+- [ ] change behaves as intended
 - [ ] relevant tests or validations were run
 - [ ] known regressions were checked
-- [ ] blockers, caveats, and skipped checks are stated explicitly
+- [ ] blockers and skipped checks are stated explicitly
 
-## Backend Checks
+## Domain Checks
 
-- [ ] endpoint or service behavior is verified
-- [ ] failure cases are handled
-- [ ] auth or permission behavior is confirmed where applicable
-- [ ] no hardcoded secrets are introduced
-- [ ] database access uses safe query patterns
+**Backend** — endpoint verified, failure cases handled, auth confirmed, no hardcoded secrets, safe query patterns
 
-## Frontend Checks
+**Frontend** — visually checked in browser, responsive reviewed, no console errors, keyboard/ARIA basics covered, no secrets in client bundle
 
-- [ ] UI was visually checked in the browser when relevant
-- [ ] responsive behavior was reviewed on key breakpoints
-- [ ] no console errors remain
-- [ ] keyboard and accessibility basics are covered
-- [ ] no secrets or sensitive runtime data leak to the client bundle
+**DevOps** — services start, health checks pass, logs clean, env config correct, rollback documented
 
-## DevOps Checks
-
-- [ ] services start successfully
-- [ ] health checks return expected results
-- [ ] logs do not show unresolved runtime failures
-- [ ] environment configuration is correct
-- [ ] rollback steps are documented for risky changes
-
-## QA Checks
-
-- [ ] acceptance criteria are mapped to evidence
-- [ ] security checks were performed where relevant
-- [ ] no unresolved P0 or P1 issues remain
-- [ ] the QA summary is written to the expected report location
+**QA** — acceptance criteria mapped to evidence, security checked, no unresolved P0/P1, QA summary written

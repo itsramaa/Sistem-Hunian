@@ -29,3 +29,9 @@ Add a mandatory pause for:
 - destructive migrations
 - scope changes that affect requirements
 - acceptance decisions with known trade-offs
+
+## Relevant Skills
+
+| Skill                    | When to use                                          |
+| ------------------------ | ---------------------------------------------------- |
+| `dangerous-action-guard` | irreversible or destructive action confirmation gate |

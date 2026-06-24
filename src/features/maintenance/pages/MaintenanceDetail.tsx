@@ -40,6 +40,8 @@ import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { cn } from "@/shared/utils/utils";
 import { getApiErrorMessage } from "@/shared/utils/api-errors";
+import { getSiHuniStatus } from "@/shared/utils/statusColors";
+import { formatCurrency } from "@/shared/utils/currency";
 import { useToast } from "@/shared/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -47,19 +49,16 @@ import { z } from "zod";
 
 const statusConfig = {
   reported: {
-    label: "Dilaporkan",
-    className:
-      "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+    label: getSiHuniStatus("reported").label,
+    className: getSiHuniStatus("reported").className,
   },
   in_progress: {
-    label: "Diproses",
-    className:
-      "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    label: getSiHuniStatus("in_progress").label,
+    className: getSiHuniStatus("in_progress").className,
   },
   completed: {
-    label: "Selesai",
-    className:
-      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+    label: getSiHuniStatus("completed").label,
+    className: getSiHuniStatus("completed").className,
   },
 } as const;
 
@@ -265,7 +264,7 @@ export default function MaintenanceDetail() {
               <dt className="text-sm text-muted-foreground shrink-0">Biaya</dt>
               <dd className="text-sm font-medium text-foreground tabular-nums">
                 {maintenance.biaya != null
-                  ? `Rp${maintenance.biaya.toLocaleString("id-ID")}`
+                  ? formatCurrency(maintenance.biaya)
                   : "—"}
               </dd>
             </div>

@@ -1,5 +1,6 @@
 // @refresh reset
-import { apiClient, TOKEN_KEY } from "@/shared/lib/axios";
+import { TOKEN_KEY } from "@/shared/lib/axios";
+import { authApi } from "@/features/auth/api/authApi";
 import {
   AppRole,
   AuthState,
@@ -50,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshProfile = useCallback(async () => {
     setError(null);
     try {
-      const { data } = await apiClient.get<UserProfile>("/auth/me");
+      const data = await authApi.getMe();
       setUser({
         id: data.id,
         email: data.email,
@@ -85,10 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     rememberMe = false,
   ) => {
     try {
-      const { data } = await apiClient.post<AuthTokens & { user: AuthUser }>(
-        "/auth/login",
-        { email, password },
-      );
+      const data = await authApi.login(email, password);
       if (rememberMe) {
         localStorage.setItem(TOKEN_KEY, data.access_token);
         sessionStorage.removeItem(TOKEN_KEY);

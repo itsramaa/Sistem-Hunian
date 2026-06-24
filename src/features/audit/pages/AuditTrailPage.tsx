@@ -1,6 +1,10 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { apiClient } from "@/shared/lib/axios";
+import {
+  useAuditRoomStatus,
+  useAuditUsersList,
+  exportAuditCsv,
+  type RoomStatusLog,
+} from "@/features/audit/hooks/useAudit";
 import { Badge } from "@/shared/components/ui/badge";
 import {
   Select,
@@ -27,28 +31,15 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { getApiErrorMessage } from "@/shared/utils/api-errors";
+import { getSiHuniStatus } from "@/shared/utils/statusColors";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { useProperties } from "@/features/properties/hooks/useProperties";
 
-interface RoomStatusLog {
-  id: string;
-  room_id: string;
-  nomor_kamar: string;
-  nama_properti: string;
-  old_status: string;
-  new_status: string;
-  changed_by: string;
-  changed_at: string;
-  reason: string;
-}
-
 const statusColors: Record<string, string> = {
-  available:
-    "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  dp_confirmation:
-    "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
-  occupied: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  available: getSiHuniStatus("available").className,
+  dp_confirmation: getSiHuniStatus("dp_confirmation").className,
+  occupied: getSiHuniStatus("occupied").className,
 };
 
 export default function AuditTrailPage() {
@@ -64,53 +55,30 @@ export default function AuditTrailPage() {
   const { data: propsData } = useProperties("", 1, 100);
   const properties = propsData?.properties ?? [];
 
-  const { data: usersData } = useQuery({
-    queryKey: ["users-list"],
-    queryFn: () => apiClient.get("/users").then((r) => r.data?.data ?? []),
-  });
+  const { data: usersData } = useAuditUsersList();
   const users: any[] = usersData ?? [];
 
-  const { data, isLoading, isError, error } = useQuery({
-    queryKey: [
-      "audit-room-status",
-      {
-        page,
-        limit,
-        propertyFilter,
-        newStatusFilter,
-        fromDate,
-        toDate,
-        changedByFilter,
-      },
-    ],
-    queryFn: async () => {
-      const params: Record<string, any> = { page, limit };
-      if (propertyFilter) params.property_id = propertyFilter;
-      if (newStatusFilter) params.new_status = newStatusFilter;
-      if (fromDate) params.from_date = fromDate;
-      if (toDate) params.to_date = toDate;
-      if (changedByFilter) params.changed_by = changedByFilter;
-      const { data } = await apiClient.get<any>("/audit/room-status", {
-        params,
-      });
-      return { logs: data?.data ?? [], pagination: data?.pagination ?? null };
-    },
+  const { data, isLoading, isError, error } = useAuditRoomStatus({
+    page,
+    limit,
+    property_id: propertyFilter || undefined,
+    new_status: newStatusFilter || undefined,
+    from_date: fromDate || undefined,
+    to_date: toDate || undefined,
+    changed_by: changedByFilter || undefined,
   });
 
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const params = new URLSearchParams();
-      if (propertyFilter) params.set("property_id", propertyFilter);
-      if (newStatusFilter) params.set("new_status", newStatusFilter);
-      if (fromDate) params.set("from_date", fromDate);
-      if (toDate) params.set("to_date", toDate);
-      if (changedByFilter) params.set("changed_by", changedByFilter);
-      const response = await apiClient.get(
-        `/audit/room-status/export?${params}`,
-        { responseType: "blob" },
-      );
-      const url = URL.createObjectURL(response.data);
+      const blob = await exportAuditCsv({
+        property_id: propertyFilter || undefined,
+        new_status: newStatusFilter || undefined,
+        from_date: fromDate || undefined,
+        to_date: toDate || undefined,
+        changed_by: changedByFilter || undefined,
+      });
+      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = `audit-trail-${format(new Date(), "yyyy-MM-dd")}.csv`;

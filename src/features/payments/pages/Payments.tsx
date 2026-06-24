@@ -33,6 +33,7 @@ import {
 import { useToast } from "@/shared/hooks/use-toast";
 import { useIsMobile } from "@/shared/hooks/useBreakpoint";
 import { getApiErrorMessage } from "@/shared/utils/api-errors";
+import { getSiHuniStatus } from "@/shared/utils/statusColors";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
@@ -63,20 +64,9 @@ import { CreatePaymentPayload, Payment } from "../types";
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 const statusColors: Record<string, { label: string; className: string }> = {
-  paid: {
-    label: "Lunas",
-    className:
-      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  },
-  unpaid: {
-    label: "Belum Bayar",
-    className:
-      "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
-  },
-  overdue: {
-    label: "Terlambat",
-    className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-  },
+  paid: getSiHuniStatus("paid"),
+  unpaid: getSiHuniStatus("unpaid"),
+  overdue: getSiHuniStatus("overdue"),
 };
 
 const paymentSchema = z.object({

@@ -53,6 +53,7 @@ import {
   Users,
 } from "lucide-react";
 import { getApiErrorMessage } from "@/shared/utils/api-errors";
+import { getSiHuniStatus } from "@/shared/utils/statusColors";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 import { useToast } from "@/shared/hooks/use-toast";
 import {
@@ -72,23 +73,20 @@ const STATUS_CONFIG: Record<
   { label: string; className: string; icon: React.ElementType; dot: string }
 > = {
   available: {
-    label: "Tersedia",
-    className:
-      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+    label: getSiHuniStatus("available").label,
+    className: getSiHuniStatus("available").className,
     icon: CheckCircle2,
     dot: "bg-green-500",
   },
   dp_confirmation: {
-    label: "Konfirmasi DP",
-    className:
-      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    label: getSiHuniStatus("dp_confirmation").label,
+    className: getSiHuniStatus("dp_confirmation").className,
     icon: Clock,
     dot: "bg-amber-500",
   },
   occupied: {
-    label: "Terisi",
-    className:
-      "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    label: getSiHuniStatus("occupied").label,
+    className: getSiHuniStatus("occupied").className,
     icon: Users,
     dot: "bg-blue-500",
   },

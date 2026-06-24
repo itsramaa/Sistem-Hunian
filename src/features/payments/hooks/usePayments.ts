@@ -1,23 +1,51 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { paymentService } from '../api/paymentService';
-import { CreatePaymentPayload } from '../types';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { paymentApi } from "../api/paymentApi";
+import { CreatePaymentPayload } from "../types";
 
-export const PAYMENTS_KEY = 'payments';
+export const PAYMENTS_KEY = "payments";
 
-export function usePayments(page = 1, limit = 20, room_id?: string, tenant_id?: string, status?: string, property_id?: string, periode?: string) {
+export function usePayments(
+  page = 1,
+  limit = 20,
+  room_id?: string,
+  tenant_id?: string,
+  status?: string,
+  property_id?: string,
+  periode?: string,
+) {
   return useQuery({
-    queryKey: [PAYMENTS_KEY, { page, limit, room_id, tenant_id, status, property_id, periode }],
-    queryFn: () => paymentService.list(page, limit, room_id, tenant_id, status, property_id, periode),
+    queryKey: [
+      PAYMENTS_KEY,
+      { page, limit, room_id, tenant_id, status, property_id, periode },
+    ],
+    queryFn: () =>
+      paymentApi.list(
+        page,
+        limit,
+        room_id,
+        tenant_id,
+        status,
+        property_id,
+        periode,
+      ),
+  });
+}
+
+export function usePaymentById(id: string | undefined) {
+  return useQuery({
+    queryKey: [PAYMENTS_KEY, id],
+    queryFn: () => paymentApi.getById(id!),
+    enabled: !!id,
   });
 }
 
 export function useCreatePayment() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: CreatePaymentPayload) => paymentService.create(payload),
+    mutationFn: (payload: CreatePaymentPayload) => paymentApi.create(payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [PAYMENTS_KEY] });
-      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }
@@ -25,10 +53,10 @@ export function useCreatePayment() {
 export function useMarkPaid() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => paymentService.markPaid(id),
+    mutationFn: (id: string) => paymentApi.markPaid(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [PAYMENTS_KEY] });
-      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }
@@ -36,7 +64,8 @@ export function useMarkPaid() {
 export function useUploadBukti() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, file }: { id: string; file: File }) => paymentService.uploadBukti(id, file),
+    mutationFn: ({ id, file }: { id: string; file: File }) =>
+      paymentApi.uploadBukti(id, file),
     onSuccess: () => qc.invalidateQueries({ queryKey: [PAYMENTS_KEY] }),
   });
 }
@@ -44,8 +73,13 @@ export function useUploadBukti() {
 export function useUpdatePayment() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: { nominal?: number; tanggal_bayar?: string; periode?: string } }) =>
-      paymentService.update(id, payload),
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: { nominal?: number; tanggal_bayar?: string; periode?: string };
+    }) => paymentApi.update(id, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [PAYMENTS_KEY] });
     },

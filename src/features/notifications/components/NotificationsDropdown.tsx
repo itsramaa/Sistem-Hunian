@@ -1,6 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/shared/lib/axios";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useNotifications,
+  useMarkNotificationRead,
+  useMarkAllNotificationsRead,
+  NOTIFICATIONS_KEY,
+} from "@/features/dashboard/hooks/useDashboard";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -49,48 +54,31 @@ export function NotificationsDropdown() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const _channelRef = useRef<null>(null);
 
-  const { data: rawNotifications } = useQuery({
-    queryKey: ["notifications", user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      const r = await apiClient.get("/notifications", {
-        params: { is_read: false },
-      });
-      // Backend returns { success, data: [...], pagination }
-      return Array.isArray(r.data?.data) ? r.data.data : [];
-    },
-    enabled: !!user?.id,
-  });
+  const { data: rawNotifications } = useNotifications(false);
 
   // Polling fallback
   useEffect(() => {
     if (!user?.id) return;
     const interval = setInterval(() => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: [NOTIFICATIONS_KEY] });
     }, 30000);
     return () => clearInterval(interval);
   }, [user?.id, queryClient]);
 
-  const markAsRead = useMutation({
-    mutationFn: async (notificationId: string) => {
-      await apiClient.patch(`/notifications/${notificationId}/read`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
-    },
+  const { mutate: markAsReadMutate } = useMarkNotificationRead();
+  const markAsRead = {
+    mutate: markAsReadMutate,
     onError: () => toast.error("Gagal menandai notifikasi"),
-  });
+  };
 
-  const markAllAsRead = useMutation({
-    mutationFn: async () => {
-      await apiClient.patch("/notifications/read-all");
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
-      toast.success("Semua notifikasi telah dibaca");
-    },
-    onError: () => toast.error("Gagal menandai semua notifikasi"),
-  });
+  const { mutate: markAllMutate } = useMarkAllNotificationsRead();
+  const markAllAsRead = {
+    mutate: () =>
+      markAllMutate(undefined, {
+        onSuccess: () => toast.success("Semua notifikasi telah dibaca"),
+        onError: () => toast.error("Gagal menandai semua notifikasi"),
+      }),
+  };
 
   // Always safe array
   const notifications: Notification[] = Array.isArray(rawNotifications)

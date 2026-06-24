@@ -3,6 +3,7 @@ export interface Payment {
   id: string;
   room_id: string;
   tenant_id: string;
+  property_id?: string;
   nomor_kamar?: string;
   nama_properti?: string;
   nama_penghuni?: string;
@@ -10,6 +11,8 @@ export interface Payment {
   nominal: number;
   tanggal_bayar?: string;
   status: 'unpaid' | 'paid' | 'overdue';
+  metode_pembayaran?: string;
+  keterangan?: string;
   bukti_transfer_url?: string;
   created_at: string;
   updated_at: string;

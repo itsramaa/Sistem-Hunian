@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { tenantService } from "../api/tenantService";
+import { tenantApi } from "../api/tenantApi";
 import { CreateTenantPayload } from "../types";
 
 export const TENANTS_KEY = "tenants";
@@ -13,8 +13,15 @@ export function useTenants(
 ) {
   return useQuery({
     queryKey: [TENANTS_KEY, { page, limit, status, property_id, room_id }],
-    queryFn: () =>
-      tenantService.list(page, limit, status, property_id, room_id),
+    queryFn: () => tenantApi.list(page, limit, status, property_id, room_id),
+  });
+}
+
+export function useTenantById(id: string | undefined) {
+  return useQuery({
+    queryKey: [TENANTS_KEY, id],
+    queryFn: () => tenantApi.getById(id!),
+    enabled: !!id,
   });
 }
 
@@ -39,7 +46,7 @@ export function useTenantHistory(
 export function useCreateTenant() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: CreateTenantPayload) => tenantService.create(payload),
+    mutationFn: (payload: CreateTenantPayload) => tenantApi.create(payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [TENANTS_KEY] });
       qc.invalidateQueries({ queryKey: ["rooms"] });
@@ -57,7 +64,7 @@ export function useUpdateTenant() {
     }: {
       id: string;
       payload: Partial<CreateTenantPayload>;
-    }) => tenantService.update(id, payload),
+    }) => tenantApi.update(id, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [TENANTS_KEY] });
     },
@@ -73,7 +80,7 @@ export function useCheckoutTenant() {
     }: {
       id: string;
       tanggal_keluar: string;
-    }) => tenantService.checkout(id, tanggal_keluar),
+    }) => tenantApi.checkout(id, tanggal_keluar),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [TENANTS_KEY] });
       qc.invalidateQueries({ queryKey: ["rooms"] });

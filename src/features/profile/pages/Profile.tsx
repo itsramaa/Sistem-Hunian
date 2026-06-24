@@ -20,7 +20,7 @@ import {
 import { Input } from "@/shared/components/ui/input";
 import { Separator } from "@/shared/components/ui/separator";
 import { useToast } from "@/shared/hooks/use-toast";
-import { apiClient } from "@/shared/lib/axios";
+import { authApi } from "@/features/auth/api/authApi";
 import { getApiErrorMessage } from "@/shared/utils/api-errors";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
@@ -129,7 +129,7 @@ export default function ProfilePage() {
   const savePhone = async () => {
     setSavingPhone(true);
     try {
-      await apiClient.patch("/auth/me", { nomor_telepon: phone });
+      await authApi.updateMe({ nomor_telepon: phone });
       qc.invalidateQueries({ queryKey: ["me"] });
       toast({ title: "Nomor telepon diperbarui" });
     } catch (err) {
@@ -147,10 +147,7 @@ export default function ProfilePage() {
     if (!newEmail || !emailPw) return;
     setSavingEmail(true);
     try {
-      await apiClient.patch("/auth/me", {
-        email: newEmail,
-        current_password: emailPw,
-      });
+      await authApi.updateMe({ email: newEmail, current_password: emailPw });
       qc.invalidateQueries({ queryKey: ["me"] });
       setEmailMode(false);
       setEmailPw("");
@@ -168,10 +165,7 @@ export default function ProfilePage() {
 
   const onSubmitPw = async (data: PwForm) => {
     try {
-      await apiClient.post("/auth/change-password", {
-        old_password: data.old_password,
-        new_password: data.new_password,
-      });
+      await authApi.changePassword(data.old_password, data.new_password);
       form.reset();
       toast({ title: "Password berhasil diubah" });
     } catch (err) {

@@ -11,9 +11,7 @@ import {
   AlertDialogTitle,
 } from "@/shared/components/ui/alert-dialog";
 import { useToast } from "@/shared/hooks/use-toast";
-import { apiClient } from "@/shared/lib/axios";
 import { getApiErrorMessage } from "@/shared/utils/api-errors";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   BedDouble,
@@ -28,7 +26,12 @@ import {
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { PropertyForm } from "../components/PropertyForm";
-import { useDeleteProperty, useUpdateProperty } from "../hooks/useProperties";
+import {
+  useDeleteProperty,
+  usePropertyById,
+  useUpdateProperty,
+} from "../hooks/useProperties";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface PropertyDetail {
   id: string;
@@ -89,18 +92,7 @@ export default function PropertyDetail() {
     }
   };
 
-  const {
-    data: property,
-    isLoading,
-    error,
-  } = useQuery<PropertyDetail>({
-    queryKey: ["property", id],
-    queryFn: async () => {
-      const { data } = await apiClient.get(`/properties/${id}`);
-      return data;
-    },
-    enabled: !!id,
-  });
+  const { data: property, isLoading, error } = usePropertyById(id);
 
   if (isLoading) {
     return (

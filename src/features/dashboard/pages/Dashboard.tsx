@@ -1,12 +1,11 @@
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useDashboardSummary } from "@/features/dashboard/hooks/useDashboard";
 import {
-  DpAlert,
-  PaymentAlert,
-  useDashboardAlerts,
-  useDashboardSummary,
-} from "@/features/dashboard/hooks/useDashboard";
+  AlertPanel,
+  SummaryCard,
+} from "@/features/dashboard/components/DashboardCards";
+import { ViewerRequestPanel } from "@/features/dashboard/components/ViewerRequestPanel";
 import { usePayments } from "@/features/payments/hooks/usePayments";
-import { useCreateViewerRequest } from "@/features/viewer-requests/hooks/useViewerRequests";
 import { useRooms } from "@/features/rooms/hooks/useRooms";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/utils/utils";
@@ -14,378 +13,17 @@ import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import {
-  AlertCircle,
-  AlertTriangle,
   BedDouble,
   Building2,
   CheckCircle2,
   Clock,
   DollarSign,
   RefreshCw,
-  Send,
   Users,
   Wrench,
 } from "lucide-react";
-import React, { useState } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
-
-// ─── Summary Card ─────────────────────────────────────────────────────────────
-
-interface SummaryCardProps {
-  label: string;
-  value: number | undefined;
-  icon: React.ReactNode;
-  bgClass: string;
-  isLoading: boolean;
-  accent?: boolean;
-  onClick?: () => void;
-}
-
-function SummaryCard({
-  label,
-  value,
-  icon,
-  bgClass,
-  isLoading,
-  accent,
-  onClick,
-}: SummaryCardProps) {
-  return (
-    <div
-      onClick={onClick}
-      className={cn(
-        "glass-stat-card p-4 flex flex-col gap-3 min-w-0",
-        accent && "ring-1 ring-primary/20",
-        onClick &&
-          "cursor-pointer hover:shadow-md transition-shadow active:scale-[0.98]",
-      )}
-    >
-      <div
-        className={cn(
-          "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
-          bgClass,
-        )}
-      >
-        {icon}
-      </div>
-      <div className="min-w-0">
-        {isLoading ? (
-          <div className="h-7 w-12 bg-muted animate-pulse rounded-lg mb-1" />
-        ) : (
-          <p className="text-2xl font-bold tabular-nums text-foreground leading-none mb-1">
-            {value ?? 0}
-          </p>
-        )}
-        <p className="text-xs text-muted-foreground truncate">{label}</p>
-      </div>
-    </div>
-  );
-}
-
-// ─── Alert Item ───────────────────────────────────────────────────────────────
-
-function AlertItem({
-  children,
-  danger,
-}: {
-  children: React.ReactNode;
-  danger?: boolean;
-}) {
-  return (
-    <li
-      className={cn(
-        "flex items-start gap-3 rounded-xl px-3 py-3 text-sm",
-        danger
-          ? "bg-destructive/10 text-destructive dark:bg-destructive/15"
-          : "bg-amber-50 text-amber-900 dark:bg-warning/15 dark:text-warning-foreground",
-      )}
-    >
-      <AlertCircle
-        className={cn(
-          "mt-0.5 h-4 w-4 shrink-0",
-          danger ? "text-destructive" : "text-amber-600 dark:text-warning",
-        )}
-      />
-      <span className="leading-snug">{children}</span>
-    </li>
-  );
-}
-
-// ─── Alert Panel ──────────────────────────────────────────────────────────────
-
-function AlertPanel() {
-  const { data: alerts, isLoading } = useDashboardAlerts();
-  const dpAlerts: DpAlert[] = alerts?.dp_alerts ?? [];
-  const paymentAlerts: PaymentAlert[] = alerts?.payment_alerts ?? [];
-  const total = dpAlerts.length + paymentAlerts.length;
-
-  if (isLoading) {
-    return (
-      <section aria-label="Alert Panel" className="glass-card p-4 space-y-3">
-        <div className="h-5 w-36 bg-muted animate-pulse rounded" />
-        <div className="h-12 bg-muted animate-pulse rounded-xl" />
-        <div className="h-12 bg-muted animate-pulse rounded-xl" />
-      </section>
-    );
-  }
-
-  if (total === 0) return null;
-
-  return (
-    <section aria-label="Perlu Perhatian" className="glass-card p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <AlertTriangle className="h-4 w-4 text-warning" />
-          <h2 className="text-sm font-semibold text-foreground">
-            Perlu Perhatian
-          </h2>
-        </div>
-        <span className="text-xs font-medium bg-warning/15 text-warning rounded-full px-2 py-0.5">
-          {total}
-        </span>
-      </div>
-      <ul className="space-y-2">
-        {dpAlerts.map((a) => (
-          <AlertItem key={a.confirmation_id} danger={a.tipe === "dp_expired"}>
-            <span>
-              <strong>{a.nama_calon_penghuni}</strong>
-              {" — "}Kamar {a.nomor_kamar} · {a.nama_properti}
-              <br />
-              <span className="text-xs opacity-80">
-                {a.tipe === "dp_expired"
-                  ? "DP sudah expired"
-                  : `DP berakhir ${a.sisa_hari} hari lagi`}
-              </span>
-            </span>
-          </AlertItem>
-        ))}
-        {paymentAlerts.map((a) => (
-          <AlertItem
-            key={`${a.room_id}-${a.periode}`}
-            danger={a.tipe === "payment_overdue"}
-          >
-            <span>
-              <strong>{a.nama_penghuni}</strong>
-              {" — "}Kamar {a.nomor_kamar} · {a.nama_properti}
-              <br />
-              <span className="text-xs opacity-80">
-                {a.tipe === "payment_overdue"
-                  ? "Pembayaran terlambat"
-                  : "Mendekati jatuh tempo"}
-                {a.periode ? ` · ${a.periode}` : ""}
-              </span>
-            </span>
-          </AlertItem>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-// ─── Dashboard Page ───────────────────────────────────────────────────────────
-
-// ─── Viewer Request Panel ──────────────────────────────────────────────────────
-
-type RequestJenis = "pembayaran" | "kerusakan" | "calon_penghuni";
-
-const REQUEST_OPTIONS: {
-  jenis: RequestJenis;
-  label: string;
-  icon: React.ReactNode;
-  color: string;
-}[] = [
-  {
-    jenis: "pembayaran",
-    label: "Ada Pembayaran Masuk",
-    icon: <DollarSign className="w-5 h-5" />,
-    color: "bg-green-500",
-  },
-  {
-    jenis: "kerusakan",
-    label: "Ada Kerusakan",
-    icon: <Wrench className="w-5 h-5" />,
-    color: "bg-orange-500",
-  },
-  {
-    jenis: "calon_penghuni",
-    label: "Ada Calon Penghuni",
-    icon: <Users className="w-5 h-5" />,
-    color: "bg-blue-500",
-  },
-];
-
-function ViewerRequestPanel({ rooms }: { rooms: any[] }) {
-  const [activeJenis, setActiveJenis] = useState<RequestJenis | null>(null);
-  const [nomorKamar, setNomorKamar] = useState("");
-  const [keterangan, setKeterangan] = useState("");
-  const [namaCalon, setNamaCalon] = useState("");
-  const [noHPCalon, setNoHPCalon] = useState("");
-
-  const createReq = useCreateViewerRequest();
-
-  const handleSubmit = () => {
-    if (!nomorKamar || !keterangan) return;
-    createReq.mutate(
-      {
-        jenis: activeJenis!,
-        room_id: rooms.find((r) => r.nomor_kamar === nomorKamar)?.id ?? null,
-        nomor_kamar: nomorKamar,
-        keterangan,
-        nama_calon: activeJenis === "calon_penghuni" ? namaCalon || null : null,
-        no_hp_calon:
-          activeJenis === "calon_penghuni" ? noHPCalon || null : null,
-      },
-      {
-        onSuccess: () => {
-          setActiveJenis(null);
-          setNomorKamar("");
-          setKeterangan("");
-          setNamaCalon("");
-          setNoHPCalon("");
-        },
-      },
-    );
-  };
-
-  return (
-    <section>
-      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
-        Lapor Cepat
-      </p>
-      <p className="text-sm text-muted-foreground mb-3">
-        Tekan tombol di bawah untuk mengirim laporan ke operator via WhatsApp.
-      </p>
-
-      {/* Big buttons */}
-      <div className="grid grid-cols-3 gap-2 mb-3">
-        {REQUEST_OPTIONS.map((opt) => (
-          <button
-            key={opt.jenis}
-            onClick={() =>
-              setActiveJenis(activeJenis === opt.jenis ? null : opt.jenis)
-            }
-            className={cn(
-              "glass-card p-3 flex flex-col items-center gap-2 text-center transition-all cursor-pointer",
-              activeJenis === opt.jenis
-                ? "ring-2 ring-primary bg-primary/5"
-                : "hover:bg-muted/50",
-            )}
-          >
-            <div
-              className={cn(
-                "w-10 h-10 rounded-full flex items-center justify-center text-white",
-                opt.color,
-              )}
-            >
-              {opt.icon}
-            </div>
-            <span className="text-xs font-medium text-foreground leading-tight">
-              {opt.label}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {/* Inline form */}
-      {activeJenis && (
-        <div className="glass-card p-4 space-y-3 animate-in fade-in">
-          <p className="text-sm font-semibold text-foreground">
-            {REQUEST_OPTIONS.find((o) => o.jenis === activeJenis)?.label}
-          </p>
-
-          <div>
-            <label className="text-xs font-medium text-muted-foreground">
-              Nomor Kamar
-            </label>
-            <select
-              value={nomorKamar}
-              onChange={(e) => setNomorKamar(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-            >
-              <option value="">Pilih kamar...</option>
-              {rooms.map((r) => (
-                <option key={r.id} value={r.nomor_kamar}>
-                  {r.nomor_kamar} — {r.property_name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {activeJenis === "calon_penghuni" && (
-            <>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">
-                  Nama Calon
-                </label>
-                <input
-                  type="text"
-                  value={namaCalon}
-                  onChange={(e) => setNamaCalon(e.target.value)}
-                  placeholder="Nama calon penghuni"
-                  className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">
-                  No HP Calon
-                </label>
-                <input
-                  type="text"
-                  value={noHPCalon}
-                  onChange={(e) => setNoHPCalon(e.target.value)}
-                  placeholder="08xxxxxxxxxx"
-                  className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                />
-              </div>
-            </>
-          )}
-
-          <div>
-            <label className="text-xs font-medium text-muted-foreground">
-              Keterangan
-            </label>
-            <textarea
-              value={keterangan}
-              onChange={(e) => setKeterangan(e.target.value)}
-              rows={2}
-              placeholder={
-                activeJenis === "pembayaran"
-                  ? "Contoh: kamar 5 sudah bayar tunai"
-                  : activeJenis === "kerusakan"
-                    ? "Contoh: AC kamar 3 bocor"
-                    : "Contoh: calon penghuni mau masuk tgl 1"
-              }
-              className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm resize-none"
-            />
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              onClick={handleSubmit}
-              disabled={!nomorKamar || !keterangan || createReq.isPending}
-              className="flex-1"
-            >
-              <Send className="w-4 h-4 mr-1" />
-              {createReq.isPending ? "Mengirim..." : "Kirim Laporan"}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setActiveJenis(null);
-                setNomorKamar("");
-                setKeterangan("");
-                setNamaCalon("");
-                setNoHPCalon("");
-              }}
-            >
-              Batal
-            </Button>
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
 
 export default function Dashboard() {
   const { role, user } = useAuth();
@@ -397,11 +35,9 @@ export default function Dashboard() {
   const isManagerOrAbove = role === "operator" || role === "manager";
   const isViewer = role === "viewer";
 
-  // Rooms for viewer request panel
   const { data: roomsData } = useRooms("", 1, 200);
   const allRooms = roomsData?.rooms ?? [];
 
-  // Pendapatan bulan ini (payments paid bulan berjalan)
   const currentPeriode = format(new Date(), "yyyy-MM");
   const { data: paymentsData } = usePayments(
     1,
@@ -468,7 +104,6 @@ export default function Dashboard() {
     },
   ];
 
-  // Occupancy rate for a quick visual indicator
   const occupancyRate =
     summary && summary.total_kamar > 0
       ? Math.round((summary.kamar_occupied / summary.total_kamar) * 100)
@@ -500,7 +135,7 @@ export default function Dashboard() {
         </Button>
       </div>
 
-      {/* Occupancy banner — shown when data loaded */}
+      {/* Occupancy banner */}
       {!summaryLoading && occupancyRate !== null && (
         <div className="glass-card p-4 flex items-center gap-4">
           <div className="flex-1 min-w-0">
@@ -544,7 +179,6 @@ export default function Dashboard() {
       {/* Stats Tambahan — operator & manager */}
       {isManagerOrAbove && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {/* Pendapatan bulan ini */}
           <div
             className="glass-card p-4 cursor-pointer hover:bg-primary/5 transition-colors"
             onClick={() =>
@@ -570,7 +204,6 @@ export default function Dashboard() {
             </p>
           </div>
 
-          {/* Maintenance aktif — gunakan data dari dashboard summary */}
           <div
             className="glass-card p-4 cursor-pointer hover:bg-primary/5 transition-colors"
             onClick={() => navigate("/dashboard/maintenance")}
@@ -606,7 +239,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Summary Cards — 2-col grid on mobile, 5-col on desktop */}
+      {/* Summary Cards */}
       <section aria-label="Ringkasan Status Kamar">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
           Ringkasan
@@ -671,7 +304,7 @@ export default function Dashboard() {
         </section>
       )}
 
-      {/* Breakdown per Properti — operator & manager — gunakan properti_summary dari dashboard */}
+      {/* Breakdown per Properti — operator & manager */}
       {isManagerOrAbove && (summary?.properti_summary ?? []).length > 0 && (
         <section>
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
@@ -733,7 +366,8 @@ export default function Dashboard() {
           </div>
         </section>
       )}
-      {/* Viewer: Room Status per Properti — pakai properti_summary dari dashboard */}
+
+      {/* Viewer: Room Status per Properti */}
       {isViewer && (summary?.properti_summary ?? []).length > 0 && (
         <section>
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
@@ -786,7 +420,7 @@ export default function Dashboard() {
         <ViewerRequestPanel rooms={allRooms} />
       )}
 
-      {/* Alert Panel — operator & manajer */}
+      {/* Alert Panel — operator & manager */}
       {isManagerOrAbove && <AlertPanel />}
     </div>
   );

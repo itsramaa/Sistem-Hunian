@@ -1,15 +1,14 @@
 import {
   Notification,
   useMarkNotificationRead,
+  useMarkAllNotificationsRead,
   useNotifications,
 } from "@/features/dashboard/hooks/useDashboard";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
-import { apiClient } from "@/shared/lib/axios";
 import { getApiErrorMessage } from "@/shared/utils/api-errors";
 import { cn } from "@/shared/utils/utils";
-import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { Bell, CheckCheck } from "lucide-react";
@@ -48,7 +47,6 @@ const getDeepLinkByTipe = (tipe: string | null): string | null => {
 
 export default function NotificationHistory() {
   const [showAll, setShowAll] = useState(false);
-  const qc = useQueryClient();
   const navigate = useNavigate();
 
   const { data: rawNotifications, isLoading } = useNotifications(
@@ -58,16 +56,16 @@ export default function NotificationHistory() {
     ? rawNotifications
     : [];
   const { mutate: markRead } = useMarkNotificationRead();
+  const { mutate: markAllRead, isPending: isMarkingAll } =
+    useMarkAllNotificationsRead();
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
-  const markAllRead = async () => {
-    try {
-      await apiClient.patch("/notifications/read-all");
-      qc.invalidateQueries({ queryKey: ["notifications"] });
-      toast.success("Semua notifikasi berhasil ditandai sebagai dibaca");
-    } catch (err) {
-      toast.error(getApiErrorMessage(err));
-    }
+  const handleMarkAllRead = () => {
+    markAllRead(undefined, {
+      onSuccess: () =>
+        toast.success("Semua notifikasi berhasil ditandai sebagai dibaca"),
+      onError: (err) => toast.error(getApiErrorMessage(err)),
+    });
   };
 
   return (
@@ -88,7 +86,12 @@ export default function NotificationHistory() {
             {showAll ? "Belum Dibaca" : "Lihat Semua"}
           </Button>
           {unreadCount > 0 && (
-            <Button variant="outline" size="sm" onClick={markAllRead}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleMarkAllRead}
+              disabled={isMarkingAll}
+            >
               <CheckCheck className="h-4 w-4 mr-1" />
               Tandai Semua Dibaca
             </Button>

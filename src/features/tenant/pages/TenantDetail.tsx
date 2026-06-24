@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/shared/lib/axios";
-import { useUpdateTenant, useCheckoutTenant } from "../hooks/useTenants";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useUpdateTenant,
+  useCheckoutTenant,
+  useTenantById,
+} from "../hooks/useTenants";
 import { usePayments } from "@/features/payments/hooks/usePayments";
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import { formatCurrency } from "@/shared/utils/currency";
 import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
 import { Input } from "@/shared/components/ui/input";
@@ -35,6 +39,7 @@ import { id as localeId } from "date-fns/locale";
 import { cn } from "@/shared/utils/utils";
 import { useToast } from "@/shared/hooks/use-toast";
 import { getApiErrorMessage } from "@/shared/utils/api-errors";
+import { getSiHuniStatus } from "@/shared/utils/statusColors";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -55,18 +60,6 @@ interface TenantDetail {
   created_at: string;
   updated_at: string;
 }
-
-const statusConfig = {
-  active: {
-    label: "Aktif",
-    className:
-      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  },
-  checked_out: {
-    label: "Checkout",
-    className: "bg-muted text-muted-foreground",
-  },
-};
 
 const editSchema = z.object({
   nomor_identitas: z.string().min(1, "Wajib diisi"),
@@ -99,18 +92,7 @@ export default function TenantDetail() {
   const [extendOpen, setExtendOpen] = useState(false);
   const [tambahBulan, setTambahBulan] = useState(1);
 
-  const {
-    data: tenant,
-    isLoading,
-    error,
-  } = useQuery<TenantDetail>({
-    queryKey: ["tenant", id],
-    queryFn: async () => {
-      const { data } = await apiClient.get(`/tenants/${id}`);
-      return data;
-    },
-    enabled: !!id,
-  });
+  const { data: tenant, isLoading, error } = useTenantById(id);
 
   // Inline payment history
   const { data: paymentsData } = usePayments(1, 5, undefined, id);
@@ -232,7 +214,7 @@ export default function TenantDetail() {
     );
   }
 
-  const statusInfo = statusConfig[tenant.status];
+  const statusInfo = getSiHuniStatus(tenant.status);
   const tanggalMasuk = new Date(tenant.tanggal_masuk);
   const estimatedCheckout = new Date(tanggalMasuk);
   estimatedCheckout.setMonth(estimatedCheckout.getMonth() + tenant.durasi_sewa);
@@ -376,20 +358,9 @@ export default function TenantDetail() {
               Pembayaran Terakhir
               {currentMonthPayment && (
                 <span
-                  className={`text-xs px-2 py-0.5 rounded-full font-medium ml-1 ${
-                    currentMonthPayment.status === "paid"
-                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                      : currentMonthPayment.status === "overdue"
-                        ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                        : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-                  }`}
+                  className={`text-xs px-2 py-0.5 rounded-full font-medium ml-1 ${getSiHuniStatus(currentMonthPayment.status).className}`}
                 >
-                  Bulan ini:{" "}
-                  {currentMonthPayment.status === "paid"
-                    ? "Lunas"
-                    : currentMonthPayment.status === "overdue"
-                      ? "Terlambat"
-                      : "Belum Bayar"}
+                  Bulan ini: {getSiHuniStatus(currentMonthPayment.status).label}
                 </span>
               )}
             </h2>
@@ -408,22 +379,12 @@ export default function TenantDetail() {
               >
                 <span className="text-muted-foreground">{p.periode}</span>
                 <span className="font-medium tabular-nums">
-                  Rp{(p.nominal ?? 0).toLocaleString("id-ID")}
+                  {formatCurrency(p.nominal ?? 0)}
                 </span>
                 <span
-                  className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                    p.status === "paid"
-                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                      : p.status === "overdue"
-                        ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                        : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-                  }`}
+                  className={`text-xs px-2 py-0.5 rounded-full font-medium ${getSiHuniStatus(p.status).className}`}
                 >
-                  {p.status === "paid"
-                    ? "Lunas"
-                    : p.status === "overdue"
-                      ? "Terlambat"
-                      : "Belum Bayar"}
+                  {getSiHuniStatus(p.status).label}
                 </span>
               </div>
             ))}

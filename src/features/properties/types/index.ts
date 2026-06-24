@@ -4,7 +4,12 @@ export interface Property {
   nama: string;
   alamat: string;
   deskripsi: string;
-  jumlah_kamar: number; // computed by backend
+  jumlah_kamar: number;
+  total_kamar: number;
+  kamar_available: number;
+  kamar_occupied: number;
+  kamar_dp_confirmation: number;
+  jumlah_penghuni_aktif: number;
   created_at: string;
   updated_at: string;
 }

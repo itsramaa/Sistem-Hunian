@@ -8,10 +8,11 @@ import {
   DialogTitle,
 } from "@/shared/components/ui/dialog";
 import { useToast } from "@/shared/hooks/use-toast";
-import { apiClient } from "@/shared/lib/axios";
 import { getApiErrorMessage } from "@/shared/utils/api-errors";
 import { cn } from "@/shared/utils/utils";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { formatCurrency } from "@/shared/utils/currency";
+import { getSiHuniStatus } from "@/shared/utils/statusColors";
+import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import {
@@ -27,7 +28,11 @@ import {
 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useMarkPaid, useUploadBukti } from "../hooks/usePayments";
+import {
+  useMarkPaid,
+  useUploadBukti,
+  usePaymentById,
+} from "../hooks/usePayments";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
@@ -37,43 +42,10 @@ function formatFileSize(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
-interface PaymentDetail {
-  id: string;
-  room_id: string;
-  tenant_id: string;
-  nomor_kamar: string;
-  nama_penghuni: string;
-  property_id: string;
-  nama_properti: string;
-  periode: string;
-  nominal: number;
-  tanggal_bayar?: string | null;
-  status: "paid" | "unpaid" | "overdue";
-  metode_pembayaran?: string;
-  bukti_transfer_url?: string;
-  keterangan?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-const statusConfig = {
-  paid: {
-    label: "Lunas",
-    variant: "default" as const,
-    className:
-      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  },
-  unpaid: {
-    label: "Belum Bayar",
-    variant: "secondary" as const,
-    className:
-      "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
-  },
-  overdue: {
-    label: "Terlambat",
-    variant: "destructive" as const,
-    className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-  },
+const statusConfig: Record<string, { label: string; className: string }> = {
+  paid: getSiHuniStatus("paid"),
+  unpaid: getSiHuniStatus("unpaid"),
+  overdue: getSiHuniStatus("overdue"),
 };
 
 export default function PaymentDetail() {
@@ -150,18 +122,7 @@ export default function PaymentDetail() {
     }
   };
 
-  const {
-    data: payment,
-    isLoading,
-    error,
-  } = useQuery<PaymentDetail>({
-    queryKey: ["payment", id],
-    queryFn: async () => {
-      const { data } = await apiClient.get(`/payments/${id}`);
-      return data;
-    },
-    enabled: !!id,
-  });
+  const { data: payment, isLoading, error } = usePaymentById(id);
 
   if (isLoading) {
     return (
@@ -252,7 +213,7 @@ export default function PaymentDetail() {
       <div className="glass-card p-6 text-center">
         <p className="text-sm text-muted-foreground mb-2">Total Pembayaran</p>
         <p className="text-4xl font-bold text-foreground tabular-nums">
-          Rp{(payment.nominal ?? 0).toLocaleString("id-ID")}
+          {formatCurrency(payment.nominal ?? 0)}
         </p>
         <p className="text-sm text-muted-foreground mt-2">
           {tanggalBayar

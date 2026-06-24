@@ -1,6 +1,5 @@
 ---
-alwaysApply: false
-description:
+alwaysApply: true
 ---
 
 # Shared Steering Baseline
@@ -20,21 +19,23 @@ This file defines shared operating rules that influence every AI interaction in 
 
 Use these focused files when the task matches their domain:
 
-| File                       | Purpose                                           |
-| -------------------------- | ------------------------------------------------- |
-| `_commits.md`              | Conventional commit messages and commit hygiene   |
-| `_debugging.md`            | Root-cause debugging and plan structure           |
-| `_github.md`               | GitHub issue, branch, and PR workflow             |
-| `_handoff.md`              | Multi-agent completion and blocker handoff format |
-| `_hitl.md`                 | Human approval gates for staged delivery          |
-| `_openspec.md`             | Spec-first workflow before implementation         |
-| `_verification.md`         | Verification checklist before saying work is done |
-| `backend-orchestrator.md`  | Backend/API/database implementation guidance      |
-| `frontend-implementer.md`  | Frontend/UI implementation guidance               |
-| `qa-tester.md`             | QA, security review, and release-readiness checks |
-| `devops-engineer.md`       | Infra, CI/CD, and deployment guidance             |
-| `task-coordinator.md`      | Planning, orchestration, and HITL enforcement     |
-| `superpowers-bootstrap.md` | Manual reference for structured workflow skills   |
+| File               | Purpose                                            |
+| ------------------ | -------------------------------------------------- |
+| `_commits.md`      | Conventional commit messages and commit hygiene    |
+| `_debugging.md`    | Root-cause debugging and plan structure            |
+| `_github.md`       | GitHub issue, branch, and PR workflow              |
+| `_handoff.md`      | Multi-agent completion and blocker handoff format  |
+| `_hitl.md`         | Human approval gates for staged delivery           |
+| `_openspec.md`     | Spec-first workflow before implementation          |
+| `_verification.md` | Verification checklist before saying work is done  |
+| `superpowers.md`   | Skill-first discipline and process skill reference |
+| `python.md`        | Python: uv, async, type-safety, project structure  |
+| `vue.md`           | Vue 3: Composition API, Pinia, VueUse, Router      |
+| `nextjs.md`        | Next.js: App Router, SSR, RSC, API routes          |
+| `vite.md`          | Vite: config, plugins, bundling, dev server        |
+| `go.md`            | Go: Fiber, GORM, concurrency, error handling       |
+| `security.md`      | OWASP Top 10, secrets, auth, injection prevention  |
+| `testing.md`       | Language-agnostic testing: TDD, unit, E2E          |
 
 ## Core Operating Rules
 
@@ -77,17 +78,6 @@ For agent-facing artifacts:
 
 - use structured English
 - prefer bullets, checklists, short tables, and explicit next actions
-
-## Agent Scope Guard
-
-| Agent                  | Primary scope                                     | Out of scope                              |
-| ---------------------- | ------------------------------------------------- | ----------------------------------------- |
-| `backend-orchestrator` | Go/Fiber, APIs, PostgreSQL, Redis, migrations     | Frontend UI, infra, QA ownership          |
-| `frontend-implementer` | Next.js, React, TSX, Tailwind, UX                 | Backend logic, database migrations, infra |
-| `qa-tester`            | E2E, regression, security checks, bug reports     | Feature implementation                    |
-| `devops-engineer`      | Docker, CI/CD, deployment, runtime ops            | Feature implementation                    |
-| `task-coordinator`     | planning, orchestration, gates, progress tracking | Writing feature code                      |
-| `search-agent`         | codebase discovery and pattern finding            | Shipping implementation                   |
 
 ## Maintenance Notes
 
