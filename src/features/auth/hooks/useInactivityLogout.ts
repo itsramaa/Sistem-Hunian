@@ -37,7 +37,7 @@ export function useInactivityLogout() {
   const handleLogout = async () => {
     toast.info('Sesi Anda telah berakhir karena tidak aktif.');
     await signOut();
-    window.location.href = '/auth?mode=login';
+    window.location.href = '/login';
   };
 
   useEffect(() => {

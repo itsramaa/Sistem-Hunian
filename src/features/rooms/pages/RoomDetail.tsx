@@ -40,13 +40,7 @@ import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { cn } from "@/shared/utils/utils";
 import { useToast } from "@/shared/hooks/use-toast";
-import { Room } from "../types";
-
-interface RoomDetail extends Room {
-  tenant_id?: string;
-  tanggal_masuk?: string;
-  durasi_sewa?: number;
-}
+import type { RoomDetail } from "../types";
 
 const statusConfig = {
   available: {
@@ -125,12 +119,12 @@ export default function RoomDetail() {
     }
   };
 
-  const handleCheckout = async (tanggal_keluar: string) => {
-    if (!room?.tenant_id) return;
+  const handleCheckout = async (check_out_date: string) => {
+    if (!room?.active_tenant_id) return;
     try {
       await checkoutMutation.mutateAsync({
-        id: room.tenant_id,
-        tanggal_keluar,
+        id: room.active_tenant_id,
+        check_out_date,
       });
       qc.invalidateQueries({ queryKey: ["room", id] });
       setCheckoutOpen(false);
@@ -192,14 +186,14 @@ export default function RoomDetail() {
             </div>
             <div className="min-w-0">
               <h1 className="text-xl font-bold tracking-tight text-foreground">
-                Kamar {room.nomor_kamar}
+                Kamar {room.room_number}
               </h1>
               <div className="flex items-center gap-2 mt-1">
                 <Badge className={cn("rounded-full", statusInfo.className)}>
                   {statusInfo.label}
                 </Badge>
                 <span className="text-sm text-muted-foreground">
-                  {room.nama_properti}
+                  {room.property_name}
                 </span>
               </div>
             </div>
@@ -256,13 +250,13 @@ export default function RoomDetail() {
             <div className="flex justify-between items-center">
               <dt className="text-sm text-muted-foreground">Nomor Kamar</dt>
               <dd className="text-sm font-medium text-foreground">
-                {room.nomor_kamar}
+                {room.room_number}
               </dd>
             </div>
             <div className="flex justify-between items-center">
               <dt className="text-sm text-muted-foreground">Tipe Kamar</dt>
               <dd className="text-sm font-medium text-foreground">
-                {room.tipe_kamar}
+                {room.room_type}
               </dd>
             </div>
             <div className="flex justify-between items-center">
@@ -289,13 +283,13 @@ export default function RoomDetail() {
             <div className="flex justify-between items-center">
               <dt className="text-sm text-muted-foreground">Harga Sewa</dt>
               <dd className="text-sm font-bold text-foreground tabular-nums">
-                {formatCurrency(room.harga_sewa)}
+                {formatCurrency(room.rent_price)}
               </dd>
             </div>
             <div className="flex justify-between items-start">
               <dt className="text-sm text-muted-foreground">Properti</dt>
               <dd className="text-sm font-medium text-foreground text-right truncate max-w-[60%]">
-                {room.nama_properti}
+                {room.property_name}
               </dd>
             </div>
           </dl>
@@ -303,7 +297,7 @@ export default function RoomDetail() {
       </div>
 
       {/* Current Occupancy Info */}
-      {room.status === "occupied" && room.penghuni_aktif && (
+      {room.status === "occupied" && room.active_tenant_name && (
         <div className="glass-card p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-muted-foreground">
@@ -319,38 +313,34 @@ export default function RoomDetail() {
                 Nama Penghuni
               </dt>
               <dd className="text-sm font-medium text-foreground">
-                {room.penghuni_aktif}
+                {room.active_tenant_name}
               </dd>
             </div>
-            {room.tanggal_masuk && (
+            {room.active_tenant_check_in_date && (
               <div>
                 <dt className="text-xs text-muted-foreground mb-0.5">
                   Tanggal Masuk
                 </dt>
                 <dd className="text-sm font-medium text-foreground">
-                  {format(new Date(room.tanggal_masuk), "dd MMM yyyy", {
-                    locale: localeId,
-                  })}
-                </dd>
-              </div>
-            )}
-            {room.durasi_sewa && (
-              <div>
-                <dt className="text-xs text-muted-foreground mb-0.5">
-                  Durasi Sewa
-                </dt>
-                <dd className="text-sm font-medium text-foreground">
-                  {room.durasi_sewa} bulan
+                  {format(
+                    new Date(room.active_tenant_check_in_date),
+                    "dd MMM yyyy",
+                    {
+                      locale: localeId,
+                    },
+                  )}
                 </dd>
               </div>
             )}
           </dl>
-          {room.tenant_id && (
+          {room.active_tenant_id && (
             <Button
               variant="outline"
               size="sm"
               className="w-full sm:w-auto gap-2 rounded-xl"
-              onClick={() => navigate(`/dashboard/tenants/${room.tenant_id}`)}
+              onClick={() =>
+                navigate(`/dashboard/tenants/${room.active_tenant_id}`)
+              }
             >
               <Users className="h-4 w-4" />
               Lihat Detail Penghuni
@@ -378,13 +368,13 @@ export default function RoomDetail() {
             <div className="flex justify-between items-center text-sm">
               <dt className="text-muted-foreground">Calon Penghuni</dt>
               <dd className="font-medium">
-                {activeConfirmation.nama_calon_penghuni}
+                {activeConfirmation.prospect_name}
               </dd>
             </div>
             <div className="flex justify-between items-center text-sm">
               <dt className="text-muted-foreground">Nominal DP</dt>
               <dd className="font-medium tabular-nums">
-                {formatCurrency(activeConfirmation.nominal_dp ?? 0)}
+                {formatCurrency(activeConfirmation.down_payment_amount ?? 0)}
               </dd>
             </div>
             <div className="flex justify-between items-center text-sm">
@@ -395,7 +385,7 @@ export default function RoomDetail() {
                   (() => {
                     const sisa = Math.ceil(
                       (new Date(
-                        activeConfirmation.batas_tanggal_konfirmasi,
+                        activeConfirmation.confirmation_deadline,
                       ).getTime() -
                         Date.now()) /
                         86400000,
@@ -405,7 +395,7 @@ export default function RoomDetail() {
                 )}
               >
                 {format(
-                  new Date(activeConfirmation.batas_tanggal_konfirmasi),
+                  new Date(activeConfirmation.confirmation_deadline),
                   "dd MMM yyyy",
                   { locale: localeId },
                 )}{" "}
@@ -413,7 +403,7 @@ export default function RoomDetail() {
                   (
                   {Math.ceil(
                     (new Date(
-                      activeConfirmation.batas_tanggal_konfirmasi,
+                      activeConfirmation.confirmation_deadline,
                     ).getTime() -
                       Date.now()) /
                       86400000,
@@ -447,9 +437,9 @@ export default function RoomDetail() {
                 key={p.id}
                 className="flex items-center justify-between text-sm py-1.5 border-b border-border/50 last:border-0"
               >
-                <span className="text-muted-foreground">{p.periode}</span>
+                <span className="text-muted-foreground">{p.period}</span>
                 <span className="font-medium tabular-nums">
-                  Rp{(p.nominal ?? 0).toLocaleString("id-ID")}
+                  Rp{(p.amount ?? 0).toLocaleString("id-ID")}
                 </span>
                 <span
                   className={`text-xs px-2 py-0.5 rounded-full font-medium ${getSiHuniStatus(p.status).className}`}
@@ -484,13 +474,13 @@ export default function RoomDetail() {
                 className="flex items-center justify-between text-sm py-1.5 border-b border-border/50 last:border-0"
               >
                 <span className="text-muted-foreground text-xs">
-                  {format(new Date(m.tanggal_laporan), "dd MMM yyyy", {
+                  {format(new Date(m.report_date), "dd MMM yyyy", {
                     locale: localeId,
                   })}
                 </span>
                 <span className="flex-1 mx-3 truncate">
-                  {m.deskripsi_kerusakan?.slice(0, 40)}
-                  {(m.deskripsi_kerusakan?.length ?? 0) > 40 ? "…" : ""}
+                  {m.damage_description?.slice(0, 40)}
+                  {(m.damage_description?.length ?? 0) > 40 ? "…" : ""}
                 </span>
                 <span
                   className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
@@ -528,7 +518,7 @@ export default function RoomDetail() {
             <div className="text-left">
               <p className="text-sm font-medium">Lihat Detail Properti</p>
               <p className="text-xs text-muted-foreground truncate">
-                {room.nama_properti}
+                {room.property_name}
               </p>
             </div>
           </Button>
@@ -563,7 +553,7 @@ export default function RoomDetail() {
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Hapus Kamar {room.nomor_kamar}?</AlertDialogTitle>
+            <AlertDialogTitle>Hapus Kamar {room.room_number}?</AlertDialogTitle>
             <AlertDialogDescription>
               Tindakan ini tidak dapat dibatalkan. Kamar akan dihapus dari
               sistem.
@@ -586,12 +576,12 @@ export default function RoomDetail() {
       </AlertDialog>
 
       {/* Checkout Dialog */}
-      {checkoutOpen && room.tenant_id && (
+      {checkoutOpen && room.active_tenant_id && (
         <CheckoutForm
           open={checkoutOpen}
           onOpenChange={setCheckoutOpen}
-          tenantName={room.penghuni_aktif ?? ""}
-          roomNumber={room.nomor_kamar}
+          tenantName={room.active_tenant_name ?? ""}
+          roomNumber={room.room_number}
           onSubmit={handleCheckout}
           isLoading={checkoutMutation.isPending}
         />

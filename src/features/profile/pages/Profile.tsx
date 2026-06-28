@@ -1,5 +1,6 @@
 // @refresh reset
 import { useAuth } from "@/features/auth/hooks/useAuth";
+import { extractProfileName } from "@/features/auth/utils/auth-helpers";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -45,11 +46,6 @@ const roleConfig: Record<string, { label: string; className: string }> = {
   operator: {
     label: "Operator",
     className: "bg-primary/10 text-primary border-primary/20",
-  },
-  manager: {
-    label: "Manajer",
-    className:
-      "bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400",
   },
   viewer: {
     label: "Viewer",
@@ -98,7 +94,7 @@ function SectionHeader({
 
 // ─── Profile Page ─────────────────────────────────────────────────────────────
 export default function ProfilePage() {
-  const { user, profile } = useAuth();
+  const { user, profile, setProfile } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -108,8 +104,33 @@ export default function ProfilePage() {
   };
 
   // ── Phone ──────────────────────────────────────────────────────────────────
-  const [phone, setPhone] = useState(profile?.nomor_telepon ?? "");
+  const [phone, setPhone] = useState(profile?.phone_number ?? "");
   const [savingPhone, setSavingPhone] = useState(false);
+
+  // ── Name ───────────────────────────────────────────────────────────────────
+  const [editNama, setEditNama] = useState(false);
+  const [namaValue, setNamaValue] = useState(profile?.name ?? user?.name ?? "");
+  const [savingNama, setSavingNama] = useState(false);
+
+  const saveNama = async () => {
+    if (!namaValue.trim() || namaValue.trim().length < 2) return;
+    setSavingNama(true);
+    try {
+      await authApi.updateMe({ name: namaValue.trim() });
+      setProfile((prev) => (prev ? { ...prev, name: namaValue.trim() } : prev));
+      qc.invalidateQueries({ queryKey: ["me"] });
+      setEditNama(false);
+      toast({ title: "Nama berhasil diperbarui" });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Gagal menyimpan",
+        description: getApiErrorMessage(err),
+      });
+    } finally {
+      setSavingNama(false);
+    }
+  };
 
   // ── Email ──────────────────────────────────────────────────────────────────
   const [emailMode, setEmailMode] = useState(false);
@@ -129,7 +150,8 @@ export default function ProfilePage() {
   const savePhone = async () => {
     setSavingPhone(true);
     try {
-      await authApi.updateMe({ nomor_telepon: phone });
+      await authApi.updateMe({ phone_number: phone });
+      setProfile((prev) => (prev ? { ...prev, phone_number: phone } : prev));
       qc.invalidateQueries({ queryKey: ["me"] });
       toast({ title: "Nomor telepon diperbarui" });
     } catch (err) {
@@ -147,7 +169,10 @@ export default function ProfilePage() {
     if (!newEmail || !emailPw) return;
     setSavingEmail(true);
     try {
-      await authApi.updateMe({ email: newEmail, current_password: emailPw });
+      await authApi.updateMe({
+        email: newEmail,
+        current_password: emailPw,
+      } as any);
       qc.invalidateQueries({ queryKey: ["me"] });
       setEmailMode(false);
       setEmailPw("");
@@ -204,9 +229,60 @@ export default function ProfilePage() {
             </div>
             {/* Info */}
             <div className="flex-1 min-w-0">
-              <p className="text-base font-semibold text-foreground truncate">
-                {profile?.nama ?? user?.nama ?? "—"}
-              </p>
+              {editNama ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={namaValue}
+                    onChange={(e) => setNamaValue(e.target.value)}
+                    className="h-8 text-sm"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveNama();
+                      if (e.key === "Escape") {
+                        setEditNama(false);
+                        setNamaValue(profile?.name ?? user?.name ?? "");
+                      }
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={saveNama}
+                    disabled={savingNama}
+                    className="h-8 px-3 text-xs"
+                  >
+                    {savingNama ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      "Simpan"
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setEditNama(false);
+                      setNamaValue(profile?.name ?? user?.name ?? "");
+                    }}
+                    className="h-8 px-2"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <p className="text-base font-semibold text-foreground truncate">
+                    {profile?.name ?? user?.name ?? "—"}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setEditNama(true)}
+                    className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
               <p className="text-sm text-muted-foreground truncate mt-0.5">
                 {profile?.email ?? user?.email ?? "—"}
               </p>
@@ -321,9 +397,13 @@ export default function ProfilePage() {
               <Input
                 id="phone"
                 type="tel"
+                inputMode="numeric"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="08xx-xxxx-xxxx"
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, "");
+                  setPhone(val);
+                }}
+                placeholder="08xxxxxxxxxx"
                 className="rounded-lg"
               />
               <Button

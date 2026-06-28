@@ -3,6 +3,13 @@ import { useProperties } from "@/features/properties/hooks/useProperties";
 import { DataCard } from "@/shared/components/DataCard";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/components/ui/dialog";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { Input } from "@/shared/components/ui/input";
 import {
@@ -68,6 +75,7 @@ export default function TenantsPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
+  const [confirmTenantPayload, setConfirmTenantPayload] = useState<any>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const debouncedSearch = useDebounce(search, 300);
@@ -96,8 +104,8 @@ export default function TenantsPage() {
   const tenants = debouncedSearch
     ? allTenants.filter(
         (t) =>
-          t.nama.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-          t.nomor_kamar?.toLowerCase().includes(debouncedSearch.toLowerCase()),
+          t.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+          t.room_number?.toLowerCase().includes(debouncedSearch.toLowerCase()),
       )
     : allTenants;
   const total = rawData?.pagination?.total ?? 0;
@@ -105,9 +113,16 @@ export default function TenantsPage() {
   const properties = propsData?.properties ?? [];
 
   const handleCreate = async (payload: any) => {
+    // Tahan payload — tampilkan konfirmasi dulu
+    setConfirmTenantPayload(payload);
+    setFormOpen(false);
+  };
+
+  const handleConfirmCreate = async () => {
+    if (!confirmTenantPayload) return;
     try {
-      await createMutation.mutateAsync(payload);
-      setFormOpen(false);
+      await createMutation.mutateAsync(confirmTenantPayload);
+      setConfirmTenantPayload(null);
       toast({
         title: "Penghuni berhasil ditambahkan",
         description: "Data penghuni baru telah disimpan ke sistem.",
@@ -118,26 +133,36 @@ export default function TenantsPage() {
         title: "Gagal menambahkan penghuni",
         description: getApiErrorMessage(err),
       });
+      setConfirmTenantPayload(null);
     }
   };
-  const handleCheckout = async (tanggal_keluar: string) => {
+  const handleCheckout = async (check_out_date: string) => {
     if (!selectedTenant) return;
     try {
       await checkoutMutation.mutateAsync({
         id: selectedTenant.id,
-        tanggal_keluar,
+        check_out_date,
       });
       setCheckoutOpen(false);
       setSelectedTenant(null);
       toast({
         title: "Checkout berhasil",
-        description: `${selectedTenant.nama} telah berhasil di-checkout.`,
+        description: `${selectedTenant.name} telah berhasil di-checkout.`,
       });
     } catch (err) {
+      const msg = getApiErrorMessage(err);
+      // Deteksi pesan tunggakan dari backend untuk tampilkan pesan yang lebih jelas
+      const isTunggakan =
+        msg.toLowerCase().includes("tunggak") ||
+        msg.toLowerCase().includes("unpaid") ||
+        msg.toLowerCase().includes("belum lunas") ||
+        msg.toLowerCase().includes("outstanding");
       toast({
         variant: "destructive",
         title: "Gagal melakukan checkout",
-        description: getApiErrorMessage(err),
+        description: isTunggakan
+          ? "Penghuni masih memiliki tunggakan pembayaran yang belum lunas. Selesaikan seluruh pembayaran sebelum checkout."
+          : msg,
       });
     }
   };
@@ -166,10 +191,10 @@ export default function TenantsPage() {
     }
   };
 
-  const getDaysRemaining = (tanggal_masuk: string, durasi_sewa: number) => {
-    const masuk = new Date(tanggal_masuk);
+  const getDaysRemaining = (check_in_date: string, rental_duration: number) => {
+    const masuk = new Date(check_in_date);
     const berakhir = new Date(masuk);
-    berakhir.setMonth(berakhir.getMonth() + durasi_sewa);
+    berakhir.setMonth(berakhir.getMonth() + rental_duration);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     berakhir.setHours(0, 0, 0, 0);
@@ -181,7 +206,7 @@ export default function TenantsPage() {
 
   const getContractBadge = (t: Tenant) => {
     if (t.status !== "active") return null;
-    const days = getDaysRemaining(t.tanggal_masuk, t.durasi_sewa);
+    const days = getDaysRemaining(t.check_in_date, t.rental_duration);
     if (days <= 0) {
       return (
         <Badge variant="destructive" className="rounded-full text-xs ml-1">
@@ -278,7 +303,7 @@ export default function TenantsPage() {
             <SelectItem value=" ">Semua properti</SelectItem>
             {properties.map((p: any) => (
               <SelectItem key={p.id} value={p.id}>
-                {p.nama}
+                {p.property_name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -344,12 +369,12 @@ export default function TenantsPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center flex-wrap gap-1">
                           <p className="font-semibold text-sm truncate">
-                            {t.nama}
+                            {t.name}
                           </p>
                           {getContractBadge(t)}
                         </div>
                         <p className="text-xs text-muted-foreground truncate">
-                          Kamar {t.nomor_kamar} · {t.nama_properti}
+                          Kamar {t.room_number} · {t.property_name}
                         </p>
                       </div>
                       <Badge
@@ -363,11 +388,11 @@ export default function TenantsPage() {
                     </div>
                   }
                   fields={[
-                    ...(!isActive && t.tanggal_keluar
+                    ...(!isActive && t.check_out_date
                       ? [
                           {
                             label: "Tanggal Keluar",
-                            value: fmt(t.tanggal_keluar),
+                            value: fmt(t.check_out_date),
                           },
                         ]
                       : []),
@@ -421,25 +446,25 @@ export default function TenantsPage() {
                       >
                         <TableCell className="text-sm font-medium">
                           <div className="flex items-center flex-wrap gap-1">
-                            {t.nama}
+                            {t.name}
                             {getContractBadge(t)}
                           </div>
                         </TableCell>
                         <TableCell className="text-sm">
-                          {t.nomor_kamar}
+                          {t.room_number}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
-                          {t.nama_properti}
+                          {t.property_name}
                         </TableCell>
                         <TableCell className="text-sm">
-                          {fmt(t.tanggal_masuk)}
+                          {fmt(t.check_in_date)}
                         </TableCell>
                         <TableCell className="text-sm text-right">
-                          {t.durasi_sewa} bln
+                          {t.rental_duration} bln
                         </TableCell>
                         {!isActive && (
                           <TableCell className="text-sm">
-                            {t.tanggal_keluar ? fmt(t.tanggal_keluar) : "—"}
+                            {t.check_out_date ? fmt(t.check_out_date) : "—"}
                           </TableCell>
                         )}
                         <TableCell className="text-right">
@@ -511,8 +536,11 @@ export default function TenantsPage() {
           onSubmit={handleUpdate}
           isLoading={updateMutation.isPending}
           initialData={{
-            nomor_identitas: selectedTenant.nomor_identitas,
-            nomor_telepon: selectedTenant.nomor_telepon,
+            name: selectedTenant.name,
+            identity_number: selectedTenant.identity_number,
+            phone_number: selectedTenant.phone_number,
+            check_in_date: selectedTenant.check_in_date.split("T")[0],
+            rental_duration: selectedTenant.rental_duration,
           }}
         />
       )}
@@ -520,12 +548,54 @@ export default function TenantsPage() {
         <CheckoutForm
           open={checkoutOpen}
           onOpenChange={setCheckoutOpen}
-          tenantName={selectedTenant.nama}
-          roomNumber={selectedTenant.nomor_kamar}
+          tenantName={selectedTenant.name}
+          roomNumber={selectedTenant.room_number}
           onSubmit={handleCheckout}
           isLoading={checkoutMutation.isPending}
         />
       )}
+
+      {/* Konfirmasi tambah penghuni */}
+      <Dialog
+        open={!!confirmTenantPayload}
+        onOpenChange={(v) => !v && setConfirmTenantPayload(null)}
+      >
+        <DialogContent className="sm:max-w-sm rounded-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Users className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <DialogTitle>Tambah Penghuni</DialogTitle>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Konfirmasi penambahan penghuni baru. Status kamar akan berubah
+                  menjadi <strong>Terisi</strong>.
+                </p>
+              </div>
+            </div>
+          </DialogHeader>
+          <DialogFooter className="pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmTenantPayload(null)}
+              disabled={createMutation.isPending}
+            >
+              Batal
+            </Button>
+            <Button
+              onClick={handleConfirmCreate}
+              disabled={createMutation.isPending}
+              className="gap-2 rounded-xl"
+            >
+              {createMutation.isPending && (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              )}
+              Ya, Tambahkan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

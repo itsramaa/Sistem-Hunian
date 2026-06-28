@@ -7,7 +7,10 @@ import {
 import { ViewerRequestPanel } from "@/features/dashboard/components/ViewerRequestPanel";
 import { usePayments } from "@/features/payments/hooks/usePayments";
 import { useRooms } from "@/features/rooms/hooks/useRooms";
+import { useProperties } from "@/features/properties/hooks/useProperties";
 import { Button } from "@/shared/components/ui/button";
+import { DataCard } from "@/shared/components/DataCard";
+import { useIsMobile } from "@/shared/hooks/useBreakpoint";
 import { cn } from "@/shared/utils/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -30,13 +33,15 @@ export default function Dashboard() {
   const { data: summary, isLoading: summaryLoading } = useDashboardSummary();
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   const isOperator = role === "operator";
-  const isManagerOrAbove = role === "operator" || role === "manager";
   const isViewer = role === "viewer";
 
   const { data: roomsData } = useRooms("", 1, 200);
   const allRooms = roomsData?.rooms ?? [];
+  const { data: propsData } = useProperties("", 1, 100);
+  const allProperties = propsData?.properties ?? [];
 
   const currentPeriode = format(new Date(), "yyyy-MM");
   const { data: paymentsData } = usePayments(
@@ -49,7 +54,7 @@ export default function Dashboard() {
     currentPeriode,
   );
   const pendapatan = (paymentsData?.payments ?? []).reduce(
-    (sum: number, p: any) => sum + (p.nominal || 0),
+    (sum: number, p: any) => sum + (p.amount || 0),
     0,
   );
 
@@ -66,21 +71,22 @@ export default function Dashboard() {
   const summaryCards = [
     {
       label: "Total Properti",
-      value: summary?.total_properti,
+      value: summary?.total_properties,
       icon: <Building2 className="h-5 w-5 text-primary" />,
       bgClass: "bg-primary/10",
       onClick: () => navigate("/dashboard/properties"),
     },
     {
       label: "Total Kamar",
-      value: summary?.total_kamar,
+      value: summary?.total_rooms,
       icon: <BedDouble className="h-5 w-5 text-secondary" />,
       bgClass: "bg-secondary/10",
       onClick: () => navigate("/dashboard/rooms"),
     },
+
     {
       label: "Tersedia",
-      value: summary?.kamar_available,
+      value: summary?.rooms_available,
       icon: (
         <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
       ),
@@ -90,14 +96,14 @@ export default function Dashboard() {
     },
     {
       label: "Terisi",
-      value: summary?.kamar_occupied,
+      value: summary?.rooms_occupied,
       icon: <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />,
       bgClass: "bg-blue-100 dark:bg-blue-900/30",
       onClick: () => navigate("/dashboard/rooms?status=occupied"),
     },
     {
       label: "Konfirmasi DP",
-      value: summary?.kamar_dp_confirmation,
+      value: summary?.rooms_dp_confirmation,
       icon: <Clock className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />,
       bgClass: "bg-yellow-100 dark:bg-yellow-900/30",
       onClick: () => navigate("/dashboard/confirmations"),
@@ -105,8 +111,8 @@ export default function Dashboard() {
   ];
 
   const occupancyRate =
-    summary && summary.total_kamar > 0
-      ? Math.round((summary.kamar_occupied / summary.total_kamar) * 100)
+    summary && summary.total_rooms > 0
+      ? Math.round((summary.rooms_occupied / summary.total_rooms) * 100)
       : null;
 
   return (
@@ -120,7 +126,7 @@ export default function Dashboard() {
           <p className="text-sm text-muted-foreground mt-0.5">
             Selamat datang,{" "}
             <span className="font-medium text-foreground">
-              {user?.nama ?? "Pengguna"}
+              {user?.name ?? "Pengguna"}
             </span>
           </p>
         </div>
@@ -160,10 +166,10 @@ export default function Dashboard() {
           </div>
           <div className="text-right shrink-0">
             <p className="text-2xl font-bold text-foreground tabular-nums">
-              {summary?.kamar_occupied ?? 0}
+              {summary?.rooms_occupied ?? 0}
             </p>
             <p className="text-xs text-muted-foreground">
-              dari {summary?.total_kamar ?? 0}
+              dari {summary?.total_rooms ?? 0}
             </p>
           </div>
         </div>
@@ -176,14 +182,14 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Stats Tambahan — operator & manager */}
-      {isManagerOrAbove && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {/* Stats Tambahan — operator only */}
+      {isOperator && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div
             className="glass-card p-4 cursor-pointer hover:bg-primary/5 transition-colors"
             onClick={() =>
               navigate(
-                `/dashboard/payments?periode=${currentPeriode}&status=paid`,
+                `/dashboard/payments?period=${currentPeriode}&status=paid`,
               )
             }
           >
@@ -234,6 +240,31 @@ export default function Dashboard() {
             <p className="text-xs text-muted-foreground mt-1">
               {summary?.maintenance_summary?.reported ?? 0} dilaporkan ·{" "}
               {summary?.maintenance_summary?.in_progress ?? 0} dalam proses
+            </p>
+          </div>
+
+          {/* Total Pengeluaran Maintenance */}
+          <div
+            className="glass-card p-4 cursor-pointer hover:bg-primary/5 transition-colors"
+            onClick={() => navigate("/dashboard/maintenance")}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
+                <Wrench className="h-4 w-4 text-red-600" />
+              </div>
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Total Pengeluaran Maintenance
+              </span>
+            </div>
+            <p className="text-2xl font-bold tabular-nums text-foreground">
+              Rp
+              {(
+                (summary?.maintenance_summary?.total_maintenance_cost ??
+                  0) as number
+              ).toLocaleString("id-ID")}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Biaya dari seluruh maintenance selesai
             </p>
           </div>
         </div>
@@ -304,17 +335,17 @@ export default function Dashboard() {
         </section>
       )}
 
-      {/* Breakdown per Properti — operator & manager */}
-      {isManagerOrAbove && (summary?.properti_summary ?? []).length > 0 && (
+      {/* Breakdown per Properti — operator only */}
+      {isOperator && (summary?.property_summary ?? []).length > 0 && (
         <section>
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
             Status per Properti
           </p>
           <div className="space-y-2">
-            {(summary?.properti_summary ?? []).map((p) => {
+            {(summary?.property_summary ?? []).map((p) => {
               const rate =
-                p.total_kamar > 0
-                  ? Math.round((p.occupied / p.total_kamar) * 100)
+                p.total_rooms > 0
+                  ? Math.round((p.occupied / p.total_rooms) * 100)
                   : 0;
               return (
                 <div
@@ -327,15 +358,15 @@ export default function Dashboard() {
                   <div className="flex items-center justify-between gap-3 mb-2">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-foreground truncate">
-                        {p.nama_properti}
+                        {p.property_name}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {p.total_kamar} kamar total
+                        {p.total_rooms} kamar total
                       </p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-sm font-bold tabular-nums">
-                        {p.occupied}/{p.total_kamar}
+                        {p.occupied}/{p.total_rooms}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {rate}% terisi
@@ -368,22 +399,22 @@ export default function Dashboard() {
       )}
 
       {/* Viewer: Room Status per Properti */}
-      {isViewer && (summary?.properti_summary ?? []).length > 0 && (
+      {isViewer && (summary?.property_summary ?? []).length > 0 && (
         <section>
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
             Status Hunian per Properti
           </p>
           <div className="space-y-2">
-            {(summary?.properti_summary ?? []).map((p) => {
+            {(summary?.property_summary ?? []).map((p) => {
               const rate =
-                p.total_kamar > 0
-                  ? Math.round((p.occupied / p.total_kamar) * 100)
+                p.total_rooms > 0
+                  ? Math.round((p.occupied / p.total_rooms) * 100)
                   : 0;
               return (
                 <div key={p.property_id} className="glass-card p-3">
                   <div className="flex items-center justify-between gap-3 mb-2">
                     <p className="text-sm font-semibold text-foreground truncate">
-                      {p.nama_properti}
+                      {p.property_name}
                     </p>
                     <span
                       className={cn(
@@ -406,7 +437,7 @@ export default function Dashboard() {
                     />
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {p.occupied} terisi dari {p.total_kamar} kamar
+                    {p.occupied} terisi dari {p.total_rooms} kamar
                   </p>
                 </div>
               );
@@ -417,11 +448,68 @@ export default function Dashboard() {
 
       {/* Viewer: Request Panel */}
       {isViewer && allRooms.length > 0 && (
-        <ViewerRequestPanel rooms={allRooms} />
+        <ViewerRequestPanel rooms={allRooms} properties={allProperties} />
       )}
 
-      {/* Alert Panel — operator & manager */}
-      {isManagerOrAbove && <AlertPanel />}
+      {/* Daftar Kamar per Properti — mobile DataCard (operator only) */}
+      {isOperator && isMobile && allRooms.length > 0 && (
+        <section>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
+            Daftar Kamar
+          </p>
+          <div className="space-y-2">
+            {allRooms.map((room) => (
+              <DataCard
+                key={room.id}
+                onClick={() => navigate(`/dashboard/rooms`)}
+                header={
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-foreground">
+                      Kamar {room.room_number}
+                    </span>
+                    <span
+                      title={
+                        room.status === "available"
+                          ? "Kamar tersedia dan dapat disewakan"
+                          : room.status === "occupied"
+                            ? "Kamar sedang dihuni"
+                            : "Kamar dalam proses konfirmasi calon penghuni"
+                      }
+                      className={cn(
+                        "text-xs font-medium px-2 py-0.5 rounded-full",
+                        room.status === "available"
+                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                          : room.status === "occupied"
+                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                            : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+                      )}
+                    >
+                      {room.status === "available"
+                        ? "Tersedia"
+                        : room.status === "occupied"
+                          ? "Dihuni"
+                          : "Konfirmasi DP"}
+                    </span>
+                  </div>
+                }
+                fields={[
+                  {
+                    label: "Harga Sewa",
+                    value: `Rp${(room.rent_price ?? 0).toLocaleString("id-ID")}`,
+                  },
+                  {
+                    label: "Penghuni",
+                    value: room.active_tenant_name ?? "-",
+                  },
+                ]}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Alert Panel — operator & viewer (viewer read-only, tidak ada aksi di AlertPanel) */}
+      {(isOperator || isViewer) && <AlertPanel />}
     </div>
   );
 }

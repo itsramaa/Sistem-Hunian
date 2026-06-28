@@ -2,7 +2,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { confirmationApi } from "../api/confirmationApi";
 
-import { ConfirmDPPayload, CreateConfirmationPayload } from "../types";
+import {
+  ConfirmDPPayload,
+  CreateConfirmationPayload,
+  UpdateConfirmationPayload,
+} from "../types";
 
 export const CONFIRMATIONS_KEY = "confirmations";
 
@@ -10,16 +14,11 @@ export function useConfirmations(
   page = 1,
   limit = 20,
   status?: string,
-  room_id?: string,
   property_id?: string,
 ) {
   return useQuery({
-    queryKey: [
-      CONFIRMATIONS_KEY,
-      { page, limit, status, room_id, property_id },
-    ],
-    queryFn: () =>
-      confirmationApi.list(page, limit, status, room_id, property_id),
+    queryKey: [CONFIRMATIONS_KEY, { page, limit, status, property_id }],
+    queryFn: () => confirmationApi.list(page, limit, status, property_id),
     staleTime: 0,
   });
 }
@@ -71,16 +70,16 @@ export function useConfirmDP() {
   });
 }
 
-export function useUpdateBatasTanggal() {
+export function useUpdateDeadline() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({
       id,
-      batas_tanggal_konfirmasi,
+      payload,
     }: {
       id: string;
-      batas_tanggal_konfirmasi: string;
-    }) => confirmationApi.updateBatasTanggal(id, batas_tanggal_konfirmasi),
+      payload: UpdateConfirmationPayload;
+    }) => confirmationApi.updateDeadline(id, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [CONFIRMATIONS_KEY] });
     },

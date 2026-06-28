@@ -33,20 +33,6 @@ import {
 } from "../hooks/useProperties";
 import { useQueryClient } from "@tanstack/react-query";
 
-interface PropertyDetail {
-  id: string;
-  nama: string;
-  alamat: string;
-  deskripsi?: string;
-  total_kamar: number;
-  kamar_available: number;
-  kamar_occupied: number;
-  kamar_dp_confirmation: number;
-  jumlah_penghuni_aktif: number;
-  created_at: string;
-  updated_at: string;
-}
-
 export default function PropertyDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -127,8 +113,10 @@ export default function PropertyDetail() {
   }
 
   const occupancyRate =
-    property.total_kamar > 0
-      ? Math.round((property.kamar_occupied / property.total_kamar) * 100)
+    (property.total_rooms ?? 0) > 0
+      ? Math.round(
+          ((property.occupied_rooms ?? 0) / (property.total_rooms ?? 1)) * 100,
+        )
       : 0;
 
   return (
@@ -142,11 +130,11 @@ export default function PropertyDetail() {
             </div>
             <div className="min-w-0">
               <h1 className="text-xl font-bold tracking-tight text-foreground truncate">
-                {property.nama}
+                {property.property_name}
               </h1>
               <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-0.5">
                 <MapPin className="h-3.5 w-3.5" />
-                <span className="truncate">{property.alamat}</span>
+                <span className="truncate">{property.address}</span>
               </div>
             </div>
           </div>
@@ -167,9 +155,9 @@ export default function PropertyDetail() {
                 size="sm"
                 className="gap-1.5 rounded-xl"
                 onClick={() => setDeleteOpen(true)}
-                disabled={property.total_kamar > 0}
+                disabled={(property.total_rooms ?? 0) > 0}
                 title={
-                  property.total_kamar > 0
+                  (property.total_rooms ?? 0) > 0
                     ? "Hapus semua kamar terlebih dahulu"
                     : undefined
                 }
@@ -205,10 +193,10 @@ export default function PropertyDetail() {
         </div>
         <div className="text-right shrink-0">
           <p className="text-2xl font-bold text-foreground tabular-nums">
-            {property.kamar_occupied}
+            {property.occupied_rooms}
           </p>
           <p className="text-xs text-muted-foreground">
-            dari {property.total_kamar}
+            dari {property.total_rooms}
           </p>
         </div>
       </div>
@@ -225,7 +213,7 @@ export default function PropertyDetail() {
             </div>
             <div>
               <p className="text-2xl font-bold tabular-nums text-foreground leading-none mb-1">
-                {property.total_kamar}
+                {property.total_rooms}
               </p>
               <p className="text-xs text-muted-foreground">Total Kamar</p>
             </div>
@@ -237,7 +225,7 @@ export default function PropertyDetail() {
             </div>
             <div>
               <p className="text-2xl font-bold tabular-nums text-foreground leading-none mb-1">
-                {property.kamar_available}
+                {property.available_rooms}
               </p>
               <p className="text-xs text-muted-foreground">Tersedia</p>
             </div>
@@ -249,7 +237,7 @@ export default function PropertyDetail() {
             </div>
             <div>
               <p className="text-2xl font-bold tabular-nums text-foreground leading-none mb-1">
-                {property.kamar_occupied}
+                {property.occupied_rooms}
               </p>
               <p className="text-xs text-muted-foreground">Terisi</p>
             </div>
@@ -261,7 +249,7 @@ export default function PropertyDetail() {
             </div>
             <div>
               <p className="text-2xl font-bold tabular-nums text-foreground leading-none mb-1">
-                {property.kamar_dp_confirmation}
+                {property.dp_confirmation_rooms}
               </p>
               <p className="text-xs text-muted-foreground">Konfirmasi DP</p>
             </div>
@@ -270,11 +258,11 @@ export default function PropertyDetail() {
       </section>
 
       {/* Property Info */}
-      {property.deskripsi && (
-        <div className="glass-card p-4 space-y-3">
+      {property.description && (
+        <div className="glass-card p-4 space-y-2">
           <h2 className="text-sm font-semibold text-foreground">Deskripsi</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            {property.deskripsi}
+            {property.description}
           </p>
         </div>
       )}
@@ -294,7 +282,7 @@ export default function PropertyDetail() {
             <div className="text-left">
               <p className="text-sm font-medium">Lihat Daftar Kamar</p>
               <p className="text-xs text-muted-foreground">
-                {property.total_kamar} kamar
+                {property.total_rooms} kamar
               </p>
             </div>
           </Button>
@@ -310,7 +298,7 @@ export default function PropertyDetail() {
             <div className="text-left">
               <p className="text-sm font-medium">Lihat Penghuni</p>
               <p className="text-xs text-muted-foreground">
-                {property.jumlah_penghuni_aktif} penghuni aktif
+                {property.active_tenants} penghuni aktif
               </p>
             </div>
           </Button>
@@ -332,7 +320,7 @@ export default function PropertyDetail() {
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Hapus {property.nama}?</AlertDialogTitle>
+            <AlertDialogTitle>Hapus {property.property_name}?</AlertDialogTitle>
             <AlertDialogDescription>
               Tindakan ini tidak dapat dibatalkan. Properti akan dihapus dari
               sistem.

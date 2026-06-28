@@ -1,30 +1,37 @@
-// Konfirmasi DP — SRS §4.7
+// Konfirmasi DP — sesuai schema DB & Class Diagram
 export interface Confirmation {
   id: string;
   room_id: string;
-  nomor_kamar: string;
-  nama_properti: string;
-  nama_calon_penghuni: string;
-  nominal_dp: number;
-  batas_tanggal_konfirmasi: string;
-  sisa_hari?: number;
-  status: 'pending' | 'confirmed' | 'expired';
+  // joined fields dari backend
+  room_number?: string;
+  property_name?: string;
+  prospect_name: string;
+  phone_number: string;
+  down_payment_amount: number;
+  confirmation_deadline: string;
+  remaining_days?: number | null;
+  status: "pending" | "confirmed" | "expired";
+  updated_by?: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface CreateConfirmationPayload {
   room_id: string;
-  nama_calon_penghuni: string;
-  nomor_telepon: string;
-  nominal_dp: number;
-  batas_tanggal_konfirmasi: string;
+  prospect_name: string;
+  phone_number: string;
+  down_payment_amount: number;
+  confirmation_deadline: string;
 }
 
 export interface ConfirmDPPayload {
-  nama: string;
-  nomor_identitas: string;
-  nomor_telepon: string;
-  tanggal_masuk: string;
-  durasi_sewa: number;
+  name: string;
+  identity_number: string;
+  phone_number: string;
+  check_in_date: string;
+  rental_duration: number;
+}
+
+export interface UpdateConfirmationPayload {
+  confirmation_deadline: string;
 }

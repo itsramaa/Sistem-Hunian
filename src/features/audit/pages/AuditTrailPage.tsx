@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/shared/components/ui/table";
 import { Button } from "@/shared/components/ui/button";
+import { DatePicker } from "@/shared/components/ui/date-picker";
 import {
   Download,
   Loader2,
@@ -35,6 +36,7 @@ import { getSiHuniStatus } from "@/shared/utils/statusColors";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { useProperties } from "@/features/properties/hooks/useProperties";
+import { useRooms } from "@/features/rooms/hooks/useRooms";
 
 const statusColors: Record<string, string> = {
   available: getSiHuniStatus("available").className,
@@ -45,6 +47,7 @@ const statusColors: Record<string, string> = {
 export default function AuditTrailPage() {
   const [page, setPage] = useState(1);
   const [propertyFilter, setPropertyFilter] = useState("");
+  const [roomFilter, setRoomFilter] = useState("");
   const [newStatusFilter, setNewStatusFilter] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -55,6 +58,9 @@ export default function AuditTrailPage() {
   const { data: propsData } = useProperties("", 1, 100);
   const properties = propsData?.properties ?? [];
 
+  const { data: roomsData } = useRooms("", 1, 200, propertyFilter || undefined);
+  const rooms = roomsData?.rooms ?? [];
+
   const { data: usersData } = useAuditUsersList();
   const users: any[] = usersData ?? [];
 
@@ -62,6 +68,7 @@ export default function AuditTrailPage() {
     page,
     limit,
     property_id: propertyFilter || undefined,
+    room_id: roomFilter || undefined,
     new_status: newStatusFilter || undefined,
     from_date: fromDate || undefined,
     to_date: toDate || undefined,
@@ -73,6 +80,7 @@ export default function AuditTrailPage() {
     try {
       const blob = await exportAuditCsv({
         property_id: propertyFilter || undefined,
+        room_id: roomFilter || undefined,
         new_status: newStatusFilter || undefined,
         from_date: fromDate || undefined,
         to_date: toDate || undefined,
@@ -115,6 +123,7 @@ export default function AuditTrailPage() {
           value={propertyFilter || "_all"}
           onValueChange={(v) => {
             setPropertyFilter(v === "_all" ? "" : v);
+            setRoomFilter("");
             setPage(1);
           }}
         >
@@ -125,7 +134,28 @@ export default function AuditTrailPage() {
             <SelectItem value="_all">Semua properti</SelectItem>
             {properties.map((p: any) => (
               <SelectItem key={p.id} value={p.id}>
-                {p.nama}
+                {p.property_name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Filter by kamar */}
+        <Select
+          value={roomFilter || "_all"}
+          onValueChange={(v) => {
+            setRoomFilter(v === "_all" ? "" : v);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-[160px] rounded-xl h-10">
+            <SelectValue placeholder="Semua kamar" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="_all">Semua kamar</SelectItem>
+            {rooms.map((r: any) => (
+              <SelectItem key={r.id} value={r.id}>
+                {r.room_number} — {r.property_name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -150,25 +180,29 @@ export default function AuditTrailPage() {
         </Select>
 
         <div className="flex items-center gap-2">
-          <input
-            type="date"
+          <DatePicker
             value={fromDate}
-            onChange={(e) => {
-              setFromDate(e.target.value);
+            onChange={(v) => {
+              setFromDate(v);
               setPage(1);
             }}
-            className="h-10 rounded-xl border border-input bg-background px-3 text-sm"
+            onClear={() => {
+              setFromDate("");
+              setPage(1);
+            }}
             placeholder="Dari tanggal"
           />
           <span className="text-muted-foreground text-sm">—</span>
-          <input
-            type="date"
+          <DatePicker
             value={toDate}
-            onChange={(e) => {
-              setToDate(e.target.value);
+            onChange={(v) => {
+              setToDate(v);
               setPage(1);
             }}
-            className="h-10 rounded-xl border border-input bg-background px-3 text-sm"
+            onClear={() => {
+              setToDate("");
+              setPage(1);
+            }}
             placeholder="Sampai tanggal"
           />
           {(fromDate || toDate) && (
@@ -203,7 +237,7 @@ export default function AuditTrailPage() {
               <SelectItem value="_all">Semua user</SelectItem>
               {users.map((u: any) => (
                 <SelectItem key={u.id} value={u.id}>
-                  {u.nama}
+                  {u.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -264,7 +298,7 @@ export default function AuditTrailPage() {
                   Status Baru
                 </TableHead>
                 <TableHead className="font-semibold text-xs uppercase">
-                  Alasan
+                  Oleh
                 </TableHead>
                 <TableHead className="font-semibold text-xs uppercase">
                   Waktu
@@ -289,10 +323,10 @@ export default function AuditTrailPage() {
                     className="hover:bg-primary/5 transition-colors"
                   >
                     <TableCell className="text-sm font-medium">
-                      {log.nomor_kamar || "—"}
+                      {log.room_number || "—"}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {log.nama_properti || "—"}
+                      {log.property_name || "—"}
                     </TableCell>
                     <TableCell>
                       <span
@@ -309,10 +343,10 @@ export default function AuditTrailPage() {
                       </span>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {log.reason || "—"}
+                      {log.user_name || "—"}
                     </TableCell>
                     <TableCell className="text-sm tabular-nums">
-                      {fmt(log.changed_at)}
+                      {fmt(log.created_at)}
                     </TableCell>
                   </TableRow>
                 ))

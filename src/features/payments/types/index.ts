@@ -1,19 +1,20 @@
-// Pembayaran — SRS §4.6
+// Pembayaran — sesuai schema DB & Class Diagram
 export interface Payment {
   id: string;
   room_id: string;
   tenant_id: string;
-  property_id?: string;
-  nomor_kamar?: string;
-  nama_properti?: string;
-  nama_penghuni?: string;
-  periode: string; // YYYY-MM
-  nominal: number;
-  tanggal_bayar?: string;
-  status: 'unpaid' | 'paid' | 'overdue';
-  metode_pembayaran?: string;
-  keterangan?: string;
-  bukti_transfer_url?: string;
+  period: string; // YYYY-MM
+  amount: number;
+  payment_date?: string | null;
+  status: 'unpaid' | 'paid' | 'overdue' | 'cancelled';
+  transfer_proof_url?: string | null;
+  wa_sent: boolean;
+  created_by?: string | null;
+  updated_by?: string | null;
+  // joined fields dari backend
+  room_number?: string;
+  property_name?: string;
+  tenant_name?: string;
   created_at: string;
   updated_at: string;
 }
@@ -21,9 +22,15 @@ export interface Payment {
 export interface CreatePaymentPayload {
   room_id: string;
   tenant_id: string;
-  periode: string;
-  nominal: number;
-  tanggal_bayar?: string;
+  period: string;
+  amount: number;
+  payment_date?: string;
+}
+
+export interface UpdatePaymentPayload {
+  amount?: number;
+  payment_date?: string;
+  period?: string;
 }
 
 export type PaymentStatus = Payment['status'];

@@ -1,5 +1,5 @@
 import { apiClient } from '@/shared/lib/axios';
-import { CreateRoomPayload, Room, UpdateRoomPayload } from '../types';
+import { CreateRoomPayload, Room, RoomDetail, UpdateRoomPayload } from '../types';
 
 export const roomApi = {
   async list(search = '', page = 1, limit = 20, property_id?: string, status?: string) {
@@ -11,9 +11,9 @@ export const roomApi = {
     return { rooms: data?.data ?? [], pagination: data?.pagination ?? null };
   },
 
-  async getById(id: string): Promise<Room> {
-    const { data } = await apiClient.get<Room>(`/rooms/${id}`);
-    return data as Room;
+  async getById(id: string): Promise<RoomDetail> {
+    const { data } = await apiClient.get<any>(`/rooms/${id}`);
+    return data as RoomDetail;
   },
 
   async create(payload: CreateRoomPayload): Promise<Room> {

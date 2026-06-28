@@ -2,7 +2,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { authApi } from '@/features/auth/api/authApi';
 
 export interface UpdateProfilePayload {
-  nomor_telepon?: string;
+  name?: string;
+  phone_number?: string;
 }
 
 export const useUpdateProfile = () => {

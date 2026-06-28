@@ -15,7 +15,7 @@ import {
   BreadcrumbLink,
   BreadcrumbSeparator,
 } from "@/shared/components/ui/breadcrumb";
-import { useIsMobile } from "@/shared/hooks/use-mobile";
+import { useIsMobile } from "@/shared/hooks/useBreakpoint";
 import { AppSidebar } from "@/shared/components/sidebar/app-sidebar";
 import { MobileLayout } from "@/app/layouts/MobileLayout";
 import { UserRole } from "@/shared/components/sidebar/navigation-config";
@@ -140,7 +140,7 @@ export function DashboardLayout({
           </div>
           <div className="ml-auto flex items-center gap-1 sm:gap-2 px-3 sm:px-4">
             <ThemeToggle />
-            {role === "operator" && <NotificationsDropdown />}
+            <NotificationsDropdown />
           </div>
         </header>
 

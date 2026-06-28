@@ -1,23 +1,23 @@
-// SRS-aligned Property types matching Go backend response
+// Property — sesuai schema DB & Class Diagram
 export interface Property {
   id: string;
-  nama: string;
-  alamat: string;
-  deskripsi: string;
-  jumlah_kamar: number;
-  total_kamar: number;
-  kamar_available: number;
-  kamar_occupied: number;
-  kamar_dp_confirmation: number;
-  jumlah_penghuni_aktif: number;
+  property_name: string;
+  address: string;
+  description?: string;
+  total_rooms: number;
+  // computed/joined fields dari backend
+  available_rooms?: number;
+  occupied_rooms?: number;
+  dp_confirmation_rooms?: number;
+  active_tenants?: number;
   created_at: string;
   updated_at: string;
 }
 
 export interface CreatePropertyPayload {
-  nama: string;
-  alamat: string;
-  deskripsi: string;
+  property_name: string;
+  address: string;
+  description?: string;
 }
 
 export type UpdatePropertyPayload = Partial<CreatePropertyPayload>;

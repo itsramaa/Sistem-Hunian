@@ -11,7 +11,7 @@ test.describe("Manajemen Penghuni (Operator)", () => {
     await page.waitForLoadState("networkidle");
     // Wait extra for data to load — tenant page sometimes slow
     await page.waitForTimeout(3000);
-    await saveScreenshot(page, "tenants-active-tab");
+    await saveScreenshot(page, "kf05-active-tab");
     // Check either table, tab panel, or any meaningful content
     const content = page.locator(
       "table, [role='tabpanel'], [class*='card'], h1, h2",
@@ -30,9 +30,9 @@ test.describe("Manajemen Penghuni (Operator)", () => {
     if (await historyTab.isVisible({ timeout: 5000 }).catch(() => false)) {
       await historyTab.click();
       await page.waitForLoadState("networkidle");
-      await saveScreenshot(page, "tenants-history-tab");
+      await saveScreenshot(page, "kf05-history-tab");
     } else {
-      await saveScreenshot(page, "tenants-tabs-overview");
+      await saveScreenshot(page, "kf05-tabs-overview");
     }
     expect(page.url()).toContain("/tenants");
   });
@@ -45,10 +45,10 @@ test.describe("Manajemen Penghuni (Operator)", () => {
     if (await firstLink.isVisible({ timeout: 5000 }).catch(() => false)) {
       await firstLink.click();
       await page.waitForLoadState("networkidle");
-      await saveScreenshot(page, "tenants-detail");
+      await saveScreenshot(page, "kf05-detail");
       expect(page.url()).toContain("/tenants/");
     } else {
-      await saveScreenshot(page, "tenants-no-detail-link");
+      await saveScreenshot(page, "kf05-no-detail-link");
     }
   });
 });

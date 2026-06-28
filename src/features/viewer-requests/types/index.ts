@@ -1,23 +1,28 @@
+// ViewerRequest — sesuai schema DB & Class Diagram
+export type ViewerRequestType = "payment" | "damage" | "prospect";
+export type ViewerRequestStatus = "forwarded" | "wa_failed";
+
 export interface ViewerRequestPayload {
-  jenis: "pembayaran" | "kerusakan" | "calon_penghuni";
-  room_id: string | null;
-  nomor_kamar: string;
-  keterangan: string;
-  nama_calon?: string | null;
-  no_hp_calon?: string | null;
+  request_type: ViewerRequestType;
+  property_id: string;
+  room_id: string;
+  description: string;
+  prospect_name?: string | null;
+  prospect_phone?: string | null;
 }
 
 export interface ViewerRequest {
   id: string;
-  jenis: string;
-  room_id: string | null;
-  nomor_kamar: string;
-  keterangan: string;
-  nama_calon: string | null;
-  no_hp_calon: string | null;
-  created_by: string;
-  nama_pelapor: string;
-  status: string;
+  request_type: ViewerRequestType;
+  room_id: string;
+  room_number: string;
+  property_name?: string;
+  description: string;
+  prospect_name?: string | null;
+  prospect_phone?: string | null;
+  created_by?: string | null;
+  reporter_name?: string | null;
+  status: ViewerRequestStatus;
   created_at: string;
 }
 

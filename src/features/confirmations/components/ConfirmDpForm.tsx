@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -12,15 +11,16 @@ import {
 } from "@/shared/components/ui/form";
 import { Input } from "@/shared/components/ui/input";
 import { Button } from "@/shared/components/ui/button";
+import { DatePicker } from "@/shared/components/ui/date-picker";
 import { useConfirmDP } from "@/features/confirmations/hooks/useConfirmations";
 import { ConfirmDPPayload } from "@/features/confirmations/types";
 
 const schema = z.object({
-  nama: z.string().min(2, "Nama minimal 2 karakter"),
-  nomor_identitas: z.string().min(10, "Nomor identitas tidak valid"),
-  nomor_telepon: z.string().min(9, "Nomor telepon tidak valid"),
-  tanggal_masuk: z.string().min(1, "Tanggal masuk wajib diisi"),
-  durasi_sewa: z.coerce.number().int().positive("Durasi harus lebih dari 0"),
+  name: z.string().min(2, "Nama minimal 2 karakter"),
+  identity_number: z.string().min(10, "Nomor identitas tidak valid"),
+  phone_number: z.string().min(9, "Nomor telepon tidak valid"),
+  check_in_date: z.string().min(1, "Tanggal masuk wajib diisi"),
+  rental_duration: z.coerce.number().int().positive("Durasi harus lebih dari 0"),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -39,11 +39,11 @@ export function ConfirmDpForm({
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      nama: "",
-      nomor_identitas: "",
-      nomor_telepon: "",
-      tanggal_masuk: "",
-      durasi_sewa: 1,
+      name: "",
+      identity_number: "",
+      phone_number: "",
+      check_in_date: "",
+      rental_duration: 1,
     },
   });
 
@@ -62,46 +62,14 @@ export function ConfirmDpForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-2">
-        {[
-          {
-            name: "nama" as const,
-            label: "Nama Lengkap",
-            placeholder: "Nama lengkap penghuni",
-          },
-          {
-            name: "nomor_identitas" as const,
-            label: "Nomor KTP",
-            placeholder: "16 digit nomor KTP",
-          },
-          {
-            name: "nomor_telepon" as const,
-            label: "Nomor Telepon",
-            placeholder: "08xxxxxxxxxx",
-          },
-        ].map(({ name, label, placeholder }) => (
-          <FormField
-            key={name}
-            control={form.control}
-            name={name}
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{label}</FormLabel>
-                <FormControl>
-                  <Input placeholder={placeholder} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        ))}
         <FormField
           control={form.control}
-          name="tanggal_masuk"
+          name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Tanggal Masuk</FormLabel>
+              <FormLabel>Nama Lengkap</FormLabel>
               <FormControl>
-                <Input type="date" {...field} />
+                <Input placeholder="Nama lengkap penghuni" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -109,7 +77,68 @@ export function ConfirmDpForm({
         />
         <FormField
           control={form.control}
-          name="durasi_sewa"
+          name="identity_number"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Nomor KTP</FormLabel>
+              <FormControl>
+                <Input
+                  placeholder="16 digit nomor KTP"
+                  inputMode="numeric"
+                  onKeyDown={(e) => {
+                    if (!/[0-9]|Backspace|Delete|Tab|ArrowLeft|ArrowRight/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="phone_number"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Nomor Telepon</FormLabel>
+              <FormControl>
+                <Input
+                  placeholder="08xxxxxxxxxx"
+                  inputMode="numeric"
+                  onKeyDown={(e) => {
+                    if (!/[0-9+]|Backspace|Delete|Tab|ArrowLeft|ArrowRight/.test(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="check_in_date"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Tanggal Masuk</FormLabel>
+              <FormControl>
+                <DatePicker
+                  value={field.value}
+                  onChange={field.onChange}
+                  placeholder="Pilih tanggal masuk"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="rental_duration"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Durasi Sewa (bulan)</FormLabel>
@@ -120,8 +149,8 @@ export function ConfirmDpForm({
             </FormItem>
           )}
         />
-        <Button type="submit" disabled={isPending} className="w-full">
-          {isPending ? "Memproses..." : "Konfirmasi Penghuni Masuk"}
+        <Button type="submit" disabled={isPending} className="w-full rounded-xl">
+          {isPending ? "Memproses..." : "Konfirmasi & Buat Penghuni"}
         </Button>
       </form>
     </Form>

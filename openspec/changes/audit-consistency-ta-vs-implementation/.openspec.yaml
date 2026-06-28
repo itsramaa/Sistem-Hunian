@@ -1,0 +1,12 @@
+schema: spec-driven
+name: audit-consistency-ta-vs-implementation
+created: 2026-06-26
+description: >
+  Audit menyeluruh inkonsistensi antara dokumen TA (BAB I–V + LAMPIRAN),
+  implementasi backend (Sistem-Hunian-Go), dan implementasi frontend
+  (Sistem-Hunian-V2). Split menjadi 4 proposal berdasarkan domain.
+proposals:
+  - proposal-1-auth-property-room-tenant-payment.md
+  - proposal-2-confirmation-maintenance-notification-whatsapp-dashboard-audit.md
+  - proposal-3-api-contract-dto-model.md
+  - proposal-4-frontend-pages-components-usecase.md

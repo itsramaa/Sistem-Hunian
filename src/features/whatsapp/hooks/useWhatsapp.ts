@@ -9,6 +9,7 @@ export function useWhatsappStatus() {
     queryFn: () => whatsappApi.getStatus(),
     refetchInterval: 10_000,
     refetchIntervalInBackground: false,
+    staleTime: 8_000,
   });
 }
 
@@ -27,10 +28,16 @@ export function useWhatsappConnect() {
   return useMutation({
     mutationFn: () => whatsappApi.connect(),
     onSuccess: () => {
-      // Delay refetch supaya backend sempat generate QR
-      setTimeout(() => {
-        qc.invalidateQueries({ queryKey: [WHATSAPP_KEY] });
-      }, 2000);
+      // Refetch status beberapa kali dengan interval pendek sampai QR tersedia
+      let attempts = 0;
+      const poll = () => {
+        attempts++;
+        qc.invalidateQueries({ queryKey: [WHATSAPP_KEY, "status"] });
+        if (attempts < 8) {
+          setTimeout(poll, 800);
+        }
+      };
+      setTimeout(poll, 500);
     },
   });
 }

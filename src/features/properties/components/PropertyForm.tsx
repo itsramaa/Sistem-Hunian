@@ -8,12 +8,12 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { Loader2, Building2 } from 'lucide-react';
-import { Property, CreatePropertyPayload, UpdatePropertyPayload } from '../types';
+import { Property } from '../types';
 
 const propertySchema = z.object({
-  nama: z.string().min(2, 'Nama minimal 2 karakter').max(255),
-  alamat: z.string().min(5, 'Alamat minimal 5 karakter').max(500),
-  deskripsi: z.string().max(1000).optional(),
+  property_name: z.string().min(2, 'Nama minimal 2 karakter').max(255),
+  address: z.string().min(5, 'Alamat minimal 5 karakter').max(500),
+  description: z.string().max(1000).optional(),
 });
 
 type FormData = z.infer<typeof propertySchema>;
@@ -31,18 +31,18 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isLoading
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(propertySchema),
-    defaultValues: { nama: '', alamat: '', deskripsi: '' },
+    defaultValues: { property_name: '', address: '', description: '' },
   });
 
   useEffect(() => {
     if (property) {
       reset({
-        nama: property.nama,
-        alamat: property.alamat,
-        deskripsi: property.deskripsi || '',
+        property_name: property.property_name,
+        address: property.address,
+        description: property.description || '',
       });
     } else {
-      reset({ nama: '', alamat: '', deskripsi: '' });
+      reset({ property_name: '', address: '', description: '' });
     }
   }, [property, open]);
 
@@ -65,38 +65,38 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isLoading
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label htmlFor="nama">Nama Properti</Label>
+            <Label htmlFor="property_name">Nama Properti</Label>
             <Input
-              id="nama"
+              id="property_name"
               placeholder="Kos Melati"
               disabled={isLoading}
               autoComplete="off"
-              {...register('nama')}
+              {...register('property_name')}
             />
-            {errors.nama && <p className="text-sm text-destructive">{errors.nama.message}</p>}
+            {errors.property_name && <p className="text-sm text-destructive">{errors.property_name.message}</p>}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="alamat">Alamat</Label>
+            <Label htmlFor="address">Alamat</Label>
             <Input
-              id="alamat"
+              id="address"
               placeholder="Jl. MM2100 Blok A No. 1"
               disabled={isLoading}
-              {...register('alamat')}
+              {...register('address')}
             />
-            {errors.alamat && <p className="text-sm text-destructive">{errors.alamat.message}</p>}
+            {errors.address && <p className="text-sm text-destructive">{errors.address.message}</p>}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="deskripsi">Deskripsi (opsional)</Label>
+            <Label htmlFor="description">Deskripsi (opsional)</Label>
             <Textarea
-              id="deskripsi"
+              id="description"
               placeholder="Kos 3 lantai dekat pintu gerbang"
               rows={3}
               disabled={isLoading}
-              {...register('deskripsi')}
+              {...register('description')}
             />
-            {errors.deskripsi && <p className="text-sm text-destructive">{errors.deskripsi.message}</p>}
+            {errors.description && <p className="text-sm text-destructive">{errors.description.message}</p>}
           </div>
 
           <DialogFooter className="pt-2">

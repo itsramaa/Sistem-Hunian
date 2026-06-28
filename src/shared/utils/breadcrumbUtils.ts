@@ -23,7 +23,6 @@ const routeLabels: Record<string, string> = {
 export function getRoleDashboardLabel(role: UserRole): string {
   switch (role) {
     case 'operator': return 'Operator';
-    case 'manager': return 'Manager';
     case 'viewer': return 'Viewer';
     default: return 'Dashboard';
   }

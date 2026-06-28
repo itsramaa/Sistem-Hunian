@@ -7,22 +7,23 @@ import { useToast } from "@/shared/hooks/use-toast";
 import { getApiErrorMessage } from "@/shared/utils/api-errors";
 import { triggerHaptic } from "@/shared/utils/haptic";
 import {
-    emailSchema,
-    loginPasswordSchema,
+  emailSchema,
+  loginPasswordSchema,
 } from "@/shared/utils/validations/auth";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-    Building2,
-    Eye,
-    EyeOff,
-    Home,
-    KeyRound,
-    Loader2,
-    Lock,
-    Mail,
+  Building2,
+  Eye,
+  EyeOff,
+  Home,
+  KeyRound,
+  Loader2,
+  Lock,
+  Mail,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useLocation } from "react-router-dom";
 import { z } from "zod";
 
 const loginSchema = z.object({
@@ -120,14 +121,37 @@ export function AuthForm() {
   const [rememberMe, setRememberMe] = useState(
     () => localStorage.getItem("sihuni_remember_me") === "true",
   );
-  const [failedAttempts, setFailedAttempts] = useState(0);
-  const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
-  const [lockoutRemaining, setLockoutRemaining] = useState(0);
+  const [failedAttempts, setFailedAttempts] = useState(() => {
+    const saved = localStorage.getItem("sihuni_failed_attempts");
+    return saved ? parseInt(saved, 10) : 0;
+  });
+  const [lockoutUntil, setLockoutUntil] = useState<number | null>(() => {
+    const saved = localStorage.getItem("sihuni_lockout_until");
+    if (saved) {
+      const until = parseInt(saved, 10);
+      return until > Date.now() ? until : null;
+    }
+    return null;
+  });
+  const [lockoutRemaining, setLockoutRemaining] = useState(() => {
+    const saved = localStorage.getItem("sihuni_lockout_until");
+    if (saved) {
+      const remaining = Math.ceil((parseInt(saved, 10) - Date.now()) / 1000);
+      return remaining > 0 ? remaining : 0;
+    }
+    return 0;
+  });
   const [errorAnnouncement, setErrorAnnouncement] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
 
   const { toast } = useToast();
   const { signIn } = useAuth();
+  const location = useLocation();
+
+  // Tampilkan pesan akun dinonaktifkan jika diarahkan dari ProtectedRoute
+  const accountDisabled =
+    (location.state as { accountDisabled?: boolean } | null)?.accountDisabled ??
+    false;
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -138,13 +162,20 @@ export function AuthForm() {
   });
 
   useEffect(() => {
-    if (!lockoutUntil) return;
+    if (!lockoutUntil) {
+      localStorage.removeItem("sihuni_lockout_until");
+      localStorage.removeItem("sihuni_failed_attempts");
+      return;
+    }
+    localStorage.setItem("sihuni_lockout_until", lockoutUntil.toString());
     const interval = setInterval(() => {
       const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
       if (remaining <= 0) {
         setLockoutUntil(null);
         setLockoutRemaining(0);
         setFailedAttempts(0);
+        localStorage.removeItem("sihuni_lockout_until");
+        localStorage.removeItem("sihuni_failed_attempts");
       } else {
         setLockoutRemaining(remaining);
       }
@@ -166,10 +197,12 @@ export function AuthForm() {
     if (error) {
       const newAttempts = failedAttempts + 1;
       setFailedAttempts(newAttempts);
+      localStorage.setItem("sihuni_failed_attempts", newAttempts.toString());
       if (newAttempts >= 5) {
         const lockoutTime = Date.now() + 900_000;
         setLockoutUntil(lockoutTime);
         setLockoutRemaining(900);
+        localStorage.setItem("sihuni_lockout_until", lockoutTime.toString());
       }
       const msg = getApiErrorMessage(error);
       announceError(msg);
@@ -180,6 +213,8 @@ export function AuthForm() {
 
     setFailedAttempts(0);
     setLockoutUntil(null);
+    localStorage.removeItem("sihuni_failed_attempts");
+    localStorage.removeItem("sihuni_lockout_until");
     localStorage.setItem("sihuni_remember_me", rememberMe.toString());
     if (rememberMe) {
       localStorage.setItem("sihuni_last_email", data.email);
@@ -266,6 +301,20 @@ export function AuthForm() {
                   Gunakan akun yang diberikan oleh pengelola.
                 </p>
               </div>
+
+              {/* Akun dinonaktifkan alert */}
+              {accountDisabled && (
+                <div
+                  role="alert"
+                  className="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm"
+                >
+                  <Lock className="h-4 w-4 shrink-0" />
+                  <span>
+                    Akun ini telah dinonaktifkan. Hubungi administrator untuk
+                    bantuan.
+                  </span>
+                </div>
+              )}
 
               {/* Lockout alert */}
               {isLocked && (
@@ -406,13 +455,6 @@ export function AuthForm() {
                   )}
                 </Button>
               </form>
-
-              <p className="text-center text-xs text-muted-foreground pt-1">
-                Belum punya akun?{" "}
-                <span className="text-foreground font-medium">
-                  Hubungi pengelola properti Anda.
-                </span>
-              </p>
             </div>
           </div>
         </div>

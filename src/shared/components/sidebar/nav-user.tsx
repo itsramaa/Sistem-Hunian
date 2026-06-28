@@ -1,5 +1,4 @@
-﻿import {
-  BadgeCheck,
+import {
   Bell,
   ChevronsUpDown,
   LogOut,
@@ -10,7 +9,11 @@
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/shared/components/ui/avatar";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@/shared/components/ui/avatar";
 import { Badge } from "@/shared/components/ui/badge";
 import {
   DropdownMenu,
@@ -36,26 +39,36 @@ interface NavUserProps {
   onLogout: () => void;
 }
 
-export function NavUser({ user, role, subscriptionTier, verificationStatus, onLogout }: NavUserProps) {
+export function NavUser({
+  user,
+  role,
+  subscriptionTier,
+  verificationStatus,
+  onLogout,
+}: NavUserProps) {
   const { isMobile } = useSidebar();
   const navigate = useNavigate();
 
-  const initials = user.name
-    ?.split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2) || role[0].toUpperCase();
+  const initials =
+    user.name
+      ?.split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || role[0].toUpperCase();
 
-  const tierBadge = subscriptionTier === "enterprise"
-    ? <Badge className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white border-0 text-[10px] px-1.5 rounded-full"><Crown className="h-3 w-3 mr-0.5" />Enterprise</Badge>
-    : subscriptionTier === "pro"
-    ? <Badge className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground border-0 text-[10px] px-1.5 rounded-full"><Sparkles className="h-3 w-3 mr-0.5" />Pro</Badge>
-    : null;
-
-  const verifiedBadge = verificationStatus === "verified"
-    ? <Badge variant="outline" className="bg-success/10 text-success border-success/30 text-[10px] px-1.5 rounded-full"><BadgeCheck className="h-3 w-3 mr-0.5" />Verified</Badge>
-    : null;
+  const tierBadge =
+    subscriptionTier === "enterprise" ? (
+      <Badge className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white border-0 text-[10px] px-1.5 rounded-full">
+        <Crown className="h-3 w-3 mr-0.5" />
+        Enterprise
+      </Badge>
+    ) : subscriptionTier === "pro" ? (
+      <Badge className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground border-0 text-[10px] px-1.5 rounded-full">
+        <Sparkles className="h-3 w-3 mr-0.5" />
+        Pro
+      </Badge>
+    ) : null;
 
   return (
     <SidebarMenu>
@@ -78,8 +91,9 @@ export function NavUser({ user, role, subscriptionTier, verificationStatus, onLo
                   {tierBadge}
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="truncate text-xs text-muted-foreground">{user.email}</span>
-                  {verifiedBadge}
+                  <span className="truncate text-xs text-muted-foreground">
+                    {user.email}
+                  </span>
                 </div>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
@@ -101,24 +115,37 @@ export function NavUser({ user, role, subscriptionTier, verificationStatus, onLo
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">{user.name}</span>
-                  <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {user.email}
+                  </span>
                 </div>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-border/30" />
             <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => navigate('/dashboard/notifications')} className="rounded-xl gap-2 cursor-pointer">
+              <DropdownMenuItem
+                onClick={() => navigate("/dashboard/notifications")}
+                className="rounded-xl gap-2 cursor-pointer"
+              >
                 <Bell className="h-4 w-4 text-muted-foreground" />
                 Notifikasi
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/dashboard/profile')} className="rounded-xl gap-2 cursor-pointer">
+              <DropdownMenuItem
+                onClick={() => navigate("/dashboard/profile")}
+                className="rounded-xl gap-2 cursor-pointer"
+              >
                 <User className="h-4 w-4 text-muted-foreground" />
                 Profil
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/dashboard/settings')} className="rounded-xl gap-2 cursor-pointer">
-                <Settings className="h-4 w-4 text-muted-foreground" />
-                Pengaturan
-              </DropdownMenuItem>
+              {role === "operator" && (
+                <DropdownMenuItem
+                  onClick={() => navigate("/dashboard/settings")}
+                  className="rounded-xl gap-2 cursor-pointer"
+                >
+                  <Settings className="h-4 w-4 text-muted-foreground" />
+                  Pengaturan
+                </DropdownMenuItem>
+              )}
             </DropdownMenuGroup>
             <DropdownMenuSeparator className="bg-border/30" />
             <DropdownMenuItem

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { paymentApi } from "../api/paymentApi";
-import { CreatePaymentPayload } from "../types";
+import { CreatePaymentPayload, UpdatePaymentPayload } from "../types";
 
 export const PAYMENTS_KEY = "payments";
 
@@ -11,12 +11,12 @@ export function usePayments(
   tenant_id?: string,
   status?: string,
   property_id?: string,
-  periode?: string,
+  period?: string,
 ) {
   return useQuery({
     queryKey: [
       PAYMENTS_KEY,
-      { page, limit, room_id, tenant_id, status, property_id, periode },
+      { page, limit, room_id, tenant_id, status, property_id, period },
     ],
     queryFn: () =>
       paymentApi.list(
@@ -26,7 +26,7 @@ export function usePayments(
         tenant_id,
         status,
         property_id,
-        periode,
+        period,
       ),
   });
 }
@@ -53,7 +53,8 @@ export function useCreatePayment() {
 export function useMarkPaid() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => paymentApi.markPaid(id),
+    mutationFn: ({ id, payment_date }: { id: string; payment_date?: string }) =>
+      paymentApi.markPaid(id, payment_date),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [PAYMENTS_KEY] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
@@ -70,6 +71,17 @@ export function useUploadBukti() {
   });
 }
 
+export function useWriteOff() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => paymentApi.writeOff(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [PAYMENTS_KEY] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
 export function useUpdatePayment() {
   const qc = useQueryClient();
   return useMutation({
@@ -78,7 +90,7 @@ export function useUpdatePayment() {
       payload,
     }: {
       id: string;
-      payload: { nominal?: number; tanggal_bayar?: string; periode?: string };
+      payload: UpdatePaymentPayload;
     }) => paymentApi.update(id, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [PAYMENTS_KEY] });

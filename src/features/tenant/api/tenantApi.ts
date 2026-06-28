@@ -27,7 +27,7 @@ export const tenantApi = {
     return data as Tenant;
   },
 
-  async checkout(id: string, tanggal_keluar: string): Promise<void> {
-    await apiClient.post(`/tenants/${id}/checkout`, { tanggal_keluar });
+  async checkout(id: string, check_out_date: string): Promise<void> {
+    await apiClient.post(`/tenants/${id}/checkout`, { check_out_date });
   },
 };

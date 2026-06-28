@@ -120,33 +120,33 @@ export function AlertPanel() {
       </div>
       <ul className="space-y-2">
         {dpAlerts.map((a) => (
-          <AlertItem key={a.confirmation_id} danger={a.tipe === "dp_expired"}>
+          <AlertItem key={a.confirmation_id} danger={a.type === "dp_expired"}>
             <span>
-              <strong>{a.nama_calon_penghuni}</strong>
-              {" — "}Kamar {a.nomor_kamar} · {a.nama_properti}
+              <strong>{a.prospect_name}</strong>
+              {" — "}Kamar {a.room_number} · {a.property_name}
               <br />
               <span className="text-xs opacity-80">
-                {a.tipe === "dp_expired"
+                {a.type === "dp_expired"
                   ? "DP sudah expired"
-                  : `DP berakhir ${a.sisa_hari} hari lagi`}
+                  : `DP berakhir ${a.remaining_days} hari lagi`}
               </span>
             </span>
           </AlertItem>
         ))}
         {paymentAlerts.map((a) => (
           <AlertItem
-            key={`${a.room_id}-${a.periode}`}
-            danger={a.tipe === "payment_overdue"}
+            key={`${a.room_id}-${a.period}`}
+            danger={a.type === "payment_overdue"}
           >
             <span>
-              <strong>{a.nama_penghuni}</strong>
-              {" — "}Kamar {a.nomor_kamar} · {a.nama_properti}
+              <strong>{a.tenant_name}</strong>
+              {" — "}Kamar {a.room_number} · {a.property_name}
               <br />
               <span className="text-xs opacity-80">
-                {a.tipe === "payment_overdue"
+                {a.type === "payment_overdue"
                   ? "Pembayaran terlambat"
                   : "Mendekati jatuh tempo"}
-                {a.periode ? ` · ${a.periode}` : ""}
+                {a.period ? ` · ${a.period}` : ""}
               </span>
             </span>
           </AlertItem>

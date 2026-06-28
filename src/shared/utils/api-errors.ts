@@ -35,36 +35,47 @@ const BACKEND_ERROR_CODES: Record<string, string> = {
   AUTH_002: "Akun ini dinonaktifkan. Hubungi administrator.",
   AUTH_003: "Token tidak valid atau sudah kedaluwarsa. Silakan login ulang.",
   AUTH_004: "Sesi berakhir. Silakan login ulang.",
+  AUTH_005: "Password saat ini salah. Periksa kembali.",
+  AUTH_006: "Email sudah digunakan oleh akun lain.",
+  AUTH_007: "Gagal memperbarui profil. Coba lagi.",
+
+  // User
+  USER_001: "Pengguna tidak ditemukan.",
+  USER_002: "Email sudah digunakan oleh akun lain.",
+  USER_003: "Gagal membuat akun pengguna. Coba lagi.",
+  USER_004: "Gagal memperbarui data pengguna. Coba lagi.",
+  USER_005: "Gagal menonaktifkan akun pengguna. Coba lagi.",
 
   // Room
   ROOM_001: "Kamar tidak ditemukan.",
   ROOM_002: "Kamar sudah dihuni. Pilih kamar lain.",
   ROOM_003: "Kamar ini sudah memiliki konfirmasi DP aktif.",
-  ROOM_004: "Kamar tidak tersedia untuk disewa saat ini.",
+  ROOM_004: "Nomor kamar sudah digunakan di properti ini.",
 
   // Tenant
   TENANT_001: "Penghuni tidak ditemukan.",
   TENANT_002: "Penghuni ini sudah memiliki hunian aktif.",
-  TENANT_003: "Data penghuni tidak lengkap. Periksa kembali isian Anda.",
+  TENANT_003:
+    "Penghuni masih memiliki tunggakan pembayaran. Selesaikan tunggakan terlebih dahulu sebelum checkout.",
 
   // Payment
   PAYMENT_001: "Pembayaran tidak ditemukan.",
   PAYMENT_002: "Pembayaran sudah diproses sebelumnya.",
-  PAYMENT_003: "Jumlah pembayaran tidak valid.",
-  PAYMENT_004: "Batas waktu pembayaran telah lewat.",
+  PAYMENT_003: "File tidak valid — format tidak sesuai ekstensi.",
+  PAYMENT_004: "Gagal menyimpan bukti transfer. Coba lagi.",
 
   // Confirmation / DP
-  CONF_001: "Konfirmasi DP tidak ditemukan.",
-  CONF_002: "Konfirmasi DP sudah kedaluwarsa.",
-  CONF_003: "Konfirmasi DP sudah diproses.",
+  CONFIRMATION_001: "Konfirmasi DP tidak ditemukan.",
+  CONFIRMATION_002: "Konfirmasi DP sudah kedaluwarsa.",
+  CONFIRMATION_003: "Konfirmasi DP sudah diproses.",
 
   // Property
-  PROP_001: "Properti tidak ditemukan.",
-  PROP_002: "Anda tidak memiliki akses ke properti ini.",
+  PROPERTY_001: "Properti tidak ditemukan.",
+  PROPERTY_002: "Properti masih memiliki kamar aktif dan tidak dapat dihapus.",
 
   // Maintenance
-  MAINT_001: "Laporan maintenance tidak ditemukan.",
-  MAINT_002: "Laporan maintenance sudah ditutup.",
+  MAINTENANCE_001: "Laporan maintenance tidak ditemukan.",
+  MAINTENANCE_002: "Laporan maintenance sudah ditutup.",
 
   // Profile
   PROFILE_001: "Profil tidak ditemukan.",
@@ -72,8 +83,7 @@ const BACKEND_ERROR_CODES: Record<string, string> = {
   PROFILE_003: "Password baru tidak memenuhi persyaratan keamanan.",
 
   // Validation
-  VALIDATION_ERROR:
-    "Data yang dikirim tidak valid. Periksa kembali isian Anda.",
+  VALIDATION_001: "Data yang dikirim tidak valid. Periksa kembali isian Anda.",
   DUPLICATE_ENTRY: "Data sudah ada dalam sistem.",
 };
 

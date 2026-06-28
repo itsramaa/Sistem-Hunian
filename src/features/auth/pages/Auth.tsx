@@ -1,15 +1,13 @@
-﻿import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { AuthForm } from '@/features/auth/components/AuthForm';
-import { AuthLoadingSkeleton } from '@/features/auth/components/AuthLoadingSkeleton';
-import { useAuth } from '@/features/auth/hooks/useAuth';
-import { Meta } from '@/shared/components/meta';
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { AuthForm } from "@/features/auth/components/AuthForm";
+import { AuthLoadingSkeleton } from "@/features/auth/components/AuthLoadingSkeleton";
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { Meta } from "@/shared/components/meta";
 
 const roleDestinations: Record<string, { path: string; name: string }> = {
-  admin:    { path: '/admin',     name: 'Dashboard Admin' },
-  operator: { path: '/dashboard', name: 'Dashboard Operator' },
-  manager:  { path: '/dashboard', name: 'Dashboard Manajer' },
-  viewer:   { path: '/dashboard', name: 'Dashboard' },
+  operator: { path: "/dashboard", name: "Dashboard Operator" },
+  viewer: { path: "/dashboard", name: "Dashboard" },
 };
 
 export default function Auth() {

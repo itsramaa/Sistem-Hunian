@@ -1,8 +1,25 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { env } from "@/config/env";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+export function getAssetUrl(path: string | null | undefined): string {
+  if (!path) return "";
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
+  const apiBase = env.API_URL; // 'http://localhost:9090/api/v1'
+  if (path.startsWith("/r2/")) {
+    return `${apiBase}${path}`;
+  }
+  if (path.startsWith("/uploads/")) {
+    const host = apiBase.replace(/\/api\/v1$/, "");
+    return `${host}${path}`;
+  }
+  return path;
 }
 
 export function formatRupiah(amount: number): string {

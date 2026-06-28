@@ -1,13 +1,17 @@
+import type { Notification } from "@/features/notifications/types";
+
+export type { Notification };
+
 export interface DashboardSummary {
-  total_properti: number;
-  total_kamar: number;
-  kamar_available: number;
-  kamar_occupied: number;
-  kamar_dp_confirmation: number;
-  properti_summary: Array<{
+  total_properties: number;
+  total_rooms: number;
+  rooms_available: number;
+  rooms_occupied: number;
+  rooms_dp_confirmation: number;
+  property_summary: Array<{
     property_id: string;
-    nama_properti: string;
-    total_kamar: number;
+    property_name: string;
+    total_rooms: number;
     occupied: number;
     available: number;
     dp_confirmation: number;
@@ -15,39 +19,35 @@ export interface DashboardSummary {
   maintenance_summary: {
     reported: number;
     in_progress: number;
+    total_maintenance_cost: number;
+  };
+  viewer_request_summary?: {
+    total: number;
+    wa_failed: number;
   };
 }
 
 export interface DpAlert {
   confirmation_id: string;
   room_id: string;
-  nomor_kamar: string;
-  nama_properti: string;
-  nama_calon_penghuni: string;
-  batas_tanggal: string;
-  sisa_hari: number;
-  tipe: "dp_reminder" | "dp_expired";
+  room_number: string;
+  property_name: string;
+  prospect_name: string;
+  confirmation_deadline: string;
+  remaining_days: number | null;
+  type: "dp_reminder" | "dp_expired";
 }
 
 export interface PaymentAlert {
   room_id: string;
-  nomor_kamar: string;
-  nama_properti: string;
-  nama_penghuni: string;
-  periode: string;
-  tipe: "payment_due" | "payment_overdue";
+  room_number: string;
+  property_name: string;
+  tenant_name: string;
+  period: string;
+  type: "payment_due" | "payment_overdue";
 }
 
 export interface DashboardAlerts {
   dp_alerts: DpAlert[];
   payment_alerts: PaymentAlert[];
-}
-
-export interface Notification {
-  id: string;
-  tipe: "dp_reminder" | "dp_expired" | "payment_due" | "payment_overdue";
-  referensi_id: string;
-  pesan: string;
-  is_read: boolean;
-  created_at: string;
 }

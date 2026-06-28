@@ -1,10 +1,6 @@
-export interface Province {
-  id: string;
-  name: string;
-}
-
-export interface City {
-  id: string;
-  province_id: string;
-  name: string;
+// Shared types untuk pagination — dipakai lintas domain
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
 }

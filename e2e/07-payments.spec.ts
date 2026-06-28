@@ -9,7 +9,7 @@ test.describe("Manajemen Pembayaran (Operator)", () => {
   test("AC-PAY-01: Daftar pembayaran tampil", async ({ page }) => {
     await page.goto("/dashboard/payments");
     await page.waitForLoadState("networkidle");
-    await saveScreenshot(page, "payments-list");
+    await saveScreenshot(page, "kf06-list");
     const content = page.locator("table, [class*='table'], [class*='card']");
     await expect(content.first()).toBeVisible({ timeout: 15000 });
   });
@@ -17,7 +17,7 @@ test.describe("Manajemen Pembayaran (Operator)", () => {
   test("AC-PAY-09: Status badge pembayaran", async ({ page }) => {
     await page.goto("/dashboard/payments");
     await page.waitForLoadState("networkidle");
-    await saveScreenshot(page, "payments-badges");
+    await saveScreenshot(page, "kf06-badges");
     // Check for status badges (lunas, approaching due, late)
     const badges = page.locator("[class*='badge'], [class*='Badge']");
     if ((await badges.count()) > 0) {
@@ -29,14 +29,15 @@ test.describe("Manajemen Pembayaran (Operator)", () => {
     await page.goto("/dashboard/payments");
     await page.waitForLoadState("networkidle");
     // Find all filters
-    const selects = page.locator("select, [class*='select'], [role='combobox']");
+    const selects = page.locator(
+      "select, [class*='select'], [role='combobox']",
+    );
     const count = await selects.count();
-    await saveScreenshot(page, "payments-filters");
+    await saveScreenshot(page, "kf06-filters");
     if (count > 0) {
-      // Try first filter
       await selects.first().click();
       await page.waitForTimeout(500);
-      await saveScreenshot(page, "payments-filter-open");
+      await saveScreenshot(page, "kf06-filter-open");
     }
   });
 
@@ -47,7 +48,7 @@ test.describe("Manajemen Pembayaran (Operator)", () => {
     if (await firstLink.isVisible({ timeout: 5000 }).catch(() => false)) {
       await firstLink.click();
       await page.waitForLoadState("networkidle");
-      await saveScreenshot(page, "payments-detail");
+      await saveScreenshot(page, "kf06-detail");
       expect(page.url()).toContain("/payments/");
     }
   });

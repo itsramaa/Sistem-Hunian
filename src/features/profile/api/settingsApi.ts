@@ -7,7 +7,7 @@ export const settingsApi = {
   },
 
   async createUser(payload: {
-    nama: string;
+    name: string;
     email: string;
     password: string;
     role: string;
@@ -16,7 +16,14 @@ export const settingsApi = {
   },
 
   async deleteUser(id: string) {
-    await apiClient.delete(`/users/${id}`);
+    await apiClient.patch(`/users/${id}/deactivate`);
+  },
+
+  async updateUser(
+    id: string,
+    payload: { name?: string; email?: string; role?: string },
+  ) {
+    await apiClient.patch(`/users/${id}`, payload);
   },
 
   async getWaConfig() {
@@ -27,6 +34,9 @@ export const settingsApi = {
   async saveWaConfig(payload: {
     recipient_numbers: string[];
     notification_enabled: boolean;
+    notif_payment?: boolean;
+    notif_dp?: boolean;
+    notif_maintenance?: boolean;
   }) {
     await apiClient.put("/settings/wa-config", payload);
   },

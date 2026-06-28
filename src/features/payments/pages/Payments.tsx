@@ -5,6 +5,16 @@ import { useActiveTenants } from "@/features/tenant/hooks/useTenants";
 import { DataCard } from "@/shared/components/DataCard";
 import { Button } from "@/shared/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -15,6 +25,7 @@ import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import { MonthPicker } from "@/shared/components/ui/month-picker";
+import { DatePicker } from "@/shared/components/ui/date-picker";
 import {
   Select,
   SelectContent,
@@ -45,16 +56,18 @@ import {
   FileText,
   Loader2,
   Plus,
+  Trash2,
   Upload,
   X,
 } from "lucide-react";
-import React, { useCallback, useRef, useState } from "react";
-import { useForm } from "react-hook-form";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useForm, Controller } from "react-hook-form";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { z } from "zod";
 import {
   useCreatePayment,
   useMarkPaid,
+  useWriteOff,
   usePayments,
   useUpdatePayment,
   useUploadBukti,
@@ -67,14 +80,15 @@ const statusColors: Record<string, { label: string; className: string }> = {
   paid: getSiHuniStatus("paid"),
   unpaid: getSiHuniStatus("unpaid"),
   overdue: getSiHuniStatus("overdue"),
+  cancelled: getSiHuniStatus("cancelled"),
 };
 
 const paymentSchema = z.object({
   room_id: z.string().min(1, "Pilih kamar"),
   tenant_id: z.string().min(1, "Pilih penghuni"),
-  periode: z.string().min(1, "Periode wajib diisi"),
-  nominal: z.coerce.number().positive("Nominal harus > 0"),
-  tanggal_bayar: z.string().optional(),
+  period: z.string().min(1, "Periode wajib diisi"),
+  amount: z.coerce.number().positive("Nominal harus > 0"),
+  payment_date: z.string().min(1, "Tanggal bayar wajib diisi"),
 });
 type FormData = z.infer<typeof paymentSchema>;
 
@@ -93,16 +107,30 @@ export default function PaymentsPage() {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("");
   const [propertyFilter, setPropertyFilter] = useState("");
-  const [periodeFilter, setPeriodeFilter] = useState("");
+  const [periodFilter, setPeriodFilter] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [uploadTarget, setUploadTarget] = useState<Payment | null>(null);
   const [editTarget, setEditTarget] = useState<Payment | null>(null);
+  const [writeOffTarget, setWriteOffTarget] = useState<Payment | null>(null);
+  const [editPaymentDate, setEditPaymentDate] = useState<string>("");
+  const [editPeriod, setEditPeriod] = useState<string>("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const roomIdFromUrl = searchParams.get("room_id") || "";
+
+  useEffect(() => {
+    if (editTarget) {
+      setEditPaymentDate(
+        editTarget.payment_date
+          ? format(new Date(editTarget.payment_date), "yyyy-MM-dd")
+          : "",
+      );
+      setEditPeriod(editTarget.period ?? "");
+    }
+  }, [editTarget]);
   const limit = 20;
   const { data, isLoading } = usePayments(
     page,
@@ -111,7 +139,7 @@ export default function PaymentsPage() {
     undefined,
     statusFilter || undefined,
     propertyFilter || undefined,
-    periodeFilter || undefined,
+    periodFilter || undefined,
   );
   const { data: propsData } = useProperties("", 1, 100);
   const { data: roomsData } = useRooms(
@@ -131,6 +159,7 @@ export default function PaymentsPage() {
   const uploadMutation = useUploadBukti();
   const updateMutation = useUpdatePayment();
   const markPaidMutation = useMarkPaid();
+  const writeOffMutation = useWriteOff();
 
   const payments: Payment[] = data?.payments ?? [];
   const total = data?.pagination?.total ?? 0;
@@ -144,7 +173,7 @@ export default function PaymentsPage() {
     const paid = payments.filter((p) => p.status === "paid");
     const unpaid = payments.filter((p) => p.status === "unpaid");
     const overdue = payments.filter((p) => p.status === "overdue");
-    const totalPaidAmount = paid.reduce((sum, p) => sum + (p.nominal || 0), 0);
+    const totalPaidAmount = paid.reduce((sum, p) => sum + (p.amount || 0), 0);
 
     return {
       paid: paid.length,
@@ -160,10 +189,17 @@ export default function PaymentsPage() {
     setValue,
     reset,
     watch,
+    control,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(paymentSchema),
-    defaultValues: { room_id: "", tenant_id: "", periode: "", nominal: 0 },
+    defaultValues: {
+      room_id: "",
+      tenant_id: "",
+      period: new Date().toISOString().substring(0, 7),
+      amount: 0,
+      payment_date: new Date().toISOString().substring(0, 10),
+    },
   });
   const selectedRoomId = watch("room_id");
 
@@ -201,9 +237,29 @@ export default function PaymentsPage() {
 
   const handleCreate = async (payload: FormData) => {
     try {
-      await createMutation.mutateAsync(payload as CreatePaymentPayload);
+      const created = await createMutation.mutateAsync(
+        payload as CreatePaymentPayload,
+      );
+      // Upload bukti transfer jika ada file yang dipilih saat pencatatan
+      if (uploadFile && created?.id) {
+        try {
+          await uploadMutation.mutateAsync({
+            id: created.id,
+            file: uploadFile,
+          });
+        } catch {
+          // Upload gagal tidak menggagalkan pencatatan — notifikasi terpisah
+          toast({
+            variant: "destructive",
+            title: "Bukti transfer gagal diunggah",
+            description:
+              "Data pembayaran tersimpan, tapi bukti transfer gagal diunggah. Coba unggah ulang dari daftar pembayaran.",
+          });
+        }
+      }
       setFormOpen(false);
       reset();
+      handleFileSelect(null);
       toast({
         title: "Pembayaran berhasil dicatat",
         description: "Data pembayaran telah tersimpan.",
@@ -239,9 +295,9 @@ export default function PaymentsPage() {
   };
 
   const handleUpdate = async (payload: {
-    nominal?: number;
-    tanggal_bayar?: string;
-    periode?: string;
+    amount?: number;
+    payment_date?: string;
+    period?: string;
   }) => {
     if (!editTarget) return;
     try {
@@ -259,8 +315,11 @@ export default function PaymentsPage() {
 
   const handleMarkPaid = async (payment: Payment) => {
     try {
-      await markPaidMutation.mutateAsync(payment.id);
-      toast({ title: `Pembayaran ${payment.periode} berhasil ditandai lunas` });
+      await markPaidMutation.mutateAsync({
+        id: payment.id,
+        payment_date: format(new Date(), "yyyy-MM-dd"),
+      });
+      toast({ title: `Pembayaran ${payment.period} berhasil ditandai lunas` });
     } catch (err) {
       toast({
         variant: "destructive",
@@ -279,7 +338,7 @@ export default function PaymentsPage() {
   };
 
   const PaymentActions = ({ p }: { p: Payment }) =>
-    !isOperator || p.status === "paid" ? null : (
+    !isOperator || p.status === "paid" || p.status === "cancelled" ? null : (
       <div className="flex items-center gap-1.5 flex-wrap">
         <Button
           variant="ghost"
@@ -293,7 +352,7 @@ export default function PaymentsPage() {
         >
           <CheckCircle2 className="h-3.5 w-3.5" /> Lunas
         </Button>
-        {!p.bukti_transfer_url && (
+        {!p.transfer_proof_url && (
           <Button
             variant="ghost"
             size="sm"
@@ -304,6 +363,20 @@ export default function PaymentsPage() {
             }}
           >
             <Upload className="h-3.5 w-3.5" /> Bukti
+          </Button>
+        )}
+        {(p.status === "unpaid" || p.status === "overdue") && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1 text-xs rounded-lg min-h-[40px] text-muted-foreground hover:text-red-600"
+            disabled={writeOffMutation.isPending}
+            onClick={(e) => {
+              e.stopPropagation();
+              setWriteOffTarget(p);
+            }}
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Hapus
           </Button>
         )}
         <Button
@@ -406,7 +479,7 @@ export default function PaymentsPage() {
               <SelectItem value="_all">Semua properti</SelectItem>
               {properties.map((p: any) => (
                 <SelectItem key={p.id} value={p.id}>
-                  {p.nama}
+                  {p.property_name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -435,14 +508,14 @@ export default function PaymentsPage() {
             size="icon"
             className="h-10 w-10 rounded-xl shrink-0"
             onClick={() => {
-              if (!periodeFilter) {
+              if (!periodFilter) {
                 const prev = new Date();
                 prev.setMonth(prev.getMonth() - 1);
-                setPeriodeFilter(prev.toISOString().slice(0, 7));
+                setPeriodFilter(prev.toISOString().slice(0, 7));
               } else {
-                const [y, m] = periodeFilter.split("-").map(Number);
+                const [y, m] = periodFilter.split("-").map(Number);
                 const d = new Date(y, m - 2);
-                setPeriodeFilter(
+                setPeriodFilter(
                   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
                 );
               }
@@ -453,13 +526,13 @@ export default function PaymentsPage() {
           </Button>
           <div className="flex-1">
             <MonthPicker
-              value={periodeFilter}
+              value={periodFilter}
               onChange={(v) => {
-                setPeriodeFilter(v);
+                setPeriodFilter(v);
                 setPage(1);
               }}
               onClear={() => {
-                setPeriodeFilter("");
+                setPeriodFilter("");
                 setPage(1);
               }}
               placeholder="Semua periode"
@@ -470,12 +543,12 @@ export default function PaymentsPage() {
             variant="outline"
             size="icon"
             className="h-10 w-10 rounded-xl shrink-0"
-            disabled={periodeFilter === new Date().toISOString().slice(0, 7)}
+            disabled={periodFilter === new Date().toISOString().slice(0, 7)}
             onClick={() => {
-              if (!periodeFilter) return;
-              const [y, m] = periodeFilter.split("-").map(Number);
+              if (!periodFilter) return;
+              const [y, m] = periodFilter.split("-").map(Number);
               const d = new Date(y, m);
-              setPeriodeFilter(
+              setPeriodFilter(
                 `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
               );
               setPage(1);
@@ -568,10 +641,10 @@ export default function PaymentsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-semibold text-sm">
-                        {p.nomor_kamar || "—"} · {p.periode}
+                        {p.room_number || "—"} · {p.period}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {p.nama_penghuni || "—"}
+                        {p.tenant_name || "—"}
                       </p>
                     </div>
                     <span
@@ -584,9 +657,9 @@ export default function PaymentsPage() {
                 fields={[
                   {
                     label: "Nominal",
-                    value: `Rp${p.nominal.toLocaleString("id-ID")}`,
+                    value: `Rp${(p.amount ?? 0).toLocaleString("id-ID")}`,
                   },
-                  { label: "Tgl Bayar", value: fmt(p.tanggal_bayar) },
+                  { label: "Tgl Bayar", value: fmt(p.payment_date) },
                 ]}
                 actions={<PaymentActions p={p} />}
               />
@@ -636,19 +709,19 @@ export default function PaymentsPage() {
                       onClick={() => navigate(`/dashboard/payments/${p.id}`)}
                     >
                       <TableCell className="text-sm font-medium">
-                        {p.nomor_kamar || "—"}
+                        {p.room_number || "—"}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {p.nama_penghuni || "—"}
+                        {p.tenant_name || "—"}
                       </TableCell>
                       <TableCell className="text-sm tabular-nums">
-                        {p.periode}
+                        {p.period}
                       </TableCell>
                       <TableCell className="text-sm font-medium tabular-nums text-right">
-                        Rp{p.nominal.toLocaleString("id-ID")}
+                        Rp{(p.amount ?? 0).toLocaleString("id-ID")}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {fmt(p.tanggal_bayar)}
+                        {fmt(p.payment_date)}
                       </TableCell>
                       <TableCell>
                         <span
@@ -696,6 +769,10 @@ export default function PaymentsPage() {
                 onValueChange={(v) => {
                   setValue("room_id", v);
                   setValue("tenant_id", "");
+                  const selectedRoom = rooms.find((r: any) => r.id === v);
+                  if (selectedRoom?.rent_price) {
+                    setValue("amount", selectedRoom.rent_price);
+                  }
                 }}
               >
                 <SelectTrigger className="rounded-xl h-12">
@@ -704,7 +781,7 @@ export default function PaymentsPage() {
                 <SelectContent>
                   {rooms.map((r: any) => (
                     <SelectItem key={r.id} value={r.id}>
-                      {r.nomor_kamar} — {r.nama_properti}
+                      {r.room_number} — {r.property_name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -732,7 +809,7 @@ export default function PaymentsPage() {
                     )
                     .map((t: any) => (
                       <SelectItem key={t.id} value={t.id}>
-                        {t.nama}
+                        {t.name}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -746,31 +823,114 @@ export default function PaymentsPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Periode</Label>
-                <Input type="month" {...register("periode")} />
-                {errors.periode && (
+                <Controller
+                  control={control}
+                  name="period"
+                  render={({ field }) => (
+                    <MonthPicker
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="Pilih periode"
+                      className="w-full"
+                    />
+                  )}
+                />
+                {errors.period && (
                   <p className="text-sm text-destructive">
-                    {errors.periode.message}
+                    {errors.period.message}
                   </p>
                 )}
               </div>
               <div className="space-y-2">
-                <Label>Nominal (Rp)</Label>
+                <Label>
+                  Nominal (Rp){" "}
+                  <span className="text-xs text-muted-foreground font-normal">
+                    — otomatis dari harga sewa
+                  </span>
+                </Label>
                 <Input
                   type="number"
                   min={0}
-                  placeholder="1200000"
-                  {...register("nominal")}
+                  placeholder="Contoh: 1200000"
+                  {...register("amount")}
                 />
-                {errors.nominal && (
+                {errors.amount && (
                   <p className="text-sm text-destructive">
-                    {errors.nominal.message}
+                    {errors.amount.message}
                   </p>
                 )}
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Tanggal Bayar (opsional)</Label>
-              <Input type="date" {...register("tanggal_bayar")} />
+              <Label>Tanggal Bayar</Label>
+              <Controller
+                control={control}
+                name="payment_date"
+                render={({ field }) => (
+                  <DatePicker
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    placeholder="Pilih tanggal bayar"
+                  />
+                )}
+              />
+              {errors.payment_date && (
+                <p className="text-sm text-destructive">
+                  {errors.payment_date.message}
+                </p>
+              )}
+            </div>
+
+            {/* Bukti transfer opsional — bisa diunggah langsung saat pencatatan */}
+            <div className="space-y-2">
+              <Label>
+                Bukti Transfer{" "}
+                <span className="text-xs text-muted-foreground font-normal">
+                  — opsional
+                </span>
+              </Label>
+              <input
+                id="create-bukti-transfer"
+                type="file"
+                accept=".jpg,.jpeg,.png,.pdf"
+                className="hidden"
+                onChange={(e) => handleFileSelect(e.target.files?.[0] ?? null)}
+              />
+              <label htmlFor="create-bukti-transfer">
+                <div className="border-2 border-dashed border-border/60 rounded-xl p-4 text-center cursor-pointer hover:border-primary/40 hover:bg-muted/30 transition-colors">
+                  {uploadFile ? (
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium truncate">
+                        {uploadFile.name}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleFileSelect(null);
+                        }}
+                        className="shrink-0 text-muted-foreground hover:text-destructive"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="h-6 w-6 mx-auto mb-1 text-muted-foreground" />
+                      <p className="text-xs text-muted-foreground">
+                        Klik untuk pilih file — JPG, PNG, PDF, maks 5MB
+                      </p>
+                    </>
+                  )}
+                </div>
+              </label>
+              {previewUrl && (
+                <img
+                  src={previewUrl}
+                  alt="Preview bukti transfer"
+                  className="w-full max-h-36 object-contain rounded-xl border border-border/40 bg-muted/20"
+                />
+              )}
             </div>
             <DialogFooter>
               <Button
@@ -812,37 +972,39 @@ export default function PaymentsPage() {
               Format: JPG, PNG, PDF. Maks 5MB.
             </p>
             <input
+              id="upload-bukti-transfer"
               ref={fileInputRef}
               type="file"
               accept=".jpg,.jpeg,.png,.pdf"
               className="hidden"
               onChange={(e) => handleFileSelect(e.target.files?.[0] ?? null)}
             />
-            <div
-              className="border-2 border-dashed border-border/60 rounded-xl p-6 text-center cursor-pointer hover:border-primary/40 hover:bg-muted/30 transition-colors"
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                handleFileSelect(e.dataTransfer.files?.[0] ?? null);
-              }}
-            >
-              {uploadFile ? (
-                <p className="text-sm font-medium truncate">
-                  {uploadFile.name}
-                </p>
-              ) : (
-                <>
-                  <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">
-                    Klik untuk pilih file atau drag & drop
+            <label htmlFor="upload-bukti-transfer">
+              <div
+                className="border-2 border-dashed border-border/60 rounded-xl p-6 text-center cursor-pointer hover:border-primary/40 hover:bg-muted/30 transition-colors"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  handleFileSelect(e.dataTransfer.files?.[0] ?? null);
+                }}
+              >
+                {uploadFile ? (
+                  <p className="text-sm font-medium truncate">
+                    {uploadFile.name}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    JPG, PNG, PDF — maks 5MB
-                  </p>
-                </>
-              )}
-            </div>
+                ) : (
+                  <>
+                    <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">
+                      Klik untuk pilih file atau drag & drop
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      JPG, PNG, PDF — maks 5MB
+                    </p>
+                  </>
+                )}
+              </div>
+            </label>
             {uploadFile && (
               <div className="rounded-xl border border-border/40 overflow-hidden bg-muted/20">
                 {previewUrl ? (
@@ -911,12 +1073,10 @@ export default function PaymentsPage() {
               e.preventDefault();
               const formData = new FormData(e.currentTarget);
               const payload: any = {};
-              const nominal = formData.get("nominal") as string;
-              if (nominal) payload.nominal = parseFloat(nominal);
-              const tanggal_bayar = formData.get("tanggal_bayar") as string;
-              if (tanggal_bayar) payload.tanggal_bayar = tanggal_bayar;
-              const periode = formData.get("periode") as string;
-              if (periode) payload.periode = periode;
+              const amount = formData.get("amount") as string;
+              if (amount) payload.amount = parseFloat(amount);
+              if (editPaymentDate) payload.payment_date = editPaymentDate;
+              if (editPeriod) payload.period = editPeriod;
               handleUpdate(payload);
             }}
             className="space-y-4 py-2"
@@ -925,29 +1085,27 @@ export default function PaymentsPage() {
               <Label>Nominal</Label>
               <Input
                 type="number"
-                name="nominal"
-                defaultValue={editTarget?.nominal}
+                name="amount"
+                defaultValue={editTarget?.amount}
                 placeholder="Nominal pembayaran"
               />
             </div>
             <div className="space-y-1.5">
               <Label>Tanggal Bayar</Label>
-              <Input
-                type="date"
-                name="tanggal_bayar"
-                defaultValue={
-                  editTarget?.tanggal_bayar
-                    ? format(new Date(editTarget.tanggal_bayar), "yyyy-MM-dd")
-                    : ""
-                }
+              <DatePicker
+                value={editPaymentDate}
+                onChange={setEditPaymentDate}
+                onClear={() => setEditPaymentDate("")}
+                placeholder="Pilih tanggal bayar"
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Periode (YYYY-MM)</Label>
-              <Input
-                name="periode"
-                defaultValue={editTarget?.periode}
-                placeholder="2026-06"
+              <Label>Periode</Label>
+              <MonthPicker
+                value={editPeriod}
+                onChange={setEditPeriod}
+                placeholder="Pilih periode"
+                className="w-full"
               />
             </div>
             <DialogFooter>
@@ -972,6 +1130,37 @@ export default function PaymentsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Write-off confirmation dialog */}
+      <AlertDialog
+        open={!!writeOffTarget}
+        onOpenChange={(v) => !v && setWriteOffTarget(null)}
+      >
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Tagihan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tagihan periode <strong>{writeOffTarget?.period}</strong> akan
+              ditandai sebagai dihapus. Data tetap tersimpan untuk keperluan
+              audit dan tidak dapat dikembalikan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (writeOffTarget) {
+                  writeOffMutation.mutate(writeOffTarget.id);
+                  setWriteOffTarget(null);
+                }
+              }}
+            >
+              Hapus Tagihan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

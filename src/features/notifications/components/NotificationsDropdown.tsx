@@ -36,15 +36,9 @@ import { formatDistanceToNow } from "date-fns";
 import { id } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { getApiErrorMessage } from "@/shared/utils/api-errors";
 
-interface Notification {
-  id: string;
-  tipe: string | null;
-  pesan: string;
-  is_read: boolean;
-  created_at: string;
-  referensi_id?: string | null;
-}
+import type { Notification } from "@/features/notifications/types";
 
 export function NotificationsDropdown() {
   const { user } = useAuth();
@@ -67,8 +61,10 @@ export function NotificationsDropdown() {
 
   const { mutate: markAsReadMutate } = useMarkNotificationRead();
   const markAsRead = {
-    mutate: markAsReadMutate,
-    onError: () => toast.error("Gagal menandai notifikasi"),
+    mutate: (id: string) =>
+      markAsReadMutate(id, {
+        onError: (err) => toast.error(getApiErrorMessage(err)),
+      }),
   };
 
   const { mutate: markAllMutate } = useMarkAllNotificationsRead();
@@ -76,7 +72,7 @@ export function NotificationsDropdown() {
     mutate: () =>
       markAllMutate(undefined, {
         onSuccess: () => toast.success("Semua notifikasi telah dibaca"),
-        onError: () => toast.error("Gagal menandai semua notifikasi"),
+        onError: (err) => toast.error(getApiErrorMessage(err)),
       }),
   };
 
@@ -96,6 +92,8 @@ export function NotificationsDropdown() {
         return "Tagihan Jatuh Tempo";
       case "payment_overdue":
         return "Tagihan Terlambat";
+      case "contract_reminder":
+        return "Pengingat Kontrak";
       case "payment":
         return "Pembayaran";
       case "maintenance":
@@ -145,6 +143,8 @@ export function NotificationsDropdown() {
         return "/dashboard/maintenance";
       case "invoice":
         return "/dashboard/payments";
+      case "viewer_request":
+        return "/dashboard/viewer-requests";
       case "login_new_device":
         return "/dashboard/profile";
       default:
@@ -153,8 +153,9 @@ export function NotificationsDropdown() {
   };
 
   const handleNotificationClick = (notification: Notification) => {
-    if (!notification.is_read) markAsRead.mutate(notification.id);
-    const target = getDeepLinkByType(notification.tipe);
+    if (!notification.is_read && user?.role !== "viewer")
+      markAsRead.mutate(notification.id);
+    const target = getDeepLinkByType(notification.type);
     if (target) {
       navigate(target);
       setOpen(false);
@@ -222,7 +223,7 @@ export function NotificationsDropdown() {
           ) : (
             notifications.map((notification) => {
               const isExpanded = expandedId === notification.id;
-              const isLongMessage = (notification.pesan?.length ?? 0) > 80;
+              const isLongMessage = (notification.message?.length ?? 0) > 80;
               return (
                 <DropdownMenuItem
                   key={notification.id}
@@ -230,18 +231,18 @@ export function NotificationsDropdown() {
                   onClick={() => handleNotificationClick(notification)}
                 >
                   <div className="flex-shrink-0 mt-0.5">
-                    {getNotificationIcon(notification.tipe)}
+                    {getNotificationIcon(notification.type)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p
                       className={`text-sm ${!notification.is_read ? "font-medium" : ""}`}
                     >
-                      {getTitleByType(notification.tipe)}
+                      {getTitleByType(notification.type)}
                     </p>
                     <p
                       className={`text-xs text-muted-foreground ${isExpanded ? "" : "line-clamp-2"}`}
                     >
-                      {notification.pesan}
+                      {notification.message}
                     </p>
                     {isLongMessage && (
                       <Button

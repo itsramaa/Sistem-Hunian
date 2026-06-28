@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -12,27 +12,30 @@ import {
 } from "@/shared/components/ui/form";
 import { Input } from "@/shared/components/ui/input";
 import { Button } from "@/shared/components/ui/button";
+import { DatePicker } from "@/shared/components/ui/date-picker";
 import { useCreateConfirmation } from "@/features/confirmations/hooks/useConfirmations";
 import { CreateConfirmationPayload } from "@/features/confirmations/types";
 
 const schema = z.object({
   room_id: z.string().uuid("Pilih kamar yang valid"),
-  nama_calon_penghuni: z.string().min(2, "Nama minimal 2 karakter"),
-  nomor_telepon: z.string().min(9, "Nomor telepon tidak valid"),
-  nominal_dp: z.coerce.number().positive("Nominal harus lebih dari 0"),
-  batas_tanggal_konfirmasi: z.string().min(1, "Tanggal wajib diisi"),
+  prospect_name: z.string().min(2, "Nama minimal 2 karakter"),
+  phone_number: z.string().min(9, "Nomor telepon tidak valid"),
+  down_payment_amount: z.coerce.number().positive("Nominal harus lebih dari 0"),
+  confirmation_deadline: z.string().min(1, "Tanggal wajib diisi"),
 });
 
 type FormValues = z.infer<typeof schema>;
 
 interface ConfirmationFormProps {
   onSuccess: () => void;
-  availableRooms: { id: string; nomor_kamar: string; nama_properti: string }[];
+  availableRooms: { id: string; room_number: string; property_name: string }[];
+  selectedRoomPrice?: number;
 }
 
 export function ConfirmationForm({
   onSuccess,
   availableRooms,
+  selectedRoomPrice,
 }: ConfirmationFormProps) {
   const { mutate, isPending } = useCreateConfirmation();
 
@@ -40,12 +43,20 @@ export function ConfirmationForm({
     resolver: zodResolver(schema),
     defaultValues: {
       room_id: "",
-      nama_calon_penghuni: "",
-      nomor_telepon: "",
-      nominal_dp: 0,
-      batas_tanggal_konfirmasi: "",
+      prospect_name: "",
+      phone_number: "",
+      down_payment_amount: selectedRoomPrice ? Math.round(selectedRoomPrice * 0.1) : 0,
+      confirmation_deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0],
     },
   });
+
+  useEffect(() => {
+    if (selectedRoomPrice) {
+      form.setValue("down_payment_amount", Math.round(selectedRoomPrice * 0.1));
+    }
+  }, [selectedRoomPrice, form]);
 
   const onSubmit = (values: FormValues) => {
     mutate(values as CreateConfirmationPayload, {
@@ -73,7 +84,7 @@ export function ConfirmationForm({
                   <option value="">-- Pilih Kamar --</option>
                   {availableRooms.map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.nomor_kamar} — {r.nama_properti}
+                      {r.room_number} — {r.property_name}
                     </option>
                   ))}
                 </select>
@@ -84,12 +95,12 @@ export function ConfirmationForm({
         />
         <FormField
           control={form.control}
-          name="nama_calon_penghuni"
+          name="prospect_name"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Nama Calon Penghuni</FormLabel>
               <FormControl>
-                <Input placeholder="Nama lengkap" {...field} />
+                <Input placeholder="Nama lengkap calon penghuni" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -97,12 +108,25 @@ export function ConfirmationForm({
         />
         <FormField
           control={form.control}
-          name="nominal_dp"
+          name="phone_number"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Nomor Telepon</FormLabel>
+              <FormControl>
+                <Input placeholder="08xxxxxxxxxx" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="down_payment_amount"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Nominal DP (Rp)</FormLabel>
               <FormControl>
-                <Input type="number" placeholder="0" {...field} />
+                <Input type="number" min={0} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -110,19 +134,23 @@ export function ConfirmationForm({
         />
         <FormField
           control={form.control}
-          name="batas_tanggal_konfirmasi"
+          name="confirmation_deadline"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Batas Tanggal Konfirmasi</FormLabel>
               <FormControl>
-                <Input type="date" {...field} />
+                <DatePicker
+                  value={field.value}
+                  onChange={field.onChange}
+                  placeholder="Pilih batas tanggal"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button type="submit" disabled={isPending} className="w-full">
-          {isPending ? "Menyimpan..." : "Catat Konfirmasi DP"}
+        <Button type="submit" disabled={isPending} className="w-full rounded-xl">
+          {isPending ? "Menyimpan..." : "Simpan Konfirmasi"}
         </Button>
       </form>
     </Form>

@@ -1,8 +1,10 @@
-# Environment
-.env
-.env*
-.env.local
-.env.*.local
+# Playwright
+playwright-report/
+playwright-report - bak/
+docs/testing/playwright-artifacts/
+docs/testing/screenshots/
+test-output.txt
+
 
 # Logs
 logs

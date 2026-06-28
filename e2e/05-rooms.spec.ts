@@ -9,7 +9,7 @@ test.describe("Manajemen Kamar (Operator)", () => {
   test("AC-ROOM-01: Daftar kamar tampil dengan tabel", async ({ page }) => {
     await page.goto("/dashboard/rooms");
     await page.waitForLoadState("networkidle");
-    await saveScreenshot(page, "rooms-list");
+    await saveScreenshot(page, "kf03-list");
     const content = page.locator("table, [class*='table'], [class*='card']");
     await expect(content.first()).toBeVisible({ timeout: 15000 });
   });
@@ -17,8 +17,10 @@ test.describe("Manajemen Kamar (Operator)", () => {
   test("AC-ROOM-02: Status badge warna tampil", async ({ page }) => {
     await page.goto("/dashboard/rooms");
     await page.waitForLoadState("networkidle");
-    await saveScreenshot(page, "rooms-badges");
-    const badges = page.locator("[class*='badge'], [class*='Badge'], span[class*='status']");
+    await saveScreenshot(page, "kf03-badges");
+    const badges = page.locator(
+      "[class*='badge'], [class*='Badge'], span[class*='status']",
+    );
     // At least some badges should be visible
     if ((await badges.count()) > 0) {
       await expect(badges.first()).toBeVisible();
@@ -29,21 +31,25 @@ test.describe("Manajemen Kamar (Operator)", () => {
     await page.goto("/dashboard/rooms");
     await page.waitForLoadState("networkidle");
     // Find select/filter for property
-    const filterSelect = page.locator("select, [class*='select'], [role='combobox']").first();
+    const filterSelect = page
+      .locator("select, [class*='select'], [role='combobox']")
+      .first();
     if (await filterSelect.isVisible({ timeout: 5000 }).catch(() => false)) {
       await filterSelect.click();
-      await saveScreenshot(page, "rooms-filter-prop");
+      await saveScreenshot(page, "kf03-filter-prop");
     }
   });
 
   test("AC-ROOM-04: Filter status berfungsi", async ({ page }) => {
     await page.goto("/dashboard/rooms");
     await page.waitForLoadState("networkidle");
-    const selects = page.locator("select, [class*='select'], [role='combobox']");
+    const selects = page.locator(
+      "select, [class*='select'], [role='combobox']",
+    );
     const count = await selects.count();
     if (count > 1) {
       await selects.nth(1).click();
-      await saveScreenshot(page, "rooms-filter-status");
+      await saveScreenshot(page, "kf03-filter-status");
     }
   });
 
@@ -54,7 +60,7 @@ test.describe("Manajemen Kamar (Operator)", () => {
     if (await firstLink.isVisible({ timeout: 5000 }).catch(() => false)) {
       await firstLink.click();
       await page.waitForLoadState("networkidle");
-      await saveScreenshot(page, "rooms-detail");
+      await saveScreenshot(page, "kf03-detail");
       expect(page.url()).toContain("/rooms/");
     }
   });

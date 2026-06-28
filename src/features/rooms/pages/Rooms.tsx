@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import {
   useRooms,
   useCreateRoom,
@@ -68,6 +69,12 @@ import { useIsMobile } from "@/shared/hooks/useBreakpoint";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { cn } from "@/shared/utils/utils";
 
+const STATUS_TOOLTIP: Record<string, string> = {
+  available: "Kamar tersedia dan dapat disewakan",
+  occupied: "Kamar sedang dihuni",
+  dp_confirmation: "Kamar dalam proses konfirmasi calon penghuni",
+};
+
 const STATUS_CONFIG: Record<
   string,
   { label: string; className: string; icon: React.ElementType; dot: string }
@@ -100,6 +107,7 @@ function StatusBadge({ status }: { status: string }) {
   };
   return (
     <span
+      title={STATUS_TOOLTIP[status]}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
         cfg.className,
@@ -115,6 +123,8 @@ export default function RoomsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { role } = useAuth();
+  const isOperator = role === "operator";
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [propertyFilter, setPropertyFilter] = useState(
@@ -126,6 +136,10 @@ export default function RoomsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Room | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Room | null>(null);
+  const [confirmPayload, setConfirmPayload] = useState<{
+    data: any;
+    mode: "create" | "edit";
+  } | null>(null);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const debouncedSearch = useDebounce(search, 300);
   const { toast } = useToast();
@@ -145,21 +159,21 @@ export default function RoomsPage() {
 
   const rawRooms = roomsData?.rooms ?? [];
   const rooms = [...rawRooms]
-    .filter((r: any) => !tipeFilter || r.tipe === tipeFilter)
+    .filter((r: any) => !tipeFilter || r.room_type === tipeFilter)
     .sort((a: any, b: any) => {
       switch (sortBy) {
         case "nomor_asc":
-          return a.nomor_kamar.localeCompare(b.nomor_kamar, undefined, {
+          return a.room_number.localeCompare(b.room_number, undefined, {
             numeric: true,
           });
         case "nomor_desc":
-          return b.nomor_kamar.localeCompare(a.nomor_kamar, undefined, {
+          return b.room_number.localeCompare(a.room_number, undefined, {
             numeric: true,
           });
         case "harga_asc":
-          return (a.harga_sewa ?? 0) - (b.harga_sewa ?? 0);
+          return (a.rent_price ?? 0) - (b.rent_price ?? 0);
         case "harga_desc":
-          return (b.harga_sewa ?? 0) - (a.harga_sewa ?? 0);
+          return (b.rent_price ?? 0) - (a.rent_price ?? 0);
         default:
           return 0;
       }
@@ -178,35 +192,44 @@ export default function RoomsPage() {
   };
 
   const handleCreate = async (payload: any) => {
-    try {
-      await createMutation.mutateAsync(payload);
-      setFormOpen(false);
-      toast({
-        title: "Kamar berhasil ditambahkan",
-        description: "Kamar baru telah disimpan ke sistem.",
-      });
-    } catch (err) {
-      toast({
-        variant: "destructive",
-        title: "Gagal menambahkan kamar",
-        description: getApiErrorMessage(err),
-      });
-    }
+    setConfirmPayload({ data: payload, mode: "create" });
   };
 
   const handleUpdate = async (payload: any) => {
     if (!editing) return;
+    setConfirmPayload({ data: payload, mode: "edit" });
+  };
+
+  const handleConfirmSubmit = async () => {
+    if (!confirmPayload) return;
     try {
-      await updateMutation.mutateAsync({ id: editing.id, payload });
-      setEditing(null);
-      setFormOpen(false);
-      toast({ title: "Kamar berhasil diperbarui" });
+      if (confirmPayload.mode === "create") {
+        await createMutation.mutateAsync(confirmPayload.data);
+        setFormOpen(false);
+        toast({
+          title: "Kamar berhasil ditambahkan",
+          description: "Kamar baru telah disimpan ke sistem.",
+        });
+      } else {
+        await updateMutation.mutateAsync({
+          id: editing!.id,
+          payload: confirmPayload.data,
+        });
+        setEditing(null);
+        setFormOpen(false);
+        toast({ title: "Kamar berhasil diperbarui" });
+      }
     } catch (err) {
       toast({
         variant: "destructive",
-        title: "Gagal memperbarui kamar",
+        title:
+          confirmPayload.mode === "create"
+            ? "Gagal menambahkan kamar"
+            : "Gagal memperbarui kamar",
         description: getApiErrorMessage(err),
       });
+    } finally {
+      setConfirmPayload(null);
     }
   };
 
@@ -217,7 +240,7 @@ export default function RoomsPage() {
       setDeleteTarget(null);
       toast({
         title: "Kamar berhasil dihapus",
-        description: `Kamar ${deleteTarget.nomor_kamar} telah dihapus.`,
+        description: `Kamar ${deleteTarget.room_number} telah dihapus.`,
       });
     } catch (err) {
       toast({
@@ -254,24 +277,28 @@ export default function RoomsPage() {
           Bayar
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={(e) => {
-            e.stopPropagation();
-            setEditing(room);
-            setFormOpen(true);
-          }}
-        >
-          <Edit className="h-4 w-4 mr-2 text-muted-foreground" /> Ubah
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={(e) => {
-            e.stopPropagation();
-            setDeleteTarget(room);
-          }}
-          className="text-destructive focus:text-destructive"
-        >
-          <Trash2 className="h-4 w-4 mr-2" /> Hapus
-        </DropdownMenuItem>
+        {isOperator && (
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditing(room);
+              setFormOpen(true);
+            }}
+          >
+            <Edit className="h-4 w-4 mr-2 text-muted-foreground" /> Ubah
+          </DropdownMenuItem>
+        )}
+        {isOperator && (
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              setDeleteTarget(room);
+            }}
+            className="text-destructive focus:text-destructive"
+          >
+            <Trash2 className="h-4 w-4 mr-2" /> Hapus
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -319,16 +346,18 @@ export default function RoomsPage() {
             Kelola seluruh kamar di semua properti
           </p>
         </div>
-        <Button
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-          className="shrink-0 gap-2 rounded-xl h-10"
-        >
-          <Plus className="h-4 w-4" />
-          Tambah Kamar
-        </Button>
+        {isOperator && (
+          <Button
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+            className="shrink-0 gap-2 rounded-xl h-10"
+          >
+            <Plus className="h-4 w-4" />
+            Tambah Kamar
+          </Button>
+        )}
       </div>
 
       {/* Summary Strip */}
@@ -424,7 +453,7 @@ export default function RoomsPage() {
                 <SelectItem value=" ">Semua properti</SelectItem>
                 {properties.map((p: any) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.nama}
+                    {p.property_name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -504,8 +533,8 @@ export default function RoomsPage() {
                 }}
                 className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-xs font-medium hover:bg-primary/20 transition-colors"
               >
-                {properties.find((p: any) => p.id === propertyFilter)?.nama ??
-                  "Properti"}
+                {properties.find((p: any) => p.id === propertyFilter)
+                  ?.property_name ?? "Properti"}
                 <span className="ml-0.5 text-primary/70">×</span>
               </button>
             )}
@@ -543,7 +572,7 @@ export default function RoomsPage() {
               : "Tambah kamar untuk properti Anda."
           }
           action={
-            !debouncedSearch && !statusFilter && !propertyFilter
+            isOperator && !debouncedSearch && !statusFilter && !propertyFilter
               ? {
                   label: "Tambah Kamar",
                   onClick: () => {
@@ -571,10 +600,10 @@ export default function RoomsPage() {
                   </div>
                   <div className="min-w-0">
                     <p className="font-semibold text-sm text-foreground">
-                      Kamar {room.nomor_kamar}
+                      Kamar {room.room_number}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">
-                      {room.nama_properti}
+                      {room.property_name}
                     </p>
                   </div>
                 </div>
@@ -587,20 +616,20 @@ export default function RoomsPage() {
                 <div>
                   <p className="text-xs text-muted-foreground">Tipe</p>
                   <p className="font-medium text-foreground mt-0.5">
-                    {room.tipe_kamar}
+                    {room.room_type}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Harga Sewa</p>
                   <p className="font-semibold text-foreground mt-0.5 tabular-nums">
-                    Rp{room.harga_sewa.toLocaleString("id-ID")}
+                    Rp{(room.rent_price ?? 0).toLocaleString("id-ID")}
                   </p>
                 </div>
-                {room.penghuni_aktif && (
+                {room.active_tenant_name && (
                   <div className="col-span-2">
                     <p className="text-xs text-muted-foreground">Penghuni</p>
                     <p className="font-medium text-foreground mt-0.5 truncate">
-                      {room.penghuni_aktif}
+                      {room.active_tenant_name}
                     </p>
                   </div>
                 )}
@@ -655,30 +684,30 @@ export default function RoomsPage() {
                           <BedDouble className="h-4 w-4 text-primary" />
                         </div>
                         <span className="font-semibold text-sm text-foreground">
-                          {room.nomor_kamar}
+                          {room.room_number}
                         </span>
                       </div>
                     </TableCell>
                     <TableCell className="py-3.5">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground max-w-[180px]">
                         <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
-                        <span className="truncate">{room.nama_properti}</span>
+                        <span className="truncate">{room.property_name}</span>
                       </div>
                     </TableCell>
                     <TableCell className="py-3.5">
                       <span className="text-sm text-foreground">
-                        {room.tipe_kamar}
+                        {room.room_type}
                       </span>
                     </TableCell>
                     <TableCell className="py-3.5 text-right">
                       <span className="text-sm font-semibold tabular-nums text-foreground">
-                        Rp{room.harga_sewa.toLocaleString("id-ID")}
+                        Rp{(room.rent_price ?? 0).toLocaleString("id-ID")}
                       </span>
                     </TableCell>
                     <TableCell className="py-3.5">
-                      {room.penghuni_aktif ? (
+                      {room.active_tenant_name ? (
                         <span className="text-sm text-foreground">
-                          {room.penghuni_aktif}
+                          {room.active_tenant_name}
                         </span>
                       ) : (
                         <span className="text-sm text-muted-foreground/50">
@@ -710,6 +739,56 @@ export default function RoomsPage() {
         isLoading={createMutation.isPending || updateMutation.isPending}
       />
 
+      {/* Konfirmasi simpan (create/edit) */}
+      <Dialog
+        open={!!confirmPayload}
+        onOpenChange={(v) => !v && setConfirmPayload(null)}
+      >
+        <DialogContent className="sm:max-w-sm rounded-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                <BedDouble className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <DialogTitle className="text-base">
+                  {confirmPayload?.mode === "create"
+                    ? "Tambah Kamar"
+                    : "Ubah Kamar"}
+                </DialogTitle>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {confirmPayload?.mode === "create"
+                    ? "Konfirmasi penambahan kamar baru ke sistem."
+                    : "Konfirmasi perubahan data kamar ini."}
+                </p>
+              </div>
+            </div>
+          </DialogHeader>
+          <DialogFooter className="gap-2 pt-2">
+            <Button
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => setConfirmPayload(null)}
+              disabled={createMutation.isPending || updateMutation.isPending}
+            >
+              Batal
+            </Button>
+            <Button
+              onClick={handleConfirmSubmit}
+              disabled={createMutation.isPending || updateMutation.isPending}
+              className="gap-2 rounded-xl"
+            >
+              {(createMutation.isPending || updateMutation.isPending) && (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              )}
+              {confirmPayload?.mode === "create"
+                ? "Ya, Tambahkan"
+                : "Ya, Simpan Perubahan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Confirmation Dialog */}
       <Dialog
         open={!!deleteTarget}
@@ -724,8 +803,10 @@ export default function RoomsPage() {
               <div>
                 <DialogTitle className="text-base">Hapus Kamar</DialogTitle>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  Kamar <strong>{deleteTarget?.nomor_kamar}</strong> akan
-                  dihapus permanen.
+                  Kamar <strong>{deleteTarget?.room_number}</strong> akan
+                  dihapus permanen. Tidak bisa dihapus jika kamar sedang
+                  berstatus <strong>Terisi</strong> atau{" "}
+                  <strong>Konfirmasi DP</strong>.
                 </p>
               </div>
             </div>

@@ -15,7 +15,6 @@ interface ProtectedRouteProps {
 function getHomePath(role: AppRole): string {
   const map: Record<AppRole, string> = {
     operator: "/dashboard",
-    manager: "/dashboard",
     viewer: "/dashboard",
   };
   return map[role] ?? "/";
@@ -24,7 +23,6 @@ function getHomePath(role: AppRole): string {
 function getRoleDisplayName(role: AppRole): string {
   const map: Record<AppRole, string> = {
     operator: "Operator",
-    manager: "Manajer",
     viewer: "Viewer",
   };
   return map[role] ?? role;
@@ -34,7 +32,7 @@ export function ProtectedRoute({
   children,
   allowedRoles,
 }: ProtectedRouteProps) {
-  const { user, role, isLoading } = useAuth();
+  const { user, role, isLoading, error } = useAuth();
   const location = useLocation();
   const hasShownToast = useRef(false);
 
@@ -48,8 +46,16 @@ export function ProtectedRoute({
   }
 
   // Not authenticated → redirect to login
+  // Jika akun dinonaktifkan, kirim state agar AuthForm bisa tampilkan pesan yang sesuai
   if (!user) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    const accountDisabled = error?.message === "account_disabled";
+    return (
+      <Navigate
+        to="/login"
+        state={{ from: location, accountDisabled }}
+        replace
+      />
+    );
   }
 
   // Authenticated but no role assigned yet
@@ -68,7 +74,7 @@ export function ProtectedRoute({
           description: `Halaman ini hanya dapat diakses oleh ${allowed}.`,
         });
       }
-      return <Navigate to={getHomePath(role)} replace />;
+      return <Navigate to="/unauthorized" replace />;
     }
   }
 

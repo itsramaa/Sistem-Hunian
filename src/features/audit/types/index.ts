@@ -1,7 +1,9 @@
+// Audit Trail — sesuai schema DB & Class Diagram
 export interface AuditFilters {
   page: number;
   limit: number;
   property_id?: string;
+  room_id?: string;
   new_status?: string;
   from_date?: string;
   to_date?: string;
@@ -11,11 +13,11 @@ export interface AuditFilters {
 export interface RoomStatusLog {
   id: string;
   room_id: string;
-  nomor_kamar: string;
-  nama_properti: string;
-  old_status: string;
+  room_number?: string;
+  property_name?: string;
+  old_status: string | null;
   new_status: string;
-  changed_by: string;
-  changed_at: string;
-  reason: string;
+  changed_by: string | null;
+  user_name?: string | null;
+  created_at: string;
 }

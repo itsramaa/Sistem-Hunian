@@ -27,6 +27,7 @@ interface AuthContextType extends AuthState {
   signUp: (...args: unknown[]) => Promise<{ data: null; error: Error }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  canWrite: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -47,15 +48,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
   };
 
-  // GET /api/v1/auth/me — shape: { id, nama, email, role }
+  // GET /api/v1/auth/me — shape: { id, nama, email, role, is_active }
   const refreshProfile = useCallback(async () => {
     setError(null);
     try {
       const data = await authApi.getMe();
+      if (!data.is_active) {
+        // Akun dinonaktifkan — invalidasi sesi yang sedang berjalan
+        clearAuth();
+        setError(new Error("account_disabled"));
+        return;
+      }
       setUser({
         id: data.id,
         email: data.email,
-        nama: data.nama,
+        name: data.name,
         role: data.role,
       });
       setProfile(data);
@@ -94,7 +101,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sessionStorage.setItem(TOKEN_KEY, data.access_token);
         localStorage.removeItem(TOKEN_KEY);
       }
-      await refreshProfile();
+      // Ambil profile untuk cek is_active sebelum lanjut ke dashboard
+      const profile = await authApi.getMe();
+      if (!profile.is_active) {
+        // Akun dinonaktifkan oleh Operator — clear token dan tolak akses
+        localStorage.removeItem(TOKEN_KEY);
+        sessionStorage.removeItem(TOKEN_KEY);
+        return {
+          error: new Error(
+            "Akun ini telah dinonaktifkan. Hubungi administrator untuk bantuan.",
+          ),
+        };
+      }
+      setUser({
+        id: profile.id,
+        email: profile.email,
+        name: profile.name,
+        role: profile.role,
+      });
+      setProfile(profile);
+      setRole(profile.role ?? null);
       return { error: null };
     } catch (err) {
       return { error: new Error(getApiErrorMessage(err)) };
@@ -125,6 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signUp,
         signOut,
         refreshProfile,
+        canWrite: role === "operator",
       }}
     >
       {children}

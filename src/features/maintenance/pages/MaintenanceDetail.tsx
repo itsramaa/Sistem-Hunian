@@ -8,7 +8,8 @@ import {
   useMaintenanceLogs,
 } from "../hooks/useMaintenance";
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { UpdateMaintenancePayload } from "../types";
+import { MaintenanceProcessDialog } from "../components/MaintenanceProcessDialog";
+import { MaintenanceCompleteDialog } from "../components/MaintenanceCompleteDialog";
 import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
 import {
@@ -18,6 +19,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/shared/components/ui/dialog";
+
 import { Label } from "@/shared/components/ui/label";
 import { Input } from "@/shared/components/ui/input";
 import { Textarea } from "@/shared/components/ui/textarea";
@@ -42,10 +44,10 @@ import { cn } from "@/shared/utils/utils";
 import { getApiErrorMessage } from "@/shared/utils/api-errors";
 import { getSiHuniStatus } from "@/shared/utils/statusColors";
 import { formatCurrency } from "@/shared/utils/currency";
+import { PhotoUploadButton } from "@/shared/components/ui/PhotoUploadButton";
 import { useToast } from "@/shared/hooks/use-toast";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+
+const MAX_FOTO_SIZE = 6 * 1024 * 1024; // 6 MB sesuai spesifikasi
 
 const statusConfig = {
   reported: {
@@ -62,20 +64,14 @@ const statusConfig = {
   },
 } as const;
 
-const updateSchema = z.object({
-  tindakan_penanganan: z.string().optional(),
-  biaya: z.coerce.number().min(0).optional(),
-  status: z.enum(["reported", "in_progress", "completed"]),
-});
-type UpdateForm = z.infer<typeof updateSchema>;
-
 export default function MaintenanceDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { role } = useAuth();
-  const isOperatorOrManager = role === "operator" || role === "manager";
-  const [updateOpen, setUpdateOpen] = useState(false);
+  const isOperator = role === "operator";
+  const [processOpen, setProcessOpen] = useState(false);
+  const [completeOpen, setCompleteOpen] = useState(false);
   const fotoKerusakanRef = useRef<HTMLInputElement>(null);
   const fotoPenangananRef = useRef<HTMLInputElement>(null);
 
@@ -86,39 +82,55 @@ export default function MaintenanceDetail() {
   const uploadKerusakanMutation = useUploadFotoKerusakan();
   const uploadPenangananMutation = useUploadFotoPenanganan();
 
-  const form = useForm<UpdateForm>({
-    resolver: zodResolver(updateSchema),
-    defaultValues: { tindakan_penanganan: "", biaya: 0, status: "reported" },
-  });
-
-  const openUpdate = () => {
-    if (!maintenance) return;
-    form.reset({
-      tindakan_penanganan: maintenance.tindakan_penanganan ?? "",
-      biaya: maintenance.biaya ?? 0,
-      status: maintenance.status,
-    });
-    setUpdateOpen(true);
-  };
-
-  const handleUpdate = async (payload: UpdateForm) => {
-    if (!id) return;
+  const handleProcess = async (id: string, handlerName: string) => {
     try {
       await updateMutation.mutateAsync({
         id,
-        payload: payload as UpdateMaintenancePayload,
+        payload: {
+          status: "in_progress",
+          repair_action: `Ditangani oleh: ${handlerName}`,
+        },
       });
-      setUpdateOpen(false);
-      toast({
-        title: "Progress maintenance berhasil diperbarui",
-        description: "Status dan tindakan penanganan telah disimpan.",
-      });
+      toast({ title: "Maintenance ditandai sedang diproses" });
     } catch (err) {
       toast({
         variant: "destructive",
-        title: "Gagal memperbarui maintenance",
+        title: "Gagal",
         description: getApiErrorMessage(err),
       });
+    }
+  };
+
+  const handleComplete = async (
+    id: string,
+    actions: string[],
+    costVal: number,
+  ) => {
+    try {
+      await updateMutation.mutateAsync({
+        id,
+        payload: {
+          status: "completed",
+          repair_action: actions.join("\n"),
+          cost: costVal,
+        },
+      });
+      toast({ title: "Maintenance ditandai selesai" });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Gagal",
+        description: getApiErrorMessage(err),
+      });
+    }
+  };
+
+  const openUpdate = () => {
+    if (!maintenance) return;
+    if (maintenance.status === "reported") {
+      setProcessOpen(true);
+    } else if (maintenance.status === "in_progress") {
+      setCompleteOpen(true);
     }
   };
 
@@ -193,11 +205,11 @@ export default function MaintenanceDetail() {
             variant="ghost"
             size="sm"
             onClick={() => navigate("/dashboard/maintenance")}
-            className="gap-2 rounded-xl"
+            className="gap-2 rounded-xl hidden md:inline-flex"
           >
             <ArrowLeft className="h-4 w-4" /> Kembali
           </Button>
-          {maintenance.status !== "completed" && (
+          {isOperator && maintenance.status !== "completed" && (
             <Button onClick={openUpdate} className="gap-2 rounded-xl" size="sm">
               <Pencil className="h-4 w-4" /> Update Progress
             </Button>
@@ -219,7 +231,7 @@ export default function MaintenanceDetail() {
             <div className="flex justify-between items-start gap-2">
               <dt className="text-sm text-muted-foreground shrink-0">Kamar</dt>
               <dd className="text-sm font-medium text-foreground text-right">
-                {maintenance.nomor_kamar || "—"}
+                {maintenance.room_number || "—"}
               </dd>
             </div>
             <div className="flex justify-between items-start gap-2">
@@ -227,7 +239,7 @@ export default function MaintenanceDetail() {
                 Properti
               </dt>
               <dd className="text-sm font-medium text-foreground text-right truncate max-w-[60%]">
-                {maintenance.nama_properti || "—"}
+                {maintenance.property_name || "—"}
               </dd>
             </div>
             <div className="flex justify-between items-center gap-2">
@@ -235,7 +247,7 @@ export default function MaintenanceDetail() {
                 Tanggal Laporan
               </dt>
               <dd className="text-sm font-medium text-foreground">
-                {fmt(maintenance.tanggal_laporan)}
+                {fmt(maintenance.report_date)}
               </dd>
             </div>
             <div className="flex justify-between items-center gap-2">
@@ -263,8 +275,8 @@ export default function MaintenanceDetail() {
             <div className="flex justify-between items-center gap-2">
               <dt className="text-sm text-muted-foreground shrink-0">Biaya</dt>
               <dd className="text-sm font-medium text-foreground tabular-nums">
-                {maintenance.biaya != null
-                  ? formatCurrency(maintenance.biaya)
+                {maintenance.cost != null
+                  ? formatCurrency(maintenance.cost)
                   : "—"}
               </dd>
             </div>
@@ -297,12 +309,12 @@ export default function MaintenanceDetail() {
           </span>
         </div>
         <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-          {maintenance.deskripsi_kerusakan || "—"}
+          {maintenance.damage_description || "—"}
         </p>
       </div>
 
       {/* Tindakan Penanganan */}
-      {maintenance.tindakan_penanganan && (
+      {maintenance.repair_action && (
         <div className="glass-card p-4 space-y-2">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <Wrench className="h-4 w-4" />
@@ -311,13 +323,13 @@ export default function MaintenanceDetail() {
             </span>
           </div>
           <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-            {maintenance.tindakan_penanganan}
+            {maintenance.repair_action}
           </p>
         </div>
       )}
 
       {/* Foto Kerusakan */}
-      {(maintenance.foto_kerusakan_url || isOperatorOrManager) && (
+      {(maintenance.damage_photo_url || isOperator) && (
         <div className="glass-card p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-muted-foreground">
@@ -326,53 +338,37 @@ export default function MaintenanceDetail() {
                 Foto Kerusakan
               </span>
             </div>
-            {isOperatorOrManager && !maintenance.foto_kerusakan_url && (
-              <>
-                <input
-                  ref={fotoKerusakanRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file || !id) return;
-                    try {
-                      await uploadKerusakanMutation.mutateAsync({ id, file });
-                      toast({ title: "Foto kerusakan berhasil diupload" });
-                    } catch (err) {
-                      toast({
-                        variant: "destructive",
-                        title: "Gagal upload foto",
-                        description: getApiErrorMessage(err),
-                      });
-                    }
-                    e.target.value = "";
-                  }}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 rounded-xl text-xs"
-                  disabled={uploadKerusakanMutation.isPending}
-                  onClick={() => fotoKerusakanRef.current?.click()}
-                >
-                  {uploadKerusakanMutation.isPending ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    "Upload Foto"
-                  )}
-                </Button>
-              </>
+            {isOperator && !maintenance.damage_photo_url && (
+              <PhotoUploadButton
+                label="Upload Foto"
+                onUpload={async (file) => {
+                  try {
+                    await uploadKerusakanMutation.mutateAsync({
+                      id: id!,
+                      file,
+                    });
+                    toast({ title: "Foto kerusakan berhasil diupload" });
+                  } catch (err) {
+                    toast({
+                      variant: "destructive",
+                      title: "Gagal upload foto",
+                      description: getApiErrorMessage(err),
+                    });
+                  }
+                }}
+                isUploading={uploadKerusakanMutation.isPending}
+                showCamera
+              />
             )}
           </div>
-          {maintenance.foto_kerusakan_url ? (
+          {maintenance.damage_photo_url ? (
             <a
-              href={maintenance.foto_kerusakan_url}
+              href={maintenance.damage_photo_url}
               target="_blank"
               rel="noopener noreferrer"
             >
               <img
-                src={maintenance.foto_kerusakan_url}
+                src={maintenance.damage_photo_url}
                 alt="Foto kerusakan"
                 className="w-full max-h-64 object-cover rounded-xl border border-border cursor-pointer hover:opacity-90 transition-opacity"
               />
@@ -386,8 +382,8 @@ export default function MaintenanceDetail() {
       )}
 
       {/* Foto Penanganan */}
-      {(maintenance.foto_penanganan_url ||
-        (isOperatorOrManager && maintenance.status !== "reported")) && (
+      {(maintenance.repair_photo_url ||
+        (isOperator && maintenance.status !== "reported")) && (
         <div className="glass-card p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-muted-foreground">
@@ -396,53 +392,37 @@ export default function MaintenanceDetail() {
                 Foto Penanganan
               </span>
             </div>
-            {isOperatorOrManager && !maintenance.foto_penanganan_url && (
-              <>
-                <input
-                  ref={fotoPenangananRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file || !id) return;
-                    try {
-                      await uploadPenangananMutation.mutateAsync({ id, file });
-                      toast({ title: "Foto penanganan berhasil diupload" });
-                    } catch (err) {
-                      toast({
-                        variant: "destructive",
-                        title: "Gagal upload foto",
-                        description: getApiErrorMessage(err),
-                      });
-                    }
-                    e.target.value = "";
-                  }}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 rounded-xl text-xs"
-                  disabled={uploadPenangananMutation.isPending}
-                  onClick={() => fotoPenangananRef.current?.click()}
-                >
-                  {uploadPenangananMutation.isPending ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    "Upload Foto"
-                  )}
-                </Button>
-              </>
+            {isOperator && !maintenance.repair_photo_url && (
+              <PhotoUploadButton
+                label="Upload Foto"
+                onUpload={async (file) => {
+                  try {
+                    await uploadPenangananMutation.mutateAsync({
+                      id: id!,
+                      file,
+                    });
+                    toast({ title: "Foto penanganan berhasil diupload" });
+                  } catch (err) {
+                    toast({
+                      variant: "destructive",
+                      title: "Gagal upload foto",
+                      description: getApiErrorMessage(err),
+                    });
+                  }
+                }}
+                isUploading={uploadPenangananMutation.isPending}
+                showCamera
+              />
             )}
           </div>
-          {maintenance.foto_penanganan_url ? (
+          {maintenance.repair_photo_url ? (
             <a
-              href={maintenance.foto_penanganan_url}
+              href={maintenance.repair_photo_url}
               target="_blank"
               rel="noopener noreferrer"
             >
               <img
-                src={maintenance.foto_penanganan_url}
+                src={maintenance.repair_photo_url}
                 alt="Foto penanganan"
                 className="w-full max-h-64 object-cover rounded-xl border border-border cursor-pointer hover:opacity-90 transition-opacity"
               />
@@ -490,14 +470,14 @@ export default function MaintenanceDetail() {
                         ? "Diproses"
                         : "Selesai"}
                   </p>
-                  {log.catatan && (
+                  {log.notes && (
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {log.catatan}
+                      {log.notes}
                     </p>
                   )}
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {fmt(log.created_at)}
-                    {log.updated_by_email && ` · ${log.updated_by_email}`}
+                    {log.updated_by_name && ` · ${log.updated_by_name}`}
                   </p>
                 </div>
               </div>
@@ -519,7 +499,7 @@ export default function MaintenanceDetail() {
             <div className="text-left">
               <p className="text-sm font-medium">Detail Kamar</p>
               <p className="text-xs text-muted-foreground">
-                Kamar {maintenance.nomor_kamar || "—"}
+                Kamar {maintenance.room_number || "—"}
               </p>
             </div>
           </Button>
@@ -541,76 +521,19 @@ export default function MaintenanceDetail() {
         </div>
       </div>
 
-      {/* Update Dialog */}
-      <Dialog open={updateOpen} onOpenChange={setUpdateOpen}>
-        <DialogContent className="rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Update Progress Maintenance</DialogTitle>
-          </DialogHeader>
-          <form
-            onSubmit={form.handleSubmit(handleUpdate)}
-            className="space-y-4"
-          >
-            <div className="space-y-1.5">
-              <Label>Status</Label>
-              <Select
-                value={form.watch("status")}
-                onValueChange={(v) =>
-                  form.setValue("status", v as UpdateForm["status"])
-                }
-              >
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="reported">Dilaporkan</SelectItem>
-                  <SelectItem value="in_progress">Diproses</SelectItem>
-                  <SelectItem value="completed">Selesai</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Tindakan Penanganan</Label>
-              <Textarea
-                {...form.register("tindakan_penanganan")}
-                placeholder="Jelaskan tindakan yang dilakukan..."
-                className="rounded-xl resize-none"
-                rows={3}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Biaya (opsional)</Label>
-              <Input
-                type="number"
-                min={0}
-                {...form.register("biaya")}
-                placeholder="0"
-                className="rounded-xl"
-              />
-            </div>
-            <DialogFooter className="gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setUpdateOpen(false)}
-                className="rounded-xl"
-              >
-                Batal
-              </Button>
-              <Button
-                type="submit"
-                disabled={updateMutation.isPending}
-                className="rounded-xl gap-2"
-              >
-                {updateMutation.isPending && (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                )}
-                Simpan
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {/* Process / Complete dialogs */}
+      <MaintenanceProcessDialog
+        maintenance={maintenance}
+        open={processOpen}
+        onClose={() => setProcessOpen(false)}
+        onSubmit={handleProcess}
+      />
+      <MaintenanceCompleteDialog
+        maintenance={maintenance}
+        open={completeOpen}
+        onClose={() => setCompleteOpen(false)}
+        onSubmit={handleComplete}
+      />
     </div>
   );
 }

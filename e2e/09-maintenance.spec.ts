@@ -9,7 +9,7 @@ test.describe("Manajemen Maintenance (Operator)", () => {
   test("AC-MAINT-01: Daftar maintenance tampil", async ({ page }) => {
     await page.goto("/dashboard/maintenance");
     await page.waitForLoadState("networkidle");
-    await saveScreenshot(page, "maintenance-list");
+    await saveScreenshot(page, "kf08-list");
     const content = page.locator("table, [class*='table'], [class*='card']");
     await expect(content.first()).toBeVisible({ timeout: 15000 });
   });
@@ -20,11 +20,11 @@ test.describe("Manajemen Maintenance (Operator)", () => {
     const selects = page.locator(
       "select, [class*='select'], [role='combobox']",
     );
-    await saveScreenshot(page, "maintenance-filters");
+    await saveScreenshot(page, "kf08-filters");
     if ((await selects.count()) > 0) {
       await selects.first().click();
       await page.waitForTimeout(500);
-      await saveScreenshot(page, "maintenance-filter-open");
+      await saveScreenshot(page, "kf08-filter-open");
     }
   });
 
@@ -37,25 +37,8 @@ test.describe("Manajemen Maintenance (Operator)", () => {
     if (await firstLink.isVisible({ timeout: 5000 }).catch(() => false)) {
       await firstLink.click();
       await page.waitForLoadState("networkidle");
-      await saveScreenshot(page, "maintenance-detail");
+      await saveScreenshot(page, "kf08-detail");
       expect(page.url()).toContain("/maintenance/");
     }
-  });
-});
-
-test.describe("Manajemen Maintenance (Manager)", () => {
-  test.beforeEach(async ({ page }) => {
-    await login(page, "manager");
-    // Wait for auth state to fully settle before navigating
-    await page.waitForTimeout(2000);
-  });
-
-  test("AC-MAINT-07: Manager dapat akses maintenance", async ({ page }) => {
-    await page.goto("/dashboard/maintenance");
-    await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(2000);
-    await saveScreenshot(page, "maintenance-manager");
-    // Per router.tsx maintenance allows ['operator', 'manager']
-    expect(page.url()).toContain("/maintenance");
   });
 });

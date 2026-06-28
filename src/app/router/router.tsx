@@ -11,10 +11,6 @@ const Unauthorized = lazy(() => import("@/app/pages/UnauthorizedPage"));
 
 // Auth
 const Auth = lazy(() => import("@/features/auth/pages/Auth"));
-const ResetPassword = lazy(() => import("@/features/auth/pages/ResetPassword"));
-const UpdatePassword = lazy(
-  () => import("@/features/auth/pages/UpdatePassword"),
-);
 
 // SRS core features — §4.2–§4.8 + Audit Trail
 const OperatorDashboard = lazy(
@@ -56,6 +52,9 @@ const OperatorMaintenanceDetail = lazy(
 );
 const OperatorAuditTrail = lazy(
   () => import("@/features/audit/pages/AuditTrailPage"),
+);
+const ViewerRequestsPage = lazy(
+  () => import("@/features/viewer-requests/pages/ViewerRequestsPage"),
 );
 const OperatorNotifications = lazy(
   () => import("@/features/notifications/pages/NotificationHistory"),
@@ -110,22 +109,6 @@ export function AppRouter() {
         }
       />
       <Route
-        path="/reset-password"
-        element={
-          <S>
-            <ResetPassword />
-          </S>
-        }
-      />
-      <Route
-        path="/update-password"
-        element={
-          <S>
-            <UpdatePassword />
-          </S>
-        }
-      />
-      <Route
         path="/unauthorized"
         element={
           <S>
@@ -138,7 +121,7 @@ export function AppRouter() {
       <Route
         path="/dashboard"
         element={
-          <ProtectedRoute allowedRoles={["operator", "manager", "viewer"]}>
+          <ProtectedRoute allowedRoles={["operator", "viewer"]}>
             <MerchantLayoutRoute />
           </ProtectedRoute>
         }
@@ -156,7 +139,7 @@ export function AppRouter() {
         <Route
           path="properties"
           element={
-            <ProtectedRoute allowedRoles={["operator"]}>
+            <ProtectedRoute allowedRoles={["operator", "viewer"]}>
               <DS>
                 <OperatorProperties />
               </DS>
@@ -166,7 +149,7 @@ export function AppRouter() {
         <Route
           path="properties/:id"
           element={
-            <ProtectedRoute allowedRoles={["operator"]}>
+            <ProtectedRoute allowedRoles={["operator", "viewer"]}>
               <DS>
                 <OperatorPropertyDetail />
               </DS>
@@ -178,7 +161,7 @@ export function AppRouter() {
         <Route
           path="rooms"
           element={
-            <ProtectedRoute allowedRoles={["operator"]}>
+            <ProtectedRoute allowedRoles={["operator", "viewer"]}>
               <DS>
                 <OperatorRooms />
               </DS>
@@ -188,7 +171,7 @@ export function AppRouter() {
         <Route
           path="rooms/:id"
           element={
-            <ProtectedRoute allowedRoles={["operator"]}>
+            <ProtectedRoute allowedRoles={["operator", "viewer"]}>
               <DS>
                 <OperatorRoomDetail />
               </DS>
@@ -200,7 +183,7 @@ export function AppRouter() {
         <Route
           path="tenants"
           element={
-            <ProtectedRoute allowedRoles={["operator"]}>
+            <ProtectedRoute allowedRoles={["operator", "viewer"]}>
               <DS>
                 <OperatorTenants />
               </DS>
@@ -210,7 +193,7 @@ export function AppRouter() {
         <Route
           path="tenants/:id"
           element={
-            <ProtectedRoute allowedRoles={["operator"]}>
+            <ProtectedRoute allowedRoles={["operator", "viewer"]}>
               <DS>
                 <OperatorTenantDetail />
               </DS>
@@ -222,7 +205,7 @@ export function AppRouter() {
         <Route
           path="payments"
           element={
-            <ProtectedRoute allowedRoles={["operator"]}>
+            <ProtectedRoute allowedRoles={["operator", "viewer"]}>
               <DS>
                 <OperatorPayments />
               </DS>
@@ -232,7 +215,7 @@ export function AppRouter() {
         <Route
           path="payments/:id"
           element={
-            <ProtectedRoute allowedRoles={["operator"]}>
+            <ProtectedRoute allowedRoles={["operator", "viewer"]}>
               <DS>
                 <OperatorPaymentDetail />
               </DS>
@@ -244,7 +227,7 @@ export function AppRouter() {
         <Route
           path="confirmations"
           element={
-            <ProtectedRoute allowedRoles={["operator"]}>
+            <ProtectedRoute allowedRoles={["operator", "viewer"]}>
               <DS>
                 <OperatorConfirmations />
               </DS>
@@ -256,7 +239,7 @@ export function AppRouter() {
         <Route
           path="maintenance"
           element={
-            <ProtectedRoute allowedRoles={["operator", "manager"]}>
+            <ProtectedRoute allowedRoles={["operator", "viewer"]}>
               <DS>
                 <OperatorMaintenance />
               </DS>
@@ -266,7 +249,7 @@ export function AppRouter() {
         <Route
           path="maintenance/:id"
           element={
-            <ProtectedRoute allowedRoles={["operator", "manager"]}>
+            <ProtectedRoute allowedRoles={["operator", "viewer"]}>
               <DS>
                 <OperatorMaintenanceDetail />
               </DS>
@@ -274,13 +257,25 @@ export function AppRouter() {
           }
         />
 
-        {/* Audit Trail */}
+        {/* Audit Trail — operator only */}
         <Route
           path="audit"
           element={
-            <ProtectedRoute allowedRoles={["operator", "manager"]}>
+            <ProtectedRoute allowedRoles={["operator"]}>
               <DS>
                 <OperatorAuditTrail />
+              </DS>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Viewer Requests — operator only */}
+        <Route
+          path="viewer-requests"
+          element={
+            <ProtectedRoute allowedRoles={["operator"]}>
+              <DS>
+                <ViewerRequestsPage />
               </DS>
             </ProtectedRoute>
           }
@@ -290,35 +285,34 @@ export function AppRouter() {
         <Route
           path="notifications"
           element={
-            <DS>
-              <OperatorNotifications />
-            </DS>
+            <ProtectedRoute allowedRoles={["operator", "viewer"]}>
+              <DS>
+                <OperatorNotifications />
+              </DS>
+            </ProtectedRoute>
           }
         />
         <Route
           path="profile"
           element={
-            <DS>
-              <OperatorProfile />
-            </DS>
+            <ProtectedRoute allowedRoles={["operator", "viewer"]}>
+              <DS>
+                <OperatorProfile />
+              </DS>
+            </ProtectedRoute>
           }
         />
         <Route
           path="settings"
           element={
-            <DS>
-              <OperatorSettingsPage />
-            </DS>
+            <ProtectedRoute allowedRoles={["operator"]}>
+              <DS>
+                <OperatorSettingsPage />
+              </DS>
+            </ProtectedRoute>
           }
         />
       </Route>
-
-      {/* Legacy redirects */}
-      <Route path="/merchant" element={<Navigate to="/dashboard" replace />} />
-      <Route
-        path="/merchant/*"
-        element={<Navigate to="/dashboard" replace />}
-      />
 
       <Route
         path="*"

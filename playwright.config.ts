@@ -4,15 +4,15 @@ export default defineConfig({
   testDir: "./e2e",
   timeout: 90000,
   expect: { timeout: 15000 },
-  fullyParallel: false,
+  fullyParallel: true,
   retries: 1,
-  workers: 1,
+  workers: 3,
   reporter: [
     ["html", { outputFolder: "playwright-report", open: "never" }],
     ["list"],
   ],
   use: {
-    baseURL: "https://sihuni-frontend.vercel.app",
+    baseURL: "http://localhost:8080",
     trace: "on-first-retry",
     screenshot: "on",
     video: "off",

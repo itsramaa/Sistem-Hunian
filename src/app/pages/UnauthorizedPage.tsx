@@ -41,7 +41,7 @@ export default function UnauthorizedPage() {
                 <p className="text-muted-foreground">
                   Login sebagai:{" "}
                   <span className="font-medium text-foreground">
-                    {user.email || user.nama}
+                    {user.email || user.name}
                   </span>
                 </p>
                 {role && (

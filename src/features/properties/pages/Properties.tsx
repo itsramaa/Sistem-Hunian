@@ -67,6 +67,10 @@ export default function PropertiesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Property | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Property | null>(null);
+  const [confirmPayload, setConfirmPayload] = useState<{
+    data: any;
+    mode: "create" | "edit";
+  } | null>(null);
   const debouncedSearch = useDebounce(search, 300);
   const { toast } = useToast();
   const isMobile = useIsMobile();
@@ -85,13 +89,13 @@ export default function PropertiesPage() {
   const properties = [...rawProperties].sort((a: any, b: any) => {
     switch (sortBy) {
       case "nama_asc":
-        return a.nama.localeCompare(b.nama);
+        return a.property_name.localeCompare(b.property_name);
       case "nama_desc":
-        return b.nama.localeCompare(a.nama);
+        return b.property_name.localeCompare(a.property_name);
       case "kamar_asc":
-        return (a.total_kamar ?? 0) - (b.total_kamar ?? 0);
+        return (a.total_rooms ?? 0) - (b.total_rooms ?? 0);
       case "kamar_desc":
-        return (b.total_kamar ?? 0) - (a.total_kamar ?? 0);
+        return (b.total_rooms ?? 0) - (a.total_rooms ?? 0);
       default:
         return 0;
     }
@@ -100,35 +104,46 @@ export default function PropertiesPage() {
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   const handleCreate = async (payload: any) => {
-    try {
-      await createMutation.mutateAsync(payload);
-      setFormOpen(false);
-      toast({
-        title: "Properti berhasil ditambahkan",
-        description: "Properti baru telah disimpan ke sistem.",
-      });
-    } catch (err) {
-      toast({
-        variant: "destructive",
-        title: "Gagal menambahkan properti",
-        description: getApiErrorMessage(err),
-      });
-    }
+    // Tahan payload — tampilkan konfirmasi dulu
+    setConfirmPayload({ data: payload, mode: "create" });
   };
 
   const handleUpdate = async (payload: any) => {
     if (!editing) return;
+    // Tahan payload — tampilkan konfirmasi dulu
+    setConfirmPayload({ data: payload, mode: "edit" });
+  };
+
+  const handleConfirmSubmit = async () => {
+    if (!confirmPayload) return;
     try {
-      await updateMutation.mutateAsync({ id: editing.id, payload });
-      setEditing(null);
-      setFormOpen(false);
-      toast({ title: "Properti berhasil diperbarui" });
+      if (confirmPayload.mode === "create") {
+        await createMutation.mutateAsync(confirmPayload.data);
+        setFormOpen(false);
+        toast({
+          title: "Properti berhasil ditambahkan",
+          description: "Properti baru telah disimpan ke sistem.",
+        });
+      } else {
+        await updateMutation.mutateAsync({
+          id: editing!.id,
+          payload: confirmPayload.data,
+        });
+        setEditing(null);
+        setFormOpen(false);
+        toast({ title: "Properti berhasil diperbarui" });
+      }
     } catch (err) {
       toast({
         variant: "destructive",
-        title: "Gagal memperbarui properti",
+        title:
+          confirmPayload.mode === "create"
+            ? "Gagal menambahkan properti"
+            : "Gagal memperbarui properti",
         description: getApiErrorMessage(err),
       });
+    } finally {
+      setConfirmPayload(null);
     }
   };
 
@@ -139,7 +154,7 @@ export default function PropertiesPage() {
       setDeleteTarget(null);
       toast({
         title: "Properti berhasil dihapus",
-        description: `${deleteTarget.nama} telah dihapus dari sistem.`,
+        description: `${deleteTarget.property_name} telah dihapus dari sistem.`,
       });
     } catch (err) {
       toast({
@@ -268,9 +283,9 @@ export default function PropertiesPage() {
                       <Building2 className="h-4 w-4 text-primary" />
                     </div>
                     <div>
-                      <p className="font-semibold text-sm">{p.nama}</p>
+                      <p className="font-semibold text-sm">{p.property_name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {p.jumlah_kamar ?? 0} kamar
+                        {p.total_rooms ?? 0} kamar
                       </p>
                     </div>
                   </div>
@@ -320,8 +335,8 @@ export default function PropertiesPage() {
                 </div>
               }
               fields={[
-                { label: "Alamat", value: p.alamat, fullWidth: true },
-                { label: "Deskripsi", value: p.deskripsi, fullWidth: true },
+                { label: "Alamat", value: p.address, fullWidth: true },
+                { label: "Deskripsi", value: p.description, fullWidth: true },
               ]}
             />
           ))}
@@ -361,21 +376,23 @@ export default function PropertiesPage() {
                           <Building2 className="h-4 w-4 text-primary" />
                         </div>
                         <div className="min-w-0">
-                          <p className="font-medium text-sm">{p.nama}</p>
-                          {p.deskripsi && (
-                            <p className="text-xs text-muted-foreground truncate max-w-[200px]">
-                              {p.deskripsi}
+                          <p className="font-medium text-sm">
+                            {p.property_name}
+                          </p>
+                          {p.description && (
+                            <p className="text-xs text-muted-foreground truncate">
+                              {p.description}
                             </p>
                           )}
                         </div>
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground max-w-[250px] truncate">
-                      {p.alamat}
+                      {p.address}
                     </TableCell>
                     <TableCell className="text-center">
                       <span className="text-sm font-medium tabular-nums">
-                        {p.jumlah_kamar ?? 0}
+                        {p.total_rooms ?? 0}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
@@ -385,7 +402,7 @@ export default function PropertiesPage() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
-                            aria-label={`Menu ${p.nama}`}
+                            aria-label={`Menu ${p.property_name}`}
                             onClick={(e) => e.stopPropagation()}
                           >
                             <MoreHorizontal className="h-4 w-4" />
@@ -441,6 +458,55 @@ export default function PropertiesPage() {
         isLoading={createMutation.isPending || updateMutation.isPending}
       />
 
+      {/* Konfirmasi simpan (create/edit) */}
+      <Dialog
+        open={!!confirmPayload}
+        onOpenChange={(v) => !v && setConfirmPayload(null)}
+      >
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Building2 className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <DialogTitle>
+                  {confirmPayload?.mode === "create"
+                    ? "Tambah Properti"
+                    : "Ubah Properti"}
+                </DialogTitle>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {confirmPayload?.mode === "create"
+                    ? "Konfirmasi penambahan properti baru ke sistem."
+                    : "Konfirmasi perubahan data properti ini."}
+                </p>
+              </div>
+            </div>
+          </DialogHeader>
+          <DialogFooter className="pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmPayload(null)}
+              disabled={createMutation.isPending || updateMutation.isPending}
+            >
+              Batal
+            </Button>
+            <Button
+              onClick={handleConfirmSubmit}
+              disabled={createMutation.isPending || updateMutation.isPending}
+              className="gap-2 rounded-xl"
+            >
+              {(createMutation.isPending || updateMutation.isPending) && (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              )}
+              {confirmPayload?.mode === "create"
+                ? "Ya, Tambahkan"
+                : "Ya, Simpan Perubahan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog
         open={!!deleteTarget}
         onOpenChange={(v) => !v && setDeleteTarget(null)}
@@ -454,8 +520,10 @@ export default function PropertiesPage() {
               <div>
                 <DialogTitle>Hapus Properti</DialogTitle>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  Properti <strong>{deleteTarget?.nama}</strong> akan dihapus.
-                  Tidak bisa jika masih memiliki kamar.
+                  Properti <strong>{deleteTarget?.property_name}</strong> akan
+                  dihapus. Tidak bisa dihapus jika masih memiliki kamar atau
+                  terdapat data historis penghuni maupun pemeliharaan yang
+                  terhubung.
                 </p>
               </div>
             </div>

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 
 import {
   useMaintenances,
@@ -11,11 +12,10 @@ import { useProperties } from "@/features/properties/hooks/useProperties";
 
 import { useRooms } from "@/features/rooms/hooks/useRooms";
 
-import {
-  Maintenance,
-  CreateMaintenancePayload,
-  UpdateMaintenancePayload,
-} from "../types";
+import { Maintenance, CreateMaintenancePayload } from "../types";
+
+import { MaintenanceProcessDialog } from "../components/MaintenanceProcessDialog";
+import { MaintenanceCompleteDialog } from "../components/MaintenanceCompleteDialog";
 
 import { Button } from "@/shared/components/ui/button";
 
@@ -45,6 +45,7 @@ import {
 } from "@/shared/components/ui/dialog";
 
 import { Input } from "@/shared/components/ui/input";
+import { DatePicker } from "@/shared/components/ui/date-picker";
 
 import { Label } from "@/shared/components/ui/label";
 
@@ -57,13 +58,14 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
+  CheckCircle2,
 } from "lucide-react";
 
 import { useToast } from "@/shared/hooks/use-toast";
 import { getApiErrorMessage } from "@/shared/utils/api-errors";
 import { getSiHuniStatus } from "@/shared/utils/statusColors";
 
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -86,38 +88,24 @@ const statusColors: Record<string, { label: string; className: string }> = {
 };
 
 const createSchema = z.object({
+  property_id: z.string().min(1, "Pilih properti"),
   room_id: z.string().min(1, "Pilih kamar"),
-
-  tanggal_laporan: z.string().min(1),
-
-  deskripsi_kerusakan: z.string().min(5, "Deskripsi minimal 5 karakter"),
-});
-
-const updateSchema = z.object({
-  tindakan_penanganan: z.string().optional(),
-
-  biaya: z.coerce.number().min(0).optional(),
-
-  status: z.enum(["reported", "in_progress", "completed"]),
+  report_date: z.string().min(1),
+  damage_description: z.string().min(5, "Deskripsi minimal 5 karakter"),
 });
 
 type CreateForm = z.infer<typeof createSchema>;
-
-type UpdateForm = z.infer<typeof updateSchema>;
 
 export default function MaintenancePage() {
   const [page, setPage] = useState(1);
   const navigate = useNavigate();
 
   const [statusFilter, setStatusFilter] = useState("");
-
   const [propertyFilter, setPropertyFilter] = useState("");
-
   const [createOpen, setCreateOpen] = useState(false);
-
-  const [updateTarget, setUpdateTarget] = useState<Maintenance | null>(null);
-
   const { toast } = useToast();
+  const { role } = useAuth();
+  const isOperator = role === "operator";
 
   const isMobile = useIsMobile();
 
@@ -135,7 +123,27 @@ export default function MaintenancePage() {
 
   const { data: propsData } = useProperties("", 1, 100);
 
-  const { data: roomsData } = useRooms("", 1, 200, propertyFilter || undefined);
+  const getToday = () => format(new Date(), "yyyy-MM-dd");
+
+  const createForm = useForm<CreateForm>({
+    resolver: zodResolver(createSchema),
+
+    defaultValues: {
+      property_id: "",
+      room_id: "",
+      report_date: getToday(),
+      damage_description: "",
+    },
+  });
+
+  const selectedPropertyId = createForm.watch("property_id");
+
+  const { data: roomsData } = useRooms(
+    "",
+    1,
+    200,
+    selectedPropertyId || propertyFilter || undefined,
+  );
 
   const createMutation = useCreateMaintenance();
 
@@ -151,25 +159,42 @@ export default function MaintenancePage() {
 
   const rooms = roomsData?.rooms ?? [];
 
-  const getToday = () => format(new Date(), "yyyy-MM-dd");
+  // Process dialog
+  const [processTarget, setProcessTarget] = useState<Maintenance | null>(null);
+  const [processOpen, setProcessOpen] = useState(false);
 
-  const createForm = useForm<CreateForm>({
-    resolver: zodResolver(createSchema),
+  // Complete dialog
+  const [completeTarget, setCompleteTarget] = useState<Maintenance | null>(
+    null,
+  );
+  const [completeOpen, setCompleteOpen] = useState(false);
 
-    defaultValues: {
-      room_id: "",
+  const handleProcess = async (id: string, handlerName: string) => {
+    await updateMutation.mutateAsync({
+      id,
+      payload: {
+        status: "in_progress",
+        repair_action: `Ditangani oleh: ${handlerName}`,
+      },
+    });
+    toast({ title: "Maintenance ditandai sedang diproses" });
+  };
 
-      tanggal_laporan: getToday(),
-
-      deskripsi_kerusakan: "",
-    },
-  });
-
-  const updateForm = useForm<UpdateForm>({
-    resolver: zodResolver(updateSchema),
-
-    defaultValues: { tindakan_penanganan: "", biaya: 0, status: "reported" },
-  });
+  const handleComplete = async (
+    id: string,
+    actions: string[],
+    costVal: number,
+  ) => {
+    await updateMutation.mutateAsync({
+      id,
+      payload: {
+        status: "completed",
+        repair_action: actions.join("\n"),
+        cost: costVal,
+      },
+    });
+    toast({ title: "Maintenance ditandai selesai" });
+  };
 
   const handleCreate = async (payload: CreateForm) => {
     try {
@@ -177,7 +202,12 @@ export default function MaintenancePage() {
 
       setCreateOpen(false);
 
-      createForm.reset({ tanggal_laporan: getToday() });
+      createForm.reset({
+        property_id: "",
+        room_id: "",
+        report_date: getToday(),
+        damage_description: "",
+      });
 
       toast({
         title: "Laporan maintenance berhasil dicatat",
@@ -190,40 +220,6 @@ export default function MaintenancePage() {
         description: getApiErrorMessage(err),
       });
     }
-  };
-
-  const handleUpdate = async (payload: UpdateForm) => {
-    if (!updateTarget) return;
-
-    try {
-      await updateMutation.mutateAsync({
-        id: updateTarget.id,
-
-        payload: payload as UpdateMaintenancePayload,
-      });
-
-      setUpdateTarget(null);
-
-      toast({ title: "Progress maintenance berhasil diperbarui" });
-    } catch (err) {
-      toast({
-        variant: "destructive",
-        title: "Gagal memperbarui maintenance",
-        description: getApiErrorMessage(err),
-      });
-    }
-  };
-
-  const openUpdate = (m: Maintenance) => {
-    setUpdateTarget(m);
-
-    updateForm.reset({
-      tindakan_penanganan: m.tindakan_penanganan || "",
-
-      biaya: m.biaya || 0,
-
-      status: m.status,
-    });
   };
 
   const fmt = (d: string) => {
@@ -280,12 +276,14 @@ export default function MaintenancePage() {
           </p>
         </div>
 
-        <Button
-          onClick={() => setCreateOpen(true)}
-          className="shrink-0 gap-2 rounded-xl min-h-[44px]"
-        >
-          <Plus className="h-4 w-4" /> Buat Laporan
-        </Button>
+        {isOperator && (
+          <Button
+            onClick={() => setCreateOpen(true)}
+            className="shrink-0 gap-2 rounded-xl min-h-[44px]"
+          >
+            <Plus className="h-4 w-4" /> Buat Laporan
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-3 overflow-x-auto pb-1">
@@ -305,7 +303,7 @@ export default function MaintenancePage() {
 
             {properties.map((p: any) => (
               <SelectItem key={p.id} value={p.id}>
-                {p.nama}
+                {p.property_name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -372,11 +370,11 @@ export default function MaintenancePage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-semibold text-sm">
-                        {m.nomor_kamar || "—"} · {m.nama_properti || "—"}
+                        {m.room_number || "—"} · {m.property_name || "—"}
                       </p>
 
                       <p className="text-xs text-muted-foreground truncate max-w-[200px]">
-                        {m.deskripsi_kerusakan}
+                        {m.damage_description}
                       </p>
                     </div>
 
@@ -388,13 +386,11 @@ export default function MaintenancePage() {
                   </div>
                 }
                 fields={[
-                  { label: "Tgl Laporan", value: fmt(m.tanggal_laporan) },
-
+                  { label: "Tgl Laporan", value: fmt(m.report_date) },
                   {
                     label: "Biaya",
-
-                    value: m.biaya
-                      ? `Rp${m.biaya.toLocaleString("id-ID")}`
+                    value: m.cost
+                      ? `Rp${m.cost.toLocaleString("id-ID")}`
                       : undefined,
                   },
                 ]}
@@ -404,9 +400,25 @@ export default function MaintenancePage() {
                       variant="ghost"
                       size="sm"
                       className="h-9 gap-1.5 text-xs rounded-lg min-h-[44px]"
-                      onClick={() => openUpdate(m)}
+                      onClick={() => {
+                        if (m.status === "reported") {
+                          setProcessTarget(m);
+                          setProcessOpen(true);
+                        } else if (m.status === "in_progress") {
+                          setCompleteTarget(m);
+                          setCompleteOpen(true);
+                        }
+                      }}
                     >
-                      <RefreshCw className="h-3.5 w-3.5" /> Update
+                      {m.status === "reported" ? (
+                        <>
+                          <RefreshCw className="h-3.5 w-3.5" /> Proses
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Selesai
+                        </>
+                      )}
                     </Button>
                   ) : undefined
                 }
@@ -469,23 +481,23 @@ export default function MaintenancePage() {
                       onClick={() => navigate(`/dashboard/maintenance/${m.id}`)}
                     >
                       <TableCell className="text-sm font-medium">
-                        {m.nomor_kamar || "—"}
+                        {m.room_number || "—"}
                       </TableCell>
 
                       <TableCell className="text-sm text-muted-foreground">
-                        {m.nama_properti || "—"}
+                        {m.property_name || "—"}
                       </TableCell>
 
                       <TableCell className="text-sm max-w-[200px] truncate">
-                        {m.deskripsi_kerusakan}
+                        {m.damage_description}
                       </TableCell>
 
                       <TableCell className="text-sm">
-                        {fmt(m.tanggal_laporan)}
+                        {fmt(m.report_date)}
                       </TableCell>
 
                       <TableCell className="text-sm tabular-nums text-right">
-                        {m.biaya ? `Rp${m.biaya.toLocaleString("id-ID")}` : "—"}
+                        {m.cost ? `Rp${m.cost.toLocaleString("id-ID")}` : "—"}
                       </TableCell>
 
                       <TableCell>
@@ -502,9 +514,17 @@ export default function MaintenancePage() {
                             variant="ghost"
                             size="sm"
                             className="h-8 gap-1.5 text-xs rounded-lg"
-                            onClick={() => openUpdate(m)}
+                            onClick={() => {
+                              if (m.status === "reported") {
+                                setProcessTarget(m);
+                                setProcessOpen(true);
+                              } else if (m.status === "in_progress") {
+                                setCompleteTarget(m);
+                                setCompleteOpen(true);
+                              }
+                            }}
                           >
-                            <RefreshCw className="h-3.5 w-3.5" /> Update
+                            {m.status === "reported" ? "Proses" : "Selesai"}
                           </Button>
                         )}
                       </TableCell>
@@ -544,17 +564,59 @@ export default function MaintenancePage() {
             className="space-y-4 py-2"
           >
             <div className="space-y-2">
+              <Label>Properti</Label>
+
+              <Select
+                value={createForm.watch("property_id")}
+                onValueChange={(v) => {
+                  createForm.setValue("property_id", v, {
+                    shouldValidate: true,
+                  });
+                  createForm.setValue("room_id", "");
+                }}
+              >
+                <SelectTrigger className="rounded-xl h-12">
+                  <SelectValue placeholder="Pilih properti" />
+                </SelectTrigger>
+
+                <SelectContent>
+                  {properties.map((p: any) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.property_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {createForm.formState.errors.property_id && (
+                <p className="text-sm text-destructive">
+                  {createForm.formState.errors.property_id.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
               <Label>Kamar</Label>
 
-              <Select onValueChange={(v) => createForm.setValue("room_id", v)}>
+              <Select
+                value={createForm.watch("room_id")}
+                onValueChange={(v) =>
+                  createForm.setValue("room_id", v, { shouldValidate: true })
+                }
+                disabled={!selectedPropertyId}
+              >
                 <SelectTrigger className="rounded-xl h-12">
-                  <SelectValue placeholder="Pilih kamar" />
+                  <SelectValue
+                    placeholder={
+                      selectedPropertyId ? "Pilih kamar" : "Pilih properti dulu"
+                    }
+                  />
                 </SelectTrigger>
 
                 <SelectContent>
                   {rooms.map((r: any) => (
                     <SelectItem key={r.id} value={r.id}>
-                      {r.nomor_kamar} — {r.nama_properti}
+                      {r.room_number}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -569,8 +631,17 @@ export default function MaintenancePage() {
 
             <div className="space-y-2">
               <Label>Tanggal Laporan</Label>
-
-              <Input type="date" {...createForm.register("tanggal_laporan")} />
+              <Controller
+                control={createForm.control}
+                name="report_date"
+                render={({ field }) => (
+                  <DatePicker
+                    value={field.value}
+                    onChange={field.onChange}
+                    placeholder="Pilih tanggal laporan"
+                  />
+                )}
+              />
             </div>
 
             <div className="space-y-2">
@@ -579,12 +650,12 @@ export default function MaintenancePage() {
               <Textarea
                 placeholder="Kebocoran atap lantai 2..."
                 rows={3}
-                {...createForm.register("deskripsi_kerusakan")}
+                {...createForm.register("damage_description")}
               />
 
-              {createForm.formState.errors.deskripsi_kerusakan && (
+              {createForm.formState.errors.damage_description && (
                 <p className="text-sm text-destructive">
-                  {createForm.formState.errors.deskripsi_kerusakan.message}
+                  {createForm.formState.errors.damage_description.message}
                 </p>
               )}
             </div>
@@ -613,99 +684,19 @@ export default function MaintenancePage() {
         </DialogContent>
       </Dialog>
 
-      {/* Update modal */}
-
-      <Dialog
-        open={!!updateTarget}
-        onOpenChange={(v) => !v && setUpdateTarget(null)}
-      >
-        <DialogContent className="sm:max-w-lg rounded-2xl">
-          <DialogHeader>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-                <RefreshCw className="h-5 w-5 text-blue-600" />
-              </div>
-
-              <div>
-                <DialogTitle>Update Progress</DialogTitle>
-
-                <p className="text-sm text-muted-foreground">
-                  {updateTarget?.nomor_kamar} —{" "}
-                  {updateTarget?.deskripsi_kerusakan?.slice(0, 40)}
-                </p>
-              </div>
-            </div>
-          </DialogHeader>
-
-          <form
-            onSubmit={updateForm.handleSubmit(handleUpdate)}
-            className="space-y-4 py-2"
-          >
-            <div className="space-y-2">
-              <Label>Status</Label>
-
-              <Select
-                value={updateForm.watch("status")}
-                onValueChange={(v) => updateForm.setValue("status", v as any)}
-              >
-                <SelectTrigger className="rounded-xl h-12">
-                  <SelectValue />
-                </SelectTrigger>
-
-                <SelectContent>
-                  <SelectItem value="reported">Dilaporkan</SelectItem>
-
-                  <SelectItem value="in_progress">Diproses</SelectItem>
-
-                  <SelectItem value="completed">Selesai</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Tindakan Penanganan (opsional)</Label>
-
-              <Textarea
-                placeholder="Tambal dengan sealant waterproof..."
-                rows={2}
-                {...updateForm.register("tindakan_penanganan")}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Biaya (Rp, opsional)</Label>
-
-              <Input
-                type="number"
-                min={0}
-                placeholder="250000"
-                {...updateForm.register("biaya")}
-              />
-            </div>
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setUpdateTarget(null)}
-              >
-                Batal
-              </Button>
-
-              <Button
-                type="submit"
-                disabled={updateMutation.isPending}
-                className="gap-2 rounded-xl"
-              >
-                {updateMutation.isPending && (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                )}{" "}
-                Simpan
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {/* Process / Complete dialogs — per state transition */}
+      <MaintenanceProcessDialog
+        maintenance={processTarget}
+        open={processOpen}
+        onClose={() => setProcessOpen(false)}
+        onSubmit={handleProcess}
+      />
+      <MaintenanceCompleteDialog
+        maintenance={completeTarget}
+        open={completeOpen}
+        onClose={() => setCompleteOpen(false)}
+        onSubmit={handleComplete}
+      />
     </div>
   );
 }

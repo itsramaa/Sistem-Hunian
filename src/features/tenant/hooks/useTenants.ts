@@ -76,14 +76,15 @@ export function useCheckoutTenant() {
   return useMutation({
     mutationFn: ({
       id,
-      tanggal_keluar,
+      check_out_date,
     }: {
       id: string;
-      tanggal_keluar: string;
-    }) => tenantApi.checkout(id, tanggal_keluar),
+      check_out_date: string;
+    }) => tenantApi.checkout(id, check_out_date),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [TENANTS_KEY] });
       qc.invalidateQueries({ queryKey: ["rooms"] });
+      qc.invalidateQueries({ queryKey: ["payments"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });

@@ -34,7 +34,7 @@ export const maintenanceApi = {
     const form = new FormData();
     form.append("foto", file);
     const { data } = await apiClient.patch<any>(
-      `/maintenances/${id}/upload-kerusakan`, form,
+      `/maintenances/${id}/upload-damage`, form,
       { headers: { "Content-Type": "multipart/form-data" } },
     );
     return data?.data ?? data;
@@ -44,7 +44,7 @@ export const maintenanceApi = {
     const form = new FormData();
     form.append("foto", file);
     const { data } = await apiClient.patch<any>(
-      `/maintenances/${id}/upload-penanganan`, form,
+      `/maintenances/${id}/upload-repair`, form,
       { headers: { "Content-Type": "multipart/form-data" } },
     );
     return data?.data ?? data;

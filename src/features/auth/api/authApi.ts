@@ -20,9 +20,8 @@ export const authApi = {
 
   async updateMe(
     payload: Partial<{
-      nomor_telepon: string;
-      email: string;
-      current_password: string;
+      name: string;
+      phone_number: string;
     }>,
   ): Promise<void> {
     await apiClient.patch("/auth/me", payload);

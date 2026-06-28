@@ -22,6 +22,7 @@ import {
 } from "@/shared/components/ui/dialog";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
+import { DatePicker } from "@/shared/components/ui/date-picker";
 import {
   Select,
   SelectContent,
@@ -42,7 +43,7 @@ import { useIsMobile } from "@/shared/hooks/useBreakpoint";
 import { getApiErrorMessage } from "@/shared/utils/api-errors";
 import { getSiHuniStatus } from "@/shared/utils/statusColors";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { differenceInDays, format } from "date-fns";
+import { addDays, differenceInDays, format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import {
   CheckCircle2,
@@ -54,14 +55,14 @@ import {
   XCircle,
 } from "lucide-react";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import {
   useConfirmations,
   useConfirmDP,
   useCreateConfirmation,
   useExpireConfirmation,
-  useUpdateBatasTanggal,
+  useUpdateDeadline,
 } from "../hooks/useConfirmations";
 import {
   Confirmation,
@@ -70,35 +71,38 @@ import {
 } from "../types";
 
 const statusColors: Record<string, { label: string; className: string }> = {
-  pending:   getSiHuniStatus("pending"),
+  pending: getSiHuniStatus("pending"),
   confirmed: getSiHuniStatus("confirmed"),
-  expired:   getSiHuniStatus("expired"),
+  expired: {
+    label: "Hangus",
+    className: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  },
 };
 
 const createSchema = z.object({
   room_id: z.string().min(1, "Pilih kamar"),
-  nama_calon_penghuni: z.string().min(2).max(255),
-  nominal_dp: z.coerce.number().positive("Nominal harus > 0"),
-  batas_tanggal_konfirmasi: z.string().min(1, "Tanggal wajib"),
+  prospect_name: z.string().min(2).max(255),
+  phone_number: z.string().min(1, "Nomor telepon wajib").max(30),
+  down_payment_amount: z.coerce.number().positive("Nominal harus > 0"),
+  confirmation_deadline: z.string().min(1, "Tanggal wajib"),
 });
 
 const confirmSchema = z.object({
-  nama: z.string().min(2).max(255),
-  nomor_identitas: z.string().min(1).max(100),
-  nomor_telepon: z.string().min(1).max(30),
-  tanggal_masuk: z.string().min(1),
-  durasi_sewa: z.coerce.number().int().positive(),
+  name: z.string().min(2).max(255),
+  identity_number: z.string().min(1).max(100),
+  phone_number: z.string().min(1).max(30),
+  check_in_date: z.string().min(1),
+  rental_duration: z.coerce.number().int().positive(),
 });
 
 const perpanjangSchema = z.object({
-  batas_tanggal_konfirmasi: z.string().min(1, "Tanggal wajib"),
+  confirmation_deadline: z.string().min(1, "Tanggal wajib"),
 });
 
 type CreateForm = z.infer<typeof createSchema>;
 type ConfirmForm = z.infer<typeof confirmSchema>;
 type PerpanjangForm = z.infer<typeof perpanjangSchema>;
 
-// ─── Tandai Hangus — AlertDialog standar (BUG-005 fix) ───────────────────────
 function ExpireButton({ id, nama }: { id: string; nama: string }) {
   const expireMutation = useExpireConfirmation();
   const { toast } = useToast();
@@ -167,13 +171,15 @@ export default function ConfirmationsPage() {
   const { role } = useAuth();
   const isOperator = role === "operator";
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState("pending");
+  const [statusFilter, setStatusFilter] = useState("");
   const [propertyFilter, setPropertyFilter] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [confirmTarget, setConfirmTarget] = useState<Confirmation | null>(null);
   const [perpanjangTarget, setPerpanjangTarget] = useState<Confirmation | null>(
     null,
   );
+  const [confirmCreatePayload, setConfirmCreatePayload] =
+    useState<CreateForm | null>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const limit = 20;
@@ -182,7 +188,6 @@ export default function ConfirmationsPage() {
     page,
     limit,
     statusFilter || undefined,
-    undefined,
     propertyFilter || undefined,
   );
   const { data: propsData } = useProperties("", 1, 100);
@@ -194,9 +199,9 @@ export default function ConfirmationsPage() {
     "available",
   );
 
+  const updateDeadlineMutation = useUpdateDeadline();
   const createMutation = useCreateConfirmation();
   const confirmMutation = useConfirmDP();
-  const updateBatasMutation = useUpdateBatasTanggal();
 
   const confirmations: Confirmation[] = data?.confirmations ?? [];
   const total = data?.pagination?.total ?? 0;
@@ -212,15 +217,15 @@ export default function ConfirmationsPage() {
   });
   const perpanjangForm = useForm<PerpanjangForm>({
     resolver: zodResolver(perpanjangSchema),
-    defaultValues: { batas_tanggal_konfirmasi: "" },
+    defaultValues: { confirmation_deadline: "" },
   });
 
   const handlePerpanjang = async (payload: PerpanjangForm) => {
     if (!perpanjangTarget) return;
     try {
-      await updateBatasMutation.mutateAsync({
+      await updateDeadlineMutation.mutateAsync({
         id: perpanjangTarget.id,
-        batas_tanggal_konfirmasi: payload.batas_tanggal_konfirmasi,
+        payload: { confirmation_deadline: payload.confirmation_deadline },
       });
       setPerpanjangTarget(null);
       perpanjangForm.reset();
@@ -235,9 +240,18 @@ export default function ConfirmationsPage() {
   };
 
   const handleCreate = async (payload: CreateForm) => {
+    // Tahan payload — tampilkan konfirmasi dulu
+    setConfirmCreatePayload(payload);
+    setCreateOpen(false);
+  };
+
+  const handleConfirmCreate = async () => {
+    if (!confirmCreatePayload) return;
     try {
-      await createMutation.mutateAsync(payload as CreateConfirmationPayload);
-      setCreateOpen(false);
+      await createMutation.mutateAsync(
+        confirmCreatePayload as CreateConfirmationPayload,
+      );
+      setConfirmCreatePayload(null);
       createForm.reset();
       toast({
         title: "Konfirmasi DP berhasil dicatat",
@@ -249,6 +263,7 @@ export default function ConfirmationsPage() {
         title: "Gagal mencatat konfirmasi DP",
         description: getApiErrorMessage(err),
       });
+      setConfirmCreatePayload(null);
     }
   };
 
@@ -356,7 +371,7 @@ export default function ConfirmationsPage() {
             <SelectItem value="_all">Semua properti</SelectItem>
             {properties.map((p: any) => (
               <SelectItem key={p.id} value={p.id}>
-                {p.nama}
+                {p.property_name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -365,9 +380,10 @@ export default function ConfirmationsPage() {
         {/* Tab-style status filter */}
         <div className="flex rounded-xl border border-border overflow-hidden">
           {[
+            { value: "_all", label: "Semua" },
             { value: "pending", label: "Menunggu" },
             { value: "_selesai", label: "Selesai" },
-            { value: "_all", label: "Semua" },
+            { value: "expired", label: "Hangus" },
           ].map((opt) => (
             <button
               key={opt.value}
@@ -379,9 +395,8 @@ export default function ConfirmationsPage() {
               }}
               className={`px-3 py-2 text-xs font-medium transition-colors ${
                 (opt.value === "pending" && statusFilter === "pending") ||
-                (opt.value === "_selesai" &&
-                  (statusFilter === "confirmed" ||
-                    statusFilter === "expired")) ||
+                (opt.value === "_selesai" && statusFilter === "confirmed") ||
+                (opt.value === "expired" && statusFilter === "expired") ||
                 (opt.value === "_all" && statusFilter === "")
                   ? "bg-primary text-primary-foreground"
                   : "bg-background text-muted-foreground hover:bg-muted"
@@ -410,8 +425,9 @@ export default function ConfirmationsPage() {
                 label: c.status,
                 className: "",
               };
-              const sisa = sisaHari(c.batas_tanggal_konfirmasi);
-              const isExpired = sisa !== null && sisa < 0;
+              const sisa = sisaHari(c.confirmation_deadline);
+              const isExpired =
+                c.status === "pending" && sisa !== null && sisa < 0;
               return (
                 <DataCard
                   key={c.id}
@@ -419,10 +435,10 @@ export default function ConfirmationsPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-semibold text-sm">
-                          {c.nomor_kamar} · {c.nama_calon_penghuni}
+                          {c.room_number} · {c.prospect_name}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {fmt(c.batas_tanggal_konfirmasi)}
+                          {fmt(c.confirmation_deadline)}
                         </p>
                       </div>
                       <span
@@ -435,12 +451,12 @@ export default function ConfirmationsPage() {
                   fields={[
                     {
                       label: "Nominal DP",
-                      value: `Rp${c.nominal_dp.toLocaleString("id-ID")}`,
+                      value: `Rp${(c.down_payment_amount ?? 0).toLocaleString("id-ID")}`,
                     },
                     {
                       label: "Sisa Hari",
                       value:
-                        sisa !== null
+                        c.status === "pending" && sisa !== null
                           ? isExpired
                             ? "Expired"
                             : `${sisa} hari`
@@ -457,11 +473,11 @@ export default function ConfirmationsPage() {
                           onClick={() => {
                             setConfirmTarget(c);
                             confirmForm.reset({
-                              nama: c.nama_calon_penghuni,
-                              nomor_identitas: "",
-                              nomor_telepon: "",
-                              tanggal_masuk: "",
-                              durasi_sewa: 1,
+                              name: c.prospect_name,
+                              identity_number: "",
+                              phone_number: "",
+                              check_in_date: "",
+                              rental_duration: 1,
                             });
                           }}
                         >
@@ -474,8 +490,14 @@ export default function ConfirmationsPage() {
                             size="sm"
                             className="h-8 gap-1.5 text-xs rounded-lg"
                             onClick={() => {
+                              // Default perpanjangan dari tanggal expired + 1 hari
+                              const expired = c.confirmation_deadline;
+                              const nextDay = addDays(new Date(expired), 1);
                               perpanjangForm.reset({
-                                batas_tanggal_konfirmasi: "",
+                                confirmation_deadline: format(
+                                  nextDay,
+                                  "yyyy-MM-dd",
+                                ),
                               });
                               setPerpanjangTarget(c);
                             }}
@@ -483,7 +505,7 @@ export default function ConfirmationsPage() {
                             Perpanjang
                           </Button>
                         )}
-                        <ExpireButton id={c.id} nama={c.nama_calon_penghuni} />
+                        <ExpireButton id={c.id} nama={c.prospect_name} />
                       </div>
                     ) : undefined
                   }
@@ -538,27 +560,29 @@ export default function ConfirmationsPage() {
                       label: c.status,
                       className: "",
                     };
-                    const sisa = sisaHari(c.batas_tanggal_konfirmasi);
-                    const isExpired = sisa !== null && sisa < 0;
+                    const sisa = sisaHari(c.confirmation_deadline);
+                    const isExpired =
+                      c.status === "pending" && sisa !== null && sisa < 0;
                     return (
                       <TableRow
                         key={c.id}
                         className="hover:bg-primary/5 transition-colors"
                       >
                         <TableCell className="text-sm font-medium">
-                          {c.nomor_kamar}
+                          {c.room_number}
                         </TableCell>
                         <TableCell className="text-sm">
-                          {c.nama_calon_penghuni}
+                          {c.prospect_name}
                         </TableCell>
                         <TableCell className="text-sm font-medium tabular-nums text-right">
-                          Rp{c.nominal_dp.toLocaleString("id-ID")}
+                          Rp
+                          {(c.down_payment_amount ?? 0).toLocaleString("id-ID")}
                         </TableCell>
                         <TableCell className="text-sm">
-                          {fmt(c.batas_tanggal_konfirmasi)}
+                          {fmt(c.confirmation_deadline)}
                         </TableCell>
                         <TableCell className="text-center">
-                          {sisa !== null ? (
+                          {c.status === "pending" && sisa !== null ? (
                             <span
                               className={`text-sm font-medium tabular-nums ${isExpired ? "text-destructive" : sisa <= 3 ? "text-warning" : "text-foreground"}`}
                             >
@@ -585,28 +609,30 @@ export default function ConfirmationsPage() {
                                 onClick={() => {
                                   setConfirmTarget(c);
                                   confirmForm.reset({
-                                    nama: c.nama_calon_penghuni,
-                                    nomor_identitas: "",
-                                    nomor_telepon: "",
-                                    tanggal_masuk: "",
-                                    durasi_sewa: 1,
+                                    name: c.prospect_name,
+                                    identity_number: "",
+                                    phone_number: "",
+                                    check_in_date: "",
+                                    rental_duration: 1,
                                   });
                                 }}
                               >
                                 <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />{" "}
                                 Konfirmasi Masuk
                               </Button>
-                              <ExpireButton
-                                id={c.id}
-                                nama={c.nama_calon_penghuni}
-                              />
+                              <ExpireButton id={c.id} nama={c.prospect_name} />
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 className="h-8 gap-1.5 text-xs rounded-lg"
                                 onClick={() => {
+                                  const expired = c.confirmation_deadline;
+                                  const nextDay = addDays(new Date(expired), 1);
                                   perpanjangForm.reset({
-                                    batas_tanggal_konfirmasi: "",
+                                    confirmation_deadline: format(
+                                      nextDay,
+                                      "yyyy-MM-dd",
+                                    ),
                                   });
                                   setPerpanjangTarget(c);
                                 }}
@@ -656,7 +682,7 @@ export default function ConfirmationsPage() {
                 <SelectContent>
                   {rooms.map((r: any) => (
                     <SelectItem key={r.id} value={r.id}>
-                      {r.nomor_kamar} — {r.nama_properti}
+                      {r.room_number} — {r.property_name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -671,25 +697,68 @@ export default function ConfirmationsPage() {
               <Label>Nama Calon Penghuni</Label>
               <Input
                 placeholder="Sari Dewi"
-                {...createForm.register("nama_calon_penghuni")}
+                {...createForm.register("prospect_name")}
               />
+              {createForm.formState.errors.prospect_name && (
+                <p className="text-sm text-destructive">
+                  {createForm.formState.errors.prospect_name.message}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Nomor Telepon</Label>
+              <Input
+                placeholder="08xxxxxxxxxx"
+                inputMode="numeric"
+                onKeyDown={(e) => {
+                  if (
+                    !/[0-9+]|Backspace|Delete|Tab|ArrowLeft|ArrowRight/.test(
+                      e.key,
+                    )
+                  ) {
+                    e.preventDefault();
+                  }
+                }}
+                {...createForm.register("phone_number")}
+              />
+              {createForm.formState.errors.phone_number && (
+                <p className="text-sm text-destructive">
+                  {createForm.formState.errors.phone_number.message}
+                </p>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Nominal DP (Rp)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  placeholder="600000"
-                  {...createForm.register("nominal_dp")}
-                />
+                <div className="relative">
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="600000"
+                    {...createForm.register("down_payment_amount")}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Minimal 10% dari harga sewa kamar.
+                  </p>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Batas Tanggal</Label>
-                <Input
-                  type="date"
-                  {...createForm.register("batas_tanggal_konfirmasi")}
+                <Controller
+                  control={createForm.control}
+                  name="confirmation_deadline"
+                  render={({ field }) => (
+                    <DatePicker
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="Pilih batas tanggal"
+                    />
+                  )}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Lewat tanggal ini, DP akan hangus secara otomatis dan kamar
+                  kembali tersedia.
+                </p>
               </div>
             </div>
             <DialogFooter>
@@ -729,8 +798,8 @@ export default function ConfirmationsPage() {
               <div>
                 <DialogTitle>Konfirmasi Masuk</DialogTitle>
                 <p className="text-sm text-muted-foreground">
-                  {confirmTarget?.nama_calon_penghuni} — Kamar{" "}
-                  {confirmTarget?.nomor_kamar}
+                  {confirmTarget?.prospect_name} — Kamar{" "}
+                  {confirmTarget?.room_number}
                 </p>
               </div>
             </div>
@@ -742,8 +811,8 @@ export default function ConfirmationsPage() {
             <div className="space-y-2">
               <Label>Nama Lengkap</Label>
               <Input
-                defaultValue={confirmTarget?.nama_calon_penghuni}
-                {...confirmForm.register("nama")}
+                defaultValue={confirmTarget?.prospect_name}
+                {...confirmForm.register("name")}
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -751,21 +820,51 @@ export default function ConfirmationsPage() {
                 <Label>No. Identitas</Label>
                 <Input
                   placeholder="3271..."
-                  {...confirmForm.register("nomor_identitas")}
+                  inputMode="numeric"
+                  onKeyDown={(e) => {
+                    if (
+                      !/[0-9]|Backspace|Delete|Tab|ArrowLeft|ArrowRight/.test(
+                        e.key,
+                      )
+                    ) {
+                      e.preventDefault();
+                    }
+                  }}
+                  {...confirmForm.register("identity_number")}
                 />
               </div>
               <div className="space-y-2">
                 <Label>No. Telepon</Label>
                 <Input
                   placeholder="0812..."
-                  {...confirmForm.register("nomor_telepon")}
+                  inputMode="numeric"
+                  onKeyDown={(e) => {
+                    if (
+                      !/[0-9+]|Backspace|Delete|Tab|ArrowLeft|ArrowRight/.test(
+                        e.key,
+                      )
+                    ) {
+                      e.preventDefault();
+                    }
+                  }}
+                  {...confirmForm.register("phone_number")}
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Tanggal Masuk</Label>
-                <Input type="date" {...confirmForm.register("tanggal_masuk")} />
+                <Controller
+                  control={confirmForm.control}
+                  name="check_in_date"
+                  render={({ field }) => (
+                    <DatePicker
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="Pilih tanggal masuk"
+                    />
+                  )}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Durasi (bulan)</Label>
@@ -773,7 +872,7 @@ export default function ConfirmationsPage() {
                   type="number"
                   min={1}
                   placeholder="6"
-                  {...confirmForm.register("durasi_sewa")}
+                  {...confirmForm.register("rental_duration")}
                 />
               </div>
             </div>
@@ -815,19 +914,26 @@ export default function ConfirmationsPage() {
           >
             <p className="text-sm text-muted-foreground">
               Perpanjang batas waktu konfirmasi untuk{" "}
-              <strong>{perpanjangTarget?.nama_calon_penghuni}</strong>.
+              <strong>{perpanjangTarget?.prospect_name}</strong>.
             </p>
             <div className="space-y-1.5">
               <Label>Batas Tanggal Baru</Label>
-              <Input
-                type="date"
-                min={format(new Date(), "yyyy-MM-dd")}
-                {...perpanjangForm.register("batas_tanggal_konfirmasi")}
+              <Controller
+                control={perpanjangForm.control}
+                name="confirmation_deadline"
+                render={({ field }) => (
+                  <DatePicker
+                    value={field.value}
+                    onChange={field.onChange}
+                    placeholder="Pilih batas tanggal baru"
+                    fromDate={new Date()}
+                  />
+                )}
               />
-              {perpanjangForm.formState.errors.batas_tanggal_konfirmasi && (
+              {perpanjangForm.formState.errors.confirmation_deadline && (
                 <p className="text-xs text-destructive">
                   {
-                    perpanjangForm.formState.errors.batas_tanggal_konfirmasi
+                    perpanjangForm.formState.errors.confirmation_deadline
                       .message
                   }
                 </p>
@@ -843,10 +949,10 @@ export default function ConfirmationsPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={updateBatasMutation.isPending}
+                disabled={updateDeadlineMutation.isPending}
                 className="gap-2 rounded-xl"
               >
-                {updateBatasMutation.isPending && (
+                {updateDeadlineMutation.isPending && (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 )}
                 Simpan
@@ -855,6 +961,41 @@ export default function ConfirmationsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Konfirmasi create DP */}
+      <AlertDialog
+        open={!!confirmCreatePayload}
+        onOpenChange={(v) => !v && setConfirmCreatePayload(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Catat Konfirmasi DP?</AlertDialogTitle>
+            <AlertDialogDescription>
+              DP atas nama{" "}
+              <strong>{confirmCreatePayload?.prospect_name}</strong> akan
+              dicatat dan status kamar akan berubah menjadi{" "}
+              <strong>Konfirmasi DP</strong>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={createMutation.isPending}
+              onClick={() => setConfirmCreatePayload(null)}
+            >
+              Batal
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmCreate}
+              disabled={createMutation.isPending}
+            >
+              {createMutation.isPending && (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              )}
+              Ya, Catat DP
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

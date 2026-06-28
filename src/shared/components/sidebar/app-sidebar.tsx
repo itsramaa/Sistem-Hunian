@@ -1,4 +1,4 @@
-﻿import * as React from "react";
+import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Sidebar,
@@ -39,7 +39,7 @@ export function AppSidebar({ role, ...props }: AppSidebarProps) {
       <SidebarFooter>
         <NavUser
           user={{
-            name: profile?.nama || "User",
+            name: profile?.name || "User",
             email: profile?.email || "",
             avatar: undefined,
           }}
