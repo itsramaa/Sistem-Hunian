@@ -14,8 +14,16 @@ export default defineConfig({
       {
         outputFolder: "playwright-report",
         open: "never",
-        // Title laporan menampilkan nama KF/NFR
         title: "Laporan Pengujian E2E — Sistem Hunian V2",
+      },
+    ],
+    [
+      "@kinosuke01/playwright-md-reporter",
+      {
+        outputFile: "docs/testing/test-report.md",
+        includeDate: true,
+        includeDuration: true,
+        includeError: true,
       },
     ],
     ["list"],
