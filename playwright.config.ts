@@ -4,11 +4,20 @@ export default defineConfig({
   testDir: "./e2e",
   timeout: 90000,
   expect: { timeout: 15000 },
-  fullyParallel: true,
+  // Urutan file dijalankan sesuai nama: KF-01 → KF-14 → NFR-01 → NFR-03
+  fullyParallel: false,
   retries: 1,
   workers: 3,
   reporter: [
-    ["html", { outputFolder: "playwright-report", open: "never" }],
+    [
+      "html",
+      {
+        outputFolder: "playwright-report",
+        open: "never",
+        // Title laporan menampilkan nama KF/NFR
+        title: "Laporan Pengujian E2E — Sistem Hunian V2",
+      },
+    ],
     ["list"],
   ],
   use: {
@@ -25,10 +34,26 @@ export default defineConfig({
         ...devices["Desktop Chrome"],
         viewport: { width: 1440, height: 900 },
       },
-    },
-    {
-      name: "chromium-mobile",
-      use: { ...devices["iPhone 13"] },
+      // Urutan file: KF-01..KF-14 dulu, lalu NFR-01..NFR-03
+      testMatch: [
+        "**/KF-01-*.spec.ts",
+        "**/KF-02-*.spec.ts",
+        "**/KF-03-*.spec.ts",
+        "**/KF-04-*.spec.ts",
+        "**/KF-05-*.spec.ts",
+        "**/KF-06-*.spec.ts",
+        "**/KF-07-*.spec.ts",
+        "**/KF-08-*.spec.ts",
+        "**/KF-09-*.spec.ts",
+        "**/KF-10-*.spec.ts",
+        "**/KF-11-*.spec.ts",
+        "**/KF-12-*.spec.ts",
+        "**/KF-13-*.spec.ts",
+        "**/KF-14-*.spec.ts",
+        "**/NFR-01-*.spec.ts",
+        "**/NFR-02-*.spec.ts",
+        "**/NFR-03-*.spec.ts",
+      ],
     },
   ],
   outputDir:
