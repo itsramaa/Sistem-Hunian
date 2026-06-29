@@ -1,5 +1,5 @@
 # Playwright
-playwright-report/
+# playwright-report/ — tidak di-ignore agar bisa deploy ke GitHub Pages
 playwright-report - bak/
 playwright-md-report/
 docs/testing/playwright-artifacts/
