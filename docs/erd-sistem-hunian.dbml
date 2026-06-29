@@ -1,0 +1,316 @@
+Project "Sistem Informasi Manajemen Kos Multi-Properti" {
+  database_type: "PostgreSQL"
+  Note: "ERD Sistem Informasi Manajemen Kos Multi-Properti — 12 entitas utama"
+}
+
+Table users {
+  id UUID [primary key]
+  name VARCHAR(255) [not null]
+  email VARCHAR(255) [not null, unique]
+  passwordHash VARCHAR(255) [not null]
+  role user_role [not null]
+  isActive BOOLEAN [not null, default: true]
+  phoneNumber VARCHAR(20)
+  tokenVersion INTEGER [not null, default: 0]
+  createdAt TIMESTAMP [not null, default: `now()`]
+  updatedAt TIMESTAMP [not null, default: `now()`]
+}
+
+Table properties {
+  id UUID [primary key]
+  propertyName VARCHAR(255) [not null]
+  address TEXT [not null]
+  description TEXT
+  createdAt TIMESTAMP [not null, default: `now()`]
+  updatedAt TIMESTAMP [not null, default: `now()`]
+}
+
+Table rooms {
+  id UUID [primary key]
+  propertyId UUID [not null]
+  roomNumber VARCHAR(50) [not null]
+  roomType VARCHAR(100)
+  rentPrice DECIMAL(12,2) [not null]
+  status room_status [not null]
+  createdAt TIMESTAMP [not null, default: `now()`]
+  updatedAt TIMESTAMP [not null, default: `now()`]
+
+  indexes {
+    (propertyId)
+    (status)
+  }
+}
+
+Table tenants {
+  id UUID [primary key]
+  roomId UUID [not null]
+  name VARCHAR(255) [not null]
+  identityNumber VARCHAR(50)
+  phoneNumber VARCHAR(20)
+  checkInDate DATE [not null]
+  checkOutDate DATE
+  rentalDuration INTEGER
+  status tenant_status [not null]
+  createdAt TIMESTAMP [not null, default: `now()`]
+  updatedAt TIMESTAMP [not null, default: `now()`]
+
+  indexes {
+    (roomId)
+    (status)
+  }
+}
+
+Table payments {
+  id UUID [primary key]
+  roomId UUID [not null]
+  tenantId UUID [not null]
+  period VARCHAR(20) [not null]
+  amount DECIMAL(12,2) [not null]
+  paymentDate DATE [not null]
+  status payment_status [not null]
+  transferProofUrl TEXT
+  waSent BOOLEAN [not null, default: false]
+  createdBy UUID [not null]
+  updatedBy UUID [not null]
+  createdAt TIMESTAMP [not null, default: `now()`]
+  updatedAt TIMESTAMP [not null, default: `now()`]
+
+  indexes {
+    (roomId)
+    (tenantId)
+    (paymentDate)
+  }
+}
+
+Table confirmations {
+  id UUID [primary key]
+  roomId UUID [not null]
+  prospectName VARCHAR(255) [not null]
+  phoneNumber VARCHAR(20)
+  downPaymentAmount DECIMAL(12,2) [not null]
+  confirmationDeadline DATE [not null]
+  remainingDays INTEGER
+  status confirmation_status [not null]
+  createdBy UUID [not null]
+  updatedBy UUID [not null]
+  createdAt TIMESTAMP [not null, default: `now()`]
+  updatedAt TIMESTAMP [not null, default: `now()`]
+
+  indexes {
+    (roomId)
+    (status)
+  }
+}
+
+Table maintenances {
+  id UUID [primary key]
+  roomId UUID [not null]
+  reportDate DATE [not null]
+  damageDescription TEXT [not null]
+  repairAction TEXT
+  cost DECIMAL(12,2)
+  damagePhotoUrl TEXT
+  repairPhotoUrl TEXT
+  status maintenance_status [not null]
+  createdBy UUID [not null]
+  updatedBy UUID [not null]
+  createdAt TIMESTAMP [not null, default: `now()`]
+  updatedAt TIMESTAMP [not null, default: `now()`]
+
+  indexes {
+    (roomId)
+    (status)
+  }
+}
+
+Table maintenance_logs {
+  id UUID [primary key]
+  maintenanceId UUID [not null]
+  status maintenance_status [not null]
+  notes TEXT
+  updatedBy UUID [not null]
+  createdAt TIMESTAMP [not null, default: `now()`]
+
+  indexes {
+    (maintenanceId)
+  }
+}
+
+Table notifications {
+  id UUID [primary key]
+  userId UUID
+  type notification_type [not null]
+  referenceId UUID [not null]
+  message TEXT [not null]
+  isRead BOOLEAN [not null, default: false]
+  createdAt TIMESTAMP [not null, default: `now()`]
+
+  indexes {
+    (userId)
+    (isRead)
+  }
+}
+
+Table room_status_logs {
+  id UUID [primary key]
+  roomId UUID [not null]
+  oldStatus room_status [not null]
+  newStatus room_status [not null]
+  changedBy UUID
+  createdAt TIMESTAMP [not null, default: `now()`]
+
+  indexes {
+    (roomId)
+    (createdAt)
+  }
+}
+
+Table wa_config {
+  id UUID [primary key]
+  key VARCHAR(100) [not null, unique]
+  value TEXT [not null]
+  description TEXT
+  updatedBy UUID
+  updatedAt TIMESTAMP [not null, default: `now()`]
+}
+
+Table viewer_requests {
+  id UUID [primary key]
+  requestType request_type [not null]
+  roomId UUID [not null]
+  roomNumber VARCHAR(50) [not null]
+  description TEXT
+  prospectName VARCHAR(255)
+  prospectPhone VARCHAR(20)
+  createdBy UUID [not null]
+  reporterName VARCHAR(255) [not null]
+  status viewer_request_status [not null]
+  createdAt TIMESTAMP [not null, default: `now()`]
+
+  indexes {
+    (roomId)
+    (status)
+  }
+}
+
+Enum user_role {
+  operator
+  viewer
+}
+
+Enum room_status {
+  available
+  dp_confirmation
+  occupied
+}
+
+Enum tenant_status {
+  active
+  checked_out
+}
+
+Enum payment_status {
+  paid
+  unpaid
+}
+
+Enum confirmation_status {
+  pending
+  confirmed
+  expired
+}
+
+Enum maintenance_status {
+  reported
+  in_progress
+  completed
+}
+
+Enum notification_type {
+  dp_reminder
+  dp_expired
+  payment_due
+  payment_overdue
+  contract_reminder
+  login_new_device
+}
+
+Enum request_type {
+  payment
+  damage
+  prospect
+}
+
+Enum viewer_request_status {
+  forwarded
+  wa_failed
+}
+
+Ref: properties.id < rooms.propertyId
+
+Ref: rooms.id < tenants.roomId
+
+Ref: rooms.id < payments.roomId
+Ref: tenants.id < payments.tenantId
+
+Ref: rooms.id < confirmations.roomId
+
+Ref: rooms.id < maintenances.roomId
+
+Ref: maintenances.id < maintenance_logs.maintenanceId
+
+Ref: rooms.id < room_status_logs.roomId
+
+Ref: rooms.id < viewer_requests.roomId
+
+Ref: users.id < payments.createdBy
+Ref: users.id < payments.updatedBy
+
+Ref: users.id < confirmations.createdBy
+Ref: users.id < confirmations.updatedBy
+
+Ref: users.id < maintenances.createdBy
+Ref: users.id < maintenances.updatedBy
+
+Ref: users.id < maintenance_logs.updatedBy
+
+Ref: users.id < notifications.userId
+
+Ref: users.id < viewer_requests.createdBy
+
+Ref: users.id < wa_config.updatedBy
+
+Ref: users.id < room_status_logs.changedBy
+
+TableGroup "Users & Auth" {
+  users
+}
+
+TableGroup "Master Data" {
+  properties
+  rooms
+}
+
+TableGroup "Tenancy" {
+  tenants
+  confirmations
+}
+
+TableGroup "Finance" {
+  payments
+}
+
+TableGroup "Maintenance" {
+  maintenances
+  maintenance_logs
+}
+
+TableGroup "Notifications & Config" {
+  notifications
+  wa_config
+}
+
+TableGroup "Audit & Requests" {
+  room_status_logs
+  viewer_requests
+}
