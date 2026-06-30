@@ -12,7 +12,7 @@ export function getAssetUrl(path: string | null | undefined): string {
     return path;
   }
   const apiBase = env.API_URL; // 'http://localhost:9090/api/v1'
-  if (path.startsWith("/r2/")) {
+  if (path.startsWith("/r2/") || path.startsWith("/minio/")) {
     return `${apiBase}${path}`;
   }
   if (path.startsWith("/uploads/")) {
@@ -23,9 +23,9 @@ export function getAssetUrl(path: string | null | undefined): string {
 }
 
 export function formatRupiah(amount: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
@@ -40,7 +40,7 @@ export const formatYear = (year: number): string => {
   if (year < 2020 || year > 2026) {
     console.warn(`Year ${year} is outside allowed range (2020-2026)`);
   }
-  return year.toString().padStart(4, '0');
+  return year.toString().padStart(4, "0");
 };
 
 /**
@@ -50,10 +50,10 @@ export const formatYear = (year: number): string => {
  * @returns Formatted label string
  */
 export function formatLabel(label: string | null | undefined): string {
-  if (!label) return '-';
-  
+  if (!label) return "-";
+
   return label
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
 }
