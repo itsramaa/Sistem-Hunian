@@ -18,9 +18,20 @@ test.describe("KF-11 — Pencatatan Aktivitas Sistem", () => {
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(1000);
     await saveScreenshot(page, "kf11-audit-trail-list");
+
     expect(page.url()).toContain("/audit");
-    const body = await page.textContent("body");
-    expect(body?.length).toBeGreaterThan(0);
+
+    // Verifikasi ada elemen tabel/list dengan data log visible (bukan hanya body.length)
+    const tableOrList = page
+      .locator("table, [class*='table'], [class*='list'], tr, [class*='card']")
+      .first();
+    await expect(tableOrList).toBeVisible({ timeout: 5000 });
+
+    // Verifikasi ada setidaknya satu baris data log
+    const logRow = page
+      .locator("tbody tr, [class*='row'], [class*='item']")
+      .first();
+    await expect(logRow).toBeVisible({ timeout: 5000 });
   });
 
   // KF-11-02
@@ -30,16 +41,36 @@ test.describe("KF-11 — Pencatatan Aktivitas Sistem", () => {
     await page.goto("/dashboard/audit");
     await page.waitForLoadState("networkidle");
     await saveScreenshot(page, "kf11-audit-before-filter-property");
+
+    // Catat jumlah baris sebelum filter
+    const rowsBefore = page.locator("tbody tr, [class*='row'], [class*='item']");
+    const countBefore = await rowsBefore.count();
+
     const filterCombo = page.locator("[role='combobox'], select").first();
-    if (await filterCombo.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await filterCombo.click();
-      const option = page.locator("[role='option']").first();
-      if (await option.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await option.click();
-        await page.waitForLoadState("networkidle");
-        await saveScreenshot(page, "kf11-audit-filter-property-applied");
+    await expect(filterCombo).toBeVisible({ timeout: 5000 });
+    await filterCombo.click();
+
+    const option = page.locator("[role='option']").first();
+    if (await option.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await option.click();
+      await page.waitForLoadState("networkidle");
+      await saveScreenshot(page, "kf11-audit-filter-property-applied");
+
+      // Verifikasi hasil berubah (jumlah baris berubah atau data tampil)
+      const rowsAfter = page.locator("tbody tr, [class*='row'], [class*='item']");
+      const countAfter = await rowsAfter.count();
+
+      // Hasil filter bisa sama atau berbeda — yang penting halaman tidak crash
+      // dan ada konten (baris data atau empty state)
+      const body = await page.textContent("body");
+      expect(body?.length).toBeGreaterThan(100);
+
+      // Jika ada data, verifikasi konten visible
+      if (countAfter > 0) {
+        await expect(rowsAfter.first()).toBeVisible({ timeout: 3000 });
       }
     }
+
     expect(page.url()).toContain("/audit");
   });
 
@@ -50,12 +81,22 @@ test.describe("KF-11 — Pencatatan Aktivitas Sistem", () => {
     await page.goto("/dashboard/audit");
     await page.waitForLoadState("networkidle");
     await saveScreenshot(page, "kf11-audit-before-filter-date");
+
     const dateInput = page.locator("input[type='date']").first();
     if (await dateInput.isVisible({ timeout: 5000 }).catch(() => false)) {
       await dateInput.fill("2026-06-01");
       await page.waitForLoadState("networkidle");
       await saveScreenshot(page, "kf11-audit-filter-date-applied");
     }
+
+    // Verifikasi halaman tidak crash dan ada data atau empty state
+    const body = await page.textContent("body");
+    expect(body?.length).toBeGreaterThan(100);
+
+    // Halaman masih tampil normal
+    const mainContent = page.locator("main, [class*='content'], [class*='container']").first();
+    await expect(mainContent).toBeVisible({ timeout: 3000 });
+
     expect(page.url()).toContain("/audit");
   });
 
@@ -66,8 +107,10 @@ test.describe("KF-11 — Pencatatan Aktivitas Sistem", () => {
     await page.goto("/dashboard/audit");
     await page.waitForLoadState("networkidle");
     await saveScreenshot(page, "kf11-audit-before-filter-user");
+
     const filterCombos = page.locator("[role='combobox'], select");
     const count = await filterCombos.count();
+
     if (count >= 2) {
       await filterCombos.nth(1).click();
       const option = page.locator("[role='option']").first();
@@ -76,7 +119,20 @@ test.describe("KF-11 — Pencatatan Aktivitas Sistem", () => {
         await page.waitForLoadState("networkidle");
         await saveScreenshot(page, "kf11-audit-filter-user-applied");
       }
+    } else if (count === 1) {
+      await filterCombos.first().click();
+      const option = page.locator("[role='option']").first();
+      if (await option.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await option.click();
+        await page.waitForLoadState("networkidle");
+        await saveScreenshot(page, "kf11-audit-filter-user-applied");
+      }
     }
+
+    // Verifikasi halaman tidak crash dan ada data atau empty state
+    const body = await page.textContent("body");
+    expect(body?.length).toBeGreaterThan(100);
+
     expect(page.url()).toContain("/audit");
   });
 
@@ -87,11 +143,17 @@ test.describe("KF-11 — Pencatatan Aktivitas Sistem", () => {
     await page.goto("/dashboard/audit");
     await page.waitForLoadState("networkidle");
     await saveScreenshot(page, "kf11-audit-before-export");
+
+    // Verifikasi tombol ekspor CSV visible dan dapat diklik (tidak perlu verifikasi download)
     const exportBtn = page.getByRole("button", { name: /ekspor|export|csv/i });
-    if (await exportBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await saveScreenshot(page, "kf11-audit-export-btn-visible");
-      await expect(exportBtn).toBeVisible();
-    }
+    await expect(exportBtn).toBeVisible({ timeout: 5000 });
+    await saveScreenshot(page, "kf11-audit-export-btn-visible");
+
+    // Klik tombol ekspor — tidak perlu verifikasi download aktual
+    await exportBtn.click();
+    await page.waitForTimeout(1000);
+    await saveScreenshot(page, "kf11-audit-export-clicked");
+
     expect(page.url()).toContain("/audit");
   });
 });

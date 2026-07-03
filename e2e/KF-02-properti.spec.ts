@@ -16,38 +16,36 @@ test.describe("KF-02 — Manajemen Data Properti", () => {
   }) => {
     await page.goto("/dashboard/properties");
     await page.waitForLoadState("networkidle");
-    const addBtn = page
-      .getByRole("button", { name: /tambah|add|baru/i })
-      .first();
-    if (await addBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await addBtn.click();
-      await page.waitForTimeout(500);
-      const namaInput = page
-        .locator(
-          "input[name='name'], input[id*='name'], input[placeholder*='nama']",
-        )
-        .first();
-      if (await namaInput.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await namaInput.fill("Kos Demo Test E2E");
-      }
-      const alamatInput = page
-        .locator(
-          "input[name='address'], textarea[name='address'], input[placeholder*='alamat'], input[id*='address']",
-        )
-        .first();
-      if (await alamatInput.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await alamatInput.fill("Jl. Demo Test No. 1, Ciputat");
-      }
-      await saveScreenshot(page, "kf02-add-property-filled");
-      const submitBtn = page
-        .getByRole("button", { name: /simpan|tambah|submit|ok/i })
-        .first();
-      await submitBtn.click();
-      await page.waitForLoadState("networkidle");
+
+    await page.getByRole("button", { name: "Tambah Properti" }).click();
+    await page.waitForTimeout(500);
+
+    const dialog = page.getByRole("dialog", { name: "Tambah Properti" });
+    await expect(dialog).toBeVisible();
+    await dialog
+      .getByRole("textbox", { name: "Nama Properti" })
+      .fill("Kos Demo Test E2E");
+    await dialog
+      .getByRole("textbox", { name: "Alamat" })
+      .fill("Jl. Demo Test No. 1, Ciputat");
+    await saveScreenshot(page, "kf02-add-property-filled");
+
+    await dialog.getByRole("button", { name: "Tambah Properti" }).click();
+    await page.waitForTimeout(500);
+    // Ada dialog konfirmasi
+    const confirmAdd = page.getByRole("button", {
+      name: /ya.*tambahkan|tambahkan/i,
+    });
+    if (await confirmAdd.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await confirmAdd.click();
     }
+    await page.waitForLoadState("networkidle");
     await saveScreenshot(page, "kf02-add-property-result");
-    const body = await page.textContent("body");
-    expect(body).toBeTruthy();
+
+    // Verifikasi: properti baru tampil di tabel (nama ada di row)
+    await expect(
+      page.getByRole("row", { name: /Kos Demo Test E2E/i }).first(),
+    ).toBeVisible({ timeout: 5000 });
   });
 
   // KF-02-02
@@ -56,19 +54,18 @@ test.describe("KF-02 — Manajemen Data Properti", () => {
   }) => {
     await page.goto("/dashboard/properties");
     await page.waitForLoadState("networkidle");
-    const addBtn = page
-      .getByRole("button", { name: /tambah|add|baru/i })
-      .first();
-    if (await addBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await addBtn.click();
-      await page.waitForTimeout(500);
-      const submitBtn = page
-        .getByRole("button", { name: /simpan|tambah|submit|ok/i })
-        .first();
-      await submitBtn.click();
-      await page.waitForTimeout(500);
-      await saveScreenshot(page, "kf02-add-property-empty-validation");
-    }
+
+    await page.getByRole("button", { name: "Tambah Properti" }).click();
+    await page.waitForTimeout(500);
+
+    const dialog = page.getByRole("dialog", { name: "Tambah Properti" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Tambah Properti" }).click();
+    await page.waitForTimeout(500);
+    await saveScreenshot(page, "kf02-add-property-empty-validation");
+
+    // Verifikasi: dialog masih terbuka (tidak ditutup), ada pesan validasi
+    await expect(dialog).toBeVisible();
     expect(page.url()).toContain("/properties");
   });
 
@@ -78,14 +75,36 @@ test.describe("KF-02 — Manajemen Data Properti", () => {
   }) => {
     await page.goto("/dashboard/properties");
     await page.waitForLoadState("networkidle");
-    await saveScreenshot(page, "kf02-properties-list-for-edit");
-    const editBtn = page.getByRole("button", { name: /edit|ubah/i }).first();
-    if (await editBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await editBtn.click();
-      await page.waitForTimeout(500);
-      await saveScreenshot(page, "kf02-edit-property-form");
+
+    // Klik menu aksi pada properti pertama via button "Menu <nama>"
+    await page.getByRole("button", { name: /Menu Kos Hj Danyih 1/i }).click();
+    await page.waitForTimeout(300);
+    await page.getByRole("menuitem", { name: "Ubah" }).click();
+    await page.waitForTimeout(500);
+
+    const dialog = page.getByRole("dialog", { name: "Ubah Properti" });
+    await expect(dialog).toBeVisible();
+
+    const namaInput = dialog.getByRole("textbox", { name: "Nama Properti" });
+    await namaInput.clear();
+    await namaInput.fill("Kos Hj Danyih 1 Updated");
+    await saveScreenshot(page, "kf02-edit-property-filled");
+
+    await dialog.getByRole("button", { name: "Simpan Perubahan" }).click();
+    await page.waitForTimeout(500);
+    // Konfirmasi dialog
+    const confirmEdit = page
+      .getByRole("button", { name: /ya.*simpan|simpan perubahan/i })
+      .last();
+    if (await confirmEdit.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await confirmEdit.click();
     }
-    expect(page.url()).toContain("/properties");
+    await page.waitForLoadState("networkidle");
+    await saveScreenshot(page, "kf02-edit-property-result");
+
+    await expect(
+      page.getByRole("row", { name: /Kos Hj Danyih 1 Updated/i }).first(),
+    ).toBeVisible({ timeout: 5000 });
   });
 
   // KF-02-04
@@ -94,9 +113,44 @@ test.describe("KF-02 — Manajemen Data Properti", () => {
   }) => {
     await page.goto("/dashboard/properties");
     await page.waitForLoadState("networkidle");
-    await saveScreenshot(page, "kf02-properties-for-delete");
-    const body = await page.textContent("body");
-    expect(body).toBeTruthy();
+
+    // Tambah properti baru tanpa kamar untuk dihapus
+    await page.getByRole("button", { name: "Tambah Properti" }).click();
+    await page.waitForTimeout(500);
+    const addDialog = page.getByRole("dialog", { name: "Tambah Properti" });
+    await addDialog
+      .getByRole("textbox", { name: "Nama Properti" })
+      .fill("Properti Hapus Test");
+    await addDialog
+      .getByRole("textbox", { name: "Alamat" })
+      .fill("Jl. Test Hapus No. 1");
+    await addDialog.getByRole("button", { name: "Tambah Properti" }).click();
+    await page.waitForTimeout(500);
+    // Konfirmasi tambah
+    const confirmAdd = page.getByRole("button", { name: /ya.*tambahkan/i });
+    if (await confirmAdd.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await confirmAdd.click();
+    }
+    await page.waitForLoadState("networkidle");
+
+    // Hapus properti yang baru dibuat
+    await page
+      .getByRole("button", { name: /Menu Properti Hapus Test/i })
+      .click();
+    await page.waitForTimeout(300);
+    await page.getByRole("menuitem", { name: "Hapus" }).click();
+    await page.waitForTimeout(500);
+    // Konfirmasi hapus — tombolnya "Hapus" dalam dialog
+    const confirmDel = page.getByRole("button", { name: /^hapus$/i }).last();
+    if (await confirmDel.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await confirmDel.click();
+      await page.waitForLoadState("networkidle");
+    }
+    await saveScreenshot(page, "kf02-delete-property-result");
+
+    await expect(
+      page.getByRole("row", { name: /Properti Hapus Test/i }).first(),
+    ).not.toBeVisible({ timeout: 5000 });
   });
 
   // KF-02-05
@@ -105,22 +159,26 @@ test.describe("KF-02 — Manajemen Data Properti", () => {
   }) => {
     await page.goto("/dashboard/properties");
     await page.waitForLoadState("networkidle");
-    const deleteBtn = page
-      .getByRole("button", { name: /hapus|delete/i })
-      .first();
-    if (await deleteBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await deleteBtn.click();
-      await page.waitForTimeout(500);
-      const confirmBtn = page
-        .getByRole("button", { name: /ya|konfirmasi|lanjut|hapus/i })
-        .first();
-      if (await confirmBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await confirmBtn.click();
-        await page.waitForLoadState("networkidle");
-      }
-      await saveScreenshot(page, "kf02-delete-property-with-rooms");
+
+    // Kos Hj Danyih 1 punya 15 kamar — tidak bisa dihapus
+    await page.getByRole("button", { name: /Menu Kos Hj Danyih 1/i }).click();
+    await page.waitForTimeout(300);
+    await page.getByRole("menuitem", { name: "Hapus" }).click();
+    await page.waitForTimeout(500);
+    const confirmDel = page.getByRole("button", { name: /^hapus$/i }).last();
+    if (await confirmDel.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await confirmDel.click();
+      await page.waitForLoadState("networkidle");
     }
-    expect(page.url()).toContain("/properties");
+    await saveScreenshot(page, "kf02-delete-property-with-rooms");
+
+    // Verifikasi: toast error muncul
+    const errorToast = page
+      .locator("[class*='toast'], [role='alert']")
+      .filter({ hasText: /gagal|error|tidak bisa|masih memiliki|kamar/i });
+    expect(
+      await errorToast.isVisible({ timeout: 5000 }).catch(() => false),
+    ).toBe(true);
   });
 });
 

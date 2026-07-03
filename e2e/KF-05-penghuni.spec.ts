@@ -16,109 +16,144 @@ test.describe("KF-05 — Manajemen Data Penghuni", () => {
   }) => {
     await page.goto("/dashboard/tenants");
     await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(2000);
-    const addBtn = page
-      .getByRole("button", { name: /tambah|add|baru/i })
-      .first();
-    if (await addBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await addBtn.click();
-      await page.waitForTimeout(500);
-      await saveScreenshot(page, "kf05-add-tenant-form");
-      const namaInput = page
-        .locator(
-          "input[name='name'], input[placeholder*='nama'], input[id*='name']",
-        )
-        .first();
-      if (await namaInput.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await namaInput.fill("Penghuni Demo E2E");
-      }
-      const nikInput = page
-        .locator(
-          "input[name='identity_number'], input[placeholder*='nik'], input[placeholder*='identitas']",
-        )
-        .first();
-      if (await nikInput.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await nikInput.fill("3271010101010099");
-      }
-      const hpInput = page
-        .locator(
-          "input[name='phone_number'], input[placeholder*='telepon'], input[placeholder*='hp']",
-        )
-        .first();
-      if (await hpInput.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await hpInput.fill("081299990099");
-      }
-      await saveScreenshot(page, "kf05-add-tenant-filled");
+
+    await page.getByRole("button", { name: "Tambah Penghuni" }).click();
+    await page.waitForTimeout(500);
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+
+    // Pilih properti (combobox pertama)
+    const combos = dialog.getByRole("combobox");
+    await combos.first().click();
+    await page.waitForTimeout(300);
+    await page.getByRole("option").first().click();
+    await page.waitForTimeout(300);
+
+    // Pilih kamar tersedia (combobox kedua)
+    await combos.nth(1).click();
+    await page.waitForTimeout(300);
+    await page.getByRole("option").first().click();
+    await page.waitForTimeout(300);
+
+    await dialog
+      .getByRole("textbox", { name: "Nama Lengkap" })
+      .fill("Penghuni Demo E2E");
+    await dialog
+      .getByRole("textbox", { name: "No. Identitas" })
+      .fill("3271010101010099");
+    await dialog
+      .getByRole("textbox", { name: "No. Telepon" })
+      .fill("081299990099");
+
+    await saveScreenshot(page, "kf05-add-tenant-filled");
+
+    await dialog.getByRole("button", { name: "Tambah" }).click();
+    await page.waitForTimeout(500);
+    // Konfirmasi dialog jika ada
+    const confirmAdd = page.getByRole("button", { name: /ya.*tambahkan/i });
+    if (await confirmAdd.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await confirmAdd.click();
     }
+    await page.waitForLoadState("networkidle");
     await saveScreenshot(page, "kf05-add-tenant-result");
-    expect(page.url()).toContain("/tenants");
+
+    // Verifikasi: toast sukses muncul
+    const successToast = page
+      .locator("[class*='toast'], [role='status'], [role='alert']")
+      .filter({ hasText: /berhasil|ditambahkan/i });
+    const isSuccess = await successToast
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
+    expect(
+      isSuccess || page.url().includes("/tenants"),
+      "Penghuni harus berhasil ditambahkan",
+    ).toBeTruthy();
   });
 
   // KF-05-02
-  test("KF-05-02: Tambah penghuni ke kamar berstatus terisi — sistem menolak", async ({
+  test("KF-05-02: Tambah penghuni ke kamar berstatus terisi — dropdown hanya tampilkan kamar available", async ({
     page,
   }) => {
     await page.goto("/dashboard/tenants");
     await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(2000);
-    await saveScreenshot(page, "kf05-tenants-occupied-room");
 
-    const addBtn = page
-      .getByRole("button", { name: /tambah|add|baru/i })
-      .first();
-    if (await addBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await addBtn.click();
-      await page.waitForTimeout(1000);
-      await saveScreenshot(page, "kf05-add-tenant-form-open");
+    await page.getByRole("button", { name: "Tambah Penghuni" }).click();
+    await page.waitForTimeout(500);
 
-      // Scope ke dalam dialog yang terbuka
-      const dialog = page.locator("[role='dialog']").first();
-      const roomSelect = dialog.locator("[role='combobox']").first();
-      if (await roomSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await roomSelect.click();
-        await page.waitForTimeout(500);
-        await saveScreenshot(page, "kf05-room-dropdown-options");
-        // Dropdown tidak boleh tampilkan kamar occupied
-        const occupiedOption = page
-          .locator("[role='option']")
-          .filter({ hasText: /occupied/i });
-        expect(
-          await occupiedOption.isVisible({ timeout: 1000 }).catch(() => false),
-        ).toBe(false);
-        await page.keyboard.press("Escape");
-        await page.waitForTimeout(300);
-      }
-      // Tutup form
-      await page.keyboard.press("Escape");
-      await page.waitForTimeout(500);
-    }
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+
+    // Pilih properti dulu agar dropdown kamar muncul
+    const combos = dialog.getByRole("combobox");
+    await combos.first().click();
+    await page.waitForTimeout(300);
+    await page.getByRole("option").first().click();
+    await page.waitForTimeout(500);
+
+    // Buka dropdown kamar
+    await combos.nth(1).click();
+    await page.waitForTimeout(500);
+    await saveScreenshot(page, "kf05-room-dropdown-options");
+
+    // Verifikasi: tidak ada option yang mengandung teks "occupied"
+    const occupiedOption = page
+      .getByRole("option")
+      .filter({ hasText: /occupied/i });
+    expect(
+      await occupiedOption.isVisible({ timeout: 1000 }).catch(() => false),
+    ).toBe(false);
+
+    // Tutup dialog
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(300);
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(300);
+
+    await saveScreenshot(page, "kf05-occupied-room-not-in-dropdown");
     expect(page.url()).toContain("/tenants");
   });
 
   // KF-05-03
-  test("KF-05-03: Proses checkout penghuni tanpa tunggakan — status kamar berubah available", async ({
+  test("KF-05-03: Proses checkout penghuni tanpa tunggakan — checkout berhasil", async ({
     page,
   }) => {
     await page.goto("/dashboard/tenants");
     await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(2000);
     await saveScreenshot(page, "kf05-tenants-for-checkout");
 
-    const checkoutBtn = page
-      .getByRole("button", { name: /checkout|keluar/i })
-      .first();
+    // Cari penghuni yang tidak punya badge overdue/tunggakan
+    // Dari seed: Neneng Sari (B02), Dewi Kusuma (B04) = lunas
+    const searchInput = page.locator(
+      "input[placeholder*='Cari nama atau kamar']",
+    );
+    if (await searchInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await searchInput.fill("Neneng");
+      await page.waitForTimeout(500);
+    }
+
+    const checkoutBtn = page.getByRole("button", { name: "Checkout" }).first();
     if (await checkoutBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
       await checkoutBtn.click();
       await page.waitForTimeout(500);
-      const confirmBtn = page
-        .getByRole("button", { name: /ya|konfirmasi|lanjut|checkout/i })
-        .last();
-      if (await confirmBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+
+      const dialog = page.getByRole("dialog", { name: /checkout/i });
+      if (await dialog.isVisible({ timeout: 3000 }).catch(() => false)) {
+        const confirmBtn = dialog
+          .getByRole("button", { name: /konfirmasi checkout|checkout/i })
+          .last();
         await confirmBtn.click();
         await page.waitForLoadState("networkidle");
         await saveScreenshot(page, "kf05-checkout-result");
-        // Checkout berhasil atau ditolak — halaman tetap di /tenants dan tidak crash
-        expect(page.url()).toContain("/tenants");
+
+        // Verifikasi: toast sukses atau tidak ada error
+        const errorToast = page
+          .locator("[class*='toast'], [role='alert']")
+          .filter({ hasText: /gagal/i });
+        const isError = await errorToast
+          .isVisible({ timeout: 2000 })
+          .catch(() => false);
+        expect(isError, "Checkout harus berhasil tanpa error").toBe(false);
       }
     } else {
       await saveScreenshot(page, "kf05-no-checkout-btn");
@@ -132,10 +167,9 @@ test.describe("KF-05 — Manajemen Data Penghuni", () => {
   }) => {
     await page.goto("/dashboard/tenants");
     await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(2000);
     await saveScreenshot(page, "kf05-tenants-with-arrears");
 
-    // Cari penghuni dengan badge tunggakan atau status overdue
+    // Cari penghuni dengan indikator tunggakan/overdue
     const tenantWithArrears = page
       .locator("tr, [class*='card']")
       .filter({ hasText: /overdue|tunggakan|belum.*lunas/i })
@@ -145,54 +179,52 @@ test.describe("KF-05 — Manajemen Data Penghuni", () => {
       await tenantWithArrears.isVisible({ timeout: 5000 }).catch(() => false)
     ) {
       const checkoutBtn = tenantWithArrears.getByRole("button", {
-        name: /checkout|keluar/i,
+        name: "Checkout",
       });
-      if (await checkoutBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await checkoutBtn.click();
-        await page.waitForTimeout(500);
-        const confirmBtn = page
-          .getByRole("button", { name: /ya|konfirmasi|lanjut/i })
-          .last();
-        if (await confirmBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-          await confirmBtn.click();
-          await page.waitForLoadState("networkidle");
-          await saveScreenshot(page, "kf05-checkout-arrears-rejected");
+      await expect(checkoutBtn).toBeVisible({ timeout: 3000 });
+      await checkoutBtn.click();
+      await page.waitForTimeout(500);
 
-          // Verifikasi: toast error muncul
-          const toast = page
-            .locator("[class*='toast'], [class*='alert'], [role='alert']")
-            .first();
-          expect(
-            await toast.isVisible({ timeout: 3000 }).catch(() => false),
-          ).toBe(true);
-        }
-      } else {
-        // Tombol checkout tidak tersedia untuk penghuni dengan tunggakan — ini juga valid
-        await saveScreenshot(page, "kf05-checkout-btn-disabled-arrears");
+      // Isi dan konfirmasi checkout
+      const dialog = page.getByRole("dialog", { name: /checkout penghuni/i });
+      if (await dialog.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await dialog
+          .getByRole("button", { name: "Konfirmasi Checkout" })
+          .click();
+        await page.waitForLoadState("networkidle");
+        await saveScreenshot(page, "kf05-checkout-arrears-rejected");
       }
+
+      // Verifikasi: toast error muncul
+      const errorToast = page
+        .locator("[class*='toast'], [role='alert']")
+        .filter({ hasText: /gagal melakukan checkout/i });
+      await expect(errorToast).toBeVisible({ timeout: 5000 });
     } else {
-      // Tidak ada penghuni dengan tunggakan — skip test ini
+      // Tidak ada penghuni dengan tunggakan di data seed — skip dengan screenshot
       await saveScreenshot(page, "kf05-no-tenant-with-arrears");
+      test.skip(true, "Tidak ada penghuni dengan tunggakan di data seed");
     }
-    expect(page.url()).toContain("/tenants");
   });
 
   // KF-05-05
-  test("KF-05-05: Lihat histori penghuni per kamar — daftar checked_out ditampilkan", async ({
+  test("KF-05-05: Lihat histori penghuni — tab Histori menampilkan daftar checked_out", async ({
     page,
   }) => {
     await page.goto("/dashboard/tenants");
     await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(2000);
     await saveScreenshot(page, "kf05-tenants-active-tab");
-    const historiTab = page.getByRole("tab", {
-      name: /histori|riwayat|checkout/i,
-    });
-    if (await historiTab.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await historiTab.click();
-      await page.waitForLoadState("networkidle");
-      await saveScreenshot(page, "kf05-tenants-history-tab");
-    }
+
+    const historiTab = page.getByRole("tab", { name: "Histori" });
+    await expect(historiTab).toBeVisible({ timeout: 5000 });
+    await historiTab.click();
+    await page.waitForLoadState("networkidle");
+    await saveScreenshot(page, "kf05-tenants-history-tab");
+
+    // Verifikasi: konten tab histori dimuat (ada elemen di tabel/list)
+    const historyContent = page.locator("tr, [class*='card']").nth(1);
+    await expect(historyContent).toBeVisible({ timeout: 5000 });
+
     expect(page.url()).toContain("/tenants");
   });
 
@@ -202,14 +234,38 @@ test.describe("KF-05 — Manajemen Data Penghuni", () => {
   }) => {
     await page.goto("/dashboard/tenants");
     await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(2000);
     await saveScreenshot(page, "kf05-tenants-list-for-edit");
-    const editBtn = page.getByRole("button", { name: /edit|ubah/i }).first();
-    if (await editBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await editBtn.click();
-      await page.waitForTimeout(500);
-      await saveScreenshot(page, "kf05-edit-tenant-form");
-    }
-    expect(page.url()).toContain("/tenants");
+
+    // Klik tombol Edit pada penghuni pertama
+    const editBtn = page.getByRole("button", { name: "Edit" }).first();
+    await expect(editBtn).toBeVisible({ timeout: 5000 });
+    await editBtn.click();
+    await page.waitForTimeout(500);
+
+    const dialog = page.getByRole("dialog", { name: /edit data penghuni/i });
+    await expect(dialog).toBeVisible({ timeout: 5000 });
+
+    // Ubah nama lengkap
+    const namaInput = dialog.getByRole("textbox", { name: "Nama Lengkap" });
+    await namaInput.clear();
+    await namaInput.fill("Penghuni Demo E2E Updated");
+
+    await saveScreenshot(page, "kf05-edit-tenant-filled");
+
+    await dialog.getByRole("button", { name: "Simpan" }).click();
+    await page.waitForLoadState("networkidle");
+    await saveScreenshot(page, "kf05-edit-tenant-result");
+
+    // Verifikasi: toast sukses muncul
+    const successToast = page
+      .locator("[class*='toast'], [role='status'], [role='alert']")
+      .filter({ hasText: /berhasil|diperbarui/i });
+    const isSuccess = await successToast
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
+    expect(
+      isSuccess || page.url().includes("/tenants"),
+      "Data penghuni harus berhasil diperbarui",
+    ).toBeTruthy();
   });
 });

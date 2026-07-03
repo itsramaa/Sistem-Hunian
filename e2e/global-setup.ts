@@ -12,6 +12,8 @@ import { execSync } from "child_process";
 export default async function globalSetup() {
   const cleanSql = "f:/Coding/golang/Sistem-Hunian-Go/scripts/e2e-clean.sql";
   const seedSql = "f:/Coding/golang/Sistem-Hunian-Go/scripts/seed-only.sql";
+  const resetPwSql =
+    "f:/Coding/golang/Sistem-Hunian-Go/scripts/e2e-reset-password.sql";
 
   const psql = (file: string) =>
     `Get-Content "${file}" | docker exec -i sihuni_db psql -U sihuni -d sihuni`;
@@ -21,6 +23,10 @@ export default async function globalSetup() {
 
   console.log("[global-setup] Menyemai data seed...");
   execSync(psql(seedSql), { stdio: "inherit", shell: "powershell.exe" });
+
+  // Reset password ke sihuni123 — diperlukan karena KF-01-09 mengubah password via UI
+  console.log("[global-setup] Reset password users...");
+  execSync(psql(resetPwSql), { stdio: "inherit", shell: "powershell.exe" });
 
   console.log("[global-setup] Database siap untuk testing.\n");
 }

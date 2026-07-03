@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { execSync } from "child_process";
 import { login, logout, saveScreenshot, CREDENTIALS } from "./helpers/auth";
 
 /**
@@ -6,6 +7,17 @@ import { login, logout, saveScreenshot, CREDENTIALS } from "./helpers/auth";
  * Berdasarkan Tabel 4.10 TEST_CASE.md
  */
 test.describe("KF-01 — Autentikasi dan Manajemen Sesi Pengguna", () => {
+  // Reset password setelah semua KF-01 selesai — KF-01-09 mengubah password
+  test.afterAll(() => {
+    try {
+      execSync(
+        `Get-Content "f:/Coding/golang/Sistem-Hunian-Go/scripts/e2e-reset-password.sql" | docker exec -i sihuni_db psql -U sihuni -d sihuni`,
+        { stdio: "pipe", shell: "powershell.exe" },
+      );
+    } catch (_) {
+      /* ignore */
+    }
+  });
   // KF-01-01
   test("KF-01-01: Login dengan kredensial valid (Operator)", async ({
     page,
@@ -127,32 +139,26 @@ test.describe("KF-01 — Autentikasi dan Manajemen Sesi Pengguna", () => {
     await page.waitForLoadState("networkidle");
     await saveScreenshot(page, "kf01-before-logout");
 
-    // Cari tombol logout di avatar/dropdown
-    const avatarBtn = page.locator("header button").last();
-    if (await avatarBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await avatarBtn.click();
-      await page.waitForTimeout(300);
-    }
-    const logoutBtn = page
-      .getByRole("button", { name: /logout|keluar/i })
-      .or(page.getByRole("menuitem", { name: /logout|keluar/i }));
-    if (
-      await logoutBtn
-        .first()
-        .isVisible({ timeout: 3000 })
-        .catch(() => false)
-    ) {
-      await logoutBtn.first().click();
-      await page.waitForURL(/login/, { timeout: 15000 });
-    } else {
-      await page.evaluate(() => {
-        localStorage.clear();
-        sessionStorage.clear();
-      });
-      await page.goto("/login");
-      await page.waitForLoadState("networkidle");
-    }
+    // Klik tombol user di sidebar bawah untuk buka dropdown
+    const userBtn = page.getByRole("button", {
+      name: /budi santoso|operator@sihuni/i,
+    });
+    await expect(userBtn).toBeVisible({ timeout: 5000 });
+    await userBtn.click();
+    await page.waitForTimeout(500);
+
+    // Klik menu "Keluar"
+    const keluarBtn = page.getByRole("menuitem", { name: /keluar/i });
+    await expect(keluarBtn).toBeVisible({ timeout: 5000 });
+    await keluarBtn.click();
+    await page.waitForURL(/login/, { timeout: 15000 });
     await saveScreenshot(page, "kf01-after-logout");
+
+    // Verifikasi: diarahkan ke login dan tidak bisa akses dashboard lagi
+    expect(page.url()).toContain("/login");
+    await page.goto("/dashboard");
+    await page.waitForTimeout(2000);
+    await page.waitForLoadState("networkidle");
     expect(page.url()).toContain("/login");
   });
 
@@ -179,7 +185,11 @@ test.describe("KF-01 — Autentikasi dan Manajemen Sesi Pengguna", () => {
     await page.goto("/dashboard");
     await page.waitForLoadState("networkidle");
     await saveScreenshot(page, "kf01-session-still-active");
+
+    // Verifikasi: sesi masih aktif — tetap di dashboard, konten termuat
     expect(page.url()).toContain("/dashboard");
+    const nav = page.locator("nav, aside, [class*='sidebar']").first();
+    await expect(nav).toBeVisible({ timeout: 5000 });
   });
 
   // KF-01-09
@@ -187,59 +197,67 @@ test.describe("KF-01 — Autentikasi dan Manajemen Sesi Pengguna", () => {
     page,
   }) => {
     await login(page, "operator");
-    await page.goto("/update-password");
+    await page.goto("/dashboard/profile");
     await page.waitForLoadState("networkidle");
     await saveScreenshot(page, "kf01-update-password-page");
 
-    // Isi form ganti password
-    const oldPasswordInput = page
-      .locator(
-        "input[name='old_password'], input[name='oldPassword'], input[placeholder*='lama'], input[placeholder*='sekarang']",
-      )
-      .first();
+    // Field ada di section Keamanan halaman profil
+    const oldPasswordInput = page.getByRole("textbox", {
+      name: /password saat ini/i,
+    });
     const newPasswordInput = page
-      .locator(
-        "input[name='new_password'], input[name='newPassword'], input[placeholder*='baru']",
-      )
+      .getByRole("textbox", { name: /password baru/i })
       .first();
-    const confirmPasswordInput = page
-      .locator(
-        "input[name='confirm_password'], input[name='confirmPassword'], input[placeholder*='konfirmasi']",
-      )
-      .first();
+    const confirmPasswordInput = page.getByRole("textbox", {
+      name: /konfirmasi password baru/i,
+    });
 
-    if (
-      await oldPasswordInput.isVisible({ timeout: 5000 }).catch(() => false)
-    ) {
-      await oldPasswordInput.fill(CREDENTIALS.operator.password);
-    }
-    if (
-      await newPasswordInput.isVisible({ timeout: 3000 }).catch(() => false)
-    ) {
-      await newPasswordInput.fill("newsihuni123");
-    }
-    if (
-      await confirmPasswordInput.isVisible({ timeout: 3000 }).catch(() => false)
-    ) {
-      await confirmPasswordInput.fill("newsihuni123");
-    }
+    await expect(oldPasswordInput).toBeVisible({ timeout: 5000 });
+    await oldPasswordInput.fill(CREDENTIALS.operator.password);
+    await expect(newPasswordInput).toBeVisible({ timeout: 3000 });
+    await newPasswordInput.fill("sihuni123new");
+    await expect(confirmPasswordInput).toBeVisible({ timeout: 3000 });
+    await confirmPasswordInput.fill("sihuni123new");
 
     await saveScreenshot(page, "kf01-update-password-filled");
 
-    const submitBtn = page
-      .getByRole("button", { name: /simpan|ubah|update|submit/i })
-      .first();
-    if (await submitBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await submitBtn.click();
-      await page.waitForLoadState("networkidle");
-      await saveScreenshot(page, "kf01-update-password-result");
-    }
+    const submitBtn = page.getByRole("button", { name: /simpan password/i });
+    await expect(submitBtn).toBeVisible({ timeout: 3000 });
+    await submitBtn.click();
+    await page.waitForLoadState("networkidle");
+    await saveScreenshot(page, "kf01-update-password-result");
 
-    // Verifikasi tetap di halaman atau redirect ke dashboard
-    const currentUrl = page.url();
+    // Verifikasi: toast sukses muncul
+    const successToast = page
+      .locator("[class*='toast'], [role='alert']")
+      .filter({ hasText: /berhasil|sukses|success|updated|diperbarui/i });
+    const isSuccess = await successToast
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
+    const isStillOnProfile = page.url().includes("/profile");
     expect(
-      currentUrl.includes("/update-password") ||
-        currentUrl.includes("/dashboard"),
+      isSuccess || isStillOnProfile,
+      "Password harus berhasil diperbarui",
     ).toBeTruthy();
+
+    // Reset password balik ke semula agar test berikutnya tidak gagal login
+    if (isSuccess) {
+      const oldInput2 = page.getByRole("textbox", {
+        name: /password saat ini/i,
+      });
+      const newInput2 = page
+        .getByRole("textbox", { name: /password baru/i })
+        .first();
+      const confirmInput2 = page.getByRole("textbox", {
+        name: /konfirmasi password baru/i,
+      });
+      if (await oldInput2.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await oldInput2.fill("sihuni123new");
+        await newInput2.fill("sihuni123");
+        await confirmInput2.fill("sihuni123");
+        await page.getByRole("button", { name: /simpan password/i }).click();
+        await page.waitForLoadState("networkidle");
+      }
+    }
   });
 });

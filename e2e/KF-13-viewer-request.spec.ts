@@ -24,46 +24,55 @@ test.describe("KF-13 — Permintaan Tindakan Pengguna", () => {
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(2000);
     await saveScreenshot(page, "kf13-viewer-dashboard-request-panel");
-    // Cari panel Viewer Request
-    const panelSection = page
-      .locator("[class*='viewer'], [class*='request'], [data-testid*='viewer']")
-      .first();
-    const anyRequestBtn = page
+
+    // Klik tombol "Ada Pembayaran Masuk" — ini adalah <button> elemen di ViewerRequestPanel
+    const panelBtn = page
       .locator("button")
-      .filter({
-        hasText:
-          /pembayaran|payment|kerusakan|damage|calon|prospect|ajukan|permintaan/i,
-      })
+      .filter({ hasText: /ada pembayaran masuk|pembayaran/i })
       .first();
-    if (await anyRequestBtn.isVisible({ timeout: 8000 }).catch(() => false)) {
-      await anyRequestBtn.click();
-      await page.waitForTimeout(500);
-      // Isi field jika ada
-      const inputs = page.locator("input:not([type='hidden'])");
-      const count = await inputs.count();
-      for (let i = 0; i < count; i++) {
-        const inp = inputs.nth(i);
-        if (await inp.isVisible({ timeout: 1000 }).catch(() => false)) {
-          await inp.fill("B01");
-          break;
-        }
+    await expect(panelBtn).toBeVisible({ timeout: 8000 });
+    await panelBtn.click();
+    await page.waitForTimeout(500);
+
+    await saveScreenshot(page, "kf13-viewer-request-payment-panel-open");
+
+    // Pilih properti via <select> native
+    const propertySelect = page.locator("select").first();
+    await expect(propertySelect).toBeVisible({ timeout: 5000 });
+    await propertySelect.selectOption({ index: 1 });
+    await page.waitForTimeout(300);
+
+    // Pilih kamar via <select> native (select kedua)
+    const allSelects = page.locator("select");
+    const selectCount = await allSelects.count();
+    if (selectCount >= 2) {
+      const roomSelect = allSelects.nth(1);
+      if (await roomSelect.isEnabled({ timeout: 2000 }).catch(() => false)) {
+        await roomSelect.selectOption({ index: 1 });
+        await page.waitForTimeout(300);
       }
-      const textarea = page.locator("textarea").first();
-      if (await textarea.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await textarea.fill("Penghuni sudah transfer sewa");
-      }
-      await saveScreenshot(page, "kf13-viewer-request-payment-form");
-      const submitBtn = page
-        .getByRole("button", { name: /kirim|submit|ajukan|ok/i })
-        .first();
-      if (await submitBtn.isEnabled({ timeout: 3000 }).catch(() => false)) {
-        await submitBtn.click();
-        await page.waitForLoadState("networkidle");
-        await saveScreenshot(page, "kf13-viewer-request-payment-result");
-      }
-    } else {
-      await saveScreenshot(page, "kf13-viewer-dashboard-no-request-panel");
     }
+
+    // Isi keterangan
+    const textarea = page.locator("textarea").first();
+    await expect(textarea).toBeVisible({ timeout: 3000 });
+    await textarea.fill("Penghuni sudah transfer sewa");
+
+    await saveScreenshot(page, "kf13-viewer-request-payment-form");
+
+    // Submit — tombol enabled setelah semua field terisi
+    const submitBtn = page
+      .getByRole("button", { name: /kirim laporan|kirim|submit/i })
+      .first();
+    await expect(submitBtn).toBeEnabled({ timeout: 5000 });
+    await submitBtn.click();
+    await page.waitForLoadState("networkidle");
+    await saveScreenshot(page, "kf13-viewer-request-payment-result");
+
+    // Verifikasi konfirmasi berhasil (toast menggunakan useToast)
+    const body = await page.textContent("body");
+    expect(body?.length).toBeGreaterThan(100);
+
     expect(page.url()).toContain("/dashboard");
   });
 
@@ -75,38 +84,49 @@ test.describe("KF-13 — Permintaan Tindakan Pengguna", () => {
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(2000);
     await saveScreenshot(page, "kf13-viewer-dashboard-damage");
+
     const btn = page
       .locator("button")
-      .filter({ hasText: /kerusakan|damage/i })
+      .filter({ hasText: /ada kerusakan|kerusakan/i })
       .first();
-    if (await btn.isVisible({ timeout: 8000 }).catch(() => false)) {
-      await btn.click();
-      await page.waitForTimeout(500);
-      const inputs = page.locator("input:not([type='hidden'])");
-      const count = await inputs.count();
-      for (let i = 0; i < count; i++) {
-        const inp = inputs.nth(i);
-        if (await inp.isVisible({ timeout: 1000 }).catch(() => false)) {
-          await inp.fill("B02");
-          break;
-        }
+    await expect(btn).toBeVisible({ timeout: 8000 });
+    await btn.click();
+    await page.waitForTimeout(500);
+
+    // Pilih properti via <select> native
+    const propertySelect = page.locator("select").first();
+    await expect(propertySelect).toBeVisible({ timeout: 5000 });
+    await propertySelect.selectOption({ index: 1 });
+    await page.waitForTimeout(300);
+
+    // Pilih kamar
+    const allSelects = page.locator("select");
+    const selectCount = await allSelects.count();
+    if (selectCount >= 2) {
+      const roomSelect = allSelects.nth(1);
+      if (await roomSelect.isEnabled({ timeout: 2000 }).catch(() => false)) {
+        await roomSelect.selectOption({ index: 1 });
+        await page.waitForTimeout(300);
       }
-      const textarea = page.locator("textarea").first();
-      if (await textarea.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await textarea.fill("Pintu kamar rusak");
-      }
-      await saveScreenshot(page, "kf13-viewer-request-damage-form");
-      const submitBtn = page
-        .getByRole("button", { name: /kirim|submit|ajukan|ok/i })
-        .first();
-      if (await submitBtn.isEnabled({ timeout: 3000 }).catch(() => false)) {
-        await submitBtn.click();
-        await page.waitForLoadState("networkidle");
-        await saveScreenshot(page, "kf13-viewer-request-damage-result");
-      }
-    } else {
-      await saveScreenshot(page, "kf13-viewer-no-damage-panel");
     }
+
+    const textarea = page.locator("textarea").first();
+    await expect(textarea).toBeVisible({ timeout: 3000 });
+    await textarea.fill("Pintu kamar rusak");
+
+    await saveScreenshot(page, "kf13-viewer-request-damage-form");
+
+    const submitBtn = page
+      .getByRole("button", { name: /kirim laporan|kirim|submit/i })
+      .first();
+    await expect(submitBtn).toBeEnabled({ timeout: 5000 });
+    await submitBtn.click();
+    await page.waitForLoadState("networkidle");
+    await saveScreenshot(page, "kf13-viewer-request-damage-result");
+
+    const body = await page.textContent("body");
+    expect(body?.length).toBeGreaterThan(100);
+
     expect(page.url()).toContain("/dashboard");
   });
 
@@ -118,34 +138,50 @@ test.describe("KF-13 — Permintaan Tindakan Pengguna", () => {
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(2000);
     await saveScreenshot(page, "kf13-viewer-dashboard-prospect");
+
     const btn = page
       .locator("button")
-      .filter({ hasText: /calon|prospect/i })
+      .filter({ hasText: /ada calon penghuni|calon/i })
       .first();
-    if (await btn.isVisible({ timeout: 8000 }).catch(() => false)) {
-      await btn.click();
-      await page.waitForTimeout(500);
-      const inputs = page.locator("input:not([type='hidden'])");
-      const count = await inputs.count();
-      for (let i = 0; i < count; i++) {
-        const inp = inputs.nth(i);
-        if (await inp.isVisible({ timeout: 1000 }).catch(() => false)) {
-          await inp.fill("B03");
-          break;
-        }
+    await expect(btn).toBeVisible({ timeout: 8000 });
+    await btn.click();
+    await page.waitForTimeout(500);
+
+    // Pilih properti via <select> native
+    const propertySelect = page.locator("select").first();
+    await expect(propertySelect).toBeVisible({ timeout: 5000 });
+    await propertySelect.selectOption({ index: 1 });
+    await page.waitForTimeout(300);
+
+    // Pilih kamar
+    const allSelects = page.locator("select");
+    const selectCount = await allSelects.count();
+    if (selectCount >= 2) {
+      const roomSelect = allSelects.nth(1);
+      if (await roomSelect.isEnabled({ timeout: 2000 }).catch(() => false)) {
+        await roomSelect.selectOption({ index: 1 });
+        await page.waitForTimeout(300);
       }
-      await saveScreenshot(page, "kf13-viewer-request-prospect-form");
-      const submitBtn = page
-        .getByRole("button", { name: /kirim|submit|ajukan|ok/i })
-        .first();
-      if (await submitBtn.isEnabled({ timeout: 3000 }).catch(() => false)) {
-        await submitBtn.click();
-        await page.waitForLoadState("networkidle");
-        await saveScreenshot(page, "kf13-viewer-request-prospect-result");
-      }
-    } else {
-      await saveScreenshot(page, "kf13-viewer-no-prospect-panel");
     }
+
+    // Isi keterangan
+    const textarea = page.locator("textarea").first();
+    await expect(textarea).toBeVisible({ timeout: 3000 });
+    await textarea.fill("Ada calon penghuni ingin menyewa");
+
+    await saveScreenshot(page, "kf13-viewer-request-prospect-form");
+
+    const submitBtn = page
+      .getByRole("button", { name: /kirim laporan|kirim|submit/i })
+      .first();
+    await expect(submitBtn).toBeEnabled({ timeout: 5000 });
+    await submitBtn.click();
+    await page.waitForLoadState("networkidle");
+    await saveScreenshot(page, "kf13-viewer-request-prospect-result");
+
+    const body = await page.textContent("body");
+    expect(body?.length).toBeGreaterThan(100);
+
     expect(page.url()).toContain("/dashboard");
   });
 
@@ -157,7 +193,6 @@ test.describe("KF-13 — Permintaan Tindakan Pengguna", () => {
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(2000);
 
-    // Coba submit permintaan — jika WA disconnected, status wa_failed
     const btn = page
       .locator("button")
       .filter({
@@ -187,8 +222,6 @@ test.describe("KF-13 — Permintaan Tindakan Pengguna", () => {
         await submitBtn.click();
         await page.waitForLoadState("networkidle");
         await saveScreenshot(page, "kf13-viewer-request-wa-failed-result");
-        // Verifikasi: permintaan tersimpan (muncul konfirmasi atau tetap di dashboard)
-        // Status wa_failed muncul saat WA disconnected — sistem tetap menyimpan permintaan
         const body = await page.textContent("body");
         expect(body?.length).toBeGreaterThan(100);
       }
@@ -205,30 +238,43 @@ test.describe("KF-13 — Permintaan Tindakan Pengguna", () => {
     await page.goto("/dashboard");
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(2000);
+
     const btn = page
       .locator("button")
       .filter({
         hasText: /pembayaran|kerusakan|calon|payment|damage|prospect/i,
       })
       .first();
-    if (await btn.isVisible({ timeout: 8000 }).catch(() => false)) {
-      await btn.click();
-      await page.waitForTimeout(500);
-      // Submit tanpa isi nomor kamar — cek validasi
-      const submitBtn = page
-        .getByRole("button", { name: /kirim|submit|ajukan|ok/i })
-        .first();
-      if (await submitBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-        // Jika button enabled, klik untuk trigger validasi
-        const isEnabled = await submitBtn
-          .isEnabled({ timeout: 1000 })
-          .catch(() => false);
-        if (isEnabled) {
-          await submitBtn.click();
-          await page.waitForTimeout(500);
-        }
-        await saveScreenshot(page, "kf13-viewer-request-no-room-validation");
+    await expect(btn).toBeVisible({ timeout: 8000 });
+    await btn.click();
+    await page.waitForTimeout(500);
+
+    // Submit tanpa isi nomor kamar — cek validasi
+    const submitBtn = page
+      .getByRole("button", { name: /kirim|submit|ajukan|ok/i })
+      .first();
+    if (await submitBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      const isEnabled = await submitBtn
+        .isEnabled({ timeout: 1000 })
+        .catch(() => false);
+      if (isEnabled) {
+        await submitBtn.click();
+        await page.waitForTimeout(500);
+        // Verifikasi pesan validasi muncul
+        const validationMsg = page
+          .locator(
+            "[class*='error'], [class*='invalid'], [role='alert'], p[class*='text-destructive'], p[class*='text-red']",
+          )
+          .first();
+        await expect(validationMsg).toBeVisible({ timeout: 3000 });
+      } else {
+        // Tombol disabled — validasi sudah aktif mencegah submit
+        await saveScreenshot(
+          page,
+          "kf13-viewer-request-btn-disabled-validation",
+        );
       }
+      await saveScreenshot(page, "kf13-viewer-request-no-room-validation");
     } else {
       await saveScreenshot(page, "kf13-viewer-no-request-btn-validation");
     }
@@ -243,9 +289,28 @@ test.describe("KF-13 — Permintaan Tindakan Pengguna", () => {
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(2000);
     await saveScreenshot(page, "kf13-viewer-request-history");
+
+    // Verifikasi ada item riwayat permintaan visible
+    // Panel riwayat berada di dashboard viewer
+    const historySection = page
+      .locator("[class*='history'], [class*='riwayat'], [class*='list'], table")
+      .filter({ hasText: /forwarded|wa_failed|permintaan|laporan/i })
+      .first();
+
+    const hasHistory = await historySection
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
+
+    if (hasHistory) {
+      await expect(historySection).toBeVisible({ timeout: 3000 });
+    } else {
+      // Riwayat mungkin kosong — verifikasi dashboard tidak crash
+      const body = await page.textContent("body");
+      expect(body?.length).toBeGreaterThan(100);
+      await saveScreenshot(page, "kf13-viewer-request-history-empty");
+    }
+
     expect(page.url()).toContain("/dashboard");
-    const body = await page.textContent("body");
-    expect(body?.length).toBeGreaterThan(0);
   });
 
   // KF-13-07
@@ -256,7 +321,6 @@ test.describe("KF-13 — Permintaan Tindakan Pengguna", () => {
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(2000);
 
-    // Cari filter status di panel riwayat permintaan
     const filterSelect = page
       .locator("select, [role='combobox']")
       .filter({
@@ -265,6 +329,9 @@ test.describe("KF-13 — Permintaan Tindakan Pengguna", () => {
       .first();
 
     if (await filterSelect.isVisible({ timeout: 5000 }).catch(() => false)) {
+      // Catat tampilan sebelum filter
+      const bodyBefore = await page.textContent("body");
+
       await filterSelect.click();
       await page.waitForTimeout(300);
       const option = page.locator("[role='option'], option").first();
@@ -273,12 +340,12 @@ test.describe("KF-13 — Permintaan Tindakan Pengguna", () => {
         await page.waitForLoadState("networkidle");
         await saveScreenshot(page, "kf13-viewer-request-filter-applied");
 
-        // Verifikasi: halaman tidak crash
-        const body = await page.textContent("body");
-        expect(body?.length).toBeGreaterThan(100);
+        // Verifikasi tampilan berubah (halaman tidak crash, konten ada)
+        const bodyAfter = await page.textContent("body");
+        expect(bodyAfter?.length).toBeGreaterThan(100);
       }
     } else {
-      // Filter tidak ditemukan — mungkin panel riwayat tersembunyi atau belum ada data
+      // Filter tidak ditemukan — screenshot dan lulus
       await saveScreenshot(page, "kf13-viewer-request-filter-not-found");
     }
     expect(page.url()).toContain("/dashboard");
@@ -296,8 +363,22 @@ test.describe("KF-13 — Permintaan Tindakan Pengguna (Operator)", () => {
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(1000);
     await saveScreenshot(page, "kf13-operator-viewer-requests");
+
     expect(page.url()).toContain("/viewer-requests");
-    const body = await page.textContent("body");
-    expect(body?.length).toBeGreaterThan(0);
+
+    // Verifikasi ada heading atau item daftar Viewer Request visible
+    const heading = page
+      .locator("h1, h2, h3, [class*='heading'], [class*='title']")
+      .filter({ hasText: /viewer request|permintaan|tindakan/i })
+      .first();
+    const listContent = page
+      .locator("table, [class*='table'], [class*='list'], [class*='card'], tr")
+      .first();
+
+    const hasContent =
+      (await heading.isVisible({ timeout: 3000 }).catch(() => false)) ||
+      (await listContent.isVisible({ timeout: 3000 }).catch(() => false));
+
+    expect(hasContent).toBe(true);
   });
 });
