@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { env } from "@/config/env";
+import { TOKEN_KEY } from "@/shared/lib/axios";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -13,7 +14,14 @@ export function getAssetUrl(path: string | null | undefined): string {
   }
   const apiBase = env.API_URL; // 'http://localhost:9090/api/v1'
   if (path.startsWith("/r2/") || path.startsWith("/minio/")) {
-    return `${apiBase}${path}`;
+    let url = `${apiBase}${path}`;
+    // Append token to /minio/ URLs for image tags/downloads
+    const token = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
+    if (token) {
+      const separator = url.includes("?") ? "&" : "?";
+      url += `${separator}token=${encodeURIComponent(token)}`;
+    }
+    return url;
   }
   if (path.startsWith("/uploads/")) {
     const host = apiBase.replace(/\/api\/v1$/, "");
