@@ -47,13 +47,24 @@ test.describe("KF-09 — Manajemen Pengguna", () => {
     // Submit dengan button "Buat"
     await page.getByRole("button", { name: /^Buat$/i }).click();
     await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(1000);
     await saveScreenshot(page, "kf09-add-user-result");
 
-    // Verifikasi: email muncul di daftar
-    const hasUser = await page
+    // Verifikasi: email muncul di daftar (scroll ke bawah jika perlu)
+    let hasUser = await page
       .getByText(testEmail)
       .isVisible({ timeout: 5000 })
       .catch(() => false);
+
+    // Jika tidak terlihat, scroll ke bawah
+    if (!hasUser) {
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await page.waitForTimeout(500);
+      hasUser = await page
+        .getByText(testEmail)
+        .isVisible({ timeout: 3000 })
+        .catch(() => false);
+    }
     expect(hasUser, "Pengguna baru harus muncul di daftar").toBe(true);
     expect(page.url()).toContain("/settings");
   });

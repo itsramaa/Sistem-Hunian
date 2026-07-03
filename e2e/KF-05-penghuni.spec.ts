@@ -234,29 +234,39 @@ test.describe("KF-05 — Manajemen Data Penghuni", () => {
   }) => {
     await page.goto("/dashboard/tenants");
     await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(1000);
+
+    // Cari penghuni dari seed data yang pasti ada
+    const searchInput = page.locator(
+      "input[placeholder*='Cari nama atau kamar']",
+    );
+    if (await searchInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await searchInput.fill("Rudi");
+      await page.waitForTimeout(800);
+    }
     await saveScreenshot(page, "kf05-tenants-list-for-edit");
 
-    // Klik tombol Edit pada penghuni pertama
     const editBtn = page.getByRole("button", { name: "Edit" }).first();
     await expect(editBtn).toBeVisible({ timeout: 5000 });
     await editBtn.click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000);
 
     const dialog = page.getByRole("dialog", { name: /edit data penghuni/i });
-    await expect(dialog).toBeVisible({ timeout: 5000 });
+    await expect(dialog).toBeVisible({ timeout: 10000 });
+    await saveScreenshot(page, "kf05-edit-tenant-form");
 
-    // Ubah nama lengkap
     const namaInput = dialog.getByRole("textbox", { name: "Nama Lengkap" });
+    await expect(namaInput).toBeVisible({ timeout: 5000 });
     await namaInput.clear();
-    await namaInput.fill("Penghuni Demo E2E Updated");
-
+    await namaInput.fill("Rudi Hartono Updated");
     await saveScreenshot(page, "kf05-edit-tenant-filled");
 
-    await dialog.getByRole("button", { name: "Simpan" }).click();
+    const simpanBtn = dialog.getByRole("button", { name: "Simpan" });
+    await expect(simpanBtn).toBeVisible({ timeout: 5000 });
+    await simpanBtn.click();
     await page.waitForLoadState("networkidle");
     await saveScreenshot(page, "kf05-edit-tenant-result");
 
-    // Verifikasi: toast sukses muncul
     const successToast = page
       .locator("[class*='toast'], [role='status'], [role='alert']")
       .filter({ hasText: /berhasil|diperbarui/i });
