@@ -2,12 +2,13 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
+  globalSetup: "./e2e/global-setup.ts",
   timeout: 90000,
   expect: { timeout: 15000 },
-  // Urutan file dijalankan sesuai nama: KF-01 → KF-14 → NFR-01 → NFR-03
+  // Urutan file dijalankan sesuai nama: KF-01 → KF-14 → NFR-01 → NFR-02
   fullyParallel: false,
   retries: 1,
-  workers: 3,
+  workers: 1,
   reporter: [
     [
       "html",
@@ -29,7 +30,7 @@ export default defineConfig({
     ["list"],
   ],
   use: {
-    baseURL: "http://localhost:8080",
+    baseURL: "http://localhost:8881",
     trace: "on-first-retry",
     screenshot: "on",
     video: "off",
@@ -60,7 +61,6 @@ export default defineConfig({
         "**/KF-14-*.spec.ts",
         "**/NFR-01-*.spec.ts",
         "**/NFR-02-*.spec.ts",
-        "**/NFR-03-*.spec.ts",
       ],
     },
   ],

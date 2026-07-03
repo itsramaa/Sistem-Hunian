@@ -132,7 +132,23 @@ test.describe("KF-06 — Manajemen Pembayaran Sewa", () => {
     await page.goto("/dashboard");
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(2000);
-    await saveScreenshot(page, "kf06-dashboard-payment-warning");
+
+    const paymentIndicator = page.locator("[class*='alert'], [class*='warning'], [class*='badge'], [class*='panel']")
+      .filter({ hasText: /pembayaran|payment|jatuh.*tempo|overdue|due/i }).first();
+    const paymentIndicatorAlt = page.locator("section, div, article")
+      .filter({ hasText: /tagihan.*jatuh|jatuh.*tempo.*pembayaran|payment.*overdue/i }).first();
+
+    const hasIndicator = await paymentIndicator.isVisible({ timeout: 3000 }).catch(() => false)
+      || await paymentIndicatorAlt.isVisible({ timeout: 2000 }).catch(() => false);
+
+    const body = await page.textContent("body");
+    expect(body?.length).toBeGreaterThan(100);
+
+    if (hasIndicator) {
+      await saveScreenshot(page, "kf06-dashboard-payment-warning-visible");
+    } else {
+      await saveScreenshot(page, "kf06-dashboard-payment-warning-no-data");
+    }
     expect(page.url()).toContain("/dashboard");
   });
 });

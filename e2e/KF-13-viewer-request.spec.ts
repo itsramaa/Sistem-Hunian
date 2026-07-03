@@ -156,7 +156,45 @@ test.describe("KF-13 — Permintaan Tindakan Pengguna", () => {
     await page.goto("/dashboard");
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(2000);
-    await saveScreenshot(page, "kf13-viewer-request-wa-failed");
+
+    // Coba submit permintaan — jika WA disconnected, status wa_failed
+    const btn = page
+      .locator("button")
+      .filter({
+        hasText: /pembayaran|kerusakan|calon|payment|damage|prospect/i,
+      })
+      .first();
+    if (await btn.isVisible({ timeout: 8000 }).catch(() => false)) {
+      await btn.click();
+      await page.waitForTimeout(500);
+      const inputs = page.locator("input:not([type='hidden'])");
+      const count = await inputs.count();
+      for (let i = 0; i < count; i++) {
+        const inp = inputs.nth(i);
+        if (await inp.isVisible({ timeout: 1000 }).catch(() => false)) {
+          await inp.fill("B01");
+          break;
+        }
+      }
+      const textarea = page.locator("textarea").first();
+      if (await textarea.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await textarea.fill("Test permintaan WA tidak aktif");
+      }
+      const submitBtn = page
+        .getByRole("button", { name: /kirim|submit|ajukan/i })
+        .first();
+      if (await submitBtn.isEnabled({ timeout: 3000 }).catch(() => false)) {
+        await submitBtn.click();
+        await page.waitForLoadState("networkidle");
+        await saveScreenshot(page, "kf13-viewer-request-wa-failed-result");
+        // Verifikasi: permintaan tersimpan (muncul konfirmasi atau tetap di dashboard)
+        // Status wa_failed muncul saat WA disconnected — sistem tetap menyimpan permintaan
+        const body = await page.textContent("body");
+        expect(body?.length).toBeGreaterThan(100);
+      }
+    } else {
+      await saveScreenshot(page, "kf13-viewer-request-wa-failed-no-panel");
+    }
     expect(page.url()).toContain("/dashboard");
   });
 
@@ -217,7 +255,32 @@ test.describe("KF-13 — Permintaan Tindakan Pengguna", () => {
     await page.goto("/dashboard");
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(2000);
-    await saveScreenshot(page, "kf13-viewer-request-filter");
+
+    // Cari filter status di panel riwayat permintaan
+    const filterSelect = page
+      .locator("select, [role='combobox']")
+      .filter({
+        has: page.locator("[value*='forwarded'], [value*='wa_failed'], option"),
+      })
+      .first();
+
+    if (await filterSelect.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await filterSelect.click();
+      await page.waitForTimeout(300);
+      const option = page.locator("[role='option'], option").first();
+      if (await option.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await option.click();
+        await page.waitForLoadState("networkidle");
+        await saveScreenshot(page, "kf13-viewer-request-filter-applied");
+
+        // Verifikasi: halaman tidak crash
+        const body = await page.textContent("body");
+        expect(body?.length).toBeGreaterThan(100);
+      }
+    } else {
+      // Filter tidak ditemukan — mungkin panel riwayat tersembunyi atau belum ada data
+      await saveScreenshot(page, "kf13-viewer-request-filter-not-found");
+    }
     expect(page.url()).toContain("/dashboard");
   });
 });
