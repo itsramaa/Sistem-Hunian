@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { getAssetUrl } from "@/shared/utils/utils";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   useMaintenanceById,
@@ -363,12 +364,12 @@ export default function MaintenanceDetail() {
           </div>
           {maintenance.damage_photo_url ? (
             <a
-              href={maintenance.damage_photo_url}
+              href={getAssetUrl(maintenance.damage_photo_url)}
               target="_blank"
               rel="noopener noreferrer"
             >
               <img
-                src={maintenance.damage_photo_url}
+                src={getAssetUrl(maintenance.damage_photo_url)}
                 alt="Foto kerusakan"
                 className="w-full max-h-64 object-cover rounded-xl border border-border cursor-pointer hover:opacity-90 transition-opacity"
               />
@@ -417,12 +418,12 @@ export default function MaintenanceDetail() {
           </div>
           {maintenance.repair_photo_url ? (
             <a
-              href={maintenance.repair_photo_url}
+              href={getAssetUrl(maintenance.repair_photo_url)}
               target="_blank"
               rel="noopener noreferrer"
             >
               <img
-                src={maintenance.repair_photo_url}
+                src={getAssetUrl(maintenance.repair_photo_url)}
                 alt="Foto penanganan"
                 className="w-full max-h-64 object-cover rounded-xl border border-border cursor-pointer hover:opacity-90 transition-opacity"
               />
