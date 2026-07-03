@@ -169,42 +169,39 @@ test.describe("KF-05 — Manajemen Data Penghuni", () => {
     await page.waitForLoadState("networkidle");
     await saveScreenshot(page, "kf05-tenants-with-arrears");
 
-    // Cari penghuni dengan indikator tunggakan/overdue
-    const tenantWithArrears = page
-      .locator("tr, [class*='card']")
-      .filter({ hasText: /overdue|tunggakan|belum.*lunas/i })
-      .first();
-
-    if (
-      await tenantWithArrears.isVisible({ timeout: 5000 }).catch(() => false)
-    ) {
-      const checkoutBtn = tenantWithArrears.getByRole("button", {
-        name: "Checkout",
-      });
-      await expect(checkoutBtn).toBeVisible({ timeout: 3000 });
-      await checkoutBtn.click();
-      await page.waitForTimeout(500);
-
-      // Isi dan konfirmasi checkout
-      const dialog = page.getByRole("dialog", { name: /checkout penghuni/i });
-      if (await dialog.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await dialog
-          .getByRole("button", { name: "Konfirmasi Checkout" })
-          .click();
-        await page.waitForLoadState("networkidle");
-        await saveScreenshot(page, "kf05-checkout-arrears-rejected");
-      }
-
-      // Verifikasi: toast error muncul
-      const errorToast = page
-        .locator("[class*='toast'], [role='alert']")
-        .filter({ hasText: /gagal melakukan checkout/i });
-      await expect(errorToast).toBeVisible({ timeout: 5000 });
-    } else {
-      // Tidak ada penghuni dengan tunggakan di data seed — skip dengan screenshot
-      await saveScreenshot(page, "kf05-no-tenant-with-arrears");
-      test.skip(true, "Tidak ada penghuni dengan tunggakan di data seed");
+    // Cari "Agus Supriadi" (B03, status unpaid dari seed data)
+    const searchInput = page.locator(
+      "input[placeholder*='Cari nama atau kamar']",
+    );
+    if (await searchInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await searchInput.fill("Agus");
+      await page.waitForTimeout(800);
     }
+
+    const checkoutBtn = page.getByRole("button", { name: "Checkout" }).first();
+    await expect(checkoutBtn).toBeVisible({ timeout: 5000 });
+    await checkoutBtn.click();
+    await page.waitForTimeout(500);
+
+    // Dialog checkout terbuka
+    const dialog = page.getByRole("dialog", { name: /checkout/i });
+    await expect(dialog).toBeVisible({ timeout: 5000 });
+    await saveScreenshot(page, "kf05-checkout-arrears-dialog");
+
+    // Klik Konfirmasi Checkout
+    const confirmBtn = dialog.getByRole("button", {
+      name: /konfirmasi checkout/i,
+    });
+    await expect(confirmBtn).toBeVisible({ timeout: 3000 });
+    await confirmBtn.click();
+    await page.waitForLoadState("networkidle");
+    await saveScreenshot(page, "kf05-checkout-arrears-rejected");
+
+    // Verifikasi: toast error muncul
+    const errorToast = page
+      .locator("[class*='toast'], [role='alert']")
+      .filter({ hasText: /gagal melakukan checkout|tunggakan/i });
+    await expect(errorToast).toBeVisible({ timeout: 5000 });
   });
 
   // KF-05-05
